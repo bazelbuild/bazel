@@ -1,0 +1,43 @@
+---
+title: 'repository\_os'
+---
+
+
+
+Various data about the current platform Bazel is running on.
+
+## Members
+
+- [arch](#arch)
+- [environ](#environ)
+- [name](#name)
+
+## arch
+
+```
+string repository_os.arch
+```
+
+ A string identifying the architecture Bazel is running on (the value of the `"os.arch"` Java property converted to lower case).
+
+
+
+## environ
+
+```
+dict repository_os.environ
+```
+
+ The dictionary of environment variables.
+
+**NOTE**: Retrieving an environment variable from this dictionary does not establish a dependency from a repository rule or module extension to the environment variable. To establish a dependency when looking up an environment variable, use either `repository_ctx.getenv` or `module_ctx.getenv` instead.
+
+
+
+## name
+
+```
+string repository_os.name
+```
+
+ A string identifying the operating system Bazel is running on (the value of the `"os.name"` Java property converted to lower case).

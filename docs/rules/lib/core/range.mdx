@@ -1,0 +1,27 @@
+---
+title: 'range'
+---
+
+
+
+A language built-in type to support ranges. Example of range literal:
+
+```
+x = range(1, 10, 3)
+```
+
+Accessing elements is possible using indexing (starts from `0`):
+
+```
+e = x[1]   # e == 2
+```
+
+Ranges do not support the `+` operator for concatenation.Similar to strings, ranges support slice operations:
+
+```
+range(10)[1:3]   # range(1, 3)
+range(10)[::2]  # range(0, 10, 2)
+range(10)[3:0:-1]  # range(3, 0, -1)
+```
+
+Ranges are immutable, as in Python 3.

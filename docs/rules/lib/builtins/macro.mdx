@@ -1,0 +1,12 @@
+---
+title: 'macro'
+---
+
+
+
+A callable Starlark value representing a symbolic macro; in other words, the return value of
+[`macro()`](../globals/bzl.html#macro). Invoking this value during package
+construction time will instantiate the macro, and cause the macro's implementation function to be
+evaluated (in a separate context, different from the context in which the macro value was invoked),
+in most cases causing targets to be added to the package's target set. For more information, see
+[Macros](https://bazel.build/extending/macros).

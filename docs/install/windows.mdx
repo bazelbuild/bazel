@@ -2,16 +2,18 @@
 title: 'Installing Bazel on Windows'
 ---
 
+
+
 This page describes the requirements and steps to install Bazel on Windows.
 It also includes troubleshooting and other ways to install Bazel, such as
 using Chocolatey or Scoop.
 
-## Installing Bazel {:#installing-bazel}
+## Installing Bazel
 
 This section covers the prerequisites, environment setup, and detailed
 steps during installation on Windows.
 
-### Check your system  {:#check-system}
+### Check your system
 
 Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer
 
@@ -21,23 +23,24 @@ To check your Windows version:
 * Type `winver` in the search box and press Enter.
 * You should see the About Windows box with your Windows version information.
 
-### Install the prerequisites {:#install-prerequisites}
+### Install the prerequisites
 
-*   [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170){: .external}
+*   [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)
 
-### Download Bazel {:#download-bazel}
+### Download Bazel
 
 *Recommended*: [Use Bazelisk](/install/bazelisk)
 
+
 Alternatively you can:
 
-*   [Download the Bazel binary (`bazel-{{ '<var>' }}version{{ '</var>' }}-windows-x86_64.exe`) from
- GitHub](https://github.com/bazelbuild/bazel/releases){: .external}.
+*   [Download the Bazel binary (`bazel-<var>version</var>-windows-x86_64.exe`) from
+ GitHub](https://github.com/bazelbuild/bazel/releases).
 *   [Install Bazel from Chocolatey](#chocolately)
 *   [Install Bazel from Scoop](#scoop)
 *   [Build Bazel from source](/install/compile-source)
 
-### Set up your environment {:#set-environment}
+### Set up your environment
 
 To make Bazel easily accessible from command prompts or PowerShell by default, you can rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
@@ -47,7 +50,7 @@ set PATH=%PATH%;{{ '<var>' }}path to the Bazel binary{{ '</var>' }}
 
 You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/configure/windows#set-environment-variables).
 
-### Done {:#done}
+### Done
 
 "Success: You've installed Bazel."
 
@@ -64,11 +67,11 @@ Next, you can check out more tips and guidance here:
 *   [Best practices on Windows](/configure/windows#best-practices)
 *   [Tutorials](/start/#tutorials)
 
-## Installing compilers and language runtimes {:#install-compilers}
+## Installing compilers and language runtimes
 
 Depending on which languages you want to build, you will need:
 
-*   [MSYS2 x86_64](https://www.msys2.org/){: .external}
+*   [MSYS2 x86_64](https://www.msys2.org/)
 
     MSYS2 is a software distro and building platform for Windows. It contains Bash and common Unix
     tools (like `grep`, `tar`, `git`).
@@ -90,10 +93,10 @@ Depending on which languages you want to build, you will need:
 
     Optional: If you want to use Bazel from CMD or Powershell and still be able
     to use Bash tools, make sure to add
-    `{{ '<var>' }}MSYS2_INSTALL_PATH{{ '</var>' }}/usr/bin` to your
+    `<var>MSYS2_INSTALL_PATH</var>/usr/bin` to your
     `PATH` environment variable.
 
-*   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools){:#install-vc}
+*   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
     You will need this to build C++ code on Windows.
 
@@ -101,19 +104,19 @@ Depending on which languages you want to build, you will need:
 
     *   Visual C++ Build Tools 2017 (or newer) and Windows 10 SDK
 
-*   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html){: .external}{:#install-jdk}
+*   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html)
 
     You will need this to build Java code on Windows.
 
     Also supported: Java 8, 9, and 10
 
-*   [Python 3.6 for Windows x86-64](https://www.python.org/downloads/windows/){:#install-python}
+*   [Python 3.6 for Windows x86-64](https://www.python.org/downloads/windows/)
 
     You will need this to build Python code on Windows.
 
     Also supported: Python 2.7 or newer for Windows x86-64
 
-## Troubleshooting {:#troubleshooting}
+## Troubleshooting
 
 ### Bazel does not find Bash or bash.exe
 
@@ -192,9 +195,9 @@ If that doesn't help:
 
     If you open a new cmd.exe or PowerShell terminal and run Bazel now, it will find Visual C++.
 
-## Other ways to install Bazel {:#install-options}
+## Other ways to install Bazel
 
-### Using Chocolatey {:#chocolately}
+### Using Chocolatey
 
 1.  Install the [Chocolatey](https://chocolatey.org) package manager
 
@@ -212,7 +215,7 @@ See [Chocolatey installation and package maintenance
 guide](/contribute/windows-chocolatey-maintenance) for more
 information about the Chocolatey package.
 
-### Using Scoop {:#scoop}
+### Using Scoop
 
 1.  Install the [Scoop](https://scoop.sh/) package manager using the following PowerShell command:
 
@@ -230,6 +233,6 @@ See [Scoop installation and package maintenance
 guide](/contribute/windows-scoop-maintenance) for more
 information about the Scoop package.
 
-### Build from source {:#build-from-source}
+### Build from source
 
 To build Bazel from scratch instead of installing, see [Compiling from source](/install/compile-source).

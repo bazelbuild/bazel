@@ -1,0 +1,274 @@
+---
+title: 'java\_common'
+---
+
+
+
+Utilities for Java compilation support in Starlark.
+
+## Members
+
+- [BootClassPathInfo](#BootClassPathInfo)
+- [compile](#compile)
+- [JavaRuntimeInfo](#JavaRuntimeInfo)
+- [JavaToolchainInfo](#JavaToolchainInfo)
+- [merge](#merge)
+- [pack\_sources](#pack_sources)
+- [run\_ijar](#run_ijar)
+- [stamp\_jar](#stamp_jar)
+
+## BootClassPathInfo
+
+```
+Provider java_common.BootClassPathInfo
+```
+
+ The provider used to supply bootclasspath information
+
+
+
+## compile
+
+```
+struct java_common.compile(ctx, *, source_jars=[], source_files=[], output, output_source_jar=None, javac_opts=[], deps=[], runtime_deps=[], exports=[], plugins=[], exported_plugins=[], native_libraries=[], annotation_processor_additional_inputs=[], annotation_processor_additional_outputs=[], strict_deps='ERROR', java_toolchain, bootclasspath=None, sourcepath=[], resources=[], resource_jars=[], classpath_resources=[], neverlink=False, enable_annotation_processing=True, enable_compile_jar_action=True, add_exports=[], add_opens=[])
+```
+
+ Compiles Java source files/jars from the implementation of a Starlark rule and returns a provider that represents the results of the compilation and can be added to the set of providers emitted by this rule.
+
+
+### Parameters
+
+ParameterDescription`ctx`[ctx](../builtins/ctx.html);
+ required
+
+ The rule context.
+ `source_jars`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of the jars to be compiled. At least one of source\_jars or source\_files should be specified.
+ `source_files`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of the Java source files to be compiled. At least one of source\_jars or source\_files should be specified.
+ `output`[File](../builtins/File.html);
+ required
+
+`output_source_jar`[File](../builtins/File.html); or `None`;
+ default is `None`
+
+ The output source jar. Defaults to \`{output\_jar}-src.jar\` if unset.
+ `javac_opts`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ A list of the desired javac options.
+ `deps`[sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ default is `[]`
+
+ A list of dependencies.
+ `runtime_deps`[sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ default is `[]`
+
+ A list of runtime dependencies.
+ `exports`[sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ default is `[]`
+
+ A list of exports.
+ `plugins`[sequence](../core/list.html) of [struct](../builtins/struct.html) s; or [sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ default is `[]`
+
+ A list of plugins.
+ `exported_plugins`[sequence](../core/list.html) of [struct](../builtins/struct.html) s; or [sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ default is `[]`
+
+ A list of exported plugins.
+ `native_libraries`[sequence](../core/list.html) of [CcInfo](../providers/CcInfo.html) s;
+ default is `[]`
+
+ CC native library dependencies that are needed for this library.
+ `annotation_processor_additional_inputs`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of inputs that the Java compilation action will take in addition to the Java sources for annotation processing.
+ `annotation_processor_additional_outputs`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of outputs that the Java compilation action will output in addition to the class jar from annotation processing.
+ `strict_deps`[string](../core/string.html);
+ default is `'ERROR'`
+
+ A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR', 'WARN' and 'DEFAULT'. For more details see [`--strict_java_deps flag`](/docs/user-manual#flag--strict_java_deps) `. By default 'ERROR'.
+            ``java_toolchain`
+ Info;
+ required
+
+ A JavaToolchainInfo to be used for this compilation. Mandatory.
+ `bootclasspath`
+ default is `None`
+
+ A BootClassPathInfo to be used for this compilation. If present, overrides the bootclasspath associated with the provided java\_toolchain.
+ `sourcepath`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+`resources`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+`resource_jars`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+`classpath_resources`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+`neverlink`[bool](../core/bool.html);
+ default is `False`
+
+`enable_annotation_processing`[bool](../core/bool.html);
+ default is `True`
+
+ Disables annotation processing in this compilation, causing any annotation processors provided in plugins or in exported\_plugins of deps to be ignored.
+ `enable_compile_jar_action`[bool](../core/bool.html);
+ default is `True`
+
+ Enables header compilation or ijar creation. If set to False, it forces use of the full class jar in the compilation classpaths of any dependants. Doing so is intended for use by non-library targets such as binaries that do not have dependants.
+ `add_exports`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ Allow this library to access the given /.
+ `add_opens`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ Allow this library to reflectively access the given /.
+
+
+## JavaRuntimeInfo
+
+```
+Provider java_common.JavaRuntimeInfo
+```
+
+ The key used to retrieve the provider that contains information about the Java runtime being used.
+
+
+
+## JavaToolchainInfo
+
+```
+Provider java_common.JavaToolchainInfo
+```
+
+ The key used to retrieve the provider that contains information about the Java toolchain being used.
+
+
+
+## merge
+
+```
+struct java_common.merge(providers)
+```
+
+ Merges the given providers into a single JavaInfo.
+
+
+### Parameters
+
+ParameterDescription`providers`[sequence](../core/list.html) of [struct](../builtins/struct.html) s;
+ required
+
+ The list of providers to merge.
+
+
+## pack\_sources
+
+```
+File java_common.pack_sources(actions, *, output_source_jar=None, sources=[], source_jars=[], java_toolchain)
+```
+
+ Packs sources and source jars into a single source jar file. The return value is typically passed to
+
+`JavaInfo#source_jar`
+
+.At least one of parameters output\_jar or output\_source\_jar is required.
+
+
+### Parameters
+
+ParameterDescription`actions`[actions](../builtins/actions.html);
+ required
+
+ ctx.actions
+ `output_source_jar`[File](../builtins/File.html); or `None`;
+ default is `None`
+
+ The output source jar.
+ `sources`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of Java source files to be packed into the source jar.
+ `source_jars`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ A list of source jars to be packed into the source jar.
+ `java_toolchain`
+ Info;
+ required
+
+ A JavaToolchainInfo to used to find the ijar tool.
+
+
+## run\_ijar
+
+```
+File java_common.run_ijar(actions, *, jar, target_label=None, java_toolchain)
+```
+
+ Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding of dependent jars during any recompiles consisting only of simple changes to method implementations. The return value is typically passed to `JavaInfo#compile_jar`.
+
+
+### Parameters
+
+ParameterDescription`actions`[actions](../builtins/actions.html);
+ required
+
+ ctx.actions
+ `jar`[File](../builtins/File.html);
+ required
+
+ The jar to run ijar on.
+ `target_label`[Label](../builtins/Label.html); or `None`;
+ default is `None`
+
+ A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label.
+ `java_toolchain`
+ Info;
+ required
+
+ A JavaToolchainInfo to used to find the ijar tool.
+
+
+## stamp\_jar
+
+```
+File java_common.stamp_jar(actions, *, jar, target_label, java_toolchain)
+```
+
+ Stamps a jar with a target label for `add_dep` support. The return value is typically passed to `JavaInfo#compile_jar`. Prefer to use `run_ijar` when possible.
+
+
+### Parameters
+
+ParameterDescription`actions`[actions](../builtins/actions.html);
+ required
+
+ ctx.actions
+ `jar`[File](../builtins/File.html);
+ required
+
+ The jar to run stamp\_jar on.
+ `target_label`[Label](../builtins/Label.html);
+ required
+
+ A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label.
+ `java_toolchain`
+ Info;
+ required
+
+ A JavaToolchainInfo to used to find the stamp\_jar tool.

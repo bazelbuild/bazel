@@ -2,46 +2,47 @@
 title: 'Rules'
 ---
 
+
 The Bazel ecosystem has a growing and evolving set of rules to support popular
 languages and packages. Much of Bazel's strength comes from the ability to
-[define new rules](/versions/6.5.0/rules/concepts) that can be used by others.
+[define new rules](/rules/concepts) that can be used by others.
 
 This page describes the recommended, native, and non-native Bazel rules.
 
-## Recommended rules {:#recommended-rules}
+## Recommended rules
 
 Here is a selection of recommended rules:
 
-* [Android](/versions/6.5.0/docs/bazel-and-android)
-* [Boost](https://github.com/nelhage/rules_boost){: .external}
-* [C / C++](/versions/6.5.0/docs/bazel-and-cpp)
-* [Docker](https://github.com/bazelbuild/rules_docker){: .external}
-* [Go](https://github.com/bazelbuild/rules_go){: .external}
-* [Haskell](https://github.com/tweag/rules_haskell){: .external}
-* [Java](/versions/6.5.0/docs/bazel-and-java)
-* [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs){: .external}
-* [Kubernetes](https://github.com/bazelbuild/rules_k8s){: .external}
-* [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external){: .external}
-* [Objective-C](/versions/6.5.0/docs/bazel-and-apple)
-* [Package building](https://github.com/bazelbuild/rules_pkg){: .external}
-* [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel){: .external}
-* [Python](https://github.com/bazelbuild/rules_python){: .external}
-* [Scala](https://github.com/bazelbuild/rules_scala){: .external}
-* [Shell](/versions/6.5.0/reference/be/shell)
-* [Webtesting](https://github.com/bazelbuild/rules_webtesting){: .external} (Webdriver)
+* [Android](/docs/bazel-and-android)
+* [Boost](https://github.com/nelhage/rules_boost)
+* [C / C++](/docs/bazel-and-cpp)
+* [Docker](https://github.com/bazelbuild/rules_docker)
+* [Go](https://github.com/bazelbuild/rules_go)
+* [Haskell](https://github.com/tweag/rules_haskell)
+* [Java](/docs/bazel-and-java)
+* [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs)
+* [Kubernetes](https://github.com/bazelbuild/rules_k8s)
+* [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external)
+* [Objective C](/docs/bazel-and-apple)
+* [Package building](https://github.com/bazelbuild/rules_pkg)
+* [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel)
+* [Python](https://github.com/bazelbuild/rules_python)
+* [Scala](https://github.com/bazelbuild/rules_scala)
+* [Shell](/reference/be/shell)
+* [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
 
-The repository [Skylib](https://github.com/bazelbuild/bazel-skylib){: .external} contains
+The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
 additional functions that can be useful when writing new rules and new
 macros.
 
 The rules above were reviewed and follow our
-[requirements for recommended rules](/versions/6.5.0/contribute/recommended-rules){: .external}.
+[requirements for recommended rules](/contribute/recommended-rules).
 Contact the respective rule set's maintainers regarding issues and feature
 requests.
 
 To find more Bazel rules, use a search engine, take a look on
-[awesomebazel.com](https://awesomebazel.com/){: .external}, or search on
-[GitHub](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories){: .external}.
+[awesomebazel.com](https://awesomebazel.com/), or search on
+[GitHub](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories).
 
 ## Native rules that do not apply to a specific programming language
 
@@ -49,37 +50,37 @@ Native rules are shipped with the Bazel binary, they are always available in
 BUILD files without a `load` statement.
 
 * Extra actions
-  - [`extra_action`](/versions/6.5.0/reference/be/extra-actions#extra_action)
-  - [`action_listener`](/versions/6.5.0/reference/be/extra-actions#action_listener)
+  - [`extra_action`](/reference/be/extra-actions#extra_action)
+  - [`action_listener`](/reference/be/extra-actions#action_listener)
 * General
-  - [`filegroup`](/versions/6.5.0/reference/be/general#filegroup)
-  - [`genquery`](/versions/6.5.0/reference/be/general#genquery)
-  - [`test_suite`](/versions/6.5.0/reference/be/general#test_suite)
-  - [`alias`](/versions/6.5.0/reference/be/general#alias)
-  - [`config_setting`](/versions/6.5.0/reference/be/general#config_setting)
-  - [`genrule`](/versions/6.5.0/reference/be/general#genrule)
+  - [`filegroup`](/reference/be/general#filegroup)
+  - [`genquery`](/reference/be/general#genquery)
+  - [`test_suite`](/reference/be/general#test_suite)
+  - [`alias`](/reference/be/general#alias)
+  - [`config_setting`](/reference/be/general#config_setting)
+  - [`genrule`](/reference/be/general#genrule)
 * Platform
-  - [`constraint_setting`](/versions/6.5.0/reference/be/platform#constraint_setting)
-  - [`constraint_value`](/versions/6.5.0/reference/be/platform#constraint_value)
-  - [`platform`](/versions/6.5.0/reference/be/platform#platform)
-  - [`toolchain`](/versions/6.5.0/reference/be/platform#toolchain)
-  - [`toolchain_type`](/versions/6.5.0/reference/be/platform#toolchain_type)
+  - [`constraint_setting`](/reference/be/platform#constraint_setting)
+  - [`constraint_value`](/reference/be/platform#constraint_value)
+  - [`platform`](/reference/be/platform#platform)
+  - [`toolchain`](/reference/be/platform#toolchain)
+  - [`toolchain_type`](/reference/be/platform#toolchain_type)
 * Workspace
-  - [`bind`](/versions/6.5.0/reference/be/workspace#bind)
-  - [`local_repository`](/versions/6.5.0/reference/be/workspace#local_repository)
-  - [`new_local_repository`](/versions/6.5.0/reference/be/workspace#new_local_repository)
-  - [`xcode_config`](/versions/6.5.0/reference/be/objective-c#xcode_config)
-  - [`xcode_version`](/versions/6.5.0/reference/be/objective-c#xcode_version)
+  - [`bind`](/reference/be/workspace#bind)
+  - [`local_repository`](/reference/be/workspace#local_repository)
+  - [`new_local_repository`](/reference/be/workspace#new_local_repository)
+  - [`xcode_config`](/reference/be/objective-c#xcode_config)
+  - [`xcode_version`](/reference/be/objective-c#xcode_version)
 
-## Embedded non-native rules {:#embedded-rules}
+## Embedded non-native rules
 
-Bazel also embeds additional rules written in [Starlark](/versions/6.5.0/rules/language). Those can be loaded from
+Bazel also embeds additional rules written in [Starlark](/rules/language). Those can be loaded from
 the `@bazel_tools` built-in external repository.
 
 * Repository rules
-  - [`git_repository`](/versions/6.5.0/rules/lib/repo/git#git_repository)
-  - [`new_git_repository`](/versions/6.5.0/rules/lib/repo/git#new_git_repository)
-  - [`http_archive`](/versions/6.5.0/rules/lib/repo/http#http_archive)
-  - [`http_file`](/versions/6.5.0/rules/lib/repo/http#http_archive)
-  - [`http_jar`](/versions/6.5.0/rules/lib/repo/http#http_jar)
-  - [Utility functions on patching](/versions/6.5.0/rules/lib/repo/utils)
+  - [`git_repository`](/rules/lib/repo/git#git_repository)
+  - [`new_git_repository`](/rules/lib/repo/git#new_git_repository)
+  - [`http_archive`](/rules/lib/repo/http#http_archive)
+  - [`http_file`](/rules/lib/repo/http#http_archive)
+  - [`http_jar`](/rules/lib/repo/http#http_jar)
+  - [Utility functions on patching](/rules/lib/repo/utils)

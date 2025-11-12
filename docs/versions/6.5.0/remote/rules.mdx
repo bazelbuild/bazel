@@ -2,15 +2,16 @@
 title: 'Adapting Bazel Rules for Remote Execution'
 ---
 
+
 This page is intended for Bazel users writing custom build and test rules
 who want to understand the requirements for Bazel rules in the context of
 remote execution.
 
 Remote execution allows Bazel to execute actions on a separate platform, such as
 a datacenter. Bazel uses a
-[gRPC protocol](https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto){: .external}
+[gRPC protocol](https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto)
 for its remote execution. You can try remote execution with
-[bazel-buildfarm](https://github.com/bazelbuild/bazel-buildfarm){: .external},
+[bazel-buildfarm](https://github.com/bazelbuild/bazel-buildfarm),
 an open-source project that aims to provide a distributed remote execution
 platform.
 
@@ -21,7 +22,7 @@ environment types or *platforms*:
 *   **Execution platform** - where Bazel actions run.
 *   **Target platform** - where the build outputs (and some actions) run.
 
-## Overview {:#overview}
+## Overview
 
 When configuring a Bazel build for remote execution, you must follow the
 guidelines described in this page to ensure the build executes remotely
@@ -42,7 +43,7 @@ following topics:
 *  [Managing platform-dependent binaries](#manage-binaries)
 *  [Managing configure-style WORKSPACE rules](#manage-workspace-rules)
 
-## Invoking build tools through toolchain rules {:#toolchain-rules}
+## Invoking build tools through toolchain rules
 
 A Bazel toolchain rule is a configuration provider that tells a build rule what
 build tools, such as compilers and linkers, to use and how to configure them
@@ -55,15 +56,15 @@ execution environment.
 
 Toolchain rules currently exist for Bazel build and test rules for
 [Scala](https://github.com/bazelbuild/rules_scala/blob/master/scala/scala_toolch
-ain.bzl){: .external},
-[Rust](https://github.com/bazelbuild/rules_rust/blob/main/rust/toolchain.bzl){: .external},
-and [Go](https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst){: .external},
+ain.bzl),
+[Rust](https://github.com/bazelbuild/rules_rust/blob/main/rust/toolchain.bzl),
+and [Go](https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst),
 and new toolchain rules are under way for other languages and tools such as
-[bash](https://docs.google.com/document/d/e/2PACX-1vRCSB_n3vctL6bKiPkIa_RN_ybzoAccSe0ic8mxdFNZGNBJ3QGhcKjsL7YKf-ngVyjRZwCmhi_5KhcX/pub){: .external}.
+[bash](https://docs.google.com/document/d/e/2PACX-1vRCSB_n3vctL6bKiPkIa_RN_ybzoAccSe0ic8mxdFNZGNBJ3QGhcKjsL7YKf-ngVyjRZwCmhi_5KhcX/pub).
 If a toolchain rule does not exist for the tool your rule uses, consider
-[creating a toolchain rule](/versions/6.5.0/docs/toolchains#creating-a-toolchain-rule).
+[creating a toolchain rule](/docs/toolchains#creating-a-toolchain-rule).
 
-## Managing implicit dependencies {:#manage-dependencies}
+## Managing implicit dependencies
 
 If a build tool can access dependencies across build actions, those actions will
 fail when remotely executed because each remote build action is executed
@@ -84,17 +85,17 @@ _foo_ will be lost and the build will fail.
 To help detect and eliminate these dependency problems, Bazel 0.14.1 offers the
 local Docker sandbox, which has the same restrictions for dependencies as remote
 execution. Use the sandbox to prepare your build for remote execution by
-identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/versions/6.5.0/docs/remote-execution-sandbox)
+identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/docs/remote-execution-sandbox)
 for more information.
 
-## Managing platform-dependent binaries {:#manage-binaries}
+## Managing platform-dependent binaries
 
 Typically, a binary built on the host platform cannot safely execute on an
 arbitrary remote execution platform due to potentially mismatched dependencies.
 For example, the SingleJar binary supplied with Bazel targets the host platform.
 However, for remote execution, SingleJar must be compiled as part of the process
 of building your code so that it targets the remote execution platform. (See the
-[target selection logic](https://github.com/bazelbuild/bazel/blob/130aeadfd660336572c3da397f1f107f0c89aa8d/tools/jdk/BUILD#L115){: .external}.)
+[target selection logic](https://github.com/bazelbuild/bazel/blob/130aeadfd660336572c3da397f1f107f0c89aa8d/tools/jdk/BUILD#L115).)
 
 Do not ship binaries of build tools required by your build with your source code
 unless you are sure they will safely run in your execution platform. Instead, do
@@ -107,7 +108,7 @@ one of the following:
     toolchain container) if it's stable enough and use toolchain rules to run it
     in your build.
 
-## Managing configure-style WORKSPACE rules {:#manage-workspace-rules}
+## Managing configure-style WORKSPACE rules
 
 Bazel's `WORKSPACE` rules can be used for probing the host platform for tools
 and libraries required by the build, which, for local builds, is also Bazel's
@@ -133,14 +134,14 @@ remote execution:
     build to fail on the remote execution platform as Bazel will not be able to
     locate them. Instead, create symlinks using standard build actions so that
     the symlinked tools and libraries are accessible from Bazel's `runfiles`
-    tree. Do not use [`repository_ctx.symlink`](/versions/6.5.0/rules/lib/repository_ctx#symlink)
+    tree. Do not use [`repository_ctx.symlink`](/rules/lib/repository_ctx#symlink)
     to symlink target files outside of the external repo directory.
 
 *   **Mutating the host platform.** Avoid creating files outside of the Bazel
     `runfiles` tree, creating environment variables, and similar actions, as
      they may behave unexpectedly on the remote execution platform.
 
-To help find potential non-hermetic behavior you can use [Workspace rules log](/versions/6.5.0/docs/workspace-log).
+To help find potential non-hermetic behavior you can use [Workspace rules log](/docs/workspace-log).
 
 If an external dependency executes specific operations dependent on the host
 platform, you should split those operations between `WORKSPACE` and build
@@ -165,14 +166,14 @@ To more easily generate pre-checked artifacts for remote execution, you can use
 execution environment, such as inside each toolchain container, and check the
 outputs of your remote execution build in to your source repo to reference.
 
-For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/gpus/cuda_configure.bzl){: .external}
-and [`python`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl){: .external},
-the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/third_party/toolchains/cpus/py){: .external}.
+For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/gpus/cuda_configure.bzl)
+and [`python`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl),
+the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/third_party/toolchains/cpus/py).
 For local execution, files produced by checking the host environment are used.
-For remote execution, a [conditional statement](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L304){: .external}
+For remote execution, a [conditional statement](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L304)
 on an environment variable allows the rule to use files that are checked into
 the repo.
 
-The `BUILD` files declare [`genrules`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L84){: .external}
+The `BUILD` files declare [`genrules`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L84)
 that can run both locally and remotely, and perform the necessary processing
-that was previously done via `repository_ctx.symlink` as shown [here](https://github.com/tensorflow/tensorflow/blob/d1ba01f81d8fa1d0171ba9ce871599063d5c7eb9/third_party/gpus/cuda_configure.bzl#L730){: .external}.
+that was previously done via `repository_ctx.symlink` as shown [here](https://github.com/tensorflow/tensorflow/blob/d1ba01f81d8fa1d0171ba9ce871599063d5c7eb9/third_party/gpus/cuda_configure.bzl#L730).

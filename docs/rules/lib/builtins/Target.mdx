@@ -1,0 +1,18 @@
+---
+title: 'Target'
+---
+
+
+
+The BUILD target for a dependency. Appears in the fields of `ctx.attr` corresponding to [dependency attributes](https://bazel.build/extending/rules#dependency_attributes) ( `label` or `label_list`). Has the following fields:
+
+- ### label
+
+   `Label Target.label`
+
+
+  The identifier of the target.
+- ### Providers
+
+
+  The [providers](https://bazel.build/extending/rules#providers) of a rule target can be accessed by type using index notation ( `target[DefaultInfo]`). The presence of providers can be checked using the `in` operator ( `SomeInfo in target`).

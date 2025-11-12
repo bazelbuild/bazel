@@ -1,0 +1,52 @@
+---
+title: 'subrule\_ctx'
+---
+
+
+
+A context object passed to the implementation function of a subrule.
+
+## Members
+
+- [actions](#actions)
+- [fragments](#fragments)
+- [label](#label)
+- [toolchains](#toolchains)
+
+## actions
+
+```
+actions subrule_ctx.actions
+```
+
+ Contains methods for declaring output files and the actions that produce them
+
+
+
+## fragments
+
+```
+fragments subrule_ctx.fragments
+```
+
+ Allows access to configuration fragments in target configuration.
+
+
+
+## label
+
+```
+Label subrule_ctx.label
+```
+
+ The label of the target currently being analyzed
+
+
+
+## toolchains
+
+```
+ToolchainContext subrule_ctx.toolchains
+```
+
+ Contains methods for declaring output files and the actions that produce them

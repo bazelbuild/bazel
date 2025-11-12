@@ -1,9 +1,8 @@
-{# disableFinding(LINE_OVER_80_LINK) #}
-{# disableFinding("below") #}
-
 ---
 title: 'Bazel Tutorial: Build a Go Project'
 ---
+
+
 
 This tutorial introduces you to the basics of Bazel by showing you how to build
 a Go (Golang) project. You'll learn how to set up your workspace, build a small
@@ -12,16 +11,16 @@ Bazel concepts, such as targets and `BUILD` files.
 
 Estimated completion time: 30 minutes
 
-## Before you begin {:#you-begin}
+## Before you begin
 
-### Install Bazel {:#install-bazel}
+### Install Bazel
 
 Before you get started, first [install bazel](/install) if you haven't done so
 already.
 
 You can check if Bazel is installed by running `bazel version` in any directory.
 
-### Install Go (optional) {:#install-go}
+### Install Go (optional)
 
 You don't need to [install Go](https://go.dev/doc/install) to build Go projects
 with Bazel. The Bazel Go rule set automatically downloads and uses a Go
@@ -33,7 +32,7 @@ get` and `go mod tidy`.
 
 You can check if Go is installed by running `go version` in any directory.
 
-### Get the sample project {:#get-sample}
+### Get the sample project
 
 The Bazel examples are stored in a Git repository, so you'll need to [install
 Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) if you
@@ -56,7 +55,7 @@ go-tutorial/
 There are three subdirectories (`stage1`, `stage2`, and `stage3`), each for a
 different section of this tutorial. Each stage builds on the previous one.
 
-## Build with Bazel {:#build-bazel}
+## Build with Bazel
 
 Start in the `stage1` directory, where we'll find a program. We can
 build it with `bazel build`, then run it:
@@ -92,7 +91,7 @@ INFO: Running command line: bazel-bin/hello_/hello
 Hello, Bazel! 💚
 ```
 
-### Understanding project structure {:#understanding-project}
+### Understanding project structure
 
 Take a look at the project we just built.
 
@@ -147,7 +146,7 @@ added by Bazel itself, so it's quite long, and we won't show it here. Just like
 ensure everyone on your project gets the same version of each dependency. You
 shouldn't need to edit `MODULE.bazel.lock` manually.
 
-### Understand the BUILD file {:#understand-build}
+### Understand the BUILD file
 
 Most of your interaction with Bazel will be through `BUILD` files (or
 equivalently, `BUILD.bazel` files), so it's important to understand what they
@@ -179,7 +178,7 @@ Encyclopedia](https://bazel.build/reference/be/overview#rules). You can find
 rule sets for many other languages and tools on the [Bazel Central Registry
 (BCR)](https://registry.bazel.build/).
 
-## Add a library {:#add-library}
+## Add a library
 
 Move onto the `stage2` directory, where we'll build a new program that
 prints your fortune. This program uses a separate Go package as a library that
@@ -300,7 +299,7 @@ without reading any source files. Bazel can then cache action results or send
 actions for [remote execution](https://bazel.build/remote/rbe) without built-in
 language-specific logic.
 
-### Understanding labels {:#understanding-labels}
+### Understanding labels
 
 A [label](https://bazel.build/reference/glossary#label) is a string Bazel uses
 to identify a target or a file. Labels are used in command line arguments and in
@@ -344,7 +343,7 @@ repository.
 $ bazel build //...
 ```
 
-## Test your project {:#test-project}
+## Test your project
 
 Next, move to the `stage3` directory, where we'll add a test.
 
@@ -439,7 +438,7 @@ have tests.
 $ bazel test //...
 ```
 
-## Conclusion and further reading {:#conclusion-and}
+## Conclusion and further reading
 
 In this tutorial, we built and tested a small Go project with Bazel, and we
 learned some core Bazel concepts along the way.

@@ -1,0 +1,169 @@
+---
+title: 'list'
+---
+
+
+
+The built-in list type. Example list expressions:
+
+```
+x = [1, 2, 3]
+```
+
+Accessing elements is possible using indexing (starts from `0`):
+
+```
+e = x[1]   # e == 2
+```
+
+Lists support the `+` operator to concatenate two lists. Example:
+
+```
+x = [1, 2] + [3, 4]   # x == [1, 2, 3, 4]
+x = ["a", "b"]
+x += ["c"]            # x == ["a", "b", "c"]
+```
+
+Similar to strings, lists support slice operations:
+
+```
+['a', 'b', 'c', 'd'][1:3]   # ['b', 'c']
+['a', 'b', 'c', 'd'][::2]  # ['a', 'c']
+['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']
+```
+
+Lists are mutable, as in Python.
+
+## Members
+
+- [append](#append)
+- [clear](#clear)
+- [extend](#extend)
+- [index](#index)
+- [insert](#insert)
+- [pop](#pop)
+- [remove](#remove)
+
+## append
+
+```
+None list.append(item)
+```
+
+ Adds an item to the end of the list.
+
+
+### Parameters
+
+ParameterDescription`item`
+ required
+
+ Item to add at the end.
+
+
+## clear
+
+```
+None list.clear()
+```
+
+ Removes all the elements of the list.
+
+
+
+## extend
+
+```
+None list.extend(items)
+```
+
+ Adds all items to the end of the list.
+
+
+### Parameters
+
+ParameterDescription`items`
+ iterable;
+ required
+
+ Items to add at the end.
+
+
+## index
+
+```
+int list.index(x, start=unbound, end=unbound)
+```
+
+ Returns the index in the list of the first item whose value is x. It is an error if there is no such item.
+
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to search.
+ `start`[int](../core/int.html);
+ default is `unbound`
+
+ The start index of the list portion to inspect.
+ `end`[int](../core/int.html);
+ default is `unbound`
+
+ The end index of the list portion to inspect.
+
+
+## insert
+
+```
+None list.insert(index, item)
+```
+
+ Inserts an item at a given position.
+
+
+### Parameters
+
+ParameterDescription`index`[int](../core/int.html);
+ required
+
+ The index of the given position.
+ `item`
+ required
+
+ The item.
+
+
+## pop
+
+```
+unknown list.pop(i=-1)
+```
+
+ Removes the item at the given position in the list, and returns it. If no `index` is specified, it removes and returns the last item in the list.
+
+
+### Parameters
+
+ParameterDescription`i`[int](../core/int.html);
+ default is `-1`
+
+ The index of the item.
+
+
+## remove
+
+```
+None list.remove(x)
+```
+
+ Removes the first item from the list whose value is x. It is an error if there is no such item.
+
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to remove.

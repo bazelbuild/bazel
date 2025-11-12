@@ -1,0 +1,9 @@
+---
+title: 'bazel\_module\_tags'
+---
+
+
+
+Contains the tags in a module for the module extension currently being processed. This object has a field for each tag class of the extension, and the value of the field is a list containing an object for each tag instance. This "tag instance" object in turn has a field for each attribute of the tag class.
+
+When passed as positional arguments to `print()` or `fail()`, tag instance objects turn into a meaningful string representation of the form "'install' tag at /home/user/workspace/MODULE.bazel:3:4". This can be used to construct error messages that point to the location of the tag in the module file, e.g. `fail("Conflict between", tag1, "and", tag2)`.

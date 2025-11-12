@@ -2,12 +2,13 @@
 title: 'Intro to Bazel'
 ---
 
+
 Bazel is an open-source build and test tool similar to Make, Maven, and Gradle.
 It uses a human-readable, high-level build language. Bazel supports projects in
 multiple languages and builds outputs for multiple platforms. Bazel supports
 large codebases across multiple repositories, and large numbers of users.
 
-## Benefits {:#benefits}
+## Benefits
 
 Bazel offers the following advantages:
 
@@ -32,17 +33,17 @@ Bazel offers the following advantages:
     source files. It works with multiple repositories and user bases in the tens
     of thousands.
 
-*   **Bazel is extensible.** Many [languages](/versions/6.5.0/rules) are
+*   **Bazel is extensible.** Many [languages](/rules) are
     supported, and you can extend Bazel to support any other language or
     framework.
 
-## Using Bazel {:#using-bazel}
+## Using Bazel
 
 To build or test a project with Bazel, you typically do the following:
 
-1.  **Set up Bazel.** Download and [install Bazel](/versions/6.5.0/install).
+1.  **Set up Bazel.** Download and [install Bazel](/install).
 
-2.  **Set up a project [workspace](/versions/6.5.0/concepts/build-ref#workspaces)**, which is a
+2.  **Set up a project [workspace](/concepts/build-ref#workspaces)**, which is a
     directory where Bazel looks for build inputs and `BUILD` files, and where it
     stores build outputs.
 
@@ -50,8 +51,8 @@ To build or test a project with Bazel, you typically do the following:
     build it.
 
     You write your `BUILD` file by declaring build targets using
-    [Starlark](/versions/6.5.0/rules/language), a domain-specific language. (See example
-    [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD){: .external}.)
+    [Starlark](/rules/language), a domain-specific language. (See example
+    [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD).)
 
     A build target specifies a set of input artifacts that Bazel will build plus
     their dependencies, the build rule Bazel will use to build it, and options
@@ -62,22 +63,22 @@ To build or test a project with Bazel, you typically do the following:
     covering the most common artifact types in the supported languages on
     supported platforms.
 
-4. **Run Bazel** from the [command line](/versions/6.5.0/reference/command-line-reference). Bazel
+4. **Run Bazel** from the [command line](/reference/command-line-reference). Bazel
    places your outputs within the workspace.
 
 In addition to building, you can also use Bazel to run
-[tests](/versions/6.5.0/reference/test-encyclopedia) and [query](/versions/6.5.0/docs/query-how-to) the build
+[tests](/reference/test-encyclopedia) and [query](/docs/query-how-to) the build
 to trace dependencies in your code.
 
-## Bazel build process {:#bazel-build-process}
+## Bazel build process
 
 When running a build or a test, Bazel does the following:
 
 1.  **Loads** the `BUILD` files relevant to the target.
 
 2.  **Analyzes** the inputs and their
-    [dependencies](/versions/6.5.0/concepts/dependencies), applies the specified build
-    rules, and produces an [action](/versions/6.5.0/rules/concepts#evaluation-model)
+    [dependencies](/concepts/dependencies), applies the specified build
+    rules, and produces an [action](/rules/concepts#evaluation-model)
     graph.
 
 3.  **Executes** the build actions on the inputs until the final build outputs
@@ -86,24 +87,24 @@ When running a build or a test, Bazel does the following:
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
 correctness, you can set up Bazel to run builds and tests
-[hermetically](/versions/6.5.0/concepts/hermeticity) through sandboxing, minimizing skew
-and maximizing [reproducibility](/versions/6.5.0/docs/build#correct-incremental-rebuilds).
+[hermetically](/concepts/hermeticity) through sandboxing, minimizing skew
+and maximizing [reproducibility](/docs/build#correct-incremental-rebuilds).
 
-### Action graph {:#action-graph}
+### Action graph
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](/versions/6.5.0/docs/build#build-consistency) changes to
+[track](/docs/build#build-consistency) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
-easily [trace dependencies](/versions/6.5.0/docs/query-how-to) in your code.
+easily [trace dependencies](/docs/query-how-to) in your code.
 
-## Getting started tutorials {:#getting-started-tutorials}
+## Getting started tutorials
 
-To get started with Bazel, see [Getting Started](/versions/6.5.0/start/getting-started) or jump
+To get started with Bazel, see [Getting Started](/start/getting-started) or jump
 directly to the Bazel tutorials:
 
-*   [Tutorial: Build a C++ Project](/versions/6.5.0/tutorials/cpp)
-*   [Tutorial: Build a Java Project](/versions/6.5.0/tutorials/java)
-*   [Tutorial: Build an Android Application](/versions/6.5.0/tutorials/android-app)
-*   [Tutorial: Build an iOS Application](/versions/6.5.0/tutorials/ios-app)
+*   [Tutorial: Build a C++ Project](/tutorials/cpp)
+*   [Tutorial: Build a Java Project](/tutorials/java)
+*   [Tutorial: Build an Android Application](/tutorials/android-app)
+*   [Tutorial: Build an iOS Application](/tutorials/ios-app)

@@ -1,0 +1,52 @@
+---
+title: 'LinkerInput'
+---
+
+
+
+Either libraries, flags or other files that may be passed to the linker as inputs.
+
+## Members
+
+- [additional\_inputs](#additional_inputs)
+- [libraries](#libraries)
+- [owner](#owner)
+- [user\_link\_flags](#user_link_flags)
+
+## additional\_inputs
+
+```
+sequence LinkerInput.additional_inputs
+```
+
+ Returns the depset of additional inputs, e.g.: linker scripts.
+
+
+
+## libraries
+
+```
+sequence LinkerInput.libraries
+```
+
+ Returns the depset of `LibraryToLink`. May return a list but this is deprecated. See #8118.
+
+
+
+## owner
+
+```
+Label LinkerInput.owner
+```
+
+ Returns the owner of this LinkerInput.
+
+
+
+## user\_link\_flags
+
+```
+sequence LinkerInput.user_link_flags
+```
+
+ Returns the list of user link flags passed as strings.

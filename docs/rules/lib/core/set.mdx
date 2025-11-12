@@ -1,0 +1,581 @@
+---
+title: 'set'
+---
+
+
+
+The built-in set type. A set is a mutable collection of unique values – the set's
+_elements_. The [type name](../globals/all#type) of a set is `"set"`.
+
+Sets provide constant-time operations to insert, remove, or check for the presence of a value.
+Sets are implemented using a hash table, and therefore, just like keys of a
+[dictionary](../dict), elements of a set must be hashable. A value may be used as an
+element of a set if and only if it may be used as a key of a dictionary.
+
+Sets may be constructed using the [`set()`](../globals/all#set) built-in
+function, which returns a new set containing the unique elements of its optional argument, which
+must be an iterable. Calling `set()` without an argument constructs an empty set. Sets
+have no literal syntax.
+
+The `in` and `not in` operations check whether a value is (or is not) in a
+set:
+
+```
+s = set(["a", "b", "c"])
+"a" in s  # True
+"z" in s  # False
+
+```
+
+A set is iterable, and thus may be used as the operand of a `for` loop, a list
+comprehension, and the various built-in functions that operate on iterables. Its length can be
+retrieved using the [`len()`](../globals/all#len) built-in function, and the
+order of iteration is the order in which elements were first added to the set:
+
+```
+s = set(["z", "y", "z", "y"])
+len(s)       # prints 2
+s.add("x")
+len(s)       # prints 3
+for e in s:
+    print e  # prints "z", "y", "x"
+
+```
+
+A set used in Boolean context is true if and only if it is non-empty.
+
+```
+s = set()
+"non-empty" if s else "empty"  # "empty"
+t = set(["x", "y"])
+"non-empty" if t else "empty"  # "non-empty"
+
+```
+
+Sets may be compared for equality or inequality using `==` and `!=`. A set
+`s` is equal to `t` if and only if `t` is a set containing the same
+elements; iteration order is not significant. In particular, a set is _not_ equal to the list
+of its elements. Sets are not ordered with respect to other sets, and an attempt to compare two sets
+using `<`, `<=`, `>`, `>=`, or to sort a
+sequence of sets, will fail.
+
+```
+set() == set()              # True
+set() != []                 # True
+set([1, 2]) == set([2, 1])  # True
+set([1, 2]) != [1, 2]       # True
+
+```
+
+The `|` operation on two sets returns the union of the two sets: a set containing the
+elements found in either one or both of the original sets.
+
+```
+set([1, 2]) | set([3, 2])  # set([1, 2, 3])
+
+```
+
+The `&` operation on two sets returns the intersection of the two sets: a set
+containing only the elements found in both of the original sets.
+
+```
+set([1, 2]) & set([2, 3])  # set([2])
+set([1, 2]) & set([3, 4])  # set()
+
+```
+
+The `-` operation on two sets returns the difference of the two sets: a set containing
+the elements found in the left-hand side set but not the right-hand side set.
+
+```
+set([1, 2]) - set([2, 3])  # set([1])
+set([1, 2]) - set([3, 4])  # set([1, 2])
+
+```
+
+The `^` operation on two sets returns the symmetric difference of the two sets: a set
+containing the elements found in exactly one of the two original sets, but not in both.
+
+```
+set([1, 2]) ^ set([2, 3])  # set([1, 3])
+set([1, 2]) ^ set([3, 4])  # set([1, 2, 3, 4])
+
+```
+
+In each of the above operations, the elements of the resulting set retain their order from the
+two operand sets, with all elements that were drawn from the left-hand side ordered before any
+element that was only present in the right-hand side.
+
+The corresponding augmented assignments, `|=`, `&=`, `-=`,
+and `^=`, modify the left-hand set in place.
+
+```
+s = set([1, 2])
+s |= set([2, 3, 4])     # s now equals set([1, 2, 3, 4])
+s &= set([0, 1, 2, 3])  # s now equals set([1, 2, 3])
+s -= set([0, 1])        # s now equals set([2, 3])
+s ^= set([3, 4])        # s now equals set([2, 4])
+
+```
+
+Like all mutable values in Starlark, a set can be frozen, and once frozen, all subsequent
+operations that attempt to update it will fail.
+
+## Members
+
+- [add](#add)
+- [clear](#clear)
+- [difference](#difference)
+- [difference\_update](#difference_update)
+- [discard](#discard)
+- [intersection](#intersection)
+- [intersection\_update](#intersection_update)
+- [isdisjoint](#isdisjoint)
+- [issubset](#issubset)
+- [issuperset](#issuperset)
+- [pop](#pop)
+- [remove](#remove)
+- [symmetric\_difference](#symmetric_difference)
+- [symmetric\_difference\_update](#symmetric_difference_update)
+- [union](#union)
+- [update](#update)
+
+## add
+
+```
+None set.add(element)
+```
+
+ Adds an element to the set.
+
+It is permissible to `add` a value already present in the set; this leaves the set
+unchanged.
+
+If you need to add multiple elements to a set, see [`update`](#update) or
+the `|=` augmented assignment operation.
+
+
+
+### Parameters
+
+ParameterDescription`element`
+ required
+
+ Element to add.
+
+
+## clear
+
+```
+None set.clear()
+```
+
+ Removes all the elements of the set.
+
+
+
+## difference
+
+```
+set set.difference(*others)
+```
+
+ Returns a new mutable set containing the difference of this set with others.
+
+If `s` and `t` are sets, `s.difference(t)` is equivalent to
+`s - t`; however, note that the `-` operation requires both sides to be sets,
+while the `difference` method also accepts sequences and dicts.
+
+It is permissible to call `difference` without any arguments; this returns a copy of
+the set.
+
+For example,
+
+```
+set([1, 2, 3]).difference([2])             # set([1, 3])
+set([1, 2, 3]).difference([0, 1], [3, 4])  # set([2])
+
+```
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.
+
+
+## difference\_update
+
+```
+None set.difference_update(*others)
+```
+
+ Removes any elements found in any others from this set.
+
+If `s` and `t` are sets, `s.difference_update(t)` is equivalent
+to `s -= t`; however, note that the `-=` augmented assignment requires both
+sides to be sets, while the `difference_update` method also accepts sequences and dicts.
+
+It is permissible to call `difference_update` without any arguments; this leaves the
+set unchanged.
+
+For example,
+
+```
+s = set([1, 2, 3, 4])
+s.difference_update([2])             # None; s is set([1, 3, 4])
+s.difference_update([0, 1], [4, 5])  # None; s is set([3])
+
+```
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.
+
+
+## discard
+
+```
+None set.discard(element)
+```
+
+ Removes an element from the set if it is present.
+
+It is permissible to `discard` a value not present in the set; this leaves the set
+unchanged. If you want to fail on an attempt to remove a non-present element, use
+[`remove`](#remove) instead. If you need to remove multiple elements from a
+set, see [`difference_update`](#difference_update) or the `-=`
+augmented assignment operation.
+
+For example,
+
+```
+s = set(["x", "y"])
+s.discard("y")  # None; s == set(["x"])
+s.discard("y")  # None; s == set(["x"])
+
+```
+
+### Parameters
+
+ParameterDescription`element`
+ required
+
+ Element to discard. Must be hashable.
+
+
+## intersection
+
+```
+set set.intersection(*others)
+```
+
+ Returns a new mutable set containing the intersection of this set with others.
+
+If `s` and `t` are sets, `s.intersection(t)` is equivalent to
+`s & t`; however, note that the `&` operation requires both sides to
+be sets, while the `intersection` method also accepts sequences and dicts.
+
+It is permissible to call `intersection` without any arguments; this returns a copy of
+the set.
+
+For example,
+
+```
+set([1, 2]).intersection([2, 3])             # set([2])
+set([1, 2, 3]).intersection([0, 1], [1, 2])  # set([1])
+
+```
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.
+
+
+## intersection\_update
+
+```
+None set.intersection_update(*others)
+```
+
+ Removes any elements not found in all others from this set.
+
+If `s` and `t` are sets, `s.intersection_update(t)` is
+equivalent to `s &= t`; however, note that the `&=` augmented
+assignment requires both sides to be sets, while the `intersection_update` method also
+accepts sequences and dicts.
+
+It is permissible to call `intersection_update` without any arguments; this leaves the
+set unchanged.
+
+For example,
+
+```
+s = set([1, 2, 3, 4])
+s.intersection_update([0, 1, 2])       # None; s is set([1, 2])
+s.intersection_update([0, 1], [1, 2])  # None; s is set([1])
+
+```
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.
+
+
+## isdisjoint
+
+```
+bool set.isdisjoint(other)
+```
+
+ Returns true if this set has no elements in common with another.
+
+For example,
+
+```
+set([1, 2]).isdisjoint([3, 4])  # True
+set().isdisjoint(set())         # True
+set([1, 2]).isdisjoint([2, 3])  # False
+
+```
+
+### Parameters
+
+ParameterDescription`other`
+ required
+
+ A collection of hashable elements.
+
+
+## issubset
+
+```
+bool set.issubset(other)
+```
+
+ Returns true of this set is a subset of another.
+
+Note that a set is always considered to be a subset of itself.
+
+For example,
+
+```
+set([1, 2]).issubset([1, 2, 3])  # True
+set([1, 2]).issubset([1, 2])     # True
+set([1, 2]).issubset([2, 3])     # False
+
+```
+
+### Parameters
+
+ParameterDescription`other`
+ required
+
+ A collection of hashable elements.
+
+
+## issuperset
+
+```
+bool set.issuperset(other)
+```
+
+ Returns true of this set is a superset of another.
+
+Note that a set is always considered to be a superset of itself.
+
+For example,
+
+```
+set([1, 2, 3]).issuperset([1, 2])     # True
+set([1, 2, 3]).issuperset([1, 2, 3])  # True
+set([1, 2, 3]).issuperset([2, 3, 4])  # False
+
+```
+
+### Parameters
+
+ParameterDescription`other`
+ required
+
+ A collection of hashable elements.
+
+
+## pop
+
+```
+unknown set.pop()
+```
+
+ Removes and returns the first element of the set (in iteration order, which is the order in which
+elements were first added to the set).
+
+Fails if the set is empty.
+
+For example,
+
+```
+s = set([3, 1, 2])
+s.pop()  # 3; s == set([1, 2])
+s.pop()  # 1; s == set([2])
+s.pop()  # 2; s == set()
+s.pop()  # error: empty set
+
+```
+
+## remove
+
+```
+None set.remove(element)
+```
+
+ Removes an element, which must be present in the set, from the set.
+
+`remove` fails if the element was not present in the set. If you don't want to fail on
+an attempt to remove a non-present element, use [`discard`](#discard) instead.
+If you need to remove multiple elements from a set, see
+[`difference_update`](#difference_update) or the `-=` augmented
+assignment operation.
+
+
+
+### Parameters
+
+ParameterDescription`element`
+ required
+
+ Element to remove. Must be an element of the set (and hashable).
+
+
+## symmetric\_difference
+
+```
+set set.symmetric_difference(other)
+```
+
+ Returns a new mutable set containing the symmetric difference of this set with another collection of
+hashable elements.
+
+If `s` and `t` are sets, `s.symmetric_difference(t)` is
+equivalent to `s ^ t`; however, note that the `^` operation requires both
+sides to be sets, while the `symmetric_difference` method also accepts a sequence or a
+dict.
+
+For example,
+
+```
+set([1, 2]).symmetric_difference([2, 3])  # set([1, 3])
+
+```
+
+### Parameters
+
+ParameterDescription`other`
+ required
+
+ A collection of hashable elements.
+
+
+## symmetric\_difference\_update
+
+```
+None set.symmetric_difference_update(other)
+```
+
+ Returns a new mutable set containing the symmetric difference of this set with another collection of
+hashable elements.
+
+If `s` and `t` are sets, `s.symmetric_difference_update(t)` is
+equivalent to \`s ^= t `; however, note that the ` ^=\` augmented assignment requires both
+sides to be sets, while the `symmetric_difference_update` method also accepts a sequence
+or a dict.
+
+For example,
+
+```
+s = set([1, 2])
+s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
+
+```
+
+### Parameters
+
+ParameterDescription`other`
+ required
+
+ A collection of hashable elements.
+
+
+## union
+
+```
+set set.union(*others)
+```
+
+ Returns a new mutable set containing the union of this set with others.
+
+If `s` and `t` are sets, `s.union(t)` is equivalent to
+`s | t`; however, note that the `|` operation requires both sides to be sets,
+while the `union` method also accepts sequences and dicts.
+
+It is permissible to call `union` without any arguments; this returns a copy of the
+set.
+
+For example,
+
+```
+set([1, 2]).union([2, 3])                    # set([1, 2, 3])
+set([1, 2]).union([2, 3], {3: "a", 4: "b"})  # set([1, 2, 3, 4])
+
+```
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.
+
+
+## update
+
+```
+None set.update(*others)
+```
+
+ Adds the elements found in others to this set.
+
+For example,
+
+```
+s = set()
+s.update([1, 2])          # None; s is set([1, 2])
+s.update([2, 3], [3, 4])  # None; s is set([1, 2, 3, 4])
+
+```
+
+If `s` and `t` are sets, `s.update(t)` is equivalent to
+`s |= t`; however, note that the `|=` augmented assignment requires both sides
+to be sets, while the `update` method also accepts sequences and dicts.
+
+It is permissible to call `update` without any arguments; this leaves the set
+unchanged.
+
+
+
+### Parameters
+
+ParameterDescription`others`
+ required
+
+ Collections of hashable elements.

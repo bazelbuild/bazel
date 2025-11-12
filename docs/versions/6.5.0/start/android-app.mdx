@@ -2,10 +2,11 @@
 title: 'Bazel Tutorial: Build an Android App'
 ---
 
+
 This tutorial covers how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the
-[Android rules](/versions/6.5.0/reference/be/android).
+[Android rules](/reference/be/android).
 
 This tutorial is intended for Windows, macOS and Linux users and does not
 require experience with Bazel or Android app development. You do not need to
@@ -17,7 +18,7 @@ In this tutorial you learn how to:
 
 *   Set up your environment by installing Bazel and Android Studio, and
     downloading the sample project.
-*   Set up a Bazel [workspace](/versions/6.5.0/reference/be/workspace) that contains the source code
+*   Set up a Bazel [workspace](/reference/be/workspace) that contains the source code
     for the app and a `WORKSPACE` file that identifies the top level of the
     workspace directory.
 *   Update the `WORKSPACE` file to contain references to the required
@@ -32,25 +33,25 @@ In this tutorial you learn how to:
 
 Before you begin the tutorial, install the following software:
 
-* **Bazel.** To install, follow the [installation instructions](/versions/6.5.0/install).
+* **Bazel.** To install, follow the [installation instructions](/install).
 * **Android Studio.** To install, follow the steps to [download Android
-  Studio](https://developer.android.com/sdk/index.html){: .external}.
+  Studio](https://developer.android.com/sdk/index.html).
   Execute the setup wizard to download the SDK and configure your environment.
 * (Optional) **Git.** Use `git` to download the Android app project.
 
 ### Get the sample project
 
 For the sample project, use a basic Android app project in
-[Bazel's examples repository](https://github.com/bazelbuild/examples){: .external}.
+[Bazel's examples repository](https://github.com/bazelbuild/examples).
 
 This app has a single button that prints a greeting when clicked:
 
-![Button greeting](/versions/6.5.0/docs/images/android_tutorial_app.png "Tutorial app button greeting")
+![Button greeting](/docs/images/android_tutorial_app.png "Tutorial app button greeting")
 
 **Figure 1.** Android app button greeting.
 
 Clone the repository with `git` (or [download the ZIP file
-directly](https://github.com/bazelbuild/examples/archive/master.zip){: .external}):
+directly](https://github.com/bazelbuild/examples/archive/master.zip)):
 
 ```posix-terminal
 git clone https://github.com/bazelbuild/examples
@@ -92,11 +93,12 @@ The key files and directories are:
 | Android source files    | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                   |
 | Resource file directory | `src/main/java/com/example/bazel/res/`                                                   |
 
+
 ## Build with Bazel
 
 ### Set up the workspace
 
-A [workspace](/versions/6.5.0/concepts/build-ref#workspace) is a directory that contains the
+A [workspace](/concepts/build-ref#workspace) is a directory that contains the
 source files for one or more software projects, and has a `WORKSPACE` file at
 its root.
 
@@ -129,7 +131,7 @@ ERROR: The 'info' command is only supported from within a workspace.
 ### Integrate with the Android SDK
 
 Bazel needs to run the Android SDK
-[build tools](https://developer.android.com/tools/revisions/build-tools.html){: .external}
+[build tools](https://developer.android.com/tools/revisions/build-tools.html)
 to build the app. This means that you need to add some information to your
 `WORKSPACE` file so that Bazel knows where to find them.
 
@@ -145,7 +147,7 @@ latest version of build tools installed within that location.
 
 You can set the `ANDROID_HOME` variable to the location of the Android SDK. Find
 the path to the installed SDK using Android Studio's [SDK
-Manager](https://developer.android.com/studio/intro/update#sdk-manager){: .external}.
+Manager](https://developer.android.com/studio/intro/update#sdk-manager).
 Assuming the SDK is installed to default locations, you can use the following
 commands to set the `ANDROID_HOME` variable:
 
@@ -195,7 +197,7 @@ android_sdk_repository(
 
 **Optional:** If you want to compile native code into your Android app, you
 also need to download the [Android
-NDK](https://developer.android.com/ndk/downloads/index.html){: .external}
+NDK](https://developer.android.com/ndk/downloads/index.html)
 and tell Bazel where to find it by adding the following line to your `WORKSPACE` file:
 
 ```python
@@ -215,12 +217,12 @@ explicitly set, `api_level` defaults to the highest available API level for
 `android_sdk_repository` and `android_ndk_repository`.
 
 It's not necessary to set the API levels to the same value for the SDK and NDK.
-[This page](https://developer.android.com/ndk/guides/stable_apis.html){: .external}
+[This page](https://developer.android.com/ndk/guides/stable_apis.html)
 contains a map from Android releases to NDK-supported API levels.
 
 ### Create a BUILD file
 
-A [`BUILD` file](/versions/6.5.0/concepts/build-files) describes the relationship
+A [`BUILD` file](/concepts/build-files) describes the relationship
 between a set of build outputs, like compiled Android resources from `aapt` or
 class files from `javac`, and their dependencies. These dependencies may be
 source files (Java, C++) in your workspace or other build outputs. `BUILD` files
@@ -228,7 +230,7 @@ are written in a language called **Starlark**.
 
 `BUILD` files are part of a concept in Bazel known as the *package hierarchy*.
 The package hierarchy is a logical structure that overlays the directory
-structure in your workspace. Each [package](/versions/6.5.0/concepts/build-ref#packages) is a
+structure in your workspace. Each [package](/concepts/build-ref#packages) is a
 directory (and its subdirectories) that contains a related set of source files
 and a `BUILD` file. The package also includes any subdirectories, excluding
 those that contain their own `BUILD` file. The *package name* is the path to the
@@ -246,16 +248,16 @@ packages.
 
 A `BUILD` file contains several different types of declarations for Bazel. The
 most important type is the
-[build rule](/versions/6.5.0/concepts/build-files#types-of-build-rules), which tells
+[build rule](/concepts/build-files#types-of-build-rules), which tells
 Bazel how to build an intermediate or final software output from a set of source
 files or other dependencies. Bazel provides two build rules,
-[`android_library`](/versions/6.5.0/reference/be/android#android_library) and
-[`android_binary`](/versions/6.5.0/reference/be/android#android_binary), that you can use to
+[`android_library`](/reference/be/android#android_library) and
+[`android_binary`](/reference/be/android#android_binary), that you can use to
 build an Android app.
 
 For this tutorial, you'll first use the
 `android_library` rule to tell Bazel to build an [Android library
-module](http://developer.android.com/tools/projects/index.html#LibraryProjects){: .external}
+module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. You'll then use the
 `android_binary` rule to tell Bazel how to build the Android application package.
 
@@ -287,7 +289,7 @@ rule using this name as a dependency in the `android_binary` rule.
 
 #### Add an android_binary rule
 
-The [`android_binary`](/versions/6.5.0/reference/be/android#android_binary) rule builds
+The [`android_binary`](/reference/be/android#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
 
 Create a new `BUILD` file in the `src/main/` directory,
@@ -320,7 +322,7 @@ Try building the app! Run the following command to build the
 bazel build //src/main:app
 ```
 
-The [`build`](/versions/6.5.0/docs/user-manual#build) subcommand instructs Bazel to build the
+The [`build`](/docs/user-manual#build) subcommand instructs Bazel to build the
 target that follows. The target is specified as the name of a build rule inside
 a `BUILD` file, with along with the package path relative to your workspace
 directory. For this example, the target is `app` and the package path is
@@ -328,7 +330,7 @@ directory. For this example, the target is `app` and the package path is
 
 Note that you can sometimes omit the package path or target name, depending on
 your current working directory at the command line and the name of the target.
-For more details about target labels and paths, see [Labels](/versions/6.5.0/concepts/labels).
+For more details about target labels and paths, see [Labels](/concepts/labels).
 
 Bazel will start to build the sample app. During the build process, its output
 will appear similar to the following:
@@ -367,6 +369,7 @@ file:
 | Windows (Command Prompt) | `dir bazel-bin\src\main` |
 | Windows (PowerShell)     | `ls bazel-bin\src\main`  |
 
+
 ### Run the app
 
 You can now deploy the app to a connected Android device or emulator from the
@@ -374,7 +377,7 @@ command line using the [`bazel
 mobile-install`](/docs/user-manual#mobile-install) command. This command uses
 the Android Debug Bridge (`adb`) to communicate with the device. You must set up
 your device to use `adb` following the instructions in [Android Debug
-Bridge](http://developer.android.com/tools/help/adb.html){: .external} before deployment. You
+Bridge](http://developer.android.com/tools/help/adb.html) before deployment. You
 can also choose to install the app on the Android emulator included in Android
 Studio. Make sure the emulator is running before executing the command below.
 
@@ -386,14 +389,14 @@ bazel mobile-install //src/main:app
 
 Next, find and launch the "Bazel Tutorial App":
 
-![Bazel tutorial app](/versions/6.5.0/docs/images/android_tutorial_before.png "Bazel tutorial app")
+![Bazel tutorial app](/docs/images/android_tutorial_before.png "Bazel tutorial app")
 
 **Figure 2.** Bazel tutorial app.
 
 **Congratulations! You have just installed your first Bazel-built Android app.**
 
 Note that the `mobile-install` subcommand also supports the
-[`--incremental`](/versions/6.5.0/docs/user-manual#mobile-install) flag that can be used to
+[`--incremental`](/docs/user-manual#mobile-install) flag that can be used to
 deploy only those parts of the app that have changed since the last deployment.
 
 It also supports the `--start_app` flag to start the app immediately upon
@@ -404,16 +407,16 @@ installing it.
 For more details, see these pages:
 
 * Open issues on [GitHub](https://github.com/bazelbuild/bazel/issues)
-* More information on [mobile-install](/versions/6.5.0/docs/mobile-install)
+* More information on [mobile-install](/docs/mobile-install)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
-  repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external){: .external}
-* Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel){: .external}
+  repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
+* Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel)
   integration.
-* Testing your app with [Android instrumentation tests](/versions/6.5.0/docs/android-instrumentation-test)
-* Integrating C and C++ code into your Android app with the [NDK](/versions/6.5.0/docs/android-ndk)
+* Testing your app with [Android instrumentation tests](/docs/android-instrumentation-test)
+* Integrating C and C++ code into your Android app with the [NDK](/docs/android-ndk)
 * See more Bazel example projects of:
-  * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app){: .external}
-  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test){: .external}
-  * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test){: .external}
+  * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
+  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test)
+  * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test)
 
 Happy building!

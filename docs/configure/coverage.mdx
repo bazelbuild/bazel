@@ -2,6 +2,8 @@
 title: 'Code coverage with Bazel'
 ---
 
+
+
 Bazel features a `coverage` sub-command to produce code coverage
 reports on repositories that can be tested with `bazel coverage`. Due
 to the idiosyncrasies of the various language ecosystems, it is not
@@ -19,7 +21,7 @@ While a lot of customization is possible, this document focuses on
 producing and consuming [`lcov`][lcov] reports, which is currently the
 most well-supported route.
 
-## Creating a coverage report {:#creating-a-coverage-report}
+## Creating a coverage report
 
 ### Preparation
 
@@ -83,7 +85,7 @@ To view the result, simply open the `index.html` file produced in the
 For further help and information around the `genhtml` tool, or the
 `lcov` coverage format, see [the lcov project][lcov].
 
-## Remote execution {:#remote-execution}
+## Remote execution
 
 Running with remote test execution currently has a few caveats:
 

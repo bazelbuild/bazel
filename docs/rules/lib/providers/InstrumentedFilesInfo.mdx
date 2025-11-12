@@ -1,0 +1,30 @@
+---
+title: 'InstrumentedFilesInfo'
+---
+
+
+
+Contains information about source files and instrumentation metadata files for rule targets matched by [`--instrumentation_filter`](https://bazel.build/reference/command-line-reference#flag--instrumentation_filter) for purposes of [code coverage data collection](https://bazel.build/extending/rules#code_coverage). When coverage data collection is enabled, a manifest containing the combined paths in [`instrumented_files`](#instrumented_files) and [`metadata_files`](#metadata_files) are passed to the test action as inputs, with the manifest's path noted in the environment variable `COVERAGE_MANIFEST`. The metadata files, but not the source files, are also passed to the test action as inputs. When `InstrumentedFilesInfo` is returned by an [aspect](https://bazel.build/extending/aspects)'s implementation function, any `InstrumentedFilesInfo` from the base rule target is ignored.
+
+## Members
+
+- [instrumented\_files](#instrumented_files)
+- [metadata\_files](#metadata_files)
+
+## instrumented\_files
+
+```
+depset InstrumentedFilesInfo.instrumented_files
+```
+
+ [`depset`](../builtins/depset.html) of [`File`](../builtins/File.html) objects representing instrumented source files for this target and its dependencies.
+
+
+
+## metadata\_files
+
+```
+depset InstrumentedFilesInfo.metadata_files
+```
+
+ [`depset`](../builtins/depset.html) of [`File`](../builtins/File.html) objects representing coverage metadata files for this target and its dependencies. These files contain additional information required to generate LCOV-format coverage output after the code is executed, e.g. the `.gcno` files generated when `gcc` is run with `-ftest-coverage`.

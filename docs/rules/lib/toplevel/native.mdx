@@ -1,0 +1,267 @@
+---
+title: 'native'
+---
+
+
+
+A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module, e.g. `native.cc_library`. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations). Attributes will ignore `None` values, and treat them as if the attribute was unset.
+
+The following functions are also available:
+
+## Members
+
+- [existing\_rule](#existing_rule)
+- [existing\_rules](#existing_rules)
+- [exports\_files](#exports_files)
+- [glob](#glob)
+- [module\_name](#module_name)
+- [module\_version](#module_version)
+- [package\_default\_visibility](#package_default_visibility)
+- [package\_group](#package_group)
+- [package\_name](#package_name)
+- [package\_relative\_label](#package_relative_label)
+- [repo\_name](#repo_name)
+- [repository\_name](#repository_name)
+- [subpackages](#subpackages)
+
+## existing\_rule
+
+```
+unknown native.existing_rule(name)
+```
+
+ Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread's package, or `None` if no rule instance of that name exists.
+
+Here, an _immutable dict-like object_ means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
+
+The result contains an entry for each attribute, with the exception of private ones (whose names do not start with a letter) and a few unrepresentable legacy attribute types. In addition, the dict contains entries for the rule instance's `name` and `kind` (for example, `'cc_binary'`).
+
+The values of the result represent attribute values as follows:
+
+- Attributes of type str, int, and bool are represented as is.
+- Labels are converted to strings of the form `':foo'` for targets in the same package or `'//pkg:name'` for targets in a different package.
+- Lists are represented as tuples, and dicts are converted to new, mutable dicts. Their elements are recursively converted in the same fashion.
+- `select` values are returned with their contents transformed as described above.
+- Attributes for which no value was specified during rule instantiation and whose default value is computed are excluded from the result. (Computed defaults cannot be computed until the analysis phase.).
+
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by `ctx.attr.foo`.
+
+
+### Parameters
+
+ParameterDescription`name`[string](../core/string.html);
+ required
+
+ The name of the target.
+
+
+## existing\_rules
+
+```
+unknown native.existing_rules()
+```
+
+ Returns an immutable dict-like object describing the rules so far instantiated in this thread's package. Each entry of the dict-like object maps the name of the rule instance to the result that would be returned by `existing_rule(name)`.
+
+Here, an _immutable dict-like object_ means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
+
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent.
+
+
+
+## exports\_files
+
+```
+None native.exports_files(srcs, visibility=None, licenses=None)
+```
+
+ Specifies a list of files belonging to this package that are exported to other packages.
+
+
+### Parameters
+
+ParameterDescription`srcs`[sequence](../core/list.html) of [string](../core/string.html) s;
+ required
+
+ The list of files to export.
+ `visibility`[sequence](../core/list.html); or `None`;
+ default is `None`
+
+ A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.
+ `licenses`[sequence](../core/list.html) of [string](../core/string.html) s; or `None`;
+ default is `None`
+
+ Licenses to be specified.
+
+
+## glob
+
+```
+sequence native.glob(include=[], exclude=[], exclude_directories=1, allow_empty=unbound)
+```
+
+ Glob returns a new, mutable, sorted list of every file in the current package that:
+
+- Matches at least one pattern in `include`.
+- Does not match any of the patterns in `exclude` (default `[]`).
+
+If the `exclude_directories` argument is enabled (set to `1`), files of type directory will be omitted from the results (default `1`).
+
+
+### Parameters
+
+ParameterDescription`include`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ The list of glob patterns to include.
+ `exclude`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ The list of glob patterns to exclude.
+ `exclude_directories`[int](../core/int.html);
+ default is `1`
+
+ A flag whether to exclude directories or not.
+ `allow_empty`
+ default is `unbound`
+
+ Whether we allow glob patterns to match nothing. If \`allow\_empty\` is False, each individual include pattern must match something and also the final result must be non-empty (after the matches of the \`exclude\` patterns are excluded).
+
+
+## module\_name
+
+```
+string native.module_name()
+```
+
+ The name of the Bazel module associated with the repo this package is in. If this package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is empty. For repos generated by module extensions, this is the name of the module hosting the extension. It's the same as the `module.name` field seen in `module_ctx.modules`.
+ May return `None`.
+
+
+
+## module\_version
+
+```
+string native.module_version()
+```
+
+ The version of the Bazel module associated with the repo this package is in. If this package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is empty. For repos generated by module extensions, this is the version of the module hosting the extension. It's the same as the `module.version` field seen in `module_ctx.modules`.
+ May return `None`.
+
+
+
+## package\_default\_visibility
+
+```
+List native.package_default_visibility()
+```
+
+ Returns the default visibility of the package being evaluated. This is the value of the `default_visibility` parameter of `package()`, extended to include the package itself.
+
+
+
+## package\_group
+
+```
+None native.package_group(*, name, packages=[], includes=[])
+```
+
+ This function defines a set of packages and assigns a label to the group. The label can be referenced in `visibility` attributes.
+
+
+### Parameters
+
+ParameterDescription`name`[string](../core/string.html);
+ required
+
+ The unique name for this rule.
+ `packages`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ A complete enumeration of packages in this group.
+ `includes`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ Other package groups that are included in this one.
+
+
+## package\_name
+
+```
+string native.package_name()
+```
+
+ The name of the package being evaluated, without the repository name. For example, in the BUILD file `some/package/BUILD`, its value will be `some/package`. If the BUILD file calls a function defined in a .bzl file, `package_name()` will match the caller BUILD file package. The value will always be an empty string for the root package.
+
+
+
+## package\_relative\_label
+
+```
+Label native.package_relative_label(input)
+```
+
+ Converts the input string into a [Label](../builtins/Label.html) object, in the context of the package currently being initialized (that is, the `BUILD` file for which the current macro is executing). If the input is already a `Label`, it is returned unchanged.
+
+This function may only be called while evaluating a BUILD file and the macros it directly or indirectly calls; it may not be called in (for instance) a rule implementation function.
+
+The result of this function is the same `Label` value as would be produced by passing the given string to a label-valued attribute of a target declared in the BUILD file.
+
+_Usage note:_ The difference between this function and [Label()](../builtins/Label.html#Label) is that `Label()` uses the context of the package of the `.bzl` file that called it, not the package of the `BUILD` file. Use `Label()` when you need to refer to a fixed target that is hardcoded into the macro, such as a compiler. Use `package_relative_label()` when you need to normalize a label string supplied by the BUILD file to a `Label` object. (There is no way to convert a string to a `Label` in the context of a package other than the BUILD file or the calling .bzl file. For that reason, outer macros should always prefer to pass Label objects to inner macros rather than label strings.)
+
+
+### Parameters
+
+ParameterDescription`input`[string](../core/string.html); or [Label](../builtins/Label.html);
+ required
+
+ The input label string or Label object. If a Label object is passed, it's returned as is.
+
+
+## repo\_name
+
+```
+string native.repo_name()
+```
+
+ The canonical name of the repository containing the package currently being evaluated, with no leading at-signs.
+
+
+
+## repository\_name
+
+```
+string native.repository_name()
+```
+
+ **Experimental**. This API is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting `--+incompatible_enable_deprecated_label_apis`
+
+**Deprecated.** Prefer to use [`repo_name`](#repo_name) instead, which doesn't contain the spurious leading at-sign, but behaves identically otherwise.
+
+The canonical name of the repository containing the package currently being evaluated, with a single at-sign ( `@`) prefixed. For example, in packages that are called into existence by the WORKSPACE stanza `local_repository(name='local', path=...)` it will be set to `@local`. In packages in the main repository, it will be set to `@`.
+
+
+
+## subpackages
+
+```
+sequence native.subpackages(*, include, exclude=[], allow_empty=False)
+```
+
+ Returns a new mutable list of every direct subpackage of the current package, regardless of file-system directory depth. List returned is sorted and contains the names of subpackages relative to the current package. It is advised to prefer using the methods in bazel\_skylib.subpackages module rather than calling this function directly.
+
+
+### Parameters
+
+ParameterDescription`include`[sequence](../core/list.html) of [string](../core/string.html) s;
+ required
+
+ The list of glob patterns to include in subpackages scan.
+ `exclude`[sequence](../core/list.html) of [string](../core/string.html) s;
+ default is `[]`
+
+ The list of glob patterns to exclude from subpackages scan.
+ `allow_empty`[bool](../core/bool.html);
+ default is `False`
+
+ Whether we fail if the call returns an empty list. By default empty list indicates potential error in BUILD file where the call to subpackages() is superflous. Setting to true allows this function to succeed in that case.

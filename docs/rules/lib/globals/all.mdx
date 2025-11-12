@@ -1,0 +1,701 @@
+---
+title: 'All Bazel files'
+---
+
+
+
+Methods available in all Bazel files, including .bzl files, BUILD, MODULE.bazel, VENDOR.bazel, and WORKSPACE.
+
+## Members
+
+- [abs](#abs)
+- [all](#all)
+- [any](#any)
+- [bool](#bool)
+- [dict](#dict)
+- [dir](#dir)
+- [enumerate](#enumerate)
+- [fail](#fail)
+- [float](#float)
+- [getattr](#getattr)
+- [hasattr](#hasattr)
+- [hash](#hash)
+- [int](#int)
+- [len](#len)
+- [list](#list)
+- [max](#max)
+- [min](#min)
+- [print](#print)
+- [range](#range)
+- [repr](#repr)
+- [reversed](#reversed)
+- [set](#set)
+- [sorted](#sorted)
+- [str](#str)
+- [tuple](#tuple)
+- [type](#type)
+- [zip](#zip)
+
+## abs
+
+```
+unknown abs(x)
+```
+
+ Returns the absolute value of a number (a non-negative number with the same magnitude).
+
+```
+abs(-2.3) == 2.3
+```
+
+### Parameters
+
+ParameterDescription`x`[int](../core/int.html); or [float](../core/float.html);
+ required
+
+ A number (int or float)
+
+
+## all
+
+```
+bool all(elements)
+```
+
+ Returns true if all elements evaluate to True or if the collection is empty. Elements are converted to boolean using the [bool](#bool) function.
+
+```
+all(["hello", 3, True]) == True
+all([-1, 0, 1]) == False
+```
+
+### Parameters
+
+ParameterDescription`elements`
+ iterable;
+ required
+
+ A collection of elements.
+
+
+## any
+
+```
+bool any(elements)
+```
+
+ Returns true if at least one element evaluates to True. Elements are converted to boolean using the [bool](#bool) function.
+
+```
+any([-1, 0, 1]) == True
+any([False, 0, ""]) == False
+```
+
+### Parameters
+
+ParameterDescription`elements`
+ iterable;
+ required
+
+ A collection of elements.
+
+
+## bool
+
+```
+bool bool(x=False)
+```
+
+ Constructor for the bool type. It returns `False` if the object is `None`, `False`, an empty string ( `""`), the number `0`, or an empty collection (e.g. `()`, `[]`). Otherwise, it returns `True`.
+
+
+### Parameters
+
+ParameterDescription`x`
+ default is `False`
+
+ The variable to convert.
+
+
+## dict
+
+```
+dict dict(pairs=[], **kwargs)
+```
+
+ Creates a [dictionary](../core/dict.html) from an optional positional argument and an optional set of keyword arguments. In the case where the same key is given multiple times, the last value will be used. Entries supplied via keyword arguments are considered to come after entries supplied via the positional argument.
+
+
+### Parameters
+
+ParameterDescription`pairs`
+ default is `[]`
+
+ A dict, or an iterable whose elements are each of length 2 (key, value).
+ `kwargs`
+ required
+
+ Dictionary of additional entries.
+
+
+## dir
+
+```
+list dir(x)
+```
+
+ Returns a list of strings: the names of the attributes and methods of the parameter object.
+
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to check.
+
+
+## enumerate
+
+```
+list enumerate(list, start=0)
+```
+
+ Returns a list of pairs (two-element tuples), with the index (int) and the item from the input sequence.
+
+```
+enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]
+```
+
+### Parameters
+
+ParameterDescription`list`
+ required
+
+ input sequence.
+ `start`[int](../core/int.html);
+ default is `0`
+
+ start index.
+
+
+## fail
+
+```
+None fail(*args, msg=None, attr=None, sep=" ")
+```
+
+ Causes execution to fail with an error.
+
+
+### Parameters
+
+ParameterDescription`msg`
+ default is `None`
+
+ Deprecated: use positional arguments instead. This argument acts like an implicit leading positional argument.
+ `attr`[string](../core/string.html); or `None`;
+ default is `None`
+
+ Deprecated. Causes an optional prefix containing this string to be added to the error message.
+ `sep`[string](../core/string.html);
+ default is `" "`
+
+ The separator string between the objects, default is space (" ").
+ `args`
+ required
+
+ A list of values, formatted with debugPrint (which is equivalent to str by default) and joined with sep (defaults to " "), that appear in the error message.
+
+
+## float
+
+```
+float float(x=unbound)
+```
+
+ Returns x as a float value.
+
+- If `x` is already a float, `float` returns it unchanged.
+- If `x` is a bool, `float` returns 1.0 for True and 0.0 for False.
+- If `x` is an int, `float` returns the nearest finite floating-point value to x, or an error if the magnitude is too large.
+- If `x` is a string, it must be a valid floating-point literal, or be equal (ignoring case) to `NaN`, `Inf`, or `Infinity`, optionally preceded by a `+` or `-` sign.
+
+Any other value causes an error. With no argument, `float()` returns 0.0.
+
+
+### Parameters
+
+ParameterDescription`x`[string](../core/string.html); or [bool](../core/bool.html); or [int](../core/int.html); or [float](../core/float.html);
+ default is `unbound`
+
+ The value to convert.
+
+
+## getattr
+
+```
+unknown getattr(x, name, default=unbound)
+```
+
+ Returns the struct's field of the given name if it exists. If not, it either returns `default` (if specified) or raises an error. `getattr(x, "foobar")` is equivalent to `x.foobar`.
+
+```
+getattr(ctx.attr, "myattr")
+getattr(ctx.attr, "myattr", "mydefault")
+```
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The struct whose attribute is accessed.
+ `name`[string](../core/string.html);
+ required
+
+ The name of the struct attribute.
+ `default`
+ default is `unbound`
+
+ The default value to return in case the struct doesn't have an attribute of the given name.
+
+
+## hasattr
+
+```
+bool hasattr(x, name)
+```
+
+ Returns True if the object `x` has an attribute or method of the given `name`, otherwise False. Example:
+
+```
+hasattr(ctx.attr, "myattr")
+```
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to check.
+ `name`[string](../core/string.html);
+ required
+
+ The name of the attribute.
+
+
+## hash
+
+```
+int hash(value)
+```
+
+ Return a hash value for a string. This is computed deterministically using the same algorithm as Java's `String.hashCode()`, namely:
+
+```
+s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[n-1]
+```
+
+ Hashing of values besides strings is not currently supported.
+
+
+### Parameters
+
+ParameterDescription`value`[string](../core/string.html);
+ required
+
+ String value to hash.
+
+
+## int
+
+```
+int int(x, base=unbound)
+```
+
+ Returns x as an int value.
+
+- If `x` is already an int, `int` returns it unchanged.
+- If `x` is a bool, `int` returns 1 for True and 0 for False.
+- If `x` is a string, it must have the format `<sign>```<digits>`. `<sign>` is either `"+"`, `"-"`, or empty (interpreted as positive). `<digits>` are a sequence of digits from 0 up to `base` \- 1, where the letters a-z (or equivalently, A-Z) are used as digits for 10-35. In the case where `base` is 2/8/16, ````` is optional and may be 0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the `base` is any other value besides these bases or the special value 0, the prefix must be empty. In the case where `base` is 0, the string is interpreted as an integer literal, in the sense that one of the bases 2/8/10/16 is chosen depending on which prefix if any is used. If `base` is 0, no prefix is used, and there is more than one digit, the leading digit cannot be 0; this is to avoid confusion between octal and decimal. The magnitude of the number represented by the string must be within the allowed range for the int type.
+- If `x` is a float, `int` returns the integer value of the float, rounding towards zero. It is an error if x is non-finite (NaN or infinity).
+
+This function fails if `x` is any other type, or if the value is a string not satisfying the above format. Unlike Python's `int` function, this function does not allow zero arguments, and does not allow extraneous whitespace for string arguments.
+
+Examples:
+
+```
+int("123") == 123
+int("-123") == -123
+int("+123") == 123
+int("FF", 16) == 255
+int("0xFF", 16) == 255
+int("10", 0) == 10
+int("-0x10", 0) == -16
+int("-0x10", 0) == -16
+int("123.456") == 123
+
+```
+
+### Parameters
+
+ParameterDescription`x`[string](../core/string.html); or [bool](../core/bool.html); or [int](../core/int.html); or [float](../core/float.html);
+ required
+
+ The string to convert.
+ `base`[int](../core/int.html);
+ default is `unbound`
+
+ The base used to interpret a string value; defaults to 10. Must be between 2 and 36 (inclusive), or 0 to detect the base as if `x` were an integer literal. This parameter must not be supplied if the value is not a string.
+
+
+## len
+
+```
+int len(x)
+```
+
+ Returns the length of a string, sequence (such as a list or tuple), dict, set, or other iterable.
+
+
+### Parameters
+
+ParameterDescription`x`
+ iterable; or [string](../core/string.html);
+ required
+
+ The value whose length to report.
+
+
+## list
+
+```
+list list(x=[])
+```
+
+ Returns a new list with the same elements as the given iterable value.
+
+```
+list([1, 2]) == [1, 2]
+list((2, 3, 2)) == [2, 3, 2]
+list({5: "a", 2: "b", 4: "c"}) == [5, 2, 4]
+```
+
+### Parameters
+
+ParameterDescription`x`
+ iterable;
+ default is `[]`
+
+ The object to convert.
+
+
+## max
+
+```
+unknown max(*args, key=None)
+```
+
+ Returns the largest one of all given arguments. If only one positional argument is provided, it must be a non-empty iterable.It is an error if elements are not comparable (for example int with string), or if no arguments are given.
+
+```
+max(2, 5, 4) == 5
+max([5, 6, 3]) == 6
+max("two", "three", "four", key = len) =="three"  # the longest
+max([1, -1, -2, 2], key = abs) == -2  # the first encountered with maximal key value
+
+```
+
+### Parameters
+
+ParameterDescription`key`
+ callable; or `None`;
+ default is `None`
+
+ An optional function applied to each element before comparison.
+ `args`
+ required
+
+ The elements to be checked.
+
+
+## min
+
+```
+unknown min(*args, key=None)
+```
+
+ Returns the smallest one of all given arguments. If only one positional argument is provided, it must be a non-empty iterable. It is an error if elements are not comparable (for example int with string), or if no arguments are given.
+
+```
+min(2, 5, 4) == 2
+min([5, 6, 3]) == 3
+min("six", "three", "four", key = len) == "six"  # the shortest
+min([2, -2, -1, 1], key = abs) == -1  # the first encountered with minimal key value
+
+```
+
+### Parameters
+
+ParameterDescription`key`
+ callable; or `None`;
+ default is `None`
+
+ An optional function applied to each element before comparison.
+ `args`
+ required
+
+ The elements to be checked.
+
+
+## print
+
+```
+None print(*args, sep=" ")
+```
+
+ Prints `args` as debug output. It will be prefixed with the string `"DEBUG"` and the location (file and line number) of this call. The exact way in which the arguments are converted to strings is unspecified and may change at any time. In particular, it may be different from (and more detailed than) the formatting done by [`str()`](#str) and [`repr()`](#repr).
+
+Using `print` in production code is discouraged due to the spam it creates for users. For deprecations, prefer a hard error using [`fail()`](#fail) whenever possible.
+
+
+### Parameters
+
+ParameterDescription`sep`[string](../core/string.html);
+ default is `" "`
+
+ The separator string between the objects, default is space (" ").
+ `args`
+ required
+
+ The objects to print.
+
+
+## range
+
+```
+sequence range(start_or_stop, stop=unbound, step=1)
+```
+
+ Creates a list where items go from `start` to `stop`, using a `step` increment. If a single argument is provided, items will range from 0 to that element.
+
+```
+range(4) == [0, 1, 2, 3]
+range(3, 9, 2) == [3, 5, 7]
+range(3, 0, -1) == [3, 2, 1]
+```
+
+### Parameters
+
+ParameterDescription`start_or_stop`[int](../core/int.html);
+ required
+
+ Value of the start element if stop is provided, otherwise value of stop and the actual start is 0
+ `stop`[int](../core/int.html);
+ default is `unbound`
+
+ optional index of the first item _not_ to be included in the resulting list; generation of the list stops before `stop` is reached.
+ `step`[int](../core/int.html);
+ default is `1`
+
+ The increment (default is 1). It may be negative.
+
+
+## repr
+
+```
+string repr(x)
+```
+
+ Converts any object to a string representation. This is useful for debugging.
+
+```
+repr("ab") == '"ab"'
+```
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to convert.
+
+
+## reversed
+
+```
+list reversed(sequence)
+```
+
+ Returns a new, unfrozen list that contains the elements of the original iterable sequence in reversed order.
+
+```
+reversed([3, 5, 4]) == [4, 5, 3]
+```
+
+### Parameters
+
+ParameterDescription`sequence`
+ iterable;
+ required
+
+ The iterable sequence (e.g. list) to be reversed.
+
+
+## set
+
+```
+set set(elements=[])
+```
+
+ Creates a new [set](../core/set.html) containing the unique elements of a given
+iterable, preserving iteration order.
+
+If called with no argument, `set()` returns a new empty set.
+
+For example,
+
+```
+set()                          # an empty set
+set([3, 1, 1, 2])              # set([3, 1, 2]), a set of three elements
+set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
+
+```
+
+### Parameters
+
+ParameterDescription`elements`
+ iterable;
+ default is `[]`
+
+ An iterable of hashable values.
+
+
+## sorted
+
+```
+list sorted(iterable, key=None, *, reverse=False)
+```
+
+ Returns a new sorted list containing all the elements of the supplied iterable sequence. An error may occur if any pair of elements x, y may not be compared using x < y. The elements are sorted into ascending order, unless the reverse argument is True, in which case the order is descending.
+ Sorting is stable: elements that compare equal retain their original relative order.
+
+```
+sorted([3, 5, 4]) == [3, 4, 5]
+sorted([3, 5, 4], reverse = True) == [5, 4, 3]
+sorted(["two", "three", "four"], key = len) == ["two", "four", "three"]  # sort by length
+
+```
+
+### Parameters
+
+ParameterDescription`iterable`
+ iterable;
+ required
+
+ The iterable sequence to sort.
+ `key`
+ callable; or `None`;
+ default is `None`
+
+ An optional function applied to each element before comparison.
+ `reverse`[bool](../core/bool.html);
+ default is `False`
+
+ Return results in descending order.
+
+
+## str
+
+```
+string str(x)
+```
+
+ Converts any object to string. This is useful for debugging.
+
+```
+str("ab") == "ab"
+str(8) == "8"
+```
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to convert.
+
+
+## tuple
+
+```
+tuple tuple(x=())
+```
+
+ Returns a tuple with the same elements as the given iterable value.
+
+```
+tuple([1, 2]) == (1, 2)
+tuple((2, 3, 2)) == (2, 3, 2)
+tuple({5: "a", 2: "b", 4: "c"}) == (5, 2, 4)
+```
+
+### Parameters
+
+ParameterDescription`x`
+ iterable;
+ default is `()`
+
+ The object to convert.
+
+
+## type
+
+```
+string type(x)
+```
+
+ Returns the type name of its argument. This is useful for debugging and type-checking. Examples:
+
+```
+type(2) == "int"
+type([1]) == "list"
+type(struct(a = 2)) == "struct"
+```
+
+This function might change in the future. To write Python-compatible code and be future-proof, use it only to compare return values:
+
+```
+if type(x) == type([]):  # if x is a list
+```
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+ The object to check type of.
+
+
+## zip
+
+```
+list zip(*args)
+```
+
+ Returns a `list` of `tuple` s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:
+
+```
+zip()  # == []
+zip([1, 2])  # == [(1,), (2,)]
+zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
+zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]
+```
+
+### Parameters
+
+ParameterDescription`args`
+ required
+
+ lists to zip.

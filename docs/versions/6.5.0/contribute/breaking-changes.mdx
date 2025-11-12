@@ -2,15 +2,16 @@
 title: 'Guide for rolling out breaking changes'
 ---
 
+
 It is inevitable that we will make breaking changes to Bazel. We will have to
 change our designs and fix the things that do not quite work. However, we need
 to make sure that community and Bazel ecosystem can follow along. To that end,
 Bazel project has adopted a
-[backward compatibility policy](/versions/6.5.0/release/backward-compatibility).
+[backward compatibility policy](/release/backward-compatibility).
 This document describes the process for Bazel contributors to make a breaking
 change in Bazel to adhere to this policy.
 
-1. Follow the [design document policy](/versions/6.5.0/contribute/design-documents).
+1. Follow the [design document policy](/contribute/design-documents).
 
 1. [File a GitHub issue.](#github-issue)
 
@@ -20,11 +21,11 @@ change in Bazel to adhere to this policy.
 
 1. [Flip the incompatible flag.](#flip-flag)
 
-## GitHub issue {:#github-issue}
+## GitHub issue
 
-[File a GitHub issue](https://github.com/bazelbuild/bazel/issues){: .external}
+[File a GitHub issue](https://github.com/bazelbuild/bazel/issues)
 in the Bazel repository.
-[See example.](https://github.com/bazelbuild/bazel/issues/6611){: .external}
+[See example.](https://github.com/bazelbuild/bazel/issues/6611)
 
 We recommend that:
 
@@ -32,7 +33,7 @@ We recommend that:
   `incompatible_`).
 
 * You add the label
-  [`incompatible-change`](https://github.com/bazelbuild/bazel/labels/incompatible-change){: .external}.
+  [`incompatible-change`](https://github.com/bazelbuild/bazel/labels/incompatible-change).
 
 * The description contains a description of the change and a link to relevant
   design documents.
@@ -48,11 +49,11 @@ We recommend that:
   flag.
 
 For the migration tool, consider contributing to
-[Buildifier](https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md){: .external}.
+[Buildifier](https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md).
 It is able to apply automated fixes to `BUILD`, `WORKSPACE`, and `.bzl` files.
 It may also report warnings.
 
-## Implementation {:#implementation}
+## Implementation
 
 Create a new flag in Bazel. The default value must be false. The help text
 should contain the URL of the GitHub issue. As the flag name starts with
@@ -73,10 +74,10 @@ window of commits in which the code is inconsistent with the docs. Since our
 documentation is versioned, changes to the docs will not be inadvertently
 released prematurely.
 
-## Labels {:#labels}
+## Labels
 
 Once the commit is merged and the incompatible change is ready to be adopted, add the label
-[`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready){: .external}
+[`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready)
 to the GitHub issue.
 
 If a problem is found with the flag and users are not expected to migrate yet:
@@ -84,15 +85,15 @@ remove the flags `migration-ready`.
 
 If you plan to flip the flag in the next major release, add label `breaking-change-X.0" to the issue.
 
-## Updating repositories {:#update-repos}
+## Updating repositories
 
 Bazel CI tests a list of important projects at
-[Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream){: .external}. Most of them are often
+[Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream). Most of them are often
 dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community.
 
 To monitor the migration status of those projects, you can use the
-[`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
-check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
+[`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags),
+check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects).
 
 Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author. But you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
 
@@ -100,13 +101,13 @@ Migrating projects in the downstream pipeline is NOT entirely the responsibility
 1. Send PRs to fix downstream projects.
 1. Reach out to the Bazel community for help on migration (e.g. [Bazel Rules Authors SIG](https://bazel-contrib.github.io/SIG-rules-authors/)).
 
-## Flipping the flag {:#flip-flag}
+## Flipping the flag
 
 Before flipping the default value of the flag to true, please make sure that:
 
 * Core repositories in the ecosystem are migrated.
 
-    On the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
+    On the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags),
     the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
 
 * User concerns and questions have been resolved.
@@ -125,7 +126,7 @@ When changing the flag default to true, please:
 * Review and update documentation if needed.
 * File a new issue `#abc` to track the removal of the flag.
 
-## Removing the flag {:#remove-flag}
+## Removing the flag
 
 After the flag is flipped at HEAD, it should be removed from Bazel eventually.
 When you plan to remove the incompatible flag:

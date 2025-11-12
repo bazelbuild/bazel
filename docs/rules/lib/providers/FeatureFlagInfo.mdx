@@ -1,0 +1,50 @@
+---
+title: 'FeatureFlagInfo'
+---
+
+
+
+A provider used to access information about config\_feature\_flag rules.
+
+## Members
+
+- [error](#error)
+- [is\_valid\_value](#is_valid_value)
+- [value](#value)
+
+## error
+
+```
+string FeatureFlagInfo.error
+```
+
+ If non-None, this error was generated when trying to compute current value of flag.
+ May return `None`.
+
+
+
+## is\_valid\_value
+
+```
+bool FeatureFlagInfo.is_valid_value(value)
+```
+
+ The value of the flag in the configuration used by the flag rule.
+
+
+### Parameters
+
+ParameterDescription`value`[string](../core/string.html);
+ required
+
+ String, the value to check for validity for this flag.
+
+
+## value
+
+```
+string FeatureFlagInfo.value
+```
+
+ The current value of the flag in the flag's current configuration. None if there is an error.
+ May return `None`.

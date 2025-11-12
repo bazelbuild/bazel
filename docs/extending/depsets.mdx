@@ -2,6 +2,8 @@
 title: 'Depsets'
 ---
 
+
+
 [Depsets](/rules/lib/builtins/depset) are a specialized data structure for efficiently
 collecting data across a target’s transitive dependencies. They are an essential
 element of rule processing.
@@ -280,6 +282,7 @@ foo_binary = rule(
 You can test this by copying these files into a fresh package, renaming the
 labels appropriately, creating the source `*.foo` files with dummy content, and
 building the `d` target.
+
 
 ## Performance
 

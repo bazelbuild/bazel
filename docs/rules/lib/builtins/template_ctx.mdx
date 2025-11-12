@@ -1,0 +1,91 @@
+---
+title: 'template\_ctx'
+---
+
+
+
+A context object that is passed to the action template expansion function.
+
+## Members
+
+- [args](#args)
+- [declare\_file](#declare_file)
+- [run](#run)
+
+## args
+
+```
+Args template_ctx.args()
+```
+
+ Returns an Args object that can be used to build memory-efficient command lines.
+
+
+
+## declare\_file
+
+```
+File template_ctx.declare_file(filename, *, directory)
+```
+
+ Declares that implementation creates a file with the given filename within the specified directory.
+
+Remember that in addition to declaring a file, you must separately create an action that emits the file. Creating that action will require passing the returned `File` object to the action's construction function.
+
+
+### Parameters
+
+ParameterDescription`filename`[string](../core/string.html);
+ required
+
+ The relative path of the file within the directory.
+ `directory`[File](../builtins/File.html);
+ required
+
+ The directory in which the file should be created.
+
+
+## run
+
+```
+None template_ctx.run(*, outputs, inputs=[], executable, tools=None, arguments=[], progress_message=None)
+```
+
+ Creates an action that runs an executable.
+
+
+### Parameters
+
+ParameterDescription`outputs`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ required
+
+ List of the output files of the action.
+ `inputs`[sequence](../core/list.html) of [File](../builtins/File.html) s; or [depset](../builtins/depset.html);
+ default is `[]`
+
+ List or depset of the input files of the action.
+ `executable`[File](../builtins/File.html); or [string](../core/string.html); or [FilesToRunProvider](../providers/FilesToRunProvider.html);
+ required
+
+ The executable file to be called by the action.
+ `tools`[sequence](../core/list.html); or [depset](../builtins/depset.html); or `None`;
+ default is `None`
+
+ List or [`depset`](../builtins/depset.html) of any tools needed by the action. Tools are executable inputs that may have their own runfiles which are automatically made available to the action.
+
+When a list is provided, it can be a heterogenous collection of:
+
+- `File` s
+- `FilesToRunProvider` instances
+- `depset` s of `File` s
+
+`File` s from [`ctx.executable`](../builtins/ctx#executable) and `FilesToRunProvider` s which are directly in the list will have their runfiles automatically added. All tools are implicitly added as inputs.
+
+`arguments`[sequence](../core/list.html);
+ default is `[]`
+
+ Command line arguments of the action. Must be a list of strings or [`actions.args()`](#args) objects.
+ `progress_message`[string](../core/string.html); or `None`;
+ default is `None`
+
+ Progress message to show to the user during the build.

@@ -1,0 +1,85 @@
+---
+title: 'ObjcProvider'
+---
+
+
+
+A provider for compilation and linking of objc.
+
+## Members
+
+- [direct\_module\_maps](#direct_module_maps)
+- [direct\_sources](#direct_sources)
+- [j2objc\_library](#j2objc_library)
+- [module\_map](#module_map)
+- [source](#source)
+- [strict\_include](#strict_include)
+- [umbrella\_header](#umbrella_header)
+
+## direct\_module\_maps
+
+```
+sequence ObjcProvider.direct_module_maps
+```
+
+ Module map files from this target directly (no transitive module maps). Used to enforce proper use of private header files and for Swift compilation.
+
+
+
+## direct\_sources
+
+```
+sequence ObjcProvider.direct_sources
+```
+
+ All direct source files from this target (no transitive files), including any headers in the 'srcs' attribute.
+
+
+
+## j2objc\_library
+
+```
+depset ObjcProvider.j2objc_library
+```
+
+ Static libraries that are built from J2ObjC-translated Java code.
+
+
+
+## module\_map
+
+```
+depset ObjcProvider.module_map
+```
+
+ Clang module maps, used to enforce proper use of private header files.
+
+
+
+## source
+
+```
+depset ObjcProvider.source
+```
+
+ All transitive source files.
+
+
+
+## strict\_include
+
+```
+depset ObjcProvider.strict_include
+```
+
+ Non-propagated include search paths specified with '-I' on the command line. Also known as header search paths (and distinct from _user_ header search paths).
+
+
+
+## umbrella\_header
+
+```
+depset ObjcProvider.umbrella_header
+```
+
+ Clang umbrella header. Public headers are #included in umbrella headers to be compatible with J2ObjC segmented headers.

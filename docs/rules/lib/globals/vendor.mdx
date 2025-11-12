@@ -1,0 +1,45 @@
+---
+title: 'VENDOR.bazel files'
+---
+
+
+
+Methods available in VENDOR.bazel files.
+
+## Members
+
+- [ignore](#ignore)
+- [pin](#pin)
+
+## ignore
+
+```
+None ignore(*args)
+```
+
+ Ignore this repo from vendoring. Bazel will never vendor it or use the corresponding directory (if exists) while building in vendor mode.
+
+
+### Parameters
+
+ParameterDescription`args`
+ required
+
+ The canonical repo names of the repos to ignore.
+
+
+## pin
+
+```
+None pin(*args)
+```
+
+ Pin the contents of this repo under the vendor directory. Bazel will not update this repo while vendoring, and will use the vendored source as if there is a --override\_repository flag when building in vendor mode
+
+
+### Parameters
+
+ParameterDescription`args`
+ required
+
+ The canonical repo names of the repos to pin.

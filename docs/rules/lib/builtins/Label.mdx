@@ -1,0 +1,160 @@
+---
+title: 'Label'
+---
+
+
+
+A BUILD target identifier.
+
+For every `Label` instance `l`, the string representation `str(l)` has the property that `Label(str(l)) == l`, regardless of where the `Label()` call occurs.
+
+When passed as positional arguments to `print()` or `fail()`, `Label` use a string representation optimized for human readability instead. This representation uses an [apparent repository name](/external/overview#apparent-repo-name) from the perspective of the main repository if possible.
+
+## Members
+
+- [Label](#Label)
+- [name](#name)
+- [package](#package)
+- [relative](#relative)
+- [repo\_name](#repo_name)
+- [same\_package\_label](#same_package_label)
+- [workspace\_name](#workspace_name)
+- [workspace\_root](#workspace_root)
+
+## Label
+
+```
+Label Label(input)
+```
+
+ Converts a label string into a `Label` object, in the context of the package where the calling `.bzl` source file lives. If the given value is already a `Label`, it is returned unchanged.
+
+For macros, a related function, `native.package_relative_label()`, converts the input into a `Label` in the context of the package currently being constructed. Use that function to mimic the string-to-label conversion that is automatically done by label-valued rule attributes.
+
+
+### Parameters
+
+ParameterDescription`input`[string](../core/string.html); or [Label](../builtins/Label.html);
+ required
+
+ The input label string or Label object. If a Label object is passed, it's returned as is.
+
+
+## name
+
+```
+string Label.name
+```
+
+ The name of the target referred to by this label. For instance:
+
+```
+Label("@@foo//pkg/foo:abc").name == "abc"
+```
+
+## package
+
+```
+string Label.package
+```
+
+ The name of the package containing the target referred to by this label, without the repository name. For instance:
+
+```
+Label("@@repo//pkg/foo:abc").package == "pkg/foo"
+```
+
+## relative
+
+```
+Label Label.relative(relName)
+```
+
+ **Experimental**. This API is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting `--+incompatible_enable_deprecated_label_apis`
+
+**Deprecated.** This method behaves surprisingly when used with an argument containing an apparent repo name. Prefer [`Label.same_package_label()`](#same_package_label), [`native.package_relative_label()`](../toplevel/native.html#package_relative_label), or [`Label()`](#Label) instead.
+
+Resolves a label that is either absolute (starts with `//`) or relative to the current package. If this label is in a remote repository, the argument will be resolved relative to that repository. If the argument contains a repository name, the current label is ignored and the argument is returned as-is, except that the repository name is rewritten if it is in the current repository mapping. Reserved labels will also be returned as-is.
+
+For example:
+
+```
+Label("//foo/bar:baz").relative(":quux") == Label("//foo/bar:quux")
+Label("//foo/bar:baz").relative("//wiz:quux") == Label("//wiz:quux")
+Label("@repo//foo/bar:baz").relative("//wiz:quux") == Label("@repo//wiz:quux")
+Label("@repo//foo/bar:baz").relative("//visibility:public") == Label("//visibility:public")
+Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@other//wiz:quux")
+
+```
+
+If the repository mapping passed in is `{'@other' : '@remapped'}`, then the following remapping will take place:
+
+```
+Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@remapped//wiz:quux")
+
+```
+
+### Parameters
+
+ParameterDescription`relName`[string](../core/string.html);
+ required
+
+ The label that will be resolved relative to this one.
+
+
+## repo\_name
+
+```
+string Label.repo_name
+```
+
+ The canonical name of the repository containing the target referred to by this label, without any leading at-signs ( `@`). For instance,
+
+```
+Label("@@foo//bar:baz").repo_name == "foo"
+```
+
+## same\_package\_label
+
+```
+Label Label.same_package_label(target_name)
+```
+
+ Creates a label in the same package as this label with the given target name.
+
+
+### Parameters
+
+ParameterDescription`target_name`[string](../core/string.html);
+ required
+
+ The target name of the new label.
+
+
+## workspace\_name
+
+```
+string Label.workspace_name
+```
+
+ **Experimental**. This API is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting `--+incompatible_enable_deprecated_label_apis`
+
+**Deprecated.** The field name "workspace name" is a misnomer here; use the identically-behaving [`Label.repo_name`](#repo_name) instead.
+
+The canonical name of the repository containing the target referred to by this label, without any leading at-signs ( `@`). For instance,
+
+```
+Label("@@foo//bar:baz").workspace_name == "foo"
+```
+
+## workspace\_root
+
+```
+string Label.workspace_root
+```
+
+ Returns the execution root for the repository containing the target referred to by this label, relative to the execroot. For instance:
+
+```
+Label("@repo//pkg/foo:abc").workspace_root == "external/repo"
+```

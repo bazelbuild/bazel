@@ -1,0 +1,162 @@
+---
+title: 'config'
+---
+
+
+
+This is a top-level module for creating configuration transitions and build setting descriptors which describe what kind of build setting (if any) a rule is.
+
+ex: the following rule is marked as a build setting by setting the `build_setting` parameter of the `rule()` function. Specifically it is a build setting of type `int` and is a `flag` which means this build setting is callable on the command line.
+
+```
+  my_rule = rule(
+    implementation = _impl,
+    build_setting = config.int(flag = True),
+    ...
+  )
+```
+
+## Members
+
+- [bool](#bool)
+- [exec](#exec)
+- [int](#int)
+- [none](#none)
+- [string](#string)
+- [string\_list](#string_list)
+- [string\_set](#string_set)
+- [target](#target)
+
+## bool
+
+```
+BuildSetting config.bool(*, flag=False)
+```
+
+ A bool-typed build setting
+
+
+### Parameters
+
+ParameterDescription`flag`[bool](../core/bool.html);
+ default is `False`
+
+ Whether or not this build setting is callable on the command line.
+
+
+## exec
+
+```
+ExecTransitionFactory config.exec(exec_group=None)
+```
+
+ Creates an execution transition.
+
+
+### Parameters
+
+ParameterDescription`exec_group`[string](../core/string.html); or `None`;
+ default is `None`
+
+ The name of the exec group whose execution platform this transition will use. If not provided, this exec transition will use the target's default execution platform.
+
+
+## int
+
+```
+BuildSetting config.int(*, flag=False)
+```
+
+ An integer-typed build setting
+
+
+### Parameters
+
+ParameterDescription`flag`[bool](../core/bool.html);
+ default is `False`
+
+ Whether or not this build setting is callable on the command line.
+
+
+## none
+
+```
+transition config.none()
+```
+
+ Creates a transition which removes all configuration, unsetting all flags. Intended for the case where a dependency is data-only and contains no code that needs to be built, but should only be analyzed once.
+
+
+
+## string
+
+```
+BuildSetting config.string(*, flag=False, allow_multiple=False)
+```
+
+ A string-typed build setting
+
+
+### Parameters
+
+ParameterDescription`flag`[bool](../core/bool.html);
+ default is `False`
+
+ Whether or not this build setting is callable on the command line.
+ `allow_multiple`[bool](../core/bool.html);
+ default is `False`
+
+ Deprecated, use a `string_list` setting with `repeatable = True` instead. If set, this flag is allowed to be set multiple times on the command line. The Value of the flag as accessed in transitions and build setting implementation function will be a list of strings. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired.
+
+
+## string\_list
+
+```
+BuildSetting config.string_list(*, flag=False, repeatable=False)
+```
+
+ A string list-typed build setting. On the command line pass a list using comma-separated value like `--//my/setting=foo,bar`.
+
+
+### Parameters
+
+ParameterDescription`flag`[bool](../core/bool.html);
+ default is `False`
+
+ Whether or not this build setting is callable on the command line.
+ `repeatable`[bool](../core/bool.html);
+ default is `False`
+
+ If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the list value. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired.
+
+
+## string\_set
+
+```
+BuildSetting config.string_set(*, flag=False, repeatable=False)
+```
+
+ A string set-typed build setting. The value of this setting will be a [set](https://bazel.build/rules/lib/core/set) of strings in Starlark. On the command line, pass a set using a comma-separated value like `--//my/setting=foo,bar`.
+
+Unlike with a `string_list`, the order of the elements doesn't matter and only a single instance of each element is maintained. This is recommended over `string_list` for flags where these properties are not needed as it can improve build performance by avoiding unnecessary configurations forking.
+
+
+### Parameters
+
+ParameterDescription`flag`[bool](../core/bool.html);
+ default is `False`
+
+ Whether or not this build setting is callable on the command line.
+ `repeatable`[bool](../core/bool.html);
+ default is `False`
+
+ If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the set value. Only a single instance of repeated values is maintained and the insertion order does not matter.
+
+
+## target
+
+```
+transition config.target()
+```
+
+ Creates a target transition. This is a no-op transition intended for the case where a transition object is needed, but doesn't want to actually change anything. Equivalent to `cfg = "target"` in `attr.label()`.

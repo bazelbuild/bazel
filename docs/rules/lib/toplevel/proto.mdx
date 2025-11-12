@@ -1,0 +1,84 @@
+---
+title: 'proto'
+---
+
+
+
+A module for protocol message processing.
+
+## Members
+
+- [encode\_text](#encode_text)
+
+## encode\_text
+
+```
+string proto.encode_text(x)
+```
+
+ Returns the struct argument's encoding as a text-format protocol message.
+The data structure must be recursively composed of strings, ints, floats, or bools, or structs, sequences, and dicts of these types.
+
+A struct is converted to a message. Fields are emitted in name order.
+Each struct field whose value is None is ignored.
+
+A sequence (such as a list or tuple) is converted to a repeated field.
+Its elements must not be sequences or dicts.
+
+A dict is converted to a repeated field of messages with fields named 'key' and 'value'.
+Entries are emitted in iteration (insertion) order.
+The dict's keys must be strings or ints, and its values must not be sequences or dicts.
+Examples:
+
+```
+proto.encode_text(struct(field=123))
+# field: 123
+
+proto.encode_text(struct(field=True))
+# field: true
+
+proto.encode_text(struct(field=[1, 2, 3]))
+# field: 1
+# field: 2
+# field: 3
+
+proto.encode_text(struct(field='text', ignored_field=None))
+# field: "text"
+
+proto.encode_text(struct(field=struct(inner_field='text', ignored_field=None)))
+# field {
+#   inner_field: "text"
+# }
+
+proto.encode_text(struct(field=[struct(inner_field=1), struct(inner_field=2)]))
+# field {
+#   inner_field: 1
+# }
+# field {
+#   inner_field: 2
+# }
+
+proto.encode_text(struct(field=struct(inner_field=struct(inner_inner_field='text'))))
+# field {
+#    inner_field {
+#     inner_inner_field: "text"
+#   }
+# }
+
+proto.encode_text(struct(foo={4: 3, 2: 1}))
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+
+```
+
+### Parameters
+
+ParameterDescription`x`
+ structure; or NativeInfo;
+ required

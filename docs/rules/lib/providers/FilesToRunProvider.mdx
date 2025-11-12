@@ -1,0 +1,44 @@
+---
+title: 'FilesToRunProvider'
+---
+
+
+
+Contains information about executables produced by a target and the files needed to run it. This provider can not be created directly, it is an implicit output of executable targets accessible via [`DefaultInfo.files_to_run`](../providers/DefaultInfo.html#files_to_run).
+
+## Members
+
+- [executable](#executable)
+- [repo\_mapping\_manifest](#repo_mapping_manifest)
+- [runfiles\_manifest](#runfiles_manifest)
+
+## executable
+
+```
+File FilesToRunProvider.executable
+```
+
+ The main executable or None if it does not exist.
+ May return `None`.
+
+
+
+## repo\_mapping\_manifest
+
+```
+File FilesToRunProvider.repo_mapping_manifest
+```
+
+ The repo mapping manifest or None if it does not exist.
+ May return `None`.
+
+
+
+## runfiles\_manifest
+
+```
+File FilesToRunProvider.runfiles_manifest
+```
+
+ The runfiles manifest or None if it does not exist.
+ May return `None`.

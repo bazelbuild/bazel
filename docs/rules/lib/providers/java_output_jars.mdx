@@ -1,0 +1,43 @@
+---
+title: 'java\_output\_jars'
+---
+
+
+
+Information about outputs of a Java rule. Deprecated: use java\_info.java\_outputs.
+
+## Members
+
+- [jars](#jars)
+- [jdeps](#jdeps)
+- [native\_headers](#native_headers)
+
+## jars
+
+```
+list java_output_jars.jars
+```
+
+ Returns information about outputs of this Java/Java-like target. Deprecated: Use java\_info.java\_outputs.
+
+
+
+## jdeps
+
+```
+File java_output_jars.jdeps
+```
+
+ A manifest proto file. The protobuf file containing the manifest generated from JavaBuilder. This function returns a value when exactly one manifest proto file is present in the outputs. Deprecated: Use java\_info.java\_outputs\[i\].jdeps.
+ May return `None`.
+
+
+
+## native\_headers
+
+```
+File java_output_jars.native_headers
+```
+
+ A jar containing CC header files supporting native method implementation. This function returns a value when exactly one native headers jar file is present in the outputs. Deprecated: Use java\_info.java\_outputs\[i\].native\_headers\_jar.
+ May return `None`.

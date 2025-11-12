@@ -1,0 +1,59 @@
+---
+title: 'transition'
+---
+
+
+
+Represents a configuration transition across a dependency edge. For example, if `//package:foo` depends on `//package:bar` with a configuration transition, then the configuration of `//package:bar` (and its dependencies) will be `//package:foo`'s configuration plus the changes specified by the transition function.
+
+## Members
+
+- [transition](#transition)
+
+## transition
+
+```
+transition transition(*, implementation, inputs, outputs)
+```
+
+ A transition that reads a set of input build settings and writes a set of output build settings.
+
+Example:
+
+```
+def _transition_impl(settings, attr):
+    # This transition just reads the current CPU value as a demonstration.
+    # A real transition could incorporate this into its followup logic.
+    current_cpu = settings["//command_line_option:cpu"]
+    return {"//command_line_option:compilation_mode": "dbg"}
+
+build_in_debug_mode = transition(
+    implementation = _transition_impl,
+    inputs = ["//command_line_option:cpu"],
+    outputs = ["//command_line_option:compilation_mode"],
+)
+```
+
+For more details see [here](https://bazel.build/rules/config#user-defined-transitions).
+
+### Parameters
+
+ParameterDescription`implementation`
+ callable;
+ required
+
+ The function implementing this transition. This function always has two parameters: `settings` and `attr`. The `settings` param is a dictionary whose set of keys is defined by the inputs parameter. So, for each build setting `--//foo=bar`, if `inputs` contains `//foo`, `settings` will have an entry `settings['//foo']='bar'`.
+
+The `attr` param is a reference to `ctx.attr`. This gives the implementation function access to the rule's attributes to make attribute-parameterized transitions possible.
+
+This function must return a `dict` from build setting identifier to build setting value; this represents the configuration transition: for each entry in the returned `dict`, the transition updates that setting to the new value. All other settings are unchanged. This function can also return a `list` of `dict` s or a `dict` of `dict` s in the case of a split transition.
+
+
+`inputs`[sequence](../core/list.html) of [string](../core/string.html) s;
+ required
+
+ List of build settings that can be read by this transition. This becomes the key set of the settings parameter of the implementation function parameter.
+ `outputs`[sequence](../core/list.html) of [string](../core/string.html) s;
+ required
+
+ List of build settings that can be written by this transition. This must be a superset of the key set of the dictionary returned by this transition.

@@ -2,6 +2,8 @@
 title: 'Toolchains'
 ---
 
+
+
 This page describes the toolchain framework, which is a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the [rules](/extending/rules) and [platforms](/extending/platforms)
@@ -9,7 +11,7 @@ pages before continuing. This page covers why toolchains are needed, how to
 define and use them, and how Bazel selects an appropriate toolchain based on
 platform constraints.
 
-## Motivation {:#motivation}
+## Motivation
 
 Let's first look at the problem toolchains are designed to solve. Suppose you
 are writing rules to support the "bar" programming language. Your `bar_binary`
@@ -122,7 +124,7 @@ automatically resolves this to a particular target (a toolchain) based on the
 applicable platform constraints. Neither the rule author nor the target author
 need know the complete set of available platforms and toolchains.
 
-## Writing rules that use toolchains {:#writing-rules-toolchains}
+## Writing rules that use toolchains
 
 Under the toolchain framework, instead of having rules depend directly on tools,
 they instead depend on *toolchain types*. A toolchain type is a simple target
@@ -181,7 +183,7 @@ Bazel's procedure for resolving toolchains to targets is described
 made a dependency of the `bar_binary` target, not the whole space of candidate
 toolchains.
 
-### Mandatory and Optional Toolchains {:#optional-toolchains}
+### Mandatory and Optional Toolchains
 
 By default, when a rule expresses a toolchain type dependency using a bare label
 (as shown above), the toolchain type is considered to be **mandatory**. If Bazel
@@ -230,7 +232,7 @@ You can mix and match forms in the same rule, also. However, if the same
 toolchain type is listed multiple times, it will take the most strict version,
 where mandatory is more strict than optional.
 
-### Writing aspects that use toolchains {:#writing-aspects-toolchains}
+### Writing aspects that use toolchains
 
 Aspects have access to the same toolchain API as rules: you can define required
 toolchain types, access toolchains via the context, and use them to generate new
@@ -249,7 +251,7 @@ def _bar_aspect_impl(target, ctx):
   return []
 ```
 
-## Defining toolchains {:#toolchain-definitions}
+## Defining toolchains
 
 To define some toolchains for a given toolchain type, you need three things:
 
@@ -369,7 +371,7 @@ same package, but there's no reason the toolchain type, language-specific
 toolchain targets, and `toolchain` definition targets can't all be in separate
 packages.
 
-See the [`go_toolchain`](https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl){: .external}
+See the [`go_toolchain`](https://github.com/bazelbuild/rules_go/blob/master/go/private/go_toolchain.bzl)
 for a real-world example.
 
 ### Toolchains and configurations
@@ -423,7 +425,7 @@ are linked into the final artifact, and so need to be built for the same
 platform, whereas the compiler is a tool invoked during the build, and needs to
 be able to run on the execution platform.
 
-## Registering and building with toolchains {:#registering-building-toolchains}
+## Registering and building with toolchains
 
 At this point all the building blocks are assembled, and you just need to make
 the toolchains available to Bazel's resolution procedure. This is done by
@@ -479,7 +481,7 @@ has `@platforms//os:linux` and therefore resolve the
 This will end up building `//bar_tools:barc_linux` but not
 `//bar_tools:barc_windows`.
 
-## Toolchain resolution {:#toolchain-resolution}
+## Toolchain resolution
 
 Note: [Some Bazel rules](/concepts/platforms#status) do not yet support
 toolchain resolution.
@@ -566,7 +568,7 @@ If the rule uses [execution groups](/extending/exec-groups), each execution
 group performs toolchain resolution separately, and each has its own execution
 platform and toolchains.
 
-## Debugging toolchains {:#debugging-toolchains}
+## Debugging toolchains
 
 If you are adding toolchain support to an existing rule, use the
 `--toolchain_resolution_debug=regex` flag. During toolchain resolution, the flag

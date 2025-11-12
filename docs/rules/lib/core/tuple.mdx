@@ -1,0 +1,35 @@
+---
+title: 'tuple'
+---
+
+
+
+The built-in tuple type. Example tuple expressions:
+
+```
+x = (1, 2, 3)
+```
+
+Accessing elements is possible using indexing (starts from `0`):
+
+```
+e = x[1]   # e == 2
+```
+
+Lists support the `+` operator to concatenate two tuples. Example:
+
+```
+x = (1, 2) + (3, 4)   # x == (1, 2, 3, 4)
+x = ("a", "b")
+x += ("c",)            # x == ("a", "b", "c")
+```
+
+Similar to lists, tuples support slice operations:
+
+```
+('a', 'b', 'c', 'd')[1:3]   # ('b', 'c')
+('a', 'b', 'c', 'd')[::2]  # ('a', 'c')
+('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')
+```
+
+Tuples are immutable, therefore `x[1] = "a"` is not supported.

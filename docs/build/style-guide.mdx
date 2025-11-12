@@ -2,7 +2,9 @@
 title: 'BUILD Style Guide'
 ---
 
-## Prefer DAMP BUILD files over DRY {:#prefer-damp-build-files-over-dry}
+
+
+## Prefer DAMP BUILD files over DRY
 
 The DRY principle — "Don't Repeat Yourself" — encourages uniqueness by
 introducing abstractions such as variables and functions to avoid redundancy in
@@ -16,11 +18,11 @@ maintain.
 code, but do need to be maintained by people and tools. That makes DAMP better
 for them than DRY.
 
-## BUILD.bazel file formatting {:#formatting}
+## BUILD.bazel file formatting
 
 `BUILD` file formatting follows the same approach as Go, where a standardized
 tool takes care of most formatting issues.
-[Buildifier](https://github.com/bazelbuild/buildifier){: .external} is a tool that parses and
+[Buildifier](https://github.com/bazelbuild/buildifier) is a tool that parses and
 emits the source code in a standard style. Every `BUILD` file is therefore
 formatted in the same automated way, which makes formatting a non-issue during
 code reviews. It also makes it easier for tools to understand, edit, and
@@ -28,7 +30,7 @@ generate `BUILD` files.
 
 `BUILD` file formatting must match the output of `buildifier`.
 
-### Formatting example {:#formatting-example}
+### Formatting example
 
 ```python
 # Test code implementing the Foo controller.
@@ -53,7 +55,7 @@ py_test(
 )
 ```
 
-## File structure {:#file-structure}
+## File structure
 
 **Recommendation**: Use the following order (every element is optional):
 
@@ -77,7 +79,7 @@ changes (for example, to keep or remove a comment when deleting a rule).
 cc_library(name = "cc")
 ```
 
-## References to targets in the current package {:#targets-current-package}
+## References to targets in the current package
 
 Files should be referred to by their paths relative to the package directory
 (without ever using up-references, such as `..`). Generated files should be
@@ -100,7 +102,7 @@ genrule(
 )
 ```
 
-## Target naming {:#target-naming}
+## Target naming
 
 Target names should be descriptive. If a target contains one source file,
 the target should generally have a name derived from that source (for example, a
@@ -123,11 +125,11 @@ semantics and can cause confusion and unexpected behaviors when they are used.
 In the absence of a prevailing team convention these are some non-binding
 recommendations that are broadly used at Google:
 
-* In general, use ["snake_case"](https://en.wikipedia.org/wiki/Snake_case){: .external}
+* In general, use ["snake_case"](https://en.wikipedia.org/wiki/Snake_case)
     * For a `java_library` with one `src` this means using a name that is not
       the same as the filename without the extension
     * For Java `*_binary` and `*_test` rules, use
-      ["Upper CamelCase"](https://en.wikipedia.org/wiki/Camel_case){: .external}.
+      ["Upper CamelCase"](https://en.wikipedia.org/wiki/Camel_case).
       This allows for the target name to match one of the `src`s. For
       `java_test`, this makes it possible for the `test_class` attribute to be
       inferred from the name of the target.
@@ -144,7 +146,7 @@ recommendations that are broadly used at Google:
          * **`java_proto_library`**: `_java_proto`
          * **`java_lite_proto_library`**: `_java_proto_lite`
 
-## Visibility {:#visibility}
+## Visibility
 
 Visibility should be scoped as tightly as possible, while still allowing access
 by tests and reverse dependencies. Use `__pkg__` and `__subpackages__` as
@@ -156,7 +158,7 @@ project's public API. These could be libraries that are designed to be depended
 on by external projects or binaries that could be used by an external project's
 build process.
 
-## Dependencies {:#dependencies}
+## Dependencies
 
 Dependencies should be restricted to direct dependencies (dependencies
 needed by the sources listed in the rule). Do not list transitive dependencies.
@@ -171,12 +173,12 @@ dependencies of several targets into a variable reduces maintainability, makes
 it impossible for tools to change the dependencies of a target, and can lead to
 unused dependencies.
 
-## Globs {:#globs}
+## Globs
 
 Indicate "no targets" with `[]`. Do not use a glob that matches nothing: it
 is more error-prone and less obvious than an empty list.
 
-### Recursive {:#recursive}
+### Recursive
 
 Do not use recursive globs to match source files (for example,
 `glob(["**/*.java"])`).
@@ -191,11 +193,11 @@ remote caching and parallelism.
 It is good practice to author a `BUILD` file in each directory and define a
 dependency graph between them.
 
-### Non-recursive {:#non-recursive}
+### Non-recursive
 
 Non-recursive globs are generally acceptable.
 
-## Avoid list comprehensions {:#list-comprehensions}
+## Avoid list comprehensions
 
 Avoid using list comprehensions at the top level of a `BUILD.bazel` file.
 Automate repetitive calls by creating each named target with a separate
@@ -237,7 +239,7 @@ my_java_test(name = "test_fake_10",
 ...
 ```
 
-## Don't use deps variables {:#no-dep-vars}
+## Don't use deps variables
 
 Don't use list variables to encapsulate common dependencies:
 
@@ -287,7 +289,7 @@ Let [Gazelle](https://github.com/bazel-contrib/bazel-gazelle) and other tools
 maintain them. There will be repetition, but you won't have to think about how
 to manage the dependencies.
 
-## Prefer literal strings {:#literal-strings}
+## Prefer literal strings
 
 Although Starlark provides string operators for concatenation (`+`) and
 formatting (`%`), use them with caution. It is tempting to factor out common
@@ -338,7 +340,7 @@ proto_library(
 
 [buildozer]: https://github.com/bazelbuild/buildtools/blob/main/buildozer/README.md
 
-## Limit the symbols exported by each `.bzl` file {:#limit-symbols}
+## Limit the symbols exported by each `.bzl` file
 
 Minimize the number of symbols (rules, macros, constants, functions) exported by
 each public `.bzl` (Starlark) file. We recommend that a file should export
@@ -350,7 +352,7 @@ symbols, causing changes to single files to force Bazel to rebuild many targets.
 
 [bzl_library]: https://github.com/bazelbuild/bazel-skylib/blob/main/README.md#bzl_library
 
-## Other conventions {:#other-conventions}
+## Other conventions
 
  * Use uppercase and underscores to declare constants (such as `GLOBAL_CONSTANT`),
    use lowercase and underscores to declare variables (such as `my_variable`).
@@ -369,10 +371,10 @@ symbols, causing changes to single files to force Bazel to rebuild many targets.
    "deflake this target by rerunning it once". `flaky = True` unambiguously says
    "this test is flaky".
 
-## Differences with Python style guide {:#differences-python-style-guide}
+## Differences with Python style guide
 
 Although compatibility with
-[Python style guide](https://www.python.org/dev/peps/pep-0008/){: .external}
+[Python style guide](https://www.python.org/dev/peps/pep-0008/)
 is a goal, there are a few differences:
 
  * No strict line length limit. Long comments and long strings are often split
@@ -384,7 +386,7 @@ is a goal, there are a few differences:
  * Implicit string concatenation is not supported. Use the `+` operator.
    *Rationale*: `BUILD` files contain many string lists. It is easy to forget a
    comma, which leads to a complete different result. This has created many bugs
-   in the past. [See also this discussion.](https://lwn.net/Articles/551438/){: .external}
+   in the past. [See also this discussion.](https://lwn.net/Articles/551438/)
 
  * Use spaces around the `=` sign for keywords arguments in rules. *Rationale*:
    Named arguments are much more frequent than in Python and are always on a

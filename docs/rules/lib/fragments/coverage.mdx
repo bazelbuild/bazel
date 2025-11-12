@@ -1,0 +1,30 @@
+---
+title: 'coverage'
+---
+
+
+
+A configuration fragment representing the coverage configuration.
+
+## Members
+
+- [output\_generator](#output_generator)
+
+## output\_generator
+
+```
+Label coverage.output_generator
+```
+
+ Returns the label pointed to by the [`--coverage_output_generator`](https://bazel.build/reference/command-line-reference#flag--coverage_output_generator) option if coverage collection is enabled, otherwise returns `None`. Can be accessed with [`configuration_field`](../globals/bzl.html#configuration_field):
+
+```
+attr.label(
+    default = configuration_field(
+        fragment = "coverage",
+        name = "output_generator"
+    )
+)
+```
+
+ May return `None`.

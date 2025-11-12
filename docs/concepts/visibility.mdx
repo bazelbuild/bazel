@@ -2,6 +2,8 @@
 title: 'Visibility'
 ---
 
+
+
 This page covers Bazel's two visibility systems:
 [target visibility](#target-visibility) and [load visibility](#load-visibility).
 
@@ -10,7 +12,7 @@ library's public API and its implementation details, and help enforce structure
 as your workspace grows. You can also use visibility when deprecating a public
 API to allow current users while denying new ones.
 
-## Target visibility {:#target-visibility}
+## Target visibility
 
 **Target visibility** controls who may depend on your target — that is, who may
 use your target's label inside an attribute such as `deps`. A target will fail
@@ -36,7 +38,7 @@ The following subsections describe the attribute's format, how to apply it to
 various kinds of targets, and the interaction between the visibility system and
 symbolic macros.
 
-### Visibility specifications {:#visibility-specifications}
+### Visibility specifications
 
 All rule targets have a `visibility` attribute that takes a list of labels. Each
 label has one of the following forms. With the exception of the last form, these
@@ -83,7 +85,7 @@ Note: The `visibility` attribute may not specify non-`package_group` targets.
 Doing so triggers a "Label does not refer to a package group" or "Cycle in
 dependency graph" error.
 
-### Rule target visibility {:#rule-target-visibility}
+### Rule target visibility
 
 A rule target's visibility is determined by taking its `visibility` attribute
 -- or a suitable default if not given -- and appending the location where the
@@ -133,7 +135,7 @@ convenient for prototyping or in small codebases, but the risk of inadvertently
 creating public targets increases as the codebase grows. It's better to be
 explicit about which targets are part of a package's public interface.
 
-### Generated file target visibility {:#generated-file-target-visibility}
+### Generated file target visibility
 
 A generated file target has the same visibility as the rule target that
 generates it.
@@ -164,7 +166,7 @@ some_rule(
 )
 ```
 
-### Source file target visibility {:#source-file-target-visibility}
+### Source file target visibility
 
 Source file targets can either be explicitly declared using
 [`exports_files`](/reference/be/functions#exports_files), or implicitly created
@@ -181,7 +183,7 @@ file.
 
 For files that do not appear in a call to `exports_files`, the visibility
 depends on the value of the flag
-[`--incompatible_no_implicit_file_export`](https://github.com/bazelbuild/bazel/issues/10225){: .external}:
+[`--incompatible_no_implicit_file_export`](https://github.com/bazelbuild/bazel/issues/10225):
 
 *   If the flag is true, the visibility is private.
 
@@ -197,7 +199,7 @@ source file. For example, instead of calling `exports_files` on a `.java` file,
 wrap the file in a non-private `java_library` target. Generally, rule targets
 should only directly reference source files that live in the same package.
 
-#### Example {:#source-file-visibility-example}
+#### Example
 
 File `//frobber/data/BUILD`:
 
@@ -214,19 +216,19 @@ cc_binary(
 )
 ```
 
-### Config setting visibility {:#config-setting-visibility}
+### Config setting visibility
 
 Historically, Bazel has not enforced visibility for
 [`config_setting`](/reference/be/general#config_setting) targets that are
 referenced in the keys of a [`select()`](/reference/be/functions#select). There
 are two flags to remove this legacy behavior:
 
-*   [`--incompatible_enforce_config_setting_visibility`](https://github.com/bazelbuild/bazel/issues/12932){: .external}
+*   [`--incompatible_enforce_config_setting_visibility`](https://github.com/bazelbuild/bazel/issues/12932)
     enables visibility checking for these targets. To assist with migration, it
     also causes any `config_setting` that does not specify a `visibility` to be
     considered public (regardless of package-level `default_visibility`).
 
-*   [`--incompatible_config_setting_private_default_visibility`](https://github.com/bazelbuild/bazel/issues/12933){: .external}
+*   [`--incompatible_config_setting_private_default_visibility`](https://github.com/bazelbuild/bazel/issues/12933)
     causes `config_setting`s that do not specify a `visibility` to respect the
     package's `default_visibility` and to fallback on private visibility, just
     like any other rule target. It is a no-op if
@@ -236,12 +238,12 @@ Avoid relying on the legacy behavior. Any `config_setting` that is intended to
 be used outside the current package should have an explicit `visibility`, if the
 package does not already specify a suitable `default_visibility`.
 
-### Package group target visibility {:#package-group-target-visibility}
+### Package group target visibility
 
 `package_group` targets do not have a `visibility` attribute. They are always
 publicly visible.
 
-### Visibility of implicit dependencies {:#visibility-implicit-dependencies}
+### Visibility of implicit dependencies
 
 Some rules have [implicit dependencies](/extending/rules#private_attributes_and_implicit_dependencies) —
 dependencies that are not spelled out in a `BUILD` file but are inherent to
@@ -259,12 +261,12 @@ respect to the `cc_library` target.
 If you want to restrict the usage of a rule to certain packages, use
 [load visibility](#load-visibility) instead.
 
-### Visibility and symbolic macros {:#symbolic-macros}
+### Visibility and symbolic macros
 
 This section describes how the visibility system interacts with
 [symbolic macros](/extending/macros).
 
-#### Locations within symbolic macros {:#locations-within-symbolic-macros}
+#### Locations within symbolic macros
 
 A key detail of the visibility system is how we determine the location of a
 declaration. For targets that are not declared in a symbolic macro, the location
@@ -301,7 +303,7 @@ composes, in the sense that a chain of nested calls to submacros may each pass
 the caller at each level, without exposing any of the macros' implementation
 details.
 
-#### Delegating privileges to a submacro {:#delegating-privileges-to-a-submacro}
+#### Delegating privileges to a submacro
 
 The visibility model has a special feature to allow a macro to delegate its
 permissions to a submacro. This is important for factoring and composing macros.
@@ -377,7 +379,7 @@ label-typed attributes.
 Note: Visibility delegation does not work for labels that were not passed into
 the macro, such as labels derived by string manipulation.
 
-#### Finalizers {:#finalizers}
+#### Finalizers
 
 Targets declared in a rule finalizer (a symbolic macro with `finalizer = True`),
 in addition to seeing targets following the usual symbolic macro visibility
@@ -396,7 +398,7 @@ finalizer, the finalizer cannot see such a target. Note, however, that a
 `native.existing_rules()`-based legacy macro will also be unable to see such a
 target.
 
-## Load visibility {:#load-visibility}
+## Load visibility
 
 **Load visibility** controls whether a `.bzl` file may be loaded from other
 `BUILD` or `.bzl` files outside the current package.
@@ -421,7 +423,7 @@ not be done for submitted code.
 
 Load visibility is available as of Bazel 6.0.
 
-### Declaring load visibility {:#declaring-load-visibility}
+### Declaring load visibility
 
 To set the load visibility of a `.bzl` file, call the
 [`visibility()`](/rules/lib/globals/bzl#visibility) function from within the file.
@@ -438,7 +440,7 @@ that do not call `visibility()` are always loadable from anywhere in the
 workspace. It is a good idea to add `visibility("private")` to the top of any
 new `.bzl` file that is not specifically intended for use outside the package.
 
-### Example {:#load-visibility-example}
+### Example
 
 ```starlark
 # //mylib/internal_defs.bzl
@@ -472,11 +474,11 @@ load("//mylib:internal_defs.bzl", "helper")  # error
 ...
 ```
 
-### Load visibility practices {:#load-visibility-practices}
+### Load visibility practices
 
 This section describes tips for managing load visibility declarations.
 
-#### Factoring visibilities {:#factoring-visibilities}
+#### Factoring visibilities
 
 When multiple `.bzl` files should have the same visibility, it can be helpful to
 factor their package specifications into a common list. For example:
@@ -514,7 +516,7 @@ visibility(clients)
 This helps prevent accidental skew between the various `.bzl` files'
 visibilities. It also is more readable when the `clients` list is large.
 
-#### Composing visibilities {:#composing-visibilities}
+#### Composing visibilities
 
 Sometimes a `.bzl` file might need to be visible to an allowlist that is
 composed of multiple smaller allowlists. This is analogous to how a
@@ -534,7 +536,7 @@ load("//some_big_client:defs.bzl", "their_remaining_uses")
 visibility(our_packages + their_remaining_uses)
 ```
 
-#### Deduplicating with package groups {:#deduplicating-with-package-groups}
+#### Deduplicating with package groups
 
 Unlike target visibility, you cannot define a load visibility in terms of a
 `package_group`. If you want to reuse the same allowlist for both target
@@ -557,7 +559,7 @@ package_group(
 This only works if the list does not contain any negative package
 specifications.
 
-#### Protecting individual symbols {:#protecting-individual-symbols}
+#### Protecting individual symbols
 
 Any Starlark symbol whose name begins with an underscore cannot be loaded from
 another file. This makes it easy to create private symbols, but does not allow
@@ -599,7 +601,7 @@ visibility("public")
 public_util = _public_util
 ```
 
-#### bzl-visibility Buildifier lint {:#bzl-visibility-buildifier-lint}
+#### bzl-visibility Buildifier lint
 
 There is a [Buildifier lint](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility)
 that provides a warning if users load a file from a directory named `internal`

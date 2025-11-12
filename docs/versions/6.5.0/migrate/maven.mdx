@@ -2,6 +2,7 @@
 title: 'Migrating from Maven to Bazel'
 ---
 
+
 This page describes how to migrate from Maven to Bazel, including the
 prerequisites and installation steps. It describes the differences
 between Maven and Bazel, and provides a migration example using the
@@ -13,19 +14,19 @@ CI system, and any other relevant systems. You can run Maven and Bazel in the
 same repository.
 
 Note: While Bazel supports downloading and publishing Maven artifacts with
-[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external){: .external},
+[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external),
 it does not directly support Maven-based plugins. Maven plugins can't be
 directly run by Bazel since there's no Maven compatibility layer.
 
-## Before you begin {:#before-you-begin}
+## Before you begin
 
-*  [Install Bazel](/versions/6.5.0/install) if it's not yet installed.
+*  [Install Bazel](/install) if it's not yet installed.
 *  If you're new to Bazel, go through the tutorial
-   [Introduction to Bazel: Build Java](/versions/6.5.0/tutorials/java) before you start
+   [Introduction to Bazel: Build Java](/tutorials/java) before you start
    migrating. The tutorial explains Bazel's concepts, structure, and label
    syntax.
 
-## Differences between Maven and Bazel {:#dif-maven-bazel}
+## Differences between Maven and Bazel
 
 *  Maven uses top-level `pom.xml` file(s). Bazel supports multiple build
    files and multiple targets per `BUILD` file, allowing for builds that
@@ -36,7 +37,7 @@ directly run by Bazel since there's no Maven compatibility layer.
 *  As you add new sections to the project, with Bazel you may need to add new
    `BUILD` files. Best practice is to add a `BUILD` file to each new Java package.
 
-## Migrate from Maven to Bazel {:#migrate-maven-bazel}
+## Migrate from Maven to Bazel
 
 The steps below describe how to migrate your project to Bazel:
 
@@ -46,7 +47,7 @@ The steps below describe how to migrate your project to Bazel:
 4.  [Build using Bazel](#4-build)
 
 Examples below come from a migration of the
-[Guava project](https://github.com/google/guava){: .external} from Maven to Bazel.
+[Guava project](https://github.com/google/guava) from Maven to Bazel.
 The Guava project used is release `v31.1`. The examples using Guava do not walk through
 each step in the migration, but they do show the files and contents that are
 generated or added manually for the migration.
@@ -56,7 +57,7 @@ $ git clone https://github.com/google/guava.git && cd guava
 $ git checkout v31.1
 ```
 
-### 1. Create the WORKSPACE file {:#1-build}
+### 1. Create the WORKSPACE file
 
 Create a file named `WORKSPACE` at the root of your project. If your project
 has no external dependencies, the workspace file can be empty.
@@ -65,16 +66,16 @@ If your project depends on files or packages that are not in one of the
 project's directories, specify these external dependencies in the workspace
 file. To automate the listing of external dependencies for the workspace file,
 use `rules_jvm_external`. For instructions about using this ruleset, see
-[the README](https://github.com/bazelbuild/rules_jvm_external/#rules_jvm_external){: .external}.
+[the README](https://github.com/bazelbuild/rules_jvm_external/#rules_jvm_external).
 
 Note: The previously recommended tool, `generate_workspace`, is no longer
 maintained by the Bazel team.
 
-#### Guava project example: external dependencies {:#guava-1}
+#### Guava project example: external dependencies
 
 You can list the external dependencies of the
-[Guava project](https://github.com/google/guava){: .external} with the
-[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external){: .external}
+[Guava project](https://github.com/google/guava) with the
+[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
 ruleset.
 
 Add the following snippet to the `WORKSPACE` file:
@@ -108,7 +109,7 @@ maven_install(
 )
 ```
 
-### 2. Create one BUILD file {:#2-build}
+### 2. Create one BUILD file
 
 Now that you have your workspace defined and external dependencies (if
 applicable) listed, you need to create `BUILD` files to describe how your project
@@ -191,7 +192,7 @@ targets.
     The project has now been successfully built with Bazel. You will need
     to add more `BUILD` files to allow incremental builds of the project.
 
-#### Guava project example: start with one BUILD file {:#guava-2}
+#### Guava project example: start with one BUILD file
 
 When migrating the Guava project to Bazel, initially one `BUILD` file is used
 to build the entire project. Here are the contents of this initial `BUILD`
@@ -214,7 +215,7 @@ java_library(
 )
 ```
 
-### 3. Create more BUILD files (optional) {:#3-build}
+### 3. Create more BUILD files (optional)
 
 Bazel does work with just one `BUILD file`, as you saw after completing your first
 build. You should still consider breaking the build into smaller chunks by
@@ -246,7 +247,7 @@ Tips for adding more `BUILD` files:
    that the project continues to build with Bazel as you add each build
    file. Run `bazel build //...` to ensure all of your targets still build.
 
-### 4. Build using Bazel {:#4-build}
+### 4. Build using Bazel
 
 You've been building using Bazel as you add `BUILD` files to validate the setup
 of the build.

@@ -1,0 +1,139 @@
+---
+title: 'LibraryToLink'
+---
+
+
+
+A library the user can link against.
+
+## Members
+
+- [alwayslink](#alwayslink)
+- [dynamic\_library](#dynamic_library)
+- [interface\_library](#interface_library)
+- [lto\_bitcode\_files](#lto_bitcode_files)
+- [objects](#objects)
+- [pic\_lto\_bitcode\_files](#pic_lto_bitcode_files)
+- [pic\_objects](#pic_objects)
+- [pic\_static\_library](#pic_static_library)
+- [resolved\_symlink\_dynamic\_library](#resolved_symlink_dynamic_library)
+- [resolved\_symlink\_interface\_library](#resolved_symlink_interface_library)
+- [static\_library](#static_library)
+
+## alwayslink
+
+```
+bool LibraryToLink.alwayslink
+```
+
+ Whether to link the static library/objects in the --whole\_archive block.
+
+
+
+## dynamic\_library
+
+```
+File LibraryToLink.dynamic_library
+```
+
+ `Artifact` of dynamic library to be linked. Always used for runtime and used for linking if `interface_library` is not passed.
+ May return `None`.
+
+
+
+## interface\_library
+
+```
+File LibraryToLink.interface_library
+```
+
+ `Artifact` of interface library to be linked.
+ May return `None`.
+
+
+
+## lto\_bitcode\_files
+
+```
+sequence LibraryToLink.lto_bitcode_files
+```
+
+ `List` of LTO bitcode files in the library.
+ May return `None`.
+
+
+
+## objects
+
+```
+sequence LibraryToLink.objects
+```
+
+ `List` of object files in the library.
+ May return `None`.
+
+
+
+## pic\_lto\_bitcode\_files
+
+```
+sequence LibraryToLink.pic_lto_bitcode_files
+```
+
+ `List` of pic LTO bitcode files in the library.
+ May return `None`.
+
+
+
+## pic\_objects
+
+```
+sequence LibraryToLink.pic_objects
+```
+
+ `List` of pic object files in the library.
+ May return `None`.
+
+
+
+## pic\_static\_library
+
+```
+File LibraryToLink.pic_static_library
+```
+
+ `Artifact` of pic static library to be linked.
+ May return `None`.
+
+
+
+## resolved\_symlink\_dynamic\_library
+
+```
+File LibraryToLink.resolved_symlink_dynamic_library
+```
+
+ The resolved `Artifact` of the dynamic library to be linked if `dynamic_library` is a symlink, otherwise this is None.
+ May return `None`.
+
+
+
+## resolved\_symlink\_interface\_library
+
+```
+File LibraryToLink.resolved_symlink_interface_library
+```
+
+ The resolved `Artifact` of the interface library to be linked if `interface_library` is a symlink, otherwise this is None.
+ May return `None`.
+
+
+
+## static\_library
+
+```
+File LibraryToLink.static_library
+```
+
+ `Artifact` of static library to be linked.
+ May return `None`.

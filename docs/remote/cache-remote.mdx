@@ -2,6 +2,8 @@
 title: 'Debugging Remote Cache Hits for Remote Execution'
 ---
 
+
+
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
 
@@ -9,7 +11,7 @@ This page assumes that you have a build and/or test that successfully
 utilizes remote execution, and you want to ensure that you are effectively
 utilizing remote cache.
 
-## Checking your cache hit rate {:#check-cache-hits}
+## Checking your cache hit rate
 
 In the standard output of your Bazel run, look at the `INFO` line that lists
 processes, which roughly correspond to Bazel actions. That line details
@@ -31,11 +33,11 @@ cache hits are not included in this summary. If you are getting 0 processes
 (or a number lower than expected), run `bazel clean` followed by your build/test
 command.
 
-## Troubleshooting cache hits {:#troubleshooting-cache-hits}
+## Troubleshooting cache hits
 
 If you are not getting the cache hit rate you are expecting, do the following:
 
-### Ensure re-running the same build/test command produces cache hits {:#rerun-cache-hits}
+### Ensure re-running the same build/test command produces cache hits
 
 1. Run the build(s) and/or test(s) that you expect to populate the cache. The
    first time a new build is run on a particular stack, you can expect no remote
@@ -62,7 +64,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_compact_file=/tmp/exec1.log
+      bazel <var>--optional-flags</var> build //<var>your:target</var> --execution_log_compact_file=/tmp/exec1.log
       ```
 
    b. [Compare the execution logs](#compare-logs) between the
@@ -106,7 +108,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       set to `false`: either at the command line or in a
       [bazelrc](/run/bazelrc#bazelrc-file-locations) file.
 
-### Ensure caching across machines {:#caching-across-machines}
+### Ensure caching across machines
 
 After cache hits are happening as expected on the same machine, run the
 same build(s)/test(s) on a different machine. If you suspect that caching is
@@ -136,7 +138,7 @@ not happening across machines, do the following:
     for discrepancies as well as properties from the host environment leaking
     into either of the builds.
 
-## Comparing the execution logs {:#compare-logs}
+## Comparing the execution logs
 
 The execution log contains records of actions executed during the build.
 Each record describes both the inputs (not only files, but also command line

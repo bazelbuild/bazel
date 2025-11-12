@@ -2,6 +2,7 @@
 title: 'Bazel Tutorial: Build an Android App'
 ---
 
+
 **Note:** There are known limitations on using Bazel for building Android apps.
 Visit the [rules_android issues page](https://github.com/bazelbuild/rules_android/issues)
 to see the list of known issues. While the Bazel team and Open Source Software
@@ -40,14 +41,14 @@ Before you begin the tutorial, install the following software:
 
 * **Bazel.** To install, follow the [installation instructions](/install).
 * **Android Studio.** To install, follow the steps to [download Android
-  Studio](https://developer.android.com/sdk/index.html){: .external}.
+  Studio](https://developer.android.com/sdk/index.html).
   Execute the setup wizard to download the SDK and configure your environment.
 * (Optional) **Git.** Use `git` to download the Android app project.
 
 ### Get the sample project
 
 For the sample project, use the tutorial Android app project in
-[Bazel's examples repository](https://github.com/bazelbuild/examples/tree/main/android/tutorial){: .external}.
+[Bazel's examples repository](https://github.com/bazelbuild/examples/tree/main/android/tutorial).
 
 This app has a single button that prints a greeting when clicked:
 
@@ -56,7 +57,7 @@ This app has a single button that prints a greeting when clicked:
 **Figure 1.** Android app button greeting.
 
 Clone the repository with `git` (or [download the ZIP file
-directly](https://github.com/bazelbuild/examples/archive/master.zip){: .external}):
+directly](https://github.com/bazelbuild/examples/archive/master.zip)):
 
 ```posix-terminal
 git clone https://github.com/bazelbuild/examples
@@ -98,6 +99,7 @@ The key files and directories are:
 | Android source files    | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                   |
 | Resource file directory | `src/main/java/com/example/bazel/res/`                                                   |
 
+
 ## Build with Bazel
 
 ### Set up the workspace
@@ -135,7 +137,7 @@ ERROR: The 'info' command is only supported from within a workspace.
 ### Integrate with the Android SDK
 
 Bazel needs to run the Android SDK
-[build tools](https://developer.android.com/tools/revisions/build-tools.html){: .external}
+[build tools](https://developer.android.com/tools/revisions/build-tools.html)
 to build the app. This means that you need to add some information to your
 `MODULE.bazel` file so that Bazel knows where to find them.
 
@@ -159,7 +161,7 @@ latest version of build tools installed within that location.
 
 You can set the `ANDROID_HOME` variable to the location of the Android SDK. Find
 the path to the installed SDK using Android Studio's [SDK
-Manager](https://developer.android.com/studio/intro/update#sdk-manager){: .external}.
+Manager](https://developer.android.com/studio/intro/update#sdk-manager).
 Assuming the SDK is installed to default locations, you can use the following
 commands to set the `ANDROID_HOME` variable:
 
@@ -180,20 +182,22 @@ them permanent, run the following commands:
 | Windows (Command Prompt) | `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
 | Windows (PowerShell)     | `[System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
 
+
 **Optional:** If you want to compile native code into your Android app, you
 also need to download the [Android
-NDK](https://developer.android.com/ndk/downloads/index.html){: .external}
+NDK](https://developer.android.com/ndk/downloads/index.html)
 and use `rules_android_ndk` by adding the following line to your `MODULE.bazel` file:
 
 ```python
 bazel_dep(name = "rules_android_ndk", version = "0.1.3")
 ```
 
+
 For more information, read [Using the Android Native Development Kit with
 Bazel](/docs/android-ndk).
 
 It's not necessary to set the API levels to the same value for the SDK and NDK.
-[This page](https://developer.android.com/ndk/guides/stable_apis.html){: .external}
+[This page](https://developer.android.com/ndk/guides/stable_apis.html)
 contains a map from Android releases to NDK-supported API levels.
 
 ### Create a BUILD file
@@ -233,7 +237,7 @@ build an Android app.
 
 For this tutorial, you'll first use the
 `android_library` rule to tell Bazel to build an [Android library
-module](http://developer.android.com/tools/projects/index.html#LibraryProjects){: .external}
+module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. You'll then use the
 `android_binary` rule to tell Bazel how to build the Android application package.
 
@@ -349,13 +353,14 @@ file:
 | Windows (Command Prompt) | `dir bazel-bin\src\main` |
 | Windows (PowerShell)     | `ls bazel-bin\src\main`  |
 
+
 ### Run the app
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using `bazel mobile-install`.
 This command uses the Android Debug Bridge (`adb`) to communicate with the
 device. You must set up your device to use `adb` following the instructions in
-[Android Debug Bridge](http://developer.android.com/tools/help/adb.html){: .external}
+[Android Debug Bridge](http://developer.android.com/tools/help/adb.html)
 before deployment. You can also choose to install the app on the Android emulator
 included in Android Studio. Make sure the emulator is running before executing
 the command below.
@@ -395,13 +400,13 @@ For more details, see these pages:
 * Open issues on [rules_android GitHub](https://github.com/bazelbuild/rules_android/issues)
 * More information on [mobile-install](/docs/mobile-install)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
-  repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external){: .external}
-* Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel){: .external}
+  repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
+* Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel)
   integration.
 * Integrating C and C++ code into your Android app with the [NDK](/docs/android-ndk)
 * See more Bazel example projects of:
-  * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app){: .external}
-  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test){: .external}
-  * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test){: .external}
+  * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
+  * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test)
+  * [Espresso testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_instrumentation_test)
 
 Happy building!

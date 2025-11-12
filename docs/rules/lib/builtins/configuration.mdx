@@ -1,0 +1,77 @@
+---
+title: 'configuration'
+---
+
+
+
+This object holds information about the environment in which the build is running. See the [Rules page](https://bazel.build/extending/rules#configurations) for more on the general concept of configurations.
+
+## Members
+
+- [coverage\_enabled](#coverage_enabled)
+- [default\_shell\_env](#default_shell_env)
+- [host\_path\_separator](#host_path_separator)
+- [short\_id](#short_id)
+- [test\_env](#test_env)
+
+## coverage\_enabled
+
+```
+bool configuration.coverage_enabled
+```
+
+ A boolean that tells whether code coverage is enabled for this run. Note that this does not compute whether a specific rule should be instrumented for code coverage data collection. For that, see the [`ctx.coverage_instrumented`](../builtins/ctx.html#coverage_instrumented) function.
+
+
+
+## default\_shell\_env
+
+```
+dict configuration.default_shell_env
+```
+
+ A dictionary representing the static local shell environment. It maps variables to their values (strings).
+
+
+
+## host\_path\_separator
+
+```
+string configuration.host_path_separator
+```
+
+ Returns the separator for PATH environment variable, which is ':' on Unix.
+
+
+
+## short\_id
+
+```
+string configuration.short_id
+```
+
+ A short identifier for this configuration understood by the `config` and query subcommands.
+
+Use this to distinguish different configurations for the same target in a way that is friendly to humans and tool usage, for example in an aspect used by an IDE. Keep in mind the following caveats:
+
+- The value may differ across Bazel versions, including patch releases.
+- The value encodes the value of **every** flag, including those that aren't otherwise relevant for the current target and may thus invalidate caches more frequently.
+
+
+
+
+  ## test\_env
+
+
+
+
+
+  ```
+  dict configuration.test_env
+  ```
+
+
+
+
+
+   A dictionary containing user-specified test environment variables and their values, as set by the --test\_env options. DO NOT USE! This is not the complete environment!

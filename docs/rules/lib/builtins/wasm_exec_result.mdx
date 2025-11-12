@@ -1,0 +1,47 @@
+---
+title: 'wasm\_exec\_result'
+---
+
+
+
+The result of executing a WebAssembly function with
+`repository_ctx.execute_wasm()`. It contains the function's
+return value and output buffer.
+
+If execution failed before the function returned then the return code will be negative
+and the `error_message` field will be set.
+
+## Members
+
+- [error\_message](#error_message)
+- [output](#output)
+- [return\_code](#return_code)
+
+## error\_message
+
+```
+string wasm_exec_result.error_message
+```
+
+ Contains an error message if execution failed before the function returned.
+
+
+
+## output
+
+```
+string wasm_exec_result.output
+```
+
+ The content of the output buffer returned by the WebAssembly function.
+
+
+
+## return\_code
+
+```
+long wasm_exec_result.return_code
+```
+
+ The return value of the WebAssembly function, or a negative value if execution
+was terminated before the function returned.

@@ -2,12 +2,13 @@
 title: 'Getting Started with Bazel Docker Container'
 ---
 
+
 This page provides details on the contents of the Bazel container, how to build
-the [abseil-cpp](https://github.com/abseil/abseil-cpp){: .external} project using Bazel
+the [abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel
 inside the Bazel container, and how to build this project directly
 from the host machine using the Bazel container with directory mounting.
 
-## Build Abseil project from your host machine with directory mounting {:#build-abseil}
+## Build Abseil project from your host machine with directory mounting
 
 The instructions in this section allow you to build using the Bazel container
 with the sources checked out in your host environment. A container is started up
@@ -57,11 +58,11 @@ docker run \
   build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Build Abseil project from inside the container {:#build-abseil-inside-container}
+## Build Abseil project from inside the container
 
 The instructions in this section allow you to build using the Bazel container
 with the sources inside the container. By starting a container at the beginning
-of your development workflow and doing changes in the worskpace within the
+of your developement workflow and doing changes in the worskpace within the
 container, build results will be cached.
 
 Start a shell in the Bazel container:
@@ -70,7 +71,7 @@ Start a shell in the Bazel container:
 docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
 ```
 
-Each container id is unique. In the instructions below, the container was 5a99103747c6.
+Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
 
 Clone the project.
 
@@ -92,7 +93,7 @@ MemorySanitizer (msan) accordingly.
 root@5a99103747c6:~/abseil-cpp# bazel build --config=--config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Explore the Bazel container {:#explore-bazel-container}
+## Explore the Bazel container
 
 If you haven't already, start an interactive shell inside the Bazel container.
 

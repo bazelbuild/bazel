@@ -1,0 +1,62 @@
+---
+title: 'depset'
+---
+
+
+
+A specialized data structure that supports efficient merge operations and has a defined traversal
+order. Commonly used for accumulating data from transitive dependencies in rules and aspects. For
+more information see [here](/extending/depsets).
+
+The elements of a depset must be hashable and all of the same type (as defined by the built-in
+[`type(x)`](../globals/all#type) function), but depsets are not simply hash
+sets and do not support fast membership tests. If you need a general set datatype, use the core
+[Starlark set](../core/set) type (available since Bazel 8.1); if your .bzl file needs to
+be compatible with older Bazel releases, you can simulate a set by using a dictionary where all keys
+map to `True`.
+
+When tested for truth (that is, when used in a Boolean context such as `if d:` where
+`d` is a depset), a depset is True if and only if it is non-empty; this check is an O(1)
+operation.
+
+Depsets are immutable. They should be created using their
+[constructor function](../globals/bzl.html#depset) and merged or augmented with other
+depsets via the `transitive` argument.
+
+The `order` parameter determines the kind of traversal that is done to convert the
+depset to an iterable. There are four possible values:
+
+- `"default"` (formerly `"stable"`): Order is unspecified (but
+   deterministic).
+
+- `"postorder"` (formerly `"compile"`): A left-to-right post-ordering.
+   Precisely, this recursively traverses all children leftmost-first, then the direct elements
+   leftmost-first.
+
+- `"preorder"` (formerly `"naive_link"`): A left-to-right pre-ordering.
+   Precisely, this traverses the direct elements leftmost-first, then recursively traverses the
+   children leftmost-first.
+
+- `"topological"` (formerly `"link"`): A topological ordering from the root
+   down to the leaves. There is no left-to-right guarantee.
+
+
+Two depsets may only be merged if either both depsets have the same order, or one of them has
+`"default"` order. In the latter case the resulting depset's order will be the same as
+the other's order.
+
+Depsets may contain duplicate values but these will be suppressed when iterating (using
+[`to_list()`](#to_list)). Duplicates may interfere with the ordering
+semantics.
+
+## Members
+
+- [to\_list](#to_list)
+
+## to\_list
+
+```
+list depset.to_list()
+```
+
+ Returns a list of the elements, without duplicates, in the depset's traversal order. Note that order is unspecified (but deterministic) for elements that were added more than once to the depset. Order is also unspecified for `"default"`-ordered depsets, and for elements of child depsets whose order differs from that of the parent depset. The list is a copy; modifying it has no effect on the depset and vice versa.

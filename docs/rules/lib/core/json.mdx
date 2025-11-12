@@ -1,0 +1,127 @@
+---
+title: 'json'
+---
+
+
+
+Module json is a Starlark module of JSON-related functions.
+
+## Members
+
+- [decode](#decode)
+- [encode](#encode)
+- [encode\_indent](#encode_indent)
+- [indent](#indent)
+
+## decode
+
+```
+unknown json.decode(x, default=unbound)
+```
+
+ The decode function has one required positional parameter: a JSON string.
+It returns the Starlark value that the string denotes.
+
+- `"null"`, `"true"` and `"false"` are parsed as `None`, `True`, and `False`.
+
+- Numbers are parsed as int, or as a float if they contain a decimal point or an exponent. Although JSON has no syntax for non-finite values, very large values may be decoded as infinity.
+
+- a JSON object is parsed as a new unfrozen Starlark dict. If the same key string occurs more than once in the object, the last value for the key is kept.
+
+- a JSON array is parsed as new unfrozen Starlark list.
+
+
+If `x` is not a valid JSON encoding and the optional `default` parameter is specified (including specified as `None`), this function returns the `default` value.
+If `x` is not a valid JSON encoding and the optional `default` parameter is _not_ specified, this function fails.
+
+
+### Parameters
+
+ParameterDescription`x`[string](../core/string.html);
+ required
+
+ JSON string to decode.
+ `default`
+ default is `unbound`
+
+ If specified, the value to return when `x` cannot be decoded.
+
+
+## encode
+
+```
+string json.encode(x)
+```
+
+The encode function accepts one required positional argument, which it converts to JSON by cases:
+
+- None, True, and False are converted to 'null', 'true', and 'false', respectively.
+
+- An int, no matter how large, is encoded as a decimal integer. Some decoders may not be able to decode very large integers.
+
+- A float is encoded using a decimal point or an exponent or both, even if its numeric value is an integer. It is an error to encode a non-finite floating-point value.
+
+- A string value is encoded as a JSON string literal that denotes the value. Each unpaired surrogate is replaced by U+FFFD.
+
+- A dict is encoded as a JSON object, in lexicographical key order. It is an error if any key is not a string.
+
+- A list or tuple is encoded as a JSON array.
+
+- A struct-like value is encoded as a JSON object, in field name order.
+
+
+An application-defined type may define its own JSON encoding.
+Encoding any other value yields an error.
+
+
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+## encode\_indent
+
+```
+string json.encode_indent(x, *, prefix='', indent='\t')
+```
+
+ The encode\_indent function is equivalent to `json.indent(json.encode(x), ...)`. See `indent` for description of formatting parameters.
+
+
+### Parameters
+
+ParameterDescription`x`
+ required
+
+`prefix`[string](../core/string.html);
+ default is `''`
+
+`indent`[string](../core/string.html);
+ default is `'\t'`
+
+## indent
+
+```
+string json.indent(s, *, prefix='', indent='\t')
+```
+
+ The indent function returns the indented form of a valid JSON-encoded string.
+Each array element or object field appears on a new line, beginning with the prefix string followed by one or more copies of the indent string, according to its nesting depth.
+The function accepts one required positional parameter, the JSON string,
+and two optional keyword-only string parameters, prefix and indent,
+that specify a prefix of each new line, and the unit of indentation.
+If the input is not valid, the function may fail or return invalid output.
+
+
+
+### Parameters
+
+ParameterDescription`s`[string](../core/string.html);
+ required
+
+`prefix`[string](../core/string.html);
+ default is `''`
+
+`indent`[string](../core/string.html);
+ default is `'\t'`

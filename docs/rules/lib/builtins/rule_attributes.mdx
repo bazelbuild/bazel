@@ -1,0 +1,108 @@
+---
+title: 'rule\_attributes'
+---
+
+
+
+Information about attributes of a rule an aspect is applied to.
+
+## Members
+
+- [attr](#attr)
+- [exec\_groups](#exec_groups)
+- [executable](#executable)
+- [file](#file)
+- [files](#files)
+- [kind](#kind)
+- [toolchains](#toolchains)
+- [var](#var)
+
+## attr
+
+```
+struct rule_attributes.attr
+```
+
+ A struct to access the values of the [attributes](https://bazel.build/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl.html#rule.attrs) provided to the [`rule` function](../globals/bzl.html#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
+
+
+
+## exec\_groups
+
+```
+ExecGroupCollection rule_attributes.exec_groups
+```
+
+ A collection of the execution groups available for the rule the aspect is applied to, indexed by their names.
+
+
+
+## executable
+
+```
+struct rule_attributes.executable
+```
+
+ A `struct` containing executable files defined in [label type attributes](../toplevel/attr.html#label) marked as [`executable=True`](../toplevel/attr.html#label.executable). The struct fields correspond to the attribute names. Each value in the struct is either a [`File`](../builtins/File.html) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `executable=True`, no corresponding struct field is generated. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl).
+
+
+
+## file
+
+```
+struct rule_attributes.file
+```
+
+ A `struct` containing files defined in [label type attributes](../toplevel/attr.html#label) marked as [`allow_single_file`](../toplevel/attr.html#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](../builtins/File.html) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
+
+```
+list(ctx.attr.<ATTR>.files)[0]
+```
+
+In other words, use `file` to access the (singular) [default output](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
+
+
+
+## files
+
+```
+struct rule_attributes.files
+```
+
+ A `struct` containing files defined in [label](../toplevel/attr.html#label) or [label list](../toplevel/attr.html#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](../builtins/File.html) s. It is a shortcut for:
+
+```
+[f for t in ctx.attr.<ATTR> for f in t.files]
+```
+
+ In other words, use `files` to access the [default outputs](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
+
+
+
+## kind
+
+```
+string rule_attributes.kind
+```
+
+ The kind of a rule, such as 'cc\_library'
+
+
+
+## toolchains
+
+```
+ToolchainContext rule_attributes.toolchains
+```
+
+ Toolchains for the default exec group of the rule the aspect is applied to.
+
+
+
+## var
+
+```
+dict rule_attributes.var
+```
+
+ Dictionary (String to String) of configuration variables.

@@ -1,0 +1,74 @@
+---
+title: 'apple\_platform'
+---
+
+
+
+Corresponds to Xcode's notion of a platform as would be found in `Xcode.app/Contents/Developer/Platforms`. Each platform represents an Apple platform type (such as iOS or tvOS) combined with one or more related CPU architectures. For example, the iOS simulator platform supports `x86_64` and `i386` architectures.
+
+Specific instances of this type can be retrieved from the fields of the [apple\_common.platform](../toplevel/apple_common.html#platform) struct:
+
+- `apple_common.platform.ios_device`
+- `apple_common.platform.ios_simulator`
+- `apple_common.platform.macos`
+- `apple_common.platform.tvos_device`
+- `apple_common.platform.tvos_simulator`
+- `apple_common.platform.watchos_device`
+- `apple_common.platform.watchos_simulator`
+
+More commonly, however, the [apple](../fragments/apple.html) configuration fragment has fields/methods that allow rules to determine the platform for which a target is being built.
+
+Example:
+
+```
+p = apple_common.platform.ios_device
+print(p.name_in_plist)  # 'iPhoneOS'
+
+```
+
+## Members
+
+- [is\_device](#is_device)
+- [name](#name)
+- [name\_in\_plist](#name_in_plist)
+- [platform\_type](#platform_type)
+
+## is\_device
+
+```
+bool apple_platform.is_device
+```
+
+ Returns `True` if this platform is a device platform or `False` if it is a simulator platform.
+
+
+
+## name
+
+```
+string apple_platform.name
+```
+
+ Returns the name aka starlarkKey of this platform.
+
+
+
+## name\_in\_plist
+
+```
+string apple_platform.name_in_plist
+```
+
+ The name of the platform as it appears in the `CFBundleSupportedPlatforms` entry of an Info.plist file and in Xcode's platforms directory, without the extension (for example, `iPhoneOS` or `iPhoneSimulator`).
+
+This name, when converted to lowercase (e.g., `iphoneos`, `iphonesimulator`), can be passed to Xcode's command-line tools like `ibtool` and `actool` when they expect a platform name.
+
+
+
+## platform\_type
+
+```
+string apple_platform.platform_type
+```
+
+ Returns the platform type of this platform.

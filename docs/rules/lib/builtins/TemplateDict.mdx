@@ -1,0 +1,74 @@
+---
+title: 'TemplateDict'
+---
+
+
+
+An Args-like structure for use in ctx.actions.expand\_template(), which allows for deferring evaluation of values till the execution phase.
+
+## Members
+
+- [add](#add)
+- [add\_joined](#add_joined)
+
+## add
+
+```
+TemplateDict TemplateDict.add(key, value)
+```
+
+ Add a String value
+
+
+### Parameters
+
+ParameterDescription`key`[string](../core/string.html);
+ required
+
+ A String key
+ `value`[string](../core/string.html);
+ required
+
+ A String value
+
+
+## add\_joined
+
+```
+TemplateDict TemplateDict.add_joined(key, values, *, join_with, map_each, uniquify=False, format_joined=None, allow_closure=False)
+```
+
+ Add depset of values
+
+
+### Parameters
+
+ParameterDescription`key`[string](../core/string.html);
+ required
+
+ A String key
+ `values`[depset](../builtins/depset.html);
+ required
+
+ The depset whose items will be joined.
+ `join_with`[string](../core/string.html);
+ required
+
+ A delimiter string used to join together the strings obtained from applying `map_each`, in the same manner as [`string.join()`](../core/string.html#join).
+ `map_each`
+ callable;
+ required
+
+ A Starlark function accepting a single argument and returning either a string, `None`, or a list of strings. This function is applied to each item of the depset specified in the `values` parameter
+ `uniquify`[bool](../core/bool.html);
+ default is `False`
+
+ If true, duplicate strings derived from `values` will be omitted. Only the first occurrence of each string will remain. Usually this feature is not needed because depsets already omit duplicates, but it can be useful if `map_each` emits the same string for multiple items.
+ `format_joined`[string](../core/string.html); or `None`;
+ default is `None`
+
+ An optional format string pattern applied to the joined string. The format string must have exactly one '%s' placeholder.
+ `allow_closure`[bool](../core/bool.html);
+ default is `False`
+
+ If true, allows the use of closures in function parameters like `map_each`. Usually this isn't necessary and it risks retaining large analysis-phase data structures into the execution phase.

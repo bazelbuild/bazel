@@ -2,10 +2,11 @@
 title: 'Challenges of Writing Rules'
 ---
 
+
 This page gives a high-level overview of the specific issues and challenges
 of writing efficient Bazel rules.
 
-## Summary Requirements {:#summary-requirements}
+## Summary Requirements
 
 * Assumption: Aim for Correctness, Throughput, Ease of Use & Latency
 * Assumption: Large Scale Repositories
@@ -17,14 +18,14 @@ of writing efficient Bazel rules.
   requires Unusual Coding Patterns
 * Intrinsic: Avoiding Quadratic Time and Memory Consumption is Hard
 
-## Assumptions {:#assumptions}
+## Assumptions
 
 Here are some assumptions made about the build system, such as need for
 correctness, ease of use, throughput, and large scale repositories. The
 following sections address these assumptions and offer guidelines to ensure
 rules are written in an effective manner.
 
-### Aim for correctness, throughput, ease of use & latency {:#aim}
+### Aim for correctness, throughput, ease of use & latency
 
 We assume that the build system needs to be first and foremost correct with
 respect to incremental builds. For a given source tree, the output of the
@@ -33,7 +34,7 @@ like. In the first approximation, this means Bazel needs to know every single
 input that goes into a given build step, such that it can rerun that step if any
 of the inputs change. There are limits to how correct Bazel can get, as it leaks
 some information such as date / time of the build, and ignores certain types of
-changes such as changes to file attributes. [Sandboxing](/versions/6.5.0/docs/sandboxing)
+changes such as changes to file attributes. [Sandboxing](/docs/sandboxing)
 helps ensure correctness by preventing reads to undeclared input files. Besides
 the intrinsic limits of the system, there are a few known correctness issues,
 most of which are related to Fileset or the C++ rules, which are both hard
@@ -55,7 +56,7 @@ message that a `BUILD` file has a typo.
 Note that these goals often overlap; latency is as much a function of throughput
 of the remote execution service as is correctness relevant for ease of use.
 
-### Large scale repositories {:#large-repos}
+### Large scale repositories
 
 The build system needs to operate at the scale of large repositories where large
 scale means that it does not fit on a single hard drive, so it is impossible to
@@ -66,7 +67,7 @@ hundreds of thousands of globs. While it is theoretically possible to read all
 reasonable amount of time and memory. As such, it is critical that `BUILD` files
 can be loaded and parsed independently.
 
-### BUILD-like description language {:#language}
+### BUILD-like description language
 
 In this context, we assume a configuration language that is
 roughly similar to `BUILD` files in declaration of library and binary rules
@@ -74,12 +75,12 @@ and their interdependencies. `BUILD` files can be read and parsed independently,
 and we avoid even looking at source files whenever we can (except for
 existence).
 
-## Historic {:#historic}
+## Historic
 
 There are differences between Bazel versions that cause challenges and some
 of these are outlined in the following sections.
 
-### Hard separation between loading, analysis, and execution is outdated but still affects the API {:#loading-outdated}
+### Hard separation between loading, analysis, and execution is outdated but still affects the API
 
 Technically, it is sufficient for a rule to know the input and output files of
 an action just before the action is sent to remote execution. However, the
@@ -100,12 +101,12 @@ output of an action; instead, it needs to generate a partial directed bipartite
 graph of build steps and output file names that is only determined from the rule
 itself and its dependencies.
 
-## Intrinsic {:#intrinsic}
+## Intrinsic
 
 There are some intrinsic properties that make writing rules challenging and
 some of the most common ones are described in the following sections.
 
-### Remote execution and caching are hard {:#remote-execution}
+### Remote execution and caching are hard
 
 Remote execution and caching improve build times in large repositories by
 roughly two orders of magnitude compared to running the build on a single
@@ -121,12 +122,12 @@ the scheduler replies with the digests of the output files; the files itself are
 addressed by digest later on. However, this imposes restrictions on the Bazel
 rules, which need to declare all input files ahead of time.
 
-### Using change information for correct and fast incremental builds requires unusual coding patterns {:#coding-patterns}
+### Using change information for correct and fast incremental builds requires unusual coding patterns
 
 Above, we argued that in order to be correct, Bazel needs to know all the input
 files that go into a build step in order to detect whether that build step is
 still up-to-date. The same is true for package loading and rule analysis, and we
-have designed [Skyframe](/versions/6.5.0/reference/skyframe) to handle this
+have designed [Skyframe](/reference/skyframe) to handle this
 in general. Skyframe is a graph library and evaluation framework that takes a
 goal node (such as 'build //foo with these options'), and breaks it down into
 its constituent parts, which are then evaluated and combined to yield this
@@ -174,7 +175,7 @@ in the first place. The danger of accidental use of such APIs is just too big -
 several Bazel bugs in the past were caused by rules using unsafe APIs, even
 though the rules were written by the Bazel team or other domain experts.
 
-### Avoiding quadratic time and memory consumption is hard {:#avoid}
+### Avoiding quadratic time and memory consumption is hard
 
 To make matters worse, apart from the requirements imposed by Skyframe, the
 historical constraints of using Java, and the outdatedness of the rules API,
@@ -202,13 +203,13 @@ the Java runtime classpath, or the C++ linker command line. For example, it
 could expand the command line string representation of the C++ link action. N/2
 copies of N/2 elements is O(N^2) memory.
 
-#### Custom collections classes to avoid quadratic complexity {:#custom-classes}
+#### Custom collections classes to avoid quadratic complexity
 
 Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by
 avoiding the copy at each step. Almost all of these data structures have set
 semantics, so we called it
-[depset](/versions/6.5.0/rules/lib/depset)
+[depset](/rules/lib/depset)
 (also known as `NestedSet` in the internal implementation). The majority of
 changes to reduce Bazel's memory consumption over the past several years were
 changes to use depsets instead of whatever was previously used.

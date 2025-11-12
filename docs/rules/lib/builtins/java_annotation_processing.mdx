@@ -1,0 +1,87 @@
+---
+title: 'java\_annotation\_processing'
+---
+
+
+
+Information about jars that are a result of annotation processing for a Java rule.
+
+## Members
+
+- [class\_jar](#class_jar)
+- [enabled](#enabled)
+- [processor\_classnames](#processor_classnames)
+- [processor\_classpath](#processor_classpath)
+- [source\_jar](#source_jar)
+- [transitive\_class\_jars](#transitive_class_jars)
+- [transitive\_source\_jars](#transitive_source_jars)
+
+## class\_jar
+
+```
+File java_annotation_processing.class_jar
+```
+
+ Deprecated: Please use `JavaInfo.java_outputs.generated_class_jar` instead.
+ May return `None`.
+
+
+
+## enabled
+
+```
+bool java_annotation_processing.enabled
+```
+
+ Deprecated. Returns true if annotation processing was applied on this target.
+
+
+
+## processor\_classnames
+
+```
+list java_annotation_processing.processor_classnames
+```
+
+ Deprecated: Please use `JavaInfo.plugins` instead. Returns class names of annotation processors applied to this rule.
+
+
+
+## processor\_classpath
+
+```
+depset java_annotation_processing.processor_classpath
+```
+
+ Deprecated: Please use `JavaInfo.plugins` instead. Returns a classpath of annotation processors applied to this rule.
+
+
+
+## source\_jar
+
+```
+File java_annotation_processing.source_jar
+```
+
+ Deprecated: Please use `JavaInfo.java_outputs.generated_source_jar` instead.
+ May return `None`.
+
+
+
+## transitive\_class\_jars
+
+```
+depset java_annotation_processing.transitive_class_jars
+```
+
+ Deprecated. Returns a transitive set of class file jars resulting from annotation processing of this rule and its dependencies.
+
+
+
+## transitive\_source\_jars
+
+```
+depset java_annotation_processing.transitive_source_jars
+```
+
+ Deprecated. Returns a transitive set of source archives resulting from annotation processing of this rule and its dependencies.

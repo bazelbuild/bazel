@@ -1,0 +1,132 @@
+---
+title: 'JavaRuntimeInfo'
+---
+
+
+
+Information about the Java runtime being used.
+
+## Members
+
+- [default\_cds](#default_cds)
+- [files](#files)
+- [hermetic\_files](#hermetic_files)
+- [hermetic\_static\_libs](#hermetic_static_libs)
+- [java\_executable\_exec\_path](#java_executable_exec_path)
+- [java\_executable\_runfiles\_path](#java_executable_runfiles_path)
+- [java\_home](#java_home)
+- [java\_home\_runfiles\_path](#java_home_runfiles_path)
+- [lib\_ct\_sym](#lib_ct_sym)
+- [lib\_modules](#lib_modules)
+- [version](#version)
+
+## default\_cds
+
+```
+File JavaRuntimeInfo.default_cds
+```
+
+ Returns the JDK default CDS archive.
+ May return `None`.
+
+
+
+## files
+
+```
+depset JavaRuntimeInfo.files
+```
+
+ Returns the files in the Java runtime.
+
+
+
+## hermetic\_files
+
+```
+depset JavaRuntimeInfo.hermetic_files
+```
+
+ Returns the files in the Java runtime needed for hermetic deployments.
+
+
+
+## hermetic\_static\_libs
+
+```
+sequence JavaRuntimeInfo.hermetic_static_libs
+```
+
+ Returns the JDK static libraries.
+
+
+
+## java\_executable\_exec\_path
+
+```
+string JavaRuntimeInfo.java_executable_exec_path
+```
+
+ Returns the execpath of the Java executable.
+
+
+
+## java\_executable\_runfiles\_path
+
+```
+string JavaRuntimeInfo.java_executable_runfiles_path
+```
+
+ Returns the path of the Java executable in runfiles trees. This should only be used when one needs to access the JVM during the execution of a binary or a test built by Bazel. In particular, when one needs to invoke the JVM during an action, java\_executable\_exec\_path should be used instead.
+
+
+
+## java\_home
+
+```
+string JavaRuntimeInfo.java_home
+```
+
+ Returns the execpath of the root of the Java installation.
+
+
+
+## java\_home\_runfiles\_path
+
+```
+string JavaRuntimeInfo.java_home_runfiles_path
+```
+
+ Returns the path of the Java installation in runfiles trees. This should only be used when one needs to access the JDK during the execution of a binary or a test built by Bazel. In particular, when one needs the JDK during an action, java\_home should be used instead.
+
+
+
+## lib\_ct\_sym
+
+```
+File JavaRuntimeInfo.lib_ct_sym
+```
+
+ Returns the lib/ct.sym file.
+ May return `None`.
+
+
+
+## lib\_modules
+
+```
+File JavaRuntimeInfo.lib_modules
+```
+
+ Returns the lib/modules file.
+ May return `None`.
+
+
+
+## version
+
+```
+int JavaRuntimeInfo.version
+```
+
+ The Java feature version of the runtime. This is 0 if the version is unknown.

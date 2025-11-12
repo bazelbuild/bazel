@@ -1,0 +1,23 @@
+---
+title: 'TemplateVariableInfo'
+---
+
+
+
+Encapsulates template variables, that is, variables that can be referenced by strings like `$(VARIABLE)` in BUILD files and expanded by `ctx.expand_make_variables` and implicitly in certain attributes of built-in rules.
+
+`TemplateVariableInfo` can be created by calling its eponymous constructor with a string-to-string dict as an argument that specifies the variables provided.
+
+Example: `platform_common.TemplateVariableInfo({'FOO': 'bar'})`
+
+## Members
+
+- [variables](#variables)
+
+## variables
+
+```
+dict TemplateVariableInfo.variables
+```
+
+ Returns the make variables defined by this target as a dictionary with string keys and string values

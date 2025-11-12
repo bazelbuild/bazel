@@ -1,0 +1,52 @@
+---
+title: 'java\_compilation\_info'
+---
+
+
+
+Provides access to compilation information for Java rules.
+
+## Members
+
+- [boot\_classpath](#boot_classpath)
+- [compilation\_classpath](#compilation_classpath)
+- [javac\_options](#javac_options)
+- [runtime\_classpath](#runtime_classpath)
+
+## boot\_classpath
+
+```
+list java_compilation_info.boot_classpath
+```
+
+ Boot classpath for this Java target.
+
+
+
+## compilation\_classpath
+
+```
+depset java_compilation_info.compilation_classpath
+```
+
+ Compilation classpath for this Java target.
+
+
+
+## javac\_options
+
+```
+depset java_compilation_info.javac_options
+```
+
+ A depset of options to java compiler. To get the exact list of options passed to javac in the correct order, use the tokenize\_javacopts utility in rules\_java
+
+
+
+## runtime\_classpath
+
+```
+depset java_compilation_info.runtime_classpath
+```
+
+ Run-time classpath for this Java target.

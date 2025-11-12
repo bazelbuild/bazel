@@ -1,0 +1,45 @@
+---
+title: 'coverage\_common'
+---
+
+
+
+Helper functions to access coverage-related infrastructure.
+
+## Members
+
+- [instrumented\_files\_info](#instrumented_files_info)
+
+## instrumented\_files\_info
+
+```
+InstrumentedFilesInfo coverage_common.instrumented_files_info(ctx, *, source_attributes=[], dependency_attributes=[], extensions=None, metadata_files=[], baseline_coverage_files=None)
+```
+
+ Creates a new [InstrumentedFilesInfo](../providers/InstrumentedFilesInfo.html) instance. Use this provider to communicate coverage-related attributes of the current build rule.
+
+
+### Parameters
+
+ParameterDescription`ctx`[ctx](../builtins/ctx.html);
+ required
+
+ The rule context.
+ `source_attributes`[sequence](../core/list.html);
+ default is `[]`
+
+ A list of attribute names which contain source files processed by this rule.
+ `dependency_attributes`[sequence](../core/list.html);
+ default is `[]`
+
+ A list of attribute names which might provide runtime dependencies (either code dependencies or runfiles).
+ `extensions`[sequence](../core/list.html) of [string](../core/string.html) s; or `None`;
+ default is `None`
+
+ File extensions used to filter files from source\_attributes. For example, 'js'. If not provided (or None), then all files from source\_attributes will be added to instrumented files, if an empty list is provided, then no files from source attributes will be added.
+ `metadata_files`[sequence](../core/list.html) of [File](../builtins/File.html) s;
+ default is `[]`
+
+ Additional files required to generate coverage LCOV files after code execution. e.g. .gcno files for C++.
+ `baseline_coverage_files`[sequence](../core/list.html) of [File](../builtins/File.html) s; or `None`;
+ default is `None`

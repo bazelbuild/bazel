@@ -1,0 +1,7 @@
+---
+title: 'ToolchainContext'
+---
+
+
+
+Holds toolchains available for a particular exec group. Toolchain targets are accessed by indexing with the toolchain type, as in `ctx.toolchains["//pkg:my_toolchain_type"]`. If the toolchain was optional and no toolchain was resolved, this will return `None`. Accessing toolchains of an aspect or rule via `ctx.toolchains` returns the indexed toolchain as a `ToolchainInfo` provider. While when using aspects, `ToolchainContext` is also used to hold the toolchains of the base target. It can be accessed by `ctx.rule.toolchains["//pkg:my_toolchain_type"]` and it returns the list of providers resulted from applying the aspects on these toolchain targets.

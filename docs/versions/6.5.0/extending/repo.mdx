@@ -2,10 +2,11 @@
 title: 'Repository Rules'
 ---
 
+
 This page covers how to create repository rules and provides examples for
 more details.
 
-An [external repository](/versions/6.5.0/docs/external) is a rule that can be used only
+An [external repository](/docs/external) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
 of Bazel. Each external repository rule creates its own workspace, with its
 own `BUILD` files and artifacts. They can be used to depend on third-party
@@ -15,7 +16,7 @@ specific to the host Bazel is running on.
 ## Repository rule creation
 
 In a `.bzl` file, use the
-[repository_rule](/versions/6.5.0/rules/lib/globals#repository_rule) function to create a new
+[repository_rule](/rules/lib/globals#repository_rule) function to create a new
 repository rule and store it in a global variable.
 
 A custom repository rule can be used just like a native repository rule. It
@@ -46,9 +47,9 @@ rules). The two implicit attributes are `name` (just like for build rules) and
 `repo_mapping`. The name of a repository rule is accessible with
 `repository_ctx.name`. The meaning of `repo_mapping` is the same as for the
 native repository rules
-[`local_repository`](https://bazel.build/versions/6.5.0/reference/be/workspace#local_repository.repo_mapping)
+[`local_repository`](https://bazel.build/reference/be/workspace#local_repository.repo_mapping)
 and
-[`new_local_repository`](https://bazel.build/versions/6.5.0/reference/be/workspace#new_local_repository.repo_mapping).
+[`new_local_repository`](https://bazel.build/reference/be/workspace#new_local_repository.repo_mapping).
 
 If an attribute name starts with `_` it is private and users cannot set it.
 
@@ -68,7 +69,7 @@ specified.
 The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
 executing a binary, creating a file in the repository or downloading a file
-from the Internet). See [the library](/versions/6.5.0/rules/lib/repository_ctx) for more
+from the Internet). See [the library](/rules/lib/repository_ctx) for more
 context. Example:
 
 ```python
@@ -102,10 +103,10 @@ dependencies might cause a restart:
 - Declaration of the repository rule in the `WORKSPACE` file.
 - Value of any environment variable declared with the `environ`
 attribute of the
-[`repository_rule`](/versions/6.5.0/rules/lib/globals#repository_rule)
+[`repository_rule`](/rules/lib/globals#repository_rule)
 function. The value of those environment variable can be enforced from
 the command line with the
-[`--action_env`](/versions/6.5.0/reference/command-line-reference#flag--action_env)
+[`--action_env`](/reference/command-line-reference#flag--action_env)
 flag (but this flag will invalidate every action of the build).
 - Content of any file used and referred to by a label (for example,
   `//mypkg:label.txt` not `mypkg/label.txt`).
@@ -121,8 +122,9 @@ external repositories unconditionally by calling `bazel sync`.
 Moreover, some rules inspect the local machine and might become
 outdated if the local machine was upgraded. Here you can ask bazel to
 only refetch those external repositories where the
-[`repository_rule`](/versions/6.5.0/rules/lib/globals#repository_rule)
+[`repository_rule`](/rules/lib/globals#repository_rule)
 definition has the `configure` attribute set, use `bazel sync --configure`.
+
 
 ## Examples
 

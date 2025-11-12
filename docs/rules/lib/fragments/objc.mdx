@@ -1,0 +1,121 @@
+---
+title: 'objc'
+---
+
+
+
+A configuration fragment for Objective-C.
+
+## Members
+
+- [alwayslink\_by\_default](#alwayslink_by_default)
+- [builtin\_objc\_strip\_action](#builtin_objc_strip_action)
+- [copts\_for\_current\_compilation\_mode](#copts_for_current_compilation_mode)
+- [disallow\_sdk\_frameworks\_attributes](#disallow_sdk_frameworks_attributes)
+- [ios\_simulator\_device](#ios_simulator_device)
+- [ios\_simulator\_version](#ios_simulator_version)
+- [run\_memleaks](#run_memleaks)
+- [signing\_certificate\_name](#signing_certificate_name)
+- [strip\_executable\_safely](#strip_executable_safely)
+- [uses\_device\_debug\_entitlements](#uses_device_debug_entitlements)
+
+## alwayslink\_by\_default
+
+```
+bool objc.alwayslink_by_default
+```
+
+ Returns whether objc\_library and objc\_import should default to alwayslink=True.
+
+
+
+## builtin\_objc\_strip\_action
+
+```
+bool objc.builtin_objc_strip_action
+```
+
+ Returns whether to emit a strip action as part of objc linking.
+
+
+
+## copts\_for\_current\_compilation\_mode
+
+```
+list objc.copts_for_current_compilation_mode
+```
+
+ Returns a list of default options to use for compiling Objective-C in the current mode.
+
+
+
+## disallow\_sdk\_frameworks\_attributes
+
+```
+bool objc.disallow_sdk_frameworks_attributes
+```
+
+ Returns whether sdk\_frameworks and weak\_sdk\_frameworks are disallowed attributes.
+
+
+
+## ios\_simulator\_device
+
+```
+string objc.ios_simulator_device
+```
+
+ The type of device (e.g. 'iPhone 6') to use when running on the simulator.
+ May return `None`.
+
+
+
+## ios\_simulator\_version
+
+```
+DottedVersion objc.ios_simulator_version
+```
+
+ The SDK version of the iOS simulator to use when running on the simulator.
+ May return `None`.
+
+
+
+## run\_memleaks
+
+```
+bool objc.run_memleaks
+```
+
+ Returns a boolean indicating whether memleaks should be run during tests or not.
+
+
+
+## signing\_certificate\_name
+
+```
+string objc.signing_certificate_name
+```
+
+ Returns the flag-supplied certificate name to be used in signing, or None if no such certificate was specified.
+ May return `None`.
+
+
+
+## strip\_executable\_safely
+
+```
+bool objc.strip_executable_safely
+```
+
+ Returns whether executable strip action should use flag -x, which does not break dynamic symbol resolution.
+
+
+
+## uses\_device\_debug\_entitlements
+
+```
+bool objc.uses_device_debug_entitlements
+```
+
+ Returns whether device debug entitlements should be included when signing an application.
