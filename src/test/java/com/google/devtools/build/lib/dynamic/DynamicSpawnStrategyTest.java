@@ -1091,6 +1091,177 @@ public class DynamicSpawnStrategyTest {
     assertThatStrategyPropagatesException(localExec, remoteExec, e);
   }
 
+  @Test
+  public void remoteBranchThrowsInterruptedExceptionAfterCancellation() throws Exception {
+    CountDownLatch localCanFinish = new CountDownLatch(1);
+    CountDownLatch remoteStarted = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.await();
+              localCanFinish.await();
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.countDown();
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    TestThread testThread =
+        new TestThread(
+            () -> {
+              try {
+                Spawn spawn = newDynamicSpawn();
+                strategyAndContext.exec(spawn);
+              } catch (InterruptedException | ExecException e) {
+                throw new RuntimeException(e);
+              }
+            });
+    testThread.start();
+
+    remoteStarted.await();
+    localCanFinish.countDown();
+    testThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+  }
+
+  @Test
+  public void localBranchCancelsRemoteWhichThrowsInterruptedException() throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+  }
+
+  @Test
+  public void remoteFinishesFirstAndThrowsInterruptedExceptionDuringLocalCancellation()
+      throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    // This should complete successfully with remote results, not throw AssertionError
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.succeeded()).isTrue();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockRemoteSpawnStrategy");
+  }
+
+  @Test
+  public void remoteBranchThrowsInterruptedExceptionBeforeStopConcurrentSpawns() throws Exception {
+    CountDownLatch remoteStarted = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.await();
+              Thread.sleep(100); // Give remote time to fail
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.countDown();
+              throw new InterruptedException("Remote operation interrupted");
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+  }
+
+  @Test
+  public void remoteBranchInterruptedAfterLocalStartsStopConcurrentSpawns() throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+    CountDownLatch localReadyToStop = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> countDownAndWait(bothStarted),
+            (self, spawn, actionExecutionContext) -> localReadyToStop.countDown());
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+  }
+
   private static FailureDetail createFailureDetail(String message) {
     return FailureDetail.newBuilder()
         .setMessage(message)
