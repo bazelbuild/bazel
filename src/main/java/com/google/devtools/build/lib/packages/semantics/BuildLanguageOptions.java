@@ -835,7 +835,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_resolve_select_keys_eagerly",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -1129,7 +1129,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
   public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
-      "-incompatible_resolve_select_keys_eagerly";
+      "+incompatible_resolve_select_keys_eagerly";
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
       new StarlarkSemantics.Key<>("incompatible_disable_transitions_on", ImmutableList.of());
