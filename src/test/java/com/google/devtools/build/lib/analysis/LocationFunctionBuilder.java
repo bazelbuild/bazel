@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 final class LocationFunctionBuilder {
   private final Label root;
   private final boolean multiple;
-  private LocationFunction.PathType pathType = LocationFunction.PathType.LOCATION;
+  private LabelLocationFunction.PathType pathType = LabelLocationFunction.PathType.LOCATION;
   private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
   LocationFunctionBuilder(String rootLabel, boolean multiple) {
@@ -44,12 +44,12 @@ final class LocationFunctionBuilder {
     this.multiple = multiple;
   }
 
-  public LocationFunction build() {
-    return new LocationFunction(root, Suppliers.ofInstance(labelMap), pathType, multiple);
+  public LabelLocationFunction build() {
+    return new LabelLocationFunction(root, Suppliers.ofInstance(labelMap), pathType, multiple);
   }
 
   @CanIgnoreReturnValue
-  public LocationFunctionBuilder setPathType(LocationFunction.PathType pathType) {
+  public LocationFunctionBuilder setPathType(LabelLocationFunction.PathType pathType) {
     this.pathType = pathType;
     return this;
   }
