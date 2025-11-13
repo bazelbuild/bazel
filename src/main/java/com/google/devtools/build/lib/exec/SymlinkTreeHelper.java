@@ -79,12 +79,13 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a fileset by making VFS calls. */
-  public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap) throws IOException {
+  public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap)
+      throws ExecException {
     createSymlinks(symlinkMap, (path) -> path);
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws IOException {
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws ExecException {
     createSymlinks(
         symlinks,
         (artifact) ->
@@ -96,7 +97,7 @@ public final class SymlinkTreeHelper {
 
   /** Creates a symlink tree. */
   private <T> void createSymlinks(
-      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws IOException {
+      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws ExecException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -139,25 +140,23 @@ public final class SymlinkTreeHelper {
       }
       root.syncTreeRecursively(symlinkTreeRoot, targetPathFn);
       createWorkspaceSubdirectory();
-    }
-  }
-
-  /**
-   * Ensures that the runfiles directory is empty except for the symlinked MANIFEST and the
-   * workspace subdirectory. This is the expected state with --noenable_runfiles.
-   */
-  public void clearRunfilesDirectory() throws ExecException {
-    deleteRunfilesDirectory();
-    linkManifest();
-    try {
-      createWorkspaceSubdirectory();
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
     }
   }
 
+  /**
+   * Creates a minimal runfiles directory containing only the output manifest and the workspace
+   * subdirectory. This is the expected state with --noenable_runfiles or --nobuild_runfile_links.
+   */
+  public void createMinimalRunfilesDirectory() throws ExecException {
+    clearRunfilesDirectory();
+    linkManifest();
+    createWorkspaceSubdirectory();
+  }
+
   /** Deletes the contents of the runfiles directory. */
-  private void deleteRunfilesDirectory() throws ExecException {
+  private void clearRunfilesDirectory() throws ExecException {
     try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
       symlinkTreeRoot.deleteTreesBelow();
     } catch (IOException e) {
@@ -166,10 +165,9 @@ public final class SymlinkTreeHelper {
   }
 
   /** Links the output manifest to the input manifest. */
-  private void linkManifest() throws ExecException {
-    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
+  public void linkManifest() throws ExecException {
+    // TODO(b/443703909): This should probably be a copy, not a symlink.
     try {
-      symlinkTreeRoot.createDirectoryAndParents();
       outputManifest.delete();
       outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
@@ -177,12 +175,16 @@ public final class SymlinkTreeHelper {
     }
   }
 
-  private void createWorkspaceSubdirectory() throws IOException {
+  public void createWorkspaceSubdirectory() throws ExecException {
     // Always create the subdirectory corresponding to the workspace (i.e., the main repository).
     // This is required by tests as their working directory, even with --noenable_runfiles. But if
     // the test action creates the directory and then proceeds to execute the test spawn, this logic
     // would remove it. For the sake of consistency, always create the directory instead.
-    symlinkTreeRoot.getRelative(workspaceName).createDirectory();
+    try {
+      symlinkTreeRoot.getRelative(workspaceName).createDirectory();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
+    }
   }
 
   /**
