@@ -682,7 +682,7 @@ genrule(
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
-        "help everything-as-html >> $@ 2>/dev/null && " +
+        "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
     toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
