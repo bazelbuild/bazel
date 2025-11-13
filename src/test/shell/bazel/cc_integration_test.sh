@@ -2210,14 +2210,14 @@ EOF
 function test_cpp20_modules_with_clang() {
   type -P clang || return 0
   # Check if clang version is less than 17
-  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  local -r clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
   if [[ -n "$clang_version" ]]; then
-    major_version=$(echo "$clang_version" | cut -d. -f1)
+    local -r major_version=$(echo "$clang_version" | cut -d. -f1)
     if [[ "$major_version" -lt 17 ]]; then
       return 0
     fi
   fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
+  if is_darwin; then
     return 0
   fi
 
@@ -2297,15 +2297,15 @@ EOF
 function test_cpp20_modules_change_ab_to_ba_no_cycle() {
   type -P clang || return 0
   # Check if clang version is less than 17
-  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  local -r clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
   if [[ -n "$clang_version" ]]; then
-    major_version=$(echo "$clang_version" | cut -d. -f1)
+    local -r major_version=$(echo "$clang_version" | cut -d. -f1)
     if [[ "$major_version" -lt 17 ]]; then
       return 0
     fi
   fi
 
-  if [[ "$(uname -s)" == "Darwin" ]]; then
+  if is_darwin; then
     return 0
   fi
 
@@ -2366,15 +2366,15 @@ EOF
 function test_cpp20_modules_change_abc_to_acb_no_cycle() {
   type -P clang || return 0
   # Check if clang version is less than 17
-  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  local -r clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
   if [[ -n "$clang_version" ]]; then
-    major_version=$(echo "$clang_version" | cut -d. -f1)
+    local -r major_version=$(echo "$clang_version" | cut -d. -f1)
     if [[ "$major_version" -lt 17 ]]; then
       return 0
     fi
   fi
 
-  if [[ "$(uname -s)" == "Darwin" ]]; then
+  if is_darwin; then
     return 0
   fi
 

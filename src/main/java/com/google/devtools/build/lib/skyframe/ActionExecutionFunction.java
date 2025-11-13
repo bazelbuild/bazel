@@ -543,7 +543,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   @Nullable
   private byte[] computeMandatoryInputsDigest(Action action, Environment env)
       throws InterruptedException {
-    var mandatoryInputsSet = action.getMandatoryInputs();
+    NestedSet<Artifact> mandatoryInputsSet = action.getMandatoryInputs();
     var mandatoryInputsKeysBuilder = ImmutableSet.<SkyKey>builder();
     for (Artifact leaf : mandatoryInputsSet.getLeaves()) {
       mandatoryInputsKeysBuilder.add(Artifact.key(leaf));
@@ -558,9 +558,9 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     var mandatoryInputs = mandatoryInputsSet.toList();
     var inputArtifactData = new ActionInputMap(mandatoryInputs.size());
-    var inputMap = new HashMap<String, FileArtifactValue>();
+    var inputMap = new HashMap<String, FileArtifactValue>(mandatoryInputs.size());
     for (var artifact : mandatoryInputs) {
-      var value = lookupInput(artifact, mandatoryInputsKeys, env);
+      SkyValue value = lookupInput(artifact, mandatoryInputsKeys, env);
       if (value == null || value instanceof MissingArtifactValue) {
         // This can happen with rewinding or in keep-going builds and is always an indication to
         // halt the current action execution attempt - we do not have to compute a digest.

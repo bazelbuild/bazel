@@ -205,13 +205,13 @@ public class ActionCacheChecker {
       throws InterruptedException {
     var builder =
         new ActionCache.Entry.Builder(
-                actionKey,
-                action.discoversInputs(),
-                effectiveEnvironment,
-                effectiveExecProperties,
-                outputPermissions,
-                useArchivedTreeArtifacts)
-            .setMandatoryInputsDigest(mandatoryInputsDigest);
+            actionKey,
+            action.discoversInputs(),
+            effectiveEnvironment,
+            effectiveExecProperties,
+            outputPermissions,
+            useArchivedTreeArtifacts,
+            mandatoryInputsDigest);
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -696,13 +696,13 @@ public class ActionCacheChecker {
 
     var builder =
         new ActionCache.Entry.Builder(
-                actionKey,
-                action.discoversInputs(),
-                effectiveEnvironment,
-                effectiveExecProperties,
-                outputPermissions,
-                useArchivedTreeArtifacts)
-            .setMandatoryInputsDigest(mandatoryInputsDigest);
+            actionKey,
+            action.discoversInputs(),
+            effectiveEnvironment,
+            effectiveExecProperties,
+            outputPermissions,
+            useArchivedTreeArtifacts,
+            mandatoryInputsDigest);
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
