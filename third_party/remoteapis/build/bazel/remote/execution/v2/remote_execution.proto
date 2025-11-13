@@ -175,7 +175,7 @@ service ActionCache {
   //
   // In order to allow the server to perform access control based on the type of
   // action, and to assist with client debugging, the client MUST first upload
-  // the [Action][build.bazel.remote.execution.v2.Execution] that produced the
+  // the [Action][build.bazel.remote.execution.v2.Action] that produced the
   // result, along with its
   // [Command][build.bazel.remote.execution.v2.Command], into the
   // `ContentAddressableStorage`.
@@ -324,6 +324,15 @@ service ActionCache {
 // Servers MUST be able to provide data for all recently advertised blobs in
 // each of the compression formats that the server supports, as well as in
 // uncompressed form.
+//
+// Additionally, ByteStream requests MAY come with an additional plain text header
+// that indicates the `resource_name` of the blob being sent.  The header, if
+// present, MUST follow the following convention:
+// * name: `build.bazel.remote.execution.v2.resource-name`.
+// * contents: the plain text resource_name of the request message.
+// If set, the contents of the header MUST match the `resource_name` of the request
+// message.  Servers MAY use this header to assist in routing requests to the
+// appropriate backend.
 //
 // The lifetime of entries in the CAS is implementation specific, but it SHOULD
 // be long enough to allow for newly-added and recently looked-up entries to be
@@ -1534,7 +1543,7 @@ message ExecutionStage {
 // Metadata about an ongoing
 // [execution][build.bazel.remote.execution.v2.Execution.Execute], which
 // will be contained in the [metadata
-// field][google.longrunning.Operation.response] of the
+// field][google.longrunning.Operation.metadata] of the
 // [Operation][google.longrunning.Operation].
 message ExecuteOperationMetadata {
   // The current stage of execution.
@@ -1557,6 +1566,15 @@ message ExecuteOperationMetadata {
   // The client can read this field to view details about the ongoing
   // execution.
   ExecutedActionMetadata partial_execution_metadata = 5;
+
+  // The digest function that was used to compute the action digest.
+  //
+  // If the digest function used is one of BLAKE3, MD5, MURMUR3, SHA1,
+  // SHA256, SHA256TREE, SHA384, SHA512, or VSO, the server MAY leave
+  // this field unset. In that case the client SHOULD infer the digest
+  // function using the length of the action digest hash and the digest
+  // functions announced in the server's capabilities.
+  DigestFunction.Value digest_function = 6;
 }
 
 // A request message for
@@ -1958,7 +1976,7 @@ message ActionCacheUpdateCapabilities {
 
 // Allowed values for priority in
 // [ResultsCachePolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy] and
-// [ExecutionPolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy]
+// [ExecutionPolicy][build.bazel.remoteexecution.v2.ExecutionPolicy]
 // Used for querying both cache and execution valid priority ranges.
 message PriorityCapabilities {
   // Supported range of priorities, including boundaries.
@@ -2047,6 +2065,17 @@ message CacheCapabilities {
   // [BatchUpdateBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchUpdateBlobs]
   // requests.
   repeated Compressor.Value supported_batch_update_compressors = 7;
+
+  // The maximum blob size that the server will accept for CAS blob uploads.
+  // - If it is 0, it means there is no limit set. A client may assume
+  //   arbitrarily large blobs may be uploaded to and downloaded from the cache.
+  // - If it is larger than 0, implementations SHOULD NOT attempt to upload
+  //   blobs with size larger than the limit. Servers SHOULD reject blob
+  //   uploads over the `max_cas_blob_size_bytes` limit with response code
+  //   `INVALID_ARGUMENT`
+  // - If the cache implementation returns a given limit, it MAY still serve
+  //   blobs larger than this limit.
+  int64 max_cas_blob_size_bytes = 8;
 }
 
 // Capabilities of the remote execution system.
