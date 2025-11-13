@@ -683,6 +683,7 @@ public class AutoloadSymbols {
           "proto_bazel_features",
           "rules_android",
           "rules_cc",
+          "cc_compatibility_proxy",
           "rules_java",
           "rules_java_builtin",
           "compatibility_proxy",
