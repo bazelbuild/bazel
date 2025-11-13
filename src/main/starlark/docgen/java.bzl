@@ -24,7 +24,7 @@ load("@rules_java//java/common/rules:java_runtime.bzl", _java_runtime = "java_ru
 load("@rules_java//java/common/rules:java_toolchain.bzl", _java_toolchain = "java_toolchain")
 
 # Build Encyclopedia entry point for Java rules implemented in Starlark
-
+# SOME TEST
 binary_rules = struct(
     java_binary = _java_binary,
 )
