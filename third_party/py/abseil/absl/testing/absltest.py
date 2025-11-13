@@ -310,10 +310,10 @@ class TestCase(unittest.TestCase):
     """Asserts that an object has zero length.
 
     Args:
-      container: Anything that implements the collections.Sized interface.
+      container: Anything that implements the collections.abc.Sized interface.
       msg: Optional message to report on failure.
     """
-    if not isinstance(container, collections.Sized):
+    if not isinstance(container, collections.abc.Sized):
       self.fail('Expected a Sized object, got: '
                 '{!r}'.format(type(container).__name__), msg)
 
@@ -326,10 +326,10 @@ class TestCase(unittest.TestCase):
     """Asserts that an object has non-zero length.
 
     Args:
-      container: Anything that implements the collections.Sized interface.
+      container: Anything that implements the collections.abc.Sized interface.
       msg: Optional message to report on failure.
     """
-    if not isinstance(container, collections.Sized):
+    if not isinstance(container, collections.abc.Sized):
       self.fail('Expected a Sized object, got: '
                 '{!r}'.format(type(container).__name__), msg)
 
@@ -342,11 +342,11 @@ class TestCase(unittest.TestCase):
     """Asserts that an object has the expected length.
 
     Args:
-      container: Anything that implements the collections.Sized interface.
+      container: Anything that implements the collections.abc.Sized interface.
       expected_len: The expected length of the container.
       msg: Optional message to report on failure.
     """
-    if not isinstance(container, collections.Sized):
+    if not isinstance(container, collections.abc.Sized):
       self.fail('Expected a Sized object, got: '
                 '{!r}'.format(type(container).__name__), msg)
     if len(container) != expected_len:
@@ -1217,7 +1217,7 @@ def _walk_structure_for_problems(a, b, aname, bname, problem_list):
     # If they have different types there's no point continuing
     return
 
-  if isinstance(a, collections.Mapping):
+  if isinstance(a, collections.abc.Mapping):
     for k in a:
       if k in b:
         _walk_structure_for_problems(
@@ -1234,7 +1234,7 @@ def _walk_structure_for_problems(a, b, aname, bname, problem_list):
             (aname, k, bname, b[k]))
 
   # Strings/bytes are Sequences but we'll just do those with regular !=
-  elif (isinstance(a, collections.Sequence) and
+  elif (isinstance(a, collections.abc.Sequence) and
         not isinstance(a, _TEXT_OR_BINARY_TYPES)):
     minlen = min(len(a), len(b))
     for i in xrange(minlen):
