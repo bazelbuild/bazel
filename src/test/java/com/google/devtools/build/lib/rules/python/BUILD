@@ -25,7 +25,6 @@ test_suite(
         ":PythonConfigurationTest",
         ":PythonStarlarkApiTest",
         ":PythonToolchainTest",
-        ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
 )
@@ -43,6 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
@@ -57,8 +57,6 @@ java_test(
     name = "PythonConfigurationTest",
     srcs = ["PythonConfigurationTest.java"],
     deps = [
-        ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/common/options",
@@ -75,7 +73,6 @@ java_test(
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -166,30 +163,13 @@ java_test(
 )
 
 java_test(
-    name = "PythonVersionSelectTest",
-    srcs = ["PythonVersionSelectTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "PythonToolchainTest",
     srcs = ["PythonToolchainTest.java"],
     deps = [
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 

@@ -11,17 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The cc_common.link function.
 
 Used for C++ transitive linking.
 """
 
+load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS")
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # Translation table from language and output type to static and dynamic target type.
 _TARGET_TYPE = {
@@ -44,7 +45,7 @@ def link(
         language = "c++",
         output_type = "executable",
         link_deps_statically = True,
-        compilation_outputs = cc_internal.empty_compilation_outputs(),
+        compilation_outputs = EMPTY_COMPILATION_OUTPUTS,
         linking_contexts = [],
         user_link_flags = [],
         stamp = 0,
@@ -59,7 +60,6 @@ def link(
         whole_archive = False,
         additional_linkstamp_defines = [],
         always_link = False,
-        only_for_dynamic_libs = False,
         link_artifact_name_suffix = "",
         main_output = None,
         use_shareable_artifact_factory = False,
@@ -122,7 +122,6 @@ def link(
         whole_archive: (bool) undocumented.
         additional_linkstamp_defines: (list[str]) undocumented.
         always_link: (bool) undocumented.
-        only_for_dynamic_libs: (bool) undocumented.
         link_artifact_name_suffix: (str) undocumented.
         main_output: (File) Name of the main output artifact that will be produced by the linker.
             Only set this if the default name generation does not match you needs
@@ -166,7 +165,7 @@ def link(
 
     # TODO(b/338618120): Migrate Apple and Android rules, so they don't need to use build_config
     # when calling link. This happens because they are using deps with split configuration
-    actions = cc_internal.wrap_link_actions(actions, build_config, use_shareable_artifact_factory)
+    actions = _cc_internal.wrap_link_actions(actions, build_config, use_shareable_artifact_factory)
 
     return create_cc_link_actions(
         actions,
@@ -192,10 +191,11 @@ def link(
         # alwayslink may be deprecated but we're trying to replicate CcBinary as closely as possible for the moment.
         # TODO(b/331164666): remove alwayslink, the information is in static_link_type already
         always_link,
-        only_for_dynamic_libs,
         link_artifact_name_suffix,
         main_output,  # linker_output_artifact
         emit_interface_shared_libraries = dynamic_link_type == LINK_TARGET_TYPE.DYNAMIC_LIBRARY and
                                           (emit_interface_shared_library or
                                            feature_configuration.is_enabled("targets_windows")),
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/link/link.bzl:forked_exports)

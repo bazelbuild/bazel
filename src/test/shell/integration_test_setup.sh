@@ -60,7 +60,7 @@ fi
 # https://unix.stackexchange.com/questions/92895
 # https://stackoverflow.com/questions/5694228
 function inplace-sed() {
-  if [ $(uname) = "Darwin" ]; then
+  if is_darwin; then
     sed -i "" "$@"
   else
     sed -i "$@"

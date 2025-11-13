@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -42,6 +41,7 @@ import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -70,7 +70,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -187,7 +188,7 @@ public class RemoteSpawnRunnerTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
@@ -256,7 +257,7 @@ public class RemoteSpawnRunnerTest {
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(service, never()).lookupCache(any());
-    verify(service, never()).uploadOutputs(any(), any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
     verifyNoMoreInteractions(localRunner);
   }
 
@@ -284,8 +285,6 @@ public class RemoteSpawnRunnerTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            ImmutableList.of(),
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
 
     return new FakeSpawnExecutionContext(
@@ -334,7 +333,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     RemoteExecutionService service = runner.getRemoteExecutionService();
-    doNothing().when(service).uploadOutputs(any(), any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(
@@ -360,7 +359,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service).uploadOutputs(any(), eq(res), any());
+    verify(service).uploadOutputs(any(), eq(res), any(), any());
   }
 
   @Test
@@ -393,7 +392,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service, never()).uploadOutputs(any(), any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
   }
 
   @Test
@@ -421,7 +420,7 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class)))
         .thenThrow(IOException.class);
-    doNothing().when(service).uploadOutputs(any(), any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -439,7 +438,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service).uploadOutputs(any(), eq(result), any());
+    verify(service).uploadOutputs(any(), eq(result), any(), any());
     verify(service, never()).downloadOutputs(any(), any());
   }
 
@@ -474,6 +473,107 @@ public class RemoteSpawnRunnerTest {
 
     runner.exec(spawn, policy);
 
+    verify(service).executeRemotely(any(), eq(false), any());
+  }
+
+  @Test
+  public void treatCachedActionWithMissingOutputAsCacheMiss_duringRemoteCacheCheck()
+      throws Exception {
+    // Test that bazel treats a cached action with missing mandatory outputs as a cache miss and
+    // attempts to execute the action remotely.
+
+    var runner = newSpawnRunner();
+    var service = runner.getRemoteExecutionService();
+    var actionWithoutOutputs = CachedActionResult.remote(ActionResult.getDefaultInstance());
+    doReturn(RemoteActionResult.createFromCache(actionWithoutOutputs))
+        .when(service)
+        .lookupCache(any(RemoteAction.class));
+
+    var output =
+        ActionsTestUtil.createArtifactWithExecPath(
+            artifactRoot, PathFragment.create("outputs/out"));
+    var successfulResponse =
+        ExecuteResponse.newBuilder()
+            .setResult(
+                ActionResult.newBuilder()
+                    .setExitCode(0)
+                    .addOutputFiles(
+                        OutputFile.newBuilder()
+                            .setPath(output.getExecPathString())
+                            .setDigest(digestUtil.computeAsUtf8("content")))
+                    .build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenReturn(successfulResponse);
+    var spawn = newSimpleSpawn(output);
+    var spawnExecutionContext = getSpawnContext(spawn);
+
+    var result = runner.exec(spawn, spawnExecutionContext);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    verify(service).executeRemotely(any(), eq(false), any());
+  }
+
+  @Test
+  public void treatCachedActionWithMissingOutputAsCacheMiss_duringRemoteExecution()
+      throws Exception {
+    // Test that bazel treats a cached execute result with missing mandatory outputs as a cache miss
+    // and reattempts to execute the action remotely, this time ignoring cached results.
+
+    var runner = newSpawnRunner();
+    var service = runner.getRemoteExecutionService();
+    // Ensure that the initial cache lookup doesn't already return a result with missing outputs -
+    // this case is covered by the previous test.
+    doReturn(null).when(service).lookupCache(any(RemoteAction.class));
+
+    var actionWithoutOutputs = CachedActionResult.remote(ActionResult.getDefaultInstance());
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
+        .thenReturn(actionWithoutOutputs);
+
+    var output =
+        ActionsTestUtil.createArtifactWithExecPath(
+            artifactRoot, PathFragment.create("outputs/out"));
+    var responseWithoutOutput =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .setCachedResult(true)
+            .build();
+    var responseWithOutput =
+        ExecuteResponse.newBuilder()
+            .setResult(
+                ActionResult.newBuilder()
+                    .setExitCode(0)
+                    .addOutputFiles(
+                        OutputFile.newBuilder()
+                            .setPath(output.getExecPathString())
+                            .setDigest(digestUtil.computeAsUtf8("content")))
+                    .build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenAnswer(
+            answer ->
+                answer.getArgument(1, ExecuteRequest.class).getSkipCacheLookup()
+                    ? responseWithOutput
+                    : responseWithoutOutput);
+    var spawn = newSimpleSpawn(output);
+    var spawnExecutionContext = getSpawnContext(spawn);
+
+    var result = runner.exec(spawn, spawnExecutionContext);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    // The first execution attempt hits the cache and returns the result with missing outputs, the
+    // second attempt forcibly re-executes the action.
+    verify(service).executeRemotely(any(), eq(true), any());
     verify(service).executeRemotely(any(), eq(false), any());
   }
 
@@ -1163,18 +1263,18 @@ public class RemoteSpawnRunnerTest {
   private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
-    executionOptions.materializeParamFiles = true;
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
-            directExecutor(),
             reporter,
             /* verboseFailures= */ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
+            TestConstants.WORKSPACE_NAME,
             digestUtil,
             remoteOptions,
+            executionOptions,
             cache,
             executor,
             tempPathGenerator,
@@ -1184,9 +1284,7 @@ public class RemoteSpawnRunnerTest {
             Sets.newConcurrentHashSet());
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
-            execRoot,
             remoteOptions,
-            executionOptions,
             /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
@@ -1703,15 +1801,16 @@ public class RemoteSpawnRunnerTest {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
-                directExecutor(),
                 reporter,
                 /* verboseFailures= */ true,
                 execRoot,
                 remotePathResolver,
                 "build-req-id",
                 "command-id",
+                TestConstants.WORKSPACE_NAME,
                 digestUtil,
                 remoteOptions,
+                Options.getDefaults(ExecutionOptions.class),
                 cache,
                 executor,
                 tempPathGenerator,
@@ -1721,9 +1820,7 @@ public class RemoteSpawnRunnerTest {
                 Sets.newConcurrentHashSet()));
 
     return new RemoteSpawnRunner(
-        execRoot,
         remoteOptions,
-        Options.getDefaults(ExecutionOptions.class),
         /* verboseFailures= */ false,
         reporter,
         retryService,

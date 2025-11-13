@@ -171,6 +171,8 @@ class StartupOptions {
 
   std::vector<std::string> host_jvm_args;
 
+  std::string extra_classpath;
+
   bool batch;
 
   // From the man page: "This policy is useful for workloads that are
@@ -194,11 +196,6 @@ class StartupOptions {
   // TODO: b/231429363 - Remove this after the 6 month compatibility window ends
   //   in October 2025.
   bool write_command_log;
-
-  // No-op.
-  // TODO: b/375052752 - Remove this after the 6 month compatibility window ends
-  //   in April 2025.
-  bool watchfs;
 
   // Temporary flag for enabling EventBus exceptions to be fatal.
   bool fatal_event_bus_exceptions;
@@ -295,6 +292,10 @@ class StartupOptions {
   // Whether to create symbolic links on Windows for files. Requires
   // developer mode to be enabled.
   bool windows_enable_symlinks;
+
+  // Whether to use a remote cache to store the contents of reproducible
+  // external repositories.
+  bool remote_repo_contents_cache;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

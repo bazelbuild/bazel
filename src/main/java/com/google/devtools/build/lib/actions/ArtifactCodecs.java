@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -265,7 +264,7 @@ public final class ArtifactCodecs {
         SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getExecPath(), codedOut);
-      context.serialize(obj.getRoot().getRoot(), codedOut);
+      context.serialize(obj.getRoot(), codedOut);
       context.serialize(obj.getArtifactOwner(), codedOut);
     }
 
@@ -286,7 +285,7 @@ public final class ArtifactCodecs {
   private static class DeserializedSourceArtifactBuilder implements DeferredValue<SourceArtifact> {
     private final ArtifactSerializationContext context;
     private PathFragment execPath;
-    private Root root;
+    private ArtifactRoot root;
     private ArtifactOwner owner;
 
     private DeserializedSourceArtifactBuilder(ArtifactSerializationContext context) {
@@ -303,7 +302,7 @@ public final class ArtifactCodecs {
     }
 
     private static void setRoot(DeserializedSourceArtifactBuilder builder, Object value) {
-      builder.root = (Root) value;
+      builder.root = (ArtifactRoot) value;
     }
 
     private static void setOwner(DeserializedSourceArtifactBuilder builder, Object value) {

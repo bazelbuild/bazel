@@ -35,7 +35,7 @@ config_setting(
     name = "linux_ppc64le",
     constraint_values = [
         "@platforms//os:linux",
-        "@platforms//cpu:ppc",
+        "@platforms//cpu:ppc64le",
     ],
     visibility = ["//visibility:public"],
 )
@@ -124,6 +124,7 @@ config_setting(
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
@@ -132,6 +133,7 @@ config_setting(
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # TODO: figure out how to base this selection on constraints
@@ -143,11 +145,13 @@ config_setting(
 
 config_setting(
     name = "host_windows_x64_constraint",
+    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
     values = {"host_cpu": "x64_windows"},
 )
 
 config_setting(
     name = "host_windows_arm64_constraint",
+    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
     values = {"host_cpu": "arm64_windows"},
 )
 
@@ -157,11 +161,13 @@ alias(
         ":host_windows_arm64_constraint": ":host_windows_arm64_constraint",
         "//conditions:default": ":host_windows_x64_constraint",
     }),
+    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "remote",
+    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
     values = {"define": "EXECUTOR=remote"},
     visibility = ["//visibility:public"],
 )

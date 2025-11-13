@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -41,23 +41,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  declare -r exe_suffix=.exe
-  ;;
-*)
-  declare -r is_windows=false
-  declare -r exe_suffix=
-  ;;
-esac
 
 function test_sh_test() {
   add_rules_shell "MODULE.bazel"
@@ -105,7 +88,7 @@ function test_extra_action() {
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
   cat > mypkg/echoer.sh << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
@@ -311,7 +294,7 @@ genrule(
 EOF
 
   local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
-  if $is_windows; then
+  if is_windows; then
     PATH="/random/path:$PATH" TMP="${new_tmpdir}" \
       bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
       &> $TEST_log || fail "Failed to build //pkg:test"
@@ -465,7 +448,7 @@ EOF
 
   # On Windows this file needs to be acceptable by CreateProcessW(), rather
   # than a Bourne script.
-  if "$is_windows"; then
+  if is_windows; then
     cat >pkg/rules.bzl <<'EOF'
 _SCRIPT_EXT = ".bat"
 _SCRIPT_CONTENT = "@ECHO OFF\necho hello world > %1"
@@ -528,7 +511,7 @@ EOF
 
   # On Windows this file needs to be acceptable by CreateProcessW(), rather
   # than a Bourne script.
-  if "$is_windows"; then
+  if is_windows; then
     cat >pkg/rules.bzl <<'EOF'
 _SCRIPT_EXT = ".bat"
 _SCRIPT_CONTENT = """@ECHO OFF
@@ -602,7 +585,7 @@ EOF
 
   # On Windows this file needs to be acceptable by CreateProcessW(), rather
   # than a Bourne script.
-  if "$is_windows"; then
+  if is_windows; then
     cat >pkg/rules.bzl <<'EOF'
 _SCRIPT_EXT = ".bat"
 _SCRIPT_CONTENT = """@ECHO OFF
@@ -897,7 +880,7 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run
 
   bazel build --enable_bzlmod --enable_runfiles //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$EXE_EXT &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -905,7 +888,7 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run
 
   bazel run --enable_bzlmod --enable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$EXE_EXT \
     &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: '+local_repository+other_repo'"
   expect_log "in pkg/library.sh: ''"
@@ -949,7 +932,7 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_r
 
   bazel build --enable_bzlmod --noenable_runfiles //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$EXE_EXT &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -957,7 +940,7 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_r
 
   bazel run --enable_bzlmod --noenable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$EXE_EXT \
     &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: '+local_repository+other_repo'"
   expect_log "in pkg/library.sh: ''"
@@ -1001,7 +984,7 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_dire
 
   bazel build --enable_bzlmod --nobuild_runfile_links //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$EXE_EXT &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -1009,7 +992,7 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_dire
 
   bazel run --enable_bzlmod --nobuild_runfile_links @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+local_repository+other_repo/pkg/binary$EXE_EXT \
     &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: '+local_repository+other_repo'"
   expect_log "in pkg/library.sh: ''"

@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -34,32 +33,20 @@ import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
 public final class CompileCommandLine {
-  private final Artifact sourceFile;
   private final CoptsFilter coptsFilter;
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainVariables variables;
   private final String actionName;
-  private final Artifact dotdFile;
 
   private CompileCommandLine(
-      Artifact sourceFile,
       CoptsFilter coptsFilter,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
-      String actionName,
-      Artifact dotdFile) {
-    this.sourceFile = Preconditions.checkNotNull(sourceFile);
+      String actionName) {
     this.coptsFilter = coptsFilter;
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.variables = variables;
     this.actionName = actionName;
-    this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
-  }
-
-  /** Returns true if Dotd file should be generated. */
-  private boolean isGenerateDotdFile(Artifact sourceArtifact) {
-    return CppFileTypes.headerDiscoveryRequired(sourceArtifact)
-        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
@@ -169,14 +156,6 @@ public final class CompileCommandLine {
     }
   }
 
-  public Artifact getSourceFile() {
-    return sourceFile;
-  }
-
-  public Artifact getDotdFile() {
-    return dotdFile;
-  }
-
   public CcToolchainVariables getVariables() {
     return variables;
   }
@@ -202,36 +181,28 @@ public final class CompileCommandLine {
     }
   }
 
-  public static Builder builder(
-      Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
-    return new Builder(sourceFile, coptsFilter, actionName, dotdFile);
+  public static Builder builder(CoptsFilter coptsFilter, String actionName) {
+    return new Builder(coptsFilter, actionName);
   }
 
   /** A builder for a {@link CompileCommandLine}. */
   public static final class Builder {
-    private final Artifact sourceFile;
     private CoptsFilter coptsFilter;
     private FeatureConfiguration featureConfiguration;
     private CcToolchainVariables variables = CcToolchainVariables.empty();
     private final String actionName;
-    @Nullable private final Artifact dotdFile;
 
     public CompileCommandLine build() {
       return new CompileCommandLine(
-          Preconditions.checkNotNull(sourceFile),
           Preconditions.checkNotNull(coptsFilter),
           Preconditions.checkNotNull(featureConfiguration),
           Preconditions.checkNotNull(variables),
-          Preconditions.checkNotNull(actionName),
-          dotdFile);
+          Preconditions.checkNotNull(actionName));
     }
 
-    private Builder(
-        Artifact sourceFile, CoptsFilter coptsFilter, String actionName, Artifact dotdFile) {
-      this.sourceFile = sourceFile;
+    private Builder(CoptsFilter coptsFilter, String actionName) {
       this.coptsFilter = coptsFilter;
       this.actionName = actionName;
-      this.dotdFile = dotdFile;
     }
 
     /** Sets the feature configuration for this compile action. */

@@ -20,8 +20,6 @@ import static com.google.testing.junit.runner.internal.junit4.CancellableRequest
 
 import com.google.testing.junit.junit4.runner.RunNotifierWrapper;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.junit.runner.Description;
 import org.junit.runner.Request;
 import org.junit.runner.Runner;
@@ -31,14 +29,12 @@ import org.junit.runner.notification.StoppedByUserException;
 /**
  * Creates requests that can be cancelled.
  */
-@Singleton
 public class CancellableRequestFactory {
   private boolean requestCreated;
   private volatile ThreadSafeRunNotifier currentNotifier;
   private final AtomicReference<CancellationRequest> cancellationRequest =
       new AtomicReference<>(NOT_REQUESTED);
 
-  @Inject
   public CancellableRequestFactory() {}
 
   /**

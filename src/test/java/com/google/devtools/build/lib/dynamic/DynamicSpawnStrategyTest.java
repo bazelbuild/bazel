@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
@@ -58,7 +59,9 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.FileNotFoundException;
@@ -338,10 +341,10 @@ public class DynamicSpawnStrategyTest {
 
     Executor executor =
         new BlazeExecutor(
-            /*fileSystem=*/ null,
+            /* fileSystem= */ null,
             testRoot,
-            /*reporter=*/ null,
-            /*clock=*/ null,
+            /* reporter= */ null,
+            /* clock= */ null,
             BugReporter.defaultInstance(),
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))
@@ -351,12 +354,17 @@ public class DynamicSpawnStrategyTest {
 
     ActionExecutionContext actionExecutionContext =
         ActionsTestUtil.createContext(
-            /* executor= */ executor,
+            executor,
             /* eventHandler= */ null,
             actionKeyContext,
             outErr,
-            testRoot,
-            /* outputMetadataStore= */ null);
+            new SingleBuildFileCache(
+                testRoot.getPathString(),
+                PathFragment.create("dummy-output-path"),
+                testRoot.getFileSystem(),
+                SyscallCache.NO_CACHE),
+            /* outputMetadataStore= */ null,
+            /* clientEnv= */ System.getenv());
 
     List<? extends SpawnStrategy> dynamicStrategies =
         spawnStrategyRegistry.getStrategies(
@@ -409,11 +417,7 @@ public class DynamicSpawnStrategyTest {
     ActionExecutionMetadata action =
         new NullActionWithMnemonic(mnemonic, ImmutableList.of(inputArtifact), outputArtifact);
     return new BaseSpawn(
-        ImmutableList.of(),
-        ImmutableMap.of(),
-        executionInfo,
-        action,
-        ResourceSet.create(1, 0, 0));
+        ImmutableList.of(), ImmutableMap.of(), executionInfo, action, ResourceSet.create(1, 0, 0));
   }
 
   /** Constructs a new spawn that can be run locally and remotely with arbitrary settings. */
@@ -971,8 +975,8 @@ public class DynamicSpawnStrategyTest {
   @Test
   public void strategyWaitsForBothSpawnsToFinish() throws Exception {
     assertThatStrategyWaitsForBothSpawnsToFinish(
-        /*executionFails=*/ false,
-        /*interruptThread=*/ false,
+        /* executionFails= */ false,
+        /* interruptThread= */ false,
         (e) -> {
           if (e != null) {
             throw new IllegalStateException("Expected exec to finish successfully", e);
@@ -983,8 +987,8 @@ public class DynamicSpawnStrategyTest {
   @Test
   public void strategyWaitsForBothSpawnsToFinishEvenIfInterrupted() throws Exception {
     assertThatStrategyWaitsForBothSpawnsToFinish(
-        /*executionFails=*/ false,
-        /*interruptThread=*/ true,
+        /* executionFails= */ false,
+        /* interruptThread= */ true,
         (e) -> {
           if (e == null) {
             fail("No exception raised");
@@ -999,8 +1003,8 @@ public class DynamicSpawnStrategyTest {
   @Test
   public void strategyWaitsForBothSpawnsToFinishOnFailure() throws Exception {
     assertThatStrategyWaitsForBothSpawnsToFinish(
-        /*executionFails=*/ true,
-        /*interruptThread=*/ false,
+        /* executionFails= */ true,
+        /* interruptThread= */ false,
         (e) -> {
           if (e == null) {
             fail("No exception raised");
@@ -1015,8 +1019,8 @@ public class DynamicSpawnStrategyTest {
   @Test
   public void strategyWaitsForBothSpawnsToFinishOnFailureEvenIfInterrupted() throws Exception {
     assertThatStrategyWaitsForBothSpawnsToFinish(
-        /*executionFails=*/ true,
-        /*interruptThread=*/ true,
+        /* executionFails= */ true,
+        /* interruptThread= */ true,
         (e) -> {
           if (e == null) {
             fail("No exception raised");
@@ -1089,6 +1093,177 @@ public class DynamicSpawnStrategyTest {
         };
 
     assertThatStrategyPropagatesException(localExec, remoteExec, e);
+  }
+
+  @Test
+  public void remoteBranchThrowsInterruptedExceptionAfterCancellation() throws Exception {
+    CountDownLatch localCanFinish = new CountDownLatch(1);
+    CountDownLatch remoteStarted = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.await();
+              localCanFinish.await();
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.countDown();
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    TestThread testThread =
+        new TestThread(
+            () -> {
+              try {
+                Spawn spawn = newDynamicSpawn();
+                strategyAndContext.exec(spawn);
+              } catch (InterruptedException | ExecException e) {
+                throw new RuntimeException(e);
+              }
+            });
+    testThread.start();
+
+    remoteStarted.await();
+    localCanFinish.countDown();
+    testThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+  }
+
+  @Test
+  public void localBranchCancelsRemoteWhichThrowsInterruptedException() throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+  }
+
+  @Test
+  public void remoteFinishesFirstAndThrowsInterruptedExceptionDuringLocalCancellation()
+      throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    // This should complete successfully with remote results, not throw AssertionError
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.succeeded()).isTrue();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockRemoteSpawnStrategy");
+  }
+
+  @Test
+  public void remoteBranchThrowsInterruptedExceptionBeforeStopConcurrentSpawns() throws Exception {
+    CountDownLatch remoteStarted = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.await();
+              Thread.sleep(100); // Give remote time to fail
+            },
+            DoExec.NOTHING);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              remoteStarted.countDown();
+              throw new InterruptedException("Remote operation interrupted");
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+  }
+
+  @Test
+  public void remoteBranchInterruptedAfterLocalStartsStopConcurrentSpawns() throws Exception {
+    CountDownLatch bothStarted = new CountDownLatch(2);
+    CountDownLatch localReadyToStop = new CountDownLatch(1);
+
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy(
+            "MockLocalSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> countDownAndWait(bothStarted),
+            (self, spawn, actionExecutionContext) -> localReadyToStop.countDown());
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy(
+            "MockRemoteSpawnStrategy",
+            (self, spawn, actionExecutionContext) -> {
+              countDownAndWait(bothStarted);
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            },
+            DoExec.NOTHING);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
   }
 
   private static FailureDetail createFailureDetail(String message) {

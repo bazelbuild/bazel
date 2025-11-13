@@ -34,7 +34,7 @@ java_library(
     srcs = [
         "ActionRewindException.java",
         "ActionRewindStrategy.java",
-        "ActionRewindingStats.java",
+        "PostableActionRewindingStats.java",
     ],
     deps = [
         ":action_rewound_event",
@@ -57,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_action_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
@@ -95,5 +96,31 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:test_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "lost_important_output_handler_module",
+    testonly = True,
+    srcs = ["LostImportantOutputHandlerModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:error_prone_annotations",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
     ],
 )

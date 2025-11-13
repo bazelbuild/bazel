@@ -42,9 +42,9 @@ java_library(
     srcs = [
         "BuildConfigurationInfo.java",
         "BuildConfigurationValue.java",
-        "ConfigRequestedEvent.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
+        "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
         ":build_option_details",
@@ -62,7 +62,6 @@ java_library(
         ":optioninfo",
         ":options_diff",
         ":run_under",
-        ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
@@ -161,13 +160,13 @@ java_library(
     name = "config_matching_provider",
     srcs = ["ConfigMatchingProvider.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -240,6 +239,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -248,6 +248,7 @@ java_library(
     name = "execution_info_modifier",
     srcs = ["ExecutionInfoModifier.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -315,9 +316,10 @@ java_library(
     deps = [
         ":build_options",
         ":fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -430,13 +432,13 @@ java_library(
     name = "starlark_defined_config_transition",
     srcs = ["StarlarkDefinedConfigTransition.java"],
     deps = [
-        ":core_options",
         ":optioninfo",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
@@ -491,11 +493,15 @@ java_library(
     srcs = ["StarlarkTransitionCache.java"],
     deps = [
         ":build_options",
+        ":core_options",
+        ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:caffeine",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

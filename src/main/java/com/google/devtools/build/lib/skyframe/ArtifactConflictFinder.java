@@ -120,15 +120,6 @@ class ArtifactConflictFinder {
     List<Artifact> myArtifacts = new ArrayList<>(values.size());
 
     for (ActionLookupValue value : values) {
-      if (value.getNumActions() == 0) {
-        // For remote analysis caching enabled builds with cache hits, deserialized
-        // ActionLookupValues do not contain actions.
-        //
-        // The full check will be delayed to the cache writing build, or any build
-        // that doesn't deserialize any remote ActionLookupValues.
-        continue;
-      }
-
       for (ActionAnalysisMetadata action : value.getActions()) {
         try {
           actionGraph.registerAction(action);

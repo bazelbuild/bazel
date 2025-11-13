@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -97,8 +98,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       printed.add(rule.getLabel());
     }
 
-    /** Outputs a given rule in BUILD-style syntax. Made visible for Modquery command. */
-    public void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+    /** Outputs a given rule in BUILD-style syntax. */
+    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
       // TODO(b/151151653): display the filenames in root-relative form.
       // This is an incompatible change, but Blaze users (and their editors)
@@ -244,7 +245,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       this.targetOutputter =
           new TargetOutputter(
               writer,
-              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
+              (rule, attr) ->
+                  AbstractAttributeMapper.isConfigurable(
+                      rule, attr.getName(), /* includeComputedDefaults= */ false),
               lineTerm,
               labelPrinter);
     }

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Functions that populate link build variables.
 
 Link build variables are a dictionary of string named variables that are used to generate C++
@@ -26,10 +27,10 @@ and formatting different types of libraries. For an example specification,
 see `unix_cc_toolchain_config.bzl`
 """
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category", "should_create_per_object_debug_info")
+load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", artifact_category = "artifact_category_names")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # Enum covering all build variables we create for all various C++ linking actions
 LINK_BUILD_VARIABLES = struct(
@@ -113,7 +114,7 @@ def create_link_variables(
         is_linking_dynamic_library = False,
         must_keep_debug = True,
         use_test_only_flags = False,
-        is_static_linking_mode = None):
+        is_static_linking_mode = None):  # buildifier: disable=unused-variable
     """Returns common link build variables used for both linking and thin LTO indexing actions.
 
     The implementation also includes variables specified by cc_toolchain.
@@ -147,6 +148,12 @@ def create_link_variables(
     if feature_configuration.is_enabled("fdo_instrument"):
         fail("FDO instrumentation not supported")
 
+    # Normalize input values, so that we don't set Nones on CcToolchainVariables
+    runtime_library_search_directories = runtime_library_search_directories or []
+    library_search_directories = library_search_directories or []
+    user_link_flags = user_link_flags or []
+    use_test_only_flags = use_test_only_flags or False
+
     vars = setup_common_linking_variables(
         cc_toolchain,
         feature_configuration,
@@ -167,7 +174,7 @@ def create_link_variables(
         if type(output_file) != type(""):
             fail("Parameter 'output_file' expected String, got '%s'" % type(output_file))
         vars["output_execpath"] = output_file
-    return cc_internal.cc_toolchain_variables(vars = vars)
+    return _cc_internal.cc_toolchain_variables(vars = vars)
 
 def setup_common_linking_variables(
         cc_toolchain,
@@ -373,7 +380,7 @@ def setup_lto_indexing_variables(
         )
 
     if not feature_configuration.is_enabled("no_use_lto_indexing_bitcode_file"):
-        object_file_extension = cc_internal.get_artifact_name_extension_for_category(
+        object_file_extension = _cc_internal.get_artifact_name_extension_for_category(
             cc_toolchain,
             artifact_category.OBJECT_FILE,
         )
@@ -386,3 +393,5 @@ def setup_lto_indexing_variables(
     vars = vars | _DONT_GENERATE_INTERFACE_LIBRARY
 
     return vars
+
+# LINT.ThenChange(@rules_cc//cc/private/link/link_build_variables.bzl:forked_exports)

@@ -302,8 +302,8 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
 
   @Test
   public void testStringRepresentations_rules() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
-    assertStringRepresentation("native.cc_library", "<rule cc_library>");
+    assertStringRepresentation(
+        "def f(): pass\n" + "myrule = rule(implementation=f)", "myrule", "<rule myrule>");
     assertStringRepresentation("def f(): pass", "rule(implementation=f)", "<rule>");
   }
 
@@ -394,6 +394,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
     assertStringRepresentation("attr.output_list()", "<attr.output_list>");
     assertStringRepresentation("attr.string_dict()", "<attr.string_dict>");
     assertStringRepresentation("attr.string_list_dict()", "<attr.string_list_dict>");
+    assertStringRepresentation("attr.label_list_dict()", "<attr.label_list_dict>");
   }
 
   @Test

@@ -57,5 +57,7 @@ enum OptionMetadataTag {
   reserved 5;
   reserved "EXPLICIT_IN_OUTPUT_PATH";
   reserved 6;
-  IMMUTABLE = 7;
+  reserved "IMMUTABLE";
+  reserved 7;
+  NON_CONFIGURABLE = 8;
 }

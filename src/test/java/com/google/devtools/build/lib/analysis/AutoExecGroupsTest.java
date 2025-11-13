@@ -1919,6 +1919,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -1969,6 +1970,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2018,6 +2020,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonLink_cppLTOActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2053,6 +2057,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:defs.bzl", "custom_rule")
 
         cc_library(
@@ -2087,6 +2092,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonLink_linkstampCompileActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2121,6 +2128,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//bazel_internal/test_rules/cc:defs.bzl", "custom_rule")
 
         cc_library(
@@ -2147,6 +2155,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_cppCompileActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2203,6 +2212,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_moduleActionsExecuteOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2275,6 +2285,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_codeGenModuleActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2347,6 +2358,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_compileHeaderActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2420,6 +2432,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_treeArtifactActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2659,10 +2672,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             srcs = ["custom.java"],
         )
         """);
-    useConfiguration(
-        "--java_header_compilation=true",
-        "--experimental_java_header_input_pruning",
-        "--incompatible_auto_exec_groups=True");
+    useConfiguration("--java_header_compilation=true", "--incompatible_auto_exec_groups=True");
 
     ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
     ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");

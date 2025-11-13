@@ -17,7 +17,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
-        "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/zstd:srcs",
@@ -79,10 +78,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
-        "//src/main/java/com/google/devtools/build/lib/actions:forbidden_action_input_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/constraint_constants",
@@ -106,7 +105,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote:abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
@@ -149,6 +148,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:auth",
         "//third_party:caffeine",
@@ -195,6 +195,7 @@ java_library(
 
 java_test(
     name = "RemoteTests",
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RemoteTests_lib",
@@ -220,9 +221,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -230,6 +233,7 @@ java_test(
     name = "BuildWithoutTheBytesIntegrationTest",
     size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     shard_count = 5,
     tags = ["requires-network"],
     runtime_deps = [
@@ -248,16 +252,19 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
 java_test(
     name = "DiskCacheIntegrationTest",
     srcs = ["DiskCacheIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",

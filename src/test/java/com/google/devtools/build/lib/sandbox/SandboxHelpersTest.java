@@ -166,7 +166,7 @@ public class SandboxHelpersTest {
         new InMemoryFileSystem(DigestHashFunction.SHA1) {
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized") // .await() inside
-          protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+          public void setExecutable(PathFragment path, boolean executable) throws IOException {
             try {
               bothWroteTempFile.await();
               finishProcessingSemaphore.acquire();
@@ -305,7 +305,7 @@ public class SandboxHelpersTest {
   @Test
   public void populateInputsAndDirsToCreate_createsMappedDirectories() {
     ArtifactRoot outputRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "outputs");
+        ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "outputs");
     ActionInput outputFile = ActionsTestUtil.createArtifact(outputRoot, "bin/config/dir/file");
     ActionInput outputDir =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(

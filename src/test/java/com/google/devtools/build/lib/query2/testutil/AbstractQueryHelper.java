@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.testutil;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
@@ -43,12 +44,25 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   protected boolean orderedResults = true;
   protected UniverseScope universeScope = UniverseScope.EMPTY;
 
-  protected TargetPattern.Parser mainRepoTargetParser = TargetPattern.defaultParser();
+  public static final RepositoryMapping DEFAULT_MAIN_REPO_MAPPING =
+      RepositoryMapping.create(
+          ImmutableMap.of(
+              "",
+              RepositoryName.MAIN,
+              "bazel_tools",
+              RepositoryName.BAZEL_TOOLS,
+              "platforms",
+              RepositoryName.createUnvalidated("platforms")),
+          RepositoryName.MAIN);
+  protected TargetPattern.Parser mainRepoTargetParser;
 
   @Override
   public void setUp() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(new EventBus(), eventCollector);
+    mainRepoTargetParser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, DEFAULT_MAIN_REPO_MAPPING);
   }
 
   public Reporter getReporter() {
@@ -120,7 +134,10 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   @Override
   public void setMainRepoTargetParser(RepositoryMapping mapping) {
     this.mainRepoTargetParser =
-        new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, mapping);
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            mapping.withAdditionalMappings(DEFAULT_MAIN_REPO_MAPPING));
   }
 
   @Override

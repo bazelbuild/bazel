@@ -15,6 +15,7 @@
 #include "src/main/cpp/blaze_util.h"
 
 #include <fcntl.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,6 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
-
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
@@ -50,10 +50,9 @@ const unsigned int kPostShutdownGracePeriodSeconds = 60;
 
 const unsigned int kPostKillGracePeriodSeconds = 10;
 
-const char* GetUnaryOption(const char *arg,
-                           const char *next_arg,
-                           const char *key) {
-  const char *value = blaze_util::var_strprefix(arg, key);
+const char* GetUnaryOption(const char* arg, const char* next_arg,
+                           const char* key) {
+  const char* value = blaze_util::var_strprefix(arg, key);
   if (value == nullptr) {
     return nullptr;
   } else if (value[0] == '=') {
@@ -65,8 +64,8 @@ const char* GetUnaryOption(const char *arg,
   return next_arg;
 }
 
-bool GetNullaryOption(const char *arg, const char *key) {
-  const char *value = blaze_util::var_strprefix(arg, key);
+bool GetNullaryOption(const char* arg, const char* key) {
+  const char* value = blaze_util::var_strprefix(arg, key);
   if (value == nullptr) {
     return false;
   } else if (value[0] == '=') {
@@ -114,8 +113,7 @@ std::vector<std::string> GetAllUnaryOptionValues(
   return values;
 }
 
-bool SearchNullaryOption(const vector<string>& args,
-                         const string& flag_name,
+bool SearchNullaryOption(const vector<string>& args, const string& flag_name,
                          const bool default_value) {
   const string positive_flag = "--" + flag_name;
   const string negative_flag = "--no" + flag_name;
@@ -134,8 +132,8 @@ bool SearchNullaryOption(const vector<string>& args,
 }
 
 bool IsArg(const string& arg) {
-  return blaze_util::starts_with(arg, "-") && (arg != "--help")
-      && (arg != "-help") && (arg != "-h");
+  return blaze_util::starts_with(arg, "-") && (arg != "--help") &&
+         (arg != "-help") && (arg != "-h");
 }
 
 std::string AbsolutePathFromFlag(const std::string& value) {
@@ -149,9 +147,32 @@ std::string AbsolutePathFromFlag(const std::string& value) {
 }
 
 void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
-  SigPrintf("WARNING: Waiting for server process to terminate "
-            "(waited %d seconds, waiting at most %d)\n",
-            elapsed_seconds, wait_seconds);
+  SigPrintf(
+      "WARNING: Waiting for server process to terminate "
+      "(waited %d seconds, waiting at most %d)\n",
+      elapsed_seconds, wait_seconds);
+}
+
+// Install a signal handler and restore the previous handler after the scope
+// ends.
+class SignalHandlerGuard {
+ public:
+  SignalHandlerGuard(int sig, void (*handler)(int)) {
+    sig_ = sig;
+    previous_handler_ = signal(sig, handler);
+  }
+
+  ~SignalHandlerGuard() { signal(sig_, previous_handler_); }
+
+ private:
+  int sig_;
+  void (*previous_handler_)(int);
+};
+
+static volatile bool interrupted_during_await_termination;
+
+static void SignalHandlerDuringAwaitTermination(int signal) {
+  interrupted_during_await_termination = true;
 }
 
 bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
@@ -164,7 +185,22 @@ bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
   const unsigned int third_seconds = 30;
   bool logged_third = false;
 
+  // b/428029833: Install signal handlers to make sure the server process is
+  // killed upon interruption.
+  interrupted_during_await_termination = false;
+  SignalHandlerGuard sigint_handler_guard(SIGINT,
+                                          SignalHandlerDuringAwaitTermination);
+  SignalHandlerGuard sigterm_handler_guard(SIGTERM,
+                                           SignalHandlerDuringAwaitTermination);
+#ifndef _WIN32  // SIGQUIT is not supported on Windows.
+  SignalHandlerGuard sigquit_handler_guard(SIGQUIT,
+                                           SignalHandlerDuringAwaitTermination);
+#endif
+
   while (VerifyServerProcess(pid, output_base)) {
+    if (interrupted_during_await_termination) {
+      return false;
+    }
     TrySleep(100);
     uint64_t elapsed_millis = GetMillisecondsMonotonic() - st;
     if (!logged_first && elapsed_millis > first_seconds * 1000) {
@@ -180,9 +216,10 @@ bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
       logged_third = true;
     }
     if (elapsed_millis > wait_seconds * 1000) {
-      SigPrintf("INFO: Waited %d seconds for server process (pid=%d) to"
-                " terminate.\n",
-                wait_seconds, pid);
+      SigPrintf(
+          "INFO: Waited %d seconds for server process (pid=%d) to"
+          " terminate.\n",
+          wait_seconds, pid);
       return false;
     }
   }
@@ -253,8 +290,6 @@ WithEnvVars::WithEnvVars(const map<string, EnvVarValue>& vars) {
   SetEnvVars(vars);
 }
 
-WithEnvVars::~WithEnvVars() {
-  SetEnvVars(_old_values);
-}
+WithEnvVars::~WithEnvVars() { SetEnvVars(_old_values); }
 
 }  // namespace blaze

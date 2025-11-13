@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -58,6 +58,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
   private final DigestUtil digestUtil;
   private final String buildRequestId;
   private final String commandId;
+  private final String workspaceName;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -68,6 +69,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       DigestUtil digestUtil,
       String buildRequestId,
       String commandId,
+      String workspaceName,
       String remoteInstanceName,
       boolean acceptCached) {
     this.remoteCache = remoteCache;
@@ -75,6 +77,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     this.digestUtil = digestUtil;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
   }
@@ -137,15 +140,17 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
     Command command = commandBuilder.build();
     Digest commandHash = digestUtil.compute(command);
-    MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
+    var merkleTree =
+        new MerkleTreeComputer(
+                digestUtil,
+                /* remoteExecutionCache= */ null,
+                buildRequestId,
+                commandId,
+                workspaceName)
+            .buildForFiles(inputFiles);
     Action action =
         buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            platform,
-            timeout,
-            acceptCached,
-            /* salt= */ null);
+            commandHash, merkleTree.digest(), platform, timeout, acceptCached, /* salt= */ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;

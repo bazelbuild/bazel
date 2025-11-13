@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
@@ -25,6 +28,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
@@ -43,7 +47,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.SortedMap;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -65,14 +68,33 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "Limit the max number of concurrent connections to remote cache/executor. By default the"
-              + " value is 100. Setting this to 0 means no limitation.\n"
-              + "For HTTP remote cache, one TCP connection could handle one request at one time, so"
-              + " Bazel could make up to --remote_max_connections concurrent requests.\n"
-              + "For gRPC remote cache/executor, one gRPC channel could usually handle 100+"
-              + " concurrent requests, so Bazel could make around `--remote_max_connections * 100`"
-              + " concurrent requests.")
+          """
+          Limit the max number of concurrent connections to remote cache/executor. By default the \
+          value is 100. Setting this to 0 means no limitation.
+          For HTTP remote cache, one TCP connection could handle one request at one time, so \
+          Bazel could make up to --remote_max_connections concurrent requests.
+          For gRPC remote cache/executor, one gRPC channel could usually handle 100+ \
+          concurrent requests (controlled by --remote_max_concurrency_per_connection), so \
+          Bazel could make around `--remote_max_connections * 100` concurrent requests.\
+          """)
   public int remoteMaxConnections;
+
+  @Option(
+      name = "remote_max_concurrency_per_connection",
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // max concurrency per connection is 100.
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          """
+          Limit the max number of concurrent requests per gRPC connection. By default the value \
+          is 100.\
+          """)
+  public int remoteMaxConcurrencyPerConnection;
 
   @Option(
       name = "remote_executor",
@@ -398,16 +420,35 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
   public Duration diskCacheGcMaxAge;
 
+  /** An enum for different levels of checks for concurrent changes. */
+  public enum ConcurrentChangesCheckLevel {
+    OFF,
+    LITE,
+    FULL;
+
+    /** Converts to {@link ConcurrentChangesCheckLevel}. */
+    static class Converter extends BoolOrEnumConverter<ConcurrentChangesCheckLevel> {
+      public Converter() {
+        super(ConcurrentChangesCheckLevel.class, "concurrent changes check level", FULL, OFF);
+      }
+    }
+  }
+
   @Option(
-      name = "experimental_guard_against_concurrent_changes",
-      defaultValue = "false",
+      name = "guard_against_concurrent_changes",
+      oldName = "experimental_guard_against_concurrent_changes",
+      defaultValue = "lite",
+      converter = ConcurrentChangesCheckLevel.Converter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Turn this off to disable checking the ctime of input files of an action before "
-              + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
-              + "writing of files, which could cause false positives.")
-  public boolean experimentalGuardAgainstConcurrentChanges;
+          "Set this to 'full' to enable checking the ctime of all input files of an action before"
+              + " uploading it to a remote cache. There may be cases where the Linux kernel delays"
+              + " writing of files, which could cause false positives. The default is 'lite', which"
+              + " only checks source files in the main repository. Setting this to 'off' disables"
+              + " all checks. This is not recommended, as the cache may be polluted when a source"
+              + " file is changed while an action that takes it as an input is executing.")
+  public ConcurrentChangesCheckLevel guardAgainstConcurrentChanges;
 
   @Option(
       name = "remote_grpc_log",
@@ -415,7 +456,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If specified, a path to a file to log gRPC call related details. This log consists of a"
@@ -459,7 +500,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       converter = RemoteOutputsStrategyConverter.class,
       help =
           "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
-              + "except the ones required by local actions. If set to 'toplevel' behaves like"
+              + "except the ones required by local actions. If set to 'toplevel' behaves like "
               + "'minimal' except that it also downloads outputs of top level targets to the local "
               + "machine. Both options can significantly reduce build times if network bandwidth "
               + "is a bottleneck.")
@@ -540,10 +581,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "--remote_default_platform_properties has been deprecated in favor of"
               + " --remote_default_exec_properties.",
       help =
-          "Set the default platform properties to be set for the remote execution API, "
-              + "if the execution platform does not already set remote_execution_properties. "
-              + "This value will also be used if the host platform is selected as the execution "
-              + "platform for remote execution.")
+          "Set the default exec properties to be used as the remote execution platform "
+              + "if an execution platform does not already set exec_properties.")
   public String remoteDefaultPlatformProperties;
 
   @Option(
@@ -567,30 +606,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "If set to true, Bazel will compute the hash sum of all remote downloads and "
               + " discard the remotely cached values if they don't match the expected value.")
   public boolean remoteVerifyDownloads;
-
-  @Option(
-      name = "experimental_remote_merkle_tree_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to true, Merkle tree calculations will be memoized to improve the remote cache "
-              + "hit checking speed. The memory foot print of the cache is controlled by "
-              + "--experimental_remote_merkle_tree_cache_size.")
-  public boolean remoteMerkleTreeCache;
-
-  @Option(
-      name = "experimental_remote_merkle_tree_cache_size",
-      defaultValue = "1000",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The number of Merkle trees to memoize to improve the remote cache hit checking speed. "
-              + "Even though the cache is automatically pruned according to Java's handling of "
-              + "soft references, out-of-memory errors can occur if set too high. If set to 0 "
-              + " the cache size is unlimited. Optimal value varies depending on project's size. "
-              + "Default to 1000.")
-  public long remoteMerkleTreeCacheSize;
 
   @Option(
       name = "remote_download_symlink_template",
@@ -722,8 +737,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
               + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
-              + " variables).")
+              + " output prefixes).")
   public Scrubber scrubber;
 
   @Option(
@@ -802,7 +816,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
    * Returns the default exec properties specified by the user or an empty map if nothing was
    * specified. Use this method instead of directly accessing the fields.
    */
-  public SortedMap<String, String> getRemoteDefaultExecProperties() throws UserExecException {
+  public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties()
+      throws UserExecException {
     boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
     boolean hasPlatformProperties = !remoteDefaultPlatformProperties.isEmpty();
 
@@ -823,7 +838,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       final Platform platform;
       try {
         Platform.Builder builder = Platform.newBuilder();
-        TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
+        TextFormat.getParser().merge(internalToUnicode(remoteDefaultPlatformProperties), builder);
         platform = builder.build();
       } catch (ParseException e) {
         String message =
@@ -835,7 +850,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
       ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
       for (Property property : platform.getPropertiesList()) {
-        builder.put(property.getName(), property.getValue());
+        builder.put(unicodeToInternal(property.getName()), unicodeToInternal(property.getValue()));
       }
       return builder.buildOrThrow();
     }

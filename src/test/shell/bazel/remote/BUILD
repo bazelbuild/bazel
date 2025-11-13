@@ -1,3 +1,6 @@
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -28,11 +31,17 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
-        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 5,
     tags = [
         "requires-network",  # for Bzlmod (apple_support)
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 

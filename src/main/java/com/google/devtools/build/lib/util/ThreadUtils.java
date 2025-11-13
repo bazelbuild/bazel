@@ -19,6 +19,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -46,8 +49,7 @@ public class ThreadUtils {
       MAP_WITH_ARRAY_LIST_VALUES_COLLECTOR =
           Collectors.groupingBy(StackTraceAndState::new, toCollection(ArrayList::new));
 
-  private ThreadUtils() {
-  }
+  private ThreadUtils() {}
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
   public static synchronized void warnAboutSlowInterrupt(
@@ -86,6 +88,26 @@ public class ThreadUtils {
                   makeThreadInfoString(e.getValue()),
                   makeString(stackTraceAndState.trace));
             });
+
+    try {
+      logger.atWarning().log("Dumping additional thread state using ThreadDumper:");
+
+      var out = new ByteArrayOutputStream();
+      ThreadDumper.dumpThreads(out);
+
+      var in = new ByteArrayInputStream(out.toByteArray());
+      var analyzedThreadDump = new ThreadDumpAnalyzer().analyze(in);
+
+      for (var line : analyzedThreadDump.otherLines()) {
+        logger.atWarning().log("%s", line);
+      }
+      for (var stackTrace : analyzedThreadDump.groupedStackTraces()) {
+        logger.atWarning().log("%s", stackTrace);
+      }
+
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to dump threads with ThreadDumper.");
+    }
 
     SlowInterruptInnerException inner =
         new SlowInterruptInnerException(

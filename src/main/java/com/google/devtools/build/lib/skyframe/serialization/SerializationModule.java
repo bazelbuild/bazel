@@ -28,8 +28,10 @@ import java.util.function.Supplier;
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
 public class SerializationModule extends BlazeModule {
 
+  private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
+
   @Override
-  public final void workspaceInit(
+  public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     if (!directories.inWorkspace()) {
       // Serialization only works when the Bazel server is invoked from a workspace.
@@ -42,16 +44,28 @@ public class SerializationModule extends BlazeModule {
     builder.setAnalysisCodecRegistrySupplier(
         getAnalysisCodecRegistrySupplier(runtime, directories));
 
-    builder.setRemoteAnalysisCachingServicesSupplier(getAnalysisCachingServicesSupplier());
+    remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier();
+    builder.setRemoteAnalysisCachingServicesSupplier(remoteAnalysisCachingServicesSupplier);
+  }
+
+  @Override
+  public void commandComplete() {
+    if (remoteAnalysisCachingServicesSupplier != null) {
+      remoteAnalysisCachingServicesSupplier.shutdown();
+    }
   }
 
   @ForOverride
   protected Supplier<ObjectCodecRegistry> getAnalysisCodecRegistrySupplier(
       BlazeRuntime runtime, BlazeDirectories directories) {
-    return SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier(
-        runtime.getRuleClassProvider(),
-        SerializationRegistrySetupHelpers.makeReferenceConstants(
-            directories, runtime.getRuleClassProvider(), directories.getWorkspace().getBaseName()));
+    return () ->
+        SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder(
+                runtime.getRuleClassProvider(),
+                SerializationRegistrySetupHelpers.makeReferenceConstants(
+                    directories,
+                    runtime.getRuleClassProvider(),
+                    directories.getWorkspace().getBaseName()))
+            .build();
   }
 
   @ForOverride
@@ -71,7 +85,8 @@ public class SerializationModule extends BlazeModule {
             // TODO: b/358347099 - use a persistent store
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            FingerprintValueService.NONPROD_FINGERPRINTER);
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            /* jsonLogWriter= */ null);
 
     private static final ListenableFuture<FingerprintValueService> WRAPPED_SERVICE_INSTANCE =
         immediateFuture(SERVICE_INSTANCE);
@@ -80,5 +95,8 @@ public class SerializationModule extends BlazeModule {
     public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
       return WRAPPED_SERVICE_INSTANCE;
     }
+
+    @Override
+    public void shutdown() {}
   }
 }

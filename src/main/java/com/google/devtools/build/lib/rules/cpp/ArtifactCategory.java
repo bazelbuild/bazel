@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 public enum ArtifactCategory {
   STATIC_LIBRARY("lib", ".a", ".lib"),
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
-  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".wasm"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".pyd", ".wasm"),
   EXECUTABLE("", "", ".exe", ".wasm"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
@@ -31,9 +31,7 @@ public enum ArtifactCategory {
   SERIALIZED_DIAGNOSTICS_FILE("", ".dia"),
   OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
-  CPP_MODULE("", ".pcm"),
-  CPP_MODULE_GCM("", ".gcm"),
-  CPP_MODULE_IFC("", ".ifc"),
+  CPP_MODULE("", ".pcm", ".gcm", ".ifc"),
   CPP_MODULES_INFO("", ".CXXModules.json"),
   CPP_MODULES_DDI("", ".ddi"),
   CPP_MODULES_MODMAP("", ".modmap"),
@@ -50,7 +48,7 @@ public enum ArtifactCategory {
 
   private final String defaultPrefix;
   private final String defaultExtension;
-  private final String starlarkName;
+
   // The extensions allowed for this artifact name pattern, Bazel should recognized them as
   // corresponding file type in CppFileTypes.java
   final ImmutableList<String> allowedExtensions;
@@ -66,8 +64,6 @@ public enum ArtifactCategory {
             .add(defaultExtension)
             .add(extraAllowedExtensions)
             .build();
-
-    this.starlarkName = toString().toLowerCase();
   }
 
   /** Returns the name of the category. */

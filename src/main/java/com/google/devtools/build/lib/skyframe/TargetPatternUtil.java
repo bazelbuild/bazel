@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -39,25 +41,33 @@ public class TargetPatternUtil {
    * Skyframe restart.
    */
   @Nullable
-  public static ImmutableList<Label> expandTargetPatterns(
+  public static ImmutableSet<Label> expandTargetPatterns(
       Environment env, List<SignedTargetPattern> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
     if (targetPatterns.isEmpty()) {
-      return ImmutableList.of();
+      return ImmutableSet.of();
     }
 
     Iterable<TargetPatternKey> targetPatternKeys =
         TargetPatternValue.keys(targetPatterns, filteringPolicy);
     SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(targetPatternKeys);
     boolean valuesMissing = env.valuesMissing();
-    ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
+    // Use an ArrayList so that we can add and remove results based on negative patterns.
+    List<Label> labels = valuesMissing ? null : new ArrayList<>();
 
     for (TargetPatternKey pattern : targetPatternKeys) {
       try {
         TargetPatternValue value =
             (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
-        if (!valuesMissing && value != null) {
+        if (valuesMissing || value == null) {
+          continue;
+        }
+        if (pattern.isNegative()) {
+          // Remove from the results.
+          labels.removeAll(value.getTargets().getTargets());
+        } else {
+          // Add to results.
           labels.addAll(value.getTargets().getTargets());
         }
       } catch (TargetParsingException e) {
@@ -73,7 +83,7 @@ public class TargetPatternUtil {
       return null;
     }
 
-    return labels.build();
+    return ImmutableSet.copyOf(labels);
   }
 
   // TODO(bazel-team): look into moving this into SignedTargetPattern itself.

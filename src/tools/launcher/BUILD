@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":launcher_maker_test.bzl", "launcher_maker_test")
 load(":win_rules.bzl", "win_cc_binary", "win_cc_library")
 
@@ -30,6 +31,7 @@ win_cc_library(
     hdrs = ["launcher.h"],
     deps = [
         "//src/main/cpp/util:filesystem",
+        "//src/main/native/windows:lib-process",
         "//src/tools/launcher/util",
         "//src/tools/launcher/util:data_parser",
     ],

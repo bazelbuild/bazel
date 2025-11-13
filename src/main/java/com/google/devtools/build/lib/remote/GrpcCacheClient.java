@@ -89,7 +89,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private final ByteStreamUploader uploader;
   private final int maxMissingBlobsDigestsPerMessage;
 
-  private AtomicBoolean closed = new AtomicBoolean();
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   @VisibleForTesting
   public GrpcCacheClient(
@@ -278,7 +278,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setActionDigest(actionKey.getDigest())
+            .setActionDigest(actionKey.digest())
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
             .addAllInlineOutputFiles(inlineOutputFiles)
@@ -309,7 +309,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                                             UpdateActionResultRequest.newBuilder()
                                                 .setInstanceName(options.remoteInstanceName)
                                                 .setDigestFunction(digestUtil.getDigestFunction())
-                                                .setActionDigest(actionKey.getDigest())
+                                                .setActionDigest(actionKey.digest())
                                                 .setActionResult(actionResult)
                                                 .build())),
                             StatusRuntimeException.class,

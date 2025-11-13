@@ -47,12 +47,11 @@ public interface StarlarkRuleFunctionsApi {
           + " listed here from its return value. However, the implementation function may return"
           + " additional providers not listed here." //
           + "<p>Each element of the list is an <code>*Info</code> object returned by <a"
-          + " href='../globals/bzl.html#provider'><code>provider()</code></a>, except that a legacy"
-          + " provider is represented by its string name instead.When a target of the rule is used"
-          + " as a dependency for a target that declares a required provider, it is not necessary"
-          + " to specify that provider here. It is enough that the implementation function returns"
-          + " it. However, it is considered best practice to specify it, even though this is not"
-          + " required. The <a"
+          + " href='../globals/bzl.html#provider'><code>provider()</code></a>. When a target of the"
+          + " rule is used as a dependency for a target that declares a required provider, it is"
+          + " not necessary to specify that provider here. It is enough that the implementation"
+          + " function returns it. However, it is considered best practice to specify it, even"
+          + " though this is not required. The <a"
           + " href='../globals/bzl.html#aspect.required_providers'><code>required_providers</code></a>"
           + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
           + " that providers are specified here.";
@@ -202,7 +201,7 @@ public interface StarlarkRuleFunctionsApi {
   @StarlarkMethod(
       name = "macro",
       doc =
-          """
+"""
 Defines a symbolic macro, which may be called in <code>BUILD</code> files or macros (legacy or
 symbolic) to define targets &ndash; possibly multiple ones.
 
@@ -218,7 +217,7 @@ macros.
             positional = false,
             named = true,
             doc =
-                """
+"""
 The Starlark function implementing this macro. The values of the macro's attributes are passed to
 the implementation function as keyword arguments. The implementation function must have at least two
 named parameters, <code>name</code> and <code>visibility</code>, and if the macro inherits
@@ -273,7 +272,7 @@ function it transitively calls:
             positional = false,
             defaultValue = "{}",
             doc =
-                """
+"""
 A dictionary of the attributes this macro supports, analogous to
 <a href="#rule.attrs">rule.attrs</a>. Keys are attribute names, and values are either attribute
 objects like <code>attr.label_list(...)</code> (see the <a href=\"../toplevel/attr.html\">attr</a>
@@ -303,7 +302,7 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "None",
             doc =
-                """
+"""
 A rule symbol, macro symbol, or the name of a built-in common attribute list (see below) from which
 the macro should inherit attributes.
 
@@ -391,7 +390,7 @@ care to handle the <code>None</code> default value of non-mandatory inherited at
             named = true,
             defaultValue = "False",
             doc =
-                """
+"""
 Whether this macro is a rule finalizer, which is a macro that, regardless of its position in a
 <code>BUILD</code> file, is evaluated at the end of package loading, after all non-finalizer targets
 have been defined.
@@ -455,7 +454,7 @@ targets defined by any rule finalizer, including this one.
             },
             doc =
                 "Whether this rule is a test rule, that is, whether it may be the subject of a"
-                    + " <code>blaze test</code> command. All test rules are automatically"
+                    + " <code>bazel test</code> command. All test rules are automatically"
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
                     + " test rule. The value defaults to <code>False</code>. See the <a"
@@ -470,7 +469,7 @@ targets defined by any rule finalizer, including this one.
             positional = false,
             defaultValue = "{}",
             doc =
-                """
+"""
 A dictionary to declare all the attributes of the rule. It maps from an attribute \
 name to an attribute object (see
 <a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
@@ -550,7 +549,7 @@ declared.
             },
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
-                    + " of a <code>blaze run</code> command. It defaults to <code>False</code>. See"
+                    + " of a <code>bazel run</code> command. It defaults to <code>False</code>. See"
                     + " the <a"
                     + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
@@ -604,12 +603,6 @@ declared.
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
                     + " will be found by checking the current platform, and provided to the rule"
                     + " implementation via <code>ctx.toolchain</code>."),
-        @Param(
-            name = "incompatible_use_toolchain_transition",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc = "Deprecated, this is no longer in use and should be removed."),
         @Param(
             name = "doc",
             named = true,
@@ -779,7 +772,6 @@ declared.
       Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       boolean dependencyResolutionRule,
@@ -799,7 +791,7 @@ declared.
       name = "aspect",
       doc =
           "Creates a new aspect. The result of this function must be stored in a global value."
-              + " Please see the <a href=\"https://bazel.build/rules/aspects\">introduction to"
+              + " Please see the <a href=\"https://bazel.build/extending/aspects\">introduction to"
               + " Aspects</a> for more details.",
       parameters = {
         @Param(
@@ -954,11 +946,6 @@ declared.
                     + " will be found by checking the current platform, and provided to the aspect"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
-            name = "incompatible_use_toolchain_transition",
-            defaultValue = "False",
-            named = true,
-            doc = "Deprecated, this is no longer in use and should be removed."),
-        @Param(
             name = "doc",
             named = true,
             allowedTypes = {
@@ -1032,7 +1019,6 @@ declared.
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
@@ -1164,6 +1150,81 @@ declared.
       Sequence<?> toolchains,
       Sequence<?> fragments,
       Sequence<?> subrules,
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "materializer_rule",
+      doc =
+          "Creates a new materializer rule, which can be called from a BUILD file or a macro to"
+              + " create materializer targets.<p>Materializer targets are used to dynamically"
+              + " select dependencies at analysis time. Targets which depend on a materializer"
+              + " target will see the materialized dependencies, rather than the materializer"
+              + " target itself.",
+      parameters = {
+        @Param(
+            name = "implementation",
+            named = true,
+            positional = false,
+            doc =
+                "The Starlark function implementing this materializer rule. It must have exactly"
+                    + " one parameter: <a href=\"../builtins/ctx.html\">ctx</a>. This function is"
+                    + " called during the analysis phase for each instance of the rule."
+                    + " Materializer rules return exactly one and only one MaterializedDepsInfo"
+                    + " provider which specifies the dependencies to materialize in place of any"
+                    + " instance of this rule in the attributes of another target."),
+        @Param(
+            name = "attrs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "{}",
+            doc =
+"""
+A dictionary to declare all the attributes of the rule. It maps from an attribute \
+name to an attribute object (see
+<a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
+with <code>_</code> are private, and can be used to add an implicit dependency on \
+a label. The attribute <code>name</code> is implicitly added and must not be \
+specified. Attributes <code>visibility</code>, <code>deprecation</code>, \
+<code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly \
+added and cannot be overridden. Most rules need only a handful of attributes. To \
+limit memory usage, there is a cap on the number of attributes that may be \
+declared.
+<p>Declared attributes will convert <code>None</code> to the default value.</p>
+"""),
+        @Param(
+            name = "doc",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "A description of the rule that can be extracted by documentation generating "
+                    + "tools."),
+        @Param(
+            name = "allow_real_deps",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            },
+            defaultValue = "False",
+            doc =
+                "Whether to allow instances of this materializer rule to have real dependencies "
+                    + "(non-dormant deps / non-for_dependency_resolution). Subject to allowlist."),
+      },
+      useStarlarkThread = true)
+  StarlarkCallable materializerRule(
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Object doc,
+      boolean allowRealDeps,
       StarlarkThread thread)
       throws EvalException;
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2022 The Bazel Authors. All rights reserved.
 #
@@ -75,7 +75,8 @@ EOF
 function test_metrics() {
   helper "" ""
   expect_log 'CPU usage (Bazel).*"cpu":[0-9.]\+'
-  expect_log 'CPU usage (total).*"system cpu":[0-9.]\+'
+  # Support negative values for system CPU b/449782259
+  expect_log 'CPU usage (total).*"system cpu":[\-]*[0-9.]\+'
   expect_log 'Memory usage (Bazel).*"memory":[0-9.]\+'
   expect_log 'Memory usage (total).*"system memory":[0-9.]\+'
 }

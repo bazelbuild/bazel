@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -32,7 +32,16 @@ function assert_paths_stripped() {
   output_path=$(bazel info | grep '^output_path:')
   bazel_out="${output_path##*/}"
 
-  cmd=$(grep $identifying_action_output $subcommand_output | head -n 1)
+  cmd=$(grep $identifying_action_output $subcommand_output | head -n 1 || true)
+  # Verbose failure message to catch flaky failures described at b/398198569.
+  if [[ -z "$cmd" ]]; then
+    echo "$subcommand_output contents:"
+    echo "-----------------------------------------------------------------"
+    cat "$subcommand_output"
+    echo "-----------------------------------------------------------------"
+    echo "No action found in $subcommand_output with output: $identifying_action_output"
+  fi
+
   # Check this function's input was precise enough to isolate a single action.
   assert_equals 1 $(echo "$cmd" | wc -l)
 

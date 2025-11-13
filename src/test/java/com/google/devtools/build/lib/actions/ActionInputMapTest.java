@@ -32,7 +32,9 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +48,7 @@ public final class ActionInputMapTest {
   private final ArtifactRoot artifactRoot =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
+          RootType.OUTPUT,
           "bazel-out");
 
   @Test
@@ -55,7 +57,7 @@ public final class ActionInputMapTest {
     assertThat(map.sizeForDebugging()).isEqualTo(1);
     assertContains("/abc/def", 5);
     assertThat(map.getMetadata(PathFragment.create("blah"))).isNull();
-    assertThat(map.getInput("blah")).isNull();
+    assertThat(map.getInput(PathFragment.create("blah"))).isNull();
   }
 
   @Test
@@ -197,7 +199,7 @@ public final class ActionInputMapTest {
     // Cannot assertContainsTree since the execpath will point to tree1 instead.
     assertThat(map.getInputMetadata(tree2)).isEqualTo(tree1Value.getMetadata());
     assertThat(map.getTreeMetadata(tree2.getExecPath())).isSameInstanceAs(tree1Value);
-    assertThat(map.getInput(tree2.getExecPathString())).isSameInstanceAs(tree1);
+    assertThat(map.getInput(tree2.getExecPath())).isSameInstanceAs(tree1);
     assertDoesNotContain(tree2File);
   }
 
@@ -242,7 +244,7 @@ public final class ActionInputMapTest {
     assertThat(map.getInputMetadata(file)).isSameInstanceAs(fileMetadata);
     assertThat(map.getInputMetadata(treeFile)).isSameInstanceAs(treeFileMetadata);
     assertThat(map.getMetadata(treeFile.getExecPath())).isSameInstanceAs(fileMetadata);
-    assertThat(map.getInput(treeFile.getExecPathString())).isSameInstanceAs(file);
+    assertThat(map.getInput(treeFile.getExecPath())).isSameInstanceAs(file);
   }
 
   @Test
@@ -342,9 +344,9 @@ public final class ActionInputMapTest {
     ActionInput file = ActionInputHelper.fromPath("some/file");
     map.put(file, TestMetadata.create(1));
 
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getChild("under"))).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getChild("under"))).isNull();
   }
 
   @Test
@@ -353,9 +355,9 @@ public final class ActionInputMapTest {
     TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 
@@ -367,12 +369,12 @@ public final class ActionInputMapTest {
         TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getParentDirectory()))
         .isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 
@@ -426,14 +428,14 @@ public final class ActionInputMapTest {
     assertThat(map.getInputMetadata(new TestInput(execPath))).isEqualTo(TestMetadata.create(value));
     assertThat(map.getMetadata(PathFragment.create(execPath)))
         .isEqualTo(TestMetadata.create(value));
-    assertThat(map.getInput(execPath)).isEqualTo(new TestInput(execPath));
+    assertThat(map.getInput(PathFragment.create(execPath))).isEqualTo(new TestInput(execPath));
   }
 
   private void assertDoesNotContain(ActionInput input) {
     assertThat(map.getInputMetadata(input)).isNull();
     assertThat(map.getMetadata(input.getExecPath())).isNull();
     assertThat(map.getTreeMetadata(input.getExecPath())).isNull();
-    assertThat(map.getInput(input.getExecPathString())).isNull();
+    assertThat(map.getInput(input.getExecPath())).isNull();
   }
 
   private void assertContainsFile(ActionInput input, FileArtifactValue fileValue) {
@@ -441,7 +443,7 @@ public final class ActionInputMapTest {
     assertThat(map.getInputMetadata(input)).isSameInstanceAs(fileValue);
     assertThat(map.getMetadata(input.getExecPath())).isSameInstanceAs(fileValue);
     assertThat(map.getTreeMetadata(input.getExecPath())).isNull();
-    assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
+    assertThat(map.getInput(input.getExecPath())).isSameInstanceAs(input);
   }
 
   private void assertContainsTree(SpecialArtifact input, TreeArtifactValue treeValue) {
@@ -449,7 +451,11 @@ public final class ActionInputMapTest {
     assertThat(map.getInputMetadata(input)).isEqualTo(treeValue.getMetadata());
     assertThat(map.getMetadata(input.getExecPath())).isEqualTo(treeValue.getMetadata());
     assertThat(map.getTreeMetadata(input.getExecPath())).isSameInstanceAs(treeValue);
-    assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
+    assertThat(map.getInput(input.getExecPath())).isSameInstanceAs(input);
+
+    Map<PathFragment, TreeArtifactValue> trees = new HashMap<>();
+    map.forEachTreeArtifact(trees::put);
+    assertThat(trees).containsAtLeast(input.getExecPath(), treeValue);
   }
 
   private static class TestEntry {

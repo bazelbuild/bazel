@@ -1,6 +1,13 @@
 ---
 platforms:
-  centos7:
+  rockylinux8:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
+  rockylinux8_arm64:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -15,16 +22,16 @@ platforms:
       - "-c"
       - "opt"
   ubuntu2004_arm64:
-    shell_commands:
-      # Our Arm64 machine keeps state between builds, so we need to clean it.
-      - "bazel clean --expunge"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
-  ubuntu2204:
+      # https://github.com/bazelbuild/continuous-integration/issues/2353
+      - "--linkopt=-Wl,--no-fix-cortex-a53-843419"
+      - "--host_linkopt=-Wl,--no-fix-cortex-a53-843419"
+  ubuntu2404:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"

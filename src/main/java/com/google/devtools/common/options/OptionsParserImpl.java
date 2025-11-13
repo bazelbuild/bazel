@@ -101,7 +101,7 @@ class OptionsParserImpl {
     @CanIgnoreReturnValue
     public Builder withAliasFlag(@Nullable String aliasFlag) {
       if (aliasFlag != null) {
-        this.aliasFlag = "--" + aliasFlag;
+        this.aliasFlag = aliasFlag;
       }
       return this;
     }
@@ -716,7 +716,7 @@ class OptionsParserImpl {
         parsedOptions.add(parsedOption);
       }
 
-      if (aliasFlag != null && parsedOption.getCommandLineForm().startsWith(aliasFlag)) {
+      if (aliasFlag != null && parsedOption.getCommandLineForm().startsWith("--" + aliasFlag)) {
         List<String> alias =
             Splitter.on('=').limit(2).splitToList(parsedOption.getUnconvertedValue());
 

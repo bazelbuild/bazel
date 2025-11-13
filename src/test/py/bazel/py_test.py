@@ -49,9 +49,7 @@ class PyTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
 
   def testSmoke(self):
     self.createSimpleFiles()
@@ -78,9 +76,7 @@ class TestInitPyFiles(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
 
   def createSimpleFiles(self, create_init=True):
 
@@ -165,7 +161,6 @@ class PyRemoteTest(test_base.TestBase):
         '--strategy=Javac=remote',
         '--strategy=Closure=remote',
         '--genrule_strategy=remote',
-        '--define=EXECUTOR=remote',
         '--remote_executor=grpc://localhost:' + str(self._worker_port),
         '--remote_cache=grpc://localhost:' + str(self._worker_port),
         '--remote_timeout=3600',
@@ -175,9 +170,7 @@ class PyRemoteTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
     self._worker_port = self.StartRemoteWorker()
 
   def tearDown(self):
@@ -245,13 +238,13 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "rules_python", version = "0.40.0")',
             'local_repository = use_repo_rule(',
             '    "@bazel_tools//tools/build_defs/repo:local.bzl",',
             '    "local_repository")',
             'local_repository(name = "other_repo", path = "other_repo_path")',
         ],
     )
+    self.AddBazelDep('rules_python')
 
     self.ScratchFile(
         'pkg/BUILD.bazel',

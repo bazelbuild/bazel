@@ -82,12 +82,29 @@ public final class StarlarkThread {
   }
 
   /**
+   * Increments the thread's number of executed Starlark computation steps by a specified delta.
+   * Intended to be used by callers that perform custom off-thread computation and that want to
+   * limit the sum of in-thread and off-thread computation steps to a common {@link
+   * #getMaxExecutionSteps} budget.
+   */
+  public void incrementExecutedSteps(long delta) {
+    this.steps += delta;
+  }
+
+  /**
    * Sets the maximum number of Starlark computation steps that may be executed by this thread (see
    * {@link #getExecutedSteps}). When the step counter reaches or exceeds this value, execution
    * fails with an EvalException.
    */
   public void setMaxExecutionSteps(long steps) {
     this.stepLimit = steps;
+  }
+
+  /**
+   * Returns the maximum number of Starlark computation steps that may be executed by this thread.
+   */
+  public long getMaxExecutionSteps() {
+    return stepLimit;
   }
 
   /**
@@ -297,7 +314,9 @@ public final class StarlarkThread {
     // End wall-time profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null && fr.profileStartTimeNanos >= 0) {
-      callProfiler.end(fr.profileStartTimeNanos, fr.fn);
+      // Only record the context once since it is the same for all frames.
+      var contextDescription = last == 0 ? getContextDescription() : null;
+      callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -422,7 +441,8 @@ public final class StarlarkThread {
    *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
    *     the same application would use the same {@code StarlarkSemantics} instance.
    * @param contextDescription a short description of this evaluation, added as context when an
-   *     exception is thrown. The empty String can be used as a default value.
+   *     exception is thrown as well as in profiles. The empty String can be used as a default
+   *     value.
    * @param symbolGenerator a supplier of deterministic, stable IDs for objects created by this
    *     thread
    */
@@ -607,8 +627,14 @@ public final class StarlarkThread {
   public interface CallProfiler {
     long start();
 
+    /**
+     * Records the end time of a function call.
+     *
+     * @param threadContext an optional description of the context in which the function is called.
+     *     Only non-null for the outermost function in a call stack.
+     */
     @SuppressWarnings("GoodTime") // This code is very performance sensitive.
-    void end(long startTimeNanos, StarlarkCallable fn);
+    void end(long startTimeNanos, StarlarkCallable fn, @Nullable String threadContext);
   }
 
   /** Installs a global hook that will be notified of function calls. */

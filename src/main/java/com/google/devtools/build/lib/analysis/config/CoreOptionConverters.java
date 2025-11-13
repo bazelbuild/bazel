@@ -21,12 +21,14 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_SET;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -47,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
@@ -67,10 +70,32 @@ public class CoreOptionConverters {
           .put(BOOLEAN, new BooleanConverter())
           .put(STRING, new StringConverter())
           .put(STRING_LIST, new CommaSeparatedOptionListConverter())
+          .put(STRING_SET, new StringSetConverter())
           .put(LABEL, new LabelConverter())
           .put(LABEL_LIST, new LabelListConverter())
           .put(NODEP_LABEL, new LabelConverter())
           .buildOrThrow();
+
+  /**
+   * A converter for comma-separated strings to sets of strings. This uses {@link
+   * CommaSeparatedOptionListConverter} but returns a set of the converted strings.
+   */
+  private static class StringSetConverter extends Converter.Contextless<ImmutableSet<String>> {
+
+    private static final CommaSeparatedOptionListConverter COMMA_SEPARATED_OPTION_LIST_CONVERTER =
+        new CommaSeparatedOptionListConverter();
+
+    @Override
+    public ImmutableSet<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result = COMMA_SEPARATED_OPTION_LIST_CONVERTER.convert(input);
+      return ImmutableSet.copyOf(result);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "comma-separated set of strings";
+    }
+  }
 
   /** A converter from strings to Starlark int values. */
   private static class StarlarkIntConverter extends Converter.Contextless<StarlarkInt> {
@@ -274,7 +299,7 @@ public class CoreOptionConverters {
   }
 
   /** Values for the --strict_*_deps option */
-  public enum StrictDepsMode {
+  public enum StrictDepsMode implements StarlarkValue {
     /** Silently allow referencing transitive dependencies. */
     OFF,
     /** Warn about transitive dependencies being used directly. */

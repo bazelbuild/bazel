@@ -19,7 +19,7 @@ load(":common/cc/fdo/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/fdo/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 def _create_fdo_context(
         ctx,
@@ -104,6 +104,10 @@ def _create_fdo_context(
         mem_prof_profile = MemProfProfileInfo(artifact = _fdo_profile[FdoProfileInfo].memprof_artifact)
     elif _fdo_optimize and FdoProfileInfo in _fdo_optimize and _fdo_optimize[FdoProfileInfo].memprof_artifact:
         mem_prof_profile = MemProfProfileInfo(artifact = _fdo_optimize[FdoProfileInfo].memprof_artifact)
+    elif _xfdo_profile and FdoProfileInfo in _xfdo_profile and _xfdo_profile[FdoProfileInfo].memprof_artifact:
+        # This is needed for configless AutoFDO which supplies the profile via a select statement in the XFDO profile.
+        # We don't intend to support actual XFDO with memprof.
+        mem_prof_profile = MemProfProfileInfo(artifact = _xfdo_profile[FdoProfileInfo].memprof_artifact)
 
     fdo_inputs = None
     if cpp_config.fdo_path():
@@ -137,17 +141,16 @@ def _create_fdo_context(
     # If AutoFDO is in effect, a file called proto.profile next to the AutoFDO
     # profile is used, if it exists.
     proto_profile_artifact = None
-    if not cpp_config.proto_profile() and _proto_profile:
-        fail("--proto_profile_path cannot be set if --proto_profile is false")
-    if _proto_profile:
-        proto_profile_artifact = _symlink_to(
-            ctx,
-            name_prefix = "fdo",
-            artifact = _proto_profile,
-            progress_message = "Symlinking protobuf profile %{input}",
-        )
-    elif cpp_config.proto_profile():
-        proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None)
+    if cpp_config.proto_profile():
+        if _proto_profile:
+            proto_profile_artifact = _symlink_to(
+                ctx,
+                name_prefix = "fdo",
+                artifact = _proto_profile,
+                progress_message = "Symlinking protobuf profile %{input}",
+            )
+        else:
+            proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None)
 
     branch_fdo_profile = None
     if fdo_inputs:
@@ -265,7 +268,7 @@ def _convert_llvm_raw_profile_to_indexed(
         zip_profile_artifact = _symlink_input(ctx, name_prefix, fdo_inputs, "Symlinking LLVM ZIP Profile %{input}")
 
         # TODO(b/333997009): find a way to avoid hard-coding cpu architecture here
-        cpu = cc_toolchain_config_info.target_cpu()
+        cpu = cc_toolchain_config_info.target_cpu
         if "k8" == cpu:
             raw_profile_file_name = name_prefix + "/" + ctx.label.name + "/" + "fdocontrolz_profile.profraw"
         else:
@@ -372,7 +375,7 @@ def _symlink_to(ctx, name_prefix, progress_message, artifact = None, absolute_pa
             basename = paths.basename(absolute_path)
         name = name_prefix + "/" + ctx.label.name + "/" + basename
         output = ctx.actions.declare_file(name)
-        cc_internal.absolute_symlink(
+        _cc_internal.absolute_symlink(
             ctx = ctx,
             output = output,
             target_path = absolute_path,

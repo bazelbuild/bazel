@@ -57,9 +57,11 @@ public class MemoryTest {
   @Test
   public void setMemoryLimit_v2() throws IOException {
     File limit = scratch.file("cgroup/memory/memory.max", "0").getPathFile();
+    File swap = scratch.file("cgroup/memory/memory.swap.max", "0").getPathFile();
     Memory memory = new UnifiedMemory(scratch.path("cgroup/memory").getPathFile().toPath());
     memory.setMaxBytes(1000);
     assertThat(Files.asCharSource(limit, UTF_8).read()).isEqualTo("1000");
+    assertThat(Files.asCharSource(swap, UTF_8).read()).isEqualTo("0");
   }
 
   @Test

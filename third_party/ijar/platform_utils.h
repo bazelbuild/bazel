@@ -72,6 +72,10 @@ std::string get_cwd();
 // Returns false upon failure and reports the error to stderr.
 bool make_dirs(const char* path, unsigned int perm);
 
+// Returns a normalized version of `path` that doesn't contain path traversal
+// characters. Must not be passed to a filesystem API.
+std::string normalize_path(const char* path);
+
 }  // namespace devtools_ijar
 
 #endif  // THIRD_PARTY_IJAR_PLATFORM_UTILS_H_

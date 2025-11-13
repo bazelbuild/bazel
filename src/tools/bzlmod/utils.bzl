@@ -79,6 +79,12 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                 "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
             })
 
+        for overlay_file, integrity in source_json.get("overlay", {}).items():
+            http_artifacts.append({
+                "integrity": integrity,
+                "url": url.rsplit("/", 1)[0] + "/overlay/" + overlay_file,
+            })
+
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
             # "@@rules_foo+//:extensions.bzl%foo" --> "rules_foo+"
@@ -104,7 +110,8 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                     found_repos.append(repo_name)
 
                     http_artifacts.append({
-                        "sha256": attributes["sha256"],
+                        "sha256": attributes.get("sha256", None),
+                        "integrity": attributes.get("integrity", None),
                         "url": extract_url(attributes),
                     })
 
@@ -161,7 +168,7 @@ def parse_bazel_module_repos(ctx, lockfile_path):
     return {repo: None for repo in repos}.keys()
 
 # Keep in sync with ModuleKey.
-_WELL_KNOWN_MODULES = ["bazel_tools", "local_config_platform", "platforms"]
+_WELL_KNOWN_MODULES = ["bazel_tools", "platforms"]
 
 def _module_repo_name(module):
     module_name = module["name"]

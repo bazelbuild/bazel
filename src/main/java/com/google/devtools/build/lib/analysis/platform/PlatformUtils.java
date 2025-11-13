@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.collect.ImmutableMap;
@@ -22,11 +24,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -53,7 +50,10 @@ public final class PlatformUtils {
     Platform.Builder builder = Platform.newBuilder();
     for (Map.Entry<String, String> keyValue : executionProperties.entrySet()) {
       Property property =
-          Property.newBuilder().setName(keyValue.getKey()).setValue(keyValue.getValue()).build();
+          Property.newBuilder()
+              .setName(internalToUnicode(keyValue.getKey()))
+              .setValue(internalToUnicode(keyValue.getValue()))
+              .build();
       builder.addProperties(property);
     }
 
@@ -95,28 +95,7 @@ public final class PlatformUtils {
         properties = spawn.getCombinedExecProperties();
       }
     } else if (spawn.getExecutionPlatform() != null) {
-      String remoteExecutionProperties = spawn.getExecutionPlatform().remoteExecutionProperties();
-      if (!remoteExecutionProperties.isEmpty()) {
-        Platform.Builder platformBuilder = Platform.newBuilder();
-        // Try and get the platform info from the execution properties.
-        try {
-          TextFormat.getParser()
-              .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
-        } catch (ParseException e) {
-          String message =
-              String.format(
-                  "Failed to parse remote_execution_properties from platform %s",
-                  spawn.getExecutionPlatform().label());
-          throw new UserExecException(
-              e, createFailureDetail(message, Code.INVALID_REMOTE_EXECUTION_PROPERTIES));
-        }
-
-        for (Property property : platformBuilder.getPropertiesList()) {
-          properties.put(property.getName(), property.getValue());
-        }
-      } else {
-        properties.putAll(spawn.getExecutionPlatform().execProperties());
-      }
+      properties.putAll(spawn.getExecutionPlatform().execProperties());
     }
 
     if (properties.isEmpty()) {
@@ -135,16 +114,12 @@ public final class PlatformUtils {
 
     Platform.Builder platformBuilder = Platform.newBuilder();
     for (Map.Entry<String, String> entry : properties.entrySet()) {
-      platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+      platformBuilder
+          .addPropertiesBuilder()
+          .setName(internalToUnicode(entry.getKey()))
+          .setValue(internalToUnicode(entry.getValue()));
     }
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
-  }
-
-  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
-    return FailureDetail.newBuilder()
-        .setMessage(message)
-        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
-        .build();
   }
 }

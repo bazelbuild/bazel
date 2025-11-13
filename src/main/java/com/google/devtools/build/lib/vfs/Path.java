@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -52,7 +51,7 @@ import javax.annotation.Nullable;
  * slashes ('/') even on Windows, so backslashes '\' get converted to forward slashes during
  * normalization.
  *
- * <p>Mac and Windows file paths are case insensitive. Case is preserved.
+ * <p>All paths are case-sensitive.
  */
 @ThreadSafe
 @AutoCodec
@@ -83,12 +82,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
 
   public String getPathString() {
     return pathFragment.getPathString();
-  }
-
-  public Path devirtualize() {
-    return fileSystem instanceof PathDevirtualizer pathDevirtualizer
-        ? pathDevirtualizer.devirtualizePath(this)
-        : this;
   }
 
   @Override
@@ -174,7 +167,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    */
@@ -186,7 +179,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path, ignoring case.
+   *
+   * <p>A path is considered an ancestor of itself.
+   */
+  public boolean startsWithIgnoringCase(Path other) {
+    if (fileSystem != other.fileSystem) {
+      return false;
+    }
+    return pathFragment.startsWithIgnoringCase(other.pathFragment);
+  }
+
+  /**
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    *
@@ -223,7 +228,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   @Override
   public int hashCode() {
     // Do not include file system for efficiency.
-    // In practice we never construct paths from different file systems.
+    // In practice, we don't expect paths on different file systems to be contained in the same
+    // collection.
     return pathFragment.hashCode();
   }
 
@@ -241,6 +247,24 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
       }
     }
     return pathFragment.compareTo(o.pathFragment);
+  }
+
+  /**
+   * Returns the same path on the file system that the current file system is based on, if any.
+   * Otherwise, returns the current path unchanged.
+   *
+   * <p>For an action file system, this should return the on-disk component (or the result of
+   * getHostFileSystem() on that component if it is itself a composite file system).
+   *
+   * <p>Note that the returned path may still reference an in-memory file system (in tests, for
+   * example), but should be treated as being on the "native" file system for the host machine.
+   */
+  public Path forHostFileSystem() {
+    var hostFs = fileSystem.getHostFileSystem();
+    if (hostFs.equals(fileSystem)) {
+      return this;
+    }
+    return Path.create(asFragment(), hostFs);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -311,12 +335,22 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return fileSystem.stat(asFragment(), followSymlinks.toBoolean());
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound()} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
   public FileStatus statNullable() {
     return statNullable(Symlinks.FOLLOW);
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound(Symlinks)} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
   public FileStatus statNullable(Symlinks symlinks) {
     return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
   }
@@ -325,6 +359,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Follows symbolic
    * links.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    */
   public FileStatus statIfFound() throws IOException {
     return fileSystem.statIfFound(asFragment(), true);
@@ -333,6 +369,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   /**
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a file other than a symbolic link is found
@@ -452,19 +490,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Ensures that a directory exists with the name of the current path, not following symbolic
-   * links. If necessary, creates the directory or adjusts permissions on a preexisting one.
-   *
-   * <p>This operation is not atomic. Concurrent modifications will result in undefined behavior.
-   *
-   * @throws IOException if the directory creation or permission adjustment failed
-   * @return whether a new directory was created by this call
-   */
-  public boolean createWritableDirectory() throws IOException {
-    return fileSystem.createWritableDirectory(asFragment());
-  }
-
-  /**
    * Ensures that a directory exists with the name of the current path, following symbolic links. If
    * necessary, creates the directory and any missing ancestor directories.
    *
@@ -487,11 +512,43 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * referent of the created symlink is is the absolute path "target"; it is not possible to create
    * relative symbolic links via this method.
    *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(Path target, SymlinkTargetType type) throws IOException {
+    checkSameFileSystem(target);
+    fileSystem.createSymbolicLink(asFragment(), target.asFragment(), type);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(Path target) throws IOException {
-    checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * relative.
+   *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(PathFragment target, SymlinkTargetType type) throws IOException {
+    fileSystem.createSymbolicLink(asFragment(), target, type);
   }
 
   /**
@@ -502,7 +559,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(asFragment(), target);
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
   }
 
   /**

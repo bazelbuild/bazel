@@ -16,14 +16,17 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,7 +58,7 @@ public class CombinedCacheClientFactoryTest {
   private RemoteRetrier retrier =
       new RemoteRetrier(
           () -> RemoteRetrier.RETRIES_DISABLED,
-          (e) -> false,
+          (e) -> Result.SUCCESS,
           retryScheduler,
           Retrier.ALLOW_ALL_CALLS);
 
@@ -128,6 +131,9 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createHttpCacheWithProxy() throws IOException {
+    // Unix domain sockets are not supported on Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.remoteProxy = "unix://some-proxy";
 

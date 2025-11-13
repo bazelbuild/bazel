@@ -14,6 +14,8 @@
 
 """Starlark rule to compile RC files on Windows."""
 
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load(":winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE")
 
 def _replace_ext(n, e):

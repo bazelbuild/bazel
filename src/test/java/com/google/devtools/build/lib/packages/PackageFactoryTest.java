@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -23,7 +27,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -31,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.License.LicenseType;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -64,6 +71,24 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class PackageFactoryTest extends PackageLoadingTestCase {
+  private static final RuleDefinition FAKE_CC_LIBRARY =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "fake_cc_library",
+                  (builder, env) ->
+                      builder
+                          .add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(attr("hdrs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(attr("generator_name", STRING))
+                          .add(attr("linkstatic", BOOLEAN))
+                          .add(attr("alwayslink", BOOLEAN)));
+
+  @Override
+  protected ImmutableList<RuleDefinition> getExtraRules() {
+    return ImmutableList.of(FAKE_CC_LIBRARY);
+  }
 
   private Path throwOnReaddir = null;
 
@@ -94,7 +119,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testBadRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("badrulename/BUILD", "cc_library(name = 3)");
+    scratch.file("badrulename/BUILD", "fake_cc_library(name = 3)");
     Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library 'name' attribute must be a string");
     assertThat(pkg.containsErrors()).isTrue();
@@ -103,7 +128,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testNoRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("badrulename/BUILD", "cc_library()");
+    scratch.file("badrulename/BUILD", "fake_cc_library()");
     Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library rule has no 'name' attribute");
     assertThat(pkg.containsErrors()).isTrue();
@@ -168,8 +193,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "has_dupe/BUILD",
         """
-        cc_library(name='dep')
-        cc_library(name='has_dupe', deps=[':dep', ':dep'])
+        fake_cc_library(name='dep')
+        fake_cc_library(name='has_dupe', deps=[':dep', ':dep'])
         """);
 
     Package pkg = getPackage("has_dupe");
@@ -235,7 +260,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testPackageNameFunction() throws Exception {
-    scratch.file("pina/BUILD", "cc_library(name=package_name() + '-colada')");
+    scratch.file("pina/BUILD", "fake_cc_library(name=package_name() + '-colada')");
     Package pkg = getPackage("pina");
     assertNoEvents();
     assertThat(pkg.containsErrors()).isFalse();
@@ -252,7 +277,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         filegroup(name = 'spellcheck_proto',
                  srcs = ['spellcheck.proto'])
-        cc_library(name = 'spellcheck_proto')  # conflict error stops execution
+        fake_cc_library(name = 'spellcheck_proto')  # conflict error stops execution
         x = 1//0  # not reached
         """);
     Package pkg = getPackage("duplicaterulename");
@@ -279,9 +304,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "foo/BUILD",
         "exports_files(['Z'], visibility=[\"//visibility:public\"],"
             + " licenses=[\"restricted\"])",
-        "cc_library(name='W', deps=['X', 'Y', 'A'])",
-        "cc_library(name='X', srcs=['X'])",
-        "cc_library(name='Y')");
+        "fake_cc_library(name='W', deps=['X', 'Y', 'A'])",
+        "fake_cc_library(name='X', srcs=['X'])",
+        "fake_cc_library(name='Y')");
     Package pkg = getPackage("foo");
     assertThat(pkg.containsErrors()).isFalse();
 
@@ -334,7 +359,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         filegroup(name = 'dup_proto',
                       srcs  = ['dup.proto'])
 
-        cc_library(name = 'dup_proto',
+        fake_cc_library(name = 'dup_proto',
                    srcs = ['dup.pb.cc', 'dup.pb.h'])
         """);
     Package pkg = getPackage("dup");
@@ -432,7 +457,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testHelpfulErrorForMissingExportsFiles() throws Exception {
-    scratch.file("x/BUILD", "cc_library(name='x', srcs=['x.cc'])");
+    scratch.file("x/BUILD", "fake_cc_library(name='x', srcs=['x.cc'])");
     scratch.file("x/x.cc");
     scratch.file("x/y.cc");
     scratch.file("x/dir/dummy");
@@ -488,7 +513,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         test_suite(name='t2', tests=[])
         test_suite(name='t3', tests=['//foo'])
         test_suite(name='t4', tests=['//foo'])
-        cc_test(name='c')
+        foo_test(name='c')
         """);
     Package pkg = getPackage("x");
 
@@ -519,7 +544,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     this.validator =
         new PackageValidator() {
           @Override
-          public void validate(Package pkg2, ExtendedEventHandler eventHandler)
+          public void validate(Package pkg2, Metrics metrics, ExtendedEventHandler eventHandler)
               throws InvalidPackageException {
             if (pkg2.getName().equals("x")) {
               eventHandler.handle(Event.warn("warning event"));
@@ -545,8 +570,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "fruit/BUILD",
         """
-        cc_library(name = 'yes', srcs = glob(['data/*']))
-        cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
+        fake_cc_library(name = 'yes', srcs = glob(['data/*']))
+        fake_cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
         """);
     Package pkg = getPackage("fruit");
     assertNoEvents();
@@ -577,8 +602,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "rg/BUILD",
         """
-        cc_library(name = 'ri', srcs = glob(['**/*.cc']))
-        cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
+        fake_cc_library(name = 'ri', srcs = glob(['**/*.cc']))
+        fake_cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
         """);
     Package pkg = getPackage("rg");
     assertNoEvents();
@@ -809,7 +834,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testNativeModuleIsDisabled() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("pkg/BUILD", "native.cc_library(name='bar')");
+    scratch.file("pkg/BUILD", "native.fake_cc_library(name='bar')");
     Package pkg = getPackage("pkg");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -1087,7 +1112,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testEnvironmentGroupWrongTargetType() throws Exception {
     expectEvalError(
         "//pkg:foo is not a valid environment",
-        "cc_library(name = 'foo')",
+        "fake_cc_library(name = 'foo')",
         "environment_group(name='group', environments = [':foo'], defaults = [':foo'])");
   }
 
@@ -1147,7 +1172,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     expectEvalError(
         "in \"fulfills\" attribute of //pkg:foo: //pkg:bar is not a valid environment",
         "environment(name = 'foo', fulfills = [':bar'])",
-        "cc_library(name = 'bar')",
+        "fake_cc_library(name = 'bar')",
         "environment_group(name='foo_group', environments = [':foo'], defaults = [])");
   }
 
@@ -1225,7 +1250,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(name = "foo")
+        fake_cc_library(name = "foo")
         """);
   }
 
@@ -1236,7 +1261,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
-        cc_library(name = "foo")
+        fake_cc_library(name = "foo")
         my_macro(name = "foo")
         """);
   }
@@ -1373,7 +1398,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(
+        fake_cc_library(
             name = "toplevel_target",
             srcs = ["foo_implicit"],
         )
@@ -1390,8 +1415,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name + "_declared_target")
-            native.cc_library(name = "illegally_named_target")
+            native.fake_cc_library(name = name + "_declared_target")
+            native.fake_cc_library(name = "illegally_named_target")
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -1399,7 +1424,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(
+        fake_cc_library(
             name = "toplevel_target",
             srcs = [
                 "foo_declared_target",
@@ -1433,7 +1458,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(
+        fake_cc_library(
             name = "toplevel_target",
             srcs = ["foo"],
         )
@@ -1481,14 +1506,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "pkg/my_macro.bzl",
         """
         def _sub_impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name,
                 srcs = ["//pkg:input"],
             )
         my_submacro = macro(implementation = _sub_impl)
 
         def _impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name,
                 srcs = ["//pkg:input"],
             )
@@ -1512,7 +1537,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "pkg/my_macro.bzl",
         """
         def _inner_impl(name, visibility):
-            native.cc_library(name = name)
+            native.fake_cc_library(name = name)
         inner_macro = macro(implementation=_inner_impl, finalizer = True)
 
         def _middle_impl(name, visibility):
@@ -1542,7 +1567,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             """
             def _impl(name, visibility, height):
                 if height == 0:
-                    native.cc_library(name = name)
+                    native.fake_cc_library(name = name)
                 else:
                     recursive_macro(
                         name = name + "_x",
@@ -1608,7 +1633,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         def _A_impl(name, visibility, stop):
             if stop:
-                native.cc_library(name = name)
+                native.fake_cc_library(name = name)
             else:
                 macro_B(name = name + "_B")
 
@@ -1678,7 +1703,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "lib/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name,
                 visibility = ["//other_pkg:__pkg__"],
             )
@@ -1689,7 +1714,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load("//lib:macro.bzl", "my_macro")
 
-        cc_library(
+        fake_cc_library(
             name = "foo",
             visibility = ["//other_pkg:__pkg__"],
         )
@@ -1709,7 +1734,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "inner/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name,
                 visibility = ["//other_pkg:__pkg__"],
             )
@@ -1745,7 +1770,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "lib/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name)
+            native.fake_cc_library(name = name)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -1754,7 +1779,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         load("//lib:macro.bzl", "my_macro")
         package(default_visibility = ["//other_pkg:__pkg__"])
 
-        cc_library(name = "foo")
+        fake_cc_library(name = "foo")
         my_macro(name = "bar")
         """);
 
@@ -1770,9 +1795,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
-    native.cc_library(name = name, visibility = native.package_default_visibility())
+    native.fake_cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)
 """);
     scratch.file(
@@ -1781,7 +1806,7 @@ my_macro = macro(implementation = _impl)
         load("//lib:macro.bzl", "my_macro")
         package(default_visibility = ["//other_pkg:__pkg__"])
 
-        cc_library(name = "foo")
+        fake_cc_library(name = "foo")
         my_macro(name = "bar")
         """);
 
@@ -1799,9 +1824,9 @@ my_macro = macro(implementation = _impl)
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
-    native.cc_library(name = name, visibility = native.package_default_visibility())
+    native.fake_cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)
 """);
     scratch.file(
@@ -1823,9 +1848,9 @@ my_macro = macro(implementation = _impl)
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
-    native.cc_library(name = name, visibility = native.package_default_visibility())
+    native.fake_cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)
 """);
     scratch.file(
@@ -1849,15 +1874,15 @@ my_macro = macro(implementation = _impl)
         "lib/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name + "_public",
                 visibility = ["//visibility:public"],
             )
-            native.cc_library(
+            native.fake_cc_library(
                 name = name + "_private",
                 visibility = ["//visibility:private"],
             )
-            native.cc_library(
+            native.fake_cc_library(
                 name = name + "_selfvisible",
                 visibility = ["//lib:__pkg__"],
             )
@@ -1937,7 +1962,7 @@ my_macro = macro(implementation = _impl)
         "lib/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.fake_cc_library(
                 name = name,
                 visibility = ["//visibility:not_a_valid_specifier"],
             )

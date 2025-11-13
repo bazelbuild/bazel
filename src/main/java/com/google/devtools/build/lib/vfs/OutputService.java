@@ -15,23 +15,21 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -95,10 +93,11 @@ public interface OutputService {
     }
 
     /**
-     * Returns true if this service needs top-level output tree setup. This involves creating
-     * symlinks to the source tree in the execRoot and constructing a directory for action logging.
+     * Returns true if this service supports execution of local actions. This is used to determine
+     * whether to create {@link
+     * com.google.devtools.build.lib.runtime.CommandEnvironment#getActionTempsDirectory}.
      */
-    public boolean shouldDoTopLevelOutputSetup() {
+    public boolean supportsLocalActions() {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
 
@@ -132,6 +131,10 @@ public interface OutputService {
 
   default OutputChecker getOutputChecker() {
     return OutputChecker.TRUST_ALL;
+  }
+
+  default ProxyMetadataFactory getProxyMetadataFactory() {
+    return ProxyMetadataFactory.NO_PROXIES;
   }
 
   /**
@@ -213,7 +216,7 @@ public interface OutputService {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     return null;
@@ -225,14 +228,11 @@ public interface OutputService {
    * <p>Should be called as context changes throughout action execution.
    *
    * @param actionFileSystem must be a filesystem returned by {@link #createActionFileSystem}.
-   * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
-      Environment env,
-      OutputMetadataStore outputMetadataStore,
-      Map<Artifact, FilesetOutputTree> filesets) {}
+      OutputMetadataStore outputMetadataStore) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
@@ -250,9 +250,7 @@ public interface OutputService {
       String relativeOutputPath,
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
-      ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-      Map<Artifact, FilesetOutputTree> filesets) {
+      ActionInputMap actionInputMap) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 
@@ -263,5 +261,9 @@ public interface OutputService {
 
   default XattrProvider getXattrProvider(XattrProvider delegate) {
     return delegate;
+  }
+
+  default boolean stagesTopLevelRunfiles() {
+    return false;
   }
 }

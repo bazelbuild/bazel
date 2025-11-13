@@ -22,8 +22,10 @@ import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import org.junit.runner.Result;
 
 /**
@@ -44,6 +46,9 @@ public class BazelTestRunner {
    * determine which test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
+
+  static final String AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME =
+      "bazel.test_runner.await_non_daemon_threads";
 
   private static final int EXIT_CODE_SUCCESS = 0;
   private static final int EXIT_CODE_TEST_FAILURE_OTHER = 1;
@@ -96,6 +101,7 @@ public class BazelTestRunner {
     System.err.println();
 
     printStackTracesIfJvmExitHangs(stderr);
+    awaitAllNonDaemonThreadsToFinish();
 
     DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     Date shutdownTime = new Date();
@@ -170,6 +176,41 @@ public class BazelTestRunner {
     } catch (ClassNotFoundException e) {
       return null;
     }
+  }
+
+  /**
+   * If the system property {@code bazel.test_runner.await_non_daemon_threads} is set to true, adds
+   * a shutdown hook that waits for all non-daemon threads to finish before allowing the JVM to
+   * exit. This is useful for tests that spawn non-daemon threads that may still be running when the
+   * test finishes, but should be allowed to finish before the JVM to validate all code paths have
+   * proper cleanup logic.
+   */
+  @SuppressWarnings("ThreadPriorityCheck")
+  private static void awaitAllNonDaemonThreadsToFinish() {
+    if (!Boolean.getBoolean(AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME)) {
+      return;
+    }
+    final Thread mainThread = Thread.currentThread();
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  final Thread currentThread = Thread.currentThread();
+                  while (true) {
+                    final List<Thread> nonDaemonAliveThreads =
+                        Thread.getAllStackTraces().keySet().stream()
+                            .filter(Thread::isAlive)
+                            .filter(Predicate.not(Thread::isDaemon))
+                            .filter(t -> t.threadId() != currentThread.threadId())
+                            .filter(t -> t.threadId() != mainThread.threadId())
+                            .toList();
+
+                    if (nonDaemonAliveThreads.isEmpty()) {
+                      return;
+                    }
+                    Thread.yield();
+                  }
+                }));
   }
 
   /**

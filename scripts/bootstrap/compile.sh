@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -26,12 +26,13 @@ fi
 PROTO_FILES=$(find third_party/remoteapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
 # For protobuf jars, derived/jars/protobuf+/java/core/libcore.jar must be in front of derived/jars/protobuf+/java/core/liblite.jar, so we sort jars here
 LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
-MAVEN_JARS=$(find "derived/maven" -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
+MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
-EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
+# Also exclude TreeArtifactValueCodec.java which requires AutoCodec to run, but that's not needed during bootstrap.
+EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java src/main/java/com/google/devtools/build/lib/skyframe/TreeArtifactValueCodec.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
 EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
@@ -138,6 +139,7 @@ function java_compilation() {
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
@@ -295,6 +297,10 @@ EOF
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
+
+  # Create @bazel_tools/tools/launcher/BUILD
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/launcher
+  link_file "${PWD}/tools/launcher/BUILD.bootstrap" "${BAZEL_TOOLS_REPO}/tools/launcher/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python

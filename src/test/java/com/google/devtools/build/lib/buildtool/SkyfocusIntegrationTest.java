@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.ActiveDirectoriesType;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.Test;
@@ -53,11 +53,11 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings()).isEmpty();
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings()).isEmpty();
   }
 
   @Test
-  public void workingSet_canBeUsedWithBuildCommandAndNoTargets() throws Exception {
+  public void activeDirectories_canBeUsedWithBuildCommandAndNoTargets() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -74,8 +74,8 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_canBeUsedWithBuildCommandWithTargets() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+  public void activeDirectories_canBeUsedWithBuildCommandWithTargets() throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -91,14 +91,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     buildTarget("//hello/...");
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello/x.txt");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
-        .isEqualTo(WorkingSetType.USER_DEFINED);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesType())
+        .isEqualTo(ActiveDirectoriesType.USER_DEFINED);
   }
 
   @Test
-  public void workingSet_canBeAutomaticallyDerivedUsingTopLevelTargetPackage() throws Exception {
+  public void activeDirectories_canBeAutomaticallyDerivedUsingTopLevelTargetPackage()
+      throws Exception {
     write("hello/x.txt", "x");
     write("hello/world/y.txt", "y");
     write(
@@ -113,16 +114,17 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/world", "hello/world/y.txt");
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
-        .isEqualTo(WorkingSetType.DERIVED);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesType())
+        .isEqualTo(ActiveDirectoriesType.DERIVED);
   }
 
   @Test
-  public void workingSet_canBeAutomaticallyDerivedUsingProjectFile() throws Exception {
+  public void activeDirectories_canBeAutomaticallyDerivedUsingProjectFile() throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -142,9 +144,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": { "default": [ "hello", "somewhere/else", "not/used" ] },
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = [ "hello", "somewhere/else", "not/used" ],
+        )
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -155,12 +158,12 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     // Even though the PROJECT.scl file specified //not/used, this is not a dependency of
-    // the focused target, hence it's not part of the working set.
+    // the focused target, hence it's not part of the active directories.
     write("not/used/BUILD");
 
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly(
             "hello",
             "hello/PROJECT.scl",
@@ -174,7 +177,9 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile() throws Exception {
+  public void activeDirectories_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile()
+      throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -191,9 +196,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": { "default": ["somewhere/else"] },
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = ["somewhere/else"],
+        )
         """);
     write("somewhere/else/file.txt", "some content");
     write(
@@ -203,13 +209,14 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("somewhere/else", "somewhere/else/BUILD", "somewhere/else/file.txt");
   }
 
   @Test
-  public void workingSet_projectFileCanHandleExcludedDirectories() throws Exception {
+  public void activeDirectories_projectFileCanHandleExcludedDirectories() throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -229,16 +236,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = [
               "hello", # included
               "-hello/world", # excluded
               "hello/world/again", # included
               "-somewhere/else", # excluded
-            ],
-          },
-        }
+          ],
+        )
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -249,8 +255,8 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly(
             "hello",
             "hello/PROJECT.scl",
@@ -261,7 +267,8 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_skyfocusDoesNotRunIfDerivedWorkingSetIsUnchanged() throws Exception {
+  public void activeDirectories_skyfocusDoesNotRunIfDerivedActiveDirectoriesIsUnchanged()
+      throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -275,21 +282,92 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
     assertContainsEvent("Focusing on");
 
     events.clear();
 
     buildTarget("//hello:target");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
     assertDoesNotContainEvent("Focusing on");
   }
 
   @Test
-  public void workingSet_derivedWorkingSetCanBeOverwrittenByUserDefinedWorkingSet()
+  public void
+      activeDirectories_derivedActiveDirectoriesCanBeOverwrittenByUserDefinedactiveDirectories()
+          throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesType())
+        .isEqualTo(ActiveDirectoriesType.DERIVED);
+
+    addOptions("--experimental_active_directories=hello/x.txt");
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
+        .containsExactly("hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesType())
+        .isEqualTo(ActiveDirectoriesType.USER_DEFINED);
+
+    resetOptions();
+    setupOptions();
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
+        .containsExactly("hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesType())
+        .isEqualTo(ActiveDirectoriesType.USER_DEFINED);
+  }
+
+  @Test
+  public void activeDirectories_isRetainedAcrossInvocations() throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
+        .containsExactly("hello/x.txt");
+
+    resetOptions();
+    setupOptions();
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
+        .containsExactly("hello/x.txt");
+  }
+
+  @Test
+  public void activeDirectories_derivedActiveDirectoriesChangesWhenTargetHasNewDependency()
       throws Exception {
     write("hello/x.txt", "x");
     write(
@@ -303,79 +381,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
-        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
-        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
-        .isEqualTo(WorkingSetType.DERIVED);
-
-    addOptions("--experimental_working_set=hello/x.txt");
-    buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
-        .containsExactly("hello/x.txt");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
-        .isEqualTo(WorkingSetType.USER_DEFINED);
-
-    resetOptions();
-    setupOptions();
-    buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
-        .containsExactly("hello/x.txt");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
-        .isEqualTo(WorkingSetType.USER_DEFINED);
-  }
-
-  @Test
-  public void workingSet_isRetainedAcrossInvocations() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
-    write("hello/x.txt", "x");
-    write(
-        "hello/BUILD",
-        """
-        genrule(
-            name = "target",
-            srcs = ["x.txt"],
-            outs = ["out"],
-            cmd = "cat $< > $@",
-        )
-        """);
-
-    buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
-        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
-        .containsExactly("hello/x.txt");
-
-    resetOptions();
-    setupOptions();
-
-    buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
-        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
-        .containsExactly("hello/x.txt");
-  }
-
-  @Test
-  public void workingSet_derivedWorkingSetChangesWhenTargetHasNewDependency() throws Exception {
-    write("hello/x.txt", "x");
-    write(
-        "hello/BUILD",
-        """
-        genrule(
-            name = "target",
-            srcs = ["x.txt"],
-            outs = ["out"],
-            cmd = "cat $< > $@",
-        )
-        """);
-
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
 
     assertContents("x", "//hello:target");
@@ -393,14 +402,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write("hello/y.txt", "y");
     buildTarget("//hello:target");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
 
     assertContents("x\ny", "//hello:target");
   }
 
   @Test
-  public void workingSet_derivedWorkingSetChangesWhenTargetHasNewGlobDependency() throws Exception {
+  public void activeDirectories_derivedActiveDirectoriesChangesWhenTargetHasNewGlobDependency()
+      throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -415,20 +425,21 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//hello:target");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
     assertContents("x", "//hello:target");
 
     write("hello/y.txt", "y");
     buildTarget("//hello:target");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
     assertContents("x\ny", "//hello:target");
   }
 
   @Test
-  public void workingSet_derivedWorkingSetChangesWhenPackageHasANewTarget() throws Exception {
+  public void activeDirectories_derivedActiveDirectoriesChangesWhenPackageHasANewTarget()
+      throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -443,7 +454,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//hello:all");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
@@ -469,8 +480,8 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//hello:all");
 
-    assertContainsEvent("automatically deriving working set");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertContainsEvent("automatically deriving active directories");
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(
@@ -479,7 +490,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_canBeAutomaticallyDerivedWithoutSkymeld() throws Exception {
+  public void activeDirectories_canBeAutomaticallyDerivedWithoutSkymeld() throws Exception {
     addOptions("--noexperimental_merged_skyframe_analysis_execution");
     write("hello/x.txt", "x");
     write("hello/world/y.txt", "y");
@@ -495,16 +506,16 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/world", "hello/world/y.txt");
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
   }
 
   @Test
-  public void workingSet_derivationDoesNotIncludeFilesInSubpackage() throws Exception {
+  public void activeDirectories_derivationDoesNotIncludeFilesInSubpackage() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -520,14 +531,14 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write("hello/world/BUILD", "");
 
     buildTarget("//hello:target");
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
   }
 
   @Test
-  public void workingSet_canBeAutomaticallyDerivedUsingMultipleTopLevelTargetPackages()
+  public void activeDirectories_canBeAutomaticallyDerivedUsingMultipleTopLevelTargetPackages()
       throws Exception {
     write("hello/x.txt", "x");
     write(
@@ -554,13 +565,13 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
 
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(
             Label.parseCanonicalUnchecked("//hello:target"),
             Label.parseCanonicalUnchecked("//hello/world:target"));
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly(
             "hello",
             "hello/BUILD",
@@ -572,7 +583,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_shouldBeDerivedAndRetainedByTopLevelTarget() throws Exception {
+  public void activeDirectories_shouldBeDerivedAndRetainedByTopLevelTarget() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -601,10 +612,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
 
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
     assertContainsEvent("Focusing on");
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
 
@@ -615,15 +626,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         .containsExactly(
             Label.parseCanonicalUnchecked("//hello:target"),
             Label.parseCanonicalUnchecked("//world:target"));
-    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("automatically deriving active directories");
     assertContainsEvent("Focusing on");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly(
             "hello", "hello/BUILD", "hello/x.txt", "world", "world/BUILD", "world/y.txt");
   }
 
   @Test
-  public void workingSet_derivedWorkingSetBuildsForTargetThenRdep() throws Exception {
+  public void activeDirectories_derivedactiveDirectoriesBuildsForTargetThenRdep() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -649,14 +660,14 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//hello/world:dep");
     assertContainsEvent("Focusing on");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello/world", "hello/world/BUILD", "hello/world/y.txt");
 
     events.collector().clear();
 
     buildTarget("//hello:target");
     assertContainsEvent("Focusing on");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly(
             "hello/world",
             "hello/world/BUILD",
@@ -667,7 +678,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_sharedDepBetweenTwoTopLevelTargetsIsKept() throws Exception {
+  public void activeDirectories_sharedDepBetweenTwoTopLevelTargetsIsKept() throws Exception {
     // A -> C
     // B -> C
     // After building A, CT(C) will be dropped, but not CT(C/in.txt).
@@ -733,12 +744,13 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
                 getSkyframeExecutor(), label("//C"), getTargetConfiguration()))
         .isNull();
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("A", "A/BUILD", "A/in.txt", "B", "B/BUILD", "B/in.txt");
   }
 
   @Test
-  public void workingSet_configChangesAreHandledWithDerivedWorkingSet() throws Exception {
+  public void activeDirectories_configChangesAreHandledWithDerivedactiveDirectories()
+      throws Exception {
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -760,13 +772,14 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertContainsEvent("detected changes to the build configuration");
     assertContainsEvent("will be discarding the analysis cache");
     assertContainsEvent("Focusing on");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
   }
 
   @Test
-  public void workingSet_configChangesAreHandledWithExplicitWorkingSet() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+  public void activeDirectories_configChangesAreHandledWithExplicitactiveDirectories()
+      throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -788,12 +801,12 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertContainsEvent("detected changes to the build configuration");
     assertContainsEvent("will be discarding the analysis cache");
     assertContainsEvent("Focusing on");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello/x.txt");
   }
 
   @Test
-  public void workingSet_configChangesAreHandledStrictly() throws Exception {
+  public void activeDirectories_configChangesAreHandledStrictly() throws Exception {
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -816,8 +829,8 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_withFiles_correctlyRebuilds() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+  public void activeDirectories_withFiles_correctlyRebuilds() throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -840,9 +853,9 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_withDirs_correctlyRebuilds() throws Exception {
+  public void activeDirectories_withDirs_correctlyRebuilds() throws Exception {
     /*
-     * Setting directories in the working set works, because the rdep edges look like:
+     * Setting directories in the active directories works, because the rdep edges look like:
      *
      * FILE_STATE:[dir] -> FILE:[dir] -> FILE:[dir/BUILD], FILE:[dir/file.txt]
      *
@@ -850,12 +863,12 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
      * which are the nodes that are invalidated by SkyframeExecutor#handleDiffs
      * at the start of every build, and are also kept by Skyfocus.
      *
-     * In other words, defining a working set of directories will automatically
+     * In other words, defining a active directories of directories will automatically
      * include all the files under those directories for focusing.
      */
 
-    // Define working set to be a directory, not file
-    addOptions("--experimental_working_set=hello");
+    // Define active directories to be a directory, not file
+    addOptions("--experimental_active_directories=hello");
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -893,9 +906,9 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_nestedDirs_correctlyRebuilds() throws Exception {
-    // Define working set to be the parent package
-    addOptions("--experimental_working_set=hello");
+  public void activeDirectories_nestedDirs_correctlyRebuilds() throws Exception {
+    // Define active directories to be the parent package
+    addOptions("--experimental_active_directories=hello");
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -935,7 +948,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void newNonFocusedTargets_canBeBuilt() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -967,7 +980,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void skyfocus_doesNotRun_forUnsuccessfulBuilds() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -986,7 +999,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void editingNonWorkingSet_inSameDir_failsTheBuild() throws Exception {
+  public void editingNonActiveDirectories_inSameDir_failsTheBuild() throws Exception {
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -1000,24 +1013,24 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    addOptions("--experimental_working_set=hello/x.txt");
+    addOptions("--experimental_active_directories=hello/x.txt");
     buildTarget("//hello/...");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
 
     write("hello/y.txt", "y2");
     AbruptExitException e =
         assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
-    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("detected changes outside of the active directories");
     assertThat(e).hasMessageThat().contains("hello/y.txt");
 
-    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    addOptions("--experimental_active_directories=hello/x.txt,hello/y.txt");
     buildTarget("//hello/...");
     assertContents("x\ny2", "//hello:target");
   }
 
   @Test
-  public void editingNonWorkingSet_throughDep_failsTheBuild() throws Exception {
+  public void editingNonActiveDirectories_throughDep_failsTheBuild() throws Exception {
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -1037,24 +1050,24 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    addOptions("--experimental_working_set=hello/y.txt");
+    addOptions("--experimental_active_directories=hello/y.txt");
     buildTarget("//hello/...");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
 
     write("hello/x.txt", "x2");
     AbruptExitException e =
         assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
-    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("detected changes outside of the active directories");
     assertThat(e).hasMessageThat().contains("hello/x.txt");
 
-    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    addOptions("--experimental_active_directories=hello/x.txt,hello/y.txt");
     buildTarget("//hello/...");
     assertContents("x2\ny", "//hello:target");
   }
 
   @Test
-  public void editingNonWorkingSet_inSiblingDir_failsTheBuild() throws Exception {
+  public void editingNonActiveDirectories_inSiblingDir_failsTheBuild() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -1079,24 +1092,24 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    addOptions("--experimental_working_set=hello/x.txt");
+    addOptions("--experimental_active_directories=hello/x.txt");
     buildTarget("//hello/...");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
 
     write("world/y.txt", "y2");
     AbruptExitException e =
         assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
-    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("detected changes outside of the active directories");
     assertThat(e).hasMessageThat().contains("world/y.txt");
 
-    addOptions("--experimental_working_set=hello/x.txt,world/y.txt");
+    addOptions("--experimental_active_directories=hello/x.txt,world/y.txt");
     buildTarget("//hello/...");
     assertContents("x\ny2", "//hello:target");
   }
 
   @Test
-  public void editingNonWorkingSet_inParentDir_failsTheBuild() throws Exception {
+  public void editingNonActiveDirectories_inParentDir_failsTheBuild() throws Exception {
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -1121,25 +1134,25 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    addOptions("--experimental_working_set=hello/world");
+    addOptions("--experimental_active_directories=hello/world");
     buildTarget("//hello/...");
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
 
     write("hello/x.txt", "x2");
     AbruptExitException e =
         assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
-    assertThat(e).hasMessageThat().contains("detected changes outside of the working set");
+    assertThat(e).hasMessageThat().contains("detected changes outside of the active directories");
     assertThat(e).hasMessageThat().contains("hello/x.txt");
 
-    addOptions("--experimental_working_set=hello");
+    addOptions("--experimental_active_directories=hello");
     buildTarget("//hello/...");
     assertContents("x2\ny", "//hello:target");
   }
 
   @Test
-  public void workingSet_reduced_withoutReanalysis() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+  public void activeDirectories_reduced_withoutReanalysis() throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt,hello/y.txt");
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -1154,22 +1167,22 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(2);
 
     resetOptions();
     setupOptions();
-    addOptions("--experimental_working_set=hello/x.txt");
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x2");
 
     buildTarget("//hello/...");
     assertDoesNotContainEvent("discarding analysis cache");
     assertContents("x2\ny", "//hello:target");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
   }
 
   @Test
-  public void workingSet_expanded_withReanalysis() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt");
+  public void activeDirectories_expanded_withReanalysis() throws Exception {
+    addOptions("--experimental_active_directories=hello/x.txt");
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
     write(
@@ -1184,17 +1197,17 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(1);
 
     resetOptions();
     setupOptions();
-    addOptions("--experimental_working_set=hello/x.txt,hello/y.txt");
+    addOptions("--experimental_active_directories=hello/x.txt,hello/y.txt");
     write("hello/x.txt", "x2");
 
     buildTarget("//hello/...");
     assertContainsEvent("discarding analysis cache");
     assertContents("x2\ny", "//hello:target");
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectories()).hasSize(2);
   }
 
   @Test
@@ -1213,7 +1226,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/..."); // does not crash.
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+    assertThat(getSkyframeExecutor().getSkyfocusState().activeDirectoriesStrings())
         .containsExactly("hello", "hello/BUILD", "hello/x.txt");
   }
 }

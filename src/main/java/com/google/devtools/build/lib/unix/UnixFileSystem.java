@@ -13,35 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import static com.google.devtools.build.lib.util.BazelCleaner.CLEANER;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
-import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
-import java.lang.ref.Cleaner;
-import java.util.Arrays;
+import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
@@ -54,84 +50,74 @@ public class UnixFileSystem extends AbstractFileSystem {
     this.hashAttributeName = hashAttributeName;
   }
 
-  public static Dirent.Type getDirentFromMode(int mode) {
-    if (UnixFileStatus.isSpecialFile(mode)) {
-      return Dirent.Type.UNKNOWN;
-    } else if (UnixFileStatus.isFile(mode)) {
-      return Dirent.Type.FILE;
-    } else if (UnixFileStatus.isDirectory(mode)) {
-      return Dirent.Type.DIRECTORY;
-    } else if (UnixFileStatus.isSymbolicLink(mode)) {
-      return Dirent.Type.SYMLINK;
-    } else {
-      return Dirent.Type.UNKNOWN;
-    }
-  }
-
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     String name = path.getPathString();
-    String[] entries;
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      entries = NativePosixFiles.readdir(name);
+      NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
+      ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(dirents.length);
+      for (NativePosixFiles.Dirent dirent : dirents) {
+        builder.add(dirent.name());
+      }
+      return builder.build();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
-    return Arrays.asList(entries);
   }
 
   @Override
   @Nullable
-  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
+  public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
     return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
-  /**
-   * Converts from {@link com.google.devtools.build.lib.unix.NativePosixFiles.Dirents.Type} to
-   * {@link com.google.devtools.build.lib.vfs.Dirent.Type}.
-   */
-  private static Dirent.Type convertToDirentType(Dirents.Type type) {
-    switch (type) {
-      case FILE:
-        return Dirent.Type.FILE;
-      case DIRECTORY:
-        return Dirent.Type.DIRECTORY;
-      case SYMLINK:
-        return Dirent.Type.SYMLINK;
-      case UNKNOWN:
-        return Dirent.Type.UNKNOWN;
-      default:
-        throw new IllegalArgumentException("Unknown type " + type);
-    }
+  /** Converts from {@link NativePosixFiles.Dirent.Type} to {@link Dirent.Type}. */
+  private static Dirent.Type convertDirentType(NativePosixFiles.Dirent.Type type) {
+    return switch (type) {
+      case FILE -> Dirent.Type.FILE;
+      case DIRECTORY -> Dirent.Type.DIRECTORY;
+      case SYMLINK -> Dirent.Type.SYMLINK;
+      default -> Dirent.Type.UNKNOWN;
+    };
   }
 
   @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
-      throws IOException {
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      Dirents unixDirents =
-          NativePosixFiles.readdir(name, followSymlinks ? ReadTypes.FOLLOW : ReadTypes.NOFOLLOW);
-      Preconditions.checkState(unixDirents.hasTypes());
-      List<Dirent> dirents = Lists.newArrayListWithCapacity(unixDirents.size());
-      for (int i = 0; i < unixDirents.size(); i++) {
-        dirents.add(
-            new Dirent(unixDirents.getName(i), convertToDirentType(unixDirents.getType(i))));
+      NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
+      ImmutableList.Builder<Dirent> builder = ImmutableList.builderWithExpectedSize(dirents.length);
+      for (NativePosixFiles.Dirent dirent : dirents) {
+        Dirent.Type type;
+        // If the entry type is unknown, or if we're following symlinks and the entry is a symlink,
+        // we need to stat the entry to get the type.
+        if (dirent.type() == NativePosixFiles.Dirent.Type.UNKNOWN
+            || (followSymlinks && dirent.type() == NativePosixFiles.Dirent.Type.SYMLINK)) {
+          try {
+            FileStatus stat = statIfFound(path.getRelative(dirent.name()), followSymlinks);
+            type = stat != null ? ((UnixFileStatus) stat).getDirentType() : Dirent.Type.UNKNOWN;
+          } catch (FileSymlinkLoopException e) {
+            type = Dirent.Type.UNKNOWN;
+          }
+        } else {
+          type = convertDirentType(dirent.type());
+        }
+        builder.add(new Dirent(dirent.name(), type));
       }
-      return dirents;
+      return builder.build();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
   }
 
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -139,7 +125,7 @@ public class UnixFileSystem extends AbstractFileSystem {
           : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
@@ -148,9 +134,9 @@ public class UnixFileSystem extends AbstractFileSystem {
   // catch and don't re-throw.
   @Override
   @Nullable
-  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -160,12 +146,12 @@ public class UnixFileSystem extends AbstractFileSystem {
       throw new IllegalStateException("unexpected exception", e);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     return statNullable(path, followSymlinks) != null;
   }
 
@@ -175,9 +161,9 @@ public class UnixFileSystem extends AbstractFileSystem {
    */
   @Override
   @Nullable
-  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -185,22 +171,22 @@ public class UnixFileSystem extends AbstractFileSystem {
           : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0400) != 0;
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0200) != 0;
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0100) != 0;
   }
 
@@ -224,7 +210,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     modifyPermissionBits(path, 0400, readable);
   }
 
@@ -234,12 +220,12 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+  public void setExecutable(PathFragment path, boolean executable) throws IOException {
     modifyPermissionBits(path, 0111, executable);
   }
 
   @Override
-  protected void chmod(PathFragment path, int mode) throws IOException {
+  public void chmod(PathFragment path, int mode) throws IOException {
     var comp = Blocker.begin();
     try {
       NativePosixFiles.chmod(path.toString(), mode);
@@ -264,8 +250,8 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return true;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return OS.getCurrent() == OS.DARWIN;
   }
 
   @Override
@@ -291,28 +277,27 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean createWritableDirectory(PathFragment path) throws IOException {
-    var comp = Blocker.begin();
-    try {
-      return NativePosixFiles.mkdirWritable(path.toString());
-    } finally {
-      Blocker.end(comp);
-    }
-  }
-
-  @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
-    var comp = Blocker.begin();
-    try {
-      // Use 0777 so that the permissions can be overridden by umask(2).
-      NativePosixFiles.mkdirs(path.toString(), 0777);
-    } finally {
-      Blocker.end(comp);
+    ArrayDeque<PathFragment> dirsToCreate = new ArrayDeque<>();
+    for (PathFragment dir = path; dir != null; dir = dir.getParentDirectory()) {
+      FileStatus stat = statIfFound(dir, /* followSymlinks= */ true);
+      if (stat != null) {
+        if (stat.isDirectory()) {
+          break;
+        } else {
+          throw new IOException(path + " (File exists)");
+        }
+      }
+      dirsToCreate.addLast(dir);
+    }
+    while (!dirsToCreate.isEmpty()) {
+      var unused = createDirectory(dirsToCreate.removeLast());
     }
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     var comp = Blocker.begin();
     try {
@@ -323,11 +308,11 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     // Note that the default implementation of readSymbolicLinkUnchecked calls this method and thus
     // is optimal since we only make one system call in here.
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return PathFragment.create(NativePosixFiles.readlink(name));
@@ -335,7 +320,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       throw new NotASymlinkException(path, e);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
     }
   }
 
@@ -350,25 +335,25 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getSize();
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return NativePosixFiles.remove(name);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
     }
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getLastModifiedTime();
   }
 
@@ -387,7 +372,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
     String pathName = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -399,31 +384,31 @@ public class UnixFileSystem extends AbstractFileSystem {
       return null;
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_XATTR, pathName);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_XATTR, pathName);
     }
   }
 
   @Override
   @Nullable
-  protected byte[] getFastDigest(PathFragment path) throws IOException {
+  public byte[] getFastDigest(PathFragment path) throws IOException {
     // Attempt to obtain the digest from an extended attribute attached to the file. This is much
     // faster than reading and digesting the file's contents on the fly, especially for large files.
     return hashAttributeName.isEmpty() ? null : getxattr(path, hashAttributeName, true);
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  public byte[] getDigest(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return super.getDigest(path);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     var comp = Blocker.begin();
     try {
@@ -434,26 +419,26 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
-      long startTime = Profiler.nanoTimeMaybe();
+  public void deleteTreesBelow(PathFragment dir) throws IOException {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
+      long startTime = Profiler.instance().nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
         NativePosixFiles.deleteTreesBelow(dir.toString());
       } finally {
         Blocker.end(comp);
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
       }
     }
   }
 
   @Override
-  protected File getIoFile(PathFragment path) {
+  public File getIoFile(PathFragment path) {
     return new File(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
-  protected java.nio.file.Path getNioPath(PathFragment path) {
+  public java.nio.file.Path getNioPath(PathFragment path) {
     return java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
@@ -470,15 +455,16 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
-    final String name = path.toString();
+    String name = path.getPathString();
+    var profiler = Profiler.instance();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
-        return new ProfiledNativeFileOutputStream(NativePosixFiles.openWrite(name, append), name);
+        return new ProfiledFileOutputStream(name, /* append= */ append);
       } finally {
         Blocker.end(comp);
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
@@ -486,93 +472,48 @@ public class UnixFileSystem extends AbstractFileSystem {
     } else {
       var comp = Blocker.begin();
       try {
-        return new NativeFileOutputStream(NativePosixFiles.openWrite(name, append));
+        return new FileOutputStream(StringEncoding.internalToPlatform(name), /* append= */ append);
       } finally {
         Blocker.end(comp);
       }
     }
   }
 
-  private static final class FdHolder implements Runnable {
-    private int fd;
-
-    private FdHolder(int fd) {
-      this.fd = fd;
-    }
-
-    @Override
-    public void run() {
-      try {
-        NativePosixFiles.close(fd, this);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      } finally {
-        fd = -1;
-      }
-    }
-  }
-
-  private static class NativeFileOutputStream extends OutputStream {
-    private final FdHolder fdHolder;
-    private final Cleaner.Cleanable cleanable;
-
-    private NativeFileOutputStream(int fd) {
-      this.fdHolder = new FdHolder(fd);
-      this.cleanable = CLEANER.register(this, fdHolder);
-    }
-
-    @Override
-    public void close() throws IOException {
-      var comp = Blocker.begin();
-      try {
-        cleanable.clean();
-      } catch (UncheckedIOException e) {
-        throw e.getCause();
-      } finally {
-        Blocker.end(comp);
-      }
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      write(new byte[] {(byte) (b & 0xFF)});
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-      write(b, 0, b.length);
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len) throws IOException {
-      var fd = fdHolder.fd;
-      if (fd < 0) {
-        throw new IOException("attempt to write to a closed Outputstream backed by a native file");
-      }
-      var comp = Blocker.begin();
-      try {
-        NativePosixFiles.write(fd, b, off, len);
-      } finally {
-        Blocker.end(comp);
-      }
-    }
-  }
-
-  private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
+  private static final class ProfiledFileOutputStream extends FileOutputStream {
     private final String name;
 
-    private ProfiledNativeFileOutputStream(int fd, String name) {
-      super(fd);
+    private ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
+      super(StringEncoding.internalToPlatform(name), append);
       this.name = name;
     }
 
     @Override
+    public void write(int b) throws IOException {
+      long startTime = Profiler.instance().nanoTimeMaybe();
+      try {
+        super.write(b);
+      } finally {
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+      }
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      long startTime = Profiler.instance().nanoTimeMaybe();
+      try {
+        super.write(b);
+      } finally {
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+      }
+    }
+
+    @Override
     public void write(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
   }

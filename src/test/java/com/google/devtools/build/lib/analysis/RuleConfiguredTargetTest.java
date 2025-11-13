@@ -14,8 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
-import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier;
+import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder;
 import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.makeReferenceConstants;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.roundTripWithSkyframe;
@@ -71,7 +70,9 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFeatureEnabledOnCommandLine() throws Exception {
     useConfiguration("--features=feature");
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'a')");
     ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
     assertThat(features).contains("feature");
@@ -81,7 +82,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testTargetIgnoresHostFeatures() throws Exception {
     useConfiguration("--features=feature", "--host_features=host_feature");
-    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a')");
     ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
     assertThat(features).contains("feature");
     assertThat(features).doesNotContain("host_feature");
@@ -90,7 +94,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testHostFeatures() throws Exception {
     useConfiguration("--features=feature", "--host_features=host_feature");
-    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a')");
     ImmutableSet<String> features =
         getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
     assertThat(features).contains("host_feature");
@@ -99,7 +106,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFeatureDisabledOnCommandLine() throws Exception {
     useConfiguration("--features=-feature");
-    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a')");
     ImmutableSet<String> disabledFeatures = getRuleContext(configure("//a")).getDisabledFeatures();
     assertThat(disabledFeatures).contains("feature");
     assertThat(disabledFeatures).doesNotContain("other");
@@ -110,6 +120,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ["feature"])
 
         cc_library(name = "a")
@@ -124,6 +135,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ["-feature"])
 
         cc_library(name = "a")
@@ -135,7 +147,9 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFeatureEnabledInRule() throws Exception {
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'a', features = ['feature'])");
     ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
     assertThat(features).contains("feature");
@@ -144,7 +158,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFeatureDisabledInRule() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', features = ['-feature'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', features = ['-feature'])");
     ImmutableSet<String> disabledFeatures = getRuleContext(configure("//a")).getDisabledFeatures();
     assertThat(disabledFeatures).contains("feature");
     assertThat(disabledFeatures).doesNotContain("other");
@@ -156,6 +173,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ["-feature"])
 
         cc_library(name = "a")
@@ -170,7 +188,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFeaturesInRuleOverrideFeaturesFromCommandLine() throws Exception {
     useConfiguration("--features=feature");
-    scratch.file("a/BUILD", "cc_library(name = 'a', features = ['-feature'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', features = ['-feature'])");
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
@@ -183,6 +204,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = [
             "a",
             "-b",
@@ -211,6 +233,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ["package_feature"])
 
         cc_library(
@@ -232,6 +255,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "third_party/experimental/p1/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["unencumbered"])
 
         exports_files(["p1.cc"])
@@ -241,6 +265,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "experimental/p2/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         exports_files(["p2.cc"])
 
         cc_library(
@@ -257,6 +282,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "experimental/p1/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         exports_files(["p1.cc"])
 
         cc_library(name = "p1")
@@ -264,6 +290,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "third_party/experimental/p2/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["unencumbered"])
 
         exports_files(["p2.cc"])
@@ -282,6 +309,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "testonly/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "testutil",
             testonly = 1,
@@ -292,6 +320,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "util/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "util",
             srcs = ["util.cc"],
@@ -301,6 +330,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "cc/common/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         # testonly=1 -> testonly=1
         cc_library(
             name = "lib1",
@@ -335,17 +365,21 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "testonly/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "testutil",
             testonly = 1,
             srcs = ["testutil.cc"],
         )
         """);
-    checkError("cc/error", "cclib",
+    checkError(
+        "cc/error",
+        "cclib",
         // error:
         "non-test target '//cc/error:cclib' depends on testonly target '//testonly:testutil' and "
-        + "doesn't have testonly attribute set",
+            + "doesn't have testonly attribute set",
         // build file: testonly=0 -> testonly=1
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'cclib',",
         "           srcs  = ['foo.cc'],",
         "           deps = ['//testonly:testutil'],",
@@ -374,6 +408,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
             + " '//testonly:testutil.cc' of a testonly rule //testonly:testutil and doesn't have"
             + " testonly attribute set",
         // build file: testonly=0 -> testonly=1
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'cclib',",
         "           srcs  = ['//testonly:testutil.cc'],",
         "           testonly = 0)");
@@ -381,10 +416,14 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependenceOnDeprecatedRule() throws Exception {
-    scratch.file("p/BUILD",
-                "cc_library(name='p', deps=['//q'])");
-    scratch.file("q/BUILD",
-                "cc_library(name='q', deprecation='Obsolete!')");
+    scratch.file(
+        "p/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='p', deps=['//q'])");
+    scratch.file(
+        "q/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='q', deprecation='Obsolete!')");
 
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget p = getConfiguredTarget("//p");
@@ -396,10 +435,14 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependenceOnDeprecatedRuleEmptyExplanation() throws Exception {
-    scratch.file("p/BUILD",
-                "cc_library(name='p', deps=['//q'])");
-    scratch.file("q/BUILD",
-                "cc_library(name='q', deprecation='')");  // explicitly specified; still counts!
+    scratch.file(
+        "p/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='p', deps=['//q'])");
+    scratch.file(
+        "q/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='q', deprecation='')"); // explicitly specified; still counts!
 
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget p = getConfiguredTarget("//p");
@@ -559,8 +602,11 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testNonexistingTargetErrorMsg() throws Exception {
-    checkError("foo", "foo", getErrorNonExistingTarget(
-        "deps", "cc_binary", "//foo:foo", "//foo:nonesuch"),
+    checkError(
+        "foo",
+        "foo",
+        getErrorNonExistingTarget("deps", "cc_binary", "//foo:foo", "//foo:nonesuch"),
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "cc_binary(name = 'foo',",
         "srcs = ['foo.cc'],",
         "deps = [':nonesuch'])");
@@ -570,26 +616,24 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testRulesDontProvideRequiredFragmentsByDefault() throws Exception {
     scratch.file(
         "a/BUILD",
-        String.format(
-            """
-            %s
-            config_setting(
-                name = "config",
-                values = {"start_end_lib": "1"},
-            )
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        config_setting(
+            name = "config",
+            values = {"start_end_lib": "1"},
+        )
 
-            py_library(
-                name = "pylib",
-                srcs = ["pylib.py"],
-            )
+        foo_library(
+            name = "pylib",
+            srcs = ["pylib.py"],
+        )
 
-            cc_library(
-                name = "a",
-                srcs = ["A.cc"],
-                data = [":pylib"],
-            )
-            """,
-            getPyLoad("py_library")));
+        foo_library(
+            name = "a",
+            srcs = ["A.cc"],
+            deps = [":pylib"],
+        )
+        """);
     assertThat(getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
@@ -735,13 +779,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     var deserialized =
         roundTripWithSkyframe(
             new ObjectCodecs(
-                createAnalysisCodecRegistrySupplier(
+                initializeAnalysisCodecRegistryBuilder(
                         getRuleClassProvider(),
                         makeReferenceConstants(
                             directories,
                             getRuleClassProvider(),
                             directories.getWorkspace().getBaseName()))
-                    .get(),
+                    .build(),
                 ImmutableClassToInstanceMap.builder()
                     .put(
                         ArtifactSerializationContext.class,

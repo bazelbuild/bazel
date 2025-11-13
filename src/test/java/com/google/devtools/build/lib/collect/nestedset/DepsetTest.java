@@ -270,7 +270,7 @@ public final class DepsetTest {
         .testIfErrorContains("want 'iterable'", "sorted(depset(['a', 'b']))")
         .testIfErrorContains("want 'iterable'", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
-        .testIfErrorContains("not iterable", "len(depset(['a']))");
+        .testIfErrorContains("want 'iterable or string'", "len(depset(['a']))");
   }
 
   @Test

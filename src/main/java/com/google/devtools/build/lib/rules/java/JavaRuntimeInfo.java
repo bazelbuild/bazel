@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -25,15 +24,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -47,8 +43,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
-  public static final StarlarkProviderWrapper<JavaRuntimeInfo> WORKSPACE_PROVIDER =
-      new WorkspaceProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
 
   // Helper methods to access an instance of JavaRuntimeInfo.
@@ -103,8 +97,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
       return PROVIDER.wrap(info);
     } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
       return RULES_JAVA_PROVIDER.wrap(info);
-    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
-      return WORKSPACE_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected JavaRuntimeInfo, got: " + key);
     }
@@ -128,17 +120,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
   }
 
-  public ImmutableList<CcInfo> hermeticStaticLibs() throws RuleErrorException {
-    return getUnderlyingSequence("hermetic_static_libs", CcInfo.class).getImmutableList();
-  }
-
-  @VisibleForTesting
-  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() throws RuleErrorException {
-    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
-    for (CcInfo lib : hermeticStaticLibs()) {
-      result.addTransitive(lib.getCcLinkingContext().getLibraries());
-    }
-    return result.build();
+  public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {
+    return getUnderlyingSequence("hermetic_static_libs", StarlarkInfo.class).getImmutableList();
   }
 
   public int version() throws RuleErrorException {
@@ -148,14 +131,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   private static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_runtime.bzl")));
-    }
-  }
-
-  private static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked("@@rules_java//java/common/rules:java_runtime.bzl")));
     }
   }
 

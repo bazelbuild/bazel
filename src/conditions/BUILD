@@ -52,7 +52,7 @@ config_setting(
     name = "linux_ppc64le",
     constraint_values = [
         "@platforms//os:linux",
-        "@platforms//cpu:ppc",
+        "@platforms//cpu:ppc64le",
     ],
     visibility = ["//visibility:public"],
 )
@@ -217,12 +217,6 @@ selects.config_setting_group(
 config_setting(
     name = "arm",
     constraint_values = ["@platforms//cpu:arm"],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
     visibility = ["//visibility:public"],
 )
 

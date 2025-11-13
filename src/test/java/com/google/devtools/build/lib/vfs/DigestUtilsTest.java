@@ -40,13 +40,13 @@ public final class DigestUtilsTest {
     FileSystem tracingFileSystem =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             getFastDigestCounter.incrementAndGet();
             return null;
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             getDigestCounter.incrementAndGet();
             return super.getDigest(path);
           }
@@ -80,12 +80,12 @@ public final class DigestUtilsTest {
     FileSystem noDigestFileSystem =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             throw new AssertionError("Unexpected call to getFastDigest");
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) {
+          public byte[] getDigest(PathFragment path) {
             return digest;
           }
         };

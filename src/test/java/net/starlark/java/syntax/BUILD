@@ -25,6 +25,7 @@ java_test(
         "NodeVisitorTest.java",
         "ParserInputTest.java",
         "ParserTest.java",
+        "ProgramTest.java",
         "ResolverTest.java",
         "StarlarkFileTest.java",
         "StarlarkTypesTest.java",
@@ -34,7 +35,9 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
-import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -29,25 +26,18 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CompletionContext;
-import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Map;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -206,73 +196,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     scratch.file(utf8InLatin1FileName, "content does not matter");
     ConfiguredTargetAndData ctAndData = getCtAndData("//sh:globby");
     ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
-
-    TargetCompleteEvent event =
-        TargetCompleteEvent.successfulBuild(
-            ctAndData,
-            FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup(),
-            /*announceTargetSummary=*/ false);
-
-    ArrayList<File> fileProtos = new ArrayList<>();
-    ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
-    for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-      for (Artifact a : artifactSet.toListInterruptibly()) {
-        fileProtos.add(
-            newFileFromArtifact(
-                /* name= */ null,
-                a,
-                PathFragment.EMPTY_FRAGMENT,
-                FAILED_COMPLETION_CTX,
-                /* uri= */ null));
-      }
-    }
-    // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
-    String utf8FileName = new String(filenameBytes, UTF_8);
-    assertThat(fileProtos).hasSize(1);
-    assertThat(fileProtos.get(0).getName()).isEqualTo(utf8FileName);
-  }
-
-  @Test
-  public void baselineCoverage_referencedWithMetadata() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load('//test_defs:foo_test.bzl', 'foo_test')",
-        "foo_test(name = 'test', srcs = ['test.sh'])");
-    Path testSh = scratch.file("foo/test.sh");
-    useConfiguration("--collect_code_coverage");
-    ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");
-
-    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
-    FileArtifactValue testShMetadata = FileArtifactValue.createForTesting(testSh);
-    Artifact baselineCoverageArtifact =
-        ctAndData
-            .getConfiguredTarget()
-            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
-            .getBaselineCoverageArtifact();
-    FileArtifactValue baselineCoverageMetadata =
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    FileArtifactValue metadata =
         FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
-    CompletionContext completionContext =
-        getCompletionContext(
-            artifactsToBuild.getAllArtifacts().toList().stream()
-                .filter(a -> !a.isRunfilesTree())
-                .collect(toImmutableMap(a -> a, a -> testShMetadata)),
-            ImmutableMap.of(),
-            baselineCoverageMetadata);
 
-    TargetCompleteEvent event =
-        TargetCompleteEvent.successfulBuild(
-            ctAndData,
-            completionContext,
-            artifactsToBuild.getAllArtifactsByOutputGroup(),
-            /* announceTargetSummary= */ false);
+    File fileProto = TargetCompleteEvent.newFile(artifact, metadata);
 
-    assertThat(event.referencedLocalFiles())
-        .contains(
-            new LocalFile(
-                baselineCoverageArtifact.getPath(),
-                LocalFileType.COVERAGE_OUTPUT,
-                baselineCoverageMetadata));
+    // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
+    assertThat(fileProto.getName()).isEqualTo(new String(filenameBytes, UTF_8));
   }
 
   private ConfiguredTargetAndData getCtAndData(String target) throws Exception {
@@ -294,22 +225,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-    return getCompletionContext(metadata, treeMetadata, /* baselineCoverageValue= */ null);
-  }
-
-  private static CompletionContext getCompletionContext(
-      Map<Artifact, FileArtifactValue> metadata,
-      Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
-      @Nullable FileArtifactValue baselineCoverageValue) {
     ActionInputMap inputMap = new ActionInputMap(0);
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);
     return new CompletionContext(
-        ImmutableMap.copyOf(treeMetadata),
-        /* filesets= */ ImmutableMap.of(),
-        baselineCoverageValue,
-        ArtifactPathResolver.IDENTITY,
-        inputMap,
-        /* expandFilesets= */ false);
+        ArtifactPathResolver.IDENTITY, inputMap, /* expandFilesets= */ false);
   }
 }

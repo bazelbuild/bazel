@@ -24,7 +24,7 @@ Symbolic macros
 *   Take typed attributes, which in turn means automatic label and select
     conversion.
 *   Are more readable
-*   Will soon have [lazy evaluation](macros.md/laziness)
+*   Will soon have [lazy evaluation](macros.md#laziness)
 
 ## Usage {:#usage}
 
@@ -187,6 +187,12 @@ def my_cc_wrapper(name, deps = [], **kwargs):
     **kwargs,
   )
 ```
+
+With the `--incompatible_resolve_select_keys_eagerly` flag enabled, all keys
+that are label strings will be automatically resolved to `Label` objects
+relative to the package of the file that contains the `select` call. If this is
+not chosen, wrap the label string with
+[native.package_relative_label()](/rules/lib/toplevel/native#package_relative_label).
 
 ## Debugging {:#debugging}
 

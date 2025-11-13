@@ -2,7 +2,7 @@ name: Mirror request
 description: Request to add new archives to mirror.bazel.build
 labels: ["mirror request", "type: process", "P2", "team-OSS"]
 assignees:
-  - sgowroji
+  - bharadwaj08-one
   - iancha1992
   - satyanandak
 title: "[Mirror] "

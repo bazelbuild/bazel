@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.devtools.build.lib.vfs.FileSystem.translateNioToIoException;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -364,31 +368,59 @@ public class FileSystemUtils {
   }
 
   /**
-   * Copies the file from location "from" to location "to", while overwriting a
-   * potentially existing "to". File's last modified time, executable and
-   * writable bits are also preserved.
+   * Copies a file, potentially overwriting the destination. Preserves the modification time and
+   * permissions.
    *
-   * <p>If no error occurs, the method returns normally. If a parent directory does
-   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
-   * other erroneous situations occur. (e.g. read errors)
+   * <p>If the source is a symbolic link, it will be followed. If the destination is a symbolic
+   * link, it will be replaced.
+   *
+   * <p>Copying directories is not supported.
+   *
+   * @param from the source path
+   * @param to the destination path
+   * @throws FileNotFoundException if the source does not exist, or the parent directory of the
+   *     destination does not exist
+   * @throws IOException if the copy fails for any other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void copyFile(Path from, Path to) throws IOException {
-    try {
-      to.delete();
-    } catch (IOException e) {
-      throw new IOException("error copying file: "
-          + "couldn't delete destination: " + e.getMessage());
+    copyFile(from, to, from.stat());
+  }
+
+  private static void copyFile(Path from, Path to, FileStatus stat) throws IOException {
+    if (!stat.isFile()) {
+      throw new IOException("don't know how to copy " + from);
     }
+    var fromNio = from.getFileSystem().getNioPath(from.asFragment());
+    var toNio = to.getFileSystem().getNioPath(to.asFragment());
+    if (fromNio != null && toNio != null) {
+      // Fast path: Files.copy uses various optimizations such as kernel buffers (sendfile on Unix)
+      // or copy-on-write (clonefile on macOS, copy_file_range on Linux with a supported file
+      // system).
+      try {
+        Files.copy(fromNio, toNio, REPLACE_EXISTING, COPY_ATTRIBUTES);
+      } catch (IOException e) {
+        throw translateNioToIoException(from.asFragment(), e);
+      }
+      return;
+    }
+    // Target may be a symlink, in which case we should not follow it.
+    to.delete();
     try (InputStream in = from.getInputStream();
         OutputStream out = to.getOutputStream()) {
-      ByteStreams.copy(in, out);
+      // This may use a faster copy method (such as via an in-kernel buffer) if both streams are
+      // backed by files.
+      in.transferTo(out);
     }
-    to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
-    if (!from.isWritable()) {
-      to.setWritable(false); // Make file read-only if original was read-only.
+    to.setLastModifiedTime(stat.getLastModifiedTime());
+    int perms = stat.getPermissions();
+    if (perms != -1) {
+      to.chmod(perms);
+    } else {
+      to.setReadable(from.isReadable());
+      to.setWritable(from.isWritable());
+      to.setExecutable(from.isExecutable());
     }
-    to.setExecutable(from.isExecutable()); // Copy executable bit.
   }
 
   /** Describes the behavior of a {@link #moveFile(Path, Path)} operation. */
@@ -401,123 +433,60 @@ public class FileSystemUtils {
   }
 
   /**
-   * copyLargeBuffer is a replacement for ByteStreams.copy which uses a larger buffer. Increasing
-   * the buffer size is a performance improvement when copying from/to FUSE file systems, where
-   * individual requests are more costly, but can also be larger.
-   */
-  private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
-    byte[] buf = new byte[1 * 1024 * 1024]; // Match libfuse3 maximum FUSE request size of 1 MB.
-    long total = 0;
-    while (true) {
-      int r = from.read(buf);
-      if (r == -1) {
-        break;
-      }
-      to.write(buf, 0, r);
-      total += r;
-    }
-    return total;
-  }
-
-  /**
-   * Moves the file from location "from" to location "to", while overwriting a potentially existing
-   * "to". If "from" is a regular file, its last modified time, executable and writable bits are
-   * also preserved. Symlinks are also supported but not directories or special files.
+   * Moves a file or symbolic link, potentially overwriting the destination. Does not follow
+   * symbolic links.
    *
    * <p>This method is not guaranteed to be atomic. Use {@link Path#renameTo(Path)} instead.
    *
-   * <p>If the move fails (usually because the "from" and "to" live in different file systems), this
-   * falls back to copying the file. Note that these two operations have very different performance
-   * characteristics and is why this operation reports back to the caller what actually happened.
+   * <p>If the move fails (usually because the source and destination are in different filesystems),
+   * falls back to copying the file, preserving its permissions and modification time. Note that the
+   * fallback has very different performance characteristics, which is why this method reports what
+   * actually happened back to the caller.
    *
-   * <p>If no error occurs, the method returns normally. If a parent directory does not exist, a
-   * FileNotFoundException is thrown. {@link IOException} is thrown when other erroneous situations
-   * occur. (e.g. read errors)
-   *
-   * @param from location of the file to move
-   * @param to destination to where to move the file
+   * @param from the source path
+   * @param to the destination path
    * @return a description of how the move was performed
-   * @throws IOException if the move fails
+   * @throws FileNotFoundException if the source does not exist, or the parent directory of the
+   *     destination does not exit
+   * @throws IOException if the move fails for any other reason
    */
   @ThreadSafe // but not atomic
   public static MoveResult moveFile(Path from, Path to) throws IOException {
-    // We don't try-catch here for better performance.
     try {
       from.renameTo(to);
       return MoveResult.FILE_MOVED;
-    } catch (IOException unused) {
+    } catch (IOException ignored) {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        // Target may be a symlink, in which case opening a stream below would not actually replace
-        // it.
-        to.delete();
-        try (InputStream in = from.getInputStream();
-            OutputStream out = to.getOutputStream()) {
-          copyLargeBuffer(in, out);
-        } catch (FileAccessException e) {
-          // Rules can accidentally make output non-readable, let's fix that (b/150963503)
-          if (!from.isReadable()) {
-            from.setReadable(true);
-            try (InputStream in = from.getInputStream();
-                OutputStream out = to.getOutputStream()) {
-              copyLargeBuffer(in, out);
-            }
-          } else {
-            throw e;
-          }
-        }
-        to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
-        if (!from.isWritable()) {
-          to.setWritable(false); // Make file read-only if original was read-only.
-        }
-        to.setExecutable(from.isExecutable()); // Copy executable bit.
+        copyFile(from, to, stat);
       } else if (stat.isSymbolicLink()) {
-        PathFragment fromTarget = from.readSymbolicLink();
+        PathFragment targetPath = from.readSymbolicLink();
         try {
-          to.createSymbolicLink(fromTarget);
-        } catch (IOException unused2) {
+          to.createSymbolicLink(targetPath);
+        } catch (IOException ignored2) {
           // May have failed due the target file existing, but not being a symlink.
           // TODO: Only catch FileAlreadyExistsException once we throw that.
           to.delete();
-          to.createSymbolicLink(fromTarget);
+          to.createSymbolicLink(targetPath);
         }
       } else {
-        throw new IOException("Don't know how to copy " + from);
+        // TODO(tjgq): The move/copy cases should have a consistent result for a directory.
+        throw new IOException("Don't know how to move " + from);
       }
-      if (!from.delete()) {
-        if (!to.delete()) {
-          throw new IOException("Unable to delete " + to);
+      try {
+        from.delete();
+      } catch (IOException e) {
+        // If we fail to delete the source, then delete the destination.
+        try {
+          to.delete();
+        } catch (IOException e2) {
+          e.addSuppressed(e2);
         }
-        throw new IOException("Unable to delete " + from);
+        throw e;
       }
       return MoveResult.FILE_COPIED;
     }
-  }
-
-  /**
-   * Copies a tool binary from one path to another, returning the target path.
-   * The directory of the target path must already exist. The target copy's time
-   * is set to match, as well as its read-only and executable flags. The
-   * operation is skipped if the target file has the same time and size as the
-   * source.
-   */
-  public static Path copyTool(Path source, Path target) throws IOException {
-    FileStatus sourceStat = null;
-    FileStatus targetStat = target.statNullable();
-    if (targetStat != null) {
-      // stat the source file only if we'll need the stat.
-      sourceStat = source.stat(Symlinks.FOLLOW);
-    }
-    if (targetStat == null ||
-        targetStat.getLastModifiedTime() != sourceStat.getLastModifiedTime() ||
-        targetStat.getSize() != sourceStat.getSize()) {
-      copyFile(source, target);
-      target.setWritable(source.isWritable());
-      target.setExecutable(source.isExecutable());
-      target.setLastModifiedTime(source.getLastModifiedTime());
-    }
-    return target;
   }
 
   /* Directory tree operations. */
@@ -708,55 +677,25 @@ public class FileSystemUtils {
     asByteSink(outputFile).write(content);
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
     writeLinesAs(file, charset, Arrays.asList(lines));
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines);
+    asByteSink(file).asCharSink(charset).writeLines(lines, "\n");
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a given line break
-   * character.
-   */
-  @ThreadSafe // but not atomic
-  public static void writeLinesAs(
-      Path file, Charset charset, Iterable<String> lines, String lineBreak) throws IOException {
-    file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines, lineBreak);
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Appends lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
-    appendLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
-      throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
+    asByteSink(file, true).asCharSink(charset).writeLines(Arrays.asList(lines), "\n");
   }
 
   /**
@@ -918,10 +857,7 @@ public class FileSystemUtils {
     return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
-  /**
-   * Returns whether the given path starts with any of the paths in the given
-   * list of prefixes.
-   */
+  /** Returns whether the given path starts with any of the paths in the given list of prefixes. */
   public static boolean startsWithAny(Path path, Iterable<Path> prefixes) {
     for (Path prefix : prefixes) {
       if (path.startsWith(prefix)) {
@@ -932,9 +868,19 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns whether the given path starts with any of the paths in the given
-   * list of prefixes.
+   * Returns whether the given path starts with any of the paths in the given list of prefixes,
+   * ignoring case.
    */
+  public static boolean startsWithAnyIgnoringCase(Path path, Iterable<Path> prefixes) {
+    for (Path prefix : prefixes) {
+      if (path.startsWithIgnoringCase(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns whether the given path starts with any of the paths in the given list of prefixes. */
   public static boolean startsWithAny(PathFragment path, Iterable<PathFragment> prefixes) {
     for (PathFragment prefix : prefixes) {
       if (path.startsWith(prefix)) {

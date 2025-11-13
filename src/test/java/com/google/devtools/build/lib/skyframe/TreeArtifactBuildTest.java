@@ -1002,7 +1002,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return SpecialArtifact.create(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"),
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out"),
         execPath,
         ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);
@@ -1027,7 +1027,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             .map(path -> TreeFileArtifact.createTreeOutput(parent, path))
             .collect(toImmutableSet());
     for (TreeFileArtifact child : expectedChildren) {
-      assertWithMessage(child + " does not exist").that(child.getPath().exists()).isTrue();
+      assertWithMessage("%s does not exist", child).that(child.getPath().exists()).isTrue();
     }
     assertThat(result.getChildren()).isEqualTo(expectedChildren);
   }

@@ -897,9 +897,6 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'RequiredProvider'");
-    assertContainsEvent(
-        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
-            + " does not provide advertised provider 'advertised_provider'");
   }
 
   @Test
@@ -977,7 +974,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
+  public void duplicateTopLevelAspects_allowedAndDeduplicated() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
@@ -985,16 +982,13 @@ public class AspectTest extends AnalysisTestCase {
         "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     reporter.removeHandler(failFastHandler);
-
-    assertThrows(
-        ViewCreationFailedException.class,
-        () ->
-            update(
-                new EventBus(),
-                defaultFlags(),
-                ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-                "//a:x_deploy.jar"));
-    assertContainsEvent("Aspect AspectApplyingToFiles has already been added");
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
   }
 
   @Test
@@ -1135,20 +1129,15 @@ public class AspectTest extends AnalysisTestCase {
         a = aspect(
             implementation = _a_impl,
             attrs = {"_f": attr.label(
-                default = configuration_field(
-                    fragment = "cpp",
-                    name = "cc_toolchain",
-                ),
+                default = configuration_field(fragment = "coverage", name = "output_generator"),
             )},
         )
         r = rule(
             implementation = _r_impl,
             attrs = {
                 "_f": attr.label(
-                    default = configuration_field(
-                        fragment = "cpp",
-                        name = "cc_toolchain",
-                    ),
+                    default =
+                        configuration_field(fragment = "coverage", name = "output_generator"),
                 ),
                 "dep": attr.label(aspects = [a]),
             },
@@ -1465,6 +1454,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "aspect_hints/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//aspect_hints:hints.bzl", "hint")
         load("//aspect_hints:hints_counter.bzl", "count_hints")
 

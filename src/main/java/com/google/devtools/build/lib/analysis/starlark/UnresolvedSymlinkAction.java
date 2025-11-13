@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -47,19 +48,29 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
   private static final String GUID = "0f302651-602c-404b-881c-58913193cfe7";
 
   private final String target;
+  private final SymlinkTargetType targetType;
   private final String progressMessage;
 
   private UnresolvedSymlinkAction(
-      ActionOwner owner, Artifact primaryOutput, String target, String progressMessage) {
+      ActionOwner owner,
+      Artifact primaryOutput,
+      String target,
+      SymlinkTargetType targetType,
+      String progressMessage) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(primaryOutput));
     this.target = target;
+    this.targetType = targetType;
     this.progressMessage = progressMessage;
   }
 
   public static UnresolvedSymlinkAction create(
-      ActionOwner owner, Artifact primaryOutput, String target, String progressMessage) {
+      ActionOwner owner,
+      Artifact primaryOutput,
+      String target,
+      SymlinkTargetType targetType,
+      String progressMessage) {
     Preconditions.checkArgument(primaryOutput.isSymlink());
-    return new UnresolvedSymlinkAction(owner, primaryOutput, target, progressMessage);
+    return new UnresolvedSymlinkAction(owner, primaryOutput, target, targetType, progressMessage);
   }
 
   @Override
@@ -68,7 +79,7 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
 
     Path outputPath = actionExecutionContext.getInputPath(getPrimaryOutput());
     try {
-      outputPath.createSymbolicLink(getTargetPathFragment());
+      outputPath.createSymbolicLink(getTargetPathFragment(), targetType);
     } catch (IOException e) {
       String message =
           String.format(
@@ -88,11 +99,12 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(target);
+    fp.addString(targetType.name());
   }
 
   @Override
   public String describeKey() {
-    return String.format("GUID: %s\ntarget: %s\n", GUID, target);
+    return String.format("GUID: %s\ntarget: %s\ntype: %s\n", GUID, target, targetType.name());
   }
 
   @Override

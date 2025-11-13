@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,23 +46,26 @@ public class BazelLockFileModuleTest {
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableMap.of())
-            .setRecordedDirentsInputs(ImmutableMap.of())
-            .setEnvVariables(ImmutableMap.of())
+            .setRecordedFileInputs(ImmutableSortedMap.of())
+            .setRecordedDirentsInputs(ImmutableSortedMap.of())
+            .setEnvVariables(ImmutableSortedMap.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .build();
     reproducibleResult =
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableMap.of())
-            .setRecordedDirentsInputs(ImmutableMap.of())
-            .setEnvVariables(ImmutableMap.of())
+            .setRecordedFileInputs(ImmutableSortedMap.of())
+            .setRecordedDirentsInputs(ImmutableSortedMap.of())
+            .setEnvVariables(ImmutableSortedMap.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .setModuleExtensionMetadata(
-                Optional.of(
+                LockfileModuleExtensionMetadata.of(
                     ModuleExtensionMetadata.create(
-                        Starlark.NONE, Starlark.NONE, /* reproducible= */ true)))
+                        Starlark.NONE,
+                        Starlark.NONE,
+                        /* reproducible= */ true,
+                        /* factsObj= */ Dict.empty())))
             .build();
     evalFactors = ModuleExtensionEvalFactors.create("linux", "x86_64");
     otherEvalFactors = ModuleExtensionEvalFactors.create("linux", "aarch64");
@@ -77,7 +82,7 @@ public class BazelLockFileModuleTest {
 
     assertThat(
             BazelLockFileModule.combineModuleExtensions(
-                oldExtensionInfos, newExtensionInfos, id -> true))
+                oldExtensionInfos, newExtensionInfos, id -> true, /* reproducible= */ false))
         .isEqualTo(oldExtensionInfos);
   }
 
@@ -91,7 +96,7 @@ public class BazelLockFileModuleTest {
 
     assertThat(
             BazelLockFileModule.combineModuleExtensions(
-                oldExtensionInfos, newExtensionInfos, id -> true))
+                oldExtensionInfos, newExtensionInfos, id -> true, /* reproducible= */ false))
         .isEmpty();
   }
 
@@ -106,7 +111,7 @@ public class BazelLockFileModuleTest {
 
     assertThat(
             BazelLockFileModule.combineModuleExtensions(
-                oldExtensionInfos, newExtensionInfos, id -> true))
+                oldExtensionInfos, newExtensionInfos, id -> true, /* reproducible= */ false))
         .isEqualTo(
             ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, nonReproducibleResult)));
   }

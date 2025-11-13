@@ -214,6 +214,8 @@ public final class Starlark {
       return StarlarkList.copyOf(mutability, (List<?>) x);
     } else if (x instanceof Map) {
       return Dict.copyOf(mutability, (Map<?, ?>) x);
+    } else if (x instanceof Set) {
+      return StarlarkSet.copyOf(mutability, (Set<?>) x);
     }
     throw new InvalidStarlarkValueException(x.getClass());
   }
@@ -289,17 +291,13 @@ public final class Starlark {
   public static Object[] toArray(Object x) throws EvalException {
     // Specialize Sequence and Dict to avoid allocation and/or indirection.
     if (x instanceof Sequence) {
-      // The returned array type must be exactly Object[],
-      // not a subclass, so calling toArray() is not enough.
-      return ((Sequence<?>) x).toArray(EMPTY);
+      return ((Sequence<?>) x).toArray();
     } else if (x instanceof Dict) {
       return ((Dict<?, ?>) x).keySet().toArray();
     } else {
       return Iterables.toArray(toIterable(x), Object.class);
     }
   }
-
-  private static final Object[] EMPTY = {};
 
   /**
    * Returns the length of a Starlark string, sequence (such as a list or tuple), dict, or other

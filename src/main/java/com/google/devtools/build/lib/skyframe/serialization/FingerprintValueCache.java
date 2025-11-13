@@ -260,6 +260,11 @@ public final class FingerprintValueCache {
           @Override
           public void onFailure(Throwable t) {
             // Failure will be reported by the owner of the `getOperation`.
+
+            // TODO: b/417445528 - It might make sense to delete the failed deserialization future
+            // here, especially if it comes from an abandoned SkyframeLookup. However, since the
+            // deserializationCache is weak-valued, it should become eligible for cleanup quickly,
+            // as nothing else should be adding retained references to these futures.
           }
         },
         directExecutor());

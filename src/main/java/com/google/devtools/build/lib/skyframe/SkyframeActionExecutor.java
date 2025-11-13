@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JO
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -43,11 +44,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -55,13 +57,13 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -107,7 +109,6 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrR
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
@@ -127,7 +128,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -191,13 +191,13 @@ public final class SkyframeActionExecutor {
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
   private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
+  private final ExistingActionLookupValuePeeker actionLookupValuePeeker;
   private Reporter reporter;
   private ImmutableMap<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
-  private final Profiler profiler = Profiler.instance();
 
   // We keep track of actions already executed this build in order to avoid executing a shared
   // action twice. Note that we may still unnecessarily re-execute the action on a subsequent
@@ -269,7 +269,8 @@ public final class SkyframeActionExecutor {
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       SyscallCache syscallCache,
-      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory,
+      ExistingActionLookupValuePeeker actionLookupValuePeeker) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -277,6 +278,23 @@ public final class SkyframeActionExecutor {
     this.sourceRootSupplier = sourceRootSupplier;
     this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
+    this.actionLookupValuePeeker = actionLookupValuePeeker;
+  }
+
+  /**
+   * Helper for determining if an {@link ActionLookupData} has been rewound.
+   *
+   * <p>This is used during action execution when the {@link ActionLookupData} is available, but the
+   * corresponding {@link Action} is not, to determine if the action has been rewound, without
+   * creating a dependency.
+   *
+   * <p>The absence of an {@link ActionLookupValue} implies that the action has not been rewound,
+   * without needing to declare a Skyframe dependency. This is useful in the case where the values
+   * can be retrieved remotely.
+   */
+  static interface ExistingActionLookupValuePeeker {
+    @Nullable // null if the value is not in Skyframe
+    ActionLookupValue getExistingActionLookupValue(ActionLookupKey key) throws InterruptedException;
   }
 
   SharedActionCallback getSharedActionCallback(
@@ -339,7 +357,7 @@ public final class SkyframeActionExecutor {
 
     this.cacheHitSemaphore =
         (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
-            ? new Semaphore(ResourceUsage.getAvailableProcessors())
+            ? new Semaphore(Runtime.getRuntime().availableProcessors())
             : null;
 
     var minActiveAction = buildRequestOptions.jobs;
@@ -417,6 +435,10 @@ public final class SkyframeActionExecutor {
     return invocationRetriesEnabled;
   }
 
+  InputMetadataProvider getPerBuildFileCache() {
+    return perBuildFileCache;
+  }
+
   OutputPermissions getOutputPermissions() {
     return options.getOptions(CoreOptions.class).experimentalWritableOutputs
         ? OutputPermissions.WRITABLE
@@ -430,7 +452,7 @@ public final class SkyframeActionExecutor {
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
@@ -443,13 +465,8 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action,
-      FileSystem actionFileSystem,
-      Environment env,
-      OutputMetadataStore outputMetadataStore,
-      Map<Artifact, FilesetOutputTree> filesets) {
-    outputService.updateActionFileSystemContext(
-        action, actionFileSystem, env, outputMetadataStore, filesets);
+      Action action, FileSystem actionFileSystem, OutputMetadataStore outputMetadataStore) {
+    outputService.updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
   }
 
   void executionOver() {
@@ -479,8 +496,35 @@ public final class SkyframeActionExecutor {
   }
 
   /** Determines whether the given action was rewound during the current build. */
-  public boolean wasRewound(Action action) {
+  public boolean wasRewound(ActionAnalysisMetadata action) {
     return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
+  /**
+   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound.
+   *
+   * <p>This happens when an action fails to execute because one of its inputs was lost. It usually
+   * indicates that the remotely retrieved {@code ActionExecutionValue} references remote data that
+   * is inaccessible.
+   */
+  public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
+    ActionLookupValue lookupValue =
+        actionLookupValuePeeker.getExistingActionLookupValue(lookupData.getActionLookupKey());
+    if (lookupValue == null) {
+      // Since rewinding causes the owner of the corresponding action to be analyzed, if the action
+      // owner is missing, then rewinding has not occurred.
+      return false;
+    }
+    return wasRewound(lookupValue.getActions().get(lookupData.getActionIndex()));
+  }
+
+  /**
+   * Returns the count of actions rewound during the current build.
+   *
+   * <p>If an action is rewound multiple times, it is only counted once.
+   */
+  public int getRewoundActionCount() {
+    return rewoundActions.size();
   }
 
   /**
@@ -498,7 +542,9 @@ public final class SkyframeActionExecutor {
    * lost inputs.
    */
   public void prepareForRewinding(
-      ActionLookupData failedKey, Action failedAction, ImmutableList<Action> depsToRewind) {
+      ActionLookupData failedKey,
+      Action failedAction,
+      ImmutableList<ActionAnalysisMetadata> depsToRewind) {
     var ownerlessArtifactWrapper = new OwnerlessArtifactWrapper(failedAction.getPrimaryOutput());
     ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
     if (state != null) {
@@ -509,25 +555,32 @@ public final class SkyframeActionExecutor {
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
     }
-    for (Action dep : depsToRewind) {
+    for (ActionAnalysisMetadata dep : depsToRewind) {
       prepareDepForRewinding(failedKey, dep);
     }
   }
 
-  public void prepareDepForRewinding(SkyKey failedKey, Action dep) {
+  public void prepareDepForRewinding(SkyKey failedKey, ActionAnalysisMetadata dep) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(dep.getPrimaryOutput());
+    if (!(dep instanceof Action action)) {
+      // ActionTemplate does not have an ActionExecutionState and it is not executed, so we just
+      // mark it as rewound.
+      checkState(dep instanceof ActionTemplate, "dep of unexpected type %s", dep);
+      rewoundActions.add(ownerlessArtifactWrapper);
+      return;
+    }
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
     if (actionExecutionState != null) {
       actionExecutionState.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
     }
     rewoundActions.add(ownerlessArtifactWrapper);
     if (!actionFileSystemType().inMemoryFileSystem()) {
-      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(dep.getOutputs());
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
     }
     // Evict the rewinding action from the action cache to ensure that it is executed.
     if (actionCacheChecker.enabled()) {
-      actionCacheChecker.removeCacheEntry(dep);
+      actionCacheChecker.removeCacheEntry(action);
     }
   }
 
@@ -539,7 +592,7 @@ public final class SkyframeActionExecutor {
   ActionExecutionValue executeAction(
       Environment env,
       Action action,
-      InputMetadataProvider inputMetadataProvider,
+      InputMetadataProvider compositeInputMetadataProvider,
       ActionOutputMetadataStore outputMetadataStore,
       long actionStartTime,
       ActionLookupData actionLookupData,
@@ -548,13 +601,16 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(
-          action, actionFileSystem, env, outputMetadataStore, inputMetadataProvider.getFilesets());
+      updateActionFileSystemContext(action, actionFileSystem, outputMetadataStore);
     }
 
     ActionExecutionContext actionExecutionContext =
         getContext(
-            action, inputMetadataProvider, outputMetadataStore, actionFileSystem, actionLookupData);
+            action,
+            compositeInputMetadataProvider,
+            outputMetadataStore,
+            actionFileSystem,
+            actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail the
@@ -578,7 +634,7 @@ public final class SkyframeActionExecutor {
                     actionLookupData,
                     new ActionRunner(
                         action,
-                        inputMetadataProvider,
+                        compositeInputMetadataProvider,
                         outputMetadataStore,
                         actionStartTime,
                         actionExecutionContext,
@@ -623,7 +679,7 @@ public final class SkyframeActionExecutor {
 
   private ActionExecutionContext getContext(
       Action action,
-      InputMetadataProvider inputMetadataProvider,
+      InputMetadataProvider compositeInputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable FileSystem actionFileSystem,
       ActionLookupData actionLookupData) {
@@ -633,7 +689,7 @@ public final class SkyframeActionExecutor {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(inputMetadataProvider, actionFileSystem),
+        compositeInputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
         outputMetadataStore,
@@ -682,16 +738,21 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     Token token;
     RemoteOptions remoteOptions;
-    SortedMap<String, String> remoteDefaultProperties;
+    ImmutableSortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
     OutputChecker outputChecker = null;
 
     if (cacheHitSemaphore != null) {
-      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
+      Stopwatch stopwatch = Stopwatch.createStarted();
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
         cacheHitSemaphore.acquire();
       }
+      stopwatch.stop();
+      actionCacheChecker.addCacheCheckSemaphoreWaitTime(stopwatch.elapsed().toMillis());
     }
-    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
           remoteOptions != null
@@ -791,7 +852,7 @@ public final class SkyframeActionExecutor {
     if (!actionCacheChecker.enabled()) {
       return;
     }
-    final SortedMap<String, String> remoteDefaultProperties;
+    ImmutableSortedMap<String, String> remoteDefaultProperties;
     try {
       RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
@@ -852,8 +913,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      InputMetadataProvider inputMetadataProvider,
-      OutputMetadataStore outputMetadataStore,
+      InputMetadataProvider compositeInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
@@ -865,10 +925,9 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(inputMetadataProvider, actionFileSystem),
+            compositeInputMetadataProvider,
             actionInputPrefetcher,
             actionKeyContext,
-            outputMetadataStore,
             rewindingEnabled,
             lostInputsCheck(actionFileSystem, action, outputService),
             fileOutErr,
@@ -878,14 +937,11 @@ public final class SkyframeActionExecutor {
             actionFileSystem,
             discoveredModulesPruner,
             syscallCache,
-            threadStateReceiverFactory.apply(actionLookupData));
+            threadStateReceiverFactory.apply(actionLookupData),
+            outputService.actionFileSystemType().supportsInputDiscovery());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action,
-          actionFileSystem,
-          env,
-          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS,
-          /* filesets= */ ImmutableMap.of());
+          action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);
@@ -937,14 +993,6 @@ public final class SkyframeActionExecutor {
       eventHandler.post(new StoppedScanningActionEvent(action));
       closeContext(actionExecutionContext, action, finalException);
     }
-  }
-
-  private InputMetadataProvider createFileCache(
-      InputMetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
-    if (actionFileSystem instanceof InputMetadataProvider inputMetadataProvider) {
-      return inputMetadataProvider;
-    }
-    return new DelegatingPairInputMetadataProvider(graphFileCache, perBuildFileCache);
   }
 
   /**
@@ -1040,13 +1088,14 @@ public final class SkyframeActionExecutor {
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.
       try (SilentCloseable c =
-          profiler.profileAction(
-              ProfilerTask.ACTION,
-              action.getMnemonic(),
-              action.describe(),
-              action.getPrimaryOutput().getExecPathString(),
-              getOwnerLabelAsString(action),
-              getOwnerConfigurationAsString(action))) {
+          Profiler.instance()
+              .profileAction(
+                  ProfilerTask.ACTION,
+                  action.getMnemonic(),
+                  action.describe(),
+                  action.getPrimaryOutput().getExecPathString(),
+                  getOwnerLabelAsString(action),
+                  getOwnerConfigurationAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -1061,7 +1110,8 @@ public final class SkyframeActionExecutor {
           }
           env.getListener().post(event);
           if (actionFileSystemType().shouldDoEagerActionPrep()) {
-            try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
+            try (SilentCloseable d =
+                Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
@@ -1183,7 +1233,7 @@ public final class SkyframeActionExecutor {
     private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
         throws LostInputsActionExecutionException, InterruptedException {
       ActionResult result;
-      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Action.execute")) {
         checkForUnsoundDirectoryInputs(action, actionExecutionContext.getInputMetadataProvider());
 
         result = action.execute(actionExecutionContext);
@@ -1211,7 +1261,7 @@ public final class SkyframeActionExecutor {
       try {
         ActionExecutionValue actionExecutionValue;
         try (SilentCloseable c =
-            profiler.profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
+            Profiler.instance().profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
           actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
         return new ActionPostprocessingStep(actionExecutionValue);
@@ -1266,7 +1316,7 @@ public final class SkyframeActionExecutor {
 
         if (finalizeActions) {
           try (SilentCloseable c =
-              profiler.profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
+              Profiler.instance().profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
             outputService.finalizeAction(action, outputMetadataStore);
           } catch (EnvironmentalExecException | IOException e) {
             logger.atWarning().withCause(e).log("unable to finalize action: '%s'", action);
@@ -1342,7 +1392,8 @@ public final class SkyframeActionExecutor {
 
       @Override
       public ActionStepOrResult run(Environment env) {
-        try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.INFO, "postprocessing.run")) {
           postprocessing.run(
               env,
               action,
@@ -1553,7 +1604,7 @@ public final class SkyframeActionExecutor {
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
-    try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
         // getOutputMetadata() has the side effect of adding the artifact to the cache if it's not
         // there already (e.g., due to a previous call to OutputMetadataStore.injectFile()),

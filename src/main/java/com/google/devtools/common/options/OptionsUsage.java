@@ -15,11 +15,8 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.escape.Escaper;
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /** A renderer for usage messages for any combination of options classes. */
 class OptionsUsage {
@@ -96,11 +92,8 @@ class OptionsUsage {
       usage.append(paragraphFill(optionDefinition.getHelpText(), /*indent=*/ 4, /*width=*/ 80));
       usage.append('\n');
     }
-    ImmutableList<String> expansion = getExpansionIfKnown(optionDefinition, optionsData);
-    if (expansion == null) {
-      usage.append(paragraphFill("Expands to unknown options.", /*indent=*/ 6, /*width=*/ 80));
-      usage.append('\n');
-    } else if (!expansion.isEmpty()) {
+    ImmutableList<String> expansion = optionsData.getEvaluatedExpansion(optionDefinition);
+    if (!expansion.isEmpty()) {
       StringBuilder expandsMsg = new StringBuilder("Expands to: ");
       for (String exp : expansion) {
         expandsMsg.append(exp).append(" ");
@@ -169,167 +162,15 @@ class OptionsUsage {
     return out.toString();
   }
 
-  /**
-   * Returns the expansion for an option, if any, regardless of if the expansion is from a function
-   * or is statically declared in the annotation.
-   */
-  @Nullable
-  private static ImmutableList<String> getExpansionIfKnown(
-      OptionDefinition optionDefinition, OptionsData optionsData) {
-    Preconditions.checkNotNull(optionDefinition);
-    return optionsData.getEvaluatedExpansion(optionDefinition);
-  }
-
   // Placeholder tag "UNKNOWN" is ignored.
-  private static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
+  static boolean shouldEffectTagBeListed(OptionEffectTag effectTag) {
     return !effectTag.equals(OptionEffectTag.UNKNOWN);
   }
 
   // Tags that only apply to undocumented options are excluded.
-  private static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
+  static boolean shouldMetadataTagBeListed(OptionMetadataTag metadataTag) {
     return !metadataTag.equals(OptionMetadataTag.HIDDEN)
         && !metadataTag.equals(OptionMetadataTag.INTERNAL);
-  }
-
-  /** Append the usage message for a single option-field message to 'usage'. */
-  static void getUsageHtml(
-      OptionDefinition optionDefinition,
-      StringBuilder usage,
-      Escaper escaper,
-      OptionsData optionsData,
-      boolean includeTags,
-      String commandName) {
-    String plainFlagName = optionDefinition.getOptionName();
-    String flagName = getFlagName(optionDefinition);
-    String valueDescription = optionDefinition.getValueTypeHelpText();
-    String typeDescription = getTypeDescription(optionDefinition);
-
-    StringBuilder anchorId = new StringBuilder();
-    if (commandName != null) {
-      anchorId.append(commandName).append("-");
-    }
-    anchorId.append("flag--").append(plainFlagName);
-
-    // String.format is a lot slower, sometimes up to 10x.
-    // https://stackoverflow.com/questions/925423/is-it-better-practice-to-use-string-format-over-string-concatenation-in-java
-    //
-    // Considering that this runs for every flag in the CLI reference, it's better to use regular
-    // appends here.
-    usage
-        .append("<dt id=\"")
-        // Add the id of the flag to point anchor hrefs to it
-        .append(anchorId)
-        .append("\">")
-        // Add the href to the id hash
-        .append("<code");
-    // Historically, we used `flag--${plainFlagName}` as the anchor id, but this is not unique
-    // across commands. We now use the per-command `anchorId` defined above, but we moved the old
-    // `flag--${plainFlagName}` to be an id on the code block for backwards compatibility with
-    // old links.
-    if (commandName != null) {
-      usage.append(" id=\"").append(plainFlagName).append("\"");
-    }
-    usage
-        .append(">")
-        .append("<a href=\"#")
-        .append(anchorId)
-        .append("\">")
-        .append("--")
-        .append(flagName)
-        .append("</a>");
-
-    if (!optionDefinition.requiresValue()) {
-      // Nothing for boolean, tristate, boolean_or_enum, or void options.
-    } else if (!valueDescription.isEmpty()) {
-      usage.append("=").append(escaper.escape(valueDescription));
-    } else if (!typeDescription.isEmpty()) {
-      // Generic fallback, which isn't very good.
-      usage.append("=&lt;").append(escaper.escape(typeDescription)).append("&gt");
-    }
-    usage.append("</code>");
-    if (optionDefinition.getAbbreviation() != '\0') {
-      usage.append(" [<code>-").append(optionDefinition.getAbbreviation()).append("</code>]");
-    }
-    if (optionDefinition.allowsMultiple()) {
-      // Allow-multiple options can't have a default value.
-      usage.append(" multiple uses are accumulated");
-    } else {
-      // Don't call the annotation directly (we must allow overrides to certain defaults).
-      String defaultValueString = optionDefinition.getUnparsedDefaultValue();
-      if (optionDefinition.isVoidField()) {
-        // Void options don't have a default.
-      } else if (optionDefinition.isSpecialNullDefault()) {
-        usage.append(" default: see description");
-      } else {
-        usage.append(" default: \"").append(escaper.escape(defaultValueString)).append("\"");
-      }
-    }
-    usage.append("</dt>\n");
-    usage.append("<dd>\n");
-    if (!optionDefinition.getHelpText().isEmpty()) {
-      usage.append(escaper.escape(optionDefinition.getHelpText()));
-      usage.append('\n');
-    }
-
-    if (!optionsData.getEvaluatedExpansion(optionDefinition).isEmpty()) {
-      // If this is an expansion option, list the expansion if known, or at least specify that we
-      // don't know.
-      usage.append("<br/>\n");
-      ImmutableList<String> expansion = getExpansionIfKnown(optionDefinition, optionsData);
-      StringBuilder expandsMsg;
-      if (expansion == null) {
-        expandsMsg = new StringBuilder("Expands to unknown options.<br/>\n");
-      } else {
-        Preconditions.checkArgument(!expansion.isEmpty());
-        expandsMsg = new StringBuilder("Expands to:<br/>\n");
-        for (String exp : expansion) {
-          // TODO(jingwen): We link to the expanded flags here, but unfortunately we don't
-          // currently guarantee that all flags are only printed once. A flag in an OptionBase that
-          // is included by 2 different commands, but not inherited through a parent command, will
-          // be printed multiple times. Clicking on the flag will bring the user to its first
-          // definition.
-          expandsMsg
-              .append("&nbsp;&nbsp;")
-              .append("<code><a href=\"#flag")
-              // Link to the '#flag--flag_name' hash.
-              // Some expansions are in the form of '--flag_name=value', so we drop everything from
-              // '=' onwards.
-              .append(Iterables.get(Splitter.on('=').split(escaper.escape(exp)), 0))
-              .append("\">")
-              .append(escaper.escape(exp))
-              .append("</a></code><br/>\n");
-        }
-      }
-      usage.append(expandsMsg);
-    }
-
-    // Add effect tags, if not UNKNOWN, and metadata tags, if not empty.
-    if (includeTags) {
-      Stream<OptionEffectTag> effectTagStream =
-          Arrays.stream(optionDefinition.getOptionEffectTags())
-              .filter(OptionsUsage::shouldEffectTagBeListed);
-      Stream<OptionMetadataTag> metadataTagStream =
-          Arrays.stream(optionDefinition.getOptionMetadataTags())
-              .filter(OptionsUsage::shouldMetadataTagBeListed);
-      String tagList =
-          Stream.concat(
-                  effectTagStream.map(
-                      tag ->
-                          String.format(
-                              "<a href=\"#effect_tag_%s\"><code>%s</code></a>",
-                              tag, Ascii.toLowerCase(tag.name()))),
-                  metadataTagStream.map(
-                      tag ->
-                          String.format(
-                              "<a href=\"#metadata_tag_%s\"><code>%s</code></a>",
-                              tag, Ascii.toLowerCase(tag.name()))))
-              .collect(Collectors.joining(", "));
-      if (!tagList.isEmpty()) {
-        usage.append("<br>Tags:\n").append(tagList);
-      }
-    }
-
-    usage.append("</dd>\n");
   }
 
   /**
@@ -385,7 +226,7 @@ class OptionsUsage {
     }
   }
 
-  private static String getTypeDescription(OptionDefinition optionsDefinition) {
+  static String getTypeDescription(OptionDefinition optionsDefinition) {
     return optionsDefinition.getConverter().getTypeDescription();
   }
 

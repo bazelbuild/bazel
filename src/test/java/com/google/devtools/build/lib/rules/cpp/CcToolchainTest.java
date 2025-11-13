@@ -47,14 +47,22 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).isNotNull();
   }
 
   @Test
   public void testInterfaceSharedObjects() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -66,7 +74,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
@@ -75,7 +83,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
@@ -84,15 +92,28 @@ public final class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
   }
 
+  /**
+   * Returns true if interface shared objects should be used in the build implied by the given
+   * cppConfiguration and toolchain.
+   */
+  static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
+    return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
+  }
+
   @Test
   public void testFission() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = ['a.cc'])");
 
     // Default configuration: disabled.
     getAnalysisMock()
@@ -155,7 +176,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testPic() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
 
     assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
         .isFalse();
@@ -181,7 +206,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
     useConfiguration(configuration);
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
@@ -199,6 +224,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -253,6 +279,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -322,7 +349,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   private void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
-    scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.overwriteFile(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -350,6 +381,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -376,6 +408,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -401,6 +434,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
         "modules/multiple",
         "c",
         "expected a single artifact",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
@@ -425,8 +459,13 @@ public final class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testToolchainAlias() throws Exception {
     ConfiguredTarget reference =
-        scratchConfiguredTarget("a", "ref", "cc_toolchain_alias(name='ref')");
-    assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
+        scratchConfiguredTarget(
+            "a",
+            "ref",
+            "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+                + " 'cc_toolchain_alias')",
+            "cc_toolchain_alias(name='ref')");
+    assertThat(CcToolchainProvider.getFromTarget(reference)).isNotNull();
   }
 
   @Test
@@ -435,6 +474,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         genrule(
@@ -455,6 +495,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         exports_files(["profile.unexpected"])
@@ -471,6 +512,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         filegroup(
@@ -491,6 +533,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         exports_files(["profile.afdo"])
@@ -504,7 +547,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testCSFdoRejectRelativePath() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("a/profile.profdata", "");
     scratch.file("a/csprofile.profdata", "");
     Exception e =
@@ -525,6 +572,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         genrule(
@@ -544,6 +592,8 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
         fdo_profile(
@@ -562,6 +612,8 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
         fdo_profile(
@@ -580,6 +632,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -606,6 +659,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "fdo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         exports_files(["my_profile.afdo"])
 
         fdo_profile(
@@ -641,7 +695,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     assertThat(
             CcToolchainProvider.getToolPathString(
                 toolchainProvider.getToolPaths(),
@@ -662,6 +716,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_config_rule(name = "toolchain_config")
@@ -687,6 +742,8 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/crosstool_rule.bzl",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         load(
             "//tools/cpp:cc_toolchain_config_lib.bzl",
             "action_config",
@@ -757,11 +814,15 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testSysroot_fromCrosstool_unset() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
   }
@@ -771,6 +832,8 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "a")
 
         cc_library(
@@ -795,7 +858,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     useConfiguration("--incompatible_use_specific_tool_files");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
     Artifact staticLib =
         getOutputGroup(libTarget, "archive").toList().stream()

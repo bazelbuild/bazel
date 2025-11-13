@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -39,15 +39,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 function _create_pkg() {
   # Define dummy CPU and OS constraints (cpu1 and cpu2, and os1 and os2).
@@ -110,7 +101,7 @@ eof
   # On Windows, we write a Batch script. On other platforms, a shell script.
   # File extension must be .bat on Windows, and it doesn't matter on other
   # platforms.
-  if "$is_windows"; then
+  if is_windows; then
     cat > "toolchains/rc-src.bat" <<'eof'
 @echo off
 setlocal enabledelayedexpansion
@@ -129,7 +120,7 @@ dir /s /b /o:n *.dat>>%out%
 eof
   else
     cat > "toolchains/rc-src.bat" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 for a in $*; do
   if [[ "$a" =~ /fo.* ]]; then
     out="${a#/fo}"
@@ -192,6 +183,7 @@ function _assert_no_outputs() {
 function test_toolchain_selection() {
   echo "module(name = 'io_bazel')" > MODULE.bazel
   add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
   _symlink_res_toolchain_files
   _create_pkg
 

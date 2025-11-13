@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -29,6 +30,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Container for {@link WriteStatus} and its implementations.
@@ -67,7 +69,7 @@ public class WriteStatuses {
    * Combines {@code writeStatuses} into a single future using <i>sparse</i> aggregation.
    *
    * <p>NB: This is not a general purpose aggregation and must only be used under certain
-   * conditions. See {@link SparseaggregateWriteStatus} for details.
+   * conditions. See {@link SparseAggregateWriteStatus} for details.
    */
   public static WriteStatus sparselyAggregateWriteStatuses(Collection<WriteStatus> writeStatuses) {
     if (writeStatuses.isEmpty()) {
@@ -105,45 +107,17 @@ public class WriteStatuses {
    * value.
    */
   public static final class SparseAggregateWriteStatus extends QuiescingFuture<Void>
-      implements WriteStatus, Runnable, FutureCallback<Void> {
+      implements WriteStatus, FutureCallback<Void> {
     private volatile SparseAggregateWriteStatus listeningAggregate = null;
 
-    /** Creates an aggregate that depends on all the statuses in {@code writeStatuses}. */
-    private static SparseAggregateWriteStatus create(Iterable<WriteStatus> writeStatuses) {
-      var aggregate = new SparseAggregateWriteStatus();
-      for (WriteStatus writeStatus : writeStatuses) {
-        if (writeStatus.isDone()) {
-          try {
-            var unusedNull = Futures.getDone(writeStatus);
-            // Success would lead to an increment then decrement, which reduces to a no-op.
-          } catch (ExecutionException e) {
-            // InternalFutureFailureAccess might be more efficient, but failures should be rare.
-            //
-            // Increments the reference count for consistency. As per the contract of
-            // QuiescingFuture, on overall failure, the reference count should not reach zero.
-            aggregate.prepareForAddingWrite();
-            aggregate.notifyException(e);
-          } catch (CancellationException e) {
-            aggregate.prepareForAddingWrite();
-            aggregate.cancel(/* mayInterruptIfRunning= */ false); // nothing running
-          }
-          continue;
-        }
+    public SparseAggregateWriteStatus() {
+      super(directExecutor());
+    }
 
-        switch (writeStatus) {
-          case SparseAggregateWriteStatus sparse:
-            // The addToAggregator logic ensures that each SparseAggregateWriteStatus has at most
-            // one SparseAggregateWriteStatus parent.
-            sparse.addToAggregator(aggregate);
-            break;
-          default:
-            aggregate.prepareForAddingWrite();
-            Futures.addCallback(writeStatus, (FutureCallback<Void>) aggregate, directExecutor());
-            break;
-        }
-      }
-      aggregate.decrement(); // Cancels the pre-increment.
-      return aggregate;
+    /** Creates an aggregate that depends on all the statuses in {@code writeStatuses}. */
+    private static SparseAggregateWriteStatus create(
+        Iterable<? extends ListenableFuture<Void>> writeStatuses) {
+      return new SparseAggregateWriteStatusBuilder().addAll(writeStatuses).build();
     }
 
     /**
@@ -158,7 +132,8 @@ public class WriteStatuses {
     /**
      * Signals the failure of an aggregate component.
      *
-     * <p>Only clients using the aggregate as a settable future call this.
+     * <p>Only clients using the aggregate as a settable future (or {@link
+     * SparseAggregateWriteStatusBuilder}) call this.
      */
     public void notifyWriteFailed(Throwable t) {
       if (t instanceof CancellationException) {
@@ -188,27 +163,23 @@ public class WriteStatuses {
       // The CAS here accepts the first listener, and ignores any additional ones.
       if (LISTENING_AGGREGATOR_HANDLE.compareAndSet(this, null, aggregate)) {
         aggregate.prepareForAddingWrite();
-        addListener((Runnable) this, directExecutor());
+        addListener(
+            () -> {
+              try {
+                var unusedNull = Futures.getDone(this);
+                listeningAggregate.notifyWriteSucceeded();
+              } catch (ExecutionException e) {
+                listeningAggregate.notifyWriteFailed(e);
+              } catch (CancellationException e) {
+                listeningAggregate.cancel(/* mayInterruptIfRunning= */ false); // nothing running
+              }
+            },
+            directExecutor());
       }
     }
 
-    /**
-     * Implements the aggregate listener.
-     *
-     * @deprecated only for use by {@link #addToAggregator} listener processing
-     */
-    @Deprecated
-    @Override
-    @DoNotCall
-    public void run() {
-      try {
-        var unusedNull = Futures.getDone(this);
-        listeningAggregate.notifyWriteSucceeded();
-      } catch (ExecutionException e) {
-        listeningAggregate.notifyWriteFailed(e);
-      } catch (CancellationException e) {
-        listeningAggregate.cancel(/* mayInterruptIfRunning= */ false); // nothing running
-      }
+    private void clearPreincrement() {
+      decrement();
     }
 
     /**
@@ -268,13 +239,11 @@ public class WriteStatuses {
   private static final class AggregateWriteStatus extends QuiescingFuture<Void>
       implements WriteStatus, FutureCallback<Void> {
     private static AggregateWriteStatus create(Iterable<WriteStatus> writeStatuses) {
-      var aggregator = new AggregateWriteStatus();
-      for (WriteStatus writeStatus : writeStatuses) {
-        aggregator.increment();
-        Futures.addCallback(writeStatus, (FutureCallback<Void>) aggregator, directExecutor());
-      }
-      aggregator.decrement(); // Clears the pre-increment.
-      return aggregator;
+      return new AggregateWriteStatusBuilder().addAll(writeStatuses).build();
+    }
+
+    private AggregateWriteStatus() {
+      super(directExecutor());
     }
 
     @Override
@@ -308,7 +277,99 @@ public class WriteStatuses {
       notifyException(t);
     }
 
-    private AggregateWriteStatus() {}
+    private void add(ListenableFuture<Void> status) {
+      increment();
+      Futures.addCallback(status, (FutureCallback<Void>) this, directExecutor());
+    }
+
+    private void clearPreincrement() {
+      decrement();
+    }
+  }
+
+  /**
+   * Builder for {@link AggregateWriteStatus}.
+   *
+   * <p>This builder is thread safe, but {@link #build} should only be called once.
+   */
+  static final class AggregateWriteStatusBuilder {
+    private final AggregateWriteStatus aggregate = new AggregateWriteStatus();
+    private final AtomicBoolean preincrementCleared = new AtomicBoolean(false);
+
+    @CanIgnoreReturnValue
+    AggregateWriteStatusBuilder add(ListenableFuture<Void> status) {
+      aggregate.add(status);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    AggregateWriteStatusBuilder addAll(Iterable<? extends ListenableFuture<Void>> statuses) {
+      for (ListenableFuture<Void> status : statuses) {
+        aggregate.add(status);
+      }
+      return this;
+    }
+
+    /** Should only be called once. */
+    AggregateWriteStatus build() {
+      checkState(!preincrementCleared.getAndSet(true), "build must only be called once");
+      aggregate.clearPreincrement();
+      return aggregate;
+    }
+  }
+
+  /**
+   * Builder for {@link SparseAggregateWriteStatus}.
+   *
+   * <p>This builder is thread safe, but {@link #build} should only be called once.
+   */
+  static final class SparseAggregateWriteStatusBuilder {
+    private final SparseAggregateWriteStatus aggregate = new SparseAggregateWriteStatus();
+    private final AtomicBoolean preincrementCleared = new AtomicBoolean(false);
+
+    @CanIgnoreReturnValue
+    SparseAggregateWriteStatusBuilder add(ListenableFuture<Void> status) {
+      if (status.isDone()) {
+        try {
+          var unusedNull = Futures.getDone(status);
+          // Success would lead to an increment then decrement, which reduces to a no-op.
+        } catch (ExecutionException | CancellationException e) {
+          // InternalFutureFailureAccess might be more efficient, but failures should be rare.
+          //
+          // Increments the reference count for consistency.
+          aggregate.prepareForAddingWrite();
+          aggregate.notifyWriteFailed(e);
+        }
+        return this;
+      }
+
+      switch (status) {
+        case SparseAggregateWriteStatus sparse:
+          // The addToAggregator logic ensures that each SparseAggregateWriteStatus has at most one
+          // SparseAggregateWriteStatus parent.
+          sparse.addToAggregator(aggregate);
+          break;
+        default:
+          aggregate.prepareForAddingWrite();
+          Futures.addCallback(status, (FutureCallback<Void>) aggregate, directExecutor());
+          break;
+      }
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    SparseAggregateWriteStatusBuilder addAll(Iterable<? extends ListenableFuture<Void>> statuses) {
+      for (ListenableFuture<Void> status : statuses) {
+        add(status);
+      }
+      return this;
+    }
+
+    SparseAggregateWriteStatus build() {
+      checkState(!preincrementCleared.getAndSet(true), "build must only be called once");
+      aggregate.clearPreincrement();
+      return aggregate;
+    }
   }
 
   /**

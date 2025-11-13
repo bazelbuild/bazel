@@ -307,13 +307,14 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   public void testCcTestActionListener() throws Exception {
     write("nobuild/main.cc",
         "int  main() { return 0; }");
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "cc_test(name= 'cctest',",
         "             srcs=['main.cc'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['CppCompile'],",
         "                extra_actions = [':baz'])");

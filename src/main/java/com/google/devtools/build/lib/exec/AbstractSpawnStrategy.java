@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -104,12 +103,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   }
 
   @Override
-  public boolean canExecWithLegacyFallback(
-      Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
-    return spawnRunner.canExecWithLegacyFallback(spawn);
-  }
-
-  @Override
   public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return exec(spawn, actionExecutionContext, null);
@@ -164,6 +157,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 new SpawnExecutedEvent(
                     spawn,
                     actionExecutionContext.getInputMetadataProvider(),
+                    actionExecutionContext.getActionFileSystem(),
                     actionExecutionContext.getFileOutErr(),
                     spawnResult,
                     startTime,
@@ -185,13 +179,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       ex = e;
       spawnResult = e.getSpawnResult();
       // Log the Spawn and re-throw.
-    } catch (ForbiddenActionInputException e) {
-      throw new UserExecException(
-          e,
-          FailureDetail.newBuilder()
-              .setMessage("Exec failed due to forbidden input")
-              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.FORBIDDEN_INPUT))
-              .build());
     }
 
     SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
@@ -200,7 +187,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
+            () ->
+                context.getInputMapping(
+                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -213,9 +202,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .setMessage("IOException while logging spawn")
                 .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.SPAWN_LOG_IO_EXCEPTION))
                 .build());
-      } catch (ForbiddenActionInputException e) {
-        // Should have already been thrown during execution.
-        throw new IllegalStateException("ForbiddenActionInputException while logging spawn", e);
       }
     }
     if (ex != null) {
@@ -284,7 +270,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException {
+    public ListenableFuture<Void> prefetchInputs() {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         return Futures.catchingAsync(
             actionExecutionContext
@@ -330,11 +316,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SpawnInputExpander getSpawnInputExpander() {
-      return spawnInputExpander;
-    }
-
-    @Override
     public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
         throws InterruptedException {
       if (stopConcurrentSpawns != null) {
@@ -359,8 +340,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException {
+        PathFragment baseDirectory, boolean willAccessRepeatedly) {
       // Return previously computed copy if present.
       if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
         return lazyInputMapping;
@@ -371,9 +351,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn,
-                actionExecutionContext.getInputMetadataProvider(),
-                baseDirectory);
+                spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.
@@ -421,6 +399,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     @Override
     public FileSystem getActionFileSystem() {
       return actionExecutionContext.getActionFileSystem();
+    }
+
+    @Override
+    public ImmutableMap<String, String> getClientEnv() {
+      return actionExecutionContext.getClientEnv();
     }
   }
 }

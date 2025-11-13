@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -16,14 +16,18 @@
 #
 # Tests the behavior of C++ rules.
 
+set -eu
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_extra_action_for_compile() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p ea
   cat > ea/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 action_listener(
     name = "al",
     extra_actions = [":ea"],
@@ -53,6 +57,7 @@ function test_cc_library_include_prefix_external_repository() {
   touch "$TEST_TMPDIR/r/REPO.bazel"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "foo",
   hdrs = ["v1/foo.h"],
@@ -61,6 +66,7 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -70,6 +76,7 @@ local_repository(
 EOF
 
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "ok",
   srcs = ["ok.cc"],
@@ -110,7 +117,9 @@ function test_include_validation_sandbox_disabled() {
   mkdir -p "${workspace}"/lib
 
   setup_module_dot_bazel "${workspace}/MODULE.bazel"
+  add_rules_cc "${workspace}/MODULE.bazel"
   cat >> "${workspace}/BUILD" << EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "foo",
     srcs = ["lib/foo.cc"],
@@ -165,7 +174,7 @@ cc_binary(
 )
 EOF
   cat > "ta_headers/mygen.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -243,8 +252,10 @@ EOF
 }
 
 function test_save_feature_state() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p ea
   cat > ea/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cc",
     srcs = ["cc.cc", "cc1.cc"],
@@ -266,6 +277,7 @@ function setup_cc_starlark_api_test() {
   local pkg="$1"
 
   touch "$pkg"/MODULE.bazel
+  add_rules_cc "MODULE.bazel"
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h
@@ -524,7 +536,9 @@ function test_cc_starlark_api_default_values() {
 
 
 function test_cc_starlark_api_link_static_false() {
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
@@ -558,7 +572,9 @@ EOF
 
 function test_cc_starlark_api_additional_inputs() {
   # This uses --version-script which isn't available on Mac linker.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
@@ -592,12 +608,15 @@ EOF
 function test_aspect_accessing_args_link_action_with_tree_artifact() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
+  add_rules_cc "MODULE.bazel"
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
   cat > "${package}/makes_tree_artifacts.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 echo "int a() { return 0; }" > \$my_dir/a.cc
@@ -607,7 +626,7 @@ EOF
   chmod 755 "${package}/makes_tree_artifacts.sh"
 
   cat > "${package}/write.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 shift;
 
@@ -648,6 +667,7 @@ actions_test_aspect = aspect(implementation = _actions_test_impl)
 EOF
 
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":lib.bzl", "tree_art_rule")
 
 tree_art_rule(name = "tree")
@@ -672,6 +692,7 @@ EOF
 }
 
 function test_argv_in_compile_action() {
+  add_rules_cc "MODULE.bazel"
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -690,6 +711,7 @@ EOF
 
   touch "${package}/x.cc"
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   srcs = ["x.cc"],
@@ -711,8 +733,11 @@ EOF
 function test_directory_arg_compile_action() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
+  add_rules_cc "MODULE.bazel"
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -733,6 +758,7 @@ EOF
 
   touch "${package}/x.cc"
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   srcs = ["x.cc"],
@@ -759,10 +785,13 @@ function test_reconstructing_cpp_actions() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
   cat > "${package}/lib.bzl" <<EOF
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
 def _actions_test_impl(target, ctx):
     compile_action = None
     archive_action = None
@@ -863,6 +892,7 @@ EOF
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   hdrs  = ["x.h"],
@@ -904,6 +934,7 @@ int main() {
 EOF
 
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "ok",
   srcs = ["ok.cc"],
@@ -911,10 +942,10 @@ cc_binary(
 EOF
   # As long as the default workspace suffix runs cc_configure the local_config_cc toolchain suite will be evaluated.
   # Ensure the fake cc_toolchain_suite target doesn't have any errors.
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 BAZEL_NO_APPLE_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
     fail "Fake toolchain target causes analysis errors"
 
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 BAZEL_NO_APPLE_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
     fail "Toolchains shouldn't be found"
   expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@platforms//host:host."
 }
@@ -932,6 +963,7 @@ function setup_workspace_layout_with_external_directory() {
   #        └── lib.h
   mkdir -p external/foo
   cat > external/foo/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     srcs = ["lib.cc"],
@@ -971,6 +1003,7 @@ EOF
 
   mkdir baz
   cat > baz/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "binary",
     srcs = ["binary.cc"],
@@ -995,6 +1028,7 @@ EOF
 }
 
 function test_execroot_subdir_layout_fails_for_external_subpackages() {
+  add_rules_cc "MODULE.bazel"
   setup_workspace_layout_with_external_directory
 
   bazel build --experimental_sibling_repository_layout=false //baz:binary &> "$TEST_log" \
@@ -1004,6 +1038,7 @@ function test_execroot_subdir_layout_fails_for_external_subpackages() {
 }
 
 function test_execroot_sibling_layout_null_build_for_external_subpackages() {
+  add_rules_cc "MODULE.bazel"
   setup_workspace_layout_with_external_directory
   bazel build --experimental_sibling_repository_layout //baz:binary \
     || fail "expected build success"
@@ -1015,8 +1050,10 @@ function test_execroot_sibling_layout_null_build_for_external_subpackages() {
 }
 
 function test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
+  add_rules_cc "MODULE.bazel"
   setup_workspace_layout_with_external_directory
   cat << 'EOF' > external/foo/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     srcs = ["lib.cc"],
@@ -1034,8 +1071,10 @@ EOF
 
 function test_sibling_repository_layout_include_external_repo_output() {
   add_rules_java MODULE.bazel
+  add_rules_cc "MODULE.bazel"
   mkdir test
   cat > test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
@@ -1058,6 +1097,7 @@ EOF
 # This is needed to avoid too long commands when the args of one of the target's
 # actions are used to run a new action from the aspect. Fixes b/168634763
 function test_using_compile_action_args_params_file() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p package
 
   cat > "package/lib.bzl" <<EOF
@@ -1090,6 +1130,7 @@ int main() {
 EOF
 
   cat > "package/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "x",
   srcs = ["x.cc"],
@@ -1122,11 +1163,13 @@ EOF
 }
 
 function test_include_external_genrule_header() {
+  add_rules_cc "MODULE.bazel"
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   touch "$REPO_PATH/REPO.bazel"
   mkdir "$REPO_PATH/foo"
   cat > "$REPO_PATH/foo/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "bar",
   srcs = [
@@ -1169,6 +1212,7 @@ EOF
 }
 
 function test_reconstructing_cpp_actions_using_shadowed_action() {
+  add_rules_cc "MODULE.bazel"
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1241,6 +1285,7 @@ EOF
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   hdrs  = ["x.h"],
@@ -1271,8 +1316,11 @@ function test_include_scanning_smoketest() {
   # Make sure there are no packages containing tools/cpp/INCLUDE_HINTS to exercise that case in
   # IncludeHintsFunction.
   rm -rf BUILD tools
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = 'bin',
   srcs = ['bin.cc'],
@@ -1294,13 +1342,14 @@ EOF
   touch pkg/dep.h
 
   bazel build --experimental_unsupported_and_brittle_include_scanning --features=cc_include_scanning //pkg:bin &>"$TEST_log" && fail 'include scanning did not (wrongly) remove dependency' || true
-  expect_log "Include scanning enabled. This feature is unsupported."
   expect_log "fatal error: '\?dep.h'\?"
 }
 
 function test_env_inherit_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = 'foo_test',
   srcs = ['foo_test.cc'],
@@ -1325,8 +1374,10 @@ EOF
 }
 
 function test_env_attr_cc_binary() {
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = 'foo_bin_with_env',
   srcs = ['foo_test.cc'],
@@ -1356,6 +1407,7 @@ EOF
 }
 
 function external_cc_test_setup() {
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<'EOF'
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -1369,6 +1421,7 @@ EOF
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "lib",
   srcs = ["lib.cpp"],
@@ -1388,6 +1441,7 @@ EOF
 
   mkdir -p other_repo/test
   cat > other_repo/test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
@@ -1403,7 +1457,9 @@ EOF
 }
 
 function test_external_cc_test_sandboxed() {
-  [ "$PLATFORM" != "windows" ] || return 0
+  if is_windows; then
+    return 0
+  fi
 
   external_cc_test_setup
 
@@ -1414,7 +1470,9 @@ function test_external_cc_test_sandboxed() {
 }
 
 function test_external_cc_test_sandboxed_sibling_repository_layout() {
-  [ "$PLATFORM" != "windows" ] || return 0
+  if is_windows; then
+    return 0
+  fi
 
   external_cc_test_setup
 
@@ -1456,6 +1514,7 @@ function test_external_cc_test_local_sibling_repository_layout() {
 }
 
 function test_bazel_current_repository_define() {
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<'EOF'
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -1466,6 +1525,9 @@ EOF
 
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
   name = "library",
   srcs = ["library.cpp"],
@@ -1528,6 +1590,8 @@ EOF
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_binary(
   name = "binary",
   srcs = ["binary.cpp"],
@@ -1585,10 +1649,15 @@ EOF
 
 function test_compiler_flag_gcc() {
   # The default macOS toolchain always uses XCode's clang.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
+
   type -P gcc || return 0
 
+  add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 config_setting(
     name = "gcc_compiler",
     flag_values = {"@bazel_tools//tools/cpp:compiler": "gcc"},
@@ -1609,7 +1678,9 @@ EOF
 function test_compiler_flag_clang() {
   type -P clang || return 0
 
+  add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 config_setting(
     name = "clang_compiler",
     flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
@@ -1628,7 +1699,9 @@ EOF
 }
 
 function test_bazel_cxxopts() {
+  add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "main_c",
   srcs = ["main.c"],
@@ -1660,7 +1733,9 @@ EOF
 }
 
 function test_bazel_conlyopts() {
+  add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "main_c",
   srcs = ["main.c"],
@@ -1693,6 +1768,7 @@ EOF
 
 function test_cc_test_no_target_coverage_dep() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<'EOF'
 remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
@@ -1702,6 +1778,7 @@ EOF
   mkdir -p "${package}"
 
   cat > "${package}"/BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cc"],
@@ -1717,6 +1794,7 @@ EOF
 }
 
 function test_cc_test_no_coverage_tools_dep_without_coverage() {
+  add_rules_cc "MODULE.bazel"
 
   cat >> MODULE.bazel <<'EOF'
 remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
@@ -1729,6 +1807,7 @@ EOF
   mkdir -p "${package}"
 
   cat > "${package}"/BUILD.bazel <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cc"],
@@ -1747,7 +1826,7 @@ EOF
 function __is_installed() {
   local lib="$1"
 
-  if [[ "$(uname -s | tr 'A-Z' 'a-z')" == "linux" ]]; then
+  if is_linux; then
     return $(ldconfig -p | grep -q "$lib")
   fi
 
@@ -1758,8 +1837,10 @@ function test_cc_toolchain_asan_feature() {
   local feature=asan
   __is_installed "lib$feature" || return 0
 
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = 'example',
   srcs = ['example.cc'],
@@ -1791,8 +1872,10 @@ function test_cc_toolchain_tsan_feature() {
   local feature=tsan
   __is_installed "lib$feature" || return 0
 
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = 'example',
   srcs = ['example.cc'],
@@ -1820,15 +1903,21 @@ int main() {
 EOF
 
   bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
-  expect_log "WARNING: ThreadSanitizer: data race"
+  # TODO: we used to expect "WARNING: ThreadSanitizer: data race" here, but that
+  # has suddenly started failing on Ubuntu on Bazel CI (see
+  # https://buildkite.com/bazel/google-bazel-presubmit/builds/92979). We should
+  # figure out what's going on and fix this check eventually.
+  expect_log "ThreadSanitizer: "
 }
 
 function test_cc_toolchain_ubsan_feature() {
   local feature=ubsan
   __is_installed "lib$feature" || return 0
 
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = 'example',
   srcs = ['example.cc'],
@@ -1918,8 +2007,10 @@ function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution(
 }
 
 function test_no_cpp_stdlib_linked_to_c_library() {
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = 'example',
   srcs = ['example.c'],
@@ -1942,8 +2033,10 @@ EOF
 }
 
 function test_parse_headers_unclean() {
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(name = "lib", hdrs = ["lib.h"])
 EOF
   cat > pkg/lib.h <<'EOF'
@@ -1961,8 +2054,10 @@ EOF
 }
 
 function test_parse_headers_clean() {
+  add_rules_cc "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 package(features = ["parse_headers"])
 cc_library(name = "lib", hdrs = ["lib.h"])
 EOF
@@ -2036,7 +2131,7 @@ generate_source = rule(
 )
 EOF
   cat > pkg/generate.sh <<'EOF2'
-#!/bin/bash
+#!/usr/bin/env bash
 
 OUTPUT_DIR=$1
 
@@ -2069,6 +2164,7 @@ EOF
 }
 
 function test_extend_cc_binary_with_dynamic_deps() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p pkg
   cat >pkg/BUILD <<'EOF'
 load("my_cc_binary.bzl", "my_cc_binary")
@@ -2085,13 +2181,14 @@ my_cc_binary(
 EOF
 
   cat >pkg/my_cc_binary.bzl << 'EOF'
+load("@rules_cc//cc/private/rules_impl:cc_binary.bzl", "cc_binary")
 def _my_cc_binary_impl(ctx):
   print("Hello from my_cc_binary")
   return ctx.super()
 
 my_cc_binary = rule(
   implementation = _my_cc_binary_impl,
-  parent = native.cc_binary,
+  parent = cc_binary,
 )
 EOF
 
@@ -2104,9 +2201,154 @@ int main() {
 }
 EOF
 
-  bazel run //pkg:hello &> $TEST_log || fail "Expected success"
+  # Disabling autoloads, to get direct (non-macro) access to the rule
+  bazel run --incompatible_autoload_externally= //pkg:hello &> $TEST_log || fail "Expected success"
   expect_log "Hello from my_cc_binary"
   expect_log "Hello from main.cpp"
+}
+
+function test_cpp20_modules_with_clang() {
+  type -P clang || return 0
+  # Check if clang version is less than 17
+  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [[ -n "$clang_version" ]]; then
+    major_version=$(echo "$clang_version" | cut -d. -f1)
+    if [[ "$major_version" -lt 17 ]]; then
+      return 0
+    fi
+  fi
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  add_rules_cc "MODULE.bazel"
+
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
+package(features = ["cpp_modules"])
+
+cc_library(
+  name = "base",
+  module_interfaces = ["base.cppm"],
+)
+cc_library(
+  name = "foo",
+  module_interfaces = ["foo.cppm"],
+  deps = [":base"]
+)
+cc_library(
+  name = "bar",
+  module_interfaces = ["bar.cppm"],
+  deps = [":base"]
+)
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+  deps = [":foo", ":bar"]
+)
+EOF
+  cat > main.cc <<'EOF'
+import foo;
+import bar;
+
+void f() {
+  f_foo();
+  f_bar();
+}
+
+int main() {
+  f();
+  return 0;
+}
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+import base;
+
+export void f_foo() {
+  f_base();
+}
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+import base;
+
+export void f_bar() {
+  f_base();
+}
+EOF
+  cat > base.cppm <<'EOF'
+export module base;
+
+export void f_base() {
+}
+EOF
+
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  # Verify that the build can hit the cache without action cycles.
+  bazel clean || fail "Expected clean success"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  expect_log "17 disk cache hit"
+}
+
+function test_external_repo_lto() {
+  add_rules_cc "MODULE.bazel"
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  touch "$REPO_PATH/REPO.bazel"
+  mkdir "$REPO_PATH/foo"
+  cat > "$REPO_PATH/foo/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(
+  name = "foo",
+  srcs = [
+    "foo.cc",
+  ],
+  hdrs = [
+    "foo.h",
+  ],
+)
+EOF
+  cat > "$REPO_PATH/foo/foo.cc" <<'EOF'
+#include "foo.h"
+
+int main() {
+  sayhello();
+}
+EOF
+  cat > "$REPO_PATH/foo/foo.h" <<'EOF'
+#include <stdio.h>
+
+void sayhello() {
+  printf("hello\n");
+}
+EOF
+
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = 'repo', path='$REPO_PATH')
+EOF
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+  deps = ["@repo//foo:foo"],
+)
+EOF
+  cat > main.cc <<'EOF'
+#include "foo/foo.h"
+int main() {
+  sayhello();
+}
+EOF
+
+  bazel build --repo_env=CC=clang --features=thin_lto @repo//foo \
+    > "$TEST_log" || fail "expected build success"
+  bazel build --repo_env=CC=clang --features=thin_lto --experimental_sibling_repository_layout @repo//foo \
+    > "$TEST_log" || fail "expected build success"
 }
 
 run_suite "cc_integration_test"

@@ -306,9 +306,8 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(stdout[1], "Hello, World!")
 
   def setUpRunfilesDirectoryIncrementalityTest(self):
-    self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         "BUILD",
         [
@@ -431,9 +430,8 @@ class RunfilesTest(test_base.TestBase):
     self.assertNotEqual(exit_code, 0)
 
   def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
-    self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         "BUILD",
         [
@@ -452,9 +450,8 @@ class RunfilesTest(test_base.TestBase):
 
   def testWrappedShBinary(self):
     self.writeWrapperRule()
-    self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         "BUILD",
         [
@@ -506,7 +503,7 @@ class RunfilesTest(test_base.TestBase):
   def testWrappedJavaBinary(self):
     self.writeWrapperRule()
     self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        "MODULE.bazel", ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         "BUILD",

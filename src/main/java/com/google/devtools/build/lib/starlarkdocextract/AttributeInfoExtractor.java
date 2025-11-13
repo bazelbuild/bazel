@@ -123,7 +123,8 @@ public final class AttributeInfoExtractor {
       } else {
         return AttributeType.STRING;
       }
-    } else if (type.equals(Types.STRING_LIST)) {
+    } else if (type.equals(Types.STRING_LIST) || type.equals(Types.STRING_SET)) {
+      // Since STRING_SET is not exposed to Starlark attr API, we can treat it as STRING_LIST.
       return AttributeType.STRING_LIST;
     } else if (type.equals(Types.INTEGER_LIST)) {
       return AttributeType.INT_LIST;

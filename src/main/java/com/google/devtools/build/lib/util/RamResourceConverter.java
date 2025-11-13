@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.util;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * Converter for --local_cpu_resources, which takes an integer greater than or equal to 0, or
+ * Converter for --local_resources=memory=, which takes an integer greater than or equal to 0, or
  * "HOST_RAM", optionally followed by [-|*]<float>.
  */
 public final class RamResourceConverter extends ResourceConverter.IntegerConverter {

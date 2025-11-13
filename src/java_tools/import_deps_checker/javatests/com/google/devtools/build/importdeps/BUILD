@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
 
 # Description:
@@ -208,7 +209,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryInterface",
-    rt_jar = "@rules_java//toolchains:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -223,7 +224,7 @@ create_golden_test(
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
     replacing_jar = "testdata_lib_Library_no_members",
-    rt_jar = "@rules_java//toolchains:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -328,5 +329,8 @@ sh_test(
 java_binary(
     name = "DumpProto",
     srcs = ["DumpProto.java"],
-    deps = ["//src/main/protobuf:deps_java_proto"],
+    deps = [
+        "//src/main/protobuf:deps_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
 )

@@ -47,6 +47,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -307,8 +308,7 @@ public class ModuleFileGlobals {
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
           repoName,
-          DepSpec.create(
-              name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
+          new DepSpec(name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
     if (repoName.isPresent()) {
@@ -513,12 +513,18 @@ public class ModuleFileGlobals {
               rawExtensionBzlFile,
               Label.PackageContext.of(
                   PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
-                  RepositoryMapping.createAllowingFallback(repoMapping)));
+                  RepositoryMapping.create(repoMapping, ownRepoName)));
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label \"%s\": %s", rawExtensionBzlFile, e.getMessage());
     }
+    String apparentRepoName = label.getRepository().getName();
+    Label fabricatedLabel =
+        Label.createUnvalidated(
+            PackageIdentifier.create(
+                RepositoryName.createUnvalidated(apparentRepoName), label.getPackageFragment()),
+            label.getName());
     // Skip over the leading "@" of the unambiguous form.
-    return label.getUnambiguousCanonicalForm().substring(1);
+    return fabricatedLabel.getUnambiguousCanonicalForm().substring(1);
   }
 
   private Label convertAndValidatePatchLabel(InterimModule.Builder module, String rawLabel)
@@ -878,12 +884,12 @@ public class ModuleFileGlobals {
               + " <code>include()</code> behaves as if the included file is textually placed at the"
               + " location of the <code>include()</code> call, except that variable bindings (such"
               + " as those used for <code>use_extension</code>) are only ever visible in the file"
-              + " they occur in, not in any included or including files.<p>Only the root module may"
-              + " use <code>include()</code>; it is an error if a <code>bazel_dep</code>'s MODULE"
-              + " file uses <code>include()</code>.<p>Only files in the main repo may be"
-              + " included.<p><code>include()</code> allows you to segment the root module file"
-              + " into multiple parts, to avoid having an enormous MODULE.bazel file or to better"
-              + " manage access control for individual semantic segments.",
+              + " they occur in, not in any included or including files.<p>Only the root module and"
+              + " modules subject to a non-registry override may use <code>include()</code>."
+              + "<p>Only files in the current module's repo may be included."
+              + "<p><code>include()</code> allows you to segment a module file into multiple parts,"
+              + " to avoid having an enormous MODULE.bazel file or to better manage access control"
+              + " for individual semantic segments.",
       parameters = {
         @Param(
             name = "label",
@@ -1089,6 +1095,12 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "archive_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    var patches =
+        Sequence.cast(
+            kwargs.getOrDefault("patches", StarlarkList.empty()), String.class, "patches");
+    for (String patch : patches) {
+      var unused = convertAndValidatePatchLabel(context.getModuleBuilder(), patch);
+    }
     context.addOverride(
         moduleName,
         new NonRegistryOverride(
@@ -1128,6 +1140,12 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "git_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    var patches =
+        Sequence.cast(
+            kwargs.getOrDefault("patches", StarlarkList.empty()), String.class, "patches");
+    for (String patch : patches) {
+      var unused = convertAndValidatePatchLabel(context.getModuleBuilder(), patch);
+    }
     context.addOverride(
         moduleName,
         new NonRegistryOverride(
@@ -1164,5 +1182,29 @@ public class ModuleFileGlobals {
     context.setNonModuleCalled();
     validateModuleName(moduleName);
     context.addOverride(moduleName, new NonRegistryOverride(LocalPathRepoSpecs.create(path)));
+  }
+
+  @StarlarkMethod(
+      name = "flag_alias",
+      doc =
+          """
+            Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
+            instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+          """,
+      parameters = {
+        @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),
+        @Param(
+            name = "starlark_flag",
+            doc = "The label of the Starlark flag to alias to.",
+            named = true,
+            positional = false),
+      },
+      useStarlarkThread = true)
+  public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
+    // TODO: add input validation for stalark flag label
+    context.setNonModuleCalled();
+    context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
   }
 }

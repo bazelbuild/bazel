@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
-import static net.starlark.java.eval.Starlark.NONE;
 
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
@@ -102,20 +99,6 @@ public class PythonToolchainTest extends BuildViewTestCase {
 
     getConfiguredTarget("//pkg:mytarget");
     assertContainsEvent("PY3 path: /system/python3");
-  }
-
-  @Test
-  public void okToOmitRuntimes() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime_pair"),
-        "py_runtime_pair(",
-        "    name = 'my_py_runtime_pair',",
-        ")");
-    ToolchainInfo info =
-        getConfiguredTarget("//pkg:my_py_runtime_pair").get(ToolchainInfo.PROVIDER);
-    assertThat(info.getValue("py2_runtime")).isEqualTo(NONE);
-    assertThat(info.getValue("py3_runtime")).isEqualTo(NONE);
   }
 
   @Test

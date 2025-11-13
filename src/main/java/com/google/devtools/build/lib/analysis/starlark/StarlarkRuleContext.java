@@ -539,8 +539,17 @@ public final class StarlarkRuleContext
               StarlarkAttributesCollection.Builder.convertStringToLabelMap(
                   ruleContext.attributes().get(attr.getName(), BuildType.LABEL_DICT_UNARY),
                   prerequisites);
+        } else if (attr.getType() == BuildType.LABEL_LIST_DICT) {
+          ImmutableList<ConfiguredTarget> prerequisites =
+              splitPrereq.getValue().stream()
+                  .map(ConfiguredTargetAndData::getConfiguredTarget)
+                  .collect(ImmutableList.toImmutableList());
+
+          value =
+              StarlarkAttributesCollection.Builder.convertStringToLabelListMap(
+                  ruleContext.attributes().get(attr.getName(), BuildType.LABEL_LIST_DICT),
+                  prerequisites);
         } else {
-          // BuildType.LABEL_LIST
           value =
               StarlarkList.immutableCopyOf(
                   splitPrereq.getValue().stream()
@@ -591,7 +600,12 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public StarlarkActionFactory actions() {
+  public StarlarkActionFactory actions() throws EvalException {
+    // ruleContext will be null when this StarlarkRuleContext is frozen. Accessing ctx.actions when
+    // frozen will throw other errors, so just ignore this for materializer rules.
+    if (ruleContext != null && ruleContext.getRule().getRuleClassObject().isMaterializerRule()) {
+      throw Starlark.errorf("ctx.actions is not available in materializer rules");
+    }
     return actionFactory;
   }
 
@@ -994,7 +1008,6 @@ public final class StarlarkRuleContext
     Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
     return pkgMetadata
         .sourceRoot()
-        .get()
         .relativize(pkgMetadata.buildFilename().asPath())
         .getPathString();
   }
@@ -1054,9 +1067,7 @@ public final class StarlarkRuleContext
       checkPrivateAccess(thread);
     }
     checkMutable("runfiles");
-    Runfiles.Builder builder =
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
+    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
       builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);

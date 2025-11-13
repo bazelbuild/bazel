@@ -35,9 +35,7 @@ import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/**
- * A set of subdirectories to ignore during target pattern matching or globbing.
- */
+/** A set of subdirectories to ignore during target pattern matching or globbing. */
 public final class IgnoredSubdirectories {
   public static final IgnoredSubdirectories EMPTY =
       new IgnoredSubdirectories(ImmutableSet.of(), ImmutableList.of());
@@ -147,7 +145,7 @@ public final class IgnoredSubdirectories {
   }
 
   public boolean isEmpty() {
-    return this.prefixes.isEmpty();
+    return this.prefixes.isEmpty() && this.patterns.isEmpty();
   }
 
   /**

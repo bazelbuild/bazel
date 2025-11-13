@@ -19,29 +19,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
@@ -60,7 +51,6 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -94,7 +84,7 @@ public final class SandboxModule extends BlazeModule {
    * completion but to avoid wiping the whole sandbox base itself, which could be problematic across
    * builds.
    */
-  private final Set<SandboxFallbackSpawnRunner> spawnRunners = new HashSet<>();
+  private final Set<SpawnRunner> spawnRunners = new HashSet<>();
 
   /**
    * Handler to process expensive tree deletions, potentially outside of the critical path.
@@ -113,8 +103,8 @@ public final class SandboxModule extends BlazeModule {
   private boolean shouldCleanupSandboxBase;
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(SandboxOptions.class)
         : ImmutableList.of();
   }
@@ -181,25 +171,22 @@ public final class SandboxModule extends BlazeModule {
    * @return true if windows-sandbox can and should be used; false otherwise
    * @throws IOException if there are problems trying to determine the status of windows-sandbox
    */
-  private static boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
+  private static boolean shouldUseWindowsSandbox(
+      TriState requested, PathFragment binary, ImmutableMap<String, String> clientEnv)
       throws IOException {
-    switch (requested) {
-      case AUTO:
-        return WindowsSandboxUtil.isAvailable(binary);
-
-      case NO:
-        return false;
-
-      case YES:
-        if (!WindowsSandboxUtil.isAvailable(binary)) {
+    return switch (requested) {
+      case AUTO -> WindowsSandboxUtil.isAvailable(binary, clientEnv);
+      case NO -> false;
+      case YES -> {
+        if (!WindowsSandboxUtil.isAvailable(binary, clientEnv)) {
           throw new IOException(
               "windows-sandbox explicitly requested but \""
                   + binary
                   + "\" could not be found or is not valid");
         }
-        return true;
-    }
-    throw new IllegalStateException("Not reachable");
+        yield true;
+      }
+    };
   }
 
   private void setup(CommandEnvironment cmdEnv, SpawnStrategyRegistry.Builder builder)
@@ -279,7 +266,8 @@ public final class SandboxModule extends BlazeModule {
     boolean windowsSandboxSupported;
     try (SilentCloseable c = Profiler.instance().profile("shouldUseWindowsSandbox")) {
       windowsSandboxSupported =
-          shouldUseWindowsSandbox(options.useWindowsSandbox, windowsSandboxPath);
+          shouldUseWindowsSandbox(
+              options.useWindowsSandbox, windowsSandboxPath, cmdEnv.getClientEnv());
     }
 
     Duration timeoutKillDelay =
@@ -294,9 +282,8 @@ public final class SandboxModule extends BlazeModule {
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (processWrapperSupported) {
-      SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(
-              cmdEnv, new ProcessWrapperSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
+      SpawnRunner spawnRunner =
+          new ProcessWrapperSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter);
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new ProcessWrapperSandboxedStrategy(spawnRunner, executionOptions),
@@ -313,16 +300,9 @@ public final class SandboxModule extends BlazeModule {
       if (pathToDocker != null && DockerSandboxedSpawnRunner.isSupported(cmdEnv, pathToDocker)) {
         String defaultImage = options.dockerImage;
         boolean useCustomizedImages = options.dockerUseCustomizedImages;
-        SandboxFallbackSpawnRunner spawnRunner =
-            withFallback(
-                cmdEnv,
-                new DockerSandboxedSpawnRunner(
-                    cmdEnv,
-                    pathToDocker,
-                    sandboxBase,
-                    defaultImage,
-                    useCustomizedImages,
-                    treeDeleter));
+        SpawnRunner spawnRunner =
+            new DockerSandboxedSpawnRunner(
+                cmdEnv, pathToDocker, sandboxBase, defaultImage, useCustomizedImages, treeDeleter);
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
             new DockerSandboxedStrategy(spawnRunner, executionOptions), "docker");
@@ -338,10 +318,9 @@ public final class SandboxModule extends BlazeModule {
 
     // This is the preferred sandboxing strategy on Linux.
     if (linuxSandboxSupported) {
-      SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(
-              cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
+      SpawnRunner spawnRunner =
+          LinuxSandboxedStrategy.create(
+              cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter, options);
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
@@ -349,8 +328,7 @@ public final class SandboxModule extends BlazeModule {
 
     // This is the preferred sandboxing strategy on macOS.
     if (darwinSandboxSupported) {
-      SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
+      SpawnRunner spawnRunner = new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter);
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new DarwinSandboxedStrategy(spawnRunner, executionOptions),
@@ -359,10 +337,8 @@ public final class SandboxModule extends BlazeModule {
     }
 
     if (windowsSandboxSupported) {
-      SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(
-              cmdEnv,
-              new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
+      SpawnRunner spawnRunner =
+          new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath);
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new WindowsSandboxedStrategy(spawnRunner, executionOptions),
@@ -402,118 +378,11 @@ public final class SandboxModule extends BlazeModule {
           }
         }
       } catch (IOException e) {
-        continue;
+        // Intentionally ignored.
       }
     }
 
     return null;
-  }
-
-  private static SandboxFallbackSpawnRunner withFallback(
-      CommandEnvironment env, AbstractSandboxSpawnRunner sandboxSpawnRunner) {
-    SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
-    return new SandboxFallbackSpawnRunner(
-        sandboxSpawnRunner,
-        createFallbackRunner(env),
-        env.getReporter(),
-        sandboxOptions != null && sandboxOptions.legacyLocalFallback);
-  }
-
-  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    return new LocalSpawnRunner(
-        env.getExecRoot(),
-        localExecutionOptions,
-        env.getLocalResourceManager(),
-        LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-        env.getBlazeWorkspace().getBinTools(),
-        ProcessWrapper.fromCommandEnvironment(env),
-        RunfilesTreeUpdater.forCommandEnvironment(env));
-  }
-
-  /**
-   * A SpawnRunner that does sandboxing if possible, but might fall back to local execution if
-   * ----incompatible_legacy_local_fallback is true and no other strategy has been usable. This is a
-   * legacy functionality from before the strategies system was added, and can deceive the user into
-   * thinking a build is hermetic when it isn't really. TODO(b/178356138): Flip flag to default to
-   * false and then later remove this code entirely.
-   */
-  private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
-    private final SpawnRunner sandboxSpawnRunner;
-    private final SpawnRunner fallbackSpawnRunner;
-    private final ExtendedEventHandler reporter;
-    private static final AtomicBoolean warningEmitted = new AtomicBoolean();
-    private final boolean fallbackAllowed;
-
-    SandboxFallbackSpawnRunner(
-        SpawnRunner sandboxSpawnRunner,
-        SpawnRunner fallbackSpawnRunner,
-        ExtendedEventHandler reporter,
-        boolean fallbackAllowed) {
-      this.sandboxSpawnRunner = sandboxSpawnRunner;
-      this.fallbackSpawnRunner = fallbackSpawnRunner;
-      this.reporter = reporter;
-      this.fallbackAllowed = fallbackAllowed;
-    }
-
-    @Override
-    public String getName() {
-      return "sandbox-fallback";
-    }
-
-    @Override
-    public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-        throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-      if (sandboxSpawnRunner.canExec(spawn)) {
-        return sandboxSpawnRunner.exec(spawn, context);
-      } else {
-        return fallbackSpawnRunner.exec(spawn, context);
-      }
-    }
-
-    @Override
-    public boolean canExec(Spawn spawn) {
-      return sandboxSpawnRunner.canExec(spawn);
-    }
-
-    @Override
-    public boolean canExecWithLegacyFallback(Spawn spawn) {
-      boolean canExec = !sandboxSpawnRunner.canExec(spawn) && fallbackSpawnRunner.canExec(spawn);
-      if (canExec) {
-        // We give a warning to use strategies instead, whether or not we allow the fallback
-        // to happen. This allows people to switch early, but also explains why the build fails
-        // once we flip the flag. Unfortunately, we can't easily tell if the flag was explicitly
-        // set, if we could we should omit the warnings in that case.
-        if (warningEmitted.compareAndSet(false, true)) {
-          reporter.handle(
-              Event.warn(
-                  String.format(
-                      "%s (from %s) uses implicit fallback from sandbox to local, which is"
-                          + " deprecated because it is not hermetic. Prefer setting an explicit"
-                          + " list of strategies, e.g., --strategy=%s=sandboxed,standalone",
-                      spawn.getMnemonic(), spawn.getTargetLabel(), spawn.getMnemonic())));
-        }
-      }
-      return canExec && fallbackAllowed;
-    }
-
-    @Override
-    public boolean handlesCaching() {
-      return false;
-    }
-
-    @Override
-    public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
-      sandboxSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-      if (fallbackSpawnRunner != null) {
-        fallbackSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-      }
-    }
-
-    public SpawnRunner getSandboxSpawnRunner() {
-      return sandboxSpawnRunner;
-    }
   }
 
   @Subscribe
@@ -583,9 +452,9 @@ public final class SandboxModule extends BlazeModule {
     if (shouldCleanupSandboxBase) {
       try {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
-        for (SandboxFallbackSpawnRunner spawnRunner : spawnRunners) {
+        for (SpawnRunner spawnRunner : spawnRunners) {
           spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-          sandboxBase.getChild(spawnRunner.getSandboxSpawnRunner().getName()).delete();
+          sandboxBase.getChild(spawnRunner.getName()).delete();
         }
       } catch (IOException e) {
         env.getReporter()

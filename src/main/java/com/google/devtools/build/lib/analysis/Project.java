@@ -83,7 +83,7 @@ public final class Project {
    * projects in a single invocation. We don't want to automatically break those builds if there's
    * still a sound way to build them.
    *
-   * @param projectFiles the PROJECT.scls active for this build
+   * @param projectFilesToTargetLabels map of PROJECT.scls to the targets that resolve to them.
    * @param partialProjectBuild true if some of this build's targets have PROJECT.scls and others
    *     don't.
    * @param differentProjectsDetails A descriptive message explaining how different targets resolve
@@ -91,18 +91,20 @@ public final class Project {
    *     determines the build isn't valid because of this.
    */
   public record ActiveProjects(
-      Set<Label> projectFiles, boolean partialProjectBuild, String differentProjectsDetails) {
+      LinkedHashMap<Label, Collection<Label>> projectFilesToTargetLabels,
+      boolean partialProjectBuild,
+      String differentProjectsDetails) {
     public boolean isEmpty() {
-      return projectFiles.isEmpty();
+      return projectFilesToTargetLabels.isEmpty();
     }
 
     /** User-friendly description of this build type, for consumer info/error messaging. */
     public String buildType() {
-      if (projectFiles.size() > 1) {
+      if (projectFilesToTargetLabels.size() > 1) {
         return "multi-project build";
       } else if (partialProjectBuild) {
         return "build where only some targets have projects";
-      } else if (projectFiles.size() == 1) {
+      } else if (projectFilesToTargetLabels.size() == 1) {
         return "single-project build";
       } else {
         return "build with no projects";
@@ -140,7 +142,7 @@ public final class Project {
 
     if (targetsToProjectFiles.isEmpty()) {
       // None of the targets have project files.
-      return new ActiveProjects(ImmutableSet.<Label>of(), /* partialProjectBuild= */ false, "");
+      return new ActiveProjects(new LinkedHashMap<>(), /* partialProjectBuild= */ false, "");
     }
     Set<Label> targetsWithNoProjectFiles =
         Sets.difference(ImmutableSet.copyOf(targets), targetsToProjectFiles.keySet());
@@ -176,18 +178,24 @@ public final class Project {
           keyToTargets.getValue());
     }
 
-    if (canonicalProjectsToTargets.size() == 1 && targetsWithNoProjectFiles.isEmpty()) {
-      // All targets resolve to the same canonical project file.
+    if (canonicalProjectsToTargets.size() != 1) {
+      // Targets resolve to different project files.
+      return new ActiveProjects(
+          canonicalProjectsToTargets,
+          !canonicalProjectsToTargets.keySet().isEmpty() && !targetsWithNoProjectFiles.isEmpty(),
+          differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles));
+    } else {
       Label projectFile = Iterables.getOnlyElement(canonicalProjectsToTargets.keySet());
       eventHandler.handle(
           Event.info(String.format("Reading project settings from %s.", projectFile)));
-      return new ActiveProjects(ImmutableSet.of(projectFile), false, "");
     }
-    // Either some targets resolve to different files or a distinct subset resolve to no files.
-    return new ActiveProjects(
-        canonicalProjectsToTargets.keySet(),
-        !canonicalProjectsToTargets.keySet().isEmpty() && !targetsWithNoProjectFiles.isEmpty(),
-        differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles));
+    if (targetsWithNoProjectFiles.isEmpty()) {
+      // All targets resolve to the same canonical project file.
+      return new ActiveProjects(canonicalProjectsToTargets, false, "");
+    } else {
+      // Some targets have project files and some don't.
+      return new ActiveProjects(canonicalProjectsToTargets, /* partialProjectBuild= */ true, "");
+    }
   }
 
   /**
@@ -300,6 +308,8 @@ public final class Project {
    *     sound way to set the desired config and throws an {@link InvalidConfigurationException} if
    *     not.
    * @param sclConfig the {@link CoreOptions.sclConfig} to apply
+   * @param allOptionNames the names of every native option the parser recognizes, in {@code "name"}
+   *     form. Not all entries are {@link BuildOptions}.
    * @param userOptions options that were set by users (vs. global bazelrcs), in name=value form
    * @param configFlagDefinitions definitions of {@code --config=foo} for this build. Null or an
    *     empty string means use the project-default config if set, otherwise no-op.
@@ -315,30 +325,23 @@ public final class Project {
       BuildOptions fromOptions,
       Project.ActiveProjects activeProjects,
       String sclConfig,
+      ImmutableSet<String> allOptionNames,
       ImmutableMap<String, String> userOptions,
       ConfigFlagDefinitions configFlagDefinitions,
       boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
-    // Fail on mixed-project builds with explicit --scl_config settings. We could loosen this
-    // restriction if desired. For example, if all --scl_configs resolve to the same values.
-    if (!Strings.isNullOrEmpty(sclConfig)
-        && (activeProjects.projectFiles.size() > 1 || activeProjects.partialProjectBuild())) {
-      throw new InvalidConfigurationException(
-          "Can't set --scl_config for a %s. %s"
-              .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),
-          Code.INVALID_BUILD_OPTIONS);
-    }
-
     var flagSetKeys =
-        activeProjects.projectFiles.stream()
+        activeProjects.projectFilesToTargetLabels.keySet().stream()
             .map(
                 p ->
                     FlagSetValue.Key.create(
+                        ImmutableSet.copyOf(activeProjects.projectFilesToTargetLabels.get(p)),
                         p,
                         sclConfig,
                         fromOptions,
+                        allOptionNames,
                         userOptions,
                         configFlagDefinitions,
                         enforceCanonicalConfigs))
@@ -351,14 +354,19 @@ public final class Project {
           Code.INVALID_BUILD_OPTIONS);
     }
 
-    // We can only have multiple configs if they're defaults configs (i.e. the build didn't set
-    // --scl_config). Permit this as long as they all produce the same value.
+    // Permit multiple configs as long as they all produce the same value, ignoring projects with
+    // no project files.
     ImmutableSet<ImmutableSet<String>> uniqueConfigs =
         result.values().stream()
             .map(v -> ((FlagSetValue) v).getOptionsFromFlagset())
             .collect(toImmutableSet());
-    if (uniqueConfigs.size() > 1
-        || (activeProjects.partialProjectBuild && !uniqueConfigs.iterator().next().isEmpty())) {
+    if (uniqueConfigs.size() > 1) {
+      if (!Strings.isNullOrEmpty(sclConfig)) {
+        throw new InvalidConfigurationException(
+            "--scl_config=%s resolves to conflicting flagsets: %s"
+                .formatted(sclConfig, activeProjects.differentProjectsDetails),
+            Code.INVALID_BUILD_OPTIONS);
+      }
       throw new InvalidConfigurationException(
           "Mismatching default configs for a %s. %s"
               .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),

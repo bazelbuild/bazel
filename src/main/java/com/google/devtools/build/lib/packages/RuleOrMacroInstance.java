@@ -23,10 +23,12 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package.Declarations;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -106,6 +108,27 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   private byte[] attrBytes;
 
   Label label;
+
+  /**
+   * Returns true if the subset of this object's fields which are defined in this class equal those
+   * of {@code other}. Intended for use by {@code equals()} implementations in subclasses.
+   */
+  protected boolean equalsHelper(RuleOrMacroInstance other) {
+    return generatorNamePrefixLength == other.generatorNamePrefixLength
+        && Arrays.equals(attrValues, other.attrValues)
+        && Arrays.equals(attrBytes, other.attrBytes)
+        && Objects.equals(label, other.label);
+  }
+
+  /**
+   * Returns hash code of the subset of this object's fields which are defined in this class.
+   * Intended for use by {@code hashCode()} implementations in subclasses.
+   */
+  protected int hashCodeHelper() {
+    return HashCodes.hashObjects(generatorNamePrefixLength, label)
+        + HashCodes.MULTIPLIER
+            * (Arrays.hashCode(attrValues) + HashCodes.MULTIPLIER * Arrays.hashCode(attrBytes));
+  }
 
   /**
    * Returns the label of the rule or macro instance for error messaging.
@@ -546,7 +569,18 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return rawLabels != null ? rawLabels : getDefaultVisibility().getDeclaredLabels();
   }
 
+  /** Returns the metadata of the package where this target or macro instance lives. */
+  public abstract Package.Metadata getPackageMetadata();
+
   abstract Declarations getPackageDeclarations();
+
+  /**
+   * Returns the innermost symbolic macro that declared this target or macro instance, or null if it
+   * was declared outside any symbolic macro (i.e. directly in a BUILD file or only in one or more
+   * legacy macros).
+   */
+  @Nullable
+  public abstract MacroInstance getDeclaringMacro();
 
   @Nullable
   public PackageArgs getPackageArgs() {

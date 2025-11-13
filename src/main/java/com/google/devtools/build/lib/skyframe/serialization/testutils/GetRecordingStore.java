@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
@@ -52,6 +53,10 @@ public final class GetRecordingStore implements FingerprintValueStore {
     return requestQueue.take();
   }
 
+  public Map<KeyBytesProvider, byte[]> getFingerprintToContents() {
+    return fingerprintToContents;
+  }
+
   @Nullable
   public GetRequest pollRequest() {
     return requestQueue.poll();
@@ -66,6 +71,15 @@ public final class GetRecordingStore implements FingerprintValueStore {
      */
     public void complete() {
       response().set(checkNotNull(parent().fingerprintToContents.get(fingerprint())));
+    }
+
+    /**
+     * Simulates returning null bytes.
+     *
+     * <p>In certain setups, null bytes are used to signal missing data for the given key.
+     */
+    public void completeWithNullBytes() {
+      response().set(null);
     }
   }
 }

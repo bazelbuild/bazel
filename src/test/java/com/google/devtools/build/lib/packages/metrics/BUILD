@@ -22,6 +22,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:junit4",

@@ -1,4 +1,5 @@
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@apple_support//xcode:xcode_config.bzl", "xcode_config")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,11 +9,6 @@ exports_files(glob(["**"]))
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-)
-
-sh_binary(
-    name = "xcrunwrapper",
-    srcs = [":xcrunwrapper.sh"],
 )
 
 filegroup(

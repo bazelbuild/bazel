@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
@@ -34,14 +34,15 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.CharSource;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -69,6 +71,8 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
+import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -77,6 +81,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -89,6 +94,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -102,6 +108,7 @@ import javax.annotation.Nullable;
     name = ModCommand.NAME,
     buildPhase = LOADS,
     options = {
+      CoreOptions.class, // for --action_env, which affects the repo env
       ModOptions.class,
       PackageOptions.class,
       LoadingPhaseThreadsOption.class
@@ -131,6 +138,43 @@ public final class ModCommand implements BlazeCommand {
     return result;
   }
 
+  private void validateArgs(ModSubcommand subcommand, ModOptions modOptions, List<String> args)
+      throws InvalidArgumentException {
+
+    // More validations can be added here in the future...
+
+    if (subcommand == ModSubcommand.SHOW_REPO) {
+      int selectedModes = 0;
+      if (modOptions.allRepos) {
+        selectedModes++;
+      }
+      if (modOptions.allVisibleRepos) {
+        selectedModes++;
+      }
+      if (!args.isEmpty()) {
+        selectedModes++;
+      }
+      if (selectedModes > 1) {
+        throw new InvalidArgumentException(
+            "the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, or a"
+                + " list of repo arguments",
+            Code.TOO_MANY_ARGUMENTS);
+      }
+    } else {
+      if (modOptions.allRepos) {
+        throw new InvalidArgumentException(
+            String.format("the '%s' command doesn't take the --all_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+      if (modOptions.allVisibleRepos) {
+        throw new InvalidArgumentException(
+            String.format(
+                "the '%s' command doesn't take the --all_visible_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+    }
+  }
+
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
     ModOptions modOptions = options.getOptions(ModOptions.class);
     Preconditions.checkArgument(modOptions != null);
@@ -153,6 +197,14 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
+    // Validate and parse args as early as possible, so we don't have to
+    // wait for Skyframe evaluations to happen before failing due to a simple error.
+    try {
+      validateArgs(subcommand, modOptions, args);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    }
 
     ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
         ImmutableList.builder();
@@ -203,12 +255,19 @@ public final class ModCommand implements BlazeCommand {
           skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
 
       if (evaluationResult.hasError()) {
+        var cycleInfo = evaluationResult.getError().getCycleInfo();
+        if (!cycleInfo.isEmpty()) {
+          // We don't expect target-level cycles here, so restrict to the subset of reporters that
+          // are relevant for the (conceptual) loading phase.
+          new CyclesReporter(new BzlmodRepoCycleReporter(), new BzlLoadCycleReporter())
+              .reportCycles(cycleInfo, cycleInfo.getFirst().getTopKey(), env.getReporter());
+        }
         Exception e = evaluationResult.getError().getException();
         String message = "Unexpected error during module graph evaluation.";
         if (e != null) {
           message = e.getMessage();
         }
-        return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
+        return reportAndCreateFailureResult(env, message, Code.MOD_COMMAND_UNKNOWN);
       }
 
       depGraphValue = (BazelDepGraphValue) evaluationResult.get(BazelDepGraphValue.KEY);
@@ -320,28 +379,8 @@ public final class ModCommand implements BlazeCommand {
           }
         }
         case SHOW_REPO -> {
-          ImmutableMap.Builder<String, RepositoryName> targetToRepoName =
-              new ImmutableMap.Builder<>();
-          for (String arg : args) {
-            try {
-              targetToRepoName.putAll(
-                  ModuleArgConverter.INSTANCE
-                      .convert(arg)
-                      .resolveToRepoNames(
-                          moduleInspector.modulesIndex(),
-                          moduleInspector.depGraph(),
-                          moduleInspector.moduleKeyToCanonicalNames(),
-                          baseModuleMapping));
-            } catch (InvalidArgumentException | OptionsParsingException e) {
-              throw new InvalidArgumentException(
-                  String.format(
-                      "In repo argument %s: %s (Note that unused modules cannot be used here)",
-                      arg, e.getMessage()),
-                  Code.INVALID_ARGUMENTS,
-                  e);
-            }
-          }
-          argsAsRepos = targetToRepoName.buildKeepingLast();
+          argsAsRepos =
+              getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
         }
         case SHOW_EXTENSION -> {
           ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
@@ -461,12 +500,11 @@ public final class ModCommand implements BlazeCommand {
       }
     }
 
-    ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues = null;
+    ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions = null;
     try {
-      // If subcommand is a SHOW, also request the BzlmodRepoRuleValues from Skyframe.
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
-            argsAsRepos.values().stream().map(BzlmodRepoRuleValue::key).collect(toImmutableSet());
+            argsAsRepos.values().stream().map(RepoDefinitionValue::key).collect(toImmutableSet());
         EvaluationResult<SkyValue> result =
             env.getSkyframeExecutor().prepareAndGet(skyKeys, evaluationContext);
         if (result.hasError()) {
@@ -477,22 +515,19 @@ public final class ModCommand implements BlazeCommand {
           }
           return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
         }
-        targetRepoRuleValues =
-            argsAsRepos.entrySet().stream()
-                .collect(
-                    toImmutableMap(
-                        Entry::getKey,
-                        e ->
-                            (BzlmodRepoRuleValue)
-                                result.get(BzlmodRepoRuleValue.key(e.getValue()))));
-        for (Map.Entry<String, BzlmodRepoRuleValue> entry : targetRepoRuleValues.entrySet()) {
-          if (entry.getValue() == BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+        var resultBuilder =
+            ImmutableMap.<String, RepoDefinitionValue>builderWithExpectedSize(argsAsRepos.size());
+        for (Map.Entry<String, RepositoryName> e : argsAsRepos.entrySet()) {
+          SkyValue value = result.get(RepoDefinitionValue.key(e.getValue()));
+          if (value == RepoDefinitionValue.NOT_FOUND) {
             return reportAndCreateFailureResult(
                 env,
-                String.format("In repo argument %s: no such repo", entry.getKey()),
+                String.format("In repo argument %s: no such repo", e.getKey()),
                 Code.INVALID_ARGUMENTS);
           }
+          resultBuilder.put(e.getKey(), (RepoDefinitionValue) value);
         }
+        targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
@@ -530,7 +565,7 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoRuleValues);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions);
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }
@@ -550,6 +585,71 @@ public final class ModCommand implements BlazeCommand {
     }
   }
 
+  private ImmutableMap<String, RepositoryName> getReposToShow(
+      ModOptions modOptions,
+      BazelModuleInspectorValue moduleInspector,
+      BazelDepGraphValue depGraphValue,
+      RepositoryMapping baseModuleMapping,
+      List<String> args)
+      throws InvalidArgumentException {
+
+    ImmutableMap.Builder<String, RepositoryName> targetToRepoName = new ImmutableMap.Builder<>();
+
+    if (modOptions.allRepos) {
+      // Module repos.
+      for (RepositoryName repoName : moduleInspector.moduleKeyToCanonicalNames().values()) {
+        if (repoName.isMain()) {
+          // The main repo can't be inspected.
+          continue;
+        }
+        targetToRepoName.put(repoName.getNameWithAt(), repoName);
+      }
+
+      // Extension repos.
+      for (Map.Entry<ModuleExtensionId, Collection<String>> extensionRepos :
+          moduleInspector.extensionToRepoInternalNames().asMap().entrySet()) {
+        String extensionUniqueName =
+            depGraphValue.getExtensionUniqueNames().get(extensionRepos.getKey());
+
+        for (String internalName : extensionRepos.getValue()) {
+          RepositoryName repoName =
+              SingleExtensionValue.repositoryName(extensionUniqueName, internalName);
+          targetToRepoName.put(repoName.getNameWithAt(), repoName);
+        }
+      }
+    } else if (modOptions.allVisibleRepos) {
+      for (Entry<String, RepositoryName> entry : baseModuleMapping.entries().entrySet()) {
+        if (entry.getValue().isMain()) {
+          // The main repo can't be inspected.
+          continue;
+        }
+        targetToRepoName.put("@" + entry.getKey(), entry.getValue());
+      }
+    } else {
+      // Resolve explicitly specified repos.
+      for (String arg : args) {
+        try {
+          targetToRepoName.putAll(
+              ModuleArgConverter.INSTANCE
+                  .convert(arg)
+                  .resolveToRepoNames(
+                      moduleInspector.modulesIndex(),
+                      moduleInspector.depGraph(),
+                      moduleInspector.moduleKeyToCanonicalNames(),
+                      baseModuleMapping));
+        } catch (InvalidArgumentException | OptionsParsingException e) {
+          throw new InvalidArgumentException(
+              String.format(
+                  "In repo argument %s: %s (Note that unused modules cannot be used here)",
+                  arg, e.getMessage()),
+              Code.INVALID_ARGUMENTS,
+              e);
+        }
+      }
+    }
+    return targetToRepoName.buildKeepingLast();
+  }
+
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
     ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
         modTidyValue.fixups().stream()
@@ -564,8 +664,8 @@ public final class ModCommand implements BlazeCommand {
       buildozerInput.append("format\n");
     }
 
-    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
-      new CommandBuilder()
+    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(ISO_8859_1).openStream()) {
+      new CommandBuilder(env.getClientEnv())
           .setWorkingDir(env.getWorkspace())
           .addArg(modTidyValue.buildozer().getPathString())
           .addArg("-f")
@@ -581,7 +681,9 @@ public final class ModCommand implements BlazeCommand {
           return reportAndCreateTidyResult(env, modTidyValue);
         }
         suffix =
-            ":\n" + new String(((AbnormalTerminationException) e).getResult().getStderr(), UTF_8);
+            ":\n"
+                + new String(
+                    ((AbnormalTerminationException) e).getResult().getStderr(), ISO_8859_1);
       }
       return reportAndCreateFailureResult(
           env,

@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
-  private final BiMap<ActionInput, String> cas = HashBiMap.create();
+  private final BiMap<PathFragment, String> cas = HashBiMap.create();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesMap = new HashMap<>();
   private final Map<ActionInput, TreeArtifactValue> trees = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
@@ -60,9 +60,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
 
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
-    String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
+    String hexDigest = Preconditions.checkNotNull(cas.get(input.getExecPath()), input);
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);
+    if (stat.isDirectory()) {
+      return FileArtifactValue.createForDirectoryWithHash(HashCode.fromString(hexDigest).asBytes());
+    }
     return FileArtifactValue.createForNormalFile(
         HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
   }
@@ -71,6 +74,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     return trees.get(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -96,12 +105,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     throw new UnsupportedOperationException();
   }
 
   private void setDigest(ActionInput input, String digest) {
-    cas.put(input, digest);
+    cas.put(input.getExecPath(), digest);
   }
 
   public void addTreeArtifact(ActionInput treeArtifact, TreeArtifactValue value) {

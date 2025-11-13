@@ -42,12 +42,19 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
+import com.google.devtools.build.lib.packages.PackagePiece;
+import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -59,6 +66,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
+import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackageArgsValue;
@@ -105,7 +113,10 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
-/** A SkyFunction for {@link PackageValue}s. */
+/**
+ * A SkyFunction which computes a {@link PackageValue} if given a {@link PackageIdentifier}, or a
+ * {@link PackagePieceValue.ForBuildFile} if given a {@link PackagePieceIdentifier.ForBuildFile}.
+ */
 public abstract class PackageFunction implements SkyFunction {
 
   protected final PackageFactory packageFactory;
@@ -328,87 +339,16 @@ public abstract class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException;
 
   /**
-   * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
-   *
-   * @throws PackageFunctionException if there is an error computing the workspace file or adding
-   *     its rules to the //external package.
-   */
-  @Nullable
-  private SkyValue getExternalPackage(Environment env)
-      throws PackageFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(
-              "//external package is not available since the WORKSPACE file is disabled, please"
-                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
-                  + " https://bazel.build/external/migration#bind-targets.")
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-
-    SkyKey workspaceKey = ExternalPackageFunction.key();
-    PackageValue workspace = null;
-    try {
-      // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
-      // problems. Since this function can't add much context, we silently bubble it up.
-      workspace =
-          (PackageValue)
-              env.getValueOrThrow(
-                  workspaceKey,
-                  IOException.class,
-                  EvalException.class,
-                  BzlLoadFailedException.class);
-    } catch (IOException | EvalException | BzlLoadFailedException e) {
-      String message = "Error encountered while dealing with the WORKSPACE file: " + e.getMessage();
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(message)
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-    if (workspace == null) {
-      return null;
-    }
-
-    Package pkg = workspace.getPackage();
-    if (packageFactory != null) {
-      try {
-        packageFactory.afterDoneLoadingPackage(
-            pkg,
-            starlarkSemantics,
-            // This is a lie.
-            /* loadTimeNanos= */ 0L,
-            env.getListener());
-      } catch (InvalidPackageException e) {
-        throw new PackageFunctionException(e, Transience.PERSISTENT);
-      }
-    }
-    if (!pkg.containsErrors()) {
-      numPackagesSuccessfullyLoaded.incrementAndGet();
-    }
-    return new PackageValue(pkg);
-  }
-
-  /**
    * Stores information needed to load the package. Subclasses are expected to provide different
    * types of containers which store glob deps information.
    */
   protected abstract static class LoadedPackage {
-    final Package.Builder builder;
-    final long loadTimeNanos;
+    final Package.AbstractBuilder builder;
+    final Metrics metrics;
 
-    LoadedPackage(Package.Builder builder, long loadTimeNanos) {
+    LoadedPackage(Package.AbstractBuilder builder, Metrics metrics) {
       this.builder = builder;
-      this.loadTimeNanos = loadTimeNanos;
+      this.metrics = metrics;
     }
   }
 
@@ -417,13 +357,53 @@ public abstract class PackageFunction implements SkyFunction {
     @Nullable private LoadedPackage loadedPackage;
   }
 
+  /**
+   * @param key either a {@link PackageIdentifier} or a {@link PackagePieceIdentifier.ForBuildFile};
+   *     cannot be a {@link PackagePieceIdentifier.ForMacro}.
+   * @return a {@link PackageValue} if given a {@link PackageIdentifier}, or a {@link
+   *     PackagePieceValue.ForBuildFile} if given a {@link PackagePieceIdentifier.ForBuildFile}.
+   */
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws PackageFunctionException, InterruptedException {
-    PackageIdentifier packageId = (PackageIdentifier) key.argument();
+    PackageIdentifier packageId;
+    @Nullable PackagePieceIdentifier.ForBuildFile packagePieceId;
+    if (key.argument() instanceof PackageIdentifier id) {
+      packagePieceId = null;
+      packageId = id;
+    } else {
+      packagePieceId = (PackagePieceIdentifier.ForBuildFile) key.argument();
+      packageId = packagePieceId.getPackageIdentifier();
+    }
     if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      return getExternalPackage(env);
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
+          .setTransience(Transience.PERSISTENT)
+          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+          .setMessage(
+              "//external package is not available since the WORKSPACE file is deprecated, please"
+                  + " migrate to Bzlmod. See https://bazel.build/external/migration#bind-targets.")
+          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
+          .build();
+    }
+
+    if (packagePieceId == null
+        && PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.get(env).contains(packageId)) {
+      try {
+        return computePackageFromPackagePieces(packageId, env);
+      } catch (NoSuchPackageException e) {
+        throw new PackageFunctionException(e, Transience.PERSISTENT);
+      } catch (NoSuchPackagePieceException | NoSuchMacroInstanceException e) {
+        throw new PackageFunctionException(
+            new NoSuchPackageException(
+                packageId,
+                String.format(
+                    "cannot compute package %s: %s", packageId.getCanonicalForm(), e.getMessage()),
+                e,
+                e.getDetailedExitCode()),
+            Transience.PERSISTENT);
+      }
     }
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
@@ -542,6 +522,7 @@ public abstract class PackageFunction implements SkyFunction {
       state.loadedPackage =
           loadPackage(
               packageLookupValue,
+              packagePieceId,
               packageId,
               starlarkBuiltinsValue,
               packageLookupValue.getRoot(),
@@ -553,7 +534,7 @@ public abstract class PackageFunction implements SkyFunction {
       }
     }
     PackageFunctionException pfeFromNonSkyframeGlobbing = null;
-    Package.Builder pkgBuilder = state.loadedPackage.builder;
+    Package.AbstractBuilder pkgBuilder = state.loadedPackage.builder;
     try {
       pkgBuilder.buildPartial();
       // Since the Skyframe dependencies we request below in
@@ -613,23 +594,54 @@ public abstract class PackageFunction implements SkyFunction {
       return null;
     }
 
-    Package pkg = pkgBuilder.finishBuild();
+    Packageoid packageoid = pkgBuilder.finishBuild();
 
     pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
 
-    try {
-      packageFactory.afterDoneLoadingPackage(
-          pkg,
-          starlarkBuiltinsValue.starlarkSemantics,
-          state.loadedPackage.loadTimeNanos,
-          env.getListener());
-    } catch (InvalidPackageException e) {
-      throw new PackageFunctionException(e, Transience.PERSISTENT);
+    if (packageoid instanceof Package pkg) {
+      try {
+        packageFactory.afterDoneLoadingPackage(
+            pkg,
+            starlarkBuiltinsValue.starlarkSemantics,
+            PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.get(env),
+            state.loadedPackage.metrics,
+            env.getListener());
+      } catch (InvalidPackageException e) {
+        throw new PackageFunctionException(e, Transience.PERSISTENT);
+      }
+    } else {
+      try {
+        packageFactory.afterDoneLoadingPackagePiece(
+            (PackagePiece.ForBuildFile) packageoid,
+            starlarkBuiltinsValue.starlarkSemantics,
+            state.loadedPackage.metrics,
+            env.getListener());
+      } catch (InvalidPackagePieceException e) {
+        throw new PackageFunctionException(e, Transience.PERSISTENT);
+      }
     }
-    if (!pkg.containsErrors()) {
+
+    if (!packageoid.containsErrors()) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): here we are counting a successfully
+      // loaded PackagePiece.ForBuildFile as a successfully loaded package for metric purposes. And
+      // we *don't* count packages from computePackageFromPackagePieces() since that would result
+      // in double-counting - a Package from pieces necessarily requires a PackagePiece.ForBuildFile
+      // to have been loaded.
+      // We could also avoid double-counting by tracking 3 different successful loading metrics:
+      // * monolithic packages
+      // * full packages from pieces
+      // * PackagePiece.ForBuildFile-s
+      // but it's not clear if the complexity would be worthwhile.
       numPackagesSuccessfullyLoaded.incrementAndGet();
     }
-    return new PackageValue(pkg);
+    if (packageoid instanceof Package pkg) {
+      return new PackageValue(pkg);
+    } else if (packageoid instanceof PackagePiece.ForBuildFile pkgPiece) {
+      return new PackagePieceValue.ForBuildFile(
+          pkgPiece, starlarkBuiltinsValue.starlarkSemantics, pkgBuilder.getMainRepoMapping());
+    } else {
+      throw new IllegalStateException("Unexpected packageoid type: " + packageoid.getClass());
+    }
   }
 
   @Nullable
@@ -662,17 +674,16 @@ public abstract class PackageFunction implements SkyFunction {
    *
    * <p>The {@code packageId} is used only for error reporting.
    *
-   * <p>This function is called for load statements in BUILD and WORKSPACE files. For loads in .bzl
-   * files, see {@link BzlLoadFunction}.
+   * <p>This function is called for load statements in BUILD files. For loads in .bzl files, see
+   * {@link BzlLoadFunction}.
    */
   /*
    * TODO(b/237658764): This logic has several problems:
    *
    * - It is partly duplicated by loadPrelude() below.
    * - The meaty computeBzlLoads* helpers are almost copies of BzlLoadFunction#computeBzlLoads*.
-   * - This function is called from WorkspaceFileFunction and BzlmodRepoRuleFunction (and morally
-   *   probably should be called by SingleExtensionEvalFunction rather than requesting a BzlLoadKey
-   *   directly). But the API is awkward for these callers.
+   * - This function should morally probably be called by {Innate,Regular}RunnableExtension rather
+   *   than requesting a BzlLoadKey directly. But the API is awkward for these callers.
    * - InliningState is not shared across all callers within a BUILD file; see the comment in
    *   computeBzlLoadsWithInlining.
    *
@@ -711,8 +722,7 @@ public abstract class PackageFunction implements SkyFunction {
       if (bzlLoads == null) {
         return null; // Skyframe deps unavailable
       }
-      // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
-      // load visibility.
+      // Validate that the current BUILD file satisfies each loaded dependency's load visibility.
       if (checkVisibility) {
         BzlLoadFunction.checkLoadVisibilities(
             packageId,
@@ -862,11 +872,11 @@ public abstract class PackageFunction implements SkyFunction {
    * InconsistentFilesystemException} (if any) and verify that the target's label does not cross
    * subpackage boundaries.
    *
-   * @param pkgBuilder a {@link Package.Builder} whose {@code getTargets()} set is mutable (i.e.
-   *     {@code pkgBuilder.buildPartial()} must have been successfully called).
+   * @param pkgBuilder a {@link Package.AbstractBuilder} whose {@code getTargets()} set is mutable
+   *     (i.e. {@code pkgBuilder.buildPartial()} must have been successfully called).
    */
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-      Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
+      Root pkgRoot, PackageIdentifier pkgId, Package.AbstractBuilder pkgBuilder, Environment env)
       throws InternalInconsistentFilesystemException, InterruptedException {
     PathFragment pkgDir = pkgId.getPackageFragment();
     // Contains a key for each package whose label that might have a presence of a subpackage.
@@ -938,7 +948,7 @@ public abstract class PackageFunction implements SkyFunction {
   }
 
   private static boolean maybeAddEventAboutLabelCrossingSubpackage(
-      Package.Builder pkgBuilder,
+      Package.AbstractBuilder pkgBuilder,
       Root pkgRoot,
       Target target,
       PackageIdentifier subpackageIdentifier,
@@ -979,14 +989,18 @@ public abstract class PackageFunction implements SkyFunction {
       Environment env);
 
   /**
-   * Constructs a {@link Package} object for the given package. Note that the returned package may
-   * be in error.
+   * Constructs a {@link Package} or {@code PackagePiece.ForBuildFile} object for the given package.
+   * Note that the returned package or piece may be in error.
    *
    * <p>May return null if the computation has to be restarted.
+   *
+   * @param packagePieceId the identifier of the {@code PackagePiece.ForBuildFile} if we are loading
+   *     a package piece, or null if we are loading a full {@link Package}.
    */
   @Nullable
   private LoadedPackage loadPackage(
       PackageLookupValue packageLookupValue,
+      @Nullable PackagePieceIdentifier.ForBuildFile packagePieceId,
       PackageIdentifier packageId,
       StarlarkBuiltinsValue starlarkBuiltinsValue,
       Root packageRoot,
@@ -994,8 +1008,6 @@ public abstract class PackageFunction implements SkyFunction {
       SkyKey keyForMetrics,
       State state)
       throws InterruptedException, PackageFunctionException {
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
@@ -1029,7 +1041,6 @@ public abstract class PackageFunction implements SkyFunction {
       return null;
     }
 
-    String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     Label preludeLabel = null;
@@ -1100,6 +1111,7 @@ public abstract class PackageFunction implements SkyFunction {
                 env.getListener(),
                 programLoads,
                 packageId,
+                packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
                 repositoryMapping,
                 starlarkBuiltinsValue.starlarkSemantics);
         if (loadLabels == null) {
@@ -1156,34 +1168,43 @@ public abstract class PackageFunction implements SkyFunction {
 
       long startTimeNanos = BlazeClock.nanoTime();
 
-      Globber globber =
-          makeGlobber(
-              packageFactory.createNonSkyframeGlobber(
-                  buildFileRootedPath.asPath().getParentDirectory(),
-                  packageId,
-                  repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
-                  packageLocator,
-                  threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
+      NonSkyframeGlobber nonSkyframeGlobber =
+          packageFactory.createNonSkyframeGlobber(
+              buildFileRootedPath.asPath().getParentDirectory(),
               packageId,
-              packageRoot,
-              env);
+              repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
+              packageLocator,
+              threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
+      Globber globber = makeGlobber(nonSkyframeGlobber, packageId, packageRoot, env);
 
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
-      Package.Builder pkgBuilder =
-          packageFactory.newPackageBuilder(
-              packageId,
-              buildFileRootedPath,
-              workspaceName,
-              repositoryMappingValue.associatedModuleName(),
-              repositoryMappingValue.associatedModuleVersion(),
-              starlarkBuiltinsValue.starlarkSemantics,
-              repositoryMapping,
-              mainRepositoryMapping,
-              cpuBoundSemaphore.get(),
-              /* (Nullable) */ compiled.generatorMap,
-              configSettingVisibilityPolicy,
-              globber);
+      Package.AbstractBuilder pkgBuilder =
+          packagePieceId == null
+              ? packageFactory.newPackageBuilder(
+                  packageId,
+                  buildFileRootedPath,
+                  repositoryMappingValue.associatedModuleName(),
+                  repositoryMappingValue.associatedModuleVersion(),
+                  starlarkBuiltinsValue.starlarkSemantics,
+                  repositoryMapping,
+                  mainRepositoryMapping,
+                  cpuBoundSemaphore.get(),
+                  /* (Nullable) */ compiled.generatorMap,
+                  configSettingVisibilityPolicy,
+                  globber)
+              : packageFactory.newPackagePieceForBuildFileBuilder(
+                  packagePieceId,
+                  buildFileRootedPath,
+                  repositoryMappingValue.associatedModuleName(),
+                  repositoryMappingValue.associatedModuleVersion(),
+                  starlarkBuiltinsValue.starlarkSemantics,
+                  repositoryMapping,
+                  mainRepositoryMapping,
+                  cpuBoundSemaphore.get(),
+                  /* (Nullable) */ compiled.generatorMap,
+                  configSettingVisibilityPolicy,
+                  globber);
 
       pkgBuilder.mergePackageArgsFrom(
           PackageArgs.builder().setDefaultVisibility(defaultVisibility));
@@ -1199,7 +1220,20 @@ public abstract class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
-        pkgBuilder.expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
+        // TODO: b/155396641 - Validate that transitive visibility groups are correctly declared and
+        // that this package is a member of all transitive visibility groups it declares, but
+        // probably not in this part of the code.
+        if (packagePieceId == null) {
+          try {
+            ((Package.Builder) pkgBuilder)
+                .expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
+          } catch (EvalException ex) {
+            pkgBuilder
+                .getLocalEventHandler()
+                .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+            pkgBuilder.setContainsErrors();
+          }
+        }
       } else {
         // Execution not attempted due to static errors.
         for (SyntaxError err : compiled.errors) {
@@ -1212,7 +1246,10 @@ public abstract class PackageFunction implements SkyFunction {
       }
 
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
-      return newLoadedPackage(pkgBuilder, globber, loadTimeNanos);
+      return newLoadedPackage(
+          pkgBuilder,
+          globber,
+          new Metrics(loadTimeNanos, nonSkyframeGlobber.getGlobFilesystemOperationCost()));
     } finally {
       if (committed) {
         // We're done executing the BUILD file. Therefore, we can discard the compiled BUILD file...
@@ -1227,7 +1264,9 @@ public abstract class PackageFunction implements SkyFunction {
 
   @ForOverride
   protected abstract LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos);
+      Package.AbstractBuilder packageBuilder,
+      @Nullable Globber globber,
+      PackageLoadingListener.Metrics metrics);
 
   // Reads, parses, resolves, and compiles a BUILD file.
   // A read error is reported as PackageFunctionException.
@@ -1247,7 +1286,7 @@ public abstract class PackageFunction implements SkyFunction {
 
     // read BUILD file
     Path inputFile = buildFilePath.asPath();
-    byte[] buildFileBytes = null;
+    byte[] buildFileBytes;
     try {
       buildFileBytes =
           buildFileValue.isSpecialFile()
@@ -1260,14 +1299,31 @@ public abstract class PackageFunction implements SkyFunction {
       if (buildFileBytes == null) {
         // Note that we did the work that led to this IOException, so we should
         // conservatively report this error as transient.
-        throw PackageFunctionException.builder()
-            .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-            .setTransience(Transience.TRANSIENT)
-            .setPackageIdentifier(packageId)
-            .setMessage(e.getMessage())
-            .setException(e)
-            .setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING)
-            .build();
+        var builder =
+            PackageFunctionException.builder()
+                .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+                .setTransience(Transience.TRANSIENT)
+                .setPackageIdentifier(packageId)
+                .setMessage(e.getMessage())
+                .setException(e);
+        if (e instanceof DetailedIOException detailedIoException
+            && detailedIoException.getDetailedExitCode().getFailureDetail().hasFilesystem()
+            && actionOnFilesystemErrorCodeLoadingBzlFile.shouldTakePrecedenceOverPackageLoadingCode(
+                detailedIoException
+                    .getDetailedExitCode()
+                    .getFailureDetail()
+                    .getFilesystem()
+                    .getCode())) {
+          builder.setFilesystemCode(
+              detailedIoException
+                  .getDetailedExitCode()
+                  .getFailureDetail()
+                  .getFilesystem()
+                  .getCode());
+        } else {
+          builder.setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING);
+        }
+        throw builder.build();
       }
       // If control flow reaches here, we're in territory that is deliberately unsound.
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.
@@ -1361,6 +1417,100 @@ public abstract class PackageFunction implements SkyFunction {
         ImmutableList.copyOf(subpackages),
         ImmutableMap.copyOf(generatorMap),
         ImmutableMap.copyOf(predeclared));
+  }
+
+  @Nullable
+  private PackageValue computePackageFromPackagePieces(PackageIdentifier packageId, Environment env)
+      throws NoSuchPackageException,
+          NoSuchPackagePieceException,
+          NoSuchMacroInstanceException,
+          InterruptedException {
+    NonFinalizerPackagePiecesValue nonFinalizerPackagePiecesValue =
+        (NonFinalizerPackagePiecesValue)
+            env.getValueOrThrow(
+                new NonFinalizerPackagePiecesValue.Key(packageId),
+                NoSuchPackageException.class,
+                NoSuchPackagePieceException.class,
+                NoSuchMacroInstanceException.class);
+    if (nonFinalizerPackagePiecesValue == null) {
+      return null;
+    }
+    PackagePiece.ForBuildFile buildFilePiece =
+        nonFinalizerPackagePiecesValue.getPackagePieceForBuildFile();
+    PackagePieces allPackagePieces =
+        EvalMacroFunction.RecursiveExpander.expandFinalizers(nonFinalizerPackagePiecesValue, env);
+    if (allPackagePieces == null) {
+      return null;
+    }
+    ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+        PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
+
+    Package.Builder pkgBuilder =
+        packageFactory.newPackageFromPackagePiecesBuilder(
+            buildFilePiece.getMetadata(),
+            buildFilePiece.getDeclarations(),
+            nonFinalizerPackagePiecesValue.starlarkSemantics(),
+            nonFinalizerPackagePiecesValue.mainRepositoryMapping(),
+            cpuBoundSemaphore.get(),
+            /* generatorMap= */ null,
+            configSettingVisibilityPolicy,
+            /* globber= */ null,
+            buildFilePiece.getBuildFile());
+
+    if (!allPackagePieces.getErrorKeys().isEmpty()) {
+      // Error within one package piece. It was already reported as an event with stack trace by the
+      // computation of the PackagePieceValue, so we don't need to repeat the stack trace - just a
+      // brief summary.
+      PackagePieceIdentifier errorKey = allPackagePieces.getErrorKeys().getFirst();
+      PackagePiece errorPiece = allPackagePieces.getPackagePieces().get(errorKey);
+      handlePackagePieceDependencyError(pkgBuilder, "error in " + errorPiece.getShortDescription());
+    } else if (nonFinalizerPackagePiecesValue.nameConflictBetweenPackagePiecesException() != null) {
+      // Name conflict between non-finalizer package pieces. It was already reported as an event
+      // with stack trace by the computation of the NonFinalizerPackagePiecesValue, so we don't need
+      // to repeat the stack trace - just a brief summary.
+      handlePackagePieceDependencyError(
+          pkgBuilder,
+          nonFinalizerPackagePiecesValue.nameConflictBetweenPackagePiecesException().getMessage());
+    } else {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): in the common case where there are
+      // no errors and no finalizers, we should directly use the target and macro maps from the
+      // NonFinalizerPackagePiecesValue rather than re-recording them.
+      try {
+        allPackagePieces.recordTargetsAndMacros(pkgBuilder);
+      } catch (EvalException e) {
+        // Previously unreported name conflict between a finalizer package piece and another package
+        // piece.
+        handlePackagePieceDependencyError(pkgBuilder, e.getMessageWithStack());
+      }
+    }
+
+    Package pkg = pkgBuilder.finishBuild();
+
+    pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
+
+    packageFactory.afterDoneLoadingPackage(
+        pkg,
+        nonFinalizerPackagePiecesValue.starlarkSemantics(),
+        PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.get(env),
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): compute sum of metrics from
+        // package piece values.
+        new Metrics(/* loadTimeNanos= */ 0, /* globFilesystemOperationCost= */ 0),
+        env.getListener());
+    return new PackageValue(pkg);
+  }
+
+  private static void handlePackagePieceDependencyError(
+      Package.Builder pkgBuilder, String message) {
+    pkgBuilder.setContainsErrors();
+    pkgBuilder
+        .getLocalEventHandler()
+        .handle(
+            Package.error(
+                pkgBuilder.getMetadata().getBuildFileLocation(),
+                String.format(
+                    "cannot compute package %s: %s",
+                    pkgBuilder.getMetadata().packageIdentifier().getCanonicalForm(), message),
+                Code.STARLARK_EVAL_ERROR));
   }
 
   public static Builder newBuilder() {
@@ -1561,6 +1711,10 @@ public abstract class PackageFunction implements SkyFunction {
    */
   static class PackageFunctionException extends SkyFunctionException {
     public PackageFunctionException(NoSuchPackageException e, Transience transience) {
+      super(e, transience);
+    }
+
+    public PackageFunctionException(NoSuchPackagePieceException e, Transience transience) {
       super(e, transience);
     }
 

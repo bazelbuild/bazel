@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -245,9 +245,8 @@ public class ConfigCommand implements BlazeCommand {
    */
   private static ImmutableSortedMap<BuildConfigurationKey, BuildConfigurationValue>
       findConfigurations(CommandEnvironment env) {
-    InMemoryMemoizingEvaluator evaluator =
-        (InMemoryMemoizingEvaluator)
-            env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluator();
+    MemoizingEvaluator evaluator =
+        env.getRuntime().getWorkspace().getSkyframeExecutor().getEvaluator();
     return evaluator.getDoneValues().entrySet().stream()
         .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
         .collect(
@@ -320,14 +319,11 @@ public class ConfigCommand implements BlazeCommand {
       throw new InvalidConfigurationException(
           String.format(
               "Configuration identifier '%s' is ambiguous.\n"
-                  + "'%s' is a prefix of multiple configurations:\n "
-                  + matches.stream()
-                      .map(ConfigurationForOutput::getConfigHash)
-                      .collect(joining("\n "))
-                  + "\n\n"
+                  + "'%s' is a prefix of multiple configurations:\n %s\n\n"
                   + "Use a sufficient prefix to uniquely identify one configuration.",
               configPrefix,
-              configPrefix));
+              configPrefix,
+              matches.stream().map(ConfigurationForOutput::getConfigHash).collect(joining("\n "))));
     }
     return Iterables.getOnlyElement(matches);
   }

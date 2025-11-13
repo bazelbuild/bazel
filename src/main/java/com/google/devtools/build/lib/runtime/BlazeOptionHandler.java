@@ -128,7 +128,7 @@ public final class BlazeOptionHandler {
             .flatMap(
                 cmd ->
                     BlazeCommandUtils.getOptions(
-                        cmd, runtime.getBlazeModules(), runtime.getRuleClassProvider())
+                        cmd, runtime.getOptionsSuppliers(), runtime.getRuleClassProvider())
                         .stream())
             .distinct()
             .collect(toImmutableList());
@@ -350,7 +350,13 @@ public final class BlazeOptionHandler {
     }
 
     @Override
-    public void post(ExtendedEventHandler.Postable e) {}
+    public void post(ExtendedEventHandler.Postable e) {
+      // Fetches of external repositories are not reported as BES events and important to surface
+      // in the CLI due to their long-running nature.
+      if (e instanceof FetchProgress) {
+        delegate.post(e);
+      }
+    }
   }
 
   /**
@@ -405,7 +411,7 @@ public final class BlazeOptionHandler {
    * TODO(bazel-team): When we move CoreOptions options to be defined in starlark, make sure they're
    * not passed in here during {@link #getOptionsResult}.
    */
-  DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
+  DetailedExitCode parseStarlarkOptions(CommandEnvironment env, List<String> args) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future.
     if (!commandAnnotation.buildPhase().analyzes()) {
@@ -421,6 +427,18 @@ public final class BlazeOptionHandler {
       Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
+      if (e.getInvalidArgument() != null) {
+        for (int i = 0; i < args.size() - 1; i++) {
+          if (args.get(i).equals(e.getInvalidArgument()) && !args.get(i + 1).startsWith("-")) {
+            e =
+                new OptionsParsingException(
+                    String.format(
+                        "%s. Did you mean %s=%s?", e.getMessage(), args.get(i), args.get(i + 1)),
+                    e.getInvalidArgument());
+            ;
+          }
+        }
+      }
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);

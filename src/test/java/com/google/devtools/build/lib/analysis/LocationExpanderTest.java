@@ -76,7 +76,7 @@ public class LocationExpanderTest {
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
             "locations", f2),
-        RepositoryMapping.ALWAYS_FALLBACK,
+        RepositoryMapping.EMPTY,
         "workspace");
   }
 
@@ -141,7 +141,7 @@ public class LocationExpanderTest {
         new LocationExpander(
             new Capture(),
             ImmutableMap.<String, LocationFunction>of("location", f1),
-            RepositoryMapping.createAllowingFallback(repositoryMapping),
+            RepositoryMapping.create(repositoryMapping, RepositoryName.MAIN),
             "workspace");
 
     String value = locationExpander.expand("$(location @foo//a)");

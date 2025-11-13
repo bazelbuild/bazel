@@ -78,7 +78,7 @@ public final class MockToolsConfig {
       StringBuilder newContent = new StringBuilder();
       for (String line : lines) {
         newContent.append(line);
-        newContent.append(System.lineSeparator());
+        newContent.append('\n');
       }
 
       if (!newContent.toString().trim().equals(existingContent.trim())) {

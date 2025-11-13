@@ -466,7 +466,8 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string& filename) {
-  return blaze_util::ends_with(filename, ".dll");
+  return (blaze_util::ends_with(filename, ".dll") ||
+          blaze_util::ends_with(filename, ".pyd"));
 }
 
 string GetSystemJavabase() {

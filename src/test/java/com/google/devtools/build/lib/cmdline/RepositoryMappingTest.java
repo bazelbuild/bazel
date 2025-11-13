@@ -26,15 +26,6 @@ import org.junit.runners.JUnit4;
 public final class RepositoryMappingTest {
 
   @Test
-  public void maybeFallback() throws Exception {
-    RepositoryMapping mapping =
-        RepositoryMapping.createAllowingFallback(
-            ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")));
-    assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("com_foo_bar_a"));
-    assertThat(mapping.get("B")).isEqualTo(RepositoryName.create("B"));
-  }
-
-  @Test
   public void neverFallback() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
@@ -63,31 +54,10 @@ public final class RepositoryMappingTest {
   @Test
   public void additionalMappings_precedence() throws Exception {
     RepositoryMapping mapping =
-        RepositoryMapping.createAllowingFallback(ImmutableMap.of("A", RepositoryName.create("A1")))
+        RepositoryMapping.create(
+                ImmutableMap.of("A", RepositoryName.create("A1")), RepositoryName.MAIN)
             .withAdditionalMappings(ImmutableMap.of("A", RepositoryName.create("A2")));
     assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("A1"));
-  }
-
-  @Test
-  public void composeWith() throws Exception {
-    RepositoryMapping mapping =
-        RepositoryMapping.createAllowingFallback(
-                ImmutableMap.of(
-                    "A", RepositoryName.create("A_mapped"), "B", RepositoryName.create("B_mapped")))
-            .composeWith(
-                RepositoryMapping.create(
-                    ImmutableMap.of(
-                        "A",
-                        RepositoryName.create("A_mapped_differently"),
-                        "A_mapped",
-                        RepositoryName.create("A_mapped_twice"),
-                        "C",
-                        RepositoryName.create("C_mapped")),
-                    RepositoryName.create("blah")));
-    assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("A_mapped_twice"));
-    assertThat(mapping.get("B")).isEqualTo(RepositoryName.create("B_mapped"));
-    assertThat(mapping.get("C")).isEqualTo(RepositoryName.create("C_mapped"));
-    assertThat(mapping.get("D")).isEqualTo(RepositoryName.create("D"));
   }
 
   @Test

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -44,17 +44,11 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/sandboxing_test_utils.sh")" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
-IS_WINDOWS=false
-case "$(uname | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  IS_WINDOWS=true
-esac
-
 # TODO(rongjiecomputer): Individual marking external tools as readable with
 # --sandbox_writable_path flag is only a temporary solution. Eventually Bazel
 # should add those external tools it needs as readable automatically.
 sandbox_flags=""
-if "${IS_WINDOWS}"; then
+if is_windows; then
   sandbox_flags="--experimental_use_windows_sandbox=yes"
   if [[ -n "${WINDOWS_SANDBOX+x}" ]]; then
     sandbox_flags="${sandbox_flags} --experimental_windows_sandbox_path=${WINDOWS_SANDBOX}"
@@ -68,8 +62,11 @@ if "${IS_WINDOWS}"; then
 fi
 
 function set_up {
+  add_rules_cc MODULE.bazel
   mkdir -p examples/cpp/{bin,lib}
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],
@@ -139,6 +136,7 @@ function test_sandboxed_cpp_build_rebuilds_on_change() {
 
 function test_sandboxed_cpp_build_catches_missing_header_via_sandbox() {
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],
@@ -158,7 +156,10 @@ EOF
 # header files from libraries that are specified in "hdrs" and not "srcs", but we never check that,
 # so the test fails. :(
 function DISABLED_test_sandboxed_cpp_build_catches_header_only_in_srcs() {
+  add_rules_cc MODULE.bazel
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["hello-lib.c", "hello-lib.h"],
@@ -203,6 +204,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
 
 function test_standalone_cpp_build_catches_missing_header() {
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],
@@ -243,6 +245,6 @@ EOF
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_sandbox_allowed || "${IS_WINDOWS}" || exit 0
+check_sandbox_allowed || is_windows || exit 0
 
 run_suite "sandbox"

@@ -20,15 +20,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** Protocol buffers support for Starlark. */
-public class BazelProtoCommon implements ProtoCommonApi {
+@StarlarkBuiltin(
+    name = "proto_common",
+    doc = "Private utilities for protocol buffers. Do not use.",
+    documented = false)
+public class BazelProtoCommon implements StarlarkValue {
   public static final BazelProtoCommon INSTANCE = new BazelProtoCommon();
 
   protected BazelProtoCommon() {}

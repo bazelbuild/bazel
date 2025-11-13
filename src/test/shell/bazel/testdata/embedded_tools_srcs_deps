@@ -28,5 +28,7 @@
 //tools/cpp/modules_tools:common
 //tools/cpp/modules_tools:generate-modmap
 //tools/cpp/modules_tools:generate-modmap-lib
+@@rules_cc+//:empty_lib
+@@rules_cc+//:link_extra_lib
 @@rules_cc+//cc/runfiles:runfiles
 @@zlib+//:z

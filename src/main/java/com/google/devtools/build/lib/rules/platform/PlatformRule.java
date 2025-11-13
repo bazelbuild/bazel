@@ -39,7 +39,6 @@ public class PlatformRule implements RuleDefinition {
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String PARENTS_PLATFORM_ATTR = "parents";
-  public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
   public static final String FLAGS_ATTR = "flags";
   public static final String REQUIRED_SETTINGS_ATTR = "required_settings";
@@ -87,19 +86,6 @@ public class PlatformRule implements RuleDefinition {
                 .mandatoryProviders(PlatformInfo.PROVIDER.id())
                 .nonconfigurable("Part of the configuration"))
 
-        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
-        DEPRECATED. Please use exec_properties attribute instead.
-
-        A string used to configure a remote execution platform. Actual builds make no attempt to
-        interpret this, it is treated as opaque data that can be used by a specific SpawnRunner.
-        This can include data from the parent platform's "remote_execution_properties" attribute,
-        by using the macro "{PARENT_REMOTE_EXECUTION_PROPERTIES}". See the section on
-        <a href="#platform_inheritance">Platform Inheritance</a> for details.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING)
-                .nonconfigurable("Part of the configuration"))
-
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(exec_properties) -->
         A map of strings that affect the way actions are executed remotely. Bazel makes no attempt
         to interpret this, it is treated as opaque data that's forwarded via the Platform field of
@@ -108,9 +94,6 @@ public class PlatformRule implements RuleDefinition {
         This includes any data from the parent platform's <code>exec_properties</code> attributes.
         If the child and parent platform define the same keys, the child's values are kept. Any
         keys associated with a value that is an empty string are removed from the dictionary.
-
-        This attribute is a full replacement for the deprecated
-        <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(EXEC_PROPS_ATTR, Types.STRING_DICT)
@@ -277,40 +260,6 @@ platform(
   If the same key appears in both the parent's and the child's <code>exec_properties</code>,
   the child's value will be used. If the child platform specifies an empty string as a value, the
   corresponding property will be unset.
-</p>
-
-<p>
-  Platforms can also inherit the (deprecated) <code>remote_execution_properties</code> attribute
-  from the parent platform. Note: new code should use <code>exec_properties</code> instead. The
-  logic described below is maintained to be compatible with legacy behavior but will be removed
-  in the future.
-
-  The logic for setting the <code>remote_execution_platform</code> is as follows when there
-  is a parent platform:
-
-  <ol>
-    <li>
-      If <code>remote_execution_property</code> is not set on the child platform, the parent's
-      <code>remote_execution_properties</code> will be used.
-    </li>
-    <li>
-      If <code>remote_execution_property</code> is set on the child platform, and contains the
-      literal string </code>{PARENT_REMOTE_EXECUTION_PROPERTIES}</code>, that macro will be
-      replaced with the contents of the parent's <code>remote_execution_property</code> attribute.
-    </li>
-    <li>
-      If <code>remote_execution_property</code> is set on the child platform, and does not contain
-      the macro, the child's <code>remote_execution_property</code> will be used unchanged.
-    </li>
-  </ol>
-</p>
-
-<p>
-  <em>Since <code>remote_execution_properties</code> is deprecated and will be phased out, mixing
-  <code>remote_execution_properties</code> and <code>exec_properties</code> in the same
-  inheritance chain is not allowed.</em>
-  Prefer to use <code>exec_properties</code> over the deprecated
-  <code>remote_execution_properties</code>.
 </p>
 
 <h4 id="platform_inheritance_examples">Example: Constraint Values</h4>

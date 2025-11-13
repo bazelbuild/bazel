@@ -409,7 +409,6 @@ public final class BugReportTest {
                         Lists.transform(
                             Arrays.asList(t.getStackTrace()), StackTraceElement::toString)));
     if (oomDetectorOverride && crashType == CrashType.CRASH) {
-      crash.setOomDetectorOverride(true);
       crash.setOomCauseCategory(OomCauseCategory.OOM_DETECTOR_OVERRIDE);
     } else if (crashType == CrashType.OOM) {
       crash.setOomCauseCategory(OomCauseCategory.ORGANIC);

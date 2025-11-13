@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -eu
+
 # Unit tests for tools/test/collect_cc_code_coverage.sh
 
 # Load the test setup defined in the parent directory
@@ -22,6 +24,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 source "${CURRENT_DIR}/coverage_helpers.sh" \
   || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
+
+JQ="$(rlocation "$JQ_RLOCATIONPATH")"
+[[ ! -x "$JQ" ]] && fail "jq not found at $JQ ($JQ_RLOCATIONPATH)"
 
 # Check if all the tools required by CC coverage are installed.
 [[ -z $( which gcov ) ]] && fail "gcov not installed. Skipping test" && exit 0
@@ -254,12 +259,58 @@ lcount:5,1"
 function assert_gcov_coverage_srcs_a_cc_json() {
     local output_file="${1}"; shift
 
-    # The expected coverage result for coverage_srcs/a.cc in gcov format.
+    local file_name="coverage_srcs/a.cc"
     cat > expected_gcov_result_a_cc <<EOF
-{"lines": [{"branches": [], "count": 1, "line_number": 4, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 0, "line_number": 8, "unexecuted_block": true, "function_name": "_Z1ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 4, "name": "_Z1ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "a(bool)", "start_column": 5, "end_line": 10}], "file": "coverage_srcs/a.cc"}
+{
+  "file": "$file_name",
+  "functions": [
+    {
+      "blocks": 4,
+      "blocks_executed": 3,
+      "demangled_name": "a(bool)",
+      "end_column": 1,
+      "end_line": 10,
+      "execution_count": 1,
+      "name": "_Z1ab",
+      "start_column": 5,
+      "start_line": 4
+    }
+  ],
+  "lines": [
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1ab",
+      "line_number": 4,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1ab",
+      "line_number": 5,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1ab",
+      "line_number": 6,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 0,
+      "function_name": "_Z1ab",
+      "line_number": 8,
+      "unexecuted_block": true
+    }
+  ]
+}
 EOF
-local expected_gcov_result_a_cc=$(cat expected_gcov_result_a_cc | tr -d '\n')
-    assert_coverage_result "$expected_gcov_result_a_cc" "$output_file"
+    "$JQ" --sort-keys ".files[] | select(.file == \"$file_name\")" "$output_file" > actual_gcov_result_a_cc
+    diff -u expected_gcov_result_a_cc actual_gcov_result_a_cc \
+        || fail "Coverage result for $file_name in gcov format is different than expected"
 }
 
 
@@ -270,34 +321,172 @@ local expected_gcov_result_a_cc=$(cat expected_gcov_result_a_cc | tr -d '\n')
 function assert_gcov_coverage_srcs_t_cc_json() {
     local output_file="${1}"; shift
 
-    # The expected coverage result for coverage_srcs/t.cc in gcov format.
+    local file_name="coverage_srcs/t.cc"
     cat > expected_gcov_result_t_cc <<EOF
-{"lines": [{"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 7, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 8, "unexecuted_block": false, "function_name": "main"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 5, "name": "main", "blocks_executed": 4, "execution_count": 1, "demangled_name": "main", "start_column": 5, "end_line": 8}], "file": "coverage_srcs/t.cc"}
+{
+  "file": "$file_name",
+  "functions": [
+    {
+      "blocks": 4,
+      "blocks_executed": 4,
+      "demangled_name": "main",
+      "end_column": 1,
+      "end_line": 8,
+      "execution_count": 1,
+      "name": "main",
+      "start_column": 5,
+      "start_line": 5
+    }
+  ],
+  "lines": [
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "main",
+      "line_number": 5,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "main",
+      "line_number": 6,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "main",
+      "line_number": 7,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "main",
+      "line_number": 8,
+      "unexecuted_block": false
+    }
+  ]
+}
 EOF
-    local expected_gcov_result_t_cc=$(cat expected_gcov_result_t_cc | tr -d '\n')
-    assert_coverage_result "$expected_gcov_result_t_cc" "$output_file"
+    "$JQ" --sort-keys ".files[] | select(.file == \"$file_name\")" "$output_file" > actual_gcov_result_t_cc
+    diff -u expected_gcov_result_t_cc actual_gcov_result_t_cc \
+        || fail "Coverage result for $file_name in gcov format is different than expected"
 }
 
 function assert_gcov_coverage_srcs_b_h_json() {
     local output_file="${1}"; shift
 
-    # The expected coverage result for coverage_srcs/b.h in gcov format.
+    local file_name="coverage_srcs/b.h"
     cat > expected_gcov_result_b_h <<EOF
-{"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 3, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 0, "line_number": 5, "unexecuted_block": true, "function_name": "_Z1bi"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z1bi", "blocks_executed": 3, "execution_count": 1, "demangled_name": "b(int)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/b.h"}
+{
+  "file": "$file_name",
+  "functions": [
+    {
+      "blocks": 4,
+      "blocks_executed": 3,
+      "demangled_name": "b(int)",
+      "end_column": 1,
+      "end_line": 7,
+      "execution_count": 1,
+      "name": "_Z1bi",
+      "start_column": 5,
+      "start_line": 1
+    }
+  ],
+  "lines": [
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1bi",
+      "line_number": 1,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1bi",
+      "line_number": 2,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z1bi",
+      "line_number": 3,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 0,
+      "function_name": "_Z1bi",
+      "line_number": 5,
+      "unexecuted_block": true
+    }
+  ]
+}
 EOF
-    local expected_gcov_result_b_h=$(cat expected_gcov_result_b_h | tr -d '\n')
-    assert_coverage_result "$expected_gcov_result_b_h" "$output_file"
+    "$JQ" --sort-keys ".files[] | select(.file == \"$file_name\")" "$output_file" > actual_gcov_result_b_h
+    diff -u expected_gcov_result_b_h actual_gcov_result_b_h \
+        || fail "Coverage result for $file_name in gcov format is different than expected"
 }
 
 function assert_gcov_coverage_srcs_d_a_cc_json() {
     local output_file="${1}"; shift
 
-    # The expected coverage result for coverage_srcs/different/a.cc in gcov format.
+    local file_name="coverage_srcs/different/a.cc"
     cat > expected_gcov_result_d_a_cc <<EOF
-{"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 0, "line_number": 3, "unexecuted_block": true, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z11different_ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z11different_ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "different_a(bool)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/different/a.cc"}
+{
+  "file": "$file_name",
+  "functions": [
+    {
+      "blocks": 4,
+      "blocks_executed": 3,
+      "demangled_name": "different_a(bool)",
+      "end_column": 1,
+      "end_line": 7,
+      "execution_count": 1,
+      "name": "_Z11different_ab",
+      "start_column": 5,
+      "start_line": 1
+    }
+  ],
+  "lines": [
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z11different_ab",
+      "line_number": 1,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z11different_ab",
+      "line_number": 2,
+      "unexecuted_block": false
+    },
+    {
+      "branches": [],
+      "count": 0,
+      "function_name": "_Z11different_ab",
+      "line_number": 3,
+      "unexecuted_block": true
+    },
+    {
+      "branches": [],
+      "count": 1,
+      "function_name": "_Z11different_ab",
+      "line_number": 5,
+      "unexecuted_block": false
+    }
+  ]
+}
 EOF
-local expected_gcov_result_d_a_cc=$(cat expected_gcov_result_d_a_cc | tr -d '\n')
-    assert_coverage_result "$expected_gcov_result_d_a_cc" "$output_file"
+    "$JQ" --sort-keys ".files[] | select(.file == \"$file_name\")" "$output_file" > actual_gcov_result_d_a_cc
+    diff -u expected_gcov_result_d_a_cc actual_gcov_result_d_a_cc \
+        || fail "Coverage result for $file_name in gcov format is different than expected"
 }
 
 function test_cc_test_coverage_gcov() {

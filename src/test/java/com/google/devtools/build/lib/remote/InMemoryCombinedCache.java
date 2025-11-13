@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -26,21 +25,37 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 class InMemoryCombinedCache extends RemoteExecutionCache {
 
-  InMemoryCombinedCache(
-      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(casEntries), /* diskCacheClient= */ null, options, digestUtil);
+  InMemoryCombinedCache(Map<Digest, byte[]> casEntries, DigestUtil digestUtil) {
+    super(
+        new InMemoryCacheClient(casEntries),
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil);
   }
 
-  InMemoryCombinedCache(RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(), /* diskCacheClient= */ null, options, digestUtil);
+  InMemoryCombinedCache(
+      Map<Digest, byte[]> casEntries, DigestUtil digestUtil, @Nullable String symlinkTemplate) {
+    super(
+        new InMemoryCacheClient(casEntries),
+        /* diskCacheClient= */ null,
+        symlinkTemplate,
+        digestUtil);
   }
 
-  InMemoryCombinedCache(
-      RemoteCacheClient remoteCacheClient, RemoteOptions options, DigestUtil digestUtil) {
-    super(remoteCacheClient, /* diskCacheClient= */ null, options, digestUtil);
+  InMemoryCombinedCache(DigestUtil digestUtil) {
+    super(
+        new InMemoryCacheClient(),
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil);
+  }
+
+  InMemoryCombinedCache(RemoteCacheClient remoteCacheClient, DigestUtil digestUtil) {
+    super(remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)

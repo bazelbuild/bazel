@@ -46,6 +46,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     scratch.file(
         "third_party/x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
         licenses(['unencumbered'])
         cc_binary(name = 'plugin', srcs = ['plugin.cc'])

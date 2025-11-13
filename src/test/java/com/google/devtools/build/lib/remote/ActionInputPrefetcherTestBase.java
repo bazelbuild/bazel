@@ -135,7 +135,7 @@ public abstract class ActionInputPrefetcherTestBase {
             new DelayedChmodFileSystem(new InMemoryFileSystem(DigestHashFunction.SHA256)));
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     Path tempDir = fs.getPath("/tmp");
     tempDir.createDirectoryAndParents();
@@ -302,7 +302,7 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher, never())
-        .doDownloadFile(eq(action), any(), any(), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -320,8 +320,7 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFilesInterruptibly(
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
-    verify(prefetcher)
-        .doDownloadFile(eq(action), any(), any(), eq(a.getExecPath()), any(), any(), any());
+    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -600,8 +599,8 @@ public abstract class ActionInputPrefetcherTestBase {
             Priority.MEDIUM,
             Reason.INPUTS));
 
-    verify(fs).createWritableDirectory(root);
-    verify(fs).createWritableDirectory(subdir);
+    verify(fs).createDirectory(root);
+    verify(fs).createDirectory(subdir);
     verify(fs).chmod(root, 0555);
     verify(fs).chmod(subdir, 0555);
 
@@ -615,8 +614,8 @@ public abstract class ActionInputPrefetcherTestBase {
             Priority.MEDIUM,
             Reason.INPUTS));
 
-    verify(fs, never()).createWritableDirectory(root);
-    verify(fs, never()).createWritableDirectory(subdir);
+    verify(fs, never()).createDirectory(root);
+    verify(fs, never()).createDirectory(subdir);
     verify(fs, never()).chmod(root, 0555);
     verify(fs, never()).chmod(subdir, 0555);
   }
@@ -911,7 +910,7 @@ public abstract class ActionInputPrefetcherTestBase {
       throws IOException {
     doAnswer(
             invocation -> {
-              Path path = invocation.getArgument(2);
+              Path path = invocation.getArgument(3);
               FileArtifactValue metadata = invocation.getArgument(4);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
@@ -925,9 +924,9 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {
-    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
-    assertWithMessage(path + " should not be writable").that(path.isWritable()).isFalse();
-    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+    assertWithMessage("%s should be readable", path).that(path.isReadable()).isTrue();
+    assertWithMessage("%s should not be writable", path).that(path.isWritable()).isFalse();
+    assertWithMessage("%s should be executable", path).that(path.isExecutable()).isTrue();
   }
 
   private void assertTreeReadableNonWritableAndExecutable(Path path) throws IOException {
@@ -941,9 +940,9 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   private void assertReadableWritableAndExecutable(Path path) throws IOException {
-    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
-    assertWithMessage(path + " should be writable").that(path.isWritable()).isTrue();
-    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+    assertWithMessage("%s should be readable", path).that(path.isReadable()).isTrue();
+    assertWithMessage("%s should be writable", path).that(path.isWritable()).isTrue();
+    assertWithMessage("%s should be executable", path).that(path.isExecutable()).isTrue();
   }
 
   private void assertTreeReadableWritableAndExecutable(Path path) throws IOException {

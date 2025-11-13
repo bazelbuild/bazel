@@ -18,21 +18,25 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * A {@link DiffAwareness} that use fsevents to watch the filesystem to use in lieu of
- * {@link LocalDiffAwareness}.
+ * A {@link DiffAwareness} that use fsevents to watch the filesystem to use in lieu of {@link
+ * LocalDiffAwareness}.
  *
  * <p>On OS X, the local diff awareness cannot work because WatchService is dummy and do polling,
  * which is slow (https://bugs.openjdk.java.net/browse/JDK-7133447).
  */
 public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   private final double latency;
+  private final IgnoredSubdirectories ignoredPaths;
 
   private boolean closed;
 
@@ -46,21 +50,22 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
    * Watch changes on the file system under <code>watchRoot</code> with a granularity of <code>delay
    * </code> seconds.
    */
-  MacOSXFsEventsDiffAwareness(Path watchRoot, double latency) {
+  MacOSXFsEventsDiffAwareness(Path watchRoot, IgnoredSubdirectories ignoredPaths, double latency) {
     super(watchRoot);
+    this.ignoredPaths = ignoredPaths;
     this.latency = latency;
   }
 
   /** Watch changes on the file system under <code>watchRoot</code> with a granularity of 5ms. */
-  MacOSXFsEventsDiffAwareness(Path watchRoot) {
-    this(watchRoot, 0.005);
+  MacOSXFsEventsDiffAwareness(Path watchRoot, IgnoredSubdirectories ignoredPaths) {
+    this(watchRoot, ignoredPaths, 0.005);
   }
 
   /**
    * Helper function to start the watch of <code>paths</code>, which is expected to be an array of
    * byte arrays containing the UTF-8 bytes of the paths to watch, called by the constructor.
    */
-  private native void create(byte[][] paths, double latency);
+  private native void create(byte[][] paths, byte[][] excludedPaths, double latency);
 
   /**
    * Runs the main loop to listen for fsevents.
@@ -77,7 +82,22 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
-    create(new byte[][] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
+    // TODO: Also cover otherwise literal patterns of the form dir/**.
+    var excludedPaths =
+        ignoredPaths.prefixes().stream()
+            // FSEvents only supports up to 8 excluded paths.
+            .limit(8)
+            .map(PathFragment::getPathString)
+            // The prefixes are all absolute paths converted to relative paths via
+            // PathFragment#toRelative.
+            .map(path -> "/" + path)
+            .map(StringEncoding::internalToUnicode)
+            .map(path -> path.getBytes(UTF_8))
+            .toArray(byte[][]::new);
+    create(
+        new byte[][] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)},
+        excludedPaths,
+        latency);
 
     // Start a thread that just contains the OS X run loop.
     CountDownLatch listening = new CountDownLatch(1);
@@ -89,9 +109,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     }
   }
 
-  /**
-   * Close this watch service, this service should not be used any longer after closing.
-   */
+  /** Close this watch service, this service should not be used any longer after closing. */
   @Override
   public void close() {
     if (opened) {
@@ -103,9 +121,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
 
   private static final boolean JNI_AVAILABLE;
 
-  /**
-   * JNI code stopping the main loop and shutting down listening to FSEvents.
-   */
+  /** JNI code stopping the main loop and shutting down listening to FSEvents. */
   private native void doClose();
 
   /**
@@ -130,8 +146,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   }
 
   @Override
-  public View getCurrentView(OptionsProvider options)
-      throws BrokenDiffAwarenessException {
+  public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
     if (!JNI_AVAILABLE) {
       return EVERYTHING_MODIFIED;
     }

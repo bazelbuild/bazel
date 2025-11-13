@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Metadata;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -100,10 +101,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // detected.
   protected final TargetRecorder recorder;
 
-  // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
-  // file.
-  protected String workspaceName;
-
   private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
   /** Converts label literals to Label objects within this package. */
@@ -131,8 +128,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   @Nullable protected IOException ioException = null;
   @Nullable protected DetailedExitCode ioExceptionDetailedExitCode = null;
 
-  // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
-  // some tests.
+  // Used by glob(). Null for contexts where glob() is disallowed, like some tests.
   @Nullable private final Globber globber;
 
   protected final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
@@ -140,6 +136,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
   private final ImmutableMap<Location, String> generatorMap;
+
+  private final PackageLimits packageLimits;
 
   protected final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
       new TestSuiteImplicitTestsAccumulator();
@@ -158,6 +156,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   protected boolean alreadyBuilt = false;
 
+  protected long computationSteps = 0;
+
   /** Retrieves this object from a Starlark thread. Returns null if not present. */
   @Nullable
   public static TargetDefinitionContext fromOrNull(StarlarkThread thread) {
@@ -170,26 +170,34 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   /**
    * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
    * with an error message indicating that {@code what} can only be used in a target definition
-   * context - meaning in a BUILD file, a legacy or symbolic macro, or a WORKSPACE file.
+   * context - meaning in a BUILD file, or a legacy or symbolic macro.
    */
   @CanIgnoreReturnValue
   public static TargetDefinitionContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
-    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-    if (ctx instanceof TargetDefinitionContext targetDefinitionContext) {
-      return targetDefinitionContext;
-    }
-    boolean symbolicMacrosEnabled =
-        thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS);
-    throw Starlark.errorf(
-        "%s can only be used while evaluating a BUILD file, a %smacro, or a WORKSPACE file",
-        what, symbolicMacrosEnabled ? "legacy or symbolic " : "");
+    return fromOrFail(thread, what, "used");
   }
 
   /**
    * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file, a
-   * finalizer symbolic macro, or a WORKSPACE file.
+   * with an error message indicating that {@code what} can only be {@code participle}d in a target
+   * definition context - meaning in a BUILD file, or a legacy or symbolic macro.
+   */
+  @CanIgnoreReturnValue
+  public static TargetDefinitionContext fromOrFail(
+      StarlarkThread thread, String what, String participle) throws EvalException {
+    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
+    if (ctx instanceof TargetDefinitionContext targetDefinitionContext) {
+      return targetDefinitionContext;
+    }
+    throw newFromOrFailException(
+        what, participle, thread.getSemantics(), EnumSet.noneOf(FromOrFailMode.class));
+  }
+
+  /**
+   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
+   * with an error message indicating that {@code what} can only be used in a BUILD file or a
+   * finalizer symbolic macro.
    */
   @CanIgnoreReturnValue
   public static TargetDefinitionContext fromOrFailDisallowNonFinalizerMacros(
@@ -203,38 +211,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         what, thread.getSemantics(), EnumSet.of(FromOrFailMode.ONLY_FINALIZER_MACROS));
   }
 
-  /**
-   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file or a legacy
-   * or symbolic macro.
-   */
-  @CanIgnoreReturnValue
-  public static TargetDefinitionContext fromOrFailDisallowWorkspace(
-      StarlarkThread thread, String what, String participle) throws EvalException {
-    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-    if (ctx instanceof TargetDefinitionContext targetDefinitionContext
-        && !targetDefinitionContext.isRepoRulePackage()) {
-      return targetDefinitionContext;
-    }
-    throw newFromOrFailException(
-        what, participle, thread.getSemantics(), EnumSet.of(FromOrFailMode.NO_WORKSPACE));
-  }
-
-  /**
-   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file or a legacy
-   * or symbolic macro.
-   */
-  @CanIgnoreReturnValue
-  public static TargetDefinitionContext fromOrFailDisallowWorkspace(
-      StarlarkThread thread, String what) throws EvalException {
-    return fromOrFailDisallowWorkspace(thread, what, "used");
-  }
-
   enum FromOrFailMode {
     NO_MACROS,
     ONLY_FINALIZER_MACROS,
-    NO_WORKSPACE,
   }
 
   static EvalException newFromOrFailException(
@@ -263,19 +242,121 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     if (symbolicMacrosEnabled && modes.contains(FromOrFailMode.ONLY_FINALIZER_MACROS)) {
       allowedUses.add("a rule finalizer");
     }
-    if (!modes.contains(FromOrFailMode.NO_WORKSPACE)) {
-      allowedUses.add("a WORKSPACE file");
-    }
 
     return Starlark.errorf(
         "%s can only be %s while evaluating %s",
         what, participle, StringUtil.joinEnglishList(allowedUses));
   }
 
+  /**
+   * Returns an auto-closeable resource to synchronize the computation step count between this
+   * context and its thread which has started execution.
+   */
+  public StartedThreadComputationStepUpdater updateStartedThreadComputationSteps(
+      StarlarkThread thread) {
+    return new StartedThreadComputationStepUpdater(this, thread);
+  }
+
+  /**
+   * Returns an auto-closeable resource to synchronize the computation step count between this
+   * context and its thread whose execution is being paused, e.g. before pushing a new macro frame.
+   */
+  public PausedThreadComputationStepUpdater updatePausedThreadComputationSteps(
+      StarlarkThread thread) {
+    return new PausedThreadComputationStepUpdater(this, thread);
+  }
+
+  /**
+   * An auto-closeable resource to synchronize the computation step count between a {@link
+   * TargetDefinitionContext} and its thread which has started execution.
+   */
+  public static final class StartedThreadComputationStepUpdater implements AutoCloseable {
+    private final TargetDefinitionContext context;
+    private final StarlarkThread thread;
+    private boolean closed = false;
+
+    public StartedThreadComputationStepUpdater(
+        TargetDefinitionContext context, StarlarkThread thread) {
+      this.context = context;
+      this.thread = thread;
+      // Initialize the thread's computation step count to the context's total computation step
+      // count.
+      thread.incrementExecutedSteps(context.computationSteps);
+      long threadMaxExecutionSteps = context.packageLimits.maxStarlarkComputationStepsPerPackage();
+      if (threadMaxExecutionSteps < Long.MAX_VALUE) {
+        // StarlarkThread.setMaxExecutionSteps(limit) throws if we hit limit, but we want to allow
+        // hitting the limit (but not going over).
+        threadMaxExecutionSteps++;
+      }
+      thread.setMaxExecutionSteps(threadMaxExecutionSteps);
+    }
+
+    @Override
+    public void close() {
+      if (!closed) {
+        context.setComputationSteps(thread.getExecutedSteps());
+      }
+      closed = true;
+    }
+  }
+
+  /**
+   * An auto-closeable resource to synchronize the computation step count between a {@link
+   * TargetDefinitionContext} and its thread whose execution is being paused.
+   */
+  public static final class PausedThreadComputationStepUpdater implements AutoCloseable {
+    private final TargetDefinitionContext context;
+    private final StarlarkThread thread;
+    private boolean closed = false;
+
+    public PausedThreadComputationStepUpdater(
+        TargetDefinitionContext context, StarlarkThread thread) {
+      this.context = context;
+      this.thread = thread;
+      context.setComputationSteps(thread.getExecutedSteps());
+    }
+
+    @Override
+    public void close() {
+      if (!closed) {
+        checkState(
+            thread.getExecutedSteps() <= context.computationSteps,
+            "previously paused thread computation steps = %s cannot be greater than currently"
+                + " recorded computation steps = %s",
+            thread.getExecutedSteps(),
+            context.computationSteps);
+        thread.incrementExecutedSteps(context.computationSteps - thread.getExecutedSteps());
+      }
+      closed = true;
+    }
+  }
+
+  /**
+   * Sets the context's computation step count from the computation step count of the current
+   * thread.
+   */
+  private void setComputationSteps(long threadComputationSteps) {
+    checkState(
+        threadComputationSteps >= computationSteps,
+        "currently running thread computation steps = %s cannot be less than previously recorded"
+            + " computation steps = %s",
+        threadComputationSteps,
+        computationSteps);
+    computationSteps = threadComputationSteps;
+  }
+
   /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
   @Nullable
   String getGeneratorNameByLocation(Location loc) {
     return generatorMap.get(loc);
+  }
+
+  /**
+   * Returns the map from BUILD file locations to "generator_name" values; intended only for use by
+   * skyframe.PackageFunction.
+   */
+  public ImmutableMap<Location, String> getGeneratorMap() {
+    return generatorMap;
   }
 
   /**
@@ -308,19 +389,19 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       Packageoid pkg,
       SymbolGenerator<?> symbolGenerator,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
-      String workspaceName,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
-      boolean trackFullMacroInformation) {
+      boolean trackFullMacroInformation,
+      boolean enableTargetMapSnapshotting,
+      PackageLimits packageLimits) {
     super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
     this.symbolGenerator = symbolGenerator;
-    this.workspaceName = Preconditions.checkNotNull(workspaceName);
     this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
     this.labelConverter =
         new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
@@ -328,7 +409,10 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.packageOverheadEstimator = packageOverheadEstimator;
     this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
     this.globber = globber;
-    this.recorder = new TargetRecorder(enableNameConflictChecking, trackFullMacroInformation);
+    this.recorder =
+        new TargetRecorder(
+            enableNameConflictChecking, trackFullMacroInformation, enableTargetMapSnapshotting);
+    this.packageLimits = packageLimits;
   }
 
   public Metadata getMetadata() {
@@ -352,36 +436,18 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   /**
-   * Determine whether this package should contain build rules (returns {@code false}) or repo rules
-   * (returns {@code true}).
-   */
-  public boolean isRepoRulePackage() {
-    return metadata.isRepoRulePackage();
-  }
-
-  /**
-   * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-   * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-   */
-  String getWorkspaceName() {
-    // Current value is stored in the builder field, final value is copied to the Package in
-    // finishInit().
-    return workspaceName;
-  }
-
-  /**
-   * Returns the name of the Bzlmod module associated with the repo this package is in. If this
-   * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-   * this is the name of the module hosting the extension.
+   * Returns the name of the Bazel module associated with the repo this package is in. If this
+   * package is in the special {@code @_builtins} pseudo-repo, this is empty. For repos generated by
+   * module extensions, this is the name of the module hosting the extension.
    */
   Optional<String> getAssociatedModuleName() {
     return metadata.associatedModuleName();
   }
 
   /**
-   * Returns the version of the Bzlmod module associated with the repo this package is in. If this
-   * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-   * this is the version of the module hosting the extension.
+   * Returns the version of the Bazel module associated with the repo this package is in. If this
+   * package is in the special {@code @_builtins} pseudo-repo, this is empty. For repos generated by
+   * module extensions, this is the version of the module hosting the extension.
    */
   Optional<String> getAssociatedModuleVersion() {
     return metadata.associatedModuleVersion();
@@ -439,8 +505,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   /**
    * Returns the {@link Globber} used to implement {@code glob()} functionality during BUILD
-   * evaluation. Null for contexts where globbing is not possible, including WORKSPACE files and
-   * some tests.
+   * evaluation. Null for contexts where globbing is not possible, like some tests.
    */
   @Nullable
   public Globber getGlobber() {
@@ -522,6 +587,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         pkg.getMetadata(),
         pkg.getDeclarations(),
         parent,
+        parent != null ? parent.getGeneratorName() : generatorMap.get(location),
         location,
         compactParentCallStack,
         macroClass,
@@ -570,6 +636,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
           ((SnapshottableBiMap<String, Target>) recorder.getTargetMap()).getTrackedSnapshot(),
           target -> (Rule) target);
     } else {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): if we are in a PackagePiece
+      // builder, trigger a skyframe restart and request a full Package.
       throw new IllegalStateException(
           "getRulesSnapshotView() cannot be used after beforeBuild() has been called");
     }
@@ -691,7 +759,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   public void addMacro(MacroInstance macro) throws NameConflictException {
-    checkState(!isRepoRulePackage(), "Cannot instantiate symbolic macros in this context");
     recorder.addMacro(macro);
   }
 
@@ -705,7 +772,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   @Nullable
-  FailureDetail getFailureDetail() {
+  public FailureDetail getFailureDetail() {
     if (failureDetailOverride != null) {
       return failureDetailOverride;
     }
@@ -737,16 +804,19 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     return null;
   }
 
+  /**
+   * Returns the number of Starlark computation steps executed thus far by threads performing
+   * evaluation of this packageoid, which are recorded by updaters created by {@link
+   * #updateStartedThreadComputationSteps} and {@link #updatePausedThreadComputationSteps}.
+   */
+  long getComputationSteps() {
+    return computationSteps;
+  }
+
   //
   // Packageoid (package or package piece) construction methods, intended for use only by
   // PackageFunction and friends.
   //
-
-  /**
-   * Sets the number of Starlark computation steps executed during the evaluation of this
-   * packageoid.
-   */
-  abstract void setComputationSteps(long n);
 
   @CanIgnoreReturnValue
   protected TargetDefinitionContext beforeBuild() throws NoSuchPackageException {
@@ -816,7 +886,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     pkg.containsErrors |= containsErrors();
     pkg.failureDetail = getFailureDetail();
     pkg.targets = ImmutableSortedMap.copyOf(recorder.getTargetMap());
-    pkg.macros = ImmutableSortedMap.copyOf(recorder.getMacroMap());
 
     packageoidInitializationHook();
 

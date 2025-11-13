@@ -248,4 +248,50 @@ public class TestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP})
   public String testDeprecated;
+
+  @Option(
+      name = "test_new_and_old_name",
+      oldName = "test_old_name",
+      defaultValue = "default",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "A test option with both a new name and an old name.")
+  public String testNewAndOldName;
+
+  @Option(
+      name = "markdown_in_help",
+      defaultValue = "default",
+      help =
+          """
+          normal
+          `code span`
+          *emphasis*
+          **strong emphasis**
+          [inline link](/url (title))
+          [reference link][ref]
+          [shorthand reference link]
+          [`complex` shorthand reference link]
+          hard line\\
+          break
+          ```
+          code block
+          ```
+          - unordered
+          - list
+          1. ordered
+          2. list
+
+          paragraph 1
+
+          paragraph 2
+
+          `<HTML> "syntax" 'within' &codeblocks&`
+
+          [ref]: /url (title)
+          [shorthand reference link]: /url (title)
+          [`complex` shorthand reference link]: /url (title)
+          """,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP})
+  public String markdownInHelp;
 }

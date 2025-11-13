@@ -17,24 +17,18 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -54,6 +48,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -110,11 +105,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
-  private final InputMetadataProvider fileCache;
-  private final ActionInputMap inputArtifactData;
+  private final InputMetadataProvider inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final PathCanonicalizer pathCanonicalizer;
-  private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
@@ -186,8 +179,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   /**
    * Caches the contents of intermediate subdirectories of tree artifact inputs, to speed up {@link
-   * #stat} and {@link #readdir} operations. Note that actions are not expected to modify their
-   * inputs.
+   * FileSystem#stat} and {@link FileSystem#readdir} operations. Note that actions are not expected
+   * to modify their inputs.
    *
    * <p>Safe for concurrent access.
    */
@@ -202,7 +195,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     }
 
     private void ensureCached(PathFragment execPath) {
-      TreeArtifactValue treeMetadata = inputArtifactData.getTreeMetadataForPrefix(execPath);
+      TreeArtifactValue treeMetadata = inputArtifactData.getEnclosingTreeMetadata(execPath);
       if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
         return;
       }
@@ -246,9 +239,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       FileSystem localFs,
       PathFragment execRootFragment,
       String relativeOutputPath,
-      ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts,
-      InputMetadataProvider fileCache,
+      InputMetadataProvider inputArtifactData,
       RemoteActionInputFetcher inputFetcher) {
     super(localFs.getDigestFunction());
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
@@ -256,12 +247,14 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
     this.pathCanonicalizer = new PathCanonicalizer(this);
-    this.outputMapping =
-        stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
-    this.fileCache = checkNotNull(fileCache, "fileCache");
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+  }
+
+  @Override
+  public FileSystem getHostFileSystem() {
+    return localFs.getHostFileSystem();
   }
 
   @Override
@@ -280,8 +273,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return localFs.isFilePathCaseSensitive();
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return localFs.mayBeCaseOrNormalizationInsensitive()
+        || remoteOutputTree.mayBeCaseOrNormalizationInsensitive();
   }
 
   @VisibleForTesting
@@ -327,7 +321,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
     return getPath(pathCanonicalizer.resolveSymbolicLinks(path));
   }
 
@@ -358,7 +352,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     try {
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
@@ -379,9 +373,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected InputStream getInputStream(PathFragment path) throws IOException {
+  public InputStream getInputStream(PathFragment path) throws IOException {
     try {
-      downloadFileIfRemote(path);
+      downloadIfRemote(path);
     } catch (BulkTransferException e) {
       var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
@@ -389,19 +383,42 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       }
       throw e;
     }
-    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
-    // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
   }
 
+  private void downloadIfRemote(PathFragment path) throws IOException {
+    if (!isRemote(path)) {
+      return;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    ActionInput input = inputArtifactData.getInput(execPath);
+    if (input == null) {
+      // TODO(tjgq): Also look up the remote output tree.
+      return;
+    }
+
+    try {
+      getFromFuture(
+          inputFetcher.prefetchFiles(
+              action,
+              ImmutableList.of(input),
+              inputArtifactData,
+              Priority.CRITICAL,
+              Reason.INPUTS));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
+    }
+  }
+
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
   }
 
   @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     return localFs.getPath(path).createReadWriteByteChannel();
   }
 
@@ -442,7 +459,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   @Nullable
-  protected byte[] getFastDigest(PathFragment path) throws IOException {
+  public byte[] getFastDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
@@ -455,7 +472,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  public byte[] getDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
@@ -468,7 +485,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isReadable();
@@ -479,7 +496,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isWritable();
@@ -490,7 +507,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isExecutable();
@@ -501,7 +518,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setReadable(readable);
@@ -521,7 +538,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+  public void setExecutable(PathFragment path, boolean executable) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setExecutable(executable);
@@ -531,7 +548,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void chmod(PathFragment path, int mode) throws IOException {
+  public void chmod(PathFragment path, int mode) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).chmod(mode);
@@ -541,7 +558,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
   }
 
@@ -549,7 +566,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private PathFragment readSymbolicLinkInternal(PathFragment path) throws IOException {
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
-      var metadata = inputArtifactData.getMetadata(execPath);
+      var actionInput = inputArtifactData.getInput(execPath);
+      var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
       if (metadata != null && metadata.getType().isSymlink()) {
         return PathFragment.create(metadata.getUnresolvedSymlinkTarget());
       }
@@ -575,31 +593,32 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     linkPath = resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
-      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
+      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment, type);
     }
 
-    localFs.getPath(linkPath).createSymbolicLink(targetFragment);
+    localFs.getPath(linkPath).createSymbolicLink(targetFragment, type);
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = stat(path, followSymlinks);
     return stat.getLastModifiedTime();
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = stat(path, followSymlinks);
     return stat.getSize();
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     try {
       return statIfFound(path, followSymlinks) != null;
     } catch (IOException e) {
@@ -608,7 +627,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = statIfFound(path, followSymlinks);
     if (stat == null) {
       throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
@@ -618,14 +637,14 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Nullable
   @Override
-  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return statInternal(
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
   @Nullable
   @Override
-  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
       return statIfFound(path, followSymlinks);
     } catch (IOException e) {
@@ -664,7 +683,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
-      var metadata = inputArtifactData.getMetadata(execPath);
+      var actionInput = inputArtifactData.getInput(execPath);
+      var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
       if (metadata != null) {
         return statFromMetadata(metadata);
       }
@@ -744,54 +764,6 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     };
   }
 
-  @Nullable
-  @VisibleForTesting
-  ActionInput getInput(String execPath) {
-    ActionInput input = inputArtifactData.getInput(execPath);
-    if (input != null) {
-      return input;
-    }
-    input = outputMapping.get(PathFragment.create(execPath));
-    if (input != null) {
-      return input;
-    }
-    if (!isOutput(execRoot.getRelative(execPath))) {
-      return fileCache.getInput(execPath);
-    }
-    return null;
-  }
-
-  @Nullable
-  @VisibleForTesting
-  FileArtifactValue getInputMetadata(ActionInput input) {
-    return inputArtifactData.getInputMetadata(input);
-  }
-
-  private void downloadFileIfRemote(PathFragment path) throws IOException {
-    if (!isRemote(path)) {
-      return;
-    }
-    PathFragment execPath = path.relativeTo(execRoot);
-    try {
-      ActionInput input = getInput(execPath.getPathString());
-      if (input == null) {
-        // For undeclared outputs, getInput returns null as there's no artifact associated with the
-        // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
-        input = ActionInputHelper.fromPath(execPath);
-      }
-      getFromFuture(
-          inputFetcher.prefetchFiles(
-              action,
-              ImmutableList.of(input),
-              inputArtifactData,
-              Priority.CRITICAL,
-              Reason.INPUTS));
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
-    }
-  }
-
   private boolean isOutput(PathFragment path) {
     return path.startsWith(outputBase);
   }
@@ -850,13 +822,12 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     return getDirectoryContents(path, /* followSymlinks= */ false, Dirent::getName);
   }
 
   @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
-      throws IOException {
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
     return getDirectoryContents(path, followSymlinks, Function.identity());
   }
 
@@ -928,15 +899,14 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     // Only called by the AbstractFileSystem#createHardLink base implementation, overridden below.
     throw new UnsupportedOperationException();
   }
 
   @Override
-  protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
-      throws IOException {
+  public void createHardLink(PathFragment linkPath, PathFragment originalPath) throws IOException {
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
   }
 
@@ -961,7 +931,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     }
 
     @Override
-    protected synchronized OutputStream getOutputStream(
+    public synchronized OutputStream getOutputStream(
         PathFragment path, boolean append, boolean internal) throws IOException {
       // To get an output stream from remote file, we need to first stage it.
       throw new IllegalStateException("Shouldn't be called directly");
@@ -982,13 +952,6 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       }
 
       remoteInMemoryFileInfo.set(metadata);
-    }
-
-    // Override for access within this class
-    @Nullable
-    @Override
-    protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-      return super.statNullable(path, followSymlinks);
     }
   }
 

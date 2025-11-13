@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.LinkedHashMap;
@@ -62,8 +61,8 @@ public class ConservativeAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
+  public ImmutableList<Label> computeBuildFileDependencies(Target buildFile) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
-    return pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
+    return buildFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }

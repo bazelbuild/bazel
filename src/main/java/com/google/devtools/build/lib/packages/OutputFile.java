@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -48,7 +49,7 @@ public abstract class OutputFile extends FileTarget {
   private final String outputKey;
 
   private OutputFile(Label label, Rule generatingRule, String outputKey) {
-    super(generatingRule.getPackage(), label);
+    super(generatingRule.getPackageoid(), label);
     this.generatingRule = generatingRule;
     this.outputKey = outputKey;
   }
@@ -61,16 +62,28 @@ public abstract class OutputFile extends FileTarget {
 
   @Override
   public final RuleVisibility getDefaultVisibility() {
+    if (generatingRule.containsErrors()) {
+      // If the generating rule is in error, the default visibility might not be resolvable.
+      return RuleVisibility.PRIVATE;
+    }
     return generatingRule.getDefaultVisibility();
   }
 
   @Override
   public final RuleVisibility getVisibility() {
+    if (generatingRule.containsErrors()) {
+      // If the generating rule is in error, the visibility might not be resolvable.
+      return RuleVisibility.PRIVATE;
+    }
     return generatingRule.getVisibility();
   }
 
   @Override
   public final Iterable<Label> getVisibilityDependencyLabels() {
+    if (generatingRule.containsErrors()) {
+      // If the generating rule is in error, the visibility deps might not be resolvable.
+      return ImmutableList.of();
+    }
     return generatingRule.getVisibilityDependencyLabels();
   }
 

@@ -46,7 +46,7 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   // Events should be checked with assertContainsEvent().
   protected ResultAndTargets<Target> evalFail(String query) throws Exception {
     ResultAndTargets<Target> result = helper.evaluateQuery(query);
-    assertWithMessage("evaluateQuery succeeded: " + query)
+    assertWithMessage("evaluateQuery succeeded: %s", query)
         .that(result.getQueryEvalResult().getSuccess())
         .isFalse();
     return result;
@@ -180,6 +180,7 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "missingdep/BUILD",
         """
+        load('@rules_cc//cc:cc_library.bzl', 'cc_library')
         cc_library(
             name = "missingdep",
             deps = ["//i/do/not/exist"],

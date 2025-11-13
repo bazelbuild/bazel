@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import java.io.IOException;
@@ -48,6 +49,11 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         return ImmutableList.of();
       }
     };
+  }
+
+  protected void setLazyMacroExpansionPackages(
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
+    ((SkyframeQueryHelper) helper).setLazyMacroExpansionPackages(lazyMacroExpansionPackages);
   }
 
   @Override
@@ -112,7 +118,96 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   }
 
   @Test
+  public void testFindsAllTargets_symbolicMacro() throws Exception {
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def _rule_impl(ctx):
+            return None
+
+        starlark_rule = rule(implementation = _rule_impl)
+
+        def _macro_impl(name, visibility):
+            starlark_rule(name = name, visibility = visibility)
+            native.genrule(name = name + "_gen", outs = [name + "_gen.txt"], cmd = "echo hi >$@")
+
+        symbolic_macro = macro(implementation = _macro_impl)
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "symbolic_macro")
+
+        symbolic_macro(name = "foo")
+        """);
+
+    assertThat(targetLabels(eval("//test/starlark:*")))
+        .containsExactly(
+            "//test/starlark:BUILD",
+            "//test/starlark:foo",
+            "//test/starlark:foo_gen",
+            "//test/starlark:foo_gen.txt");
+  }
+
+  @Test
+  public void testFindsAllTargets_symbolicMacro_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def _rule_impl(ctx):
+            return None
+
+        starlark_rule = rule(implementation = _rule_impl)
+
+        def _macro_impl(name, visibility):
+            starlark_rule(name = name, visibility = visibility)
+            native.genrule(name = name + "_gen", outs = [name + "_gen.txt"], cmd = "echo hi >$@")
+
+        symbolic_macro = macro(implementation = _macro_impl)
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "symbolic_macro")
+
+        symbolic_macro(name = "foo")
+        """);
+
+    assertThat(targetLabels(eval("//test/starlark:*")))
+        .containsExactly(
+            "//test/starlark:BUILD",
+            "//test/starlark:foo",
+            "//test/starlark:foo_gen",
+            "//test/starlark:foo_gen.txt");
+  }
+
+  @Test
   public void testBuildfiles_starlarkDep() throws Exception {
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+        """);
+
+    assertThat(targetLabels(eval("buildfiles(//test/starlark:BUILD)")))
+        .containsExactly("//test/starlark:extension.bzl", "//test/starlark:BUILD");
+  }
+
+  @Test
+  public void testBuildfiles_starlarkDep_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
     writeFile(
         "test//starlark/extension.bzl",
         """
@@ -155,6 +250,19 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
   @Test
   public void testLoadfiles_sclDep() throws Exception {
+    writeBzlAndSclFiles();
+
+    assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))
+        .containsExactly(
+            "//bar:direct.scl",
+            "//bar:indirect.scl",
+            "//bar:intermediate.bzl",
+            "//test_defs:foo_library.bzl");
+  }
+
+  @Test
+  public void testLoadfiles_sclDep_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
     writeBzlAndSclFiles();
 
     assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))
@@ -731,6 +839,197 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
     assertThat(evalToListOfStrings("deps('//a:r')"))
         .containsAtLeast("//a:r", "//a:a", "//a:b1", "//a:b2");
+  }
+
+  @Test
+  public void testMaterializerRuleQuery() throws Exception {
+
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output"])
+
+def _component_impl(ctx):
+   f = ctx.actions.declare_file(ctx.label.name + ".txt")
+   ctx.actions.write(f, ctx.label.name)
+   return ComponentInfo(output = f)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    # interleave these to make it more interesting
+    for cd in ctx.attr.all_components_dormant:
+        if "yes" in str(cd.label):
+            selected.append(cd)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components_dormant": attr.dormant_label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    files = [dep[ComponentInfo].output for dep in ctx.attr.deps]
+    return DefaultInfo(files = depset(direct = files))
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components_dormant = [":a_yes", ":b_yes", ":c_no", ":d_no"],
+)
+
+component(name = "aaa")
+component(name = "a_yes")
+component(name = "b_yes")
+component(name = "c_no")
+component(name = "d_no")
+component(name = "zzz")
+""");
+
+    // This should return all the possible deps, as opposed to just the selected deps.
+    assertThat(evalToListOfStrings("deps('//:bin')"))
+        .containsAtLeast(
+            "//:aaa",
+            "//:a_yes",
+            "//:b_yes",
+            "//:c_no",
+            "//:d_no",
+            "//:zzz",
+            "//:component_selector");
+
+    // The direct deps should contain only component_selector and none of the selected deps
+    // because it's not known at query (i.e. only loading time) what deps are selected.
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    assertThat(directDeps).containsAtLeast("//:aaa", "//:component_selector", "//:zzz");
+    assertThat(directDeps).containsNoneOf("//:a_yes", "//:b_yes", "//:c_no", "//:d_no");
+  }
+
+  @Test
+  public void testMaterializerRuleRealDepsQuery() throws Exception {
+
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output", "info"])
+
+def _component_impl(ctx):
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f, info = ctx.attr.info)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+    attrs = {
+        "info": attr.string(),
+    }
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    for c in ctx.attr.all_components:
+        if "yes" in c[ComponentInfo].info:
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    files = [dep[ComponentInfo].output for dep in ctx.attr.deps]
+    return DefaultInfo(files = depset(direct = files))
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components = [":a", ":b", ":c", ":d"],
+)
+
+component(name = "aaa")
+component(name = "a", info = "yes")
+component(name = "b", info = "yes")
+component(name = "c", info = "no")
+component(name = "d", info = "no")
+component(name = "zzz")
+""");
+
+    // The transitive deps should return all the possible deps, as opposed to just the selected
+    // deps because the materialize rule will have all the deps.
+    ImmutableList<String> allDeps = evalToListOfStrings("deps('//:bin')");
+    assertThat(allDeps)
+        .containsAtLeast(
+            "//:aaa", "//:a", "//:b", "//:c", "//:d", "//:zzz", "//:component_selector");
+
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    assertThat(directDeps).containsAtLeast("//:aaa", "//:component_selector", "//:zzz");
+    // The selected deps materialized from the materializer rule can't be known until
+    // analysis time, so they should not be included in the direct deps. After analysis, a and b
+    // would be direct depds of bin.
+    assertThat(directDeps).containsNoneOf("//:a", "//:b", "//:c", "//:d");
   }
 
   protected Iterable<String> targetLabels(Set<Target> targets) {

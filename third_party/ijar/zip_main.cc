@@ -128,8 +128,20 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   }
   if (extract_) {
     char path[PATH_MAX];
-    if (!concat_path(path, sizeof(path), output_root_, output_file_name) ||
-        !make_dirs(path, perm) ||
+    if (!concat_path(path, sizeof(path), output_root_, output_file_name)) {
+      abort();
+    }
+    std::string normalized_root = normalize_path(output_root_);
+    std::string normalized = normalize_path(path);
+    if (normalized.compare(0, normalized_root.size(), normalized_root) != 0) {
+      fprintf(stderr,
+              "paths in the zip may not end up outside of the output "
+              "directory: %s vs "
+              "%s\n",
+              path, normalized.c_str());
+      abort();
+    }
+    if (!make_dirs(path, perm) ||
         (!isdir && !write_file(path, perm, data, size))) {
       abort();
     }
@@ -246,6 +258,12 @@ char **read_filelist(char *filename) {
   if (!stat_file(filename, &file_stat)) {
     fprintf(stderr, "Cannot stat file %s: %s\n", filename, strerror(errno));
     return NULL;
+  }
+
+  if (file_stat.total_size == 0) {
+    char** filelist = static_cast<char**>(malloc(sizeof(char*)));
+    filelist[0] = NULL;
+    return filelist;
   }
 
   char *data = static_cast<char *>(malloc(file_stat.total_size));

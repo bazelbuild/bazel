@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -41,21 +41,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 if [[ -n "${1:-}" ]]; then
   declare -r DISTFILE=$(rlocation io_bazel/${1#./})
@@ -114,16 +99,17 @@ function test_bootstrap() {
     # the repo cache is currently missing canonical IDs
     export BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0
 
-    JAVA_VERSION=exotic # so we don't accidentally match something else
+    JAVA_VERSION=100 # so we don't accidentally match something else
 
     # create a fake toolchain to avoid @remote_java_tools
     # this can't actually build anything, but we're just testing analysis
     mkdir fake_java_toolchain
     touch fake_java_toolchain/dummy.jar
     cat << EOF > fake_java_toolchain/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "fake_java_toolchain",
+    bootclasspath = [":dummy.jar"],
     genclass = [":dummy.jar"],
     header_compiler = [":dummy.jar"],
     header_compiler_direct = [":dummy.jar"],
@@ -142,10 +128,10 @@ EOF
 
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-      build --nobuild --repository_cache=derived/repository_cache \
+      build --nobuild --repository_cache=derived/repository_cache --repo_contents_cache= \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
-      --tool_java_runtime_version=local_jdk \
+      --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"

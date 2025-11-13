@@ -127,6 +127,16 @@ final class NodePrinter {
   void printDefSignature(DefStatement def) {
     buf.append("def ");
     printExpr(def.getIdentifier());
+    if (!def.getTypeParameters().isEmpty()) {
+      buf.append("[");
+      String sep = "";
+      for (Identifier typeParam : def.getTypeParameters()) {
+        buf.append(sep);
+        printExpr(typeParam);
+        sep = ", ";
+      }
+      buf.append("]");
+    }
     buf.append('(');
     String sep = "";
     for (Parameter param : def.getParameters()) {
@@ -154,6 +164,11 @@ final class NodePrinter {
         {
           AssignmentStatement stmt = (AssignmentStatement) s;
           printExpr(stmt.getLHS());
+          Expression type = stmt.getType();
+          if (type != null) {
+            buf.append(" : ");
+            printExpr(type);
+          }
           buf.append(' ');
           if (stmt.isAugmented()) {
             buf.append(stmt.getOperator());
@@ -257,6 +272,37 @@ final class NodePrinter {
           buf.append('\n');
           break;
         }
+
+      case TYPE_ALIAS:
+        {
+          TypeAliasStatement stmt = (TypeAliasStatement) s;
+          buf.append("type ");
+          printExpr(stmt.getIdentifier());
+          if (!stmt.getParameters().isEmpty()) {
+            buf.append('[');
+            String sep = "";
+            for (Identifier param : stmt.getParameters()) {
+              buf.append(sep);
+              printExpr(param);
+              sep = ", ";
+            }
+            buf.append(']');
+          }
+          buf.append(" = ");
+          printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+          buf.append('\n');
+          break;
+        }
+
+      case VAR:
+        {
+          VarStatement stmt = (VarStatement) s;
+          printExpr(stmt.getIdentifier());
+          buf.append(" : ");
+          printExpr(stmt.getType());
+          buf.append('\n');
+          break;
+        }
     }
   }
 
@@ -355,6 +401,23 @@ final class NodePrinter {
           break;
         }
 
+      case CAST:
+        {
+          CastExpression cast = (CastExpression) expr;
+          buf.append("cast(");
+          printExpr(cast.getType(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(')');
+          break;
+        }
+
+      case ELLIPSIS:
+        {
+          buf.append("...");
+          break;
+        }
+
       case IDENTIFIER:
         buf.append(((Identifier) expr).getName());
         break;
@@ -372,6 +435,17 @@ final class NodePrinter {
       case INT_LITERAL:
         {
           buf.append(((IntLiteral) expr).getValue());
+          break;
+        }
+
+      case ISINSTANCE:
+        {
+          IsInstanceExpression isinstance = (IsInstanceExpression) expr;
+          buf.append("isinstance(");
+          printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
+          buf.append(')');
           break;
         }
 

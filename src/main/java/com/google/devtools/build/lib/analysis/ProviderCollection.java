@@ -83,10 +83,6 @@ public interface ProviderCollection {
    */
   @Nullable
   default Object get(StarlarkProviderIdentifier id) {
-    if (id.isLegacy()) {
-      return this.get(id.getLegacyId());
-    } else {
-      return this.get(id.getKey());
-    }
+    return this.get(id.getKey());
   }
 }

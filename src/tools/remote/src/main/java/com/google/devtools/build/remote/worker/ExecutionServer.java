@@ -15,6 +15,8 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -54,6 +56,7 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
@@ -73,7 +76,6 @@ import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -305,7 +307,7 @@ final class ExecutionServer extends ExecutionImplBase {
       throw StatusUtils.missingBlobError(e.getMissingDigest());
     }
 
-    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
+    Path workingDirectory = execRoot.getRelative(unicodeToInternal(command.getWorkingDirectory()));
     workingDirectory.createDirectoryAndParents();
 
     List<Path> outputs;
@@ -313,7 +315,7 @@ final class ExecutionServer extends ExecutionImplBase {
       outputs =
           new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
       for (String output : command.getOutputFilesList()) {
-        var file = workingDirectory.getRelative(output);
+        var file = workingDirectory.getRelative(unicodeToInternal(output));
         if (file.exists()) {
           throw new FileAlreadyExistsException("Output file already exists: " + file);
         }
@@ -321,7 +323,7 @@ final class ExecutionServer extends ExecutionImplBase {
         outputs.add(file);
       }
       for (String output : command.getOutputDirectoriesList()) {
-        Path file = workingDirectory.getRelative(output);
+        Path file = workingDirectory.getRelative(unicodeToInternal(output));
         if (file.exists()) {
           if (!file.isDirectory()) {
             throw new FileAlreadyExistsException(
@@ -334,7 +336,7 @@ final class ExecutionServer extends ExecutionImplBase {
     } else {
       outputs = new ArrayList<>(command.getOutputPathsCount());
       for (String output : command.getOutputPathsList()) {
-        var file = workingDirectory.getRelative(output);
+        var file = workingDirectory.getRelative(unicodeToInternal(output));
         // Since https://github.com/bazelbuild/bazel/pull/15818,
         // Bazel includes all expected output directories as part of Action's inputs.
         //
@@ -351,7 +353,7 @@ final class ExecutionServer extends ExecutionImplBase {
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.
     com.google.devtools.build.lib.shell.Command cmd =
-        getCommand(command, workingDirectory.getPathString());
+        getCommand(command, workingDirectory.asFragment());
     Instant startTime = Instant.now();
     CommandResult cmdResult = null;
 
@@ -390,7 +392,7 @@ final class ExecutionServer extends ExecutionImplBase {
         final String errMessage =
             String.format(
                 "Command:\n%s\nexceeded deadline of %f seconds.",
-                Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
+                getArguments(command), timeoutMillis / 1000.0);
         logger.atWarning().log("%s", errMessage);
         errStatus =
             Status.newBuilder()
@@ -408,7 +410,6 @@ final class ExecutionServer extends ExecutionImplBase {
       try {
         UploadManifest manifest =
             UploadManifest.create(
-                cache.getRemoteOptions(),
                 cache.getRemoteCacheCapabilities(),
                 digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
@@ -419,7 +420,8 @@ final class ExecutionServer extends ExecutionImplBase {
                 outErr,
                 exitCode,
                 startTime,
-                (int) wallTime.toMillis());
+                (int) wallTime.toMillis(),
+                /* preserveExecutableBit= */ false);
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {
@@ -472,11 +474,19 @@ final class ExecutionServer extends ExecutionImplBase {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
   }
 
+  private static ImmutableList<String> getArguments(Command command) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (String arg : command.getArgumentsList()) {
+      result.add(unicodeToInternal(arg));
+    }
+    return result.build();
+  }
+
   private Map<String, String> getEnvironmentVariables(Command command)
       throws IOException, InterruptedException {
     HashMap<String, String> result = new HashMap<>();
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
-      result.put(v.getName(), v.getValue());
+      result.put(unicodeToInternal(v.getName()), unicodeToInternal(v.getValue()));
     }
     return new HashMap<>(localEnvProvider.rewriteLocalEnv(result, binTools, "/tmp"));
   }
@@ -490,10 +500,11 @@ final class ExecutionServer extends ExecutionImplBase {
   private static long getUid() throws InterruptedException {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
-            new String[] {"id", "-u"},
+            ImmutableList.of("id", "-u"),
             /* environmentVariables= */ null,
             /* workingDirectory= */ null,
-            uidTimeout);
+            uidTimeout,
+            System.getenv());
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
@@ -511,7 +522,9 @@ final class ExecutionServer extends ExecutionImplBase {
   private static String dockerContainer(Command cmd) throws StatusException {
     String result = null;
     for (Platform.Property property : cmd.getPlatform().getPropertiesList()) {
-      if (property.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
+      String name = unicodeToInternal(property.getName());
+      String value = unicodeToInternal(property.getValue());
+      if (name.equals(CONTAINER_IMAGE_ENTRY_NAME)) {
         if (result != null) {
           // Multiple container name entries
           throw StatusUtils.invalidArgumentError(
@@ -519,7 +532,7 @@ final class ExecutionServer extends ExecutionImplBase {
               String.format(
                   "Multiple entries for %s in action.Platform", CONTAINER_IMAGE_ENTRY_NAME));
         }
-        result = property.getValue();
+        result = value;
         if (!result.startsWith(DOCKER_IMAGE_PREFIX)) {
           throw StatusUtils.invalidArgumentError(
               "platform", // Field name.
@@ -540,27 +553,31 @@ final class ExecutionServer extends ExecutionImplBase {
     }
 
     String separator = "";
-    StringBuilder value = new StringBuilder();
+    StringBuilder result = new StringBuilder();
     for (Property property : platform.getPropertiesList()) {
-      value.append(separator).append(property.getName()).append("=").append(property.getValue());
+      String name = unicodeToInternal(property.getName());
+      String value = unicodeToInternal(property.getValue());
+      result.append(separator).append(name).append("=").append(value);
       separator = ",";
     }
-    return value.toString();
+    return result.toString();
   }
 
   // Converts the Command proto into the shell Command object.
   // If no docker container is specified, creates a Command straight from the
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
-  private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
+  private com.google.devtools.build.lib.shell.Command getCommand(
+      Command cmd, PathFragment workingDirectory)
       throws StatusException, InterruptedException, IOException {
+    ImmutableList<String> arguments = getArguments(cmd);
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
     // This allows Bazel's integration tests to test for the remote platform.
     environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));
     String container = dockerContainer(cmd);
     if (container != null) {
       // Run command inside a docker container.
-      ArrayList<String> newCommandLineElements = new ArrayList<>(cmd.getArgumentsCount());
+      ArrayList<String> newCommandLineElements = new ArrayList<>(arguments.size());
       newCommandLineElements.add("docker");
       newCommandLineElements.add("run");
 
@@ -574,9 +591,10 @@ final class ExecutionServer extends ExecutionImplBase {
         }
       }
 
-      String dockerPathString = pathString + "-docker";
+      String dockerPathString = workingDirectory.getPathString() + "-docker";
+
       newCommandLineElements.add("-v");
-      newCommandLineElements.add(pathString + ":" + dockerPathString);
+      newCommandLineElements.add(workingDirectory.getPathString() + ":" + dockerPathString);
       newCommandLineElements.add("-w");
       newCommandLineElements.add(dockerPathString);
 
@@ -590,37 +608,42 @@ final class ExecutionServer extends ExecutionImplBase {
 
       newCommandLineElements.add(container);
 
-      newCommandLineElements.addAll(cmd.getArgumentsList());
+      newCommandLineElements.addAll(arguments);
 
       return new com.google.devtools.build.lib.shell.Command(
-          newCommandLineElements.toArray(new String[0]), null, new File(pathString));
+          newCommandLineElements,
+          null,
+          new File(internalToPlatform(workingDirectory.getPathString())),
+          System.getenv());
     } else if (sandboxPath != null) {
       // Run command with sandboxing.
-      ArrayList<String> newCommandLineElements = new ArrayList<>(cmd.getArgumentsCount());
+      ArrayList<String> newCommandLineElements = new ArrayList<>(arguments.size());
       newCommandLineElements.add(sandboxPath.getPathString());
       if (workerOptions.sandboxingBlockNetwork) {
         newCommandLineElements.add("-N");
       }
-      for (String writablePath : workerOptions.sandboxingWritablePaths) {
+      for (PathFragment writablePath : workerOptions.sandboxingWritablePaths) {
         newCommandLineElements.add("-w");
-        newCommandLineElements.add(writablePath);
+        newCommandLineElements.add(writablePath.getPathString());
       }
-      for (String tmpfsDir : workerOptions.sandboxingTmpfsDirs) {
+      for (PathFragment tmpfsDir : workerOptions.sandboxingTmpfsDirs) {
         newCommandLineElements.add("-e");
-        newCommandLineElements.add(tmpfsDir);
+        newCommandLineElements.add(tmpfsDir.getPathString());
       }
       newCommandLineElements.add("--");
-      newCommandLineElements.addAll(cmd.getArgumentsList());
+      newCommandLineElements.addAll(arguments);
       return new com.google.devtools.build.lib.shell.Command(
-          newCommandLineElements.toArray(new String[0]),
+          newCommandLineElements,
           environmentVariables,
-          new File(pathString));
+          new File(internalToPlatform(workingDirectory.getPathString())),
+          System.getenv());
     } else {
       // Just run the command.
       return new com.google.devtools.build.lib.shell.Command(
-          cmd.getArgumentsList().toArray(new String[0]),
+          arguments,
           environmentVariables,
-          new File(pathString));
+          new File(internalToPlatform(workingDirectory.getPathString())),
+          System.getenv());
     }
   }
 }

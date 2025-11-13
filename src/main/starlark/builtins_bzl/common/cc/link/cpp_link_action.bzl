@@ -11,16 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Functions that create C++ link action."""
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category")
+load(":common/cc/cc_helper_internal.bzl", artifact_category = "artifact_category_names")
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/link_build_variables.bzl", "setup_linking_variables")
+load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 def link_action(
         *,
@@ -39,13 +41,10 @@ def link_action(
         additional_object_files = [],
 
         # Inputs from linking_contexts and toolchain:
-        libraries,
+        libraries_to_link,
         linkstamps,
         linkopts,
         non_code_inputs,
-        # TODO(b/331164666): merge into libraries or additional_object_files
-        toolchain_libraries_type,
-        toolchain_libraries_input,
 
         # Custom user input/output files and variables:
         additional_linker_inputs,  # TODO(b/331164666): rename to linker_input_files
@@ -72,8 +71,6 @@ def link_action(
     The function collects all object files, maps them with LTO mapping when present.
     It declares linkstamp object (but doesn't yet compile them).
 
-    All object files are wrapped with LegacyLinkerInputs.
-
     It prepares link build variables specific to linking actions and creates the
     action by calling `finalize_link_action`.
 
@@ -92,12 +89,10 @@ def link_action(
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         compilation_outputs: (CompilationOutputs) Compilation outputs containing object files to link.
         additional_object_files: (list[File]) Additional object files not in the `compilation_outputs`.
-        libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         linkstamps: (list[Linkstamp]) The linkstamps to use.
         linkopts: (list[str]) Additional list of linker options.
         non_code_inputs: (list[File]) Additional inputs to the linker.
-        toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
-        toolchain_libraries_input: (depset[File]) Toolchain libraries.
         additional_linker_inputs: (list[File]|depset[File]) For additional inputs to the linking action,
           e.g.: linking scripts.
         link_action_outputs: (list[File]) For additional outputs to the linking action, e.g.: map files.
@@ -124,7 +119,7 @@ def link_action(
         fail("Executables can't have library identifier", library_identifier, link_type.executable)
     if interface_output and not is_dynamic_library(link_type):
         fail("Interface output can only be used with DYNAMIC_LIBRARY targets")
-    if not cc_common_internal.action_is_enabled(
+    if not _cc_common_internal.action_is_enabled(
         feature_configuration = feature_configuration,
         action_name = link_type.action_name,
     ):
@@ -143,14 +138,14 @@ def link_action(
     # We're doing 4-phased lto build, and this is the final link action (4-th phase).
     if all_lto_artifacts:
         for lto_artifact in all_lto_artifacts:
-            lto_mapping[lto_artifact.bitcode_file()] = lto_artifact.object_file()
+            lto_mapping[lto_artifact._bitcode_file] = lto_artifact._object_file
 
     if thinlto_param_file:
         non_code_inputs.append(thinlto_param_file)
 
     linkstamp_map = _map_linkstamps_to_outputs(actions, linkstamps, output)
-    linkstamp_object_file_inputs = [cc_internal.linkstamp_linker_input(input) for input in linkstamp_map.values()]
-    object_file_inputs = [cc_internal.simple_linker_input(input) for input in object_files]
+    linkstamp_object_file_inputs = linkstamp_map.values()
+    object_file_inputs = object_files
 
     object_artifacts = [lto_mapping.get(obj, obj) for obj in object_files]
     linkstamp_object_artifacts = [lto_mapping.get(obj, obj) for obj in linkstamp_map.values()]
@@ -158,7 +153,7 @@ def link_action(
     combined_object_artifacts = object_artifacts + linkstamp_object_artifacts
 
     output_library = None
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
     if not link_type.executable:
         use_archiver = link_type.linker_or_archiver == USE_ARCHIVER
         output_library = struct(
@@ -167,7 +162,7 @@ def link_action(
             library_identifier = library_identifier,
             object_files = combined_object_artifacts if use_archiver else [],
             lto_compilation_context = lto_compilation_context if use_archiver else [],
-            shared_non_lto_backends = cc_internal.create_shared_non_lto_artifacts(
+            shared_non_lto_backends = create_shared_non_lto_artifacts(
                 actions,
                 lto_compilation_context,
                 link_type.linker_or_archiver == USE_LINKER,
@@ -197,7 +192,7 @@ def link_action(
         cc_toolchain,
         feature_configuration,
         output,
-        cc_internal.dynamic_library_soname(
+        _cc_internal.dynamic_library_soname(
             actions,
             output.short_path,
             link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY,
@@ -222,12 +217,10 @@ def link_action(
         # Inputs:
         object_file_inputs,
         non_code_inputs,
-        libraries,
+        libraries_to_link,
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
-        toolchain_libraries_type,
-        toolchain_libraries_input,
         user_link_flags,
         # Custom user input files and variables:
         additional_linker_inputs,
@@ -280,3 +273,5 @@ def _map_linkstamps_to_outputs(actions, linkstamps, output):
         stamp_output_file = actions.declare_shareable_artifact(stamp_output_path)
         map[linkstamp] = stamp_output_file
     return map
+
+# LINT.ThenChange(@rules_cc//cc/private/link/cpp_link_action.bzl:forked_exports)

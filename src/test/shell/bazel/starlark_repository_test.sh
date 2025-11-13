@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -41,24 +41,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+  # Disable MSYS path conversion.
+  export MSYS2_ARG_CONV_EXCL='*'
+  export MSYS_NO_PATHCONV=1
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
@@ -312,7 +300,7 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
-  if "$is_windows"; then
+  if is_windows; then
     repo2="$(cygpath $repo2)"
   fi
   expect_log "PWD=$repo2 TOTO=titi"
@@ -321,7 +309,7 @@ EOF
 function test_starlark_repository_unicode() {
   setup_starlark_repository
 
-  if "$is_windows"; then
+  if is_windows; then
     # äöüÄÖÜß in UTF-8
     local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
   else
@@ -426,18 +414,18 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
-  # Test that --action_env value is taken
+  # Test that --repo_env value is taken
   # TODO(dmarting): The current implemnentation cannot invalidate on environment
   # but the incoming change can declare environment dependency, once this is
   # done, maybe we should update this test to remove clean --expunge and use the
   # invalidation mechanism instead?
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZINGA"
 
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZ"
   expect_not_log "BAZINGA"
@@ -498,7 +486,7 @@ function setup_invalidation_test() {
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --repo_env will cause all repositories to re-run).
   local execution_file="${TEST_TMPDIR}/execution"
 
   # Our custom repository rule
@@ -596,28 +584,29 @@ function environ_invalidation_test_template() {
 
 function environ_invalidation_action_env_test_template() {
   local startup_flag="${1-}"
+  local command_flag="--noincompatible_repo_env_ignores_action_env"
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
   local execution_file="$(setup_invalidation_test)"
 
   # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
   assert_equals 1 $(cat "${execution_file}")
 
   # Test with changing using --action_env
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
@@ -645,7 +634,7 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -724,7 +713,7 @@ EOF
 function file_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -758,7 +747,7 @@ function test_starlark_repository_file_invalidation_batch() {
 function starlark_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
   ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
@@ -880,6 +869,51 @@ EOF
       || fail "Expected unrelated action to not be rerun"
 }
 
+function test_repo_env_workspace_interpolation() {
+  setup_starlark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  tool_name = "my_tool.bat" if "windows" in ctx.os.name else "my_tool"
+  tool = ctx.which(tool_name)
+  if tool == None:
+    fail("{} not found in PATH = {}".format(tool_name, ctx.os.environ["PATH"]))
+  result = ctx.execute([tool])
+  if result.return_code != 0:
+    fail("my_tool failed ({}, PATH = {}): {}".format(result.return_code, ctx.os.environ["PATH"], result.stderr))
+  ctx.file("out.txt", result.stdout)
+  ctx.file("BUILD", 'exports_files(["out.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  mkdir -p repo_tools
+  cat > repo_tools/my_tool.bat <<'EOF'
+@echo off
+echo Hello from my_tool
+EOF
+  cp repo_tools/my_tool.bat repo_tools/my_tool
+  chmod +x repo_tools/my_tool
+
+  if is_windows; then
+    local repo_env_path="%bazel_workspace%\\\\repo_tools;$PATH"
+  else
+    local repo_env_path="%bazel_workspace%/repo_tools:$PATH"
+  fi
+  bazel build --repo_env=PATH="$repo_env_path" //:repoenv &> $TEST_log || fail "Failed to build"
+  assert_contains "Hello from my_tool" `bazel info bazel-bin 2>/dev/null`/repoenv.txt
+}
+
 function test_repo_env_inverse() {
   # This test makes sure that a repository rule that has no dependencies on
   # environment variables does _not_ get refetched when --repo_env changes.
@@ -975,7 +1009,7 @@ EOF
 }
 
 function test_starlark_repository_executable_flag() {
-  if "$is_windows"; then
+  if is_windows; then
     # There is no executable flag on Windows.
     echo "Skipping test_starlark_repository_executable_flag on Windows"
     return
@@ -1047,7 +1081,7 @@ EOF
     || fail "download_executable_file.sh is not downloaded successfully"
 
   # No executable flag for file on Windows
-  if "$is_windows"; then
+  if is_windows;then
     return
   fi
 
@@ -1083,7 +1117,7 @@ function test_starlark_repository_context_downloads_return_struct() {
 
   # On Windows, a file url should be file:///C:/foo/bar,
   # we need to add one more slash at the beginning.
-  if "$is_windows"; then
+  if is_windows; then
     server_dir="/${server_dir}"
   fi
 
@@ -1351,59 +1385,78 @@ maybe_with_auth(
 )
 EOF
 
-  cat > BUILD <<'EOF'
-genrule(
-  name = "it",
-  srcs = ["@ext//x:file.txt"],
-  outs = ["it.txt"],
-  cmd = "cp $< $@",
-)
-EOF
+  touch BUILD
 }
 
 function test_auth_from_starlark() {
   setup_auth foo bar
 
-  bazel build //:it \
-      || fail "Expected success when downloading repo with basic auth"
+  bazel fetch --force @ext//... \
+      || fail "Expected success when fetching repo with basic auth"
 }
 
 function test_auth_from_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
-  setup_auth # no auth
+  setup_auth # no auth headers in bzl
 
-  bazel build //:it \
-      && fail "Expected failure when downloading repo without credential helper"
+  bazel fetch --force @ext//... \
+      && fail "Expected failure when fetching repo without credential helper"
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
 }
 
-function test_auth_from_credential_helper_overrides_starlark() {
-  if "$is_windows"; then
+function test_auth_from_credential_helper_with_expiry() {
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 0 # expire credentials immediately
+
+  setup_auth # no auth headers in bzl
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 1
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 2 # expect credentials to have been re-fetched
+}
+
+function test_auth_from_credential_helper_overrides_starlark() {
+  if is_windows; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper 3600
 
   setup_auth baduser badpass
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper overriding basic auth"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper overriding basic auth"
 }
 
 function test_netrc_reading() {
@@ -1436,7 +1489,7 @@ netrcrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1512,6 +1565,12 @@ password passbar🌱
 # following lines mix tabs and spaces
 machine	  oauthlife.com
 	password	TOKEN
+
+# Password-only auth credentials, will not be passed into `patterns` like oauthlife.com.
+machine baz.example.org password ABCDEFG
+
+# Test for warning mechanism.
+machine qux.example.org
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dictionary to disk; this
@@ -1535,7 +1594,7 @@ authrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1552,6 +1611,8 @@ authrepo(
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
     "https://oauthlife.com/fizz/buzz/file5.tar",
+    "https://baz.example.org/file6.tar",
+    "http://qux.example.org/file7.tar",
   ],
 )
 EOF
@@ -1579,6 +1640,11 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://baz.example.org/file6.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "ABCDEFG",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'
@@ -1605,6 +1671,7 @@ EOF
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
   expect_log "authrepo is being evaluated"
+  expect_log "WARNING: Found machine in \.netrc for URL .*qux\.example\.org.*, but no password\."
 
   echo "modified" > .netrc
   bazel build //:check_expected &> $TEST_log || fail "Expected success"
@@ -1654,7 +1721,9 @@ EOF
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
-    rm -fr "${TEST_TMPDIR}/server_dir"
+    # On Windows, the server process may not release file handles immediately,
+    # so we need to retry the deletion.
+    try_with_timeout rm -fr "${TEST_TMPDIR}/server_dir"
   fi
   true
 }
@@ -1667,7 +1736,7 @@ function test_http_archive_netrc() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1704,7 +1773,7 @@ function test_http_archive_auth_patterns() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1744,7 +1813,7 @@ function test_http_archive_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1776,12 +1845,12 @@ EOF
 }
 
 function test_http_archive_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1810,12 +1879,12 @@ EOF
 }
 
 function test_http_archive_credential_helper_overrides_netrc() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1825,7 +1894,7 @@ function test_http_archive_credential_helper_overrides_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1888,7 +1957,7 @@ EOF
   expect_log "Failed to download repository @.*: download is disabled"
 }
 
-function test_no_restarts_fetching_with_worker_thread() {
+function test_no_restarts() {
   setup_starlark_repository
 
   echo foo > file1
@@ -1904,21 +1973,7 @@ def _impl(rctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  # no worker thread, restarts twice
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 3
-
-  # platform worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 1
-
-  # virtual worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
-    || fail "Expected build to succeed"
+  bazel build @foo//:bar >& $TEST_log || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
 }
 
@@ -1946,12 +2001,12 @@ EOF
 
 
 function test_cred_helper_overrides_starlark_headers() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   filename="cred_helper_starlark.txt"
   echo $filename > $filename
@@ -2617,7 +2672,7 @@ EOF
 }
 
 function test_watch_file_status_change_dangling_symlink() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2659,7 +2714,7 @@ EOF
 }
 
 function test_watch_file_status_change_symlink_parent() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2842,7 +2897,7 @@ EOF
 
   repo_cache_dir=$TEST_TMPDIR/repository_cache
   trap 'rm -rf ${repo_cache_dir}' EXIT
-  bazel build --repository_cache="$repo_cache_dir" \
+  bazel build --repository_cache="$repo_cache_dir" --action_env=PATH \
     //:unique_hashes >& $TEST_log || fail "expected bazel to succeed"
   assert_equals 1 "$(wc -l < bazel-bin/unique_hashes | tr -d ' ')"
   assert_equals $sha "$(cat bazel-bin/unique_hashes)"
@@ -2854,7 +2909,7 @@ EOF
 
 function test_keep_going_weird_deadlock() {
   # regression test for b/330892334
-  if "$is_windows"; then
+  if is_windows; then
     # no symlinks on windows
     return
   fi
@@ -2961,6 +3016,58 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
+function test_execute_environment_repo_env_ignores_action_env_off() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if vars.get("ACTION_ENV_PRESENT") != "value1":
+    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --noincompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_PRESENT=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
+function test_execute_environment_repo_env_ignores_action_env_on() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if "ACTION_ENV_REMOVED" in vars:
+    fail("ACTION_ENV_REMOVED should not be in the environment")
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --incompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_REMOVED=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
 function test_dependency_on_repo_with_invalid_name() {
   cat >> $(setup_module_dot_bazel) <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
@@ -2977,6 +3084,496 @@ EOF
   bazel build @repo//... &> $TEST_log && fail "expected Bazel to fail"
   expect_not_log "Unrecoverable error"
   expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
+}
+
+function test_load_and_execute_wasm() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  result_err = repository_ctx.execute_wasm(wasm_module, "run_err", input="")
+  print('result_err.output: %r' % (result_err.output,))
+  print('result_err.return_code: %r' % (result_err.return_code,))
+  print('result_err.error_message: %r' % (result_err.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+
+  expect_log 'result_err.output: "err"'
+  expect_log 'result_err.return_code: 1'
+  expect_log 'result_err.error_message: ""'
+}
+
+function test_resolved_attributes_shows_no_message_if_unchanged() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr3 = "//:default",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "attr1": repository_ctx.attr.attr1,
+    "attr2": repository_ctx.attr.attr2,
+    "attr5": "",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs={
+    # Consistently changed from default.
+    "attr1": attr.string(default = "default1"),
+    # Unchanged from default.
+    "attr2": attr.string(),
+    # Explicitly set to default in rule attributes, not contained in returned dict.
+    "attr3": attr.label(default = "//:default"),
+    # Not set or included in the returned dict.
+    "attr4": attr.label(),
+    # Not set in rule attributes, but returned as default in the dict.
+    "attr5": attr.string(),
+    "_implicit": attr.string(default = "hi"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "indicated that a canonical reproducible form can be obtained"
+  expect_not_log "modifying"
+  expect_not_log "dropping"
+}
+
+function test_resolved_attributes_shows_message_if_changed() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr2 = "value2",
+  attr3 = "value3",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "name": repository_ctx.attr.name,
+    "attr1": "default2",
+    "attr2": "default2",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "attr1": attr.string(default = "default1"),
+    "attr2": attr.string(default = "default2"),
+    "attr3": attr.string(default = "default3"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "indicated that a canonical reproducible form can be obtained"
+  expect_log "by modifying arguments attr1 = \"default2\" and dropping \[attr2, attr3\]"
+}
+
+function test_download_then_extract() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "This is one file" > ${server_dir}/download_then_extract.txt
+  zip -r ${server_dir}/download_then_extract.zip server_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.zip | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("http://localhost:${fileserver_port}/download_then_extract.zip", "downloaded_file.zip", "${file_sha256}")
+  repository_ctx.extract("downloaded_file.zip", "out_dir", "server_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_then_extract.txt"
+
+  shutdown_server
+}
+
+function test_download_then_extract_tar() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local data_dir="${TEST_TMPDIR}/data_dir"
+  mkdir -p "${server_dir}"
+  mkdir -p "${data_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
+  tar -zcvf server_dir/download_then_extract.tar.gz data_dir
+  file_sha256="$(sha256sum server_dir/download_then_extract.tar.gz | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("http://localhost:${fileserver_port}/download_then_extract.tar.gz", "downloaded_file.tar.gz", "${file_sha256}")
+  repository_ctx.extract("downloaded_file.tar.gz", "out_dir", "data_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "Experiment with tar" "$output_base/external/+repo+foo/out_dir/download_then_extract_tar.txt"
+
+  shutdown_server
+}
+
+function test_download_and_extract() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "This is one file" > ${server_dir}/download_and_extract.txt
+  zip -r ${server_dir}/download_and_extract.zip server_dir
+  file_sha256="$(sha256sum ${server_dir}/download_and_extract.zip | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract("http://localhost:${fileserver_port}/download_and_extract.zip", "out_dir", "${file_sha256}", "zip", "server_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_and_extract.txt"
+
+  shutdown_server
+}
+
+function test_extract_rename_files() {
+  local archive_tar="${TEST_TMPDIR}/archive.tar"
+
+  # Create a tar archive with two entries, which would have conflicting
+  # paths if extracted to a case-insensitive filesystem.
+  pushd "${TEST_TMPDIR}"
+  mkdir prefix
+  echo "First file: a" > prefix/a.txt
+  tar -cvf archive.tar prefix
+  rm prefix/a.txt
+  echo "Second file: A" > prefix/A.txt
+  tar -rvf archive.tar prefix
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'prefix/', rename_files={
+    'prefix/A.txt': 'prefix/renamed-A.txt',
+  })
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "First file: a" "$output_base/external/+repo+foo/out_dir/a.txt"
+  assert_contains "Second file: A" "$output_base/external/+repo+foo/out_dir/renamed-A.txt"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/12986
+# Verifies that tar entries with PAX headers, which are always encoded in UTF-8, are extracted
+# correctly.
+function test_extract_pax_tar_non_ascii_utf8_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax_∅"
+  echo "bar" > "Ä_pax_∅/Ä_foo_∅.txt"
+  tar --format=pax -cvf pax.tar "Ä_pax_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding happens to be UTF-8.
+function test_extract_ustar_tar_non_ascii_utf8_file_names() {
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_∅"
+  echo "bar" > "Ä_ustar_∅/Ä_foo_∅.txt"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding is not UTF-8.
+function test_extract_ustar_tar_non_ascii_non_utf8_file_names() {
+  if ! is_linux; then
+    echo "Skipping test on non-Linux platforms due to lack of support for non-UTF-8 filenames"
+    return
+  fi
+
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_latin1_∅"
+  echo "bar" > "$(echo -e 'Ä_ustar_latin1_∅/\xC4_foo_latin1_\xD6.txt')"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_latin1_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_latin1_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$(echo -e "$output_base/external/+repo+foo/out_dir/\xC4_foo_latin1_\xD6.txt")"
+}
+
+function test_extract_default_zip_non_ascii_utf8_file_names() {
+  local archive_zip="${TEST_TMPDIR}/default.zip"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_default_∅"
+  echo "bar" > "Ä_default_∅/Ä_foo_∅.txt"
+  zip default.zip -r "Ä_default_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_zip}', 'out_dir', 'Ä_default_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+function test_read_roundtrip_utf8() {
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=False)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
+function test_sparse_tar() {
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract(
+      url='https://mirror.bazel.build/github.com/astral-sh/ruff/releases/download/v0.1.6/ruff-aarch64-apple-darwin.tar.gz',
+      sha256='0b626e88762b16908b3dbba8327341ddc13b37ebe6ec1a0db3f033ce5a44162d',
+  )
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  [[ -f "$output_base/external/+repo+foo/ruff" ]] || fail "Expected ruff binary to be extracted"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/27446.
+function do_test_local_module_file_patch() {
+  cat > $(setup_module_dot_bazel) <<'EOF'
+http_archive = use_repo_rule('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')
+# The MODULE.bazel file in this archive is not writeable.
+http_archive(
+  name = "rules_license",
+  urls = ["https://github.com/bazelbuild/rules_license/releases/download/1.0.0/rules_license-1.0.0.tar.gz"],
+  integrity = "sha256-JtQCH2iY4juC75UweDid1JrCtWGKxWSt5O+HzO0Uezg=",
+  patches = ["//:rules_license-rules_python-is-required-currently.patch"],
+  remote_module_file_urls = ["https://bcr.bazel.build/modules/rules_license/1.0.0/MODULE.bazel"],
+  remote_module_file_integrity = "sha256-p/2mDu/fPYyCcmK6SZlX5N8G9lkzC75s29uXW3aLtlw=",
+  patch_args = ["-p1"],
+)
+EOF
+
+  touch BUILD
+  cat > rules_license-rules_python-is-required-currently.patch <<'EOF'
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 639c7c3..a880bbf 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -11,8 +11,9 @@ module(
+ # That will require rules_python, which we do not want to force on people who
+ # do not need //tools.
+
++bazel_dep(name = "rules_python", version = "0.35.0")
++
+ # Only for development
+ bazel_dep(name = "bazel_skylib", version = "1.7.1", dev_dependency = True)
+ bazel_dep(name = "rules_pkg", version = "1.0.1", dev_dependency = True)
+-bazel_dep(name = "rules_python", version = "0.35.0", dev_dependency = True)
+ bazel_dep(name = "stardoc", version = "0.6.2", dev_dependency = True)
+EOF
+
+  bazel query "$1" @rules_license//:all \
+    >& $TEST_log || fail "Expected bazel to succeed"
+
+  # Verify that the patch was applied.
+  external_repo_dir="$(bazel info output_base)/external/+http_archive+rules_license"
+  grep -q 'bazel_dep(name = "rules_python", version = "0.35.0")' \
+    "$external_repo_dir/MODULE.bazel" || fail "Patch was not applied"
+}
+
+function test_local_module_file_patch_with_hardlinks() {
+  do_test_local_module_file_patch "--experimental_repository_cache_hardlinks"
+}
+
+function test_local_module_file_patch_with_copy() {
+  do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
 }
 
 run_suite "local repository tests"

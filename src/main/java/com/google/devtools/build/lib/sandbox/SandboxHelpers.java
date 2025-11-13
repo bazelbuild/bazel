@@ -21,13 +21,13 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -237,14 +237,15 @@ public final class SandboxHelpers {
   private static void copyFile(Path source, Path target) throws IOException {
     try (InputStream in = source.getInputStream();
         OutputStream out = target.getOutputStream()) {
-      ByteStreams.copy(in, out);
+      in.transferTo(out);
     } catch (FileAccessException e) {
+      // Actions may create unreadable output files.
       // Make the source file readable and try again (but only once).
       // Don't check the permissions upfront to optimize for the typical case.
       source.chmod(0644);
       try (InputStream in = source.getInputStream();
           OutputStream out = target.getOutputStream()) {
-        ByteStreams.copy(in, out);
+        in.transferTo(out);
       }
     }
   }
@@ -883,6 +884,11 @@ public final class SandboxHelpers {
         updateContentMap(absPath, timestamp, entry.getValue());
       }
     }
+  }
+
+  @VisibleForTesting
+  static void resetWarnedAboutMovesBeingCopiesForTesting() {
+    warnedAboutMovesBeingCopies.set(false);
   }
 
   private static boolean addParent(

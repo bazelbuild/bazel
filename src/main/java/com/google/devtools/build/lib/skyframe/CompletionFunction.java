@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -43,7 +42,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -53,11 +52,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanResult;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -65,9 +66,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -154,12 +153,6 @@ public final class CompletionFunction<
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws CompletionFunctionException, InterruptedException {
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-
     KeyT key = (KeyT) skyKey;
     Pair<ValueT, ArtifactsToBuild> valueAndArtifactsToBuild = getValueAndArtifactsToBuild(key, env);
     if (env.valuesMissing()) {
@@ -168,21 +161,8 @@ public final class CompletionFunction<
     ValueT value = valueAndArtifactsToBuild.first;
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
-    // Ensure that coverage artifacts are built before a target is considered completed.
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    InstrumentedFilesInfo instrumentedFilesInfo =
-        value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    Iterable<Artifact> artifactsToRequest = allArtifacts;
-    Artifact baselineCoverage = null;
-    FileArtifactValue baselineCoverageValue = null;
-    if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
-      baselineCoverage = instrumentedFilesInfo.getBaselineCoverageArtifact();
-      if (baselineCoverage != null) {
-        artifactsToRequest =
-            Iterables.concat(artifactsToRequest, ImmutableList.of(baselineCoverage));
-      }
-    }
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(artifactsToRequest));
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -202,15 +182,12 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
-    // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
-    Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
-
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
     FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
-    for (Artifact input : artifactsToRequest) {
+    for (Artifact input : allArtifacts) {
       try {
         SkyValue artifactValue =
             inputDeps.getOrThrow(
@@ -226,27 +203,26 @@ public final class CompletionFunction<
               env,
               value,
               key);
-        } else if (input.equals(baselineCoverage)) {
-          baselineCoverageValue =
-              ((ActionExecutionValue) artifactValue).getExistingFileArtifactValue(baselineCoverage);
         } else {
           builtArtifacts.add(input);
-          ActionInputMapHelper.addToMap(
-              inputMap, treeArtifacts::put, input, artifactValue, currentConsumer);
+          ActionInputMapHelper.addToMap(inputMap, input, artifactValue, currentConsumer);
           if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
             // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
             // updates to the secondary collections passed in (eg. treeArtifacts, expandedFilesets).
             // MetadataConsumerForMetrics.NO_OP is used to avoid double-counting.
             ActionInputMapHelper.addToMap(
-                importantInputMap,
-                treeArtifacts::put,
-                input,
-                artifactValue,
-                MetadataConsumerForMetrics.NO_OP);
+                importantInputMap, input, artifactValue, MetadataConsumerForMetrics.NO_OP);
           }
         }
       } catch (ActionExecutionException e) {
-        rootCausesBuilder.addTransitive(e.getRootCauses());
+        if (e.getRootCauses().isEmpty()) {
+          BugReport.sendNonFatalBugReport(
+              new IllegalStateException(
+                  "Caught ActionExecutionException from %s with no root causes".formatted(input),
+                  e));
+        } else {
+          rootCausesBuilder.addTransitive(e.getRootCauses());
+        }
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
             || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
@@ -262,24 +238,17 @@ public final class CompletionFunction<
     }
     CompletionContext ctx =
         CompletionContext.create(
-            treeArtifacts,
-            inputMap.getFilesets(),
-            baselineCoverageValue,
-            key.topLevelArtifactContext().expandFilesets(),
-            inputMap,
-            importantInputMap,
-            pathResolverFactory,
-            workspaceNameValue.getName());
+            key.topLevelArtifactContext().expandFilesets(), importantInputMap, pathResolverFactory);
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
-      Reset reset = null;
+      RewindPlanResult rewindPlanResult = null;
       if (!builtArtifacts.isEmpty()) {
         // In error bubbling, we may be interrupted by Skyframe. Ensure that the interrupt doesn't
         // prevent us from staging built artifacts and posting the failed event.
         boolean interruptedDuringErrorBubbling = env.inErrorBubbling() && Thread.interrupted();
         try {
-          reset =
+          rewindPlanResult =
               informImportantOutputHandler(
                   key,
                   value,
@@ -300,13 +269,13 @@ public final class CompletionFunction<
         }
       }
       postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
-      if (reset != null) {
+      if (rewindPlanResult != null) {
         // Only return a reset after posting the failed event. If we're in --nokeep_going mode, the
         // attempt to rewind will be ignored, so this is our only opportunity to post the event. If
         // we're in --keep_going mode, rewinding will take place, the event won't actually get
         // emitted (per the spec of SkyFunction.Environment#getListener for stored events), and
         // we'll get another opportunity to post an event after rewinding.
-        return reset;
+        return rewindPlanResult.toNullIfMissingDependenciesElseReset();
       }
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
@@ -333,7 +302,7 @@ public final class CompletionFunction<
       return null;
     }
 
-    Reset reset =
+    RewindPlanResult rewindPlanResult =
         informImportantOutputHandler(
             key,
             value,
@@ -344,8 +313,10 @@ public final class CompletionFunction<
             artifactsToBuild,
             builtArtifacts,
             inputMap);
-    if (reset != null) {
-      return reset; // Initiate action rewinding to regenerate lost outputs.
+    if (rewindPlanResult != null) {
+      // Either initiates action rewinding to generate lost inputs or requests a Skyframe restart to
+      // wait for missing analysis dependencies.
+      return rewindPlanResult.toNullIfMissingDependenciesElseReset();
     }
 
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
@@ -412,7 +383,7 @@ public final class CompletionFunction<
    * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
    */
   @Nullable
-  private Reset informImportantOutputHandler(
+  private RewindPlanResult informImportantOutputHandler(
       KeyT key,
       ValueT value,
       Environment env,
@@ -430,19 +401,21 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    InputMetadataProvider metadataProvider = new ActionInputMetadataProvider(inputMap);
+    InputMetadataProvider fullMetadataProvider = new ActionInputMetadataProvider(inputMap);
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
-          GoogleAutoProfilerUtils.logged(
+          GoogleAutoProfilerUtils.profiledAndLogged(
               "Informing important output handler of top-level outputs for " + label,
+              ProfilerTask.INFO,
               ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                metadataProvider);
+                new ActionInputMetadataProvider(ctx.getImportantInputMap()),
+                fullMetadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;
@@ -454,7 +427,7 @@ public final class CompletionFunction<
               .orElseGet(
                   () ->
                       ActionRewindStrategy.calculateLostInputOwners(
-                          lostOutputs.byDigest().values(), metadataProvider));
+                          lostOutputs.byDigest().values(), fullMetadataProvider));
       // Filter out lost outputs from the set of built artifacts so that they are not reported. If
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {

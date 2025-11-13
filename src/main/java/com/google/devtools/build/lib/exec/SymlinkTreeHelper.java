@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SnapshottingFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
@@ -50,29 +49,28 @@ public final class SymlinkTreeHelper {
   /**
    * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
    *
-   * @param inputManifest path to the input runfiles manifest
+   * @param inputManifest exec path to the input runfiles manifest
    * @param outputManifest path to the output runfiles manifest
-   * @param symlinkTreeRoot path to the root of the symlink tree
-   * @param filesetTree true if this is a fileset symlink tree, false if this is a runfiles symlink
-   *     tree.
+   * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(
       Path inputManifest, Path outputManifest, Path symlinkTreeRoot, String workspaceName) {
-    this.inputManifest = ensureNonSnapshotting(inputManifest);
-    this.outputManifest = ensureNonSnapshotting(outputManifest);
-    this.symlinkTreeRoot = ensureNonSnapshotting(symlinkTreeRoot);
+    // Do not indirect paths through overlay filesystems (such as the action filesystem or a
+    // snapshotting filesystem), for a few reasons:
+    // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
+    //     them in memory (at the time of writing, no action filesystem implementations do so, but
+    //     this may change in the future).
+    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
+    //     might occur in an incremental build when the parent directory of a symlink exists on disk
+    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
+    // (3) Changes made to a file referenced by a symlink tree should be reflected in the symlink
+    //     tree without having to rebuild. Therefore, if a snapshotting file system is used, we must
+    //     use the underlying non-snapshotting file system instead to create the symlink tree.
+    this.inputManifest = inputManifest.forHostFileSystem();
+    this.outputManifest = outputManifest.forHostFileSystem();
+    this.symlinkTreeRoot = symlinkTreeRoot.forHostFileSystem();
     this.workspaceName = workspaceName;
-  }
-
-  private static Path ensureNonSnapshotting(Path path) {
-    // Changes made to a file referenced by a symlink tree should be reflected in the symlink tree
-    // without having to rebuild. Therefore, if a snapshotting file system is used, we must use the
-    // underlying non-snapshotting file system instead to create the symlink tree.
-    if (path.getFileSystem() instanceof SnapshottingFileSystem snapshottingFs) {
-      return snapshottingFs.getUnderlyingNonSnapshottingFileSystem().getPath(path.asFragment());
-    }
-    return path;
   }
 
   interface TargetPathFunction<T> {
@@ -81,14 +79,15 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a fileset by making VFS calls. */
-  public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap) throws IOException {
+  public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap)
+      throws ExecException {
     createSymlinks(symlinkMap, (path) -> path);
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinkMap) throws IOException {
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws ExecException {
     createSymlinks(
-        symlinkMap,
+        symlinks,
         (artifact) ->
             artifact.isSymlink()
                 // Unresolved symlinks are created textually.
@@ -98,7 +97,7 @@ public final class SymlinkTreeHelper {
 
   /** Creates a symlink tree. */
   private <T> void createSymlinks(
-      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws IOException {
+      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws ExecException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -141,25 +140,23 @@ public final class SymlinkTreeHelper {
       }
       root.syncTreeRecursively(symlinkTreeRoot, targetPathFn);
       createWorkspaceSubdirectory();
-    }
-  }
-
-  /**
-   * Ensures that the runfiles directory is empty except for the symlinked MANIFEST and the
-   * workspace subdirectory. This is the expected state with --noenable_runfiles.
-   */
-  public void clearRunfilesDirectory() throws ExecException {
-    deleteRunfilesDirectory();
-    linkManifest();
-    try {
-      createWorkspaceSubdirectory();
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
     }
   }
 
+  /**
+   * Creates a minimal runfiles directory containing only the output manifest and the workspace
+   * subdirectory. This is the expected state with --noenable_runfiles or --nobuild_runfile_links.
+   */
+  public void createMinimalRunfilesDirectory() throws ExecException {
+    clearRunfilesDirectory();
+    linkManifest();
+    createWorkspaceSubdirectory();
+  }
+
   /** Deletes the contents of the runfiles directory. */
-  private void deleteRunfilesDirectory() throws ExecException {
+  private void clearRunfilesDirectory() throws ExecException {
     try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
       symlinkTreeRoot.deleteTreesBelow();
     } catch (IOException e) {
@@ -168,10 +165,9 @@ public final class SymlinkTreeHelper {
   }
 
   /** Links the output manifest to the input manifest. */
-  private void linkManifest() throws ExecException {
-    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
+  public void linkManifest() throws ExecException {
+    // TODO(b/443703909): This should probably be a copy, not a symlink.
     try {
-      symlinkTreeRoot.createDirectoryAndParents();
       outputManifest.delete();
       outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
@@ -179,12 +175,16 @@ public final class SymlinkTreeHelper {
     }
   }
 
-  private void createWorkspaceSubdirectory() throws IOException {
+  public void createWorkspaceSubdirectory() throws ExecException {
     // Always create the subdirectory corresponding to the workspace (i.e., the main repository).
     // This is required by tests as their working directory, even with --noenable_runfiles. But if
     // the test action creates the directory and then proceeds to execute the test spawn, this logic
     // would remove it. For the sake of consistency, always create the directory instead.
-    symlinkTreeRoot.getRelative(workspaceName).createDirectory();
+    try {
+      symlinkTreeRoot.getRelative(workspaceName).createDirectory();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
+    }
   }
 
   /**
@@ -221,7 +221,7 @@ public final class SymlinkTreeHelper {
     }
 
     void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
-      FileStatus stat = at.statNullable(Symlinks.FOLLOW);
+      FileStatus stat = at.statIfFound(Symlinks.FOLLOW);
       if (stat == null) {
         at.createDirectoryAndParents();
       } else if (!stat.isDirectory()) {

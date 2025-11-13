@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -231,12 +231,11 @@ function test_install_base_corrupted_by_deleted_file() {
 
   rm "$install_base/process-wrapper"
 
-  bazel --install_base="$install_base" >& $TEST_log && fail "Expected failure"
-  expect_log "FATAL.* corrupt installation: file '.*process-wrapper' is missing or modified"
-  expect_log "Please remove '$install_base' and try again."  # uh-oh.
-
-  rm -rf "$install_base"
   bazel --install_base="$install_base" >& $TEST_log || fail "Expected success"
+  expect_log "Corrupt installation: file '.*process-wrapper' is missing or modified."
+  expect_log "Removing previous installation."
+  local capitalized_product_name="$(echo "$PRODUCT_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+  expect_log "Extracting $capitalized_product_name installation..."
   expect_log "Usage: $PRODUCT_NAME"  # phew
 }
 
@@ -247,12 +246,11 @@ function test_install_base_corrupted_by_touched_file() {
 
   touch "$install_base/process-wrapper"
 
-  bazel --install_base="$install_base" >&$TEST_log && fail "Expected failure"
-  expect_log "FATAL.* corrupt installation: file '.*process-wrapper' is missing or modified"
-  expect_log "Please remove '$install_base' and try again."  # uh-oh.
-
-  rm -rf "$install_base"
   bazel --install_base="$install_base" >&$TEST_log || fail "Expected success"
+  expect_log "Corrupt installation: file '.*process-wrapper' is missing or modified."
+  expect_log "Removing previous installation."
+  local capitalized_product_name="$(echo "$PRODUCT_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+  expect_log "Extracting $capitalized_product_name installation..."
   expect_log "Usage: $PRODUCT_NAME"  # phew
 }
 
@@ -280,9 +278,9 @@ function test_output_user_root() {
   expect_log "$TEST_TMPDIR/user/[0-9a-f]\{32\}"
 
   # Test relative path
-  bazel --output_user_root=user info output_base >& $TEST_log \
+  bazel --output_user_root=../user info output_base >& $TEST_log \
       || fail "Expected success"
-  expect_log "$(pwd)/user/[0-9a-f]\{32\}"
+  expect_log "$(cd .. && pwd)/user/[0-9a-f]\{32\}"
 }
 
 function test_multiple_commands_same_output_base() {
@@ -324,7 +322,7 @@ EOF
     pid[$i]="${!}"
   done
 
-  # The various Bazel invocations are are now competing to run.  Wait for them
+  # The various Bazel invocations are now competing to run.  Wait for them
   # to start, in any order, and then allow them to proceed, recording the order
   # in which they actually started running the command.
   declare -a order
@@ -427,7 +425,7 @@ EOF
   # - one of "read" or "write"
   # - the path to the fifo
   cat > x/x.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$1" == "read" ]]; then
   cat "$2" > /dev/null
 elif [[ "$1" == "write" ]]; then
@@ -696,21 +694,17 @@ function test_bad_command_nobatch() {
 
 function get_pid_environment() {
   local pid="$1"
-  case "$(uname -s)" in
-    Linux)
-      cat "/proc/${pid}/environ" | tr '\0' '\n'
-      ;;
-    Darwin)
-      if ! ps > /dev/null; then
-        echo "Cannot use ps command, probably due to sandboxing." >&2
-        return 1
-      fi
-      ps eww -o command "${pid}" | tr ' ' '\n'
-      ;;
-    *)
-      false
-      ;;
-  esac
+  if is_linux; then
+    cat "/proc/${pid}/environ" | tr '\0' '\n'
+  elif is_darwin; then
+    if ! ps > /dev/null; then
+      echo "Cannot use ps command, probably due to sandboxing." >&2
+      return 1
+    fi
+    ps eww -o command "${pid}" | tr ' ' '\n'
+  else
+    return 1
+  fi
 }
 
 function test_proxy_settings() {

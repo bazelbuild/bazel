@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -103,15 +104,27 @@ public class PreciseAspectResolver implements AspectResolver {
     return false;
   }
 
+  private ImmutableCollection<Target> getSiblingTargets(Target buildFile)
+      throws InterruptedException {
+    try {
+      return packageProvider.getSiblingTargetsInPackage(eventHandler, buildFile);
+    } catch (NoSuchPackageException e) {
+      // If we fail to expand the full package (e.g. because a package piece for a symbolic macro
+      // is in error), fall back to iterating only over the targets in the BUILD file's package
+      // piece. The error encountered will be reported in the eventHandler.
+      return buildFile.getPackageoid().getTargets().values();
+    }
+  }
+
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
+  public Set<Label> computeBuildFileDependencies(Target buildFile) throws InterruptedException {
     Set<Label> result = new LinkedHashSet<>();
-    pkg.getDeclarations().visitLoadGraph(result::add);
+    buildFile.getPackageDeclarations().visitLoadGraph(result::add);
 
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
-    // First compute with packages can possibly affect the aspect attributes of this package:
+    // First compute what packages can possibly affect the aspect attributes of this package:
     // Iterate over all rules...
-    for (Target target : pkg.getTargets().values()) {
+    for (Target target : getSiblingTargets(buildFile)) {
 
       if (!(target instanceof Rule rule)) {
         continue;

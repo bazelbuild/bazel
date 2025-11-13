@@ -23,7 +23,7 @@
 #include "src/main/cpp/option_processor-internal.h"
 #include "src/main/cpp/util/strings.h"
 
-namespace blaze::internal {
+namespace blaze {
 
 #if defined(__CYGWIN__)
 
@@ -98,4 +98,4 @@ std::vector<std::string> GetProcessedEnv() {
   return processed_env;
 }
 
-}  // namespace blaze::internal
+}  // namespace blaze

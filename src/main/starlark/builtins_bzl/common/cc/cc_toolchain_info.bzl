@@ -11,21 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """
 Definition of CcToolchainInfo provider.
 """
 
-load(":common/cc/cc_common.bzl", "cc_common")
-
-cc_internal = _builtins.internal.cc_internal
-
 def _needs_pic_for_dynamic_libraries(*, feature_configuration):
-    return cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic")
+    return feature_configuration.is_enabled("supports_pic")
 
 def _static_runtime_lib(static_runtime_lib):
     def static_runtime_lib_func(*, feature_configuration):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
+        if feature_configuration.is_enabled("static_link_cpp_runtimes"):
             if static_runtime_lib == None:
                 fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.")
             return static_runtime_lib
@@ -35,7 +30,7 @@ def _static_runtime_lib(static_runtime_lib):
 
 def _dynamic_runtime_lib(dynamic_runtime_lib):
     def dynamic_runtime_lib_func(*, feature_configuration):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
+        if feature_configuration.is_enabled("static_link_cpp_runtimes"):
             if dynamic_runtime_lib == None:
                 fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.")
             return dynamic_runtime_lib
@@ -95,7 +90,8 @@ def _create_cc_toolchain_info(
         build_info_files,
         objcopy_files,
         aggregate_ddi,
-        generate_modmap):
+        generate_modmap,
+        extra_cpp_configuration = None):
     cc_toolchain_info = dict(
         needs_pic_for_dynamic_libraries = (lambda *, feature_configuration: True) if cpp_configuration.force_pic() else _needs_pic_for_dynamic_libraries,
         built_in_include_directories = built_in_include_directories,
@@ -103,11 +99,11 @@ def _create_cc_toolchain_info(
         static_runtime_lib = _static_runtime_lib(static_runtime_lib_depset),
         dynamic_runtime_lib = _dynamic_runtime_lib(dynamic_runtime_lib_depset),
         sysroot = sysroot,
-        compiler = toolchain_config_info.compiler(),
-        libc = toolchain_config_info.target_libc(),
-        cpu = toolchain_config_info.target_cpu(),
-        target_gnu_system_name = toolchain_config_info.target_system_name(),
-        toolchain_id = toolchain_config_info.toolchain_id(),
+        compiler = toolchain_config_info.compiler,
+        libc = toolchain_config_info.target_libc,
+        cpu = toolchain_config_info.target_cpu,
+        target_gnu_system_name = toolchain_config_info.target_system_name,
+        toolchain_id = toolchain_config_info.toolchain_id,
         dynamic_runtime_solib_dir = dynamic_runtime_solib_dir,
         objcopy_executable = objcopy_executable,
         compiler_executable = compiler_executable,
@@ -118,6 +114,7 @@ def _create_cc_toolchain_info(
         strip_executable = strip_executable,
         ld_executable = ld_executable,
         gcov_executable = gcov_executable,
+        generate_modmap = generate_modmap,
         _as_files = as_files,
         _ar_files = ar_files,
         _strip_files = strip_files,
@@ -132,8 +129,8 @@ def _create_cc_toolchain_info(
         _legacy_cc_flags_make_variable = legacy_cc_flags_make_variable,
         _additional_make_variables = additional_make_variables,
         _all_files_including_libc = all_files_including_libc,
-        _abi = toolchain_config_info.abi_version(),
-        _abi_glibc_version = toolchain_config_info.abi_libc_version(),
+        _abi = toolchain_config_info.abi_version,
+        _abi_glibc_version = toolchain_config_info.abi_libc_version,
         _crosstool_top_path = crosstool_top_path,
         _build_info_files = build_info_files,
         _supports_header_parsing = supports_header_parsing,
@@ -156,7 +153,10 @@ def _create_cc_toolchain_info(
         _cc_info = cc_info,
         _objcopy_files = objcopy_files,
         _aggregate_ddi = aggregate_ddi,
-        _generate_modmap = generate_modmap,
+        _extra_allowlisted_feature_layering_check_macros =
+            extra_cpp_configuration.extra_allowlisted_feature_layering_check_macros() if extra_cpp_configuration else [],
+        _force_layering_check_features =
+            extra_cpp_configuration.force_layering_check_features() if extra_cpp_configuration else False,
     )
     return cc_toolchain_info
 
@@ -201,6 +201,7 @@ CcToolchainInfo, _ = provider(
         "strip_executable": "The path to the strip binary.",
         "ld_executable": "The path to the ld binary.",
         "gcov_executable": "The path to the gcov binary.",
+        "generate_modmap": "The path to the generate_modmap wrapper.",
         # Private fields used by Starlark.
         "_as_files": "INTERNAL API, DO NOT USE!",
         "_ar_files": "INTERNAL API, DO NOT USE!",
@@ -245,7 +246,8 @@ CcToolchainInfo, _ = provider(
         "_cc_info": "INTERNAL API, DO NOT USE!",
         "_objcopy_files": "INTERNAL API, DO NOT USE!",
         "_aggregate_ddi": "INTERNAL API, DO NOT USE!",
-        "_generate_modmap": "INTERNAL API, DO NOT USE!",
+        "_extra_allowlisted_feature_layering_check_macros": "INTERNAL API, DO NOT USE!",
+        "_force_layering_check_features": "INTERNAL API, DO NOT USE!",
     },
     init = _create_cc_toolchain_info,
 )

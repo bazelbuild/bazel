@@ -17,6 +17,7 @@
 """Bazel Python integration test framework."""
 
 import os
+import re
 import shutil
 import socket
 import stat
@@ -25,6 +26,25 @@ import sys
 import tempfile
 from absl.testing import absltest
 import runfiles
+
+
+def _HasIpv6DefaultRoute():
+  """Returns True if an IPv6 default route exists on Darwin."""
+  try:
+    result = subprocess.run(
+        ['netstat', '-rn', '-f', 'inet6'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+      for line in result.stdout.splitlines():
+        if line.strip().startswith('default'):
+          return True
+  except (FileNotFoundError, OSError):
+    # netstat not found or failed; assume no IPv6 default route.
+    pass
+  return False
 
 
 class Error(Exception):
@@ -56,13 +76,6 @@ class TestBase(absltest.TestCase):
   _worker_proc = None
   _cas_path = None
 
-  def WorkspaceContent(self):
-    with open(
-        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
-        'r',
-    ) as s:
-      return s.readlines()
-
   def setUp(self):
     absltest.TestCase.setUp(self)
     if self._runfiles is None:
@@ -74,7 +87,6 @@ class TestBase(absltest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('common --nolegacy_external_runfiles\n')
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
         f.write('startup --install_base={}\n'.format(shared_install_base))
@@ -90,8 +102,8 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      if TestBase.IsDarwin():
-        # Prefer ipv6 network on macOS
+      if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
+        # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
 
@@ -111,6 +123,44 @@ class TestBase(absltest.TestCase):
         'MODULE.bazel.lock',
     )
     os.chdir(self._test_cwd)
+
+  def GetModuleVersionFromDefaultLockFile(self, module):
+    """Extracts the version of a module from the default MODULE.bazel.lock file.
+
+    Args:
+      module: string; the name of the module to look up
+
+    Returns:
+      string; the version of the module
+
+    Raises:
+      Error: if the version is not found for the module
+    """
+    lockfile = self.Rlocation(
+        'io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'
+    )
+    version = None
+    with open(lockfile, 'r', encoding='utf-8') as f:
+      for line in f:
+        m = re.search(
+            rf'modules/{re.escape(module)}/([^/]*)/source\.json', line
+        )
+        if m:
+          version = m.group(1)
+          break
+    if not version:
+      raise Error(f'Version not found for module {module} in {lockfile}')
+    return version
+
+  def AddBazelDep(self, module, path=''):
+    version = self.GetModuleVersionFromDefaultLockFile(module)
+    self.ScratchFile(
+        os.path.join(path, 'MODULE.bazel'),
+        [
+            f'bazel_dep(name = "{module}", version = "{version}")',
+        ],
+        mode='a',
+    )
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
@@ -280,7 +330,7 @@ class TestBase(absltest.TestCase):
     os.makedirs(abspath)
     return abspath
 
-  def ScratchFile(self, path, lines=None, executable=False):
+  def ScratchFile(self, path, lines=None, executable=False, mode='w'):
     """Creates a file under the test's scratch directory.
 
     Args:
@@ -289,6 +339,7 @@ class TestBase(absltest.TestCase):
       lines: [string]; the contents of the file (newlines are added
         automatically)
       executable: bool; whether to make the file executable
+      mode: string; fopen mode for the file
     Returns:
       The absolute path of the scratch file.
     Raises:
@@ -303,7 +354,7 @@ class TestBase(absltest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w', encoding='utf-8') as f:
+    with open(abspath, mode, encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
@@ -391,7 +442,7 @@ class TestBase(absltest.TestCase):
       # worker path must be as short as possible so we don't exceed Windows
       # path length limits, so we run straight in TEMP. This should ideally
       # be set to something like C:\temp. On CI this is set to D:\temp.
-      worker_path = TestBase.GetEnv('TEMP')
+      worker_path = tempfile.mkdtemp(dir=TestBase.GetEnv('TEMP'))
       worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
     else:
       worker_path = tempfile.mkdtemp(dir=self._tests_root)
@@ -452,6 +503,13 @@ class TestBase(absltest.TestCase):
       print('\n'.join(stderr_lines))
 
     shutil.rmtree(self._cas_path)
+
+  def ClearRemoteCache(self):
+    """Clears the CAS of the "local remote worker"."""
+    self.assertIsNotNone(self._cas_path)
+    shutil.rmtree(self._cas_path)
+    # The worker needs the CAS path as well as the tmp dir to exist.
+    os.makedirs(os.path.join(self._cas_path, 'tmp'))
 
   def RunProgram(
       self,
@@ -545,11 +603,14 @@ class TestBase(absltest.TestCase):
     env['TMP'] = self._temp
 
     if TestBase.IsDarwin():
-      # Make sure rules_jvm_external works in ipv6 only environment
-      # https://github.com/bazelbuild/rules_jvm_external?tab=readme-ov-file#ipv6-support
-      env['COURSIER_OPTS'] = TestBase.GetEnv(
-          'COURSIER_OPTS', '-Djava.net.preferIPv6Addresses=true'
-      )
+      # Make sure rules_jvm_external works in IPv6-only environments.
+      # Only set a default when an IPv6 default route exists. Preserve any
+      # user-provided COURSIER_OPTS value.
+      existing = os.environ.get('COURSIER_OPTS')
+      if existing is not None:
+        env['COURSIER_OPTS'] = existing
+      elif _HasIpv6DefaultRoute():
+        env['COURSIER_OPTS'] = '-Djava.net.preferIPv6Addresses=true'
 
     if env_remove:
       for e in env_remove:

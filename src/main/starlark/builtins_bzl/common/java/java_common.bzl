@@ -17,7 +17,7 @@
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 def _internal_exports():
-    _builtins.internal.cc_common.check_private_api(allowlist = [
+    _builtins.internal.cc_internal.check_private_api(allowlist = [
         ("", "javatests/com/google/devtools/grok/kythe/analyzers/build/testdata/pkg"),
         ("", "third_party/bazel_rules/rules_java"),
         ("rules_java", ""),
@@ -38,20 +38,6 @@ def _internal_exports():
 
 java_common = struct(internal_DO_NOT_USE = _internal_exports)
 
-_FakeJavaInfo = provider()  # buildifier: disable=provider-params
-_FakeJavaPluginInfo = provider()  # buildifier: disable=provider-params
-_FakeJavaToolchainInfo = provider()  # buildifier: disable=provider-params
-_FakeJavaRuntimeInfo = provider()  # buildifier: disable=provider-params
-_FakeBootClassPathInfo = provider()  # buildifier: disable=provider-params
-_FakeJavaRuntimeClasspathInfo = provider()  # buildifier: disable=provider-params
-
 java_common_export_for_bazel = struct(
     internal_DO_NOT_USE = _internal_exports,
-    # fake exports for WORKSPACE loading
-    provider = _FakeJavaInfo,
-    JavaPluginInfo = _FakeJavaPluginInfo,
-    JavaToolchainInfo = _FakeJavaToolchainInfo,
-    JavaRuntimeInfo = _FakeJavaRuntimeInfo,
-    BootClassPathInfo = _FakeBootClassPathInfo,
-    JavaRuntimeClasspathInfo = _FakeJavaRuntimeClasspathInfo,
 )

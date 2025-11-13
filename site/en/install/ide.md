@@ -65,7 +65,8 @@ Features:
   through code, inspect variables, and so on)
 
 Find [the plugin on the Visual Studio
-marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel){: .external}.
+marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel){: .external}
+or the [OpenVSX marketplace](https://open-vsx.org/extension/BazelBuild/vscode-bazel){: .external}.
 The plugin is [open source](https://github.com/bazelbuild/vscode-bazel){: .external}.
 
 See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
@@ -103,7 +104,7 @@ Eclipse projects.
 
 ## Autocomplete for Source Code {:#autocomplete-for-source-code}
 
-### C Language Family (C++, C, Objective-C, and Objective-C++)
+### C Language Family (C++, C, Objective-C, Objective-C++, and CUDA)
 
 [`kiron1/bazel-compile-commands`](https://github.com/kiron1/bazel-compile-commands){: .external}
 run `bazel-compile-commands //...` in a Bazel workspace to generate a `compile_commands.json` file.

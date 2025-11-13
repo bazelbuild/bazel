@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLine.FlatCommandLine;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -45,7 +47,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.WeakReference;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -200,11 +201,6 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return runfiles.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return cachedMapping != null;
     }
@@ -229,6 +225,18 @@ public final class RunfilesSupport {
     public String getWorkspaceName() {
       return runfiles.getPrefix();
     }
+
+    @Override
+    public boolean containsConstantMetadata() {
+      if (cachedMapping != null) {
+        SortedMap<PathFragment, Artifact> mapping = cachedMapping.get();
+        if (mapping != null) {
+          return mapping.values().stream()
+              .anyMatch(artifact -> artifact != null && artifact.isConstantMetadata());
+        }
+      }
+      return getArtifacts().toList().stream().anyMatch(Artifact::isConstantMetadata);
+    }
   }
 
   private final RunfilesTreeImpl runfilesTree;
@@ -237,7 +245,7 @@ public final class RunfilesSupport {
   private final Artifact runfilesManifest;
   private final Artifact runfilesTreeArtifact;
   private final Artifact owningExecutable;
-  private final CommandLine args;
+  private final FlatCommandLine args;
   private final ActionEnvironment actionEnvironment;
 
   // Only cache mappings if there is a chance that more than one action will use it within a single
@@ -273,7 +281,7 @@ public final class RunfilesSupport {
       RuleContext ruleContext,
       Artifact executable,
       Runfiles runfiles,
-      CommandLine args,
+      FlatCommandLine args,
       ActionEnvironment actionEnvironment) {
     checkNotNull(executable);
     RunfileSymlinksMode runfileSymlinksMode =
@@ -287,9 +295,7 @@ public final class RunfilesSupport {
     if (runUnder instanceof LabelRunUnder && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
-          new Runfiles.Builder(
-                  ruleContext.getWorkspaceName(),
-                  ruleContext.getConfiguration().legacyExternalRunfiles())
+          new Runfiles.Builder(ruleContext.getWorkspaceName())
               .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
               .merge(runfiles)
               .build();
@@ -346,7 +352,7 @@ public final class RunfilesSupport {
       Artifact runfilesManifest,
       Artifact runfilesTreeArtifact,
       Artifact owningExecutable,
-      CommandLine args,
+      FlatCommandLine args,
       ActionEnvironment actionEnvironment) {
     this.runfilesTree = runfilesTree;
     this.runfilesInputManifest = runfilesInputManifest;
@@ -439,32 +445,6 @@ public final class RunfilesSupport {
       return null;
     }
     return FileSystemUtils.replaceExtension(runfilesInputManifest.getPath(), RUNFILES_DIR_EXT);
-  }
-
-  /**
-   * Returns the files pointed to by the symlinks in the runfiles symlink farm. This method is slow.
-   */
-  @VisibleForTesting
-  public Collection<Artifact> getRunfilesSymlinkTargets() {
-    return getRunfilesSymlinks().values();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  // We should make this VisibleForTesting, but it is still used by TestHelper
-  public Set<PathFragment> getRunfilesSymlinkNames() {
-    return getRunfilesSymlinks().keySet();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  @VisibleForTesting
-  public Map<PathFragment, Artifact> getRunfilesSymlinks() {
-    return runfilesTree.runfiles.asMapWithoutRootSymlinks();
   }
 
   /**
@@ -567,7 +547,7 @@ public final class RunfilesSupport {
   }
 
   /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
-  public CommandLine getArgs() {
+  public FlatCommandLine getArgs() {
     return args;
   }
 
@@ -609,16 +589,20 @@ public final class RunfilesSupport {
    * tree is needed many times.
    */
   public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable) throws InterruptedException {
-    return RunfilesSupport.create(
+      RuleContext ruleContext,
+      Runfiles runfiles,
+      Artifact executable,
+      @Nullable RunEnvironmentInfo runEnvironmentInfo)
+      throws InterruptedException {
+    return create(
         ruleContext,
         executable,
         runfiles,
         computeArgs(ruleContext),
-        computeActionEnvironment(ruleContext));
+        computeActionEnvironment(ruleContext, runEnvironmentInfo));
   }
 
-  private static CommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
+  private static FlatCommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
     if (!ruleContext.getRule().isAttrDefined("args", Types.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
@@ -628,26 +612,38 @@ public final class RunfilesSupport {
     return args.isEmpty() ? CommandLine.empty() : CommandLine.of(args);
   }
 
-  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)
-      throws InterruptedException {
-    // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
+  private static ActionEnvironment computeActionEnvironment(
+      RuleContext ruleContext, @Nullable RunEnvironmentInfo runEnvironmentInfo) {
+    if (runEnvironmentInfo != null) {
+      // Must be a Starlark rule.
+      return ActionEnvironment.create(
+          runEnvironmentInfo.getEnvironment(),
+          ImmutableSet.copyOf(runEnvironmentInfo.getInheritedEnvironment()));
+    }
+
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
-    if (!isNativeRule
-        || (!ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT)
-            && !ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST))) {
+    if (!isNativeRule) {
       return ActionEnvironment.EMPTY;
     }
+
+    boolean envAttrDefined = ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT);
+    boolean envInheritAttrDefined =
+        ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST);
+    if (!envAttrDefined && !envInheritAttrDefined) {
+      return ActionEnvironment.EMPTY;
+    }
+
     TreeMap<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new LinkedHashSet<>();
-    if (ruleContext.isAttrDefined("env", Types.STRING_DICT)) {
+    if (envAttrDefined) {
       Expander expander = ruleContext.getExpander().withDataLocations();
       for (Map.Entry<String, String> entry :
           ruleContext.attributes().get("env", Types.STRING_DICT).entrySet()) {
         fixedEnv.put(entry.getKey(), expander.expand("env", entry.getValue()));
       }
     }
-    if (ruleContext.isAttrDefined("env_inherit", Types.STRING_LIST)) {
+    if (envInheritAttrDefined) {
       for (String key : ruleContext.attributes().get("env_inherit", Types.STRING_LIST)) {
         if (!fixedEnv.containsKey(key)) {
           inheritedEnv.add(key);
@@ -714,7 +710,12 @@ public final class RunfilesSupport {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName()));
+                ruleContext.getWorkspaceName(),
+                ruleContext
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .compactRepoMapping));
     return repoMappingManifest;
   }
 

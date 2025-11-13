@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,23 +23,23 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import java.util.Optional;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildOptionsScopeFunction}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
 
   @Before
@@ -59,6 +60,49 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                     PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
+  }
+
+  @Test
+  @TestParameters({
+    "{scope: 'universal', expectFail: false}",
+    "{scope: 'target', expectFail: false}",
+    "{scope: 'project', expectFail: false}",
+    "{scope: 'badvalue', expectFail: true}",
+    "{scope: 'default', expectFail: true}", // Valid internal value but can't be set by users.
+  })
+  public void validScopeAttributeValues(String scope, boolean expectFail) throws Exception {
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = "%s",
+        )
+        """
+            .formatted(scope));
+
+    if (!expectFail) {
+      assertThat(createBuildOptions("--//test_flags:foo=True")).isNotNull();
+    } else {
+      var exception =
+          assertThrows(
+              InvalidConfigurationException.class,
+              () -> createBuildOptions("--//test_flags:foo=True"));
+      assertThat(exception).hasMessageThat().contains("Invalid \"scope\" attribute value");
+    }
   }
 
   @Test
@@ -186,10 +230,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     EvaluationResult<BuildOptionsScopeValue> result =
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /* keepGoing= */ false, reporter);
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     if (result.hasError()) {
       throw result.getError(key).getException();
     }

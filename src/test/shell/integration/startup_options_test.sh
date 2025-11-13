@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -41,22 +41,15 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function test_different_startup_options() {
   pid=$(bazel --nobatch info server_pid 2> $TEST_log)
   [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
-  newpid=$(bazel --batch info server_pid 2> $TEST_log)
-  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
+  newpid=$(bazel --batch --host_jvm_args=-Xmx4321m info server_pid 2> $TEST_log)
+  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the following startup options are different:
+  - Only in old server: --noshutdown_on_low_sys_mem
+  - Only in new server: --batch --host_jvm_args=-Xmx4321m"
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
-  if ! "$is_windows"; then
+  if ! is_windows; then
     # On Windows: the kill command of MSYS doesn't work for Windows PIDs.
     kill -0 $pid 2> /dev/null && fail "$pid not dead" || true
     kill -0 $newpid 2> /dev/null && fail "$newpid not dead" || true
@@ -94,19 +87,23 @@ function test_multiple_bazelrc_later_overwrites_earlier() {
 }
 
 function test_multiple_bazelrc_set_different_options() {
+  # Set host platform to avoid using the default value which only works for Bazel.
+  echo "common --host_platform=${default_host_platform}" > host_platform.rc
   echo "common --verbose_failures" > 1.rc
   echo "common --test_output=all" > 2.rc
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info --announce_rc &> $TEST_log || fail "Should pass"
+  bazel "--${PRODUCT_NAME}rc=host_platform.rc" "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info --announce_rc &> $TEST_log || fail "Should pass"
   expect_log "Inherited 'common' options: --verbose_failures"
   expect_log "Inherited 'common' options: --test_output=all"
 }
 
 function test_bazelrc_after_devnull_ignored() {
+  # Set host platform to avoid using the default value which only works for Bazel.
+  echo "common --host_platform=${default_host_platform}" > host_platform.rc
   echo "common --verbose_failures" > 1.rc
   echo "common --test_output=all" > 2.rc
   echo "common --definitely_invalid_config" > 3.rc
 
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
+  bazel "--${PRODUCT_NAME}rc=host_platform.rc" "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
    "--${PRODUCT_NAME}rc=3.rc" info --announce_rc &> $TEST_log || fail "Should pass"
   expect_log "Inherited 'common' options: --verbose_failures"
   expect_log "Inherited 'common' options: --test_output=all"

@@ -108,7 +108,7 @@ public class ExtraActionTest extends FoundationTestCase {
         .build();
 
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     Artifact output = ActionsTestUtil.createArtifact(root, scratch.file("/out/test.out"));
     Action actionOne = new ExtraActionInfoFileWriteAction(ActionsTestUtil.NULL_ACTION_OWNER, output,
         new SpecifiedInfoAction(infoOne));
@@ -127,7 +127,7 @@ public class ExtraActionTest extends FoundationTestCase {
   @Test
   public void testEnvironmentPassedOnOverwrite() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     ExtraAction extraAction =
         new ExtraAction(
             NULL_ACTION_OWNER,
@@ -191,7 +191,7 @@ public class ExtraActionTest extends FoundationTestCase {
   @Test
   public void testUpdateInputsNotPassedToShadowedAction() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     ArtifactRoot src = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
     Artifact extraIn = ActionsTestUtil.createArtifact(src, scratch.file("/src/extra.in"));
     Artifact discoveredIn = ActionsTestUtil.createArtifact(src, scratch.file("/src/discovered.in"));
@@ -220,7 +220,7 @@ public class ExtraActionTest extends FoundationTestCase {
   @Test
   public void testSerializationRoundTrip_resetsInputs() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     ArtifactRoot src = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
     Artifact extraInput = ActionsTestUtil.createArtifact(src, scratch.file("/src/extra.in"));
     Artifact discoveredInput =

@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,140 +14,351 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.common.base.Verify.verify;
-import static java.lang.Math.max;
-
-import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
- * Stores branch coverage information.
+ * A store for branch coverage data.
  *
- * <p>Corresponds to either a BRDA or BA (Google only) line in an lcov report.
+ * <p>Implemented as an open-addressed hash map to avoid excessive object creation.
  *
- * <p>BA lines correspond to instances where blockNumber and branchNumber are set to empty Strings
- * and have the form:
- *
- * <pre>BA:[line_number],[taken]</pre>
- *
- * In this case, nrOfExecutions() actually refers to the "taken" value where:
- *
- * <ul>
- *   <li>0 = Branch was never evaluated (evaluated() == false)
- *   <li>1 = Branch was evaluated but never taken
- *   <li>2 = Branch was taken
- * </ul>
- *
- * BRDA lines set have the form
- *
- * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
- *
- * where the block and branch numbers are internal identifiers, and taken is either "-" if the
- * branch condition was never evaluated or a number indicating how often the branch was taken(which
- * may be 0).
+ * <p>Potentially many instances of this class will be created and then later merged. To avoid
+ * excessive GC and memory pressure we store the data as arrays of primitives for as long as we can,
+ * only creating the {@link BranchCoverageItem} object when it's requested, which should only happen
+ * after all branch data has been read and merged. This may make the interface to this class
+ * atypical and a little cumbersome, but wrapping the data in an object when adding to this map
+ * would be very expensive relative to the necessary work being done.
  */
-@AutoValue
-abstract class BranchCoverage {
+final class BranchCoverage implements Iterable<Entry<BranchCoverageKey, BranchCoverageItem>> {
 
-  /**
-   * Create a BranchCoverage object corresponding to a BA line
-   *
-   * <pre>BA:[line_number],[taken]</pre>
-   *
-   * @param lineNumber line number the branch comes from
-   * @param value the taken value, 0, 1, 2
-   * @return corresponding BranchCoverage
-   */
-  static BranchCoverage create(int lineNumber, long value) {
-    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
-    return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", value > 0, value);
+  // Key data
+  // A slot is filled if the corresponding branchId value is non-null
+  private int[] lineNumberKeyData;
+  private String[] branchIdKeyData;
+  private String[] blockIdKeyData;
+
+  // Value data
+  private long[] executionCountData;
+
+  // This is simply keyed by line number
+  private final BitSet evaluatedData;
+
+  private int capacity;
+  private int size;
+
+  private static final int INITIAL_CAPACITY = 32;
+
+  private BranchCoverage(
+      int[] lineNumberKeyData,
+      String[] branchIdKeydData,
+      String[] blockIdKeyData,
+      long[] executionCountData,
+      BitSet evaluatedData,
+      int size) {
+    int capacity = lineNumberKeyData.length;
+    if (branchIdKeydData.length != capacity
+        || blockIdKeyData.length != capacity
+        || executionCountData.length != capacity) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Input arrays must have the same length. lineNumberKeyData: %d, branchIdKeydData: %d,"
+                  + " blockIdKeyData: %d, executionCountData: %d",
+              lineNumberKeyData.length,
+              branchIdKeydData.length,
+              blockIdKeyData.length,
+              executionCountData.length));
+    }
+    this.lineNumberKeyData = lineNumberKeyData;
+    this.branchIdKeyData = branchIdKeydData;
+    this.blockIdKeyData = blockIdKeyData;
+    this.executionCountData = executionCountData;
+    this.evaluatedData = evaluatedData;
+    this.capacity = capacity;
+    this.size = size;
+  }
+
+  public static BranchCoverage copy(BranchCoverage other) {
+    return new BranchCoverage(
+        Arrays.copyOf(other.lineNumberKeyData, other.lineNumberKeyData.length),
+        Arrays.copyOf(other.branchIdKeyData, other.branchIdKeyData.length),
+        Arrays.copyOf(other.blockIdKeyData, other.blockIdKeyData.length),
+        Arrays.copyOf(other.executionCountData, other.executionCountData.length),
+        (BitSet) other.evaluatedData.clone(),
+        other.size);
+  }
+
+  public static BranchCoverage create() {
+    return new BranchCoverage(
+        new int[INITIAL_CAPACITY],
+        new String[INITIAL_CAPACITY],
+        new String[INITIAL_CAPACITY],
+        new long[INITIAL_CAPACITY],
+        new BitSet(INITIAL_CAPACITY),
+        /* size= */ 0);
+  }
+
+  /** Adds all data in the given branch coverage to this one. */
+  public void add(BranchCoverage other) {
+    for (int i = 0; i < other.capacity; i++) {
+      if (!other.indexIsFilled(i)) {
+        continue;
+      }
+      addBranch(
+          other.lineNumberKeyData[i],
+          other.blockIdKeyData[i],
+          other.branchIdKeyData[i],
+          other.evaluatedData.get(other.lineNumberKeyData[i]),
+          other.executionCountData[i]);
+    }
+  }
+
+  /** Combines the data in the given branch coverage instances into a new one. */
+  public static BranchCoverage merge(BranchCoverage other1, BranchCoverage other2) {
+    BranchCoverage merged = BranchCoverage.copy(other1);
+    merged.add(other2);
+    return merged;
   }
 
   /**
-   * Create a BranchCoverage object corresponding to a BRDA line with a dummy block number
+   * Adds a branch to this collection.
    *
-   * <pre>BRDA:[line_number],[block_number=0],[branch_number],[taken]</pre>
+   * <p>If the branch already exists, the execution count and evaluated status are combined.
    *
-   * @param lineNumber line number the branch comes from
-   * @param branchNumber id for the specific branch at this line
-   * @param evaluated if this branch was evaluated (taken != "-")
-   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
-   * @return corresponding BranchCoverage
+   * @param lineNumber The line number of the branch.
+   * @param blockId The block ID of the branch.
+   * @param branchId The branch ID of the branch.
+   * @param evaluated Whether the branch was evaluated.
+   * @param executionCount The number of times the branch was executed.
    */
-  static BranchCoverage createWithBranch(
-      int lineNumber, String branchNumber, boolean evaluated, long nrOfExecutions) {
-    return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "0", branchNumber, evaluated, nrOfExecutions);
+  public void addBranch(
+      int lineNumber, String blockId, String branchId, boolean evaluated, long executionCount) {
+    ensureCapacity();
+    if (evaluated) {
+      evaluatedData.set(lineNumber);
+    }
+    int index = findIndex(lineNumber, blockId, branchId);
+    if (!indexIsFilled(index)) {
+      lineNumberKeyData[index] = lineNumber;
+      blockIdKeyData[index] = blockId;
+      branchIdKeyData[index] = branchId;
+      executionCountData[index] = executionCount;
+      size++;
+    } else {
+      executionCountData[index] += executionCount;
+    }
   }
 
   /**
-   * Create a BranchCoverage object corresponding to a BRDA line
+   * Adds a branch to this collection.
    *
-   * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
+   * <p>If the branch already exists, the execution count and evaluated status are combined.
    *
-   * @param lineNumber line number the branch comes from
-   * @param blockNumber GCC internal block id
-   * @param branchNumber id for the specific branch at this line
-   * @param evaluated if this branch was evaluated (taken != "-")
-   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
-   * @return corresponding BranchCoverage
+   * @param branch The branch to add.
    */
-  static BranchCoverage createWithBlockAndBranch(
-      int lineNumber,
-      String blockNumber,
-      String branchNumber,
-      boolean evaluated,
-      long nrOfExecutions) {
-    return new AutoValue_BranchCoverage(
-        lineNumber, blockNumber, branchNumber, evaluated, nrOfExecutions);
+  public void addBranch(BranchCoverageItem branch) {
+    addBranch(
+        branch.lineNumber(),
+        branch.blockNumber(),
+        branch.branchNumber(),
+        branch.evaluated(),
+        branch.nrOfExecutions());
+  }
+
+  public int size() {
+    return size;
+  }
+
+  public ImmutableList<BranchCoverageKey> getKeys() {
+    ImmutableList.Builder<BranchCoverageKey> builder = ImmutableList.builder();
+    for (int i = 0; i < lineNumberKeyData.length; i++) {
+      if (indexIsFilled(i)) {
+        builder.add(
+            BranchCoverageKey.create(lineNumberKeyData[i], blockIdKeyData[i], branchIdKeyData[i]));
+      }
+    }
+    return builder.build();
+  }
+
+  public BranchCoverageItem get(BranchCoverageKey key) {
+    return get(key.lineNumber(), key.blockNumber(), key.branchNumber());
   }
 
   /**
-   * Merges two given instances of {@link BranchCoverage}.
+   * Returns the branch coverage data for the given line number, block ID, and branch ID.
    *
-   * <p>Calling {@code lineNumber()}, {@code blockNumber()} and {@code branchNumber()} must return
-   * the same values for {@code first} and {@code second}.
+   * <p>Returns null if no data has been added for the given key.
+   *
+   * @param lineNumber The line number of the branch.
+   * @param blockId The block ID of the branch.
+   * @param branchId The branch ID of the branch.
+   * @return The branch coverage data for the given line number, block ID, and branch ID.
    */
-  static BranchCoverage merge(BranchCoverage first, BranchCoverage second) {
-    verify(first.lineNumber() == second.lineNumber(), "Branch line numbers must match");
-    verify(first.blockNumber().equals(second.blockNumber()), "Branch block numbers must match");
-    verify(first.branchNumber().equals(second.branchNumber()), "Branch branch numbers must match");
-    return first.blockNumber().isEmpty()
-        ? mergeWithNoBlockAndBranch(first, second)
-        : mergeWithBlockAndBranch(first, second);
+  @Nullable
+  public BranchCoverageItem get(int lineNumber, String blockId, String branchId) {
+    int index = findIndex(lineNumber, blockId, branchId);
+    if (!indexIsFilled(index)) {
+      return null;
+    }
+    return BranchCoverageItem.create(
+        lineNumberKeyData[index],
+        blockIdKeyData[index],
+        branchIdKeyData[index],
+        evaluatedData.get(lineNumber),
+        executionCountData[index]);
   }
 
-  private static BranchCoverage mergeWithBlockAndBranch(
-      BranchCoverage first, BranchCoverage second) {
-    return createWithBlockAndBranch(
-        first.lineNumber(),
-        first.blockNumber(),
-        first.branchNumber(),
-        first.evaluated() || second.evaluated(),
-        first.nrOfExecutions() + second.nrOfExecutions());
+  public boolean containsKey(BranchCoverageKey key) {
+    return containsKey(key.lineNumber(), key.blockNumber(), key.branchNumber());
   }
 
-  private static BranchCoverage mergeWithNoBlockAndBranch(
-      BranchCoverage first, BranchCoverage second) {
-    long value = max(first.nrOfExecutions(), second.nrOfExecutions());
-    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
-    return create(first.lineNumber(), value);
+  public boolean containsKey(int lineNumber, String blockId, String branchId) {
+    int index = findIndex(lineNumber, blockId, branchId);
+    return indexIsFilled(index);
   }
 
-  abstract int lineNumber();
+  public int executedBranchesCount() {
+    int count = 0;
+    for (int i = 0; i < executionCountData.length; i++) {
+      if (executionCountData[i] > 0) {
+        count++;
+      }
+    }
+    return count;
+  }
 
-  abstract String blockNumber(); // internal gcc ID for the branch
+  /**
+   * Find the index into the arrays that correspond to the given key data. If the key is not
+   * currently in the map, this will point to the slot that should be used for it. The index is
+   * found simply via linear probing.
+   *
+   * @param lineNumber The line number of the branch.
+   * @param blockId The block ID of the branch.
+   * @param branchId The branch ID of the branch.
+   * @return The index into the arrays that correspond to the given key data.
+   */
+  private int findIndex(int lineNumber, String blockId, String branchId) {
+    if (branchId == null) {
+      throw new IllegalArgumentException("Branch ID must not be null");
+    }
+    int hashValue = hash(lineNumber, blockId, branchId);
+    hashValue &= Integer.MAX_VALUE;
+    int index = hashValue % capacity;
+    int originalIndex = index;
+    while (true) {
+      if (!indexIsFilled(index)) {
+        return index;
+      }
+      if (doesIndexContain(index, lineNumber, blockId, branchId)) {
+        return index;
+      }
+      index = (index + 1) % capacity;
+      if (index == originalIndex) {
+        throw new IllegalStateException("Branch data store is overloaded.");
+      }
+    }
+  }
 
-  abstract String branchNumber(); // internal gcc ID for the branch
+  private boolean doesIndexContain(int index, int lineNumber, String blockId, String branchId) {
+    return lineNumber == lineNumberKeyData[index]
+        && blockId.equals(blockIdKeyData[index])
+        && branchId.equals(branchIdKeyData[index]);
+  }
 
-  abstract boolean evaluated();
+  private void ensureCapacity() {
+    // Maximum load should be ~75%
+    if (size < 3 * (capacity / 4)) {
+      return;
+    }
 
-  abstract long nrOfExecutions();
+    // 0x40000000 is the smallest int that overflows when doubled.
+    if (capacity >= 0x40000000) {
+      throw new IllegalStateException("Branch data store cannot be expanded further.");
+    }
+    int newCapacity = capacity * 2;
+    int[] oldLineNumberKeyData = lineNumberKeyData;
+    String[] oldBranchIdKeyData = branchIdKeyData;
+    String[] oldBlockIdKeyData = blockIdKeyData;
+    long[] oldExecutionCountData = executionCountData;
 
-  boolean wasExecuted() {
-    // if there's no block number then this is a BA branch so only taken if the "nrOfExecutions"
-    // value == 2 (since it refers to the BA taken value)
-    // otherwise it really is an execution count, so a count > 0 means the branch was executed
-    return blockNumber().isEmpty() ? nrOfExecutions() == 2 : nrOfExecutions() > 0;
+    lineNumberKeyData = new int[newCapacity];
+    branchIdKeyData = new String[newCapacity];
+    blockIdKeyData = new String[newCapacity];
+    executionCountData = new long[newCapacity];
+    capacity = newCapacity;
+    for (int i = 0; i < oldLineNumberKeyData.length; i++) {
+      if (oldBranchIdKeyData[i] != null) {
+        int lineNumber = oldLineNumberKeyData[i];
+        String blockId = oldBlockIdKeyData[i];
+        String branchId = oldBranchIdKeyData[i];
+        int index = findIndex(lineNumber, blockId, branchId);
+        lineNumberKeyData[index] = lineNumber;
+        blockIdKeyData[index] = blockId;
+        branchIdKeyData[index] = branchId;
+        executionCountData[index] = oldExecutionCountData[i];
+      }
+    }
+  }
+
+  private int hash(int lineNumber, String blockId, String branchId) {
+    // blockId is almost always "0" and branchId is typically a small single digit number
+    // clustering seems to be a little less bad putting blockId at the end instead of branchId
+    return Objects.hash(lineNumber, branchId, blockId);
+  }
+
+  private boolean indexIsFilled(int index) {
+    return branchIdKeyData[index] != null;
+  }
+
+  @Override
+  public Iterator<Entry<BranchCoverageKey, BranchCoverageItem>> iterator() {
+    return new BranchCoverageIterator();
+  }
+
+  private class BranchCoverageIterator
+      implements Iterator<Entry<BranchCoverageKey, BranchCoverageItem>> {
+
+    int idx;
+
+    BranchCoverageIterator() {
+      idx = -1;
+      advanceToNextPopulatedSlot();
+    }
+
+    private void advanceToNextPopulatedSlot() {
+      do {
+        idx++;
+      } while (idx < capacity && !indexIsFilled(idx));
+    }
+
+    @Override
+    public Entry<BranchCoverageKey, BranchCoverageItem> next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      Entry<BranchCoverageKey, BranchCoverageItem> result =
+          Map.entry(
+              BranchCoverageKey.create(
+                  lineNumberKeyData[idx], blockIdKeyData[idx], branchIdKeyData[idx]),
+              BranchCoverageItem.create(
+                  lineNumberKeyData[idx],
+                  blockIdKeyData[idx],
+                  branchIdKeyData[idx],
+                  evaluatedData.get(lineNumberKeyData[idx]),
+                  executionCountData[idx]));
+      advanceToNextPopulatedSlot();
+      return result;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return idx < capacity;
+    }
   }
 }

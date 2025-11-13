@@ -186,7 +186,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     if (wasStopTheWorldGc(info)) {
       long durationNs = info.getGcInfo().getDuration() * 1_000_000;
-      long end = Profiler.nanoTimeMaybe();
+      long end = Profiler.instance().nanoTimeMaybe();
       Profiler.instance()
           .logSimpleTask(
               end - durationNs,

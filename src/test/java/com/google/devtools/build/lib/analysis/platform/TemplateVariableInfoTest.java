@@ -44,6 +44,7 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "a")
@@ -80,6 +81,7 @@ public class TemplateVariableInfoTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "a")

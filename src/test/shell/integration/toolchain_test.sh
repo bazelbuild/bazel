@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -772,7 +772,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching config settings: optimized"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching target_settings: optimized"
   expect_log "Toolchain //register/${pkg}:test_toolchain_1 (resolves to //register/${pkg}:test_toolchain_impl_1) is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
@@ -1838,15 +1838,6 @@ EOF
   expect_log 'Using toolchain: value "foo"'
 }
 
-function test_local_config_platform() {
-  if [ "${PRODUCT_NAME}" != "bazel" ]; then
-    # Tests of external repositories only work under bazel.
-    return 0
-  fi
-  bazel query @local_config_platform//... &> $TEST_log || fail "Build failed"
-  expect_log '@local_config_platform//:host'
-}
-
 # Test cycles in registered toolchains, which can only happen when
 # registered_toolchains is called for something that is not actually
 # using the "toolchain" rule.
@@ -2310,76 +2301,6 @@ EOF
   expect_log 'Using toolchain: rule message: "hello", toolchain extra_str: "unstable"'
 }
 
-function test_add_exec_constraints_to_targets() {
-  local -r pkg="${FUNCNAME[0]}"
-  # Add test platforms.
-  mkdir -p "${pkg}/platforms"
-  cat > "${pkg}/platforms/BUILD" <<EOF
-package(default_visibility = ['//visibility:public'])
-
-constraint_setting(name = 'setting')
-constraint_value(name = 'value1', constraint_setting = ':setting')
-constraint_value(name = 'value2', constraint_setting = ':setting')
-
-platform(
-    name = 'platform1',
-    constraint_values = [':value1'],
-)
-platform(
-    name = 'platform2',
-    constraint_values = [':value2'],
-)
-EOF
-
-  # Add a rule with default execution constraints.
-  mkdir -p "${pkg}/demo"
-  cat > "${pkg}/demo/rule.bzl" <<EOF
-def _sample_rule_impl(ctx):
-  return []
-
-sample_rule = rule(
-  implementation = _sample_rule_impl,
-  attrs = {
-    "tool": attr.label(cfg = 'exec'),
-  }
-)
-
-def _display_platform_impl(ctx):
-  print("%s target platform: %s" % (ctx.label, ctx.fragments.platform.platforms[0]))
-  return []
-
-display_platform = rule(
-  implementation = _display_platform_impl,
-  attrs = {},
-  fragments = ['platform'],
-)
-EOF
-
-  # Use the new rule.
-  cat > "${pkg}/demo/BUILD" <<EOF
-load(':rule.bzl', 'sample_rule', 'display_platform')
-
-package(default_visibility = ["//visibility:public"])
-
-sample_rule(
-  name = 'sample',
-  tool = ":tool",
-)
-
-display_platform(name = 'tool')
-EOF
-
-  bazel build \
-    --extra_execution_platforms="//${pkg}/platforms:platform1,//${pkg}/platforms:platform2" \
-    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
-  expect_log "@@\?//${pkg}/demo:tool target platform: @@\?//${pkg}/platforms:platform1"
-
-  bazel build \
-      --extra_execution_platforms="//${pkg}/platforms:platform1,//${pkg}/platforms:platform2" \
-      --experimental_add_exec_constraints_to_targets "//${pkg}/demo:sample=//${pkg}/platforms:value2" \
-      "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
-  expect_log "@@\?//${pkg}/demo:tool target platform: @@\?//${pkg}/platforms:platform2"
-}
 
 function test_deps_includes_exec_group_toolchain() {
   local -r pkg="${FUNCNAME[0]}"
@@ -3072,7 +2993,7 @@ function test_exec_platform_required_setting {
   expect_log "Selected execution platform //${pkg}/platforms:platform_basic"
 
   # Verify the debug log.
-  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching config settings: optimized"
+  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching required_settings: optimized"
 
   # Use the new exec platforms, with the reqired_settings version first.
   # Enable the config_setting.

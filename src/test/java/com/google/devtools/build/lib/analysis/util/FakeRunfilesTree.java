@@ -120,11 +120,6 @@ public final class FakeRunfilesTree implements RunfilesTree {
   }
 
   @Override
-  public boolean isLegacyExternalRunfiles() {
-    return runfiles.isLegacyExternalRunfiles();
-  }
-
-  @Override
   public boolean isMappingCached() {
     return false;
   }

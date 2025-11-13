@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -129,7 +130,19 @@ class UrlRewriterConfig {
                       + line,
                   location);
             }
-            rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+            try {
+              rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+            } catch (PatternSyntaxException e) {
+              throw new UrlRewriterParseException(
+                  "Invalid regex in `rewrite`: "
+                      + e.getDescription()
+                      + " at index "
+                      + e.getIndex()
+                      + " in `"
+                      + parts.get(1)
+                      + "`",
+                  location);
+            }
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {

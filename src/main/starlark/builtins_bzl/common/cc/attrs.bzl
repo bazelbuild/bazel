@@ -16,10 +16,9 @@
 """
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_postmark.bzl", "postmark")
 load(":common/cc/cc_shared_library.bzl", "dynamic_deps_attrs")
 load(":common/cc/semantics.bzl", "semantics")
-
-cc_internal = _builtins.internal.cc_internal
 
 common_attrs = {
     "srcs": attr.label_list(
@@ -220,7 +219,7 @@ It can be used to <a href="https://msdn.microsoft.com/en-us/library/d91k01sh.asp
 export symbols</a> during linking a shared library.</p>
 """,
     ),
-}
+} | semantics.allowlist_attrs
 
 linkstatic_doc = """
 For <a href="${link cc_binary}"><code>cc_binary</code></a> and
@@ -292,7 +291,8 @@ Whether to encode build information into the binary. Possible values:
 <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
 """ + semantics.stamp_extra_docs
 
-cc_binary_attrs = common_attrs | {
+# buildifier: disable=attr-licenses
+cc_binary_attrs = common_attrs | postmark.get_attrs() | {
     "deps": attr.label_list(
         allow_files = semantics.ALLOWED_FILES_IN_DEPS,
         allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,

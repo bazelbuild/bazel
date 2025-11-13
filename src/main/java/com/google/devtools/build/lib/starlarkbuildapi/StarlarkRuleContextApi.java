@@ -143,7 +143,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "actions",
       structField = true,
       doc = "Contains methods for declaring output files and the actions that produce them.")
-  StarlarkActionFactoryApi actions();
+  StarlarkActionFactoryApi actions() throws EvalException;
 
   @StarlarkMethod(
       name = "super",

@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
@@ -44,25 +43,15 @@ public class BazelPythonConfiguration extends Fragment {
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
     @Option(
-        name = "python_top",
-        converter = LabelConverter.class,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "The label of a py_runtime representing the Python interpreter invoked to run Python "
-                + "targets on the target platform. Deprecated; disabled by "
-                + "--incompatible_use_python_toolchains.")
-    public Label pythonTop;
-
-    @Option(
         name = "python_path",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "The absolute path of the Python interpreter invoked to run Python targets on the "
-                + "target platform. Deprecated; disabled by --incompatible_use_python_toolchains.")
+            """
+            The absolute path of the Python interpreter invoked to run Python targets on the
+            target platform. Deprecated; disabled by `--incompatible_use_python_toolchains`.
+            """)
     public String pythonPath;
 
     @Option(
@@ -72,20 +61,55 @@ public class BazelPythonConfiguration extends Fragment {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, the roots of repositories in the runfiles tree are added to PYTHONPATH, so "
-                + "that imports like `import mytoplevelpackage.package.module` are valid."
-                + " Regardless of whether this flag is true, the runfiles root itself is also"
-                + " added to the PYTHONPATH, so "
-                + "`import myreponame.mytoplevelpackage.package.module` is valid. The latter form "
-                + "is less likely to experience import name collisions.")
+            """
+            If true, the roots of repositories in the runfiles tree are added to `PYTHONPATH`, so
+            that imports like `import mytoplevelpackage.package.module` are valid.
+            Regardless of whether this flag is true, the runfiles root itself is also
+            added to the `PYTHONPATH`, so
+            `import myreponame.mytoplevelpackage.package.module` is valid. The latter form
+            is less likely to experience import name collisions.
+            """)
     public boolean experimentalPythonImportAllRepositories;
+
+    @Option(
+        name = "incompatible_remove_ctx_bazel_py_fragment",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Python build flags are defined with Python rules (in BUIILD files) and the"
+                + " ctx.fragments.bazel_py attribute is not present. This is a migration flag to"
+                + " move all Python flags from core Bazel to Python rules.")
+    public boolean disablePyFragment;
   }
 
   private final Options options;
+  private final boolean disablePyFragment;
 
   public BazelPythonConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     this.options = buildOptions.get(Options.class);
     String pythonPath = getPythonPath();
+
+    // Only set disablePyFragment, which removes ctx.fragments.bazel_py, if all
+    // BazelPythonConfiguration flags are flag aliased. We specially check here to see if any flags
+    // lack Starlark flag aliases.
+    //
+    // This has the clever effect that ctx.fragments.bazel_py can not be disabled for old
+    // rules_python versions that don't support Starlark flags. That's because
+    // SkyframeExecutor.getFlagAliases() doesn't add aliases on those versions and they're too
+    // old to define MODULE.bazel aliases. So needNativeFragment below will be true.
+    //
+    // TODO: b/453809359 - Remove this extra check Bazel 9+ can read Python flag alias
+    // definitions straight from rules_python's MODULE.bazel.
+    var flagAliases =
+        ImmutableMap.copyOf(buildOptions.get(CoreOptions.class).commandLineFlagAliases);
+    boolean needNativeFragment =
+        // LINT.IfChange
+        !flagAliases.containsKey("python_path")
+            || !flagAliases.containsKey("experimental_python_import_all_repositories");
+    // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/skyframe/SkyframeExecutor.java)
+    this.disablePyFragment = options.disablePyFragment && !needNativeFragment;
     if (!pythonPath.startsWith("python") && !PathFragment.create(pythonPath).isAbsolute()) {
       throw new InvalidConfigurationException(
           "python_path must be an absolute path when it is set.");
@@ -93,29 +117,15 @@ public class BazelPythonConfiguration extends Fragment {
   }
 
   @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions pythonOpts = buildOptions.get(PythonOptions.class);
-    Options opts = buildOptions.get(Options.class);
-    if (pythonOpts.incompatibleUsePythonToolchains) {
-      // Forbid deprecated flags.
-      if (opts.pythonTop != null) {
-        reporter.handle(
-            Event.error(
-                "`--python_top` is disabled by `--incompatible_use_python_toolchains`. Instead of "
-                    + "configuring the Python runtime directly, register a Python toolchain. See "
-                    + "https://github.com/bazelbuild/bazel/issues/7899. You can temporarily revert "
-                    + "to the legacy flag-based way of specifying toolchains by setting "
-                    + "`--incompatible_use_python_toolchains=false`."));
-      }
-      // TODO(#7901): Also prohibit --python_path here.
-    }
+  public boolean shouldInclude() {
+    return !this.disablePyFragment;
   }
 
   @StarlarkConfigurationField(
       name = "python_top",
-      doc = "The value of the --python_top flag; may be None if not specified")
+      doc = "Deprecated. Always returns None. Use toolchain resolution instead.")
   public Label getPythonTop() {
-    return options.pythonTop;
+    return null;
   }
 
   @StarlarkMethod(

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -43,15 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   add_rules_java MODULE.bazel
 }
@@ -60,7 +51,7 @@ function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME
 
-  if $is_windows; then
+  if is_windows; then
     local -r copts=\"/W3\"
   else
     local -r copts=""
@@ -260,7 +251,7 @@ EOF
   local status_cmd="$TEST_TMPDIR/status_cmd.sh"
 
   cat >"$status_cmd" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'STATUS_COMMAND_RAN' >&2
 EOF

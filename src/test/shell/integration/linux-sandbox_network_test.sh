@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -62,7 +62,7 @@ function test_ping_no_loopback() {
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-[[ "$(uname -s)" = Linux ]] || exit 0
+is_linux || exit 0
 check_sandbox_allowed || exit 0
 
 run_suite "linux-sandbox-network"

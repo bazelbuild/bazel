@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.ABSTRACT;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.TEST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -42,6 +40,7 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -126,12 +124,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     // See b/226379109 for details.
 
     @Override
-    protected synchronized byte[] getFastDigest(PathFragment path) {
+    public synchronized byte[] getFastDigest(PathFragment path) {
       return getDigest(path);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) {
+    public synchronized byte[] getDigest(PathFragment path) {
       return getDigestFunction()
           .getHashFunction()
           .hashBytes(StringUnsafe.getInternalStringBytes(path.getPathString()))
@@ -141,8 +139,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static final class Builder implements RuleDefinitionEnvironment {
-    private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
-    private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
     private RepositoryName toolsRepository;
@@ -179,18 +175,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
-
-    @CanIgnoreReturnValue
-    public Builder addWorkspaceFilePrefix(String contents) {
-      defaultWorkspaceFilePrefix.append(contents);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addWorkspaceFileSuffix(String contents) {
-      defaultWorkspaceFileSuffix.append(contents);
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
@@ -486,8 +470,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       checkArgument(
           metadata.type() == ABSTRACT
               ^ metadata.factoryClass() != RuleConfiguredTargetFactory.class);
-      checkArgument(
-          (metadata.type() != TEST) || ancestors.contains(BaseRuleClasses.TestBaseRule.class));
 
       RuleClass[] ancestorClasses = new RuleClass[ancestors.size()];
       for (int i = 0; i < ancestorClasses.length; i++) {
@@ -531,7 +513,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
             dest.getParentDirectory().createDirectoryAndParents();
             try (OutputStream os = dest.getOutputStream()) {
-              ByteStreams.copy(zip, os);
+              zip.transferTo(os);
             }
           }
         }
@@ -587,8 +569,6 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableMap.copyOf(nativeAspectClassMap),
           FragmentRegistry.create(
               configurationFragmentClasses, universalFragments, configurationOptions),
-          defaultWorkspaceFilePrefix.toString(),
-          defaultWorkspaceFileSuffix.toString(),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
@@ -620,12 +600,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
   }
-
-  /** Default content that should be added at the beginning of the WORKSPACE file. */
-  private final String defaultWorkspaceFilePrefix;
-
-  /** Default content that should be added at the end of the WORKSPACE file. */
-  private final String defaultWorkspaceFileSuffix;
 
   /** Label for the prelude file. */
   private final Label preludeLabel;
@@ -700,8 +674,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
       FragmentRegistry fragmentRegistry,
-      String defaultWorkspaceFilePrefix,
-      String defaultWorkspaceFileSuffix,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -724,8 +696,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
     this.fragmentRegistry = fragmentRegistry;
-    this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
-    this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -745,11 +715,10 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             StarlarkGlobalsImpl.INSTANCE,
+            version,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
             registeredBzlToplevels,
-            /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
-                ruleClassMap, version),
             /* builtinsInternals= */ starlarkBuiltinsInternals);
   }
 
@@ -760,6 +729,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public Label getPreludeLabel() {
     return preludeLabel;
+  }
+
+  @Override
+  public boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.packageUnderExperimental(packageIdentifier);
   }
 
   @Override
@@ -863,16 +837,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
     return bazelStarlarkEnvironment;
-  }
-
-  @Override
-  public String getDefaultWorkspacePrefix() {
-    return defaultWorkspaceFilePrefix;
-  }
-
-  @Override
-  public String getDefaultWorkspaceSuffix() {
-    return defaultWorkspaceFileSuffix;
   }
 
   @Override

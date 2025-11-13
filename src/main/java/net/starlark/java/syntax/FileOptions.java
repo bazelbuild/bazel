@@ -78,8 +78,19 @@ public abstract class FileOptions {
    */
   public abstract boolean stringLiteralsAreAsciiOnly();
 
-  /** Whether type annotations are allowed in the source code. */
-  public abstract boolean allowTypeAnnotations();
+  /** Whether type annotations and related syntax are allowed in the source code. */
+  public abstract boolean allowTypeSyntax();
+
+  /**
+   * If true, type expressions may be any valid expression except for unparenthesized tuples.
+   * Otherwise type expressions must represent a valid type.
+   *
+   * <p>Enabling this boolean is helpful for backwards compatibility, but results in an AST that is
+   * not usable for type checking.
+   *
+   * <p>This has no effect if {@link #allowTypeSyntax} is false.
+   */
+  public abstract boolean allowArbitraryTypeExpressions();
 
   public static Builder builder() {
     // These are the DEFAULT values.
@@ -89,7 +100,8 @@ public abstract class FileOptions {
         .loadBindsGlobally(false)
         .requireLoadStatementsFirst(true)
         .stringLiteralsAreAsciiOnly(false)
-        .allowTypeAnnotations(false);
+        .allowTypeSyntax(false)
+        .allowArbitraryTypeExpressions(false);
   }
 
   public abstract Builder toBuilder();
@@ -108,7 +120,9 @@ public abstract class FileOptions {
 
     public abstract Builder stringLiteralsAreAsciiOnly(boolean value);
 
-    public abstract Builder allowTypeAnnotations(boolean value);
+    public abstract Builder allowTypeSyntax(boolean value);
+
+    public abstract Builder allowArbitraryTypeExpressions(boolean value);
 
     public abstract FileOptions build();
   }

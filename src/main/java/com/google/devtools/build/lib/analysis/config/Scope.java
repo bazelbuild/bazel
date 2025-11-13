@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Arrays.stream;
+
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /**
@@ -22,22 +27,28 @@ import javax.annotation.Nullable;
  * Scope.ScopeDefinition}.
  */
 public class Scope {
-  /**
-   * Type of supported scopes. UNIVERSAL: Flags scoped with this type are allowded to propagate
-   * everywhere. PROJECT: Flags scoped with this type are only allowed to propagate within the
-   * project scope defined in the PROJECT.scl file by the user.
-   */
+  /** Type of supported scopes. */
   public enum ScopeType {
+    /** The flag's value never changes except explicitly by a configuraiton transition. * */
     UNIVERSAL,
-    PROJECT;
+    /** The flag's value resets on exec transitions. * */
+    TARGET,
+    /** The flag resets on targets outside the flag's project. See PROJECT.scl. * */
+    PROJECT,
+    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. * */
+    DEFAULT;
 
-    public static ScopeType valueOfIgnoreCase(String scopeType) {
-      for (ScopeType scope : values()) {
-        if (scope.name().equalsIgnoreCase(scopeType)) {
-          return scope;
-        }
-      }
-      throw new IllegalArgumentException("Invalid scope type: " + scopeType);
+    /** Returns the enum of a {@code scope = "<string>"} value. */
+    public static ScopeType valueOfIgnoreCase(String scopeType) throws IllegalArgumentException {
+      return ScopeType.valueOf(scopeType.toUpperCase(Locale.ROOT));
+    }
+
+    /** Which values can a rule's {@code scope} attribute have? */
+    public static ImmutableList<String> allowedAttributeValues() {
+      return stream(ScopeType.values())
+          .map(e -> e.name().toLowerCase(Locale.ROOT))
+          .filter(e -> !e.equals("default")) // "default" is an internal value for unset attributes.
+          .collect(toImmutableList());
     }
   }
 

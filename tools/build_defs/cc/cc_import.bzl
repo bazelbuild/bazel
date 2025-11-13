@@ -18,5 +18,7 @@ We may change the implementation at any moment or even delete this file. Do not
 rely on this. Pass the flag --experimental_starlark_cc_import
 """
 
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+
 def cc_import(**attrs):
-    native.cc_import(**attrs)
+    cc_import(**attrs)

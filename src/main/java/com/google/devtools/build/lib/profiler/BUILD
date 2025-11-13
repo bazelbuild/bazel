@@ -19,6 +19,7 @@ java_library(
     deps = [
         ":network_metrics_collector",
         ":profiler",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -34,36 +35,63 @@ java_library(
     ],
 )
 
+# Profiler interface and helper classes. Available in both the SC and the LC.
 java_library(
     name = "profiler",
     srcs = [
+        "AsyncProfiler.java",
         "AutoProfiler.java",
+        "CounterSeriesCollector.java",
         "CounterSeriesTask.java",
-        "CounterSeriesTraceData.java",
-        "JsonTraceFileWriter.java",
         "LocalResourceCollector.java",
         "MemoryProfiler.java",
-        "MetricData.java",
-        "PredicateBasedStatRecorder.java",
+        "NoOpTraceProfilerService.java",
         "ProfilePhase.java",
         "Profiler.java",
         "ProfilerTask.java",
         "SilentCloseable.java",
-        "SingleStatRecorder.java",
+        "SlowTask.java",
         "StatRecorder.java",
-        "ThreadMetadata.java",
         "TimeSeries.java",
-        "TraceData.java",
+        "TraceProfilerService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/collect:extrema",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+# SC only
+java_library(
+    name = "profiler_impl",
+    srcs = [
+        "CounterSeriesTraceData.java",
+        "JsonTraceFileWriter.java",
+        "MetricData.java",
+        "PredicateBasedStatRecorder.java",
+        "SingleStatRecorder.java",
+        "TaskData.java",
+        "ThreadMetadata.java",
+        "TimeSeriesImpl.java",
+        "TraceData.java",
+        "TraceProfilerServiceImpl.java",
+    ],
+    deps = [
+        ":profiler",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/collect:extrema",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
@@ -92,9 +120,8 @@ java_library(
     name = "network_metrics_collector",
     srcs = ["NetworkMetricsCollector.java"],
     deps = [
-        ":system_network_stats",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -102,12 +129,18 @@ java_library(
 )
 
 java_library(
-    name = "system_network_stats",
-    srcs = ["SystemNetworkStats.java"],
+    name = "system_network_stats_service",
+    srcs = ["SystemNetworkStatsService.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+)
+
+java_library(
+    name = "system_network_stats_service_impl",
+    srcs = ["SystemNetworkStatsServiceImpl.java"],
     deps = [
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

@@ -80,8 +80,7 @@ public final class StringUnsafe {
    * Return the internal byte array of a String using Bazel's internal encoding (see {@link
    * com.google.devtools.build.lib.util.StringEncoding}).
    *
-   * <p>Use of this is unsafe. The representation may change from one JDK version to the next.
-   * Ensure you do not mutate this byte array in any way.
+   * <p>Callers must not mutate the returned byte array.
    */
   public static byte[] getInternalStringBytes(String obj) {
     // This is both a performance optimization and a correctness check: internal strings must
@@ -91,8 +90,9 @@ public final class StringUnsafe {
       // Truncation is ASCII only and thus doesn't change the encoding.
       String truncatedString = Ascii.truncate(obj, 1000, "...");
       throw new IllegalArgumentException(
-          "Expected internal string with Latin-1 coder, got: %s (%s)"
-              .formatted(truncatedString, Arrays.toString(getByteArray(truncatedString))));
+          String.format(
+              "Expected internal string with Latin-1 coder, got: %s (%s)",
+              truncatedString, Arrays.toString(getByteArray(truncatedString))));
     }
     return getByteArray(obj);
   }

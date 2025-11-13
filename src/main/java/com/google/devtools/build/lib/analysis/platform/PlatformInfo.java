@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Objects;
@@ -40,13 +38,6 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public class PlatformInfo extends NativeInfo
     implements PlatformInfoApi<ConstraintSettingInfo, ConstraintValueInfo> {
-
-  /**
-   * The literal key that will be used to copy the {@link #remoteExecutionProperties} from the
-   * parent {@link PlatformInfo} into a new {@link PlatformInfo}'s {@link
-   * #remoteExecutionProperties}.
-   */
-  public static final String PARENT_REMOTE_EXECUTION_KEY = "{PARENT_REMOTE_EXECUTION_PROPERTIES}";
 
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "PlatformInfo";
@@ -73,11 +64,7 @@ public class PlatformInfo extends NativeInfo
 
   private final Label label;
   private final ConstraintCollection constraints;
-  private final String remoteExecutionProperties;
 
-  /** execProperties will deprecate and replace remoteExecutionProperties */
-  // TODO(blaze-configurability): If we want to remove remoteExecutionProperties, we need to fix
-  // PlatformUtils.getPlatformProto to use the dict-typed execProperties and do a migration.
   private final PlatformProperties execProperties;
 
   private final ImmutableList<String> flags;
@@ -92,7 +79,6 @@ public class PlatformInfo extends NativeInfo
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
-      String remoteExecutionProperties,
       PlatformProperties execProperties,
       ImmutableList<String> flags,
       ImmutableList<ConfigMatchingProvider> requiredSettings,
@@ -103,7 +89,6 @@ public class PlatformInfo extends NativeInfo
     super(creationLocation);
     this.label = label;
     this.constraints = constraints;
-    this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
     this.flags = flags;
     this.requiredSettings = requiredSettings;
@@ -125,10 +110,6 @@ public class PlatformInfo extends NativeInfo
   @Override
   public ConstraintCollection constraints() {
     return constraints;
-  }
-
-  public String remoteExecutionProperties() {
-    return remoteExecutionProperties;
   }
 
   public ImmutableMap<String, String> execProperties() {
@@ -165,7 +146,6 @@ public class PlatformInfo extends NativeInfo
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
     constraints.addToFingerprint(fp);
-    fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties.properties());
     fp.addStrings(flags);
     fp.addStrings(
@@ -185,7 +165,6 @@ public class PlatformInfo extends NativeInfo
     }
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
-        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
         && Objects.equals(execProperties, that.execProperties)
         && Objects.equals(flags, that.flags)
         && Objects.equals(requiredSettings, that.requiredSettings)
@@ -199,7 +178,6 @@ public class PlatformInfo extends NativeInfo
     return Objects.hash(
         label,
         constraints,
-        remoteExecutionProperties,
         execProperties,
         flags,
         requiredSettings,
@@ -219,7 +197,6 @@ public class PlatformInfo extends NativeInfo
     @Nullable private PlatformInfo parent = null;
     private Label label;
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
-    private String remoteExecutionProperties = null;
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
     private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<ConfigMatchingProvider> requiredSettings =
@@ -288,35 +265,6 @@ public class PlatformInfo extends NativeInfo
     }
 
     /**
-     * Sets the data being sent to a potential remote executor. If there is a parent {@link
-     * PlatformInfo} set, the literal string "{PARENT_REMOTE_EXECUTION_PROPERTIES}" will be replaced
-     * by the {@link #remoteExecutionProperties} from that parent. Also if the parent is set, and
-     * this instance's {@link #remoteExecutionProperties} is blank or unset, the parent's will be
-     * used directly.
-     *
-     * <p>Specific examples:
-     *
-     * <ul>
-     *   <li>parent.remoteExecutionProperties is unset: use the child's value
-     *   <li>parent.remoteExecutionProperties is set, child.remoteExecutionProperties is unset: use
-     *       the parent's value
-     *   <li>parent.remoteExecutionProperties is set, child.remoteExecutionProperties is set, and
-     *       does not contain {PARENT_REMOTE_EXECUTION_PROPERTIES}: use the child's value
-     *   <li>parent.remoteExecutionProperties is set, child.remoteExecutionProperties is set, and
-     *       does contain {PARENT_REMOTE_EXECUTION_PROPERTIES}: use the child's value, but
-     *       substitute the parent's value for {PARENT_REMOTE_EXECUTION_PROPERTIES}
-     * </ul>
-     *
-     * @param properties the properties to be added
-     * @return the {@link Builder} instance for method chaining
-     */
-    @CanIgnoreReturnValue
-    public Builder setRemoteExecutionProperties(String properties) {
-      this.remoteExecutionProperties = properties;
-      return this;
-    }
-
-    /**
      * Sets the execution properties.
      *
      * <p>If there is a parent {@link PlatformInfo} set, then all parent's properties will be
@@ -369,35 +317,6 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    private static void checkRemoteExecutionProperties(
-        PlatformInfo parent,
-        String remoteExecutionProperties,
-        ImmutableMap<String, String> execProperties)
-        throws ExecPropertiesException {
-      if (!execProperties.isEmpty() && !Strings.isNullOrEmpty(remoteExecutionProperties)) {
-        throw new ExecPropertiesException(
-            "Platform contains both remote_execution_properties and exec_properties. Prefer"
-                + " exec_properties over the deprecated remote_execution_properties.");
-      }
-      if (!execProperties.isEmpty()
-          && parent != null
-          && !Strings.isNullOrEmpty(parent.remoteExecutionProperties())) {
-        throw new ExecPropertiesException(
-            "Platform specifies exec_properties but its parent "
-                + parent.label()
-                + " specifies remote_execution_properties. Prefer exec_properties over the"
-                + " deprecated remote_execution_properties.");
-      }
-      if (!Strings.isNullOrEmpty(remoteExecutionProperties)
-          && parent != null
-          && !parent.execProperties().isEmpty()) {
-        throw new ExecPropertiesException(
-            "Platform specifies remote_execution_properties but its parent specifies"
-                + " exec_properties. Prefer exec_properties over the deprecated"
-                + " remote_execution_properties.");
-      }
-    }
-
     /**
      * Returns the new {@link PlatformInfo} instance.
      *
@@ -405,13 +324,6 @@ public class PlatformInfo extends NativeInfo
      *     constraint setting
      */
     public PlatformInfo build() throws DuplicateConstraintException, ExecPropertiesException {
-      checkRemoteExecutionProperties(
-          this.parent, this.remoteExecutionProperties, execPropertiesBuilder.getProperties());
-
-      // Merge the remote execution properties.
-      String remoteExecutionProperties =
-          mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
-
       // Merge parent flags and this builder's flags. Parent flags always come first so that flags
       // from this builder will override or combine, depending on the flag type.
       ImmutableList.Builder<String> flagBuilder = new ImmutableList.Builder<>();
@@ -426,7 +338,6 @@ public class PlatformInfo extends NativeInfo
       return new PlatformInfo(
           label,
           constraints.build(),
-          remoteExecutionProperties,
           execPropertiesBuilder.build(),
           flagBuilder.build(),
           settings,
@@ -434,21 +345,6 @@ public class PlatformInfo extends NativeInfo
           allowedToolchainTypes.build(),
           missingToolchainErrorMessage,
           creationLocation);
-    }
-
-    private static String mergeRemoteExecutionProperties(
-        PlatformInfo parent, String remoteExecutionProperties) {
-      String parentRemoteExecutionProperties = "";
-      if (parent != null) {
-        parentRemoteExecutionProperties = parent.remoteExecutionProperties();
-      }
-
-      if (remoteExecutionProperties == null) {
-        return parentRemoteExecutionProperties;
-      }
-
-      return StringUtilities.replaceAllLiteral(
-          remoteExecutionProperties, PARENT_REMOTE_EXECUTION_KEY, parentRemoteExecutionProperties);
     }
   }
 

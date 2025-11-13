@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -208,5 +209,24 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
       }
     }
     return this;
+  }
+
+  @Override
+  public boolean equals(Object otherObject) {
+    if (this == otherObject) {
+      return true;
+    }
+    if (!(otherObject instanceof StarlarkInfoWithSchema other)) {
+      return false;
+    }
+    if (!this.provider.equals(other.provider)) {
+      return false;
+    }
+    return Arrays.equals(this.table, other.table);
+  }
+
+  @Override
+  public int hashCode() {
+    return Arrays.hashCode(table);
   }
 }

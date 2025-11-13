@@ -128,6 +128,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   public void canBeUsedFromCcRules() throws Exception {
     scratch.file(
         "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
         "cc_library(name = 'foo', srcs = ['foo.cc'], deps = ['foo_cc_proto'])",
@@ -174,7 +176,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:foo_cc_proto")).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h");
   }
@@ -187,7 +189,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "cc_proto_library(name = 'any_cc_proto', deps = ['@com_google_protobuf//:any_proto'])");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:any_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:any_cc_proto")).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs())).isEmpty();
   }
 
@@ -205,7 +207,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:foo_cc_proto")).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h");
   }
@@ -221,7 +223,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:foo_cc_proto")).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }

@@ -42,6 +42,11 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
   }
 
   @Override
+  public synchronized Map<PackageIdentifier, Long> getGlobFilesystemOperationCost() {
+    return Maps.transformValues(metrics, PackageLoadMetrics::getGlobFilesystemOperationCost);
+  }
+
+  @Override
   public synchronized Map<PackageIdentifier, Long> getComputationSteps() {
     return Maps.transformValues(metrics, PackageLoadMetrics::getComputationSteps);
   }

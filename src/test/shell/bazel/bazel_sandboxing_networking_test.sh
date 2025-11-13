@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -55,7 +55,7 @@ function setup_network_tests() {
   local socket_dir
   socket_dir="$(mktemp -d /tmp/test.XXXXXX)" || fail "mktemp failed"
   local socket="${socket_dir}/socket"
-  python $python_server --unix_socket="${socket}" always file_to_serve &
+  python3 $python_server --unix_socket="${socket}" always file_to_serve &
   local pid="${!}"
 
   trap "kill_nc || true; kill '${pid}' || true; rm -f '${socket}'; rmdir '${socket_dir}'" EXIT
@@ -79,7 +79,7 @@ genrule(
 genrule(
   name = "loopback",
   outs = [ "loopback.txt" ],
-  cmd = "python $python_server always $(pwd)/file_to_serve >port.txt & "
+  cmd = "python3 $python_server always $(pwd)/file_to_serve >port.txt & "
       + "pid=\$\$!; "
       + "while ! grep started port.txt; do sleep 1; done; "
       + "port=\$\$(head -n 1 port.txt); "
@@ -170,17 +170,14 @@ function test_sandbox_network_access() {
 function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
-  case "$(uname -s)" in
-    Linux)
-      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-      # within the network namespace... but that doesn't seem to be the case.
-      check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
-      ;;
+  if is_linux; then
+    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+    # within the network namespace... but that doesn't seem to be the case.
+    check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
+  else
+    check_network_ok localhost --experimental_sandbox_default_allow_network=false
+  fi
 
-    *)
-      check_network_ok localhost --experimental_sandbox_default_allow_network=false
-      ;;
-  esac
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
@@ -191,8 +188,6 @@ function test_sandbox_block_network_access() {
 
 function test_sandbox_network_access_with_local() {
   cat >>$TEST_TMPDIR/bazelrc <<'EOF'
-# With `--incompatible_legacy_local_fallback` turned off, we need to explicitly
-# include a non-sandboxed strategy.
 build --spawn_strategy=sandboxed,standalone --genrule_strategy=sandboxed,standalone
 EOF
 
@@ -222,17 +217,13 @@ function test_sandbox_network_access_with_requires_network() {
 function test_sandbox_network_access_with_block_network() {
   setup_network_tests '"block-network"'
 
-  case "$(uname -s)" in
-    Linux)
-      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-      # within the network namespace... but that doesn't seem to be the case.
-      check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
-      ;;
-
-    *)
-      check_network_ok localhost --experimental_sandbox_default_allow_network=true
-      ;;
-  esac
+  if is_linux; then
+    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+    # within the network namespace... but that doesn't seem to be the case.
+    check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
+  else
+    check_network_ok localhost --experimental_sandbox_default_allow_network=true
+  fi
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
   check_network_ok loopback --experimental_sandbox_default_allow_network=true
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
@@ -263,6 +254,7 @@ public class HostNameTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameTest",
   srcs = ["HostNameTest.java"],
@@ -275,7 +267,7 @@ EOF
 }
 
 function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: fake hostnames not supported in this system" 1>&2
     return 0
   fi
@@ -301,6 +293,7 @@ public class HostNameIsLocalhostTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameIsLocalhostTest",
   srcs = ["HostNameIsLocalhostTest.java"],

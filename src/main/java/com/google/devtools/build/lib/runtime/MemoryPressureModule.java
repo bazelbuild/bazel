@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.common.options.OptionsBase;
@@ -51,6 +52,11 @@ public final class MemoryPressureModule extends BlazeModule {
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
     eventBus.register(this);
     eventBus.register(highWaterMarkLimiter);
+  }
+
+  @Subscribe
+  public void targetParsingComplete(TargetParsingCompleteEvent event) {
+    memoryPressureListener.targetParsingComplete(event.getTargets().size());
   }
 
   @Override

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -49,6 +50,7 @@ public final class Bazel {
           CredentialModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
           com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
+          com.google.devtools.build.lib.runtime.ThreadDumpModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
           BazelFileSystemModule.class,
@@ -62,8 +64,7 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
           com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule.class,
-          com.google.devtools.build.lib.bazel.repository.RepositoryResolvedModule.class,
-          com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
+          CacheHitReportingModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
           com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileModule.class,
           com.google.devtools.build.lib.outputfilter.OutputFilteringModule.class,
@@ -76,7 +77,6 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
-          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.runtime.ExecutionGraphModule.class,
@@ -87,6 +87,9 @@ public final class Bazel {
           // This module needs to be registered after any module submitting tasks with its {@code
           // submit} method.
           com.google.devtools.build.lib.runtime.BlockWaitingModule.class,
+          // This module needs to come after BlockWaitingModule so that the BES isn't closed until
+          // the background tasks maintained by the module have completed.
+          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           // Modules that are involved in the collection of heap-related metrics of a build. They
           // need to be
           // last in the modules order, so when the GCs happen at the end of the build, we mitigate
@@ -99,9 +102,15 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class);
 
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
+  public static final ImmutableList<BlazeService> BAZEL_SERVICES =
+      ImmutableList.of(
+          new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
+          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
+
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, args);
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
   }
 
   /**

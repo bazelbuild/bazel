@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 
@@ -28,8 +27,7 @@ public final class SerializationDepsUtils {
       ImmutableClassToInstanceMap.builder()
           .put(
               ArtifactSerializationContext.class,
-              (execPath, root, owner) ->
-                  new SourceArtifact(ArtifactRoot.asSourceRoot(root), execPath, owner))
+              (execPath, root, owner) -> new SourceArtifact(root, execPath, owner))
           .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
           .build();
 

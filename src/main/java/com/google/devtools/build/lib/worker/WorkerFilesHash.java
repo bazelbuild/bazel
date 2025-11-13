@@ -21,6 +21,7 @@ import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -45,10 +46,10 @@ public class WorkerFilesHash {
     Hasher hasher = Hashing.sha256().newHasher();
     workerFilesMap.forEach(
         (execPath, digest) -> {
-          String execPathString = execPath.getPathString();
-          hasher.putByte(StringUnsafe.getCoder(execPathString));
-          hasher.putInt(execPathString.length());
-          hasher.putBytes(StringUnsafe.getByteArray(execPathString));
+          byte[] execPathBytes = StringUnsafe.getInternalStringBytes(execPath.getPathString());
+          hasher.putByte((byte) 0);
+          hasher.putInt(execPathBytes.length);
+          hasher.putBytes(execPathBytes);
 
           hasher.putInt(digest.length);
           hasher.putBytes(digest);
@@ -86,10 +87,15 @@ public class WorkerFilesHash {
             if (metadata == null) {
               throw new MissingInputException(localArtifact);
             }
-            if (metadata.getType().isFile()) {
+            var digest = metadata.getDigest();
+            if (digest != null) {
               workerFilesMap.put(
                   spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
                   metadata.getDigest());
+            } else {
+              // If BAZEL_TRACK_SOURCE_DIRECTORIES is explicitly disabled, the metadata may not have
+              // a digest.
+              Preconditions.checkState(metadata.getType() == FileStateType.DIRECTORY);
             }
           }
         }
@@ -101,9 +107,7 @@ public class WorkerFilesHash {
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(
-          spawn.getPathMapper().map(tool.getExecPath()),
-          actionInputFileCache.getInputMetadata(tool).getDigest());
+      workerFilesMap.put(spawn.getPathMapper().map(tool.getExecPath()), metadata.getDigest());
     }
 
     return workerFilesMap;

@@ -100,7 +100,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Before
   public final void initializeRoots() throws Exception {
-    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.Output, "output");
+    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
   }
 
   private static ImmutableList<ExecutionGraph.Node> parse(ByteArrayOutputStream buffer)
@@ -148,6 +148,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -207,6 +208,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -282,6 +284,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -290,6 +293,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut2,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -298,6 +302,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnTop,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -436,6 +441,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -449,6 +455,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut3,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -609,6 +616,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             result,
             startTimeInstant,
@@ -630,6 +638,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
@@ -669,6 +678,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
@@ -737,6 +747,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
@@ -745,6 +756,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(100),
@@ -827,6 +839,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
@@ -835,6 +848,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
@@ -895,6 +909,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
@@ -903,6 +918,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
@@ -911,6 +927,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             dependentSpawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             dependentResult,
             Instant.ofEpochMilli(300),

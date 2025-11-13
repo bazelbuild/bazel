@@ -67,14 +67,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
               @Override
               public void workspaceInit(
                   BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-                // Null out RepositoryHelpersHolder so that we don't trigger
+                // Disable external repositories so that we don't trigger
                 // RepoMappingManifestAction. This preserves action graph structure between blaze
                 // and bazel, which is important for this test's assertions.
                 //
                 // IMPORTANT: As a result of this, external repositories are not symlinked under
                 // the execroot with Skymeld enabled. See onTargetAnalyzed for how to manually
                 // create such a symlink.
-                builder.setSkyframeExecutorRepositoryHelpersHolder(null);
+                builder.allowExternalRepositories(false);
               }
             });
   }
@@ -102,9 +102,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
       // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
       // TopLevelTargetReadyForSymlinkPlanting.
       FileSystemUtils.ensureSymbolicLink(
-          getExecRootBase()
-              .getChild(TestConstants.WORKSPACE_NAME)
-              .getRelative("external/bazel_tools"),
+          directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("external/bazel_tools"),
           getOutputBase().getRelative("external/bazel_tools"));
     }
   }

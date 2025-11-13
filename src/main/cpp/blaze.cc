@@ -52,6 +52,9 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/startup_interceptor.h"
+#include "src/main/cpp/command_extension_adder.h"
+
 #if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
@@ -78,10 +81,6 @@
 #include "src/main/protobuf/command_server.grpc.pb.h"
 
 using blaze_util::GetLastErrorString;
-
-#if !defined(_WIN32)
-extern char **environ;
-#endif
 
 namespace blaze {
 
@@ -199,7 +198,8 @@ static const char *ReasonString(RestartReason reason) {
 
 class BlazeServer final {
  public:
-  explicit BlazeServer(const StartupOptions &startup_options);
+  explicit BlazeServer(const StartupOptions &startup_options,
+                       CommandExtensionAdder* command_extension_adder);
 
   // Acquires locks for the install and output bases this server is running in.
   // Returns the time spent waiting for locks.
@@ -271,6 +271,7 @@ class BlazeServer final {
   const bool lock_install_base_;
   const blaze_util::Path install_base_;
   const blaze_util::Path output_base_;
+  CommandExtensionAdder* command_extension_adder_;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -547,6 +548,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   } else {
     result.push_back("--nowindows_enable_symlinks");
   }
+  if (startup_options.remote_repo_contents_cache) {
+    result.push_back("--experimental_remote_repo_contents_cache");
+    // Don't set the flag to false if it's not set - non-OSS Blaze does not know
+    // about this flag.
+  }
   // We use this syntax so that the logic in AreStartupOptionsDifferent() that
   // decides whether the server needs killing is simpler. This is parsed by
   // the Java code where --noclient_debug and --client_debug=false are
@@ -574,6 +580,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     for (const auto &arg : startup_options.host_jvm_args) {
       result.push_back("--host_jvm_args=" + arg);
     }
+  }
+  if (!startup_options.extra_classpath.empty()) {
+    result.push_back("--extra_classpath=" + startup_options.extra_classpath);
   }
 
   // Pass in invocation policy as a startup argument for batch mode only.
@@ -666,8 +675,8 @@ static void EnsureServerDir(const blaze_util::Path &server_dir) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
-                                const string &workspace) {
+static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
+                          const string &workspace) {
   if (workspace_layout.InWorkspace(workspace) &&
       !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -676,7 +685,7 @@ static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
   }
 }
 
-static const bool IsServerMode(const string &command) {
+static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
@@ -911,7 +920,12 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, const string &build_label,
+    StartupInterceptor *interceptor) {
+  if (interceptor != nullptr) {
+    interceptor->MaybeReroute(&startup_options, build_label);
+  }
+
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
@@ -984,10 +998,13 @@ static bool IsVolatileArg(const string &arg) {
 }
 
 // Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists.
+// between the two argument lists. Populates old_server_options and
+// new_server_options.
 static bool AreStartupOptionsDifferent(
     const vector<string> &running_server_args,
-    const vector<string> &requested_args) {
+    const vector<string> &requested_args,
+    vector<string> *old_server_options,
+    vector<string> *new_server_options) {
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
@@ -1035,6 +1052,7 @@ static bool AreStartupOptionsDifferent(
                        "included in the current request:";
     for (const string &a : old_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      old_server_options->push_back(a);
     }
   }
   if (!new_args.empty()) {
@@ -1042,6 +1060,7 @@ static bool AreStartupOptionsDifferent(
                        "included when creating the server:";
     for (const string &a : new_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      new_server_options->push_back(a);
     }
   }
 
@@ -1072,11 +1091,31 @@ static bool KillRunningServerIfDifferentStartupOptions(
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (AreStartupOptionsDifferent(old_arguments, server_exe_args)) {
+  vector<string> old_server_options;
+  vector<string> new_server_options;
+  if (AreStartupOptionsDifferent(old_arguments, server_exe_args,
+                                 &old_server_options,
+                                 &new_server_options)) {
     logging_info->restart_reason = NEW_OPTIONS;
-    BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
-                       << " server needs to be killed, because the startup "
-                          "options are different.";
+
+    string different_startup_options_message;
+
+    string old_options_str;
+    blaze_util::JoinStrings(old_server_options, ' ', &old_options_str);
+    different_startup_options_message +=
+        "\n  - Only in old server: " + old_options_str;
+
+    string new_options_str;
+    blaze_util::JoinStrings(new_server_options, ' ', &new_options_str);
+    different_startup_options_message +=
+        "\n  - Only in new server: " + new_options_str;
+
+    BAZEL_LOG(WARNING)
+        << "Running " << startup_options.product_name
+        << " server needs to be killed, because the following startup "
+           "options are different:"
+        << different_startup_options_message;
+
     server->KillRunningServer();
     return true;
   }
@@ -1145,12 +1184,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
     const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, StartupInterceptor *interceptor,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server, build_label);
+                            startup_options, logging_info, server, build_label,
+                            interceptor);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1274,8 +1315,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != nullptr; entry++) {
-    const std::string var_value = *entry;
+  for (const auto& var_value : blaze::GetProcessedEnv()) {
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
       // Ignore possibly-bad environment. We don't control what we see in this
@@ -1313,31 +1353,31 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 
-  // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
-  // run" doesn't handle non-ASCII command line arguments. This is apparently
-  // the most reliable way to select the platform default encoding.
-  //
-  // On Linux, only do this if the locale is available to avoid the JVM
-  // falling back to ASCII-only mode.
+  // Ensure that the JVM runs with a locale that supports Unicode characters in
+  // filenames, environment variables, etc. The approach differs by OS:
+  // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
+  // - On Windows, the JVM uses the system code page to determine the encoding.
+  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
+  // - On Linux, the JVM goes through the regular locale mechanism. In
+  //   particular, we can only force UTF-8 if we can find a locale that supports
+  //   it. Furthermore, for backwards compatibility with setups using other
+  //   encodings, we pick a Latin-1 locale if possible to support arbitrary byte
+  //   sequences, not just valid UTF-8.
+#ifdef __linux__
+  const char *want_locale = nullptr;
+  for (auto candidate_locale : {"en_US.ISO-8859-1", "C.UTF-8", "en_US.UTF-8"}) {
+    locale_t locale = newlocale(LC_CTYPE_MASK, candidate_locale, nullptr);
+    if (locale != nullptr) {
+      freelocale(locale);
+      want_locale = candidate_locale;
+      break;
+    }
+  }
 
-  const char *want_locale = "en_US.ISO-8859-1";
-  bool override_locale = true;
-#ifndef _WIN32
-  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
-  if (iso_locale == 0) {
-    // ISO-8859-1 locale not available, use whatever the user has defined.
-    override_locale = false;
-  } else {
-    freelocale(iso_locale);
+  if (want_locale != nullptr) {
+    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
   }
 #endif
-
-  if (override_locale) {
-    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-  }
 
   return result;
 }
@@ -1461,8 +1501,10 @@ static void RunLauncher(const string &self_path,
                         const StartupOptions &startup_options,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
-                        const string &workspace, LoggingInfo *logging_info) {
-  blaze_server = new BlazeServer(startup_options);
+                        const string &workspace, LoggingInfo *logging_info,
+                        StartupInterceptor *interceptor,
+                        CommandExtensionAdder *command_extension_adder) {
+  blaze_server = new BlazeServer(startup_options, command_extension_adder);
 
   const std::optional<DurationMillis> command_wait_duration =
       blaze_server->AcquireLocks();
@@ -1534,15 +1576,17 @@ static void RunLauncher(const string &self_path,
   } else {
     string build_label;
     ExtractBuildLabel(self_path, &build_label);
-    RunClientServerMode(server_exe, server_exe_args, server_dir,
-                        workspace_layout, workspace, option_processor,
-                        startup_options, logging_info, extract_data_duration,
-                        command_wait_duration, blaze_server, build_label);
+    RunClientServerMode(
+        server_exe, server_exe_args, server_dir, workspace_layout, workspace,
+        option_processor, startup_options, logging_info, extract_data_duration,
+        command_wait_duration, blaze_server, interceptor, build_label);
   }
 }
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor, uint64_t start_time) {
+         OptionProcessor *option_processor, StartupInterceptor *interceptor,
+         CommandExtensionAdder *command_extension_adder,
+         uint64_t start_time) {
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.
@@ -1634,11 +1678,13 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   PrepareDirectories(startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
-              *option_processor, *workspace_layout, workspace, &logging_info);
+              *option_processor, *workspace_layout, workspace, &logging_info,
+              interceptor, command_extension_adder);
   return 0;
 }
 
-BlazeServer::BlazeServer(const StartupOptions &startup_options)
+BlazeServer::BlazeServer(const StartupOptions &startup_options,
+                         CommandExtensionAdder *command_extension_adder)
     : process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
@@ -1648,7 +1694,8 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       preemptible_(startup_options.preemptible),
       lock_install_base_(startup_options.lock_install_base),
       install_base_(startup_options.install_base),
-      output_base_(startup_options.output_base) {
+      output_base_(startup_options.output_base),
+      command_extension_adder_(command_extension_adder) {
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1836,6 +1883,9 @@ void BlazeServer::KillRunningServer() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
+  if (command_extension_adder_ != nullptr) {
+    command_extension_adder_->MaybeAddCommandExtensions(request);
+  }
   BAZEL_LOG(INFO) << "Shutting running server with RPC request";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(context.get(), request));
@@ -1924,6 +1974,9 @@ unsigned int BlazeServer::Communicate(
   }
   if (!invocation_policy.empty()) {
     request.set_invocation_policy(invocation_policy);
+  }
+  if (command_extension_adder_ != nullptr) {
+    command_extension_adder_->MaybeAddCommandExtensions(request);
   }
 
   for (const auto &startup_option : original_startup_options) {

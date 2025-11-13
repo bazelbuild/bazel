@@ -14,20 +14,19 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Objects;
 
 /** A unique identifier for a {@link PackagePiece}. */
-public abstract sealed class PackagePieceIdentifier
+public sealed interface PackagePieceIdentifier extends SkyKey
     permits PackagePieceIdentifier.ForBuildFile, PackagePieceIdentifier.ForMacro {
-  protected final PackageIdentifier packageIdentifier;
-  // BUILD file label for a {@link PackagePiece.ForBuildFile}, or the label of the macro class
-  // definition for a {@link PackagePiece.ForMacro}.
-  protected final Label definingLabel;
-
   /**
    * The canonical form of the package name if this is an identifier for a {@link
    * PackagePiece.ForBuildFile}, or the canonical form of the macro instance name if this is an
@@ -35,33 +34,12 @@ public abstract sealed class PackagePieceIdentifier
    *
    * <p>In tha case of a {@link PackagePiece.ForMacro}, the string is not unique, since multiple
    * macro instances can have the same name. Intended to be used in combination with {@link
-   * #getCanonicalFormDefinedBy}.
+   * PackagePiece#getCanonicalFormDefinedBy}.
    */
   public abstract String getCanonicalFormName();
 
-  public abstract String getCanonicalFormDefinedBy();
-
-  /**
-   * BUILD file label for a {@link PackagePiece.ForBuildFile}, or the label of the macro class
-   * definition for a {@link PackagePiece.ForMacro}.
-   */
-  public Label getDefiningLabel() {
-    return definingLabel;
-  }
-
-  public PackageIdentifier getPackageIdentifier() {
-    return packageIdentifier;
-  }
-
-  @Override
-  public String toString() {
-    return String.format("%s defined by %s", getCanonicalFormName(), getCanonicalFormDefinedBy());
-  }
-
-  protected PackagePieceIdentifier(PackageIdentifier packageIdentifier, Label definingLabel) {
-    this.packageIdentifier = checkNotNull(packageIdentifier);
-    this.definingLabel = checkNotNull(definingLabel);
-  }
+  /** Returns the package identifier of the package to which this package piece belong . */
+  public PackageIdentifier getPackageIdentifier();
 
   /**
    * A unique identifier for a {@link PackagePiece.ForBuildFile}.
@@ -70,15 +48,27 @@ public abstract sealed class PackagePieceIdentifier
    * sibling class of {@link PackagePieceIdentifier.ForMacro} only to reduce the potential for
    * confusion when used as sky keys.
    */
-  public static final class ForBuildFile extends PackagePieceIdentifier {
+  public static final class ForBuildFile implements PackagePieceIdentifier {
+    private final PackageIdentifier packageIdentifier;
+
+    @Override
+    public PackageIdentifier getPackageIdentifier() {
+      return packageIdentifier;
+    }
+
     @Override
     public String getCanonicalFormName() {
       return packageIdentifier.getCanonicalForm();
     }
 
     @Override
-    public String getCanonicalFormDefinedBy() {
-      return definingLabel.getCanonicalForm();
+    public String toString() {
+      return String.format("<PackagePieceIdentifier.ForBuildFile pkg=%s>", getCanonicalFormName());
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PACKAGE;
     }
 
     @Override
@@ -86,36 +76,39 @@ public abstract sealed class PackagePieceIdentifier
       if (this == other) {
         return true;
       }
-      if (!(other instanceof PackagePieceIdentifier.ForBuildFile that)) {
-        return false;
-      }
-      return this.packageIdentifier.equals(that.packageIdentifier)
-          && this.definingLabel.equals(that.definingLabel);
+      return other instanceof PackagePieceIdentifier.ForBuildFile that
+          && Objects.equals(this.packageIdentifier, that.packageIdentifier);
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(packageIdentifier, definingLabel);
+      return HashCodes.hashObject(packageIdentifier);
     }
 
-    public ForBuildFile(PackageIdentifier packageIdentifier, Label definingLabel) {
-      super(packageIdentifier, definingLabel);
+    public ForBuildFile(PackageIdentifier packageIdentifier) {
+      this.packageIdentifier = checkNotNull(packageIdentifier);
     }
   }
 
   /** A unique identifier for a {@link PackagePiece.ForMacro}. */
-  public static final class ForMacro extends PackagePieceIdentifier {
-    private final String definingSymbol;
+  public static final class ForMacro implements PackagePieceIdentifier {
+    private final PackageIdentifier packageIdentifier;
+    private final PackagePieceIdentifier parentIdentifier;
     private final String instanceName;
-
-    /** Returns the name of the macro class symbol. */
-    public String getDefiningSymbol() {
-      return definingSymbol;
-    }
 
     /** Returns the name attribute of the macro instance. */
     public String getInstanceName() {
       return instanceName;
+    }
+
+    @Override
+    public PackageIdentifier getPackageIdentifier() {
+      return packageIdentifier;
+    }
+
+    /** Returns the identifier of the package piece in which this macro instance was defined. */
+    public PackagePieceIdentifier getParentIdentifier() {
+      return parentIdentifier;
     }
 
     @Override
@@ -124,8 +117,15 @@ public abstract sealed class PackagePieceIdentifier
     }
 
     @Override
-    public String getCanonicalFormDefinedBy() {
-      return String.format("%s%%%s", definingLabel.getCanonicalForm(), getDefiningSymbol());
+    public String toString() {
+      return String.format(
+          "<PackagePieceIdentifier.ForMacro name=%s declared_in=%s>",
+          getCanonicalFormName(), parentIdentifier);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.EVAL_MACRO;
     }
 
     @Override
@@ -133,28 +133,25 @@ public abstract sealed class PackagePieceIdentifier
       if (this == other) {
         return true;
       }
-      if (!(other instanceof PackagePieceIdentifier.ForMacro that)) {
-        return false;
-      }
-      return this.packageIdentifier.equals(that.packageIdentifier)
-          && this.definingLabel.equals(that.definingLabel)
-          // defining symbol and instance name are non-null
-          && this.definingSymbol.equals(that.definingSymbol)
-          && this.instanceName.equals(that.instanceName);
+      return other instanceof PackagePieceIdentifier.ForMacro that
+          && Objects.equals(this.packageIdentifier, that.packageIdentifier)
+          && Objects.equals(this.instanceName, that.instanceName)
+          && Objects.equals(this.parentIdentifier, that.parentIdentifier);
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(packageIdentifier, definingLabel, definingSymbol, instanceName);
+      return HashCodes.hashObjects(packageIdentifier, instanceName, parentIdentifier);
     }
 
     public ForMacro(
         PackageIdentifier packageIdentifier,
-        Label definingLabel,
-        String definingSymbol,
+        PackagePieceIdentifier parentIdentifier,
         String instanceName) {
-      super(packageIdentifier, definingLabel);
-      this.definingSymbol = checkNotNull(definingSymbol);
+      this.packageIdentifier = checkNotNull(packageIdentifier);
+      checkArgument(
+          checkNotNull(parentIdentifier).getPackageIdentifier().equals(packageIdentifier));
+      this.parentIdentifier = parentIdentifier;
       this.instanceName = checkNotNull(instanceName);
     }
   }

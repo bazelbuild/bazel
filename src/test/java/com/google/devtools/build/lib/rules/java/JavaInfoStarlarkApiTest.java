@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -404,6 +403,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         .put("transitive_runtime_jars", emptyDepset)
         .put("_transitive_full_compile_time_jars", emptyDepset)
         .put("_compile_time_java_dependencies", emptyDepset)
+        .put("header_compilation_direct_deps", emptyDepset)
         .put("plugins", JavaPluginData.empty())
         .put("api_generating_plugins", JavaPluginData.empty())
         .put("java_outputs", StarlarkList.empty())
@@ -414,7 +414,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private Artifact createArtifact(String path) throws IOException {
     Path execRoot = scratch.dir("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake-root");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "fake-root");
     return ActionsTestUtil.createArtifact(root, path);
   }
 

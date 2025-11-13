@@ -19,8 +19,7 @@ load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/objc_compilation_context_info.bzl", "ObjcCompilationContextInfo")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 
-objc_internal = _builtins.internal.objc_internal
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]
 NON_CPP_SOURCES = [".m", ".c"]
@@ -110,7 +109,7 @@ def _create_context_and_provider(
     all_non_sdk_linkopts = []
     non_sdk_linkopts = _add_linkopts(
         sdk_linking_info,
-        objc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = attr_linkopts),
+        _cc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = attr_linkopts),
     )
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
@@ -152,11 +151,7 @@ def _create_context_and_provider(
 
     if has_module_map:
         module_map = intermediate_artifacts.swift_module_map()
-        umbrella_header = module_map.umbrella_header()
-        if umbrella_header != None:
-            objc_provider_kwargs["umbrella_header"].append(umbrella_header)
-
-        objc_provider_kwargs["module_map"].append(module_map.file())
+        objc_provider_kwargs["module_map"].append(module_map.file)
 
     objc_provider_kwargs_built = {}
     for k, v in objc_provider_kwargs.items():

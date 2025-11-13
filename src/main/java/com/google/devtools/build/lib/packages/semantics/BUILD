@@ -22,8 +22,10 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )

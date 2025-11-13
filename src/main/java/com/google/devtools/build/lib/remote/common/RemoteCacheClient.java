@@ -45,30 +45,9 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
    * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
    */
-  final class ActionKey {
-
-    private final Digest digest;
-
-    public Digest getDigest() {
-      return digest;
-    }
-
-    public ActionKey(Digest digest) {
-      this.digest = Preconditions.checkNotNull(digest, "digest");
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof ActionKey otherKey)) {
-        return false;
-      }
-
-      return digest.equals(otherKey.digest);
-    }
-
-    @Override
-    public int hashCode() {
-      return digest.hashCode();
+  record ActionKey(Digest digest) {
+    public ActionKey {
+      Preconditions.checkNotNull(digest, "digest");
     }
   }
 

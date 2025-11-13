@@ -26,6 +26,6 @@ import net.starlark.java.eval.StarlarkValue;
         """
         For more information about Aspects, please consult the
         <a href="../globals/bzl.html#aspect">documentation of the aspect function</a> or the \
-        <a href="https://bazel.build/rules/aspects">introduction to Aspects</a>.
+        <a href="https://bazel.build/extending/aspects">introduction to Aspects</a>.
         """)
 public interface StarlarkAspectApi extends StarlarkValue {}

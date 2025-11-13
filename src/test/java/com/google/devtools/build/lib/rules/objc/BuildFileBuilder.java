@@ -178,6 +178,9 @@ class BuildFileBuilder {
 
   void write(Scratch scratch, String filename) throws IOException {
     List<String> lines = new ArrayList<>();
+    lines.add("load('@build_bazel_apple_support//xcode:xcode_version.bzl', 'xcode_version')");
+    lines.add("load('@build_bazel_apple_support//xcode:available_xcodes.bzl', 'available_xcodes')");
+    lines.add("load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')");
     for (Version version : allVersions.values()) {
       writeVersion(version, lines);
     }

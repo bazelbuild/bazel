@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -45,21 +45,6 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 #### SETUP #############################################################
 
 add_to_bazelrc "startup --windows_enable_symlinks"
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 function expect_symlink() {
   local file=$1
@@ -376,7 +361,7 @@ EOF
 }
 
 function test_dangling_symlink_created_from_symlink_action() {
-  if "$is_windows"; then
+  if is_windows; then
     warn "Skipping test on Windows: Bazel's FileSystem cannot yet create relative symlinks."
     return 0
   fi
@@ -593,7 +578,7 @@ EOF
 }
 
 function test_executable_symlink_to_nonexecutable_file() {
-  if "$is_windows"; then
+  if is_windows; then
     warn "Skipping test on Windows: Bazel's FileSystem uses java.io.File#canExecute(), which \
           doesn't test for executability, it tests whether the current program is permitted \
           to execute it"
@@ -759,7 +744,7 @@ EOF
 }
 
 function test_unresolved_symlink_as_input_local() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
@@ -780,7 +765,7 @@ function test_unresolved_symlink_as_input_local() {
 }
 
 function test_unresolved_symlink_as_input_local_inprocess() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
@@ -801,7 +786,7 @@ function test_unresolved_symlink_as_input_local_inprocess() {
 }
 
 function test_unresolved_symlink_as_input_sandbox() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
@@ -887,7 +872,7 @@ EOF
 }
 
 function test_unresolved_symlink_as_runfile_local() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
@@ -903,7 +888,7 @@ function test_unresolved_symlink_as_runfile_local() {
 }
 
 function test_unresolved_symlink_as_runfile_local_inprocess() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
@@ -919,7 +904,7 @@ function test_unresolved_symlink_as_runfile_local_inprocess() {
 }
 
 function test_unresolved_symlink_as_runfile_symlink() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi

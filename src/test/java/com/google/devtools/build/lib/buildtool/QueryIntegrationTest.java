@@ -346,12 +346,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "donut/BUILD",
         """
         load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_test.bzl', 'foo_test')
         foo_binary(
             name = "thief",
             srcs = ["thief.sh"],
         )
 
-        cc_test(
+        foo_test(
             name = "shop",
             srcs = ["shop.cc"],
         )
@@ -1080,6 +1081,38 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertDoesNotContainEvent("deppackage");
   }
 
+  // Regression test for b/454393488.
+  @Test
+  public void crossPackageWithValidOutputFile() throws Exception {
+    write("package/subpkg/BUILD");
+
+    // Add a rule with an implicit output file with a name which has a prefix. This facilitates a
+    // target with name "subpkg/foo", which incorrectly crosses package boundary "subpkg/", but its
+    // output file is "prefixsubpkg/foo", which is a valid name.
+    write(
+        "package/rule.bzl",
+        """
+        def _impl(ctx): pass
+        my_rule = rule(implementation = _impl,
+                      outputs = {"o": "prefix%{name}.out"})
+        """);
+    write(
+        "package/BUILD",
+        """
+        load("//package:rule.bzl", "my_rule")
+        my_rule(name = "valid_lib")
+        my_rule(name = "subpkg/invalid_lib")
+        """);
+
+    QueryOutput result =
+        getQueryResult("visible(//package:valid_lib, //package:prefixsubpkg/invalid_lib.out)");
+    // Expect an analysis failure and not a complete crash.
+    assertExitCode(result, ExitCode.ANALYSIS_FAILURE);
+    assertThat(result.getBlazeCommandResult().getFailureDetail().getMessage())
+        .contains(
+            "'//package:subpkg/invalid_lib' is invalid because 'package/subpkg' is a subpackage");
+  }
+
   private void assertExitCode(QueryOutput result, ExitCode expected) {
     assertThat(result.getBlazeCommandResult().getExitCode()).isEqualTo(expected);
   }
@@ -1150,6 +1183,9 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
               }
             });
     BlazeCommandResult lastBlazeCommandResult = new QueryCommand().exec(env, options);
+    for (BlazeModule module : getRuntime().getBlazeModules()) {
+      module.afterCommand();
+    }
     return new QueryOutput(lastBlazeCommandResult, stdout.toByteArray());
   }
 

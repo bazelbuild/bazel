@@ -31,6 +31,10 @@ public interface DependencyKind {
   /** A dependency for visibility. */
   DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind("VISIBILITY");
 
+  /** A dependency for transitive visibility. */
+  DependencyKind TRANSITIVE_VISIBILITY_DEPENDENCY =
+      new NonAttributeDependencyKind("TRANSITIVE_VISIBILITY");
+
   /** The dependency on the rule that creates a given output file. */
   DependencyKind OUTPUT_FILE_RULE_DEPENDENCY = new NonAttributeDependencyKind("OUTPUT_FILE");
 

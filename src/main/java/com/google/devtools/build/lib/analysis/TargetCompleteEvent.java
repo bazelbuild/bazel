@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
-import static com.google.devtools.build.lib.buildeventstream.TestFileNameConstants.BASELINE_COVERAGE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,13 +24,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -68,7 +69,6 @@ import com.google.protobuf.util.Durations;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -118,8 +118,6 @@ public final class TargetCompleteEvent
   private final ImmutableList<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
-  @Nullable private final Artifact baselineCoverageArtifact;
-  @Nullable private final LocalFile baselineCoverage;
   // The label as appeared in the BUILD file.
   private final Label originalLabel;
   private final boolean isTest;
@@ -168,28 +166,11 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    this.baselineCoverageArtifact = baselineCoverageArtifact(targetAndData);
-    this.baselineCoverage =
-        baselineCoverageArtifact == null
-            ? null
-            : new LocalFile(
-                completionContext.pathResolver().toPath(baselineCoverageArtifact),
-                LocalFileType.COVERAGE_OUTPUT,
-                completionContext.getBaselineCoverageValue());
     this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
 
   @Nullable
-  private static Artifact baselineCoverageArtifact(ConfiguredTargetAndData targetAndData) {
-    InstrumentedFilesInfo instrumentedFilesProvider =
-        targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    if (instrumentedFilesProvider == null) {
-      return null;
-    }
-    return instrumentedFilesProvider.getBaselineCoverageArtifact();
-  }
-
   /** Construct a successful target completion event. */
   public static TargetCompleteEvent successfulBuild(
       ConfiguredTargetAndData ct,
@@ -315,29 +296,22 @@ public final class TargetCompleteEvent
       BuildEventContext converters,
       Iterable<Artifact> artifacts) {
     addFilesDirectlyToProtoField(
-        completionContext,
-        builder::addImportantOutput,
-        Artifact::getRootRelativePathString,
-        converters,
-        artifacts);
+        completionContext, builder::addImportantOutput, converters, artifacts);
   }
 
   private static void addFilesDirectlyToProtoField(
       CompletionContext completionContext,
       Consumer<BuildEventStreamProtos.File> addFile,
-      Function<Artifact, String> artifactNameFunction,
       BuildEventContext converters,
       Iterable<Artifact> artifacts) {
     completionContext.visitArtifacts(
         filterFilesets(artifacts),
         new ArtifactReceiver() {
           @Override
-          public void accept(Artifact artifact) {
-            String name = artifactNameFunction.apply(artifact);
+          public void accept(Artifact artifact, FileArtifactValue metadata) {
             String uri =
                 converters.pathConverter().apply(completionContext.pathResolver().toPath(artifact));
-            BuildEventStreamProtos.File file =
-                newFileFromArtifact(name, artifact, completionContext, uri);
+            BuildEventStreamProtos.File file = newFile(artifact, metadata, uri);
             // Omit files with unknown contents (e.g. if uploading failed).
             if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
               addFile.accept(file);
@@ -345,11 +319,7 @@ public final class TargetCompleteEvent
           }
 
           @Override
-          public void acceptFilesetMapping(
-              Artifact fileset,
-              PathFragment relativePath,
-              Path targetFile,
-              FileArtifactValue metadata) {
+          public void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link) {
             throw new IllegalStateException(fileset + " should have been filtered out");
           }
         });
@@ -359,50 +329,67 @@ public final class TargetCompleteEvent
     return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
-  public static BuildEventStreamProtos.File newFileFromArtifact(
-      @Nullable String name,
-      Artifact artifact,
-      PathFragment relPath,
-      CompletionContext completionContext,
+  /**
+   * Creates a {@link BuildEventStreamProtos.File} proto for an artifact.
+   *
+   * @param artifact the artifact
+   * @param metadata the artifact's metadata
+   * @param uri the artifact's URI, or null if the artifact was not uploaded
+   */
+  public static BuildEventStreamProtos.File newFile(
+      Artifact artifact, FileArtifactValue metadata, @Nullable String uri) {
+    return newFile(artifact.getRoot(), artifact.getRootRelativePath(), metadata, uri);
+  }
+
+  /**
+   * Creates a {@link BuildEventStreamProtos.File} proto for an artifact.
+   *
+   * <p>Prefer calling {@link #newFile(Artifact, FileArtifactValue, String)} if a URI is available
+   * for this artifact.
+   *
+   * @param artifact the artifact
+   * @param metadata the artifact's metadata
+   */
+  public static BuildEventStreamProtos.File newFile(Artifact artifact, FileArtifactValue metadata) {
+    return newFile(artifact, metadata, /* uri= */ null);
+  }
+
+  /**
+   * Creates a {@link BuildEventStreamProtos.File} proto for a path.
+   *
+   * <p>Prefer calling {@link #newFile(Artifact, FileArtifactValue, String)} if an {@link Artifact}
+   * is available for this path.
+   *
+   * @param root the root the path resides under
+   * @param rootRelativePath the path relative to the root
+   * @param metadata the path's metadata
+   * @param uri the path's URI, or null if the artifact was not uploaded
+   */
+  public static BuildEventStreamProtos.File newFile(
+      ArtifactRoot root,
+      PathFragment rootRelativePath,
+      FileArtifactValue metadata,
       @Nullable String uri) {
-    if (name == null) {
-      name =
-          StringEncoding.internalToUnicode(
-              artifact.getRootRelativePath().getRelative(relPath).getPathString());
-    }
     File.Builder file =
         File.newBuilder()
-            .setName(name)
+            .setName(StringEncoding.internalToUnicode(rootRelativePath.getPathString()))
             .addAllPathPrefix(
                 Iterables.transform(
-                    artifact.getRoot().getExecPath().segments(),
-                    StringEncoding::internalToUnicode));
-    FileArtifactValue fileArtifactValue = completionContext.getFileArtifactValue(artifact);
-    if (fileArtifactValue != null && fileArtifactValue.getType().isSymlink()) {
+                    root.getExecPath().segments(), StringEncoding::internalToUnicode));
+    if (metadata.getType().isSymlink()) {
       file.setSymlinkTargetPath(
-          StringEncoding.internalToUnicode(fileArtifactValue.getUnresolvedSymlinkTarget()));
-    } else if (fileArtifactValue != null && fileArtifactValue.getType().exists()) {
-      byte[] digest = fileArtifactValue.getDigest();
+          StringEncoding.internalToUnicode(metadata.getUnresolvedSymlinkTarget()));
+    } else if (metadata.getType().exists()) {
+      byte[] digest = metadata.getDigest();
       if (digest != null) {
         file.setDigest(LOWERCASE_HEX_ENCODING.encode(digest));
       }
-      file.setLength(fileArtifactValue.getSize());
+      file.setLength(metadata.getSize());
     }
     if (uri != null) {
       file.setUri(StringEncoding.internalToUnicode(uri));
     }
     return file.build();
-  }
-
-  public static BuildEventStreamProtos.File newFileFromArtifact(
-      String name, Artifact artifact, CompletionContext completionContext, @Nullable String uri) {
-    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT, completionContext, uri);
-  }
-
-  public static BuildEventStreamProtos.File newFileFromArtifact(
-      Artifact artifact, CompletionContext completionContext, @Nullable String uri) {
-    return newFileFromArtifact(
-        /* name= */ null, artifact, PathFragment.EMPTY_FRAGMENT, completionContext, uri);
   }
 
   @Override
@@ -414,8 +401,7 @@ public final class TargetCompleteEvent
             filterFilesets(group.getArtifacts().toList()),
             new ArtifactReceiver() {
               @Override
-              public void accept(Artifact artifact) {
-                FileArtifactValue metadata = completionContext.getFileArtifactValue(artifact);
+              public void accept(Artifact artifact, FileArtifactValue metadata) {
                 builder.add(
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
@@ -424,18 +410,11 @@ public final class TargetCompleteEvent
               }
 
               @Override
-              public void acceptFilesetMapping(
-                  Artifact fileset,
-                  PathFragment name,
-                  Path targetFile,
-                  FileArtifactValue metadata) {
+              public void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link) {
                 throw new IllegalStateException(fileset + " should have been filtered out");
               }
             });
       }
-    }
-    if (baselineCoverage != null) {
-      builder.add(baselineCoverage);
     }
     return builder.build();
   }
@@ -467,22 +446,18 @@ public final class TargetCompleteEvent
     Iterable<Artifact> filteredImportantArtifacts = getLegacyFilteredImportantArtifacts();
     for (Artifact artifact : filteredImportantArtifacts) {
       if (artifact.isDirectory()) {
-        builder.addDirectoryOutput(
-            newFileFromArtifact(artifact, completionContext, /* uri= */ null));
+        FileArtifactValue metadata =
+            checkNotNull(
+                completionContext.getFileArtifactValue(artifact),
+                "missing metadata for artifact: %s",
+                artifact);
+        builder.addDirectoryOutput(newFile(artifact, metadata));
       }
     }
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.
     if (converters.getOptions().legacyImportantOutputs) {
       addFilesDirectlyToProtoField(
           completionContext, builder, converters, filteredImportantArtifacts);
-      if (baselineCoverage != null) {
-        addFilesDirectlyToProtoField(
-            completionContext,
-            builder::addImportantOutput,
-            artifact -> BASELINE_COVERAGE,
-            converters,
-            ImmutableList.of(baselineCoverageArtifact));
-      }
     }
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();
@@ -496,8 +471,7 @@ public final class TargetCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
-    return toReportedArtifacts(
-        outputs, completionContext, baselineCoverageArtifact, outputGroupFileModes);
+    return toReportedArtifacts(outputs, completionContext, outputGroupFileModes);
   }
 
   @Override
@@ -508,7 +482,6 @@ public final class TargetCompleteEvent
   static ReportedArtifacts toReportedArtifacts(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       CompletionContext completionContext,
-      @Nullable Artifact baselineCoverageArtifact,
       OutputGroupFileModes outputGroupFileModes) {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (var entry : outputs.entrySet()) {
@@ -522,12 +495,6 @@ public final class TargetCompleteEvent
         }
       }
     }
-    if (baselineCoverageArtifact != null) {
-      OutputGroupFileMode mode = outputGroupFileModes.getMode(BASELINE_COVERAGE);
-      if (mode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY || mode == OutputGroupFileMode.BOTH) {
-        builder.add(NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact));
-      }
-    }
     return new ReportedArtifacts(builder.build(), completionContext);
   }
 
@@ -537,13 +504,12 @@ public final class TargetCompleteEvent
   }
 
   private ImmutableList<OutputGroup> getOutputFilesByGroup(BuildEventContext converters) {
-    return toOutputGroupProtos(outputs, baselineCoverageArtifact, completionContext, converters);
+    return toOutputGroupProtos(outputs, completionContext, converters);
   }
 
   /** Returns {@link OutputGroup} protos for given output groups and optional coverage artifacts. */
   static ImmutableList<OutputGroup> toOutputGroupProtos(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-      @Nullable Artifact baselineCoverageArtifact,
       CompletionContext completionContext,
       BuildEventContext converters) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
@@ -562,16 +528,6 @@ public final class TargetCompleteEvent
                   () -> artifacts,
                   artifacts::toList));
         });
-    if (baselineCoverageArtifact != null) {
-      groups.add(
-          makeOutputGroupProto(
-              completionContext,
-              converters,
-              BASELINE_COVERAGE,
-              /* outputGroupIncomplete= */ false,
-              () -> NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact),
-              () -> ImmutableList.of(baselineCoverageArtifact)));
-    }
     return groups.build();
   }
 
@@ -596,11 +552,7 @@ public final class TargetCompleteEvent
     }
     if (fileMode == OutputGroupFileMode.INLINE_ONLY || fileMode == OutputGroupFileMode.BOTH) {
       addFilesDirectlyToProtoField(
-          completionContext,
-          builder::addInlineFiles,
-          Artifact::getRootRelativePathString,
-          converters,
-          artifactListSupplier.get());
+          completionContext, builder::addInlineFiles, converters, artifactListSupplier.get());
     }
     return builder.build();
   }

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -33,7 +34,59 @@ import javax.annotation.Nullable;
 /**
  * Scans source files to determine the bounding set of transitively referenced include files.
  *
- * <p>Note that include scanning is performance-critical code.
+ * <p>Include scanning is performance-critical code since it has to parse a lot of C++ code, mostly
+ * on the same machine where Blaze runs.
+ *
+ * <p>Include scanning works by first adding all the potential header files to the "scheduling
+ * dependencies" of the action. This makes Skyframe build these files (if they are generated) before
+ * the action is executed. Note that this means that the "inputs" of the action as seen by Skyframe
+ * are different from what {@code Action.getInputs()} returns: the former includes scheduling
+ * dependencies, whereas the latter does not.
+ *
+ * <p>Then {@code Action.discoverInputs()} is called, which then runs the include scanning machinery
+ * and eventually calls {@code Action.updateInputs()}. That method in turn adds the discovered
+ * inputs to what {@code getInputs()} returns. It's implemented in a separate method because when
+ * the action is a local action cache hit, the discovered inputs of the action are read from the
+ * local action cache and added to the action's inputs by calling {@code updateInputs()} without
+ * calling {@code discoverInputs()}.
+ *
+ * <p>The include scanner consists of two parts:
+ *
+ * <ol>
+ *   <li>The part that parses the source files and extracts the include directives.
+ *   <li>The logic that evaluates the include directives and recursively parses the referenced
+ *       files.
+ * </ol>
+ *
+ * <p>Parsing source files can be done in two ways: locally (in {@code IncludeParser}) and remotely
+ * (using {@code GrepIncludesAction}). The latter is useful when parsing generated source files: if
+ * the file is large, it's beneficial not to have to shuttle the file from the remote execution
+ * cluster to Bazel. In either case, the result of parsing is a list of include directives, which
+ * are essentially a pair of (include style, include path), where the style is the Cartesian product
+ * of "quote"/"angle" and "regular include"/"include next".
+ *
+ * <p>This parsing is very simplistic: it doesn't run an actual preprocessor, only parses its
+ * directives. This means that computed includes cannot possibly be handled, but otherwise, it's an
+ * overestimate of the actual headers used (for example, it takes both branches of an {@code #if})
+ * directive. This works because if an unused file is handed over to the compile action, it's
+ * suboptimal but still results in a successful compilation.
+ *
+ * <p>Computed includes are handled by adding hints to the include scanner. This is implemented in
+ * {@code IncludeHintsFunction} which is short-circuited in Bazel (not at Google, though)
+ *
+ * <p>Evaluating the include directives is implemented in {@code LegacyIncludeScanner}, which,
+ * despite its name is not really legacy. Notably, it maintains a cache of the results of its work.
+ * Its key is not simply the file processed, but the file processed and the set of include
+ * directories used (because the latter can obviously affect the result). This cache is flushed on
+ * every Bazel command.
+ *
+ * <p>After the include scanner is done, the resulting inputs are handed over to the regular action
+ * execution machinery. Once the action is executed, the .d file produced by the compiler (or the
+ * output of the {@code /showIncludes} command line flag when using MSVC) is parsed to figure out
+ * which headers were actually used. This is implemented in {@code discoverInputsFromDotdFiles()}
+ * and {@code discoverInputsFromShowIncludes()} in {@code CppCompileAction}. Then the result of this
+ * is used to remove the headers from the inputs of the action that the compiler didn't end up
+ * using.
  */
 public interface IncludeScanner {
   /**
@@ -77,7 +130,8 @@ public interface IncludeScanner {
       Set<Artifact> includes,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes)
+      Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform)
       throws IOException, NoSuchPackageException, ExecException, InterruptedException;
 
   /**

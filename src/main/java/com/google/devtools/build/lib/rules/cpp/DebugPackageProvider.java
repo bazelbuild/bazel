@@ -14,97 +14,105 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.DebugPackageInfoApi;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 
 /**
  * Provides the binary artifact and its associated .dwp files, if fission is enabled. If Fission
  * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
-@Immutable
-public final class DebugPackageProvider extends NativeInfo
-    implements DebugPackageInfoApi<Artifact> {
+public final class DebugPackageProvider {
   public static final Provider PROVIDER = new Provider();
+  public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
 
-  private final Label targetLabel;
-  private final Artifact strippedArtifact;
-  private final Artifact unstrippedArtifact;
-  @Nullable private final Artifact dwpArtifact;
-
-  public DebugPackageProvider(
-      Label targetLabel,
-      @Nullable Artifact strippedArtifact,
-      Artifact unstrippedArtifact,
-      @Nullable Artifact dwpArtifact) {
-    Preconditions.checkNotNull(unstrippedArtifact);
-    this.targetLabel = targetLabel;
-    this.strippedArtifact = strippedArtifact;
-    this.unstrippedArtifact = unstrippedArtifact;
-    this.dwpArtifact = dwpArtifact;
+  public static DebugPackageProvider get(ConfiguredTarget target) throws RuleErrorException {
+    DebugPackageProvider debugPackageProvider = target.get(PROVIDER);
+    if (debugPackageProvider == null) {
+      debugPackageProvider = target.get(RULES_CC_PROVIDER);
+    }
+    return debugPackageProvider;
   }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  private final StarlarkInfo starlarkInfo;
+
+  private DebugPackageProvider(StarlarkInfo starlarkInfo) {
+    this.starlarkInfo = starlarkInfo;
   }
 
   /** Returns the label for the *_binary target. */
-  @Override
-  public final Label getTargetLabel() {
-    return targetLabel;
+  public final Label getTargetLabel() throws RuleErrorException {
+    try {
+      return starlarkInfo.getValue("target_label", Label.class);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
   }
 
   /** Returns the stripped file (the explicit ".stripped" target). */
-  @Override
-  public final Artifact getStrippedArtifact() {
-    return strippedArtifact;
+  public final Artifact getStrippedArtifact() throws RuleErrorException {
+    try {
+      return starlarkInfo.getNoneableValue("stripped_file", Artifact.class);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
   }
 
   /** Returns the unstripped file (the default executable target). */
-  @Override
-  public final Artifact getUnstrippedArtifact() {
-    return unstrippedArtifact;
+  public final Artifact getUnstrippedArtifact() throws RuleErrorException {
+    try {
+      return starlarkInfo.getValue("unstripped_file", Artifact.class);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
   }
 
   /** Returns the .dwp file (for fission builds) or null if --fission=no. */
   @Nullable
-  @Override
-  public final Artifact getDwpArtifact() {
-    return dwpArtifact;
+  public final Artifact getDwpArtifact() throws RuleErrorException {
+    try {
+      return starlarkInfo.getNoneableValue("dwp_file", Artifact.class);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
   }
 
   /** Provider class for {@link DebugPackageProvider} objects. */
-  public static class Provider extends BuiltinProvider<DebugPackageProvider>
-      implements DebugPackageInfoApi.Provider<Artifact> {
-    private Provider() {
-      super(DebugPackageInfoApi.NAME, DebugPackageProvider.class);
+  public static class Provider extends StarlarkProviderWrapper<DebugPackageProvider> {
+    public Provider() {
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/cc/debug_package_info.bzl")),
+          "DebugPackageInfo");
     }
 
     @Override
-    public DebugPackageProvider createDebugPackageInfo(
-        Label starlarkTargetLabel,
-        Object starlarkStrippedArtifact,
-        Artifact starlarkUnstrippedArtifact,
-        Object starlarkDwpArtifact)
-        throws EvalException {
-      return new DebugPackageProvider(
-          starlarkTargetLabel,
-          nullIfNone(starlarkStrippedArtifact, Artifact.class),
-          starlarkUnstrippedArtifact,
-          nullIfNone(starlarkDwpArtifact, Artifact.class));
+    public DebugPackageProvider wrap(Info value) throws RuleErrorException {
+      return new DebugPackageProvider((StarlarkInfo) value);
+    }
+  }
+
+  /** Provider class for {@link DebugPackageProvider} objects. */
+  public static class RulesCcProvider extends StarlarkProviderWrapper<DebugPackageProvider> {
+    public RulesCcProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("@rules_cc+//cc/private:debug_package_info.bzl")),
+          "DebugPackageInfo");
     }
 
-    @Nullable
-    private static <T> T nullIfNone(Object object, Class<T> type) {
-      return object != Starlark.NONE ? type.cast(object) : null;
+    @Override
+    public DebugPackageProvider wrap(Info value) throws RuleErrorException {
+      return new DebugPackageProvider((StarlarkInfo) value);
     }
   }
 }

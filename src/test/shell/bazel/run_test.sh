@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -40,15 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 # ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
@@ -61,7 +52,7 @@ function test_running_test_target_with_runfiles_disabled() {
 load(":my_test.bzl", "my_test")
 my_test(name = "x")
 eof
-  if "$is_windows"; then
+  if is_windows; then
     local -r IsWindows=True
   else
     local -r IsWindows=False
@@ -91,13 +82,15 @@ eof
 }
 
 function test_windows_argument_escaping() {
-  if ! "$is_windows"; then
+  if ! is_windows; then
     return # Run test only on Windows.
   fi
 
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir $pkg
   cat >$pkg/BUILD <<eof
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name = "a",
   srcs = [":a.sh"],
@@ -170,11 +163,6 @@ EOF
 }
 
 function test_run_test_exit_code() {
-  # EXPERIMENTAL_SPLIT_XML_GENERATION is set by the outer bazel and influences
-  # the test setup of the inner bazel. To make sure we hit the codepath we want
-  # to test here, unset the variable.
-  unset EXPERIMENTAL_SPLIT_XML_GENERATION
-
   add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
@@ -204,11 +192,54 @@ set -x
 exit 1
 EOF
   chmod +x foo/exit1.sh
-  bazel run --noexperimental_split_xml_generation //foo:exit1 &>"$TEST_log" \
+  bazel run //foo:exit1 &>"$TEST_log" \
     && fail "Expected exit code 1, received $?"
 
   # Avoid failing the test because of the last non-zero exit-code.
   true
+}
+
+function test_run_subcommands_flag() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir $pkg
+  cat >$pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "hello",
+    srcs = ["hello.sh"],
+)
+EOF
+
+  cat >$pkg/hello.sh <<'EOF'
+#!/bin/bash
+echo "Hello from test script!"
+echo "BUILD_WORKING_DIRECTORY: \${BUILD_WORKING_DIRECTORY:-NOT SET}"
+echo "CUSTOM_VAR: \${CUSTOM_VAR:-NOT SET}"
+EOF
+  chmod +x $pkg/hello.sh
+
+  bazel run //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_not_log "cd /d"
+  else
+    expect_not_log "exec env"
+  fi
+
+  bazel run -s //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run -s to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_log "cd /d"
+    expect_log "SET BUILD_WORKSPACE_DIRECTORY="
+    expect_log "SET CUSTOM_VAR=test_value"
+  else
+    expect_log "exec env"
+    expect_log "BUILD_WORKING_DIRECTORY="
+    expect_log "CUSTOM_VAR=test_value"
+  fi
 }
 
 run_suite "run_under_tests"

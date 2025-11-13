@@ -908,8 +908,13 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * <p>Parents should be enqueued unless (1) this node is being built after the main evaluation has
    * aborted, or (2) this node is being built with {@code --nokeep_going}, and so we are about to
    * shut down the main evaluation anyway.
+   *
+   * @param expectDoneDeps whether to expect all deps to be done. Normally, a node can be done only
+   *     if its deps are done but in some cases (e.g. short-circuiting cycle detection) we don't
+   *     have that property so we can't assert all deps are done.
    */
-  Set<SkyKey> commitAndGetParents(NodeEntry primaryEntry) throws InterruptedException {
+  Set<SkyKey> commitAndGetParents(NodeEntry primaryEntry, boolean expectDoneDeps)
+      throws InterruptedException {
     // Construct the definitive error info, if there is one.
     if (errorInfo == null) {
       errorInfo =
@@ -936,7 +941,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     NestedSet<Reportable> events =
         reportEventsAndGetEventsToStore(
-            primaryEntry, /* expectDoneDeps= */ !skyKey.supportsPartialReevaluation());
+            primaryEntry,
+            /* expectDoneDeps= */ expectDoneDeps && !skyKey.supportsPartialReevaluation());
 
     SkyValue valueWithMetadata;
     if (value == null) {
@@ -957,7 +963,30 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove);
       for (SkyKey key : depsToRemove) {
         NodeEntry oldDepEntry = checkNotNull(oldDepEntries.get(key), key);
-        oldDepEntry.removeReverseDep(skyKey);
+        try {
+          oldDepEntry.removeReverseDep(skyKey);
+        } catch (IllegalStateException e) {
+          // TODO: b/439528574 - Remove when bug is diagnosed.
+          var dirtyBuildingState =
+              primaryEntry instanceof AbstractInMemoryNodeEntry<?> inMemoryNodeEntry
+                  ? inMemoryNodeEntry.dirtyBuildingState
+                  : null;
+          throw new IllegalStateException(
+"""
+Cannot remove rdep: %s
+Dep: %s
+rdep in oldDeps: %b
+rdep in resetDeps: %b
+dirtyBuildingState: %s
+"""
+                  .formatted(
+                      skyKey,
+                      key,
+                      oldDeps.contains(key),
+                      resetDeps.contains(key),
+                      dirtyBuildingState),
+              e);
+        }
       }
     }
 

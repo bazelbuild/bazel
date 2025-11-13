@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
@@ -51,7 +50,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider PROVIDER = new Provider();
   public static final Provider RULES_JAVA_PROVIDER = new RulesJavaProvider();
-  public static final Provider WORKSPACE_PROVIDER = new WorkspaceProvider();
 
   private static final JavaPluginInfo EMPTY =
       new AutoValue_JavaPluginInfo(
@@ -60,10 +58,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   private static final JavaPluginInfo EMPTY_RULES_JAVA =
       new AutoValue_JavaPluginInfo(
           ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), RULES_JAVA_PROVIDER);
-
-  private static final JavaPluginInfo EMPTY_WORKSPACE =
-      new AutoValue_JavaPluginInfo(
-          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), WORKSPACE_PROVIDER);
 
   public static JavaPluginInfo wrap(Info info) throws RuleErrorException {
     // this wrapped instance is not propagated back to Starlark, so we don't need every type
@@ -86,13 +80,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
-    }
-  }
-
-  /** Provider class for {@link JavaPluginInfo} objects in WORKSPACE mode. */
-  public static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(keyForBuild(Label.parseCanonicalUnchecked("@@rules_java//java/private:java_info.bzl")));
     }
   }
 
@@ -127,10 +114,7 @@ public abstract class JavaPluginInfo extends NativeInfo
 
     @Override
     public JavaPluginInfo wrap(Info value) throws RuleErrorException {
-      if (value instanceof JavaInfo) {
-        // needed because currently native JavaInfo extends JavaPluginInfo
-        throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
-      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+      if (value instanceof JavaPluginInfo javaPluginInfo) {
         return javaPluginInfo;
       } else if (value instanceof StructImpl) {
         try {
@@ -263,8 +247,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static JavaPluginInfo empty(com.google.devtools.build.lib.packages.Provider providerType) {
     if (providerType.equals(RULES_JAVA_PROVIDER)) {
       return EMPTY_RULES_JAVA;
-    } else if (providerType.equals(WORKSPACE_PROVIDER)) {
-      return EMPTY_WORKSPACE;
     }
     return EMPTY;
   }

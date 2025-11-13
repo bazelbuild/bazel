@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -415,7 +415,7 @@ function test_cgroups1_memory_limit() {
     return 0
   fi
   cat >${TEST_TMPDIR}/run_sandbox_with_cgroups.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # Runs the sandbox with appropriate cgroups setup
 cgroups_self=$memdir
@@ -452,7 +452,7 @@ function test_cgroups2_memory_limit() {
     return 0
   fi
   cat >${TEST_TMPDIR}/run_sandbox_with_cgroups.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # Runs the sandbox with appropriate cgroups setup
 cgroups_self=/sys/fs/cgroup\$( cut -d: -f3- /proc/self/cgroup)
@@ -484,7 +484,7 @@ EOF
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-[[ "$(uname -s)" = Linux ]] || exit 0
+is_linux || exit 0
 check_sandbox_allowed || exit 0
 
 run_suite "linux-sandbox"

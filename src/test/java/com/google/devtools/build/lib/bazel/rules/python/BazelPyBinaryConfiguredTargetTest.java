@@ -95,93 +95,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     return getSubstitutionValueFromStub(pyExecutableTarget, "%shebang%");
   }
 
-  // TODO(#8169): Delete tests of the legacy --python_top / --python_path behavior.
-
-  @Test
-  public void runtimeSetByPythonTop() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime"),
-        getPyLoad("py_binary"),
-        """
-        py_runtime(
-            name = "my_py_runtime",
-            interpreter_path = "/system/python3",
-            python_version = "PY3",
-        )
-
-        py_binary(
-            name = "pybin",
-            srcs = ["pybin.py"],
-        )
-        """);
-    String pythonTop =
-        analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
-    useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("/system/python3");
-  }
-
-  @Test
-  public void runtimeSetByPythonPath() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "pybin",
-            srcs = ["pybin.py"],
-        )
-        """);
-    useConfiguration("--incompatible_use_python_toolchains=false", "--python_path=/system/python2");
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("/system/python2");
-  }
-
-  @Test
-  public void runtimeDefaultsToPythonSystemCommand() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "pybin",
-            srcs = ["pybin.py"],
-        )
-        """);
-    useConfiguration("--incompatible_use_python_toolchains=false");
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("python");
-  }
-
-  @Test
-  public void pythonTopTakesPrecedenceOverPythonPath() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime"),
-        getPyLoad("py_binary"),
-        """
-        py_runtime(
-            name = "my_py_runtime",
-            interpreter_path = "/system/python3",
-            python_version = "PY3",
-        )
-
-        py_binary(
-            name = "pybin",
-            srcs = ["pybin.py"],
-        )
-        """);
-    String pythonTop =
-        analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
-    useConfiguration(
-        "--incompatible_use_python_toolchains=false",
-        "--python_top=" + pythonTop,
-        "--python_path=/better/not/be/this/one");
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("/system/python3");
-  }
-
   // TODO(brandjon): Move generic toolchain tests that don't access legacy behavior to
   // PyExecutableConfiguredtargetTestBase. Asserting on the chosen PyRuntimeInfo is problematic to
   // do at analysis time though. It's easier in this test because we know the PythonSemantics is
@@ -232,9 +145,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             python_version = "PY3",
         )
         """);
-    useConfiguration(
-        "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain");
+    useConfiguration("--extra_toolchains=//toolchains:py_toolchain");
 
     ConfiguredTarget py3 = getConfiguredTarget("//pkg:py3_bin");
 
@@ -258,9 +169,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             python_version = "PY3",
         )
         """);
-    useConfiguration(
-        "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain_for_py3_only");
+    useConfiguration("--extra_toolchains=//toolchains:py_toolchain_for_py3_only");
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
     assertThat(path).isEqualTo("/system/python3");
@@ -280,9 +189,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     useConfiguration(
-        "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain",
-        "--python_path=/better/not/be/this/one");
+        "--extra_toolchains=//toolchains:py_toolchain", "--python_path=/better/not/be/this/one");
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
     assertThat(path).isEqualTo("/system/python3");
@@ -335,9 +242,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             python_version = "PY3",
         )
         """);
-    useConfiguration(
-        "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:custom_toolchain");
+    useConfiguration("--extra_toolchains=//toolchains:custom_toolchain");
     getConfiguredTarget("//pkg:pybin");
   }
 

@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.Destin
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
@@ -62,6 +66,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -70,6 +75,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
@@ -78,6 +84,7 @@ import com.google.protobuf.Any;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -86,6 +93,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
@@ -121,7 +129,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   return OptionsParser.getOptionsData(
                       BlazeCommandUtils.getOptions(
                           command.getClass(),
-                          runtime.getBlazeModules(),
+                          runtime.getOptionsSuppliers(),
                           runtime.getRuleClassProvider()));
                 }
               });
@@ -160,6 +168,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
       List<Any> commandExtensions,
       CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException {
@@ -199,7 +208,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     synchronized (commandLock) {
       while (currentClientDescription != null) {
         switch (lockingMode) {
-          case WAIT:
+          case WAIT -> {
             if (!otherClientDescription.equals(currentClientDescription)) {
               String serverDescription =
                   serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
@@ -211,9 +220,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               otherClientDescription = currentClientDescription;
             }
             commandLock.wait(500);
-            break;
-
-          case ERROR_OUT:
+          }
+          case ERROR_OUT -> {
             String message =
                 String.format(
                     "Another command (%s) is running. Exiting immediately.",
@@ -221,9 +229,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
-
-          default:
-            throw new IllegalStateException();
+          }
         }
 
         multipleAttempts = true;
@@ -235,6 +241,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // other commands to complete, not how fast acquiring a lock is.
     long waitTimeInMs =
         !multipleAttempts ? 0 : (BlazeClock.nanoTime() - clockBefore) / (1000L * 1000L);
+
+    // Retrieve information about idle tasks that ran during a previous idle period.
+    // We do this after obtaining the lock so that a non-blocking command doesn't cause this
+    // information to be lost (instead, it will be forwarded to the next command).
+    ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod =
+        idleTaskResultsSupplier.get();
 
     try {
       String retrievedShutdownReason = this.shutdownReason.get();
@@ -261,6 +273,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   command,
                   waitTimeInMs,
                   startupOptionsTaggedWithBazelRc,
+                  idleTaskResultsFromPreviousIdlePeriod,
                   commandExtensions,
                   attemptNumber,
                   attemptedCommandIds,
@@ -310,6 +323,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         clientDescription,
         runtime.getClock().currentTimeMillis(),
         /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+        /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
         /* commandExtensions= */ ImmutableList.of(),
         /* commandExtensionReporter= */ (ext) -> {});
   }
@@ -324,6 +338,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommand command,
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      @Nullable ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod,
       List<Any> commandExtensions,
       int attemptNumber,
       Set<UUID> attemptedCommandIds,
@@ -360,8 +375,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,
-            commandExtensions,
+            idleTaskResultsFromPreviousIdlePeriod,
             this::setShutdownReason,
+            commandExtensions,
             commandExtensionReporter,
             attemptNumber,
             buildRequestIdOverride,
@@ -518,6 +534,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
+      warnIfUsingUnusupportedEncoding(runtime.getProductName(), reporter);
+
       try (SilentCloseable closeable = Profiler.instance().profile("replay stored events")) {
         // Now we're ready to replay the events.
         storedEventHandler.replayOn(reporter);
@@ -609,6 +627,35 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           return result;
         }
 
+        // TODO: b/453809359 - Remove this Python logic when Bazel 9+ can read Python flag alias
+        // definitions straight from rules_python's MODULE.bazel.
+        boolean removePyFragment = false;
+        var removePyFragmentOption =
+            optionsParser.getOptionDescription("incompatible_remove_ctx_py_fragment");
+        if (removePyFragmentOption != null) {
+          var cmdLineValue =
+              optionsParser.getOptionValueDescription(
+                  removePyFragmentOption.getOptionDefinition().getOptionName());
+          removePyFragment =
+              cmdLineValue != null
+                  ? ((Boolean) cmdLineValue.getValue()).booleanValue()
+                  : ((Boolean) removePyFragmentOption.getOptionDefinition().getDefaultValue(null))
+                      .booleanValue();
+        }
+        boolean removeBazelPyFragment = false;
+        var removeBazelPyFragmentOption =
+            optionsParser.getOptionDescription("incompatible_remove_ctx_bazel_py_fragment");
+        if (removeBazelPyFragmentOption != null) {
+          var cmdLineValue =
+              optionsParser.getOptionValueDescription(
+                  removeBazelPyFragmentOption.getOptionDefinition().getOptionName());
+          removeBazelPyFragment =
+              cmdLineValue != null
+                  ? (Boolean) cmdLineValue.getValue()
+                  : ((Boolean)
+                          removeBazelPyFragmentOption.getOptionDefinition().getDefaultValue(null))
+                      .booleanValue();
+        }
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
@@ -617,9 +664,24 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
           optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
+          // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
+          // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
+          // really on that flag (CoreOptions.commandLineFlagAliases) to properly handle aliases.
+          optionsParser.parse(
+              PriorityCategory.RC_FILE,
+              "module resolution",
+              env
+                  .getSkyframeExecutor()
+                  .getFlagAliases(reporter, removePyFragment, removeBazelPyFragment)
+                  .entrySet()
+                  .stream()
+                  .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))
+                  .collect(toImmutableList()));
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
+          logger.atInfo().withCause(e).log("%s", message);
           reporter.handle(Event.error(message));
           earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
         } catch (RepositoryMappingResolutionException e) {
@@ -660,7 +722,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Parse starlark options.
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env);
+        earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
       }
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
@@ -688,9 +750,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               startupOptionsTaggedWithBazelRc);
-      // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
-      // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
-      // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
               runtime,
@@ -700,7 +759,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               options.getStarlarkOptions(),
-              options.asListOfCanonicalOptions());
+              options.asListOfCanonicalOptions(),
+              // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
+              // canonical flags. In that case give BuildTool a chance to post a final updated
+              // CanonicalCommandLineEvent. Then this one is dropped. But if that event doesn't post
+              // for any reason, including a build error or crash, post this one so the build still
+              // registers a canonical command line. That guarantees BuildEventStream always posts
+              // exactly one CanonicalCommandLineEvent message for all builds.
+              /* replaceable= */ commandAnnotation.buildPhase().analyzes());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
       if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =
@@ -958,5 +1024,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
                 .build()));
+  }
+
+  private static void warnIfUsingUnusupportedEncoding(String productName, Reporter reporter) {
+    // The user can only influence the JVM's encoding on Linux. See blaze.cc for details.
+    if (OS.getCurrent() != OS.LINUX) {
+      return;
+    }
+    var sunJnuEncoding = Charset.forName(System.getProperty("sun.jnu.encoding"));
+    if (!sunJnuEncoding.equals(UTF_8) && !sunJnuEncoding.equals(ISO_8859_1)) {
+      reporter.handle(
+          Event.warn(
+              "%1$s has been started with an unsupported encoding (%2$s) and may not support Unicode filenames. Make sure that the C.UTF-8 or en_US.UTF-8 locale is installed on your system and restart %1$s."
+                  .formatted(productName, sunJnuEncoding)));
+    }
   }
 }

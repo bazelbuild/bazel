@@ -54,6 +54,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future.State;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -115,7 +116,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    *     Spawn}.
    * @param getPostProcessingSpawnForLocalExecution A function that returns any post-processing
    *     spawns that should be run after finishing running a spawn locally.
-   * @param numCpus The number of CPUs allowed for local execution (--local_cpu_resources).
+   * @param numCpus The number of CPUs allowed for local execution (--local_resources=cpu=).
    * @param jobs The maximum number of jobs (--jobs parameter).
    * @param ignoreFailureCheck A callback to check if a failure on one branch should be allowed to
    *     be ignored in favor of the other branch.
@@ -166,7 +167,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return null;
     }
     for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
-      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+      if (s.canExec(spawn, acr)) {
         return s;
       }
     }
@@ -606,14 +607,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         // for cancellation. Assume the latter here because if this was actually a user interrupt,
         // our own get() would have been interrupted as well. It makes no sense to propagate the
         // interrupt status across threads.
-        context
-            .getEventHandler()
-            .handle(
-                Event.info(
-                    String.format(
-                        "Caught InterruptedException from ExecutionException for %s branch of %s,"
-                            + " which may cause a crash.",
-                        mode, getSpawnReadableId(branch.getSpawn()))));
+        if (options.debugSpawnScheduler) {
+          context
+              .getEventHandler()
+              .handle(
+                  Event.info(
+                      String.format(
+                          "Caught InterruptedException from ExecutionException for %s branch of %s,"
+                              + " which may cause a crash:\n%s",
+                          mode,
+                          getSpawnReadableId(branch.getSpawn()),
+                          Throwables.getStackTraceAsString(cause))));
+        }
         return null;
       } else {
         // Even though we cannot enforce this in the future's signature (but we do in Branch#call),
@@ -667,13 +672,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     // value of "cancellingStrategy", we do not expect concurrent calls to this method. (If there
     // are, we are in big trouble.)
     DynamicMode current = strategyThatCancelled.get();
-    if (cancellingStrategy.equals(current)) {
-      throw new AssertionError(
-          "stopBranch called more than once by "
-              + cancellingStrategy
-              + " on "
-              + getSpawnReadableId(cancellingBranch.getSpawn()));
-    } else {
+    if (!cancellingStrategy.equals(current)) {
       // Protect against the two branches from cancelling each other. The first branch to set the
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
@@ -704,7 +703,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             // This can happen if the other branch is local under local_lockfree and has returned
             // its result but not yet cancelled this branch, or if the other branch was already
             // cancelled for other reasons. In the latter case, we are good to continue.
-            if (!otherBranch.isCancelled()) {
+            if (otherBranch.future.state() == State.SUCCESS) {
               throw new DynamicInterruptedException(
                   String.format(
                       "Execution of %s strategy stopped because %s strategy could not be cancelled",

@@ -22,6 +22,8 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** A Tuple is an immutable finite sequence of values. */
 @StarlarkBuiltin(
@@ -75,6 +77,16 @@ public abstract class Tuple extends AbstractList<Object>
   /** Returns a tuple containing the given elements. */
   public static Tuple of(Object... elems) {
     return wrap(Arrays.copyOf(elems, elems.length));
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    ImmutableList.Builder<StarlarkType> elementTypes =
+        ImmutableList.builderWithExpectedSize(size());
+    for (Object elem : this) {
+      elementTypes.add(TypeChecker.type(elem));
+    }
+    return Types.tuple(elementTypes.build());
   }
 
   /** Returns a two-element tuple. */

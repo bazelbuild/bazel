@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2021 The Bazel Authors. All rights reserved.
 #
@@ -41,25 +41,16 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 cd "$TEST_TMPDIR"
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
 fi
 
 function set_up() {
-    cd ${WORKSPACE_DIR}
+  cd ${WORKSPACE_DIR}
 }
 
 function tear_down() {
@@ -144,7 +135,7 @@ EOF
 }
 
 function test_large_number_of_files() {
-  if [[ "${PLATFORM-}" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific JVM flags.
     return 0
   fi
@@ -171,7 +162,7 @@ EOF
   # https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
   touch "$pkg/{1..600}.txt"
   bazel build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
-  expect_not_log "WARNING:"
+  expect_not_log "WARNING: Overflow when watching local filesystem"
 }
 
 run_suite "Integration tests for --watchfs."

@@ -1,5 +1,7 @@
 # Darwin specific test utilities.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
@@ -19,4 +21,5 @@ cc_binary(
     name = "notifier",
     srcs = ["notifier.c"],
     tags = ["requires-darwin"],
+    target_compatible_with = ["@platforms//os:macos"],
 )

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -31,15 +31,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -214,11 +205,13 @@ EOF
 }
 
 function test_cache_computed_file_digests_ui() {
+  add_rules_cc MODULE.bazel
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   mkdir -p $pkg/package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
+  echo "load('@rules_cc//cc:cc_library.bzl', 'cc_library')" > $pkg/package/BUILD
+  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >> $pkg/package/BUILD
   echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
 
   local java_log
@@ -242,13 +235,13 @@ function test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 
   local exp_nfiles="$(ulimit -H -n)"
-  if [[ "$(uname -s)" == Darwin ]]; then
+  if is_darwin; then
     local maxfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
     if [[ "${exp_nfiles}" == "unlimited" || "${exp_nfiles}" -gt "${maxfiles}" ]]
     then
         exp_nfiles="${maxfiles}"
     fi
-  elif "${is_windows}"; then
+  elif is_windows; then
     # We do not implement the resources unlimiting feature on Windows at
     # the moment... so just expect the soft limit to remain unchanged.
     exp_nfiles="$(ulimit -S -n)"
@@ -339,19 +332,10 @@ function test_resource_flags_syntax() {
       --jobs="${threads}" \
       --legacy_globbing_threads="${threads}" \
       --loading_phase_threads="${threads}" \
-      --local_cpu_resources="${threads}" \
-      --local_ram_resources="${ram}" \
+      --local_resources=cpu="${threads}" \
+      --local_resources=memory="${ram}" \
       --local_test_jobs="${threads}" \
       || fail "Empty build failed"
-}
-
-function test_track_directory_crossing_package() {
-  mkdir -p foo/dir/subdir
-  touch foo/dir/subdir/BUILD
-  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
-  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
-      >& "$TEST_log" && fail "Expected fail"
-  expect_log "Directory artifact foo/dir crosses package boundary into"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/14723

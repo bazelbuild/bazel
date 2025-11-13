@@ -25,14 +25,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildConfigurationValue}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
@@ -109,6 +111,78 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(create().getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fastbuild");
     BuildConfigurationValue config = create("--define", "COMPILATION_MODE=fluttershy");
     assertThat(config.getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fluttershy");
+  }
+
+  @Test
+  public void testTargetCpuFromCpuFlag() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--noincompatible_target_cpu_from_platform",
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL);
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "piii");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_64");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_multipleCpuMappings_lastOneWins() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_1",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_2");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_32");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PIII_PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
   @Test
@@ -263,7 +337,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             return []
 
         bool_flag = rule(
-            implementation = _basic_impl,
+            implementation = _impl,
             build_setting = config.bool(flag = True),
         )
         """);
@@ -274,7 +348,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
         bool_flag(
             name = "starlark_flag",
-            build_setting_default = "False",
+            build_setting_default = False,
         )
         """);
     BuildConfigurationValue cfg =
@@ -386,6 +460,147 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//flags_to_reset:exclude_me")))
         .isNull();
+  }
+
+  @Test
+  public void starlarkFlagExecScopes(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(values = ["target", "universal"])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "target_scope",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        string_flag(
+            name = "universal_scope",
+            build_setting_default = "default",
+            scope = "universal",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of(
+                "//test:default_scope",
+                "custom",
+                "//test:target_scope",
+                "custom",
+                "//test:universal_scope",
+                "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    if (propagateByDefault) {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "custom");
+    } else {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+    }
+  }
+
+  @Test
+  public void starlarkFlagExecScopes_take_precedence_over_custom_overrides() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(values = ["target", "universal"])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "target_scope",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of("//test:default_scope", "custom", "//test:target_scope", "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--experimental_propagate_custom_flag=//test:target_scope",
+            "--experimental_propagate_custom_flag=//test:default_scope");
+
+    assertThat(execConfig.getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:default_scope"), "custom");
+  }
+
+  @Test
+  public void labelFlagExecScopes(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        label_flag(
+            name = "default_scope",
+            build_setting_default = "//foo",
+        )
+        label_flag(
+            name = "target_scope",
+            build_setting_default = "//foo",
+            scope = "target",
+        )
+        label_flag(
+            name = "universal_scope",
+            build_setting_default = "//foo",
+            scope = "universal",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of(
+                "//test:default_scope",
+                "//custom",
+                "//test:target_scope",
+                "//custom",
+                "//test:universal_scope",
+                "//custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    if (propagateByDefault) {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "//custom",
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "//custom");
+    } else {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "//custom");
+    }
   }
 
   @Test
@@ -537,20 +752,17 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", false))
-        // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo1", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo2", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", false))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", false))
         .testEquals();
   }
 

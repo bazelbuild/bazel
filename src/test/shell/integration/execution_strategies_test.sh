@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -43,15 +43,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
@@ -108,7 +99,7 @@ function build_and_interrupt() {
 }
 
 function test_local_deletes_plain_outputs_on_interrupt() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because the kill+wait sequence
 in build_and_interrupt doesn't seem to do the right thing.
@@ -146,7 +137,7 @@ EOF
 }
 
 function test_local_deletes_tree_artifacts_on_interrupt() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because the kill+wait sequence
 in build_and_interrupt doesn't seem to do the right thing.
@@ -188,7 +179,7 @@ EOF
 }
 
 function test_ignore_local_failures() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because it does not have Posix signals
 Skipping...
@@ -218,7 +209,7 @@ EOF
   bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
     --dynamic_remote_strategy=sandboxed \
     --dynamic_local_strategy=standalone \
-    --noincompatible_sandbox_hermetic_tmp \
+    --sandbox_add_mount_pair=/tmp \
     --experimental_dynamic_ignore_local_signals=8,9,10 \
     --experimental_local_lockfree_output \
     --experimental_local_execution_delay=0 \

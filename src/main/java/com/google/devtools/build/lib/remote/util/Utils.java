@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -83,6 +85,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -92,40 +95,32 @@ public final class Utils {
   private Utils() {}
 
   /**
-   * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
-   * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
+   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
    *
    * <p>Cancel the future on {@link InterruptedException}
    */
-  public static <T> T getFromFuture(ListenableFuture<T> f)
-      throws IOException, InterruptedException {
+  public static <T> T getFromFuture(Future<T> f) throws IOException, InterruptedException {
     return getFromFuture(f, /* cancelOnInterrupt */ true);
   }
 
   /**
-   * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
-   * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
+   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
    *
    * @param cancelOnInterrupt cancel the future on {@link InterruptedException} if {@code true}.
    */
-  public static <T> T getFromFuture(ListenableFuture<T> f, boolean cancelOnInterrupt)
+  public static <T> T getFromFuture(Future<T> f, boolean cancelOnInterrupt)
       throws IOException, InterruptedException {
     try {
       return f.get();
     } catch (CancellationException e) {
       throw new InterruptedException();
     } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      if (cause instanceof InterruptedException interruptedException) {
-        throw interruptedException;
-      }
-      if (cause instanceof IOException ioException) {
-        throw ioException;
-      }
-      if (cause instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-      throw new IOException(cause);
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfInstanceOf(e.getCause(), IOException.class);
+      throwIfUnchecked(e.getCause());
+      throw new IOException(e.getCause());
     } catch (InterruptedException e) {
       if (cancelOnInterrupt) {
         f.cancel(true);
@@ -417,7 +412,7 @@ public final class Utils {
       ActionKey actionDigest,
       BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
     ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
-    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.getDigest(), data);
+    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.digest(), data);
     return FluentFuture.from(download)
         .transformAsync(
             (v) -> {
@@ -584,8 +579,12 @@ public final class Utils {
         && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
-  public static void waitForBulkTransfer(
-      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
+  /**
+   * Waits for all transfers to finish.
+   *
+   * <p>If interrupted, all remaining transfers are canceled.
+   */
+  public static void waitForBulkTransfer(Iterable<? extends ListenableFuture<?>> transfers)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
     InterruptedException interruptedException = null;
@@ -594,7 +593,7 @@ public final class Utils {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.
-          getFromFuture(transfer, cancelRemainingOnInterrupt);
+          var unused = getFromFuture(transfer, /* cancelOnInterrupt= */ true);
         } else {
           transfer.cancel(true);
         }
@@ -606,10 +605,6 @@ public final class Utils {
       } catch (InterruptedException e) {
         interrupted = Thread.interrupted() || interrupted;
         interruptedException = e;
-        if (!cancelRemainingOnInterrupt) {
-          // leave the rest of the transfers alone
-          break;
-        }
       }
     }
     if (interrupted) {

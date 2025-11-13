@@ -119,15 +119,15 @@ public class TestRuleClassProvider {
     ConfigRules.INSTANCE.init(builder);
   }
 
-  private static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
+  public static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
     @Override
-    public boolean isSameLogicalPackage(
+    protected boolean isSameLogicalPackage(
         PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
       return thisPackage.equals(prerequisitePackage);
     }
 
     @Override
-    protected boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
+    public boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
       return false;
     }
 
@@ -135,12 +135,6 @@ public class TestRuleClassProvider {
     protected boolean checkVisibilityForExperimental(RuleContext.Builder context) {
       // It does not matter whether we return true or false here if packageUnderExperimental always
       // returns false.
-      return true;
-    }
-
-    @Override
-    protected boolean checkVisibilityForToolchains(
-        RuleContext.Builder context, Label prerequisite) {
       return true;
     }
 

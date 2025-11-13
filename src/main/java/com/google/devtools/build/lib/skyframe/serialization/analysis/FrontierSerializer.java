@@ -15,17 +15,20 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
+import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
-import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -37,15 +40,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue;
@@ -53,6 +57,9 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -60,11 +67,12 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Implements frontier serialization with pprof dumping using {@code
@@ -81,26 +89,38 @@ public final class FrontierSerializer {
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
-      SkyframeExecutor skyframeExecutor,
+      MemoizingEvaluator evaluator,
       LongVersionGetter versionGetter,
       Reporter reporter,
-      EventBus eventBus)
+      EventBus eventBus,
+      boolean keepStateAfterBuild)
       throws InterruptedException {
-    // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
-    commonPool().execute(futureCodecs);
+    InMemoryGraph graph = evaluator.getInMemoryGraph();
+    var stopwatch = Stopwatch.createStarted();
 
-    var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
-    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
-
-    ImmutableMap<SkyKey, SelectionMarking> selection =
-        computeSelection(graph, dependenciesProvider::withinActiveDirectories);
+    ImmutableSet<SkyKey> selectedKeys;
+    ImmutableMap<SkyKey, SelectionMarking> selection = null;
+    if (dependenciesProvider.hasActiveDirectoriesMatcher()) {
+      selection = computeSelection(graph, dependenciesProvider::withinActiveDirectories);
+      selectedKeys = selection.keySet();
+    } else {
+      selectedKeys = computeFullSelection(graph);
+    }
 
     reporter.handle(
         Event.info(
-            String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
+            String.format(
+                "Found %d active or frontier keys in %s", selectedKeys.size(), stopwatch)));
+    stopwatch.reset().start();
 
     if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+      if (selection == null) {
+        // `selection` is not computed when using full selection and doesn't have a meaningful
+        // SelectionMarking assignment. Marks all keys as FRONTIER_CANDIDATES arbitrarily.
+        selection =
+            selectedKeys.stream()
+                .collect(toImmutableMap(key -> key, unused -> SelectionMarking.FRONTIER_CANDIDATE));
+      }
       reporter.handle(
           Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
       dumpUploadManifest(
@@ -110,21 +130,7 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    ObjectCodecs codecs;
-    try {
-      codecs = futureCodecs.get();
-    } catch (ExecutionException e) {
-      // No exceptions are expected here.
-      throw new IllegalStateException("failed to initialize ObjectCodecs", e.getCause());
-    }
-    if (codecs == null) {
-      String message = "serialization not supported";
-      reporter.error(null, message);
-      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-    }
-
-    reporter.handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
-
+    ObjectCodecs codecs = requireNonNull(dependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion;
     try {
       frontierVersion = dependenciesProvider.getSkyValueVersion();
@@ -134,8 +140,9 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
 
-    var profileCollector = new ProfileCollector();
-    var frontierValueCount = new AtomicInteger();
+    String profilePath = dependenciesProvider.serializedFrontierProfile();
+    var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
+    var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
     if (versionGetter == null) {
       if (isInTest()) {
@@ -145,38 +152,87 @@ public final class FrontierSerializer {
       }
     }
 
-    ListenableFuture<Void> writeStatus =
+    if (!keepStateAfterBuild) {
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // INCREMENTALITY PITFALLS WARNING
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //
+      // The following code is not safe to run if the Skyframe graph needs to be
+      // incrementally correct after this point.
+      //
+      // We only do this if --nokeep_state_after_build is set.
+      try (var ignored = Profiler.instance().profile(null, "reclaimMemoryFromSkyframe")) {
+        // TODO: More ideas, while keeping the constraint that we need the
+        // structure of the selection and DTC to be able to compute the
+        // FileOpNodes MTSV metadata (File, DirectoryListing) for invalidation.
+        // - Delete SkyValues of nodes in the DTC, because the values are not needed by
+        // SelectedEntrySerializer.
+        // - Delete entire nodes not in selection and DTC, because they are never traversed in
+        // SelectedEntrySerializer.
+        stopwatch.reset().start();
+        // saves about 8% RAM b/418730298#comment26
+        var deletionStats =
+            deleteNodesAndRdeps(graph, evaluator.getNodesToRemoveBeforeFrontierSerialization());
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "%s nodes and %s rdeps deleted to reclaim memory, took %s",
+                    deletionStats.nodes, deletionStats.rdeps, stopwatch)));
+      }
+    }
+
+    stopwatch.reset().start();
+    ListenableFuture<ImmutableList<Throwable>> writeStatus =
         SelectedEntrySerializer.uploadSelection(
             graph,
             versionGetter,
             codecs,
             frontierVersion,
-            dependenciesProvider::withinActiveDirectories,
-            selection,
+            selectedKeys,
             dependenciesProvider.getFingerprintValueService(),
+            dependenciesProvider.getFileInvalidationWriter(),
+            dependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,
-            frontierValueCount);
-
-    reporter.handle(
-        Event.info(
-            String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
+            serializationStats);
 
     try {
-      var unusedNull = writeStatus.get();
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      if (!(cause instanceof SerializationException || cause instanceof IOException)) {
-        message = "with unexpected exception type " + cause.getClass().getName() + ": " + message;
+      // Waits for the write to complete uninterruptibly. This avoids returning to the caller
+      // while underlying worker threads are still processing.
+      ImmutableList<Throwable> errors = getUninterruptibly(writeStatus);
+      if (!errors.isEmpty()) {
+        String message = getErrorMessage(errors);
+        reporter.error(/* location= */ null, message, errors.get(0));
+        return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
       }
+
+      FingerprintValueStore.Stats stats =
+          dependenciesProvider.getFingerprintValueService().getStats();
+
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "Serialized %s/%s analysis/execution nodes into %s/%s key/value bytes and %s"
+                      + " entries (%s batches) in %s",
+                  serializationStats.analysisNodes(),
+                  serializationStats.executionNodes(),
+                  stats.keyBytesSent(),
+                  stats.valueBytesSent(),
+                  stats.entriesWritten(),
+                  stats.setBatches(),
+                  stopwatch)));
+    } catch (ExecutionException e) {
+      // The writeStatus future is not known to throw any ExecutionExceptions.
+      Throwable cause = e.getCause();
+      String message =
+          "with unexpected exception type "
+              + cause.getClass().getName()
+              + ": "
+              + cause.getMessage();
       reporter.error(/* location= */ null, message, cause);
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
-    reporter.handle(
-        Event.info(String.format("Waiting for write futures took an additional %s", stopwatch)));
 
-    String profilePath = dependenciesProvider.serializedFrontierProfile();
     if (profilePath.isEmpty()) {
       return Optional.empty();
     }
@@ -212,6 +268,33 @@ public final class FrontierSerializer {
     out.flush();
   }
 
+  private static ImmutableSet<SkyKey> computeFullSelection(InMemoryGraph graph) {
+    Set<SkyKey> selection = ConcurrentHashMap.newKeySet();
+    graph.parallelForEach(
+        node -> {
+          switch (node.getKey()) {
+            case ActionLookupKey key -> {
+              if (key.getLabel() != null) {
+                selection.add(key);
+              }
+            }
+            case ActionLookupData data -> {
+              if (shouldUpload(data, node)) {
+                selection.add(data);
+              }
+            }
+            case Artifact artifact -> {
+              SkyKey artifactKey = selectArtifactKey(artifact);
+              if (artifactKey != null) {
+                selection.add(artifactKey);
+              }
+            }
+            default -> {}
+          }
+        });
+    return ImmutableSet.copyOf(selection);
+  }
+
   @VisibleForTesting
   enum SelectionMarking {
     /**
@@ -225,8 +308,7 @@ public final class FrontierSerializer {
     ACTIVE
   }
 
-  @VisibleForTesting
-  static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
+  private static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
     var selection = new ConcurrentHashMap<SkyKey, SelectionMarking>();
     graph.parallelForEach(
@@ -239,32 +321,18 @@ public final class FrontierSerializer {
               }
             }
             case ActionLookupData data -> {
-              if (!data.valueIsShareable() && !(node.getValue() instanceof WithRichData)) {
-                // `valueIsShareable` is used by a different system that does not serialize
-                // RunfilesArtifactValue, but the FrontierSerializer should do so. A `WithRichData`
-                // value type can be used to distinguish this case.
-                return;
+              if (shouldUpload(data, node)) {
+                // Notably, we don't check the `matcher` for execution values, because we want to
+                // serialize all ActionLookupData even if they're below the frontier, because the
+                // owning ActionLookupValue will be pruned.
+                selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
-              selection.putIfAbsent(data, FRONTIER_CANDIDATE);
             }
             case Artifact artifact -> {
-              if (!artifact.valueIsShareable()) {
-                return;
-              }
-              switch (artifact) {
-                case DerivedArtifact derived:
-                  // Artifact#key is the canonical function to produce the SkyKey that will build
-                  // this artifact. We want to avoid serializing ordinary DerivedArtifacts, which
-                  // are never built by Skyframe directly, and the function will return
-                  // ActionLookupData as the canonical key for those artifacts instead.
-                  SkyKey artifactKey = Artifact.key(derived);
-                  if (artifactKey instanceof ActionLookupData) {
-                    return; // Already handled in the ActionLookupData switch case above.
-                  }
-                  selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
-                  break;
-                case SourceArtifact ignored:
-                  break; // Skips source artifacts because they are cheap to compute.
+              SkyKey artifactKey = selectArtifactKey(artifact);
+              if (artifactKey != null) {
+                // TODO: b/441769854 - add test coverage
+                selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
               }
             }
             // Some of the analysis nodes reachable from platforms/toolchains SkyFunctions will not
@@ -300,24 +368,40 @@ public final class FrontierSerializer {
             default -> {}
           }
         });
+    return ImmutableMap.copyOf(selection);
+  }
 
-    // Marks ActionExecutionValues owned by active analysis nodes ACTIVE.
-    return selection.entrySet().parallelStream()
-        .collect(
-            toImmutableMap(
-                Map.Entry::getKey,
-                entry ->
-                    switch (entry.getKey()) {
-                      case ActionLookupData lookupData ->
-                          selection.get(lookupData.getActionLookupKey()) == ACTIVE
-                              ? ACTIVE
-                              : entry.getValue();
-                      case DerivedArtifact artifact ->
-                          selection.get(artifact.getArtifactOwner()) == ACTIVE
-                              ? ACTIVE
-                              : entry.getValue();
-                      default -> entry.getValue();
-                    }));
+  private static boolean shouldUpload(ActionLookupData data, InMemoryNodeEntry node) {
+    // `valueIsShareable` is used by a different system that does not serialize
+    // RunfilesArtifactValue, but the FrontierSerializer should do so. A `WithRichData`
+    // value type can be used to distinguish this case.
+    return data.valueIsShareable() || node.getValue() instanceof WithRichData;
+  }
+
+  @Nullable
+  private static SkyKey selectArtifactKey(Artifact artifact) {
+    if (!artifact.valueIsShareable()) {
+      // TODO: b/441769854 - add test coverage
+      return null;
+    }
+    return switch (artifact) {
+      case DerivedArtifact derived -> {
+        // Artifact#key is the canonical function to produce the SkyKey that will build this
+        // artifact. We want to avoid serializing ordinary DerivedArtifacts, which are never built
+        // by Skyframe directly, and the function will return ActionLookupData as the canonical key
+        // for those artifacts instead.
+        SkyKey artifactKey = Artifact.key(derived);
+        if (artifactKey instanceof ActionLookupData) {
+          yield null; // Handled independently.
+        }
+        // Notably, we don't check the `matcher` for execution values, because we want to serialize
+        // all ActionLookupData even if they're below the frontier, because the owning
+        // ActionLookupValue will be pruned.
+        yield artifactKey;
+      }
+      // Does not upload source artifacts because they are cheap to compute.
+      case SourceArtifact ignored -> null;
+    };
   }
 
   private static void markActiveAndTraverseEdges(
@@ -385,20 +469,42 @@ public final class FrontierSerializer {
             });
   }
 
-  /** Stopwatch that resets upon reporting the time via {@link #toString}. */
-  private record ResettingStopwatch(Stopwatch stopwatch) {
-    @Override
-    public String toString() {
-      String text = stopwatch.toString();
-      stopwatch.reset().start();
-      return text;
-    }
-  }
-
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
     return FailureDetail.newBuilder()
         .setMessage(message)
         .setRemoteAnalysisCaching(RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
         .build();
   }
+
+  /**
+   * Deletes select nodes and all rdeps from the graph.
+   *
+   * <p>This is not safe to call if the Skyframe graph needs to be incrementally correct after this
+   * point.
+   *
+   * @return the number of rdeps deleted.
+   */
+  private static DeletionStats deleteNodesAndRdeps(
+      InMemoryGraph graph, ImmutableSet<SkyFunctionName> nodesToRemove) {
+    AtomicLong deletedNodes = new AtomicLong();
+    AtomicLong deletedRdeps = new AtomicLong();
+    graph.parallelForEach(
+        node -> {
+          IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
+              (IncrementalInMemoryNodeEntry) node;
+          if (nodesToRemove.contains(node.getKey().functionName())) {
+            graph.remove(node.getKey());
+            deletedNodes.incrementAndGet();
+          } else {
+            for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
+              incrementalInMemoryNodeEntry.removeReverseDep(rdep);
+              deletedRdeps.incrementAndGet();
+            }
+            incrementalInMemoryNodeEntry.consolidateReverseDeps();
+          }
+        });
+    return new DeletionStats(deletedNodes.get(), deletedRdeps.get());
+  }
+
+  private record DeletionStats(long nodes, long rdeps) {}
 }

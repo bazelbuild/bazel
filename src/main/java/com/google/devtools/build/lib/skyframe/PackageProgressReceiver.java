@@ -32,7 +32,7 @@ public class PackageProgressReceiver {
     pendingSet.add(packageId);
   }
 
-  /** Register that loding a package has completed. */
+  /** Register that loading a package has completed. */
   synchronized void doneReadPackage(PackageIdentifier packageId) {
     packagesCompleted++;
     pendingSet.remove(packageId);

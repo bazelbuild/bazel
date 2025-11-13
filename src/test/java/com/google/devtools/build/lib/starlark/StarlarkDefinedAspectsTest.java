@@ -65,12 +65,15 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -124,6 +127,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "abc")
         """);
 
@@ -433,6 +437,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:aspect.bzl', 'my_rule')
         cc_library(
              name = 'xxx',
@@ -862,6 +867,53 @@ my_rule = rule(
   }
 
   @Test
+  public void labelListDictAllowsAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+           return AspectInfo(aspect_data=target.label.name)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+           return RuleInfo(
+               data=','.join(['{}:{}'.format(dep[AspectInfo].aspect_data, val)
+                              for val, deps in ctx.attr.attr.items() for dep in deps]))
+
+        MyAspect = aspect(
+           implementation=_aspect_impl,
+        )
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list_dict(aspects = [MyAspect]) },
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+             name = 'yyy1',
+        )
+        cc_library(
+             name = 'yyy2',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = {'zzz': [':yyy1', ':yyy2']},
+        )
+        """);
+
+    AnalysisResult analysisResult = update("//test:xxx");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
+    assertThat(value).isEqualTo("yyy1:zzz,yyy2:zzz");
+  }
+
+  @Test
   public void aspectsDoNotAttachToFiles() throws Exception {
     scratch.file(
         "test/aspect.bzl",
@@ -1104,6 +1156,7 @@ my_rule = rule(
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//a:defs.bzl', 'split_deps_rule')
         cc_library(name = 'lib', srcs = ['lib.cc'])
         split_deps_rule(
@@ -1310,6 +1363,40 @@ my_rule = rule(
           f = ctx.actions.declare_file(target.label.name + '_a1.txt')
           ctx.actions.write(f, 'f')
           return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule1')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        """);
+
+    AnalysisResult analysisResult = update("//test:xxx");
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
+        .containsExactly("test/base_a1.txt");
+  }
+
+  @Test
+  public void returningOutputGroupsNotList() throws Exception {
+    // OutputGroupInfo is also a list, tests that an aspect can return it without a list
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return OutputGroupInfo(a1_group = depset([f]))
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
@@ -1938,7 +2025,7 @@ my_rule = rule(
         MyAspect = aspect(
             implementation=_impl,
             attrs = { '_my_attr' : attr.label(default=
-                     configuration_field(fragment='cpp', name = 'cc_toolchain')) },
+                     configuration_field(fragment = "coverage", name = "output_generator")) },
         )
         my_rule = rule(
             implementation=_rule_impl,
@@ -2807,9 +2894,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/aspect.bzl",
         """
+        MyInfo = provider()
         def _impl(target, ctx):
            return []
-        my_aspect = aspect(_impl, provides = ['foo'])
+        my_aspect = aspect(_impl, provides = [MyInfo])
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
     scratch.file(
@@ -2828,7 +2916,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     }
     assertContainsEvent(
         "Aspect '//test:aspect.bzl%my_aspect', applied to '//test:xxx', "
-            + "does not provide advertised provider 'foo'");
+            + "does not provide advertised provider 'MyInfo'");
   }
 
   @Test
@@ -3331,6 +3419,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:aspect.bzl', 'my_rule')
         cc_library(
              name = 'xxx',
@@ -3383,6 +3472,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(':aspect.bzl', 'r1', 'r2')
         r1(name = 'r0')
         r1(name = 'r1', dep = ':r0')
@@ -3422,6 +3512,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
              name = 'xxx',
         )
@@ -3729,6 +3820,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test:defs.bzl', 'my_rule')
         my_rule(
           name = 'my_target',
@@ -6673,7 +6765,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_c])
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
@@ -6696,7 +6791,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_c])
         aspect_a = aspect(implementation = _impl, requires = [aspect_c])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(
@@ -6722,7 +6820,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_d])
         aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
@@ -6745,7 +6846,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl)
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(
@@ -6768,7 +6872,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl)
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -9839,11 +9946,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
 
     AspectKey key = Iterables.getOnlyElement(analysisResult.getAspectsMap().keySet());
-    var aspectNode =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(n -> n.getKey().equals(key))
-            .findFirst()
-            .orElse(null);
+    InMemoryNodeEntry aspectNode = findOnlyNodeEntry(k -> k.equals(key));
     assertThat(aspectNode).isNotNull();
 
     ImmutableList<String> configuredTargetsDeps =
@@ -9896,13 +9999,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         """);
 
     var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
-    var topLevelAspectsNode =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(n -> n.getKey() instanceof TopLevelAspectsKey)
-            .findFirst()
-            .orElse(null);
+    InMemoryNodeEntry topLevelAspectsNode =
+        findOnlyNodeEntry(key -> key instanceof TopLevelAspectsKey);
     assertThat(topLevelAspectsNode).isNotNull();
-
     // top level aspect should not depend on any configured target.
     ImmutableList<String> configuredTargetsDeps =
         stream(Iterables.filter(topLevelAspectsNode.getDirectDeps(), ConfiguredTargetKey.class))
@@ -9958,14 +10057,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
 
     var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
 
-    var topLevelAspectsNode =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(n -> n.getKey() instanceof AspectKey)
-            .map(n -> (AspectKey) n.getKey())
-            .collect(toImmutableList());
+    InMemoryNodeEntry topLevelAspectsNode = findOnlyNodeEntry(key -> key instanceof AspectKey);
 
     // no aspect key should be requested since the aspect's required provider is not satisfied.
-    assertThat(topLevelAspectsNode).isEmpty();
+    assertThat(topLevelAspectsNode).isNull();
   }
 
   private void writeAspectOnAliasTestFiles() throws Exception {
@@ -10024,6 +10119,79 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
   }
 
   @Test
+  public void aspectOnAliasForConfiguredTarget_forwardsProvidersButNotActions() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = 'alias_target',
+            actual = ':actual',
+        )
+
+        genrule(
+            name = 'actual',
+            outs = ['actual.out'],
+            cmd = 'touch $@',
+        )
+        """);
+    scratch.file(
+        "test/simple_label_writing_aspect.bzl",
+        """
+        def _simple_label_writing_aspect_impl(target, ctx):
+            label_of_target_file = ctx.actions.declare_file(target.label.name + ".label")
+            ctx.actions.write(
+                output = label_of_target_file,
+                content = target.label.name,
+            )
+            return [DefaultInfo(files = depset([label_of_target_file]))]
+
+        simple_label_writing_aspect = aspect(
+            implementation = _simple_label_writing_aspect_impl,
+            attr_aspects = ["*"],
+        )
+        """);
+
+    var unused =
+        update(
+            ImmutableList.of("test/simple_label_writing_aspect.bzl%simple_label_writing_aspect"),
+            "//test:alias_target");
+
+    // The aspect on the actual target has exactly one action.
+    InMemoryNodeEntry aspectNode =
+        findOnlyNodeEntry(
+            key ->
+                key instanceof AspectKey aspectKey
+                    && aspectKey
+                        .getBaseConfiguredTargetKey()
+                        .getLabel()
+                        .toString()
+                        .equals("//test:actual"));
+    assertThat(aspectNode).isNotNull();
+    var aspectValue = (AspectValue) aspectNode.getValue();
+    assertThat(aspectValue.getActions()).hasSize(1);
+    assertThat(aspectValue.getActions().get(0).getPrimaryOutput().getExecPathString())
+        .endsWith("bin/test/actual.label");
+
+    // The aspect on the alias target has no actions.
+    InMemoryNodeEntry aspectOnAliasNode =
+        findOnlyNodeEntry(
+            key ->
+                key instanceof AspectKey aspectKey
+                    && aspectKey
+                        .getBaseConfiguredTargetKey()
+                        .getLabel()
+                        .toString()
+                        .equals("//test:alias_target"));
+    assertThat(aspectOnAliasNode).isNotNull();
+    var aspectOnAliasValue = (AspectValue) aspectOnAliasNode.getValue();
+    assertThat(AspectValue.isForAliasTarget(aspectOnAliasValue)).isTrue();
+    assertThat(aspectOnAliasValue.getActions()).isEmpty();
+
+    // But the providers should be the same.
+    assertThat(aspectValue.getProviders()).isEqualTo(aspectOnAliasValue.getProviders());
+  }
+
+  @Test
   public void topLevelAspectOnAliasTarget_requiredProviderSatisfied() throws Exception {
     writeAspectOnAliasTestFiles();
 
@@ -10060,24 +10228,20 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // this will select the default //test:t2 as the alias's actual target.
     var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:alias_target");
 
-    var topLevelAspectsNode =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(n -> n.getKey() instanceof AspectKey)
-            .map(n -> (AspectKey) n.getKey())
-            .collect(toImmutableList());
+    InMemoryNodeEntry topLevelAspectsNode = findOnlyNodeEntry(key -> key instanceof AspectKey);
 
     // no aspect key should be requested since the aspect's required provider is not satisfied by
     // the alias's actual target.
-    assertThat(topLevelAspectsNode).isEmpty();
+    assertThat(topLevelAspectsNode).isNull();
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {
     return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
         .filter(
             entry ->
-                entry.getKey() instanceof AspectKey
-                    && ((AspectKey) entry.getKey()).getAspectClass().getName().equals(aspectLabel)
-                    && ((AspectKey) entry.getKey()).getLabel().toString().equals(targetLabel))
+                entry.getKey() instanceof AspectKey aspectKey
+                    && aspectKey.getAspectClass().getName().equals(aspectLabel)
+                    && aspectKey.getLabel().toString().equals(targetLabel))
         .map(e -> (AspectKey) e.getKey())
         .collect(toImmutableList());
   }
@@ -10161,6 +10325,29 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     } catch (SkyframeExecutor.FailureToRetrieveIntrospectedValueException e) {
       throw new AssertionError(e);
     }
+  }
+
+  /**
+   * Returns the only {@link InMemoryNodeEntry} that matches the given predicate, or null if there
+   * is none.
+   *
+   * @throws AssertionError if there are multiple matching entries.
+   */
+  @Nullable
+  private InMemoryNodeEntry findOnlyNodeEntry(Predicate<SkyKey> predicate) {
+    ImmutableList<InMemoryNodeEntry> matchingEntries =
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
+            .filter(entry -> predicate.test(entry.getKey()))
+            .collect(toImmutableList());
+    assertWithMessage(
+            "Found multiple entries: %s",
+            matchingEntries.stream().map(e -> e.getKey().toString()).collect(toImmutableList()))
+        .that(matchingEntries.size())
+        .isAtMost(1);
+    if (matchingEntries.size() == 1) {
+      return matchingEntries.get(0);
+    }
+    return null;
   }
 
   /** StarlarkAspectTest with "keep going" flag */

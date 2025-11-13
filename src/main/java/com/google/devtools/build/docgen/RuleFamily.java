@@ -21,12 +21,12 @@ import com.google.common.escape.Escaper;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Helper class for representing a rule family in the rule summary table template.
  *
- * <p>The rules are separated into categories by rule class: binary, library, test, and
- * other.
+ * <p>The rules are separated into categories by rule class: binary, library, test, flag, and other.
  */
 @Immutable
 public class RuleFamily {
@@ -46,6 +46,7 @@ public class RuleFamily {
   private final ImmutableList<RuleDocumentation> otherRules;
 
   private final ImmutableList<RuleDocumentation> rules;
+  private final ImmutableList<RuleDocumentation> flags;
 
   RuleFamily(ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String name, String summary) {
     this.name = name;
@@ -63,6 +64,7 @@ public class RuleFamily {
             .addAll(testRules)
             .addAll(otherRules)
             .build();
+    this.flags = ImmutableList.copyOf(ruleTypeMap.get(RuleType.FLAG));
   }
 
   /*
@@ -71,7 +73,7 @@ public class RuleFamily {
    * "c-cpp".
    */
   static String normalize(String s) {
-    return FAMILY_NAME_ESCAPER.escape(s.toLowerCase()).replaceAll("[-]+", "-");
+    return FAMILY_NAME_ESCAPER.escape(s.toLowerCase(Locale.ROOT)).replaceAll("[-]+", "-");
   }
 
   public int size() {
@@ -108,5 +110,9 @@ public class RuleFamily {
 
   public List<RuleDocumentation> getRules() {
     return rules;
+  }
+
+  public List<RuleDocumentation> getFlags() {
+    return flags;
   }
 }

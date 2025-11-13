@@ -58,43 +58,58 @@ import net.starlark.java.eval.StarlarkValue;
     name = "depset",
     category = DocCategory.BUILTIN,
     doc =
-        "<p>A specialized data structure that supports efficient merge operations and has a"
-            + " defined traversal order. Commonly used for accumulating data from transitive"
-            + " dependencies in rules and aspects. For more information see <a"
-            + " href=\"/extending/depsets\">here</a>."
-            + " <p>The elements of a depset must be hashable and all of the same type (as"
-            + " defined by the built-in type(x) function), but depsets are not simply"
-            + " hash sets and do not support fast membership tests."
-            + " If you need a general set datatype, you can"
-            + " simulate one using a dictionary where all keys map to <code>True</code>."
-            + "<p>Depsets are immutable. They should be created using their <a"
-            + " href=\"../globals/bzl.html#depset\">constructor function</a> and merged or"
-            + " augmented with other depsets via the <code>transitive</code> argument. "
-            + "<p>The <code>order</code> parameter determines the"
-            + " kind of traversal that is done to convert the depset to an iterable. There are"
-            + " four possible values:"
-            + "<ul><li><code>\"default\"</code> (formerly"
-            + " <code>\"stable\"</code>): Order is unspecified (but"
-            + " deterministic).</li>"
-            + "<li><code>\"postorder\"</code> (formerly"
-            + " <code>\"compile\"</code>): A left-to-right post-ordering. Precisely, this"
-            + " recursively traverses all children leftmost-first, then the direct elements"
-            + " leftmost-first.</li>"
-            + "<li><code>\"preorder\"</code> (formerly"
-            + " <code>\"naive_link\"</code>): A left-to-right pre-ordering. Precisely, this"
-            + " traverses the direct elements leftmost-first, then recursively traverses the"
-            + " children leftmost-first.</li>"
-            + "<li><code>\"topological\"</code> (formerly"
-            + " <code>\"link\"</code>): A topological ordering from the root down to the leaves."
-            + " There is no left-to-right guarantee.</li>"
-            + "</ul>"
-            + "<p>Two depsets may only be merged if"
-            + " either both depsets have the same order, or one of them has"
-            + " <code>\"default\"</code> order. In the latter case the resulting depset's order"
-            + " will be the same as the other's order."
-            + "<p>Depsets may contain duplicate values but"
-            + " these will be suppressed when iterating (using <code>to_list()</code>). Duplicates"
-            + " may interfere with the ordering semantics.")
+"""
+<p>A specialized data structure that supports efficient merge operations and has a defined traversal
+order. Commonly used for accumulating data from transitive dependencies in rules and aspects. For
+more information see <a href="/extending/depsets">here</a>.
+
+<p>The elements of a depset must be hashable and all of the same type (as defined by the built-in
+<a href="../globals/all#type"><code>type(x)</code></a> function), but depsets are not simply hash
+sets and do not support fast membership tests. If you need a general set datatype, use the core
+<a href="../core/set">Starlark set</a> type (available since Bazel 8.1); if your .bzl file needs to
+be compatible with older Bazel releases, you can simulate a set by using a dictionary where all keys
+map to <code>True</code>.
+
+<p>When tested for truth (that is, when used in a Boolean context such as <code>if d:</code> where
+<code>d</code> is a depset), a depset is True if and only if it is non-empty; this check is an O(1)
+operation.
+
+<p>Depsets are immutable. They should be created using their
+<a href=\"../globals/bzl.html#depset">constructor function</a> and merged or augmented with other
+depsets via the <code>transitive</code> argument.
+
+<p>The <code>order</code> parameter determines the kind of traversal that is done to convert the
+depset to an iterable. There are four possible values:
+
+<ul>
+  <li>
+    <code>"default"</code> (formerly <code>"stable"</code>): Order is unspecified (but
+    deterministic).
+  </li>
+  <li>
+    <code>"postorder"</code> (formerly <code>"compile"</code>): A left-to-right post-ordering.
+    Precisely, this recursively traverses all children leftmost-first, then the direct elements
+    leftmost-first.
+  </li>
+  <li>
+    <code>"preorder"</code> (formerly <code>"naive_link"</code>): A left-to-right pre-ordering.
+    Precisely, this traverses the direct elements leftmost-first, then recursively traverses the
+    children leftmost-first.
+  </li>
+  <li>
+    <code>"topological"</code> (formerly <code>"link"</code>): A topological ordering from the root
+    down to the leaves. There is no left-to-right guarantee.
+  </li>
+</ul>
+
+<p>Two depsets may only be merged if either both depsets have the same order, or one of them has
+<code>"default"</code> order. In the latter case the resulting depset's order will be the same as
+the other's order.
+
+<p>Depsets may contain duplicate values but these will be suppressed when iterating (using
+<a href="#to_list"><code>to_list()</code></a>). Duplicates may interfere with the ordering
+semantics.
+""")
 @Immutable
 public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   // The value of elemClass is set to getTypeClass(actualElemClass)
@@ -564,9 +579,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
                 + " <code>order</code> parameter. See the <a"
                 + " href=\"https://bazel.build/extending/depsets\">Depsets overview</a> for more"
                 + " information.\n" //
-                + "<p>All"
-                + " elements (direct and indirect) of a depset must be of the same type, as"
-                + " obtained by the expression <code>type(x)</code>.\n" //
+                + "<p>All elements (direct and indirect) of a depset must be of the same type, as"
+                + " obtained by the expression <a"
+                + " href=\"../globals/all#type\"><code>type(x)</code></a>.\n" //
                 + "<p>Because a hash-based set is used to eliminate duplicates during iteration,"
                 + " all elements of a depset should be hashable. However, this invariant is not"
                 + " currently checked consistently in all constructors. Use the"

@@ -22,12 +22,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -39,7 +39,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -48,16 +50,18 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
-/**
- * Helper class to create test actions.
- */
+/** Helper class to create test actions. */
 public final class TestActionBuilder {
+
+  // Whether the test.xml is a declared output of this action rather than just an output of the test
+  // spawn. True for Bazel so that it behaves properly with Build without the Bytes (i.e.,
+  // --remote_download_regex), but false for Blaze because not all test rules generate a test.xml.
+  // DO NOT inline this constant, as it's rewritten by Copybara on import/export.
+  private static final boolean TEST_XML_IS_ACTION_OUTPUT = true;
+
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
@@ -75,13 +79,9 @@ public final class TestActionBuilder {
   private Artifact executable;
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
-  private final Map<String, String> extraEnv;
-  private final Set<String> extraInheritedEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.extraEnv = new TreeMap<>();
-    this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
   }
 
@@ -99,8 +99,7 @@ public final class TestActionBuilder {
         "invalid",
         ImmutableList.of(),
         ImmutableList.of(),
-        FilesToRunProvider.EMPTY,
-        ImmutableList.of());
+        /* coverageParams= */ null);
   }
 
   /**
@@ -138,18 +137,6 @@ public final class TestActionBuilder {
   @CanIgnoreReturnValue
   public TestActionBuilder setExecutionRequirements(@Nullable ExecutionInfo executionRequirements) {
     this.executionRequirements = executionRequirements;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public TestActionBuilder addExtraEnv(Map<String, String> extraEnv) {
-    this.extraEnv.putAll(extraEnv);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
-    this.extraInheritedEnv.addAll(extraInheritedEnv);
     return this;
   }
 
@@ -227,8 +214,7 @@ public final class TestActionBuilder {
         new TestTargetProperties(ruleContext, executionRequirements);
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
-    final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
-        && instrumentedFiles != null;
+    final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
 
     Artifact testActionExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
@@ -242,19 +228,21 @@ public final class TestActionBuilder {
             : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
 
-    Artifact collectCoverageScript = null;
+    FilesToRunProvider collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
     int runsPerTest = getRunsPerTest(ruleContext);
     int shardCount = getShardCount(ruleContext);
 
-    NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
-    Artifact lcovMergerRunfilesTree = null;
+    NestedSet<Artifact> lcovMergerFilesToRun = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
-      collectCoverageScript = ruleContext.getPrerequisiteArtifact("$collect_coverage_script");
-      inputsBuilder.add(collectCoverageScript);
+      collectCoverageScript =
+          ruleContext
+              .getPrerequisite("$collect_coverage_script")
+              .getProvider(FilesToRunProvider.class);
+      inputsBuilder.addTransitive(collectCoverageScript.getFilesToRun());
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
@@ -304,33 +292,20 @@ public final class TestActionBuilder {
       if (lcovMergerAttr != null) {
         TransitiveInfoCollection lcovMerger = ruleContext.getPrerequisite(lcovMergerAttr);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
-        if (lcovFilesToRun != null) {
-          extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
-          inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
-          lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          if (lcovFilesToRun.getRunfilesSupport() != null) {
-            lcovMergerRunfilesTree = lcovFilesToRun.getRunfilesSupport().getRunfilesTreeArtifact();
-          }
-        } else {
-          NestedSet<Artifact> filesToBuild =
-              lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
-
-          if (filesToBuild.isSingleton()) {
-            Artifact lcovMergerArtifact = filesToBuild.getSingleton();
-            extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
-            inputsBuilder.add(lcovMergerArtifact);
-            lcovMergerFilesToRun.add(lcovMergerArtifact);
-          } else {
-            ruleContext.attributeError(
-                lcovMergerAttr,
-                "the LCOV merger should be either an executable or a single artifact");
-          }
+        // Both executable targets and single artifacts have a FilesToRunProvider.
+        if (lcovFilesToRun == null) {
+          ruleContext.attributeError(
+              lcovMergerAttr,
+              "the LCOV merger should be either an executable or a single artifact");
         }
+        extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
+        inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
+        lcovMergerFilesToRun = lcovFilesToRun.getFilesToRun();
       }
 
       Artifact instrumentedFileManifest =
-          InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
-              instrumentedFiles.getInstrumentedFiles(), metadataFiles);
+          InstrumentedFileManifestAction.getInstrumentedFileManifest(
+              ruleContext, instrumentedFiles.getInstrumentedFiles(), metadataFiles);
       executionSettings =
           new TestTargetExecutionSettings(
               ruleContext,
@@ -347,8 +322,6 @@ public final class TestActionBuilder {
           new TestTargetExecutionSettings(
               ruleContext, runfilesSupport, executable, null, shardCount, runsPerTest);
     }
-
-    extraTestEnv.putAll(extraEnv);
 
     if (config.getRunUnder() != null) {
       Artifact runUnderExecutable = executionSettings.getRunUnderExecutable();
@@ -388,6 +361,11 @@ public final class TestActionBuilder {
 
         Artifact.DerivedArtifact testLog =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.log"), root);
+        ActionInput testXml =
+            TEST_XML_IS_ACTION_OUTPUT
+                ? ruleContext.getPackageRelativeArtifact(dir.getRelative("test.xml"), root)
+                : ActionInputHelper.fromPath(
+                    testLog.getExecPath().getParentDirectory().getRelative("test.xml"));
         Artifact.DerivedArtifact cacheStatus =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 
@@ -406,12 +384,12 @@ public final class TestActionBuilder {
         Artifact undeclaredOutputsDir =
             ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("test.outputs"), root);
 
-        boolean cancelConcurrentTests =
+        CancelConcurrentTests cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
-                && testConfiguration.cancelConcurrentTests();
+                ? testConfiguration.cancelConcurrentTests()
+                : CancelConcurrentTests.NEVER;
 
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
-        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 actionOwner,
@@ -421,14 +399,13 @@ public final class TestActionBuilder {
                 testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,
+                testXml,
                 cacheStatus,
                 coverageArtifact,
                 coverageDirectory,
                 undeclaredOutputsDir,
                 testProperties,
-                runfilesSupport
-                    .getActionEnvironment()
-                    .withAdditionalVariables(extraTestEnv, extraInheritedEnv),
+                runfilesSupport.getActionEnvironment().withAdditionalFixedVariables(extraTestEnv),
                 executionSettings,
                 shard,
                 run,
@@ -436,12 +413,12 @@ public final class TestActionBuilder {
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
-                        ruleContext.getConfiguration(), ruleContext.getExecutionPlatform())
+                        ruleContext.getConfiguration(),
+                        ruleContext.getExecutionPlatform(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                lcovMergerRunfilesTree,
                 // Network allowlist only makes sense in workspaces which explicitly add it, use an
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(
@@ -457,18 +434,20 @@ public final class TestActionBuilder {
         results.add(cacheStatus);
       }
     }
-    // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
-    FilesToRunProvider reportGenerator = null;
+    CoverageParams coverageParams = null;
     if (config.isCodeCoverageEnabled()) {
+      // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
       // It's not enough to add this if the rule has coverage enabled because the command line may
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       TransitiveInfoCollection reportGeneratorTarget =
           ruleContext.getPrerequisite(":coverage_report_generator");
-      reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
+      FilesToRunProvider reportGenerator =
+          reportGeneratorTarget.getProvider(FilesToRunProvider.class);
       if (reportGenerator.getExecutable() == null) {
         ruleContext.ruleError("--coverage_report_generator does not refer to an executable target");
       }
+      coverageParams = new CoverageParams(coverageArtifacts.build(), reportGenerator, actionOwner);
     }
 
     return new TestParams(
@@ -478,8 +457,7 @@ public final class TestActionBuilder {
         TestTimeout.getTestTimeout(ruleContext.getRule()),
         ruleContext.getRule().getRuleClass(),
         ImmutableList.copyOf(results),
-        coverageArtifacts.build(),
-        reportGenerator,
-        testOutputs.build());
+        testOutputs.build(),
+        coverageParams);
   }
 }

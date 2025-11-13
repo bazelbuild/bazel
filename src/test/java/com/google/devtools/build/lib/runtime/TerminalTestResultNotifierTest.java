@@ -318,7 +318,7 @@ public final class TerminalTestResultNotifierTest {
             ansiTerminalPrinter,
             Path::getPathString,
             optionsParsingResult,
-            RepositoryMapping.ALWAYS_FALLBACK);
+            RepositoryMapping.EMPTY);
     terminalTestResultNotifier.notify(builder.build(), 0);
   }
 
@@ -349,7 +349,7 @@ public final class TerminalTestResultNotifierTest {
             ansiTerminalPrinter,
             Path::getPathString,
             optionsParsingResult,
-            RepositoryMapping.ALWAYS_FALLBACK);
+            RepositoryMapping.EMPTY);
     terminalTestResultNotifier.notify(ImmutableSet.of(testSummary), 1);
   }
 

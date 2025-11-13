@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -74,7 +73,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -92,6 +90,7 @@ import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -214,7 +213,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
@@ -298,7 +297,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+            RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
@@ -336,18 +335,19 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
     remoteCache =
         new RemoteExecutionCache(
-            cacheProtocol, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+            cacheProtocol, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
-            directExecutor(),
             reporter,
             /* verboseFailures= */ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
+            TestConstants.WORKSPACE_NAME,
             DIGEST_UTIL,
             remoteOptions,
+            Options.getDefaults(ExecutionOptions.class),
             remoteCache,
             executor,
             tempPathGenerator,
@@ -357,9 +357,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             Sets.newConcurrentHashSet());
     client =
         new RemoteSpawnRunner(
-            execRoot,
             remoteOptions,
-            Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
@@ -771,8 +769,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetries() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -928,8 +926,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetriesWaitResult() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     // This test's flow is similar to the previous, except the result
     // will eventually be returned by the waitExecute function.
@@ -1581,8 +1579,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            ImmutableList.of(),
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
 
     return new FakeSpawnExecutionContext(

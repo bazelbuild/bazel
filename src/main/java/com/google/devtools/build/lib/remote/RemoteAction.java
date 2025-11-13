@@ -17,7 +17,6 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
-import javax.annotation.Nullable;
 
 /**
  * A value class representing an action which can be executed remotely.
@@ -41,9 +39,7 @@ public class RemoteAction {
   private final SpawnExecutionContext spawnExecutionContext;
   private final RemoteActionExecutionContext remoteActionExecutionContext;
   private final RemotePathResolver remotePathResolver;
-  @Nullable private final MerkleTree merkleTree;
-  private final long inputBytes;
-  private final long inputFiles;
+  private final MerkleTree merkleTree;
   private final Digest commandHash;
   private final Command command;
   private final Action action;
@@ -58,15 +54,12 @@ public class RemoteAction {
       Digest commandHash,
       Command command,
       Action action,
-      ActionKey actionKey,
-      boolean remoteDiscardMerkleTrees) {
+      ActionKey actionKey) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.remoteActionExecutionContext = remoteActionExecutionContext;
     this.remotePathResolver = remotePathResolver;
-    this.merkleTree = remoteDiscardMerkleTrees ? null : merkleTree;
-    this.inputBytes = merkleTree.getInputBytes();
-    this.inputFiles = merkleTree.getInputFiles();
+    this.merkleTree = merkleTree;
     this.commandHash = commandHash;
     this.command = command;
     this.action = action;
@@ -90,17 +83,17 @@ public class RemoteAction {
    * Returns the sum of file sizes plus protobuf sizes used to represent the inputs of this action.
    */
   public long getInputBytes() {
-    return inputBytes;
+    return merkleTree.inputBytes();
   }
 
   /** Returns the number of input files of this action. */
   public long getInputFiles() {
-    return inputFiles;
+    return merkleTree.inputFiles();
   }
 
   /** Returns the id this is action. */
   public String getActionId() {
-    return actionKey.getDigest().getHash();
+    return actionKey.digest().getHash();
   }
 
   /** Returns the {@link ActionKey} of this action. */
@@ -125,7 +118,6 @@ public class RemoteAction {
     return remotePathResolver;
   }
 
-  @Nullable
   public MerkleTree getMerkleTree() {
     return merkleTree;
   }
@@ -134,8 +126,7 @@ public class RemoteAction {
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly)
-      throws ForbiddenActionInputException {
+  public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly) {
     return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
   }
 

@@ -219,9 +219,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             // We only need to consider the outputs of a genrule. No need to visit the dependencies
             // of a genrule. They cross from the target into the exec configuration, because the
             // dependencies of a genrule are always built for the exec configuration.
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(),
-                    ruleContext.getConfiguration().legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(filesToBuild)
                 .build());
 

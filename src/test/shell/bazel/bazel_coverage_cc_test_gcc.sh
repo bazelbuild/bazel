@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -122,15 +122,7 @@ end_of_record"
   expect_log '//:t.*cached'
   # Verify the files are reported correctly in the build event protocol.
   assert_contains 'name: "test.lcov"' "${BEP}"
-  assert_contains 'name: "baseline.lcov"' "${BEP}"
     # Assert coverage output is reported in the right proto fields
-  grep 'name: "baseline.lcov"' -B1 "${BEP}" | grep -q 'output_group'\
-    || fail "File 'baseline.lcov' missing in output_group!"
-  grep 'name: "t/baseline_coverage.dat"' -B1 "${BEP}"\
-    | grep -q 'inline_files'\
-    || fail "File 'baseline_coverage.dat' missing in inline_files!"
-  grep 'name: "baseline.lcov"' -B1 "${BEP}" | grep -q 'important_output'\
-    || fail "File 'baseline.lcov' missing in important_output!"
   grep 'name: "test.lcov"' -B1 "${BEP}" | grep -q 'test_action_output'\
     || fail "File 'test.lcov' missing in test_action_output!"
 }
@@ -919,6 +911,7 @@ function test_coverage_with_experimental_split_coverage_postprocessing_only() {
   fi
 
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "hello-test",
   srcs = ["hello-test.cc"],

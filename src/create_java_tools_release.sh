@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,7 +87,7 @@ function copy_or_fail_if_target_exists() {
   fi
 }
 
-for platform in "linux" "windows" "darwin_x86_64" "darwin_arm64"; do
+for platform in "linux" "linux_aarch64" "windows" "darwin_x86_64" "darwin_arm64"; do
   rc_url="release_candidates/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then

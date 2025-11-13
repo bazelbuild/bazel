@@ -17,16 +17,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <ifaddrs.h>
 #include <jni.h>
 #include <limits.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -96,10 +91,6 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
       exception_classname =
           "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
-    case EPERM:   // Operation not permitted
-      exception_classname =
-          "com/google/devtools/build/lib/unix/FilePermissionException";
-      break;
     case EINTR:   // Interrupted system call
       exception_classname = "java/io/InterruptedIOException";
       break;
@@ -125,6 +116,7 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
 #if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
+    case EPERM:      // Operation not permitted
     case ENOLINK:    // Link has been severed
     case EIO:        // I/O error
     case EAGAIN:     // Try again
@@ -252,6 +244,24 @@ static void PerformIntegerValueCallback(jobject object, const char *callback,
   }
 }
 
+namespace {
+
+class JStringLatin1Holder {
+  const char* const chars;
+
+ public:
+  JStringLatin1Holder(JNIEnv* env, jstring string)
+      : chars(GetStringLatin1Chars(env, string)) {}
+
+  ~JStringLatin1Holder() { ReleaseStringLatin1Chars(chars); }
+
+  operator const char*() const { return chars; }
+
+  operator std::string() const { return chars; }
+};
+
+}  // namespace
+
 // TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
@@ -259,16 +269,15 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  char target[PATH_MAX] = "";
-  jstring r = nullptr;
-  if (readlink(path_chars, target, arraysize(target)) == -1) {
+  JStringLatin1Holder path_chars(env, path);
+  char target[PATH_MAX + 1];
+  ssize_t len = readlink(path_chars, target, arraysize(target) - 1);
+  if (len == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-  } else {
-    r = NewStringLatin1(env, target);
+    return nullptr;
   }
-  ReleaseStringLatin1Chars(path_chars);
-  return r;
+  target[len] = '\0';
+  return NewStringLatin1(env, target);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -314,23 +323,30 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_symlink(JNIEnv *env,
 
 namespace {
 
-static jclass makeStaticClass(JNIEnv *env, const char *name) {
+static jclass getClass(JNIEnv* env, const char* name) {
   jclass lookup_result = env->FindClass(name);
   BAZEL_CHECK_NE(lookup_result, nullptr);
   return static_cast<jclass>(env->NewGlobalRef(lookup_result));
 }
 
-static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
-                                  const char *parameters) {
-  jmethodID method = env->GetMethodID(clazz, "<init>", parameters);
-  BAZEL_CHECK_NE(method, nullptr);
+static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
+  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
+  BAZEL_CHECK_NE(method, nullptr) << sig;
   return method;
+}
+
+static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
+                                    const char* sig) {
+  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return static_cast<jobject>(
+      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
 }
 
 static jobject NewUnixFileStatus(JNIEnv *env,
                                  const portable_stat_struct &stat_ref) {
   static const jclass file_status_class =
-      makeStaticClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
+      getClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
   static const jmethodID file_status_class_ctor =
       getConstructorID(env, file_status_class, "(IJJJJ)V");
   return env->NewObject(
@@ -341,21 +357,6 @@ static jobject NewUnixFileStatus(JNIEnv *env,
       static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
 }
-
-// RAII class for jstring.
-class JStringLatin1Holder {
-  const char *const chars;
-
- public:
-  JStringLatin1Holder(JNIEnv *env, jstring string)
-      : chars(GetStringLatin1Chars(env, string)) {}
-
-  ~JStringLatin1Holder() { ReleaseStringLatin1Chars(chars); }
-
-  operator const char *() const { return chars; }
-
-  operator std::string() const { return chars; }
-};
 
 }  // namespace
 
@@ -445,18 +446,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    umask
- * Signature: (I)I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_umask(JNIEnv *env,
-                                                  jclass clazz,
-                                                  jint new_umask) {
-  return ::umask(new_umask);
-}
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    mkdir
  * Signature: (Ljava/lang/String;I)Z
  * Throws:    java.io.IOException
@@ -484,182 +473,84 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
   return result;
 }
 
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    mkdirWritable
- * Signature: (Ljava/lang/String;I)Z
- * Throws:    java.io.IOException
- */
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
-    JNIEnv *env, jclass clazz, jstring path) {
-  JStringLatin1Holder path_chars(env, path);
-
-  portable_stat_struct statbuf;
-  int r;
-  do {
-    r = portable_lstat(path_chars, &statbuf);
-  } while (r != 0 && errno == EINTR);
-
-  if (r != 0) {
-    if (errno != ENOENT) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-      return false;
-    }
-    // Directory does not exist.
-    // Use 0777 so that the permissions can be overridden by umask(2).
-    if (::mkdir(path_chars, 0777) == -1) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-    }
-    return true;
-  }
-  // Path already exists, but might not be a directory.
-  if (!S_ISDIR(statbuf.st_mode)) {
-    POST_EXCEPTION_FROM_ERRNO(env, ENOTDIR, path_chars);
-    return false;
-  }
-  // Make sure the permissions are correct.
-  // Avoid touching permissions for group/other, which may have been overridden
-  // by umask(2) when this directory was originally created.
-  if ((statbuf.st_mode & S_IRWXU) != S_IRWXU) {
-    if (::chmod(path_chars, statbuf.st_mode | S_IRWXU) == -1) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-    }
-  }
-  return false;
-}
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    mkdirs
- * Signature: (Ljava/lang/String;I)V
- * Throws:    java.io.IOException
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirs(JNIEnv *env,
-                                                                jclass clazz,
-                                                                jstring path,
-                                                                int mode) {
-  char *path_chars = GetStringLatin1Chars(env, path);
-  portable_stat_struct statbuf;
-  int len;
-  char *p;
-
-  // First, check if the directory already exists and early-out.
-  if (portable_stat(path_chars, &statbuf) == 0) {
-    if (!S_ISDIR(statbuf.st_mode)) {
-      // Exists but is not a directory.
-      POST_EXCEPTION_FROM_ERRNO(env, ENOTDIR, path_chars);
-    }
-    goto cleanup;
-  } else if (errno != ENOENT) {
-    POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-    goto cleanup;
-  }
-
-  // Find the first directory that already exists and leave a pointer just past
-  // it.
-  len = strlen(path_chars);
-  p = path_chars + len - 1;
-  for (; p > path_chars; --p) {
-    if (*p == '/') {
-      *p = 0;
-      int res = portable_stat(path_chars, &statbuf);
-      *p = '/';
-      if (res == 0) {
-        // Exists and must be a directory, or the initial stat would have failed
-        // with ENOTDIR.
-        break;
-      } else if (errno != ENOENT) {
-        POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-        goto cleanup;
-      }
-    }
-  }
-  // p now points at the '/' after the last directory that exists.
-  // Successively create each directory
-  for (const char *end = path_chars + len; p < end; ++p) {
-    if (*p == '/') {
-      *p = 0;
-      int res = ::mkdir(path_chars, mode);
-      *p = '/';
-      // EEXIST is fine, just means we're racing to create the directory.
-      // Note that somebody could have raced to create a file here, but that
-      // will get handled by a ENOTDIR by a subsequent mkdir call.
-      if (res != 0 && errno != EEXIST) {
-        POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-        goto cleanup;
-      }
-    }
-  }
-  if (::mkdir(path_chars, mode) != 0) {
-    if (errno != EEXIST) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-      goto cleanup;
-    }
-    if (portable_stat(path_chars, &statbuf) != 0) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-      goto cleanup;
-    }
-    if (!S_ISDIR(statbuf.st_mode)) {
-      // Exists but is not a directory.
-      POST_EXCEPTION_FROM_ERRNO(env, ENOTDIR, path_chars);
-      goto cleanup;
-    }
-  }
-cleanup:
-  ReleaseStringLatin1Chars(path_chars);
-}
-
 namespace {
-static jobject NewDirents(JNIEnv *env,
-                          jobjectArray names,
-                          jbyteArray types) {
-  static const jclass dirents_class = makeStaticClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
-  static const jmethodID dirents_ctor =
-      getConstructorID(env, dirents_class, "([Ljava/lang/String;[B)V");
-  return env->NewObject(dirents_class, dirents_ctor, names, types);
+
+jobject NewDirent(JNIEnv* env, const struct dirent* e) {
+  static const jclass dirent_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
+  static const jmethodID dirent_ctor =
+      getConstructorID(env, dirent_class,
+                       "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
+                       "NativePosixFiles$Dirent$Type;)V");
+  static const jclass type_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent$Type");
+  static const char* field_sig =
+      "Lcom/google/devtools/build/lib/unix/NativePosixFiles$Dirent$Type;";
+  static const jobject type_file =
+      getStaticObjectField(env, type_class, "FILE", field_sig);
+  static const jobject type_directory =
+      getStaticObjectField(env, type_class, "DIRECTORY", field_sig);
+  static const jobject type_symlink =
+      getStaticObjectField(env, type_class, "SYMLINK", field_sig);
+  static const jobject type_char =
+      getStaticObjectField(env, type_class, "CHAR", field_sig);
+  static const jobject type_block =
+      getStaticObjectField(env, type_class, "BLOCK", field_sig);
+  static const jobject type_fifo =
+      getStaticObjectField(env, type_class, "FIFO", field_sig);
+  static const jobject type_socket =
+      getStaticObjectField(env, type_class, "SOCKET", field_sig);
+  static const jobject type_unknown =
+      getStaticObjectField(env, type_class, "UNKNOWN", field_sig);
+
+  jstring name = NewStringLatin1(env, e->d_name);
+  if (name == nullptr && env->ExceptionOccurred()) {
+    return nullptr;
+  }
+
+  jobject type;
+  switch (e->d_type) {
+    case DT_REG:
+      type = type_file;
+      break;
+    case DT_DIR:
+      type = type_directory;
+      break;
+    case DT_LNK:
+      type = type_symlink;
+      break;
+    case DT_CHR:
+      type = type_char;
+      break;
+    case DT_BLK:
+      type = type_block;
+      break;
+    case DT_FIFO:
+      type = type_fifo;
+      break;
+    case DT_SOCK:
+      type = type_socket;
+      break;
+    default:
+      type = type_unknown;
+      break;
+  }
+
+  return env->NewObject(dirent_class, dirent_ctor, name, type);
 }
 
-static char GetDirentType(struct dirent *entry,
-                          int dirfd,
-                          bool follow_symlinks) {
-  switch (entry->d_type) {
-    case DT_REG:
-      return 'f';
-    case DT_DIR:
-      return 'd';
-    case DT_LNK:
-      if (!follow_symlinks) {
-        return 's';
-      }
-      FALLTHROUGH_INTENDED;
-    case DT_UNKNOWN:
-      portable_stat_struct statbuf;
-      if (portable_fstatat(dirfd, entry->d_name, &statbuf, 0) == 0) {
-        if (S_ISREG(statbuf.st_mode)) return 'f';
-        if (S_ISDIR(statbuf.st_mode)) return 'd';
-      }
-      // stat failed or returned something weird; fall through
-      FALLTHROUGH_INTENDED;
-    default:
-      return '?';
-  }
-}
 }  // namespace
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    readdir
- * Signature: (Ljava/lang/String;Z)Lcom/google/devtools/build/lib/unix/Dirents;
+ * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/Dirents;
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
-                                                    jclass clazz,
-                                                    jstring path,
-                                                    jchar read_types) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   DIR *dirh;
   while ((dirh = ::opendir(path_chars)) == nullptr && errno == EINTR) {
@@ -673,10 +564,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
   if (dirh == nullptr) {
     return nullptr;
   }
-  int fd = dirfd(dirh);
 
-  std::vector<std::string> entries;
-  std::vector<jbyte> types;
+  std::vector<jobject> dirents;
   for (;;) {
     // Clear errno beforehand.  Because readdir() is not required to clear it at
     // EOF, this is the only way to reliably distinguish EOF from error.
@@ -698,10 +587,11 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
       if (entry->d_name[1] == '\0') continue;
       if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
     }
-    entries.push_back(entry->d_name);
-    if (read_types != 'n') {
-      types.push_back(GetDirentType(entry, fd, read_types == 'f'));
+    jobject dirent = NewDirent(env, entry);
+    if (dirent == nullptr && env->ExceptionOccurred()) {
+      return nullptr;
     }
+    dirents.push_back(dirent);
   }
 
   if (::closedir(dirh) < 0 && errno != EINTR) {
@@ -709,32 +599,18 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
     return nullptr;
   }
 
-  size_t len = entries.size();
-  jclass jlStringClass = env->GetObjectClass(path);
-  jobjectArray names_obj = env->NewObjectArray(len, jlStringClass, nullptr);
-  if (names_obj == nullptr && env->ExceptionOccurred()) {
-    return nullptr;  // async exception!
+  static const jclass dirent_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
+  jobjectArray dirent_array =
+      env->NewObjectArray(dirents.size(), dirent_class, nullptr);
+  if (dirent_array == nullptr && env->ExceptionOccurred()) {
+    return nullptr;
+  }
+  for (size_t i = 0; i < dirents.size(); i++) {
+    env->SetObjectArrayElement(dirent_array, i, dirents[i]);
   }
 
-  for (size_t ii = 0; ii < len; ++ii) {
-    jstring s = NewStringLatin1(env, entries[ii].c_str());
-    if (s == nullptr && env->ExceptionOccurred()) {
-      return nullptr;  // async exception!
-    }
-    env->SetObjectArrayElement(names_obj, ii, s);
-  }
-
-  jbyteArray types_obj = nullptr;
-  if (read_types != 'n') {
-    BAZEL_CHECK_EQ(len, types.size());
-    types_obj = env->NewByteArray(len);
-    BAZEL_CHECK_NE(types_obj, nullptr);
-    if (len > 0) {
-      env->SetByteArrayRegion(types_obj, 0, len, &types[0]);
-    }
-  }
-
-  return NewDirents(env, names_obj, types_obj);
+  return dirent_array;
 }
 
 /*
@@ -1168,69 +1044,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
   return getxattr_common(env, path, name, portable_lgetxattr);
 }
 
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_openWrite(
-    JNIEnv *env, jclass clazz, jstring path, jboolean append) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  int flags = (O_WRONLY | O_CREAT) | (append ? O_APPEND : O_TRUNC);
-  int fd;
-  while ((fd = open(path_chars, flags, 0666)) == -1 && errno == EINTR) {
-  }
-  if (fd == -1) {
-    POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-  }
-  ReleaseStringLatin1Chars(path_chars);
-  return fd;
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_close(JNIEnv *env,
-                                                               jclass clazz,
-                                                               jint fd,
-                                                               jobject ingore) {
-  if (close(fd) == -1) {
-    POST_EXCEPTION_FROM_ERRNO(env, errno, "close");
-  }
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
-    JNIEnv *env, jclass clazz, jint fd, jbyteArray data, jint off, jint len) {
-  int data_len = env->GetArrayLength(data);
-  if (off < 0 || len < 0 || off > data_len || data_len - off < len) {
-    jclass oob = env->FindClass("java/lang/IndexOutOfBoundsException");
-    if (oob != nullptr) {
-      env->ThrowNew(oob, nullptr);
-    }
-    return;
-  }
-  jbyte *buf = static_cast<jbyte *>(malloc(len));
-  if (buf == nullptr) {
-    POST_EXCEPTION_FROM_ERRNO(env, ENOMEM, "write");
-    return;
-  }
-  env->GetByteArrayRegion(data, off, len, buf);
-  // GetByteArrayRegion may raise ArrayIndexOutOfBoundsException if one of the
-  // indexes in the region is not valid. As we obtain the inidices from the
-  // caller, we have to check.
-  if (!env->ExceptionOccurred()) {
-    jbyte *p = buf;
-    while (len > 0) {
-      ssize_t res = write(fd, p, len);
-      if (res == -1) {
-        if (errno != EINTR) {
-          POST_EXCEPTION_FROM_ERRNO(env, errno, "write");
-          break;
-        }
-      } else {
-        p += res;
-        len -= res;
-      }
-    }
-  }
-  free(buf);
-}
-
 /*
  * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
  * Method:    pushDisableSleep
@@ -1534,103 +1347,6 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeed(
     JNIEnv *env, jclass) {
   return portable_cpu_speed();
-}
-
-static int convert_ipaddr(struct sockaddr *addr, int family, char *buf,
-                          int buf_len) {
-  if (buf_len > 0) {
-    buf[0] = 0;
-  }
-  int addr_len = 0;
-  if (family == AF_INET) {
-    addr_len = sizeof(struct sockaddr_in);
-  } else if (family == AF_INET6) {
-    addr_len = sizeof(struct sockaddr_in6);
-  }
-  if (addr_len != 0) {
-    int err =
-        getnameinfo(addr, addr_len, buf, buf_len, nullptr, 0, NI_NUMERICHOST);
-    if (err != 0) {
-      return err;
-    }
-  }
-  return 0;
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIfAddrsNative(
-    JNIEnv *env, jclass clazz, jobject addrs_list) {
-  ifaddrs *ifaddr;
-  if (getifaddrs(&ifaddr) == -1) {
-    POST_EXCEPTION_FROM_ERRNO(env, errno, "getifaddrs");
-    return;
-  }
-
-  jclass list_class = env->GetObjectClass(addrs_list);
-  jmethodID list_add =
-      env->GetMethodID(list_class, "add", "(Ljava/lang/Object;)Z");
-
-  jclass addr_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/SystemNetworkStats$NetIfAddr");
-  jmethodID addr_create = env->GetStaticMethodID(
-      addr_class, "create",
-      "(Ljava/lang/String;Lcom/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family;Ljava/lang/String;)Lcom/google/"
-      "devtools/build/lib/profiler/SystemNetworkStats$NetIfAddr;");
-
-  jclass family_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family");
-  const char *family_class_sig =
-      "Lcom/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family;";
-  jfieldID family_af_inet_id =
-      env->GetStaticFieldID(family_class, "AF_INET", family_class_sig);
-  jobject family_af_inet =
-      env->GetStaticObjectField(family_class, family_af_inet_id);
-  jfieldID family_af_inet6_id =
-      env->GetStaticFieldID(family_class, "AF_INET6", family_class_sig);
-  jobject family_af_inet6 =
-      env->GetStaticObjectField(family_class, family_af_inet6_id);
-  jfieldID family_unknown_id =
-      env->GetStaticFieldID(family_class, "UNKNOWN", family_class_sig);
-  jobject family_unknown =
-      env->GetStaticObjectField(family_class, family_unknown_id);
-
-  for (ifaddrs *ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-    if (!ifa->ifa_addr) {
-      continue;
-    }
-    jstring name = env->NewStringUTF(ifa->ifa_name);
-
-    int family = ifa->ifa_addr->sa_family;
-
-    jobject family_enum;
-    switch (family) {
-      case AF_INET:
-        family_enum = family_af_inet;
-        break;
-      case AF_INET6:
-        family_enum = family_af_inet6;
-        break;
-      default:
-        family_enum = family_unknown;
-    }
-
-    char buf[NI_MAXHOST];
-    int err = convert_ipaddr(ifa->ifa_addr, family, buf, sizeof(buf));
-    if (err != 0) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, "convert_ipaddr");
-      return;
-    }
-    jstring ipaddr = env->NewStringUTF(buf);
-
-    jobject addr = env->CallStaticObjectMethod(addr_class, addr_create, name,
-                                               family_enum, ipaddr);
-    env->CallObjectMethod(addrs_list, list_add, addr);
-  }
-
-  freeifaddrs(ifaddr);
 }
 
 }  // namespace blaze_jni

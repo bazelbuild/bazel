@@ -54,6 +54,8 @@ public class TargetContext {
 
   private final NestedSet<PackageGroupContents> visibility;
 
+  @Nullable private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+
   /**
    * The constructor is intentionally package private.
    *
@@ -64,13 +66,15 @@ public class TargetContext {
       Target target,
       BuildConfigurationValue configuration,
       Set<ConfiguredTargetAndData> directPrerequisites,
-      NestedSet<PackageGroupContents> visibility) {
+      NestedSet<PackageGroupContents> visibility,
+      @Nullable PackageSpecificationProvider transitiveVisibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
     this.directPrerequisites =
         Multimaps.index(directPrerequisites, ConfiguredTargetAndData::getTargetLabel);
     this.visibility = visibility;
+    this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
   }
 
   public AnalysisEnvironment getAnalysisEnvironment() {
@@ -106,6 +110,11 @@ public class TargetContext {
 
   public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
+  }
+
+  @Nullable
+  public PackageSpecificationProvider getTransitiveVisibilityImposedByThisPackage() {
+    return transitiveVisibilityImposedByThisPackage;
   }
 
   /**

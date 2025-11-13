@@ -51,12 +51,15 @@ public final class BuiltinRestriction {
 
               // Apple rules
               BuiltinRestriction.allowlistEntry("", "third_party/apple_crosstool"),
+              BuiltinRestriction.allowlistEntry(
+                  "", "third_party/cpptoolchains/portable_llvm/build_defs"),
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_apple"),
               BuiltinRestriction.allowlistEntry("rules_apple", ""),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_apple", ""),
 
               // Cc rules
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_cc"),
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/cc"),
               BuiltinRestriction.allowlistEntry("rules_cc", ""),
 
               // Java rules

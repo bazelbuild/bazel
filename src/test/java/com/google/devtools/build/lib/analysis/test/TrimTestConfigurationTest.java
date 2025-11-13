@@ -22,35 +22,22 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,40 +46,6 @@ import org.junit.runners.JUnit4;
 /** BUILD-level Tests for test_trim_configuration. */
 @RunWith(JUnit4.class)
 public final class TrimTestConfigurationTest extends AnalysisTestCase {
-
-  /** Simple native test rule. */
-  public static final class NativeTest implements RuleConfiguredTargetFactory {
-    @Override
-    @Nullable
-    public ConfiguredTarget create(RuleContext context)
-        throws ActionConflictException, InterruptedException {
-      Artifact executable = context.getBinArtifact(context.getLabel().getName());
-      context.registerAction(FileWriteAction.create(context, executable, "#!/bin/true", true));
-      Runfiles runfiles =
-          new Runfiles.Builder(context.getWorkspaceName()).addArtifact(executable).build();
-      return new RuleConfiguredTargetBuilder(context)
-          .setFilesToBuild(NestedSetBuilder.create(Order.STABLE_ORDER, executable))
-          .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-          .setRunfilesSupport(
-              RunfilesSupport.withExecutable(context, runfiles, executable), executable)
-          .build();
-    }
-  }
-
-  private static final RuleDefinition NATIVE_TEST_RULE =
-      (MockRule)
-          () ->
-              MockRule.ancestor(
-                      BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.NativeBuildRule.class)
-                  .factory(NativeTest.class)
-                  .type(RuleClassType.TEST)
-                  .define(
-                      "native_test",
-                      attr("deps", LABEL_LIST).allowedFileTypes(),
-                      attr("exec_deps", LABEL_LIST)
-                          .cfg(ExecutionTransitionFactory.createFactory())
-                          .allowedFileTypes());
-
   private static final RuleDefinition NATIVE_LIB_RULE =
       (MockRule)
           () ->
@@ -106,7 +59,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setRulesAvailableInTests(NATIVE_TEST_RULE, NATIVE_LIB_RULE);
+    setRulesAvailableInTests(NATIVE_LIB_RULE);
     scratch.file(
         "test/test.bzl",
         """
@@ -171,16 +124,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -219,7 +163,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update(
         "//test:suite",
-        "//test:native_test",
         "//test:starlark_test",
         "//test:native_dep",
         "//test:starlark_dep",
@@ -233,7 +176,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -244,7 +186,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
     update(
         "//test:suite",
-        "//test:native_test",
         "//test:starlark_test",
         "//test:native_dep",
         "//test:starlark_dep",
@@ -257,7 +198,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 2)
-            .put("//test:native_test", 2)
             .put("//test:starlark_test", 2)
             .put("//test:native_dep", 2)
             .put("//test:starlark_dep", 2)
@@ -277,16 +217,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -334,7 +265,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         getSkyframeEvaluatedTargetKeys(),
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -354,16 +284,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -402,7 +323,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update(
         "//test:suite",
-        "//test:native_test",
         "//test:starlark_test",
         "//test:native_dep",
         "//test:starlark_dep",
@@ -415,7 +335,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         visitedTargetKeys,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -426,7 +345,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
     update(
         "//test:suite",
-        "//test:native_test",
         "//test:starlark_test",
         "//test:native_dep",
         "//test:starlark_dep",
@@ -440,7 +358,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         visitedTargetKeys,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 2)
-            .put("//test:native_test", 2)
             .put("//test:starlark_test", 2)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -472,16 +389,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -538,7 +446,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         getSkyframeEvaluatedTargetKeys(),
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 0)
-            .put("//test:native_test", 0)
             .put("//test:starlark_test", 0)
             .build());
   }
@@ -554,16 +461,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -611,7 +509,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         getSkyframeEvaluatedTargetKeys(),
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -631,16 +528,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -686,7 +574,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         getSkyframeEvaluatedTargetKeys(),
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -706,16 +593,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         test_suite(
             name = "suite",
             tests = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -761,7 +639,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         getSkyframeEvaluatedTargetKeys(),
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
-            .put("//test:native_test", 1)
             .put("//test:starlark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:starlark_dep", 1)
@@ -778,39 +655,13 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         load(":lib.bzl", "starlark_lib")
         load(":test.bzl", "starlark_test")
 
-        native_test(
-            name = "native_outer_test",
-            exec_deps = [
-                ":native_test",
-                ":starlark_test",
-            ],
-            deps = [
-                ":native_test",
-                ":starlark_test",
-            ],
-        )
-
         starlark_test(
             name = "starlark_outer_test",
             exec_deps = [
-                ":native_test",
                 ":starlark_test",
             ],
             deps = [
-                ":native_test",
                 ":starlark_test",
-            ],
-        )
-
-        native_test(
-            name = "native_test",
-            exec_deps = [
-                ":native_dep",
-                ":starlark_dep",
-            ],
-            deps = [
-                ":native_dep",
-                ":starlark_dep",
             ],
         )
 
@@ -860,9 +711,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         """);
     useConfiguration("--trim_test_configuration");
     update(
-        "//test:native_outer_test",
         "//test:starlark_outer_test",
-        "//test:native_test",
         "//test:starlark_test",
         "//test:native_dep",
         "//test:starlark_dep",
@@ -874,7 +723,6 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()
             // Top-level and exec.
-            .put("//test:native_test", 2)
             .put("//test:starlark_test", 2)
             // Target and exec.
             .put("//test:native_dep", 2)

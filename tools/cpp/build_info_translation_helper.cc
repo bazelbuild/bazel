@@ -21,7 +21,7 @@
 namespace bazel {
 namespace tools {
 namespace cpp {
-const absl::Status BuildInfoTranslationHelper::ParseFile(
+absl::Status BuildInfoTranslationHelper::ParseFile(
     const std::string &file_path,
     std::unordered_map<std::string, std::string> &file_map) {
   std::ifstream file_reader(file_path);
@@ -52,12 +52,12 @@ const absl::Status BuildInfoTranslationHelper::ParseFile(
   return absl::Status(absl::StatusCode::kOk, "");
 }
 
-const absl::Status BuildInfoTranslationHelper::ParseInfoFile(
+absl::Status BuildInfoTranslationHelper::ParseInfoFile(
     std::unordered_map<std::string, std::string> &file_map) {
   return BuildInfoTranslationHelper::ParseFile(info_file_path_, file_map);
 }
 
-const absl::Status BuildInfoTranslationHelper::ParseVersionFile(
+absl::Status BuildInfoTranslationHelper::ParseVersionFile(
     std::unordered_map<std::string, std::string> &file_map) {
   return BuildInfoTranslationHelper::ParseFile(version_file_path_, file_map);
 }

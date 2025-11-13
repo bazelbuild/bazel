@@ -14,17 +14,13 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 
 /**
@@ -36,29 +32,6 @@ import com.google.devtools.common.options.TriState;
  */
 public class PythonOptions extends FragmentOptions {
 
-  /** Converter for options that take ({@code PY2} or {@code PY3}). */
-  // We don't use EnumConverter because we want to disallow non-target PythonVersion values.
-  public static class TargetPythonVersionConverter extends Converter.Contextless<PythonVersion> {
-
-    @Override
-    public PythonVersion convert(String input) throws OptionsParsingException {
-      try {
-        // Although in rule attributes the enum values are case sensitive, the convention from
-        // EnumConverter is that the options parser is case insensitive.
-        input = Ascii.toUpperCase(input);
-        return PythonVersion.parseTargetValue(input);
-      } catch (IllegalArgumentException ex) {
-        throw new OptionsParsingException(
-            "Not a valid Python major version, should be PY2 or PY3", ex);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "PY2 or PY3";
-    }
-  }
-
   @Option(
       name = "build_python_zip",
       defaultValue = "auto",
@@ -66,161 +39,6 @@ public class PythonOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Build python executable zip; on on Windows, off on other platforms")
   public TriState buildPythonZip;
-
-  /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
-   * in this file.
-   */
-  @Option(
-      name = "incompatible_remove_old_python_version_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleRemoveOldPythonVersionApi;
-
-  /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
-   * in this file.
-   */
-  @Option(
-      name = "incompatible_allow_python_version_transitions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleAllowPythonVersionTransitions;
-
-  /**
-   * Native rule logic should call {@link #getDefaultPythonVersion} instead of accessing this option
-   * directly.
-   */
-  @Option(
-      name = "incompatible_py3_is_default",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
-              + "`default_python_version`) attribute will default to PY3 rather than to PY2. If "
-              + "you set this flag it is also recommended to set "
-              + "`--incompatible_py2_outputs_are_suffixed`.")
-  public boolean incompatiblePy3IsDefault;
-
-  @Option(
-      name = "incompatible_python_disable_py2",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, using Python 2 settings will cause an error. This includes "
-              + "python_version=PY2, srcs_version=PY2, and srcs_version=PY2ONLY. See "
-              + "https://github.com/bazelbuild/bazel/issues/15684 for more information.")
-  public boolean disablePy2;
-
-  @Option(
-      name = "incompatible_py2_outputs_are_suffixed",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, targets built in the Python 2 configuration will appear under an output root "
-              + "that includes the suffix '-py2', while targets built for Python 3 will appear "
-              + "in a root with no Python-related suffix. This means that the `bazel-bin` "
-              + "convenience symlink will point to Python 3 targets rather than Python 2. "
-              + "If you enable this option it is also recommended to enable "
-              + "`--incompatible_py3_is_default`.")
-  public boolean incompatiblePy2OutputsAreSuffixed;
-
-  /**
-   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
-   * PythonVersion} values do not represent distinct Python versions and are not allowed.
-   *
-   * <p>Native rule logic should call {@link #getPythonVersion} / {@link #setPythonVersion} instead
-   * of accessing this option directly. BUILD/.bzl code should {@code select()} on {@code <tools
-   * repo>//tools/python:python_version} rather than on this option directly.
-   */
-  @Option(
-      name = "python_version",
-      defaultValue = "null",
-      converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
-      },
-      help =
-          "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
-              + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
-              + "version) so there is usually not much reason to supply this flag.")
-  public PythonVersion pythonVersion;
-
-  /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not in GraveyardOptions because we still want to prohibit users from select()ing on it.
-   */
-  @Option(
-      name = "force_python",
-      defaultValue = "null",
-      converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "No-op, will be removed soon.")
-  public PythonVersion forcePython;
-
-  /**
-   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
-   * PythonVersion} values do not represent distinct Python versions and are not allowed.
-   *
-   * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
-   *
-   * <p>This option is only read by {@link #getExec}. It should not be read by other native code or
-   * by {@code select()}s in user code.
-   */
-  @Option(
-      name = "host_force_python",
-      defaultValue = "null",
-      converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
-  public PythonVersion hostForcePython;
-
-  // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
-  @Option(
-      name = "incompatible_disallow_legacy_py_provider",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleDisallowLegacyPyProvider;
-
-  // TODO(b/153369373): Delete this flag.
-  @Option(
-      name = "incompatible_use_python_toolchains",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, executable native Python rules will use the Python runtime specified by "
-              + "the Python toolchain, rather than the runtime given by legacy flags like "
-              + "--python_top.")
-  public boolean incompatibleUsePythonToolchains;
 
   @Option(
       name = "incompatible_default_to_explicit_init_py",
@@ -268,64 +86,20 @@ public class PythonOptions extends FragmentOptions {
       help = "py_binary targets include their label even when stamping is disabled.")
   public boolean includeLabelInPyBinariesLinkstamp;
 
-  // Helper field to store hostForcePython in exec configuration
-  private PythonVersion defaultPythonVersion = null;
+  @Option(
+      name = "incompatible_remove_ctx_py_fragment",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Python build flags are defined with Python rules (in BUIILD files) and"
+              + " ctx.fragments.py is undefined. This is a migration flag to move all Python flags "
+              + " from core Bazel to Python rules.")
+  public boolean disablePyFragment;
 
-  /**
-   * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify
-   * a version should be built for.
-   */
-  public PythonVersion getDefaultPythonVersion() {
-    if (defaultPythonVersion != null) {
-      return defaultPythonVersion;
-    }
-    return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
-  }
-
-  /**
-   * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
-   *
-   * <p>The version is taken as the value of {@code --python_version} if not null, otherwise {@link
-   * #getDefaultPythonVersion}.
-   */
+  /** Returns the Python major version ({@code PY3}) that targets should be built for. */
   public PythonVersion getPythonVersion() {
-    if (pythonVersion != null) {
-      return pythonVersion;
-    } else {
-      return getDefaultPythonVersion();
-    }
-  }
-
-  /**
-   * Returns whether a Python version transition to {@code version} is not a no-op.
-   *
-   * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
-   */
-  public boolean canTransitionPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(version.isTargetValue());
-    return !version.equals(getPythonVersion());
-  }
-
-  /**
-   * Sets the Python version to {@code version}.
-   *
-   * <p>Since this is a mutation, it should only be called on a newly constructed instance.
-   *
-   * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
-   */
-  // TODO(brandjon): Consider removing this mutator now that the various flags and semantics it
-  // used to consider are gone. We'd revert to just setting the public option field directly.
-  public void setPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(version.isTargetValue());
-    this.pythonVersion = version;
-  }
-
-  @Override
-  public FragmentOptions getNormalized() {
-    // We want to ensure that options with "null" physical default values are normalized, to avoid
-    // #7808.
-    PythonOptions newOptions = (PythonOptions) clone();
-    newOptions.setPythonVersion(newOptions.getPythonVersion());
-    return newOptions;
+    return PythonVersion.PY3;
   }
 }

@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
 
@@ -407,6 +409,57 @@ public final class PathFragmentTest {
     // (path, sibling) => false
     assertThat(create("/foo/wiz").startsWith(foobar)).isFalse();
     assertThat(foobar.startsWith(create("/foo/wiz"))).isFalse();
+
+    // (path, different case) => false
+    assertThat(foobar.startsWith(create("/Foo/bar"))).isFalse();
+    assertThat(foobar.startsWith(create("/Foo"))).isFalse();
+    assertThat(create(unicodeToInternal("/ÄÖÜ/bar")).startsWith(create(unicodeToInternal("/äöü"))))
+        .isFalse();
+    assertThat(create(unicodeToInternal("ÄÖÜ/bar")).startsWith(create(unicodeToInternal("äöü"))))
+        .isFalse();
+  }
+
+  @Test
+  public void testStartsWithIgnoringCase() {
+    PathFragment foobar = create("/foo/bar");
+    PathFragment foobarRelative = create("foo/bar");
+
+    // (path, prefix) => true
+    assertThat(foobar.startsWithIgnoringCase(foobar)).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/bar/")))
+        .isTrue(); // Includes trailing slash.
+
+    // (prefix, path) => false
+    assertThat(create("/foo").startsWithIgnoringCase(foobar)).isFalse();
+    assertThat(create("/").startsWithIgnoringCase(foobar)).isFalse();
+
+    // (absolute, relative) => false
+    assertThat(foobar.startsWithIgnoringCase(foobarRelative)).isFalse();
+    assertThat(foobarRelative.startsWithIgnoringCase(foobar)).isFalse();
+
+    // (relative path, relative prefix) => true
+    assertThat(foobarRelative.startsWithIgnoringCase(foobarRelative)).isTrue();
+    assertThat(foobarRelative.startsWithIgnoringCase(create("foo"))).isTrue();
+    assertThat(foobarRelative.startsWithIgnoringCase(create(""))).isTrue();
+
+    // (path, sibling) => false
+    assertThat(create("/foo/wiz").startsWithIgnoringCase(foobar)).isFalse();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/wiz"))).isFalse();
+
+    // (path, different case) => false
+    assertThat(foobar.startsWithIgnoringCase(create("/Foo/bar"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/Foo"))).isTrue();
+    assertThat(
+            create(unicodeToInternal("/ÄÖÜ/bar"))
+                .startsWithIgnoringCase(create(unicodeToInternal("/äöü"))))
+        .isTrue();
+    assertThat(
+            create(unicodeToInternal("ÄÖÜ/bar"))
+                .startsWithIgnoringCase(create(unicodeToInternal("äöü"))))
+        .isTrue();
   }
 
   @Test
@@ -497,7 +550,7 @@ public final class PathFragmentTest {
 
   @Test
   public void testCompareTo() {
-    List<String> pathStrs =
+    ImmutableList<String> pathStrs =
         ImmutableList.of(
             "",
             "/",
@@ -547,6 +600,64 @@ public final class PathFragmentTest {
                 "foo/bar.baz",
                 "foo/bar/baz",
                 "foo/barfile"));
+    assertThat(paths).isEqualTo(expectedOrder);
+  }
+
+  @Test
+  public void testHierarchicalComparator() {
+    List<String> pathStrs =
+        ImmutableList.of(
+            "",
+            "/",
+            "foo",
+            "/foo",
+            "foo/bar",
+            "foo.bar",
+            "foo/bar.baz",
+            "foo/bar/baz",
+            "foo/barfile",
+            "foo/Bar",
+            "Foo/bar");
+    List<PathFragment> paths = toPaths(pathStrs);
+    // First test that compareTo is self-consistent.
+    for (PathFragment x : paths) {
+      for (PathFragment y : paths) {
+        for (PathFragment z : paths) {
+          // Anti-symmetry
+          assertThat(-1 * Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, x)))
+              .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, y)));
+          // Transitivity
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) > 0
+              && HIERARCHICAL_COMPARATOR.compare(y, z) > 0) {
+            assertThat(HIERARCHICAL_COMPARATOR.compare(x, z)).isGreaterThan(0);
+          }
+          // "Substitutability"
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) == 0) {
+            assertThat(Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, z)))
+                .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, z)));
+          }
+          // Consistency with equals
+          assertThat(x.equals(y)).isEqualTo(HIERARCHICAL_COMPARATOR.compare(x, y) == 0);
+        }
+      }
+    }
+    // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
+    Collections.shuffle(paths);
+    paths.sort(HIERARCHICAL_COMPARATOR);
+    List<PathFragment> expectedOrder =
+        toPaths(
+            ImmutableList.of(
+                "",
+                "/",
+                "/foo",
+                "Foo/bar",
+                "foo",
+                "foo/Bar",
+                "foo/bar",
+                "foo/bar/baz",
+                "foo/bar.baz",
+                "foo/barfile",
+                "foo.bar"));
     assertThat(paths).isEqualTo(expectedOrder);
   }
 
@@ -624,7 +735,7 @@ public final class PathFragmentTest {
   @Test
   public void testSerializationAbsolute() throws Exception {
     checkSerialization("/foo");
-   }
+  }
 
   @Test
   public void testSerializationNested() throws Exception {

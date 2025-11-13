@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -42,21 +42,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 #### TESTS #############################################################
 
@@ -240,22 +225,22 @@ EOF
 load(':rule.bzl', 'demo_rule')
 
 config_setting(
-  name = "k8_cpu",
-  values = {'cpu': 'k8'},
+  name = "dbg_mode",
+  values = {'compilation_mode': 'dbg'},
 )
 
 demo_rule(
   name = 'demo',
   srcs = select({
-    ':k8_cpu': ['a.txt'],
+    ':dbg_mode': ['a.txt'],
   }) + select({
-    ':k8_cpu': ['b.txt'],
+    ':dbg_mode': ['b.txt'],
   }),
   foo = 'foobar',
 )
 EOF
 
-  bazel cquery --cpu=k8 --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
+  bazel cquery --compilation_mode=dbg --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
     || fail "Cquery 'foobar.txt' expected to succeed"
 }
 

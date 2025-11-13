@@ -174,8 +174,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   /** The default visionOS CPU value. */
-  public static final String DEFAULT_VISIONOS_CPU =
-      CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
+  public static final String DEFAULT_VISIONOS_CPU = "sim_arm64";
 
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
@@ -191,17 +190,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
-
-  @Option(
-      name = "apple_crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "The label of the crosstool package to be used in Apple and Objc rules and their"
-              + " dependencies.")
-  public Label appleCrosstoolTop;
 
   @Option(
       name = "apple_platform_type",
@@ -355,6 +343,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of platforms to use when building Apple binaries.")
   public List<Label> applePlatforms;
+
+  @Option(
+      name = "use_platforms_in_apple_crosstool_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Makes apple_crosstool_transition fall back to using the value of `--platforms` flag"
+              + " instead of legacy `--cpu` when needed.")
+  public boolean usePlatformsInAppleCrosstoolTransition;
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {

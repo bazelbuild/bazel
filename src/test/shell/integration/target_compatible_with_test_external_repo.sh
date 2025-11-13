@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -30,34 +30,20 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
   touch target_skipping/MODULE.bazel
   add_rules_shell "target_skipping/MODULE.bazel"
   add_rules_cc "target_skipping/MODULE.bazel"
+  add_platforms "target_skipping/MODULE.bazel"
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
   cat > target_skipping/fail.sh <<EOF || fail "couldn't create fail.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh
@@ -100,7 +86,7 @@ constraint_value(
 
 platform(
     name = "foo1_bar1_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo1",
         ":bar1",
@@ -109,7 +95,7 @@ platform(
 
 platform(
     name = "foo2_bar1_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo2",
         ":bar1",
@@ -118,7 +104,7 @@ platform(
 
 platform(
     name = "foo1_bar2_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo1",
         ":bar2",
@@ -127,7 +113,7 @@ platform(
 
 platform(
     name = "foo3_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo3",
     ],
@@ -181,6 +167,7 @@ local_repository(
 EOF
   add_rules_cc "target_skipping/MODULE.bazel"
   add_rules_shell "target_skipping/MODULE.bazel"
+  add_platforms "target_skipping/MODULE.bazel"
   mkdir -p target_skipping/third_party/test_repo/
   touch target_skipping/third_party/test_repo/REPO.bazel
   cat > target_skipping/third_party/test_repo/BUILD <<EOF

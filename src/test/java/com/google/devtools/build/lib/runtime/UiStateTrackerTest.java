@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
@@ -99,8 +98,6 @@ import org.mockito.AdditionalMatchers;
 public class UiStateTrackerTest extends FoundationTestCase {
 
   @TestParameter boolean isSkymeld;
-  static final RepositoryMapping MOCK_REPO_MAPPING =
-      RepositoryMapping.createAllowingFallback(ImmutableMap.of("main", RepositoryName.MAIN));
 
   private UiStateTracker getUiStateTracker(ManualClock clock) {
     if (isSkymeld) {
@@ -198,10 +195,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
 
     Action action = mock(Action.class);
-    when(action.getProgressMessage(eq(MOCK_REPO_MAPPING))).thenReturn(progressMessage);
+    when(action.getProgressMessage(eq(RepositoryMapping.EMPTY))).thenReturn(progressMessage);
     when(action.getPrimaryOutput()).thenReturn(artifact);
 
-    verify(action, never()).getProgressMessage(AdditionalMatchers.not(eq(MOCK_REPO_MAPPING)));
+    verify(action, never()).getProgressMessage(AdditionalMatchers.not(eq(RepositoryMapping.EMPTY)));
     verify(action, never()).getProgressMessage();
     return action;
   }
@@ -224,7 +221,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
     uiStateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
+        new LoadingPhaseCompleteEvent(
+            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
     if (this.isSkymeld) {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
       ((SkymeldUiStateTracker) uiStateTracker)
@@ -265,7 +263,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // When it is just loading packages.
     LoggingTerminalWriter terminalWriterLoading =
-        new LoggingTerminalWriter(/*discardHighlight=*/ true);
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriterLoading);
     String loadingOutput = terminalWriterLoading.getTranscript();
 
@@ -275,7 +273,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // When it is configuring targets.
     stateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
+        new LoadingPhaseCompleteEvent(
+            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
     String additionalMessage = "5 targets";
     stateTracker.additionalMessage = additionalMessage;
     String analysisProgressString = "5 targets and 0 aspects configured";
@@ -284,7 +283,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.configurationStarted(new ConfigurationPhaseStartedEvent(analysisProgressReceiver));
 
     LoggingTerminalWriter terminalWriterLoadingConfiguration =
-        new LoggingTerminalWriter(/*discardHighlight=*/ true);
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriterLoadingConfiguration);
     String loadingConfigurationOutput = terminalWriterLoadingConfiguration.getTranscript();
     assertThat(loadingConfigurationOutput).contains("Analyzing");
@@ -309,18 +308,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Action message '" + message + "' should be present in output: " + output)
+    assertWithMessage("Action message '%s' should be present in output: %s", message, output)
         .that(output.contains(message))
         .isTrue();
 
     terminalWriter = new LoggingTerminalWriter();
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage(
-            "Action message '" + message + "' should be present in short output: " + output)
+    assertWithMessage("Action message '%s' should be present in short output: %s", message, output)
         .that(output.contains(message))
         .isTrue();
   }
@@ -348,33 +346,27 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new ActionCompletionEvent(
             20, clock.nanoTime(), fastAction, new FakeActionInputFileCache(), actionLookupData));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Completed action '" + messageFast + "' should not be present in output: " + output)
+            "Completed action '%s' should not be present in output: %s", messageFast, output)
         .that(output.contains(messageFast))
         .isFalse();
     assertWithMessage(
-            "Only running action '" + messageSlow + "' should be present in output: " + output)
+            "Only running action '%s' should be present in output: %s", messageSlow, output)
         .that(output.contains(messageSlow))
         .isTrue();
 
     terminalWriter = new LoggingTerminalWriter();
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Completed action '"
-                + messageFast
-                + "' should not be present in short output: "
-                + output)
+            "Completed action '%s' should not be present in short output: %s", messageFast, output)
         .that(output.contains(messageFast))
         .isFalse();
     assertWithMessage(
-            "Only running action '"
-                + messageSlow
-                + "' should be present in short output: "
-                + output)
+            "Only running action '%s' should be present in short output: %s", messageSlow, output)
         .that(output.contains(messageSlow))
         .isTrue();
   }
@@ -399,22 +391,19 @@ public class UiStateTrackerTest extends FoundationTestCase {
               mockAction("Other action " + i, "some/other/actions/number" + i), 123456790 + i));
     }
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Longest running action '" + messageOld + "' should be visible in output: " + output)
+            "Longest running action '%s' should be visible in output: %s", messageOld, output)
         .that(output.contains(messageOld))
         .isTrue();
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Longest running action '"
-                + messageOld
-                + "' should be visible in short output: "
-                + output)
+            "Longest running action '%s' should be visible in short output: %s", messageOld, output)
         .that(output.contains(messageOld))
         .isTrue();
   }
@@ -439,21 +428,22 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // For various sample sizes verify the progress bar
     for (int i = 1; i < 11; i++) {
       stateTracker.setProgressSampleSize(i);
-      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+      LoggingTerminalWriter terminalWriter =
+          new LoggingTerminalWriter(/* discardHighlight= */ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
-      assertWithMessage("Action " + (i - 1) + " should still be shown in the output: '" + output)
+      assertWithMessage("Action %s should still be shown in the output: '%s", (i - 1), output)
           .that(output.contains("A" + (i - 1) + "."))
           .isTrue();
-      assertWithMessage("Action " + i + " should not be shown in the output: " + output)
+      assertWithMessage("Action %s should not be shown in the output: %s", i, output)
           .that(output.contains("A" + i + "."))
           .isFalse();
       if (i < 10) {
-        assertWithMessage("Ellipsis symbol should be shown in output: " + output)
+        assertWithMessage("Ellipsis symbol should be shown in output: %s", output)
             .that(output.contains("..."))
             .isTrue();
       } else {
-        assertWithMessage("Ellipsis symbol should not be shown in output: " + output)
+        assertWithMessage("Ellipsis symbol should not be shown in output: %s", output)
             .that(output.contains("..."))
             .isFalse();
       }
@@ -479,20 +469,20 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new ActionStartedEvent(mockAction("Second action", "bar"), clock.nanoTime()));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(20));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in output: " + output)
+    assertWithMessage("Runtime of first action should be visible in output: %s", output)
         .that(output.contains("27s"))
         .isTrue();
-    assertWithMessage("Runtime of second action should be visible in output: " + output)
+    assertWithMessage("Runtime of second action should be visible in output: %s", output)
         .that(output.contains("20s"))
         .isTrue();
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in short output: " + output)
+    assertWithMessage("Runtime of first action should be visible in short output: %s", output)
         .that(output.contains("27s"))
         .isTrue();
   }
@@ -544,17 +534,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Test count should be visible in output: " + output)
+    assertWithMessage("Test count should be visible in output: %s", output)
         .that(output.contains(" 1 / 2 tests"))
         .isTrue();
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Test count should be visible in short output: " + output)
+    assertWithMessage("Test count should be visible in short output: %s", output)
         .that(output.contains(" 1 / 2 tests"))
         .isTrue();
   }
@@ -586,7 +576,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     String expected = LoggingTerminalWriter.OK + labelA;
     assertWithMessage(
-            "Sequence '" + expected + "' should be present in colored progress bar: " + output)
+            "Sequence '%s' should be present in colored progress bar: %s", expected, output)
         .that(output.contains(expected))
         .isTrue();
   }
@@ -619,7 +609,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     String expected = LoggingTerminalWriter.FAIL + labelA;
     assertWithMessage(
-            "Sequence '" + expected + "' should be present in colored progress bar: " + output)
+            "Sequence '%s' should be present in colored progress bar: %s", expected, output)
         .that(output.contains(expected))
         .isTrue();
   }
@@ -630,7 +620,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // the path implicit in it, that can also be extracted from the label. In particular,
     // the parts
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
     Action action =
@@ -660,15 +650,15 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(5));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain 'Building ', but was:\n" + output)
+    assertWithMessage("Progress bar should contain 'Building ', but was:\n%s", output)
         .that(output.contains("Building "))
         .isTrue();
     assertWithMessage(
-            "Progress bar should contain 'foo.jar (42 source files)', but was:\n" + output)
+            "Progress bar should contain 'foo.jar (42 source files)', but was:\n%s", output)
         .that(output.contains("foo.jar (42 source files)"))
         .isTrue();
   }
@@ -694,11 +684,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.runningAction(new RunningActionEvent(action, strategy));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Output should mention strategy '" + strategy + "', but was: " + output)
+    assertWithMessage("Output should mention strategy '%s', but was: %s", strategy, output)
         .that(output.contains(strategy))
         .isTrue();
   }
@@ -725,7 +715,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     // act
     stateTracker.writeProgressBar(terminalWriter);
@@ -746,7 +736,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     // act
     stateTracker.writeProgressBar(terminalWriter);
@@ -768,7 +758,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     // act
     stateTracker.writeProgressBar(terminalWriter);
@@ -783,7 +773,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // arrange
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
@@ -791,7 +781,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         ActionProgressEvent.create(action, "action-id1", "action progress 1", false));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id2", "action progress 2", false));
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     // act
     stateTracker.writeProgressBar(terminalWriter);
@@ -823,17 +813,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.runningAction(new RunningActionEvent(action, strategy1));
     stateTracker.runningAction(new RunningActionEvent(action, strategy2));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Output should mention strategies '"
-                + strategy1
-                + "' and '"
-                + strategy2
-                + "', but was: "
-                + output)
+            "Output should mention strategies '%s' and '%s', but was: %s",
+            strategy1, strategy2, output)
         .that(output.contains(strategy1 + ", " + strategy2))
         .isTrue();
   }
@@ -847,7 +833,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     UiStateTracker stateTracker = getUiStateTracker(clock);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     Path path1 = outputBase.getRelative(PathFragment.create(primaryOutput1));
     Artifact artifact1 =
@@ -892,7 +878,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // keep the line limit, and show the local part of the running actions and
     // the passed test.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
 
@@ -932,26 +918,26 @@ public class UiStateTrackerTest extends FoundationTestCase {
       stateTracker.testSummary(testSummary);
     }
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Only lines with at most 70 chars should be present in the output:\n" + output)
+            "Only lines with at most 70 chars should be present in the output:\n%s", output)
         .that(longestLine(output) <= 70)
         .isTrue();
     if (actions >= 1) {
-      assertWithMessage("Running action 'foobuild' should be mentioned in output:\n" + output)
+      assertWithMessage("Running action 'foobuild' should be mentioned in output:\n%s", output)
           .that(output.contains("foobuild"))
           .isTrue();
     }
     if (actions >= 2) {
-      assertWithMessage("Running action 'bazbuild' should be mentioned in output:\n" + output)
+      assertWithMessage("Running action 'bazbuild' should be mentioned in output:\n%s", output)
           .that(output.contains("bazbuild"))
           .isTrue();
     }
     if (withTest) {
-      assertWithMessage("Passed test ':bartest' should be mentioned in output:\n" + output)
+      assertWithMessage("Passed test ':bartest' should be mentioned in output:\n%s", output)
           .that(output.contains(":bartest"))
           .isTrue();
     }
@@ -989,10 +975,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(actionFoo, 123456700));
     stateTracker.scanningAction(new ScanningActionEvent(actionFoo));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action foo being scanned should be visible in output:\n" + output)
+    assertWithMessage("Action foo being scanned should be visible in output:\n%s", output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
 
@@ -1000,19 +986,19 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(actionBar, 123456701));
     stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action bar being scheduled should be visible in output:\n" + output)
+    assertWithMessage("Action bar being scheduled should be visible in output:\n%s", output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Action foo being scanned should still be visible in output:\n" + output)
+    assertWithMessage("Action foo being scanned should still be visible in output:\n%s", output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
-    assertWithMessage("Indication that no actions are running is missing in output:\n" + output)
+    assertWithMessage("Indication that no actions are running is missing in output:\n%s", output)
         .that(output.contains("0 running"))
         .isTrue();
-    assertWithMessage("Total number of actions expected  in output:\n" + output)
+    assertWithMessage("Total number of actions expected  in output:\n%s", output)
         .that(output.contains("2 actions"))
         .isTrue();
 
@@ -1020,22 +1006,22 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.runningAction(new RunningActionEvent(actionFoo, "xyz-sandbox"));
     stateTracker.writeProgressBar(terminalWriter);
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action foo's xyz-sandbox strategy should be shown in output:\n" + output)
+    assertWithMessage("Action foo's xyz-sandbox strategy should be shown in output:\n%s", output)
         .that(output.contains("xyz-sandbox"))
         .isTrue();
-    assertWithMessage("Action foo should no longer be analyzed in output:\n" + output)
+    assertWithMessage("Action foo should no longer be analyzed in output:\n%s", output)
         .that(output.contains("ana") || output.contains("Ana"))
         .isFalse();
-    assertWithMessage("Action bar being scheduled should still be visible in output:\n" + output)
+    assertWithMessage("Action bar being scheduled should still be visible in output:\n%s", output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Indication that one action is running is missing in output:\n" + output)
+    assertWithMessage("Indication that one action is running is missing in output:\n%s", output)
         .that(output.contains("1 running"))
         .isTrue();
-    assertWithMessage("Total number of actions expected  in output:\n" + output)
+    assertWithMessage("Total number of actions expected  in output:\n%s", output)
         .that(output.contains("2 actions"))
         .isTrue();
   }
@@ -1068,35 +1054,35 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(21));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in output: " + output)
+    assertWithMessage("Runtime of first action should be visible in output: %s", output)
         .that(output.contains("28s"))
         .isTrue();
-    assertWithMessage("Scheduling time of second action should be visible in output: " + output)
+    assertWithMessage("Scheduling time of second action should be visible in output: %s", output)
         .that(output.contains("21s"))
         .isTrue();
 
     stateTracker.runningAction(new RunningActionEvent(actionBar, "bar-sandbox"));
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should still be visible in output: " + output)
+    assertWithMessage("Runtime of first action should still be visible in output: %s", output)
         .that(output.contains("28s"))
         .isTrue();
-    assertWithMessage("Time of second action should no longer be visible in output: " + output)
+    assertWithMessage("Time of second action should no longer be visible in output: %s", output)
         .that(output.contains("21s"))
         .isFalse();
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(30));
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("New runtime of first action should be visible in output: " + output)
+    assertWithMessage("New runtime of first action should be visible in output: %s", output)
         .that(output.contains("58s"))
         .isTrue();
-    assertWithMessage("Runtime of second action should be visible in output: " + output)
+    assertWithMessage("Runtime of second action should be visible in output: %s", output)
         .that(output.contains("30s"))
         .isTrue();
   }
@@ -1120,7 +1106,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // Here we don't expect any particular output, just some description; in particular, we do
     // not expect the state tracker to hit an internal error.
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
     assertWithMessage("Expected at least some status bar").that(output).isNotEmpty();
@@ -1128,10 +1114,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Action actually started
     stateTracker.actionStarted(new ActionStartedEvent(actionFoo, clock.nanoTime()));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Even a strategy announced early should be shown in output:\n" + output)
+    assertWithMessage("Even a strategy announced early should be shown in output:\n%s", output)
         .that(output.contains("foo-sandbox"))
         .isTrue();
   }
@@ -1160,13 +1146,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
       stateTracker.actionStarted(new ActionStartedEvent(action, 123457000 + i));
       stateTracker.runningAction(new RunningActionEvent(action, "xyz-sandbox"));
 
-      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+      LoggingTerminalWriter terminalWriter =
+          new LoggingTerminalWriter(/* discardHighlight= */ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
-      assertWithMessage("Action quickstart" + i + " should be visible in output:\n" + output)
+      assertWithMessage("Action quickstart%s should be visible in output:\n%s", i, output)
           .that(output.contains("quickstart" + i))
           .isTrue();
-      assertWithMessage("Number of running actions should be indicated in output:\n" + output)
+      assertWithMessage("Number of running actions should be indicated in output:\n%s", output)
           .that(output.contains((i + 1) + " running"))
           .isTrue();
     }
@@ -1178,7 +1165,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // is still shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
     stateTracker.setProgressSampleSize(4);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
@@ -1269,17 +1256,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     }
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain ':footest', but was:\n" + output)
+    assertWithMessage("Progress bar should contain ':footest', but was:\n%s", output)
         .that(output.contains(":footest"))
         .isTrue();
-    assertWithMessage("Progress bar should contain ':bartest', but was:\n" + output)
+    assertWithMessage("Progress bar should contain ':bartest', but was:\n%s", output)
         .that(output.contains(":bartest"))
         .isTrue();
-    assertWithMessage("Progress bar should contain 'Other action', but was:\n" + output)
+    assertWithMessage("Progress bar should contain 'Other action', but was:\n%s", output)
         .that(output.contains("Other action"))
         .isTrue();
     assertThat(output).doesNotContain("Testing //baz:baztest");
@@ -1401,18 +1388,18 @@ public class UiStateTrackerTest extends FoundationTestCase {
       clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     }
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Only lines with at most 60 chars should be present in the output:\n" + output)
+            "Only lines with at most 60 chars should be present in the output:\n%s", output)
         .that(longestLine(output) <= 60)
         .isTrue();
-    assertWithMessage("Output still should contain the filename, but was:\n" + output)
+    assertWithMessage("Output still should contain the filename, but was:\n%s", output)
         .that(output.contains("filename.tar.gz"))
         .isTrue();
-    assertWithMessage("Output still should contain the host name, but was:\n" + output)
+    assertWithMessage("Output still should contain the host name, but was:\n%s", output)
         .that(output.contains("example.org"))
         .isTrue();
   }
@@ -1432,7 +1419,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
@@ -1492,7 +1479,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
@@ -1526,7 +1513,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
   @Test
   public void testTotalFetchesReported() throws IOException {
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
     stateTracker.buildStarted();
     for (int i = 0; i < 30; i++) {
@@ -1575,7 +1562,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionUploadStarted(
         ActionUploadStartedEvent.create(
             action, Store.AC, Digest.newBuilder().setHash("foo").setSizeBytes(1).build()));
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     stateTracker.writeProgressBar(terminalWriter);
 
@@ -1598,7 +1585,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     buildResult.setStopTime(clock.currentTimeMillis());
     var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     stateTracker.writeProgressBar(terminalWriter);
 
@@ -1623,7 +1610,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, Store.CAS, c));
     stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, Store.AC, a));
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
 
     stateTracker.writeProgressBar(terminalWriter);
 
@@ -1643,13 +1630,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
     when(targetA.getLabel()).thenReturn(labelA);
     TestAnalyzedEvent testAnalyzedEventA =
         TestAnalyzedEvent.create(
-            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+            targetA, mock(BuildConfigurationValue.class), /* isSkipped= */ false);
     Label labelB = Label.parseCanonical("//foo:B");
     ConfiguredTarget targetB = mock(ConfiguredTarget.class);
     when(targetB.getLabel()).thenReturn(labelB);
     TestAnalyzedEvent testAnalyzedEventB =
         TestAnalyzedEvent.create(
-            targetB, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+            targetB, mock(BuildConfigurationValue.class), /* isSkipped= */ false);
     // Only targetA has finished running.
     TestSummary testSummary = mock(TestSummary.class);
     when(testSummary.getTarget()).thenReturn(targetA);
@@ -1659,13 +1646,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.singleTestAnalyzed(testAnalyzedEventB);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertThat(output).contains(" 1 / 2 tests");
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertThat(output).contains(" 1 / 2 tests");
   }
@@ -1682,10 +1669,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     when(targetA.getLabel()).thenReturn(labelA);
     TestAnalyzedEvent testAnalyzedEventA =
         TestAnalyzedEvent.create(
-            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+            targetA, mock(BuildConfigurationValue.class), /* isSkipped= */ false);
     TestAnalyzedEvent testAnalyzedEventARepeated =
         TestAnalyzedEvent.create(
-            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+            targetA, mock(BuildConfigurationValue.class), /* isSkipped= */ false);
     // Only targetA has finished running.
     TestSummary testSummary = mock(TestSummary.class);
     when(testSummary.getTarget()).thenReturn(targetA);
@@ -1695,14 +1682,40 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.singleTestAnalyzed(testAnalyzedEventARepeated);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertThat(output).contains(" 1 / 1 tests");
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertThat(output).contains(" 1 / 1 tests");
+  }
+
+  @Test
+  public void testGetOldestAction_prioritizesRunningOverScheduled() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action scheduledAction = mockAction("Scheduled action", "scheduled/action");
+    when(scheduledAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(scheduledAction, clock.nanoTime()));
+    stateTracker.schedulingAction(new SchedulingActionEvent(scheduledAction, "some-strategy"));
+
+    clock.advanceMillis(1000);
+    Action runningAction = mockAction("Running action", "running/action");
+    when(runningAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(runningAction, clock.nanoTime()));
+    stateTracker.runningAction(new RunningActionEvent(runningAction, "some-strategy"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Running action");
+    assertThat(output).contains("(2 actions, 1 running)");
+    assertThat(output).doesNotContain("Scheduled action");
   }
 }

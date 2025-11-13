@@ -60,6 +60,8 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
     write(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "hello",
             srcs = ["hello.cc"],
@@ -89,6 +91,8 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
     write(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "hello",
             srcs = ["hello.cc"],
@@ -115,6 +119,8 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
     write(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "hello",
             srcs = ["hello.cc"],

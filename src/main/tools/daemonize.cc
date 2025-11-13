@@ -49,6 +49,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
@@ -80,6 +81,8 @@ static void SetupStdio(const char* log_path, bool log_append) {
     err(EXIT_FAILURE, "dup failed");
   }
   assert(fd == STDERR_FILENO);
+
+  global_debug = stderr;
 }
 
 // Writes the given pid to a new file at pid_path.
@@ -324,7 +327,20 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
         strcmp(fs_vfstype, "cgroup2") == 0) {
       char* procs_path;
       asprintf(&procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
-      WriteFile(procs_path, "%d", pid);
+      FILE* procs = fopen(procs_path, "w");
+      if (procs == NULL) {
+        PRINT_DEBUG(
+            "Failed to open %s. Falling back to running without cgroups",
+            procs_path);
+      } else if (fprintf(procs, "%d", pid) < 0) {
+        PRINT_DEBUG(
+            "Failed to write %s. Falling back to running without cgroups",
+            procs_path);
+      } else if (fclose(procs) < 0) {
+        PRINT_DEBUG(
+            "Failed to close %s. Falling back to running without cgroups",
+            procs_path);
+      }
       free(procs_path);
     }
   }

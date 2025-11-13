@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -97,7 +97,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /** Creates an {@code objc_library} target writer for the label indicated by the given String. */
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
+    return ScratchAttributeWriter.fromLabelString(
+        this,
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library",
+        labelString);
   }
 
   private static String compilationModeFlag(CompilationMode mode) {
@@ -112,14 +116,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
-  protected static ImmutableList<String> compilationModeCopts(CompilationMode mode) {
+  protected static ImmutableList<String> legacyCompilationModeCopts(CompilationMode mode) {
     switch (mode) {
       case DBG:
         return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
       case OPT:
         return ObjcConfiguration.OPT_COPTS;
       case FASTBUILD:
-        return FASTBUILD_COPTS;
+        throw new AssertionError("FASTBUILD is not supported by legacyCompilationModeCopts().");
     }
     throw new AssertionError();
   }
@@ -187,7 +191,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected CcInfo ccInfoForTarget(String label) throws Exception {
-    CcInfo ccInfo = getConfiguredTarget(label).get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(getConfiguredTarget(label));
     if (ccInfo != null) {
       return ccInfo;
     }
@@ -235,6 +239,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         "fx/defs.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         def _custom_static_framework_import_impl(ctx):
             return [
                 CcInfo(
@@ -278,6 +284,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
+        "load('//third_party/bazel_rules/rules_apple:apple_binary_starlark.bzl',"
+            + " _apple_binary_starlark = 'apple_binary_starlark', _ApplePlatformInfo ="
+            + " 'ApplePlatformInfo')",
+        "apple_binary_starlark = _apple_binary_starlark",
+        "ApplePlatformInfo = _ApplePlatformInfo");
+    scratch.file("third_party/bazel_rules/rules_apple/BUILD");
+    scratch.file(
+        "third_party/bazel_rules/rules_apple/apple_binary_starlark.bzl",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/private/rules_impl:objc_compilation_support.bzl',"
+            + " 'compilation_support')",
+        "load(\"@bazel_skylib//lib:paths.bzl\", \"paths\")",
         "_CPU_TO_PLATFORM = {",
         "    'darwin_x86_64': '" + MockObjcSupport.DARWIN_X86_64 + "',",
         "    'ios_x86_64': '" + MockObjcSupport.IOS_X86_64 + "',",
@@ -289,7 +308,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    'watchos_arm64_32': '" + MockObjcSupport.WATCHOS_ARM64_32 + "',",
         "}",
         "_apple_platform_transition_inputs = [",
-        "    '//command_line_option:apple_crosstool_top',",
         "    '//command_line_option:cpu',",
         "    '//command_line_option:ios_multi_cpus',",
         "    '//command_line_option:macos_cpus',",
@@ -308,7 +326,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:platforms',",
         "]",
         "ApplePlatformInfo = provider(",
-        "    fields = ['target_os', 'target_arch', 'target_environment'],)",
+        "    fields = ['target_os', 'target_arch', 'target_environment', 'target_build_config'],)",
         "",
         "AppleDynamicFrameworkInfo = provider(",
         "    fields = ['framework_dirs', 'framework_files', 'binary', 'cc_info'],)",
@@ -361,16 +379,39 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    inputs = _apple_platform_transition_inputs,",
         "    outputs = _apple_rule_base_transition_outputs,",
         ")",
+        "def _get_libraries_for_linking(libraries_to_link):",
+        "    libraries = []",
+        "    for library_to_link in libraries_to_link:",
+        "        libraries.append(_get_library_for_linking(library_to_link))",
+        "    return libraries",
+        "",
+        "def _get_static_library_for_linking(library_to_link):",
+        "    if library_to_link.static_library:",
+        "        return library_to_link.static_library",
+        "    elif library_to_link.pic_static_library:",
+        "        return library_to_link.pic_static_library",
+        "    else:",
+        "        return None",
+        "",
         "def _build_avoid_library_set(avoid_dep_linking_contexts):",
         "    avoid_library_set = dict()",
         "    for linking_context in avoid_dep_linking_contexts:",
         "        for linker_input in linking_context.linker_inputs.to_list():",
         "            for library_to_link in linker_input.libraries:",
-        "                library_artifact ="
-            + " apple_common.compilation_support.get_static_library_for_linking(library_to_link)",
+        "                library_artifact = _get_static_library_for_linking(library_to_link)",
         "                if library_artifact:",
         "                    avoid_library_set[library_artifact.short_path] = True",
         "    return avoid_library_set",
+        "",
+        "def _get_library_for_linking(library_to_link):",
+        "    if library_to_link.static_library:",
+        "        return library_to_link.static_library",
+        "    elif library_to_link.pic_static_library:",
+        "        return library_to_link.pic_static_library",
+        "    elif library_to_link.interface_library:",
+        "        return library_to_link.interface_library",
+        "    else:",
+        "        return library_to_link.dynamic_library",
         "",
         "def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_contexts):",
         "    libraries = []",
@@ -381,8 +422,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    for linking_context in linking_contexts:",
         "        for linker_input in linking_context.linker_inputs.to_list():",
         "            for library_to_link in linker_input.libraries:",
-        "                library_artifact ="
-            + " apple_common.compilation_support.get_library_for_linking(library_to_link)",
+        "                library_artifact = _get_library_for_linking(library_to_link)",
         "                if library_artifact.short_path not in avoid_library_set:",
         "                    libraries.append(library_to_link)",
         "            user_link_flags.extend(linker_input.user_link_flags)",
@@ -397,9 +437,478 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    )",
         "    return cc_common.create_linking_context(",
         "        linker_inputs = depset([linker_input]),",
-        "        owner = owner,",
         "    )",
         "",
+        "def _build_feature_configuration(common_variables, for_swift_module_map,"
+            + " support_parse_headers):",
+        "    ctx = common_variables.ctx",
+        "",
+        "    enabled_features = []",
+        "    enabled_features.extend(ctx.features)",
+        "    enabled_features.extend(common_variables.extra_enabled_features)",
+        "",
+        "    disabled_features = []",
+        "    disabled_features.extend(ctx.disabled_features)",
+        "    disabled_features.extend(common_variables.extra_disabled_features)",
+        "",
+        "    if not support_parse_headers:",
+        "        disabled_features.append('parse_headers')",
+        "",
+        "    if for_swift_module_map:",
+        "        enabled_features.append('module_maps')",
+        "        enabled_features.append('compile_all_modules')",
+        "        enabled_features.append('only_doth_headers_in_module_maps')",
+        "        enabled_features.append('exclude_private_headers_in_module_maps')",
+        "        enabled_features.append('module_map_without_extern_module')",
+        "        disabled_features.append('generate_submodules')",
+        "",
+        "    return cc_common.configure_features(",
+        "        ctx = common_variables.ctx,",
+        "        cc_toolchain = common_variables.toolchain,",
+        "        language = 'objc',",
+        "        requested_features = enabled_features,",
+        "        unsupported_features = disabled_features,",
+        "    )",
+        "def _create_deduped_linkopts_list(linker_inputs):",
+        "    seen_flags = {}",
+        "    final_linkopts = []",
+        "    for linker_input in linker_inputs.to_list():",
+        "        (_, new_flags, seen_flags) = _dedup_link_flags(",
+        "            linker_input.user_link_flags,",
+        "            seen_flags,",
+        "        )",
+        "        final_linkopts.extend(new_flags)",
+        "",
+        "    return final_linkopts",
+        "",
+        "def _linkstamp_map(ctx, linkstamps, output, build_config):",
+        "    # create linkstamps_map - mapping from linkstamps to object files",
+        "    linkstamps_map = {}",
+        "",
+        "    stamp_output_dir = paths.join(ctx.label.package, '_objs', output.basename)",
+        "    for linkstamp in linkstamps:",
+        "      linkstamp_file = linkstamp.file()",
+        "      stamp_output_path = paths.join(",
+        "          stamp_output_dir,",
+        "          linkstamp_file.short_path[:-len(linkstamp_file.extension)].rstrip('.') + '.o',",
+        "      )",
+        "      stamp_output_file = ctx.actions.declare_shareable_artifact(",
+        "          stamp_output_path,",
+        "          build_config.bin_dir,",
+        "      )",
+        "      linkstamps_map[linkstamp_file] = stamp_output_file",
+        "    return linkstamps_map",
+        "",
+        "def _classify_libraries(libraries_to_link):",
+        "    always_link_libraries = {",
+        "        lib: None",
+        "        for lib in _get_libraries_for_linking(",
+        "            [lib for lib in libraries_to_link if lib.alwayslink],",
+        "        )",
+        "    }",
+        "    as_needed_libraries = {",
+        "        lib: None",
+        "        for lib in _get_libraries_for_linking(",
+        "            [lib for lib in libraries_to_link if not lib.alwayslink],",
+        "        )",
+        "        if lib not in always_link_libraries",
+        "    }",
+        "    return always_link_libraries.keys(), as_needed_libraries.keys()",
+        "def _emit_builtin_objc_strip_action(ctx):",
+        "    return (",
+        "        ctx.fragments.objc.builtin_objc_strip_action and",
+        "        ctx.fragments.cpp.objc_enable_binary_stripping() and",
+        "        ctx.fragments.cpp.compilation_mode() == 'opt'",
+        "    )",
+        "",
+        "def _register_configuration_specific_link_actions(",
+        "        name,",
+        "        common_variables,",
+        "        cc_linking_context,",
+        "        apple_platform_info,",
+        "        extra_link_args,",
+        "        stamp,",
+        "        user_variable_extensions,",
+        "        additional_outputs,",
+        "        deps,",
+        "        extra_link_inputs,",
+        "        attr_linkopts):",
+        "    ctx = common_variables.ctx",
+        "    feature_configuration = _build_feature_configuration(common_variables, False, False)",
+        "",
+        "    if _emit_builtin_objc_strip_action(ctx):",
+        "        binary = ctx.actions.declare_shareable_artifact(",
+        "            paths.join(ctx.label.package, name + '_unstripped'),",
+        "            apple_platform_info.target_build_config.bin_dir,",
+        "        )",
+        "    else:",
+        "        binary = ctx.actions.declare_shareable_artifact(",
+        "            paths.join(ctx.label.package, name),",
+        "            apple_platform_info.target_build_config.bin_dir,",
+        "        )",
+        "",
+        "    if cc_common.is_enabled(",
+        "        feature_configuration = feature_configuration,",
+        "        feature_name = 'use_cpp_variables_for_objc_executable',",
+        "    ):",
+        "        return _register_configuration_specific_link_actions_with_cpp_variables(",
+        "            name,",
+        "            binary,",
+        "            common_variables,",
+        "            feature_configuration,",
+        "            cc_linking_context,",
+        "            apple_platform_info,",
+        "            extra_link_args,",
+        "            stamp,",
+        "            user_variable_extensions,",
+        "            additional_outputs,",
+        "            deps,",
+        "            extra_link_inputs,",
+        "            attr_linkopts,",
+        "        )",
+        "    else:",
+        "        return _register_configuration_specific_link_actions_with_objc_variables(",
+        "            name,",
+        "            binary,",
+        "            common_variables,",
+        "            feature_configuration,",
+        "            cc_linking_context,",
+        "            apple_platform_info,",
+        "            extra_link_args,",
+        "            stamp,",
+        "            user_variable_extensions,",
+        "            additional_outputs,",
+        "            deps,",
+        "            extra_link_inputs,",
+        "            attr_linkopts,",
+        "        )",
+        "",
+        "def _register_configuration_specific_link_actions_with_cpp_variables(",
+        "        name,",
+        "        binary,",
+        "        common_variables,",
+        "        feature_configuration,",
+        "        cc_linking_context,",
+        "        apple_platform_info,",
+        "        extra_link_args,",
+        "        stamp,",
+        "        user_variable_extensions,",
+        "        additional_outputs,",
+        "        deps,",
+        "        extra_link_inputs,",
+        "        attr_linkopts):",
+        "    ctx = common_variables.ctx",
+        "",
+        "    prefixed_attr_linkopts = [",
+        "        '-Wl,%s' % linkopt",
+        "        for linkopt in attr_linkopts",
+        "    ]",
+        "",
+        "    seen_flags = {}",
+        "    (_, user_link_flags, seen_flags) = _dedup_link_flags(",
+        "        extra_link_args + prefixed_attr_linkopts,",
+        "        seen_flags,",
+        "    )",
+        "    (cc_linking_context, _) = _create_deduped_linkopts_linking_context(",
+        "        ctx.label,",
+        "        cc_linking_context,",
+        "        seen_flags,",
+        "    )",
+        "",
+        "    cc_common.link(",
+        "        name = name,",
+        "        actions = ctx.actions,",
+        "        additional_inputs = (",
+        "            extra_link_inputs +",
+        "            getattr(ctx.files, 'additional_linker_inputs', [])",
+        "        ),",
+        "        additional_outputs = additional_outputs,",
+        "        build_config = apple_platform_info.target_build_config,",
+        "        cc_toolchain = common_variables.toolchain,",
+        "        feature_configuration = feature_configuration,",
+        "        language = 'objc',",
+        "        linking_contexts = [cc_linking_context],",
+        "        main_output = binary,",
+        "        output_type = 'executable',",
+        "        stamp = stamp,",
+        "        user_link_flags = user_link_flags,",
+        "        variables_extension = user_variable_extensions,",
+        "    )",
+        "",
+        "    if _emit_builtin_objc_strip_action(ctx):",
+        "        return _register_binary_strip_action(",
+        "            ctx,",
+        "            name,",
+        "            binary,",
+        "            feature_configuration,",
+        "            apple_platform_info,",
+        "            extra_link_args,",
+        "        )",
+        "    else:",
+        "        return binary",
+        "",
+        "def _dedup_link_flags(flags, seen_flags = {}):",
+        "    new_flags = []",
+        "    previous_arg = None",
+        "    for arg in flags:",
+        "        if previous_arg in ['-framework', '-weak_framework']:",
+        "            framework = arg",
+        "            key = previous_arg[1] + framework",
+        "            if key not in seen_flags:",
+        "                new_flags.extend([previous_arg, framework])",
+        "                seen_flags[key] = True",
+        "            previous_arg = None",
+        "        elif arg in ['-framework', '-weak_framework']:",
+        "            previous_arg = arg",
+        "        elif arg.startswith('-Wl,-framework,') or arg.startswith('-Wl,-weak_framework,'):",
+        "            framework = arg.split(',')[2]",
+        "            key = arg[5] + framework",
+        "            if key not in seen_flags:",
+        "                new_flags.extend([arg.split(',')[1], framework])",
+        "                seen_flags[key] = True",
+        "        elif arg.startswith('-Wl,-rpath,'):",
+        "            rpath = arg.split(',')[2]",
+        "            key = arg[5] + rpath",
+        "            if key not in seen_flags:",
+        "                new_flags.append(arg)",
+        "                seen_flags[key] = True",
+        "        elif arg.startswith('-l'):",
+        "            if arg not in seen_flags:",
+        "                new_flags.append(arg)",
+        "                seen_flags[arg] = True",
+        "        else:",
+        "            new_flags.append(arg)",
+        "",
+        "    same = (",
+        "        len(flags) == len(new_flags) and",
+        "        all([flags[i] == new_flags[i] for i in range(0, len(flags))])",
+        "    )",
+        "",
+        "    return (same, new_flags, seen_flags)",
+        "",
+        "def _create_deduped_linkopts_linking_context(owner, cc_linking_context, seen_flags):",
+        "    linker_inputs = []",
+        "    for linker_input in cc_linking_context.linker_inputs.to_list():",
+        "        (same, new_flags, seen_flags) = _dedup_link_flags(",
+        "            linker_input.user_link_flags,",
+        "            seen_flags,",
+        "        )",
+        "        if same:",
+        "            linker_inputs.append(linker_input)",
+        "        else:",
+        "            linker_inputs.append(cc_common.create_linker_input(",
+        "                owner = linker_input.owner,",
+        "                libraries = depset(linker_input.libraries),",
+        "                user_link_flags = new_flags,",
+        "                additional_inputs = depset(linker_input.additional_inputs),",
+        "                linkstamps = depset(linker_input.linkstamps),",
+        "            ))",
+        "",
+        "    return (",
+        "        cc_common.create_linking_context(",
+        "            linker_inputs = depset(linker_inputs),",
+        "        ),",
+        "        seen_flags,",
+        "    )",
+        "",
+        "def _libraries_from_linking_context(linking_context):",
+        "    libraries = []",
+        "    for linker_input in linking_context.linker_inputs.to_list():",
+        "        libraries.extend(linker_input.libraries)",
+        "    return depset(libraries, order = 'topological')",
+        "",
+        "def _register_configuration_specific_link_actions_with_objc_variables(",
+        "        name,",
+        "        binary,",
+        "        common_variables,",
+        "        feature_configuration,",
+        "        cc_linking_context,",
+        "        apple_platform_info,",
+        "        extra_link_args,",
+        "        stamp,",
+        "        user_variable_extensions,",
+        "        additional_outputs,",
+        "        deps,",
+        "        extra_link_inputs,",
+        "        attr_linkopts):",
+        "    ctx = common_variables.ctx",
+        "    libraries_to_link = _libraries_from_linking_context(cc_linking_context).to_list()",
+        "    always_link_libraries, as_needed_libraries = _classify_libraries(libraries_to_link)",
+        "    static_runtimes = common_variables.toolchain.static_runtime_lib(",
+        "        feature_configuration = feature_configuration,",
+        "    )",
+        "",
+        "    # Passing large numbers of inputs on the command line triggers a bug in Apple's Clang",
+        "    # (b/29094356), so we'll create an input list manually and pass -filelist"
+            + " path/to/input/list.",
+        "",
+        "    # Populate the input file list with both the compiled object files and any linkstamp"
+            + " object",
+        "    # files.",
+        "    # There's some weirdness: cc_common.link compiles linkstamps and does the linking"
+            + " (without ever",
+        "    # returning linkstamp objects)",
+        "    # We replicate the linkstamp objects names (guess them) and generate input_file_list",
+        "    # which is input to linking action.",
+        "    linkstamps = [",
+        "        linkstamp",
+        "        for linker_input in cc_linking_context.linker_inputs.to_list()",
+        "        for linkstamp in linker_input.linkstamps",
+        "    ]",
+        "    linkstamp_map = _linkstamp_map(ctx, linkstamps, binary,"
+            + " apple_platform_info.target_build_config)",
+        "    input_file_list = _register_obj_filelist_action(",
+        "        ctx,",
+        "        apple_platform_info.target_build_config,",
+        "        as_needed_libraries + static_runtimes.to_list() + linkstamp_map.values(),",
+        "    )",
+        "",
+        "    extensions = user_variable_extensions | {",
+        "        'framework_paths': [],",
+        "        'framework_names': [],",
+        "        'weak_framework_names': [],",
+        "        'library_names': [],",
+        "        'filelist': input_file_list.path,",
+        "        'linked_binary': binary.path,",
+        "        # artifacts to be passed to the linker with `-force_load`",
+        "        'force_load_exec_paths': [lib.path for lib in always_link_libraries],",
+        "        # linkopts from dependency",
+        "        'dep_linkopts': _create_deduped_linkopts_list(cc_linking_context.linker_inputs),",
+        "        'attr_linkopts': attr_linkopts,  # linkopts arising from rule attributes",
+        "    }",
+        "    additional_inputs = [",
+        "        input",
+        "        for linker_input in cc_linking_context.linker_inputs.to_list()",
+        "        for input in linker_input.additional_inputs",
+        "    ]",
+        "    cc_common.link(",
+        "        name = name,",
+        "        actions = ctx.actions,",
+        "        feature_configuration = feature_configuration,",
+        "        cc_toolchain = common_variables.toolchain,",
+        "        language = 'objc',",
+        "        additional_inputs = (",
+        "            as_needed_libraries + always_link_libraries + [input_file_list] +"
+            + " extra_link_inputs +",
+        "            additional_inputs +",
+        "            getattr(ctx.files, 'additional_linker_inputs', [])",
+        "        ),",
+        "        linking_contexts = [cc_common.create_linking_context(linker_inputs = depset(",
+        "            [cc_common.create_linker_input(",
+        "                owner = ctx.label,",
+        "                linkstamps = depset(linkstamps),",
+        "            )],",
+        "        ))],",
+        "        output_type = 'executable',",
+        "        build_config = apple_platform_info.target_build_config,",
+        "        user_link_flags = extra_link_args,",
+        "        stamp = stamp,",
+        "        variables_extension = extensions,",
+        "        additional_outputs = additional_outputs,",
+        "        main_output = binary,",
+        "    )",
+        "",
+        "    if _emit_builtin_objc_strip_action(ctx):",
+        "        return _register_binary_strip_action(",
+        "            ctx,",
+        "            name,",
+        "            binary,",
+        "            feature_configuration,",
+        "            apple_platform_info,",
+        "            extra_link_args,",
+        "        )",
+        "    else:",
+        "        return binary",
+        "def _register_obj_filelist_action(ctx, build_config, obj_files):",
+        "    obj_list = ctx.actions.declare_shareable_artifact(",
+        "        paths.join(ctx.label.package, ctx.label.name + '-linker.objlist'),",
+        "        build_config.bin_dir,",
+        "    )",
+        "",
+        "    args = ctx.actions.args()",
+        "    args.add_all(obj_files)",
+        "    args.set_param_file_format('multiline')",
+        "    ctx.actions.write(obj_list, args)",
+        "",
+        "    return obj_list",
+        "",
+        "def _apple_common_platform_from_platform_info(*, apple_platform_info):",
+        "    '''Returns an apple_common.platform given the contents of an ApplePlatformInfo"
+            + " provider'''",
+        "    if apple_platform_info.target_os == 'ios':",
+        "        if apple_platform_info.target_environment == 'device':",
+        "            return apple_common.platform.ios_device",
+        "        elif apple_platform_info.target_environment == 'simulator':",
+        "            return apple_common.platform.ios_simulator",
+        "    elif apple_platform_info.target_os == 'macos':",
+        "        return apple_common.platform.macos",
+        "    elif apple_platform_info.target_os == 'tvos':",
+        "        if apple_platform_info.target_environment == 'device':",
+        "            return apple_common.platform.tvos_device",
+        "        elif apple_platform_info.target_environment == 'simulator':",
+        "            return apple_common.platform.tvos_simulator",
+        "    elif apple_platform_info.target_os == 'visionos':",
+        "        if apple_platform_info.target_environment == 'device':",
+        "            return apple_common.platform.visionos_device",
+        "        elif apple_platform_info.target_environment == 'simulator':",
+        "            return apple_common.platform.visionos_simulator",
+        "    elif apple_platform_info.target_os == 'watchos':",
+        "        if apple_platform_info.target_environment == 'device':",
+        "            return apple_common.platform.watchos_device",
+        "        elif apple_platform_info.target_environment == 'simulator':",
+        "            return apple_common.platform.watchos_simulator",
+        "    else:",
+        "        fail('Internal Error: Found unrecognized target os of ' +"
+            + " apple_platform_info.target_os)",
+        "    ",
+        "def _register_binary_strip_action(",
+        "        ctx,",
+        "        name,",
+        "        binary,",
+        "        feature_configuration,",
+        "        apple_platform_info,",
+        "        extra_link_args):",
+        "    strip_safe = ctx.fragments.objc.strip_executable_safely",
+        "",
+        "    # For dylibs, loadable bundles, and kexts, must strip only local symbols.",
+        "    link_dylib = cc_common.is_enabled(",
+        "        feature_configuration = feature_configuration,",
+        "        feature_name = 'link_dylib',",
+        "    )",
+        "    link_bundle = cc_common.is_enabled(",
+        "        feature_configuration = feature_configuration,",
+        "        feature_name = 'link_bundle',",
+        "    )",
+        "    if ('-dynamiclib' in extra_link_args or link_dylib or",
+        "        '-bundle' in extra_link_args or link_bundle or '-kext' in extra_link_args):",
+        "        strip_safe = True",
+        "",
+        "    stripped_binary = ctx.actions.declare_shareable_artifact(",
+        "        paths.join(ctx.label.package, name),",
+        "        apple_platform_info.target_build_config.bin_dir,",
+        "    )",
+        "    args = ctx.actions.args()",
+        "    args.add('strip')",
+        "    if strip_safe:",
+        "        args.add('-x')",
+        "    args.add('-o', stripped_binary)",
+        "    args.add(binary)",
+        "    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
+        "    platform = _apple_common_platform_from_platform_info(apple_platform_info ="
+            + " apple_platform_info)",
+        "",
+        "    ctx.actions.run(",
+        "        mnemonic = 'ObjcBinarySymbolStrip',",
+        "        executable = '/usr/bin/xcrun',",
+        "        arguments = [args],",
+        "        inputs = [binary],",
+        "        outputs = [stripped_binary],",
+        "        execution_requirements ="
+            + " ctx.attr._xcode_config[apple_common.XcodeVersionConfig].execution_info(),",
+        "        env = apple_common.apple_host_system_env(xcode_config) |",
+        "              apple_common.target_apple_env(xcode_config, platform),",
+        "    )",
+        "    return stripped_binary",
         "def _link_multi_arch_binary(",
         "        *,",
         "        ctx,",
@@ -412,7 +921,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        stamp = -1,",
         "        variables_extension = {}):",
         "",
-        "    split_build_configs = apple_common.get_split_build_configs(ctx)",
         "    split_deps = ctx.split_attr.deps",
         "",
         "    if split_deps and split_deps.keys() != cc_toolchains.keys():",
@@ -453,7 +961,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        deps = split_deps.get(split_transition_key, [])",
         "        platform_info = child_toolchain[ApplePlatformInfo]",
         "",
-        "        common_variables = apple_common.compilation_support.build_common_variables(",
+        "        common_variables = compilation_support.build_common_variables(",
         "            ctx = ctx,",
         "            toolchain = cc_toolchain,",
         "            deps = deps,",
@@ -481,7 +989,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            avoid_dep_linking_contexts = avoid_cc_linking_contexts,",
         "        )",
         "",
-        "        child_config = split_build_configs.get(split_transition_key)",
         "",
         "        additional_outputs = []",
         "        extensions = {}",
@@ -494,7 +1001,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "                suffix = '_bin.dwarf'",
         "            dsym_binary = ctx.actions.declare_shareable_artifact(",
         "                ctx.label.package + '/' + ctx.label.name + suffix,",
-        "                child_config.bin_dir,",
+        "                platform_info.target_build_config.bin_dir,",
         "            )",
         "            extensions['dsym_path'] = dsym_binary.path  # dsym symbol file",
         "            additional_outputs.append(dsym_binary)",
@@ -505,7 +1012,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        if ctx.fragments.cpp.objc_generate_linkmap:",
         "            linkmap = ctx.actions.declare_shareable_artifact(",
         "                ctx.label.package + '/' + ctx.label.name + '.linkmap',",
-        "                child_config.bin_dir,",
+        "                platform_info.target_build_config.bin_dir,",
         "            )",
         "            extensions['linkmap_exec_path'] = linkmap.path  # linkmap file",
         "            additional_outputs.append(linkmap)",
@@ -513,12 +1020,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             + " linkmap",
         "",
         "        name = ctx.label.name + '_bin'",
-        "        executable ="
-            + " apple_common.compilation_support.register_configuration_specific_link_actions(",
+        "        executable = _register_configuration_specific_link_actions(",
         "            name = name,",
         "            common_variables = common_variables,",
         "            cc_linking_context = cc_linking_context,",
-        "            build_config = child_config,",
+        "            apple_platform_info = platform_info,",
         "            extra_link_args = extra_linkopts,",
         "            stamp = stamp,",
         "            user_variable_extensions = variables_extension | extensions,",
@@ -627,13 +1133,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "apple_binary_starlark = rule(",
         "    apple_binary_starlark_impl,",
         "    attrs = {",
-        "        '_child_configuration_dummy': attr.label(",
-        "            cfg=apple_platform_split_transition,",
-        "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_cc_toolchain_forwarder': attr.label(",
         "            cfg = apple_platform_split_transition,",
         "            providers = [cc_common.CcToolchainInfo, ApplePlatformInfo],",
-        "            default = Label(':default_cc_toolchain_forwarder'),),",
+        "            default = Label('//test_starlark:default_cc_toolchain_forwarder'),),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
@@ -672,8 +1175,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         """);
     scratch.file(
         "test_starlark/cc_toolchain_forwarder.bzl",
-        """
+"""
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 load(":apple_binary_starlark.bzl", "ApplePlatformInfo")
 
 def _target_os_from_rule_ctx(ctx):
@@ -735,6 +1239,7 @@ def _cc_toolchain_forwarder_impl(ctx):
           target_os = _target_os_from_rule_ctx(ctx),
           target_arch = _target_arch_from_rule_ctx(ctx),
           target_environment = _target_environment_from_rule_ctx(ctx),
+          target_build_config = ctx.configuration,
       ),
   ]
 
@@ -819,7 +1324,7 @@ cc_toolchain_forwarder = rule(
     scratch.file("x/a.h");
     ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:x").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:x")).getCcCompilationContext();
     ImmutableList<String> declaredIncludeSrcs =
         ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
             .map(x -> removeConfigFragment(x.getExecPathString()))
@@ -887,13 +1392,17 @@ cc_toolchain_forwarder = rule(
     return rootedPaths.build();
   }
 
-  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode)
-      throws Exception {
+  protected void checkClangCoptsForCompilationMode(
+      RuleType ruleType, CompilationMode mode, boolean includeLegacyFlags) throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-            .addAll(compilationModeCopts(mode));
+        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+
+    if (includeLegacyFlags) {
+      allExpectedCoptsBuilder.addAll(legacyCompilationModeCopts(mode));
+    }
+
     useConfiguration(
+        "--incompatible_avoid_hardcoded_objc_compilation_flags=" + !includeLegacyFlags,
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--apple_platform_type=ios",
         "--compilation_mode=" + compilationModeFlag(mode));
@@ -909,9 +1418,7 @@ cc_toolchain_forwarder = rule(
 
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-            .addAll(ObjcConfiguration.DBG_COPTS);
+        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
 
     useConfiguration(
         "--platforms=" + MockObjcSupport.IOS_X86_64,
@@ -969,12 +1476,22 @@ cc_toolchain_forwarder = rule(
 
   protected void checkDefinesFromCcLibraryDep(RuleType ruleType) throws Exception {
     useConfiguration();
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//dep:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//dep:lib")
         .setList("srcs", "a.cc")
         .setList("defines", "foo", "bar")
         .write();
 
-    ScratchAttributeWriter.fromLabelString(this, ruleType.getRuleTypeName(), "//objc:x")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            analysisMock
+                .ccSupport()
+                .getMacroLoadStatement(/* loadMacro= */ true, ruleType.getRuleTypeName()),
+            ruleType.getRuleTypeName(),
+            "//objc:x")
         .setList("srcs", "a.m")
         .setList("deps", "//dep:lib")
         .write();
@@ -1051,26 +1568,22 @@ cc_toolchain_forwarder = rule(
     return text.stream().map(this::removeConfigFragment).collect(toImmutableList());
   }
 
-  protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target) {
+  protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target)
+      throws EvalException, RuleErrorException {
     return Artifact.toRootRelativePaths(
-        target
-            .get(CcInfo.PROVIDER)
-            .getCcLinkingContext()
-            .getStaticModeParamsForDynamicLibraryLibraries());
+        CcInfo.get(target).getCcLinkingContext().getStaticModeParamsForDynamicLibraryLibraries());
   }
 
-  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target)
+      throws RuleErrorException {
     return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
+        CcInfo.get(target).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 
   protected static StarlarkInfo getObjcInfo(ConfiguredTarget starlarkTarget)
       throws LabelSyntaxException {
     return (StarlarkInfo)
-        starlarkTarget.get(
-            new StarlarkProvider.Key(
-                keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl")),
-                "ObjcInfo"));
+        starlarkTarget.get(new StarlarkProvider.Key(TestConstants.OBJC_INFO_LOAD_KEY, "ObjcInfo"));
   }
 
   protected static ImmutableList<Artifact> getDirectSources(StarlarkInfo provider)

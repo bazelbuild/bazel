@@ -22,10 +22,12 @@ import java.util.List;
 /**
  * An attr(attribute, pattern, argument) filter expression, which computes the set of subset of
  * nodes in 'argument' which correspond to rules with defined attribute 'attribute' with attribute
- * value matching the unanchored regexp 'pattern'. For list attributes, the attribute value will be
- * defined as a usual List.toString() representation (using '[' as first character, ']' as last
- * character and ", " as a delimiter between multiple values). Also, all label-based attributes will
- * use fully-qualified label names instead of original value specified in the BUILD file.
+ * value matching the unanchored regexp 'pattern'. For boolean attributes, the attribute value will
+ * be formatted as '0' (False) or '1' (True) for backwards compatibility purposes. For list
+ * attributes, the attribute value will be defined as a usual List.toString() representation (using
+ * '[' as first character, ']' as last character and ", " as a delimiter between multiple values).
+ * Also, all label-based attributes will use fully-qualified label names instead of original value
+ * specified in the BUILD file.
  *
  * <pre>expr ::= ATTR '(' ATTRNAME ',' WORD ',' expr ')'</pre>
  *

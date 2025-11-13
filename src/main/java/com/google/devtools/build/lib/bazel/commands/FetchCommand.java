@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -53,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Fetches external repositories. Which is so fetch. */
@@ -105,8 +105,8 @@ public final class FetchCommand implements BlazeCommand {
               ImmutableList.of(
                   PrecomputedValue.injected(
                       fetchOptions.configure
-                          ? RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE
-                          : RepositoryDelegatorFunction.FORCE_FETCH,
+                          ? RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE
+                          : RepositoryDirectoryValue.FORCE_FETCH,
                       env.getCommandId().toString())));
     }
 
@@ -167,9 +167,7 @@ public final class FetchCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult fetchAll(
-      CommandEnvironment env,
-      LoadingPhaseThreadsOption threadsOption,
-      boolean configureEnabled)
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, boolean configureEnabled)
       throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -207,8 +205,11 @@ public final class FetchCommand implements BlazeCommand {
 
     String notFoundRepos =
         repositoryNamesAndValues.values().stream()
-            .filter(value -> !value.repositoryExists())
-            .map(value -> value.getErrorMsg())
+            .flatMap(
+                value ->
+                    value instanceof RepositoryDirectoryValue.Failure(String errorMsg)
+                        ? Stream.of(errorMsg)
+                        : Stream.of())
             .collect(joining("; "));
     if (!notFoundRepos.isEmpty()) {
       return createFailedBlazeCommandResult(

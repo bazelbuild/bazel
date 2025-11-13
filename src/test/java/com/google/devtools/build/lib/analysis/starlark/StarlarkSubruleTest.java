@@ -182,6 +182,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//subrule_testing/%s:myrule.bzl", "my_rule")
 
         my_rule(name = "foo")
@@ -1086,7 +1087,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "my/BUILD",
         //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """
@@ -1127,8 +1131,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   public void testSubruleAction_executableMustBeFilesToRunProvider() throws Exception {
     scratch.file(
         "my/BUILD",
-        //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """
@@ -1171,7 +1177,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "my/BUILD",
         //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """

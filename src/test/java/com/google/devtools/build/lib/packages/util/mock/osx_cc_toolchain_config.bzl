@@ -30,6 +30,8 @@ load(
     "variable_with_value",
     "with_feature_set",
 )
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 
 # Link actions using the C++ bazel actions.
 _NON_OBJC_LINK_ACTIONS = [
@@ -335,7 +337,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
             implies = [
@@ -1055,6 +1057,65 @@ def _impl(ctx):
                 ),
             ],
         )
+    elif (ctx.attr.cpu == "darwin_arm64"):
+        objc_executable_action = action_config(
+            action_name = "objc-executable",
+            flag_sets = [
+                flag_set(
+                    flag_groups = [
+                        flag_group(flags = ["-arch arm64"]),
+                        flag_group(
+                            flags = [
+                                "-Xlinker",
+                                "-objc_abi_version",
+                                "-Xlinker",
+                                "2",
+                                "-fobjc-link-runtime",
+                                "-ObjC",
+                            ],
+                        ),
+                        flag_group(
+                            flags = ["-framework %{framework_names}"],
+                            iterate_over = "framework_names",
+                        ),
+                        flag_group(
+                            flags = ["-weak_framework %{weak_framework_names}"],
+                            iterate_over = "weak_framework_names",
+                        ),
+                        flag_group(
+                            flags = ["-l%{library_names}"],
+                            iterate_over = "library_names",
+                        ),
+                        flag_group(flags = ["-filelist %{filelist}"]),
+                        flag_group(flags = ["-o %{linked_binary}"]),
+                        flag_group(
+                            flags = ["-force_load %{force_load_exec_paths}"],
+                            iterate_over = "force_load_exec_paths",
+                        ),
+                        flag_group(
+                            flags = ["%{dep_linkopts}"],
+                            iterate_over = "dep_linkopts",
+                        ),
+                        flag_group(
+                            flags = ["-Wl,%{attr_linkopts}"],
+                            iterate_over = "attr_linkopts",
+                        ),
+                    ],
+                ),
+            ],
+            implies = [
+                "include_system_dirs",
+                "framework_paths",
+                "apple_env",
+                "apply_implicit_frameworks",
+            ],
+            tools = [
+                tool(
+                    path = "mac/wrapped_clang",
+                    execution_requirements = xcode_execution_requirements,
+                ),
+            ],
+        )
     elif (ctx.attr.cpu == "tvos_x86_64"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
@@ -1186,7 +1247,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
@@ -1678,6 +1739,37 @@ def _impl(ctx):
                 ),
             ],
         )
+    elif (ctx.attr.cpu == "darwin_arm64"):
+        objc_compile_action = action_config(
+            enabled = True,
+            action_name = ACTION_NAMES.objc_compile,
+            flag_sets = [
+                flag_set(
+                    flag_groups = [flag_group(flags = ["-arch arm64"])],
+                ),
+            ],
+            implies = [
+                "objc_actions",
+                "apply_default_compiler_flags",
+                "framework_paths",
+                "preprocessor_defines",
+                "include_system_dirs",
+                "objc_arc",
+                "no_objc_arc",
+                "apple_env",
+                "user_compile_flags",
+                "sysroot",
+                "unfiltered_compile_flags",
+                "compiler_input_flags",
+                "compiler_output_flags",
+            ],
+            tools = [
+                tool(
+                    path = "mac/wrapped_clang",
+                    execution_requirements = xcode_execution_requirements,
+                ),
+            ],
+        )
     else:
         objc_compile_action = None
 
@@ -2082,6 +2174,39 @@ def _impl(ctx):
                 ),
             ],
         )
+    elif (ctx.attr.cpu == "darwin_arm64"):
+        objcpp_compile_action = action_config(
+            action_name = ACTION_NAMES.objcpp_compile,
+            flag_sets = [
+                flag_set(
+                    flag_groups = [
+                        flag_group(
+                            flags = ["-arch arm64", "-stdlib=libc++", "-std=gnu++11"],
+                        ),
+                    ],
+                ),
+            ],
+            implies = [
+                "apply_default_compiler_flags",
+                "framework_paths",
+                "preprocessor_defines",
+                "include_system_dirs",
+                "objc_arc",
+                "no_objc_arc",
+                "apple_env",
+                "user_compile_flags",
+                "sysroot",
+                "unfiltered_compile_flags",
+                "compiler_input_flags",
+                "compiler_output_flags",
+            ],
+            tools = [
+                tool(
+                    path = "mac/wrapped_clang",
+                    execution_requirements = xcode_execution_requirements,
+                ),
+            ],
+        )
     else:
         objcpp_compile_action = None
 
@@ -2200,7 +2325,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_header_parsing_action = action_config(
             action_name = ACTION_NAMES.cpp_header_parsing,
             implies = [
@@ -2381,7 +2506,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         assemble_action = action_config(
             action_name = ACTION_NAMES.assemble,
             implies = [
@@ -2521,7 +2646,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_link_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
@@ -2940,7 +3065,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         c_compile_action = action_config(
             action_name = ACTION_NAMES.c_compile,
             flag_sets = [
@@ -3269,7 +3394,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_compile,
             flag_sets = [
@@ -3579,7 +3704,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
             enabled = True,
@@ -3753,7 +3878,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_module_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_module_compile,
             implies = [
@@ -3896,7 +4021,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_link_nodeps_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
@@ -4070,7 +4195,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         cpp_link_static_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_static_library,
             implies = [
@@ -4560,7 +4685,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -4697,7 +4822,7 @@ def _impl(ctx):
             ],
             tools = [tool(path = "iossim/strip")],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         strip_action = action_config(
             action_name = ACTION_NAMES.strip,
             flag_sets = [
@@ -4856,7 +4981,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         apply_implicit_frameworks_feature = feature(
             name = "apply_implicit_frameworks",
             flag_sets = [
@@ -5140,6 +5265,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "x64_windows"):
         unfiltered_compile_flags_feature = feature(
             name = "unfiltered_compile_flags",
@@ -5396,6 +5522,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
           ctx.attr.cpu == "tvos_x86_64" or
@@ -5509,6 +5636,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
@@ -5800,7 +5928,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         default_compile_flags_feature = feature(
             name = "default_compile_flags",
             enabled = True,
@@ -6047,31 +6175,9 @@ def _impl(ctx):
                           [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
-                        flags = ["%{libopts}"],
-                        iterate_over = "libopts",
-                        expand_if_available = "libopts",
-                    ),
-                ],
-            ),
-            flag_set(
-                actions = _NON_OBJC_LINK_ACTIONS +
-                          [ACTION_NAMES.cpp_link_static_library],
-                flag_groups = [
-                    flag_group(
                         flags = ["-Wl,-force_load,%{whole_archive_linker_params}"],
                         iterate_over = "whole_archive_linker_params",
                         expand_if_available = "whole_archive_linker_params",
-                    ),
-                ],
-            ),
-            flag_set(
-                actions = _NON_OBJC_LINK_ACTIONS +
-                          [ACTION_NAMES.cpp_link_static_library],
-                flag_groups = [
-                    flag_group(
-                        flags = ["%{linker_input_params}"],
-                        iterate_over = "linker_input_params",
-                        expand_if_available = "linker_input_params",
                     ),
                 ],
             ),
@@ -6283,7 +6389,7 @@ def _impl(ctx):
         provides = ["profile"],
     )
 
-    if (ctx.attr.cpu == "darwin_x86_64"):
+    if (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         link_cocoa_feature = feature(
             name = "link_cocoa",
             flag_sets = [
@@ -6529,6 +6635,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "x64_windows"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
@@ -6643,6 +6750,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
@@ -6786,6 +6894,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
           ctx.attr.cpu == "tvos_x86_64" or
@@ -6875,6 +6984,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
+          ctx.attr.cpu == "darwin_arm64" or
           ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
@@ -7027,7 +7137,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         apply_default_compiler_flags_feature = feature(
             name = "apply_default_compiler_flags",
             flag_sets = [
@@ -7163,7 +7273,8 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64" or
-        ctx.attr.cpu == "darwin_x86_64"):
+        ctx.attr.cpu == "darwin_x86_64" or
+        ctx.attr.cpu == "darwin_arm64"):
         include_system_dirs_feature = feature(
             name = "include_system_dirs",
             flag_sets = [
@@ -7330,7 +7441,7 @@ def _impl(ctx):
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
         ]
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64" or ctx.attr.cpu == "darwin_arm64"):
         tool_paths = [
             tool_path(name = "ar", path = "mac/ar_wrapper"),
             tool_path(name = "cpp", path = "mac/cpp"),
@@ -7427,6 +7538,7 @@ cc_toolchain_config = rule(
     attrs = {
         "cpu": attr.string(mandatory = True, values = [
             "darwin_x86_64",
+            "darwin_arm64",
             "ios_arm64",
             "ios_arm64e",
             "ios_armv7",

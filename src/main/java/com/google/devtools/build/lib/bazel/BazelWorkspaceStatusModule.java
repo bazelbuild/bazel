@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -151,8 +150,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     private static byte[] printStatusMap(Map<String, String> map) {
       String s =
-          map.entrySet()
-              .stream()
+          map.entrySet().stream()
               .map(entry -> entry.getKey() + " " + entry.getValue())
               .collect(joining("\n"));
       s += "\n";
@@ -311,7 +309,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           env.getOptions().getOptions(WorkspaceStatusAction.Options.class);
       return options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
           ? null
-          : new CommandBuilder()
+          : new CommandBuilder(env.getClientEnv())
               .addArgs(options.workspaceStatusCommand.toString())
               // Pass client env to allow SCM clients (like git) relying on environment variables to
               // work correctly.
@@ -323,8 +321,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(WorkspaceStatusAction.Options.class)
         : ImmutableList.of();
   }

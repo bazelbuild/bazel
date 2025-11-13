@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -25,6 +27,8 @@ import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,10 +36,9 @@ import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Unit test for the {@code StarlarkOptionsParser}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
   private List<Postable> postedEvents;
@@ -369,7 +372,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
             tools = [":tool"],
         )
 
-        cc_library(name = "tool-dep")
+        filegroup(name = "tool-dep")
         """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:x.in"));
@@ -436,7 +439,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   @Test
   public void testExpectedBuildEventOutput_asFlag() throws Exception {
     writeBasicIntFlag();
-    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    scratch.file(
+        "blah/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'mylib')");
     useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib"),
@@ -459,7 +465,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   @Test
   public void testExpectedBuildEventOutput_asTarget() throws Exception {
     writeBasicIntFlag();
-    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    scratch.file(
+        "blah/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'mylib')");
     useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib", "//test:my_int_setting"),
@@ -722,5 +731,67 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("Unrecognized option: //test:one -> //test/pkg:two -> //test:three");
+  }
+
+  @Test
+  @TestParameters({
+    // Not repeatable, flag value is not the same as the default, flag added to options.
+    "{defaultValue: ['default'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Repeatable, flag value is not the same as the default, flag added to options.
+    "{defaultValue: ['default'], repeatable: true, cmdValue: ['v2', 'v2', 'v1', 'v3', 'v4', 'v1'],"
+        + " expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Not repeatable, flag value is the same as the default, flag not added to options.
+    "{defaultValue: ['v2','v1','v1', 'v3', 'v2', 'v3', 'v4'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: null}",
+    // Repeatable, flag value is the same as the default, flag not added to options.
+    "{defaultValue: ['v2','v1','v1', 'v3', 'v2', 'v3', 'v4'], repeatable: true, cmdValue: ['v2',"
+        + " 'v2', 'v1', 'v3', 'v4', 'v1'], expectedValue: null}"
+  })
+  public void testStringSetFlag(
+      List<String> defaultValue,
+      boolean repeatable,
+      List<String> cmdValue,
+      List<String> expectedValue)
+      throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        String.format(
+            """
+            def _build_setting_impl(ctx):
+                return []
+
+            string_set_flag = rule(
+                implementation = _build_setting_impl,
+                build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:build_setting.bzl", "string_set_flag")
+
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set([%s]),
+            )
+            """,
+            defaultValue.stream().map(v -> String.format("'%s'", v)).collect(joining(","))));
+
+    OptionsParsingResult result =
+        parseStarlarkOptions(
+            cmdValue.stream()
+                .map(v -> String.format("--//test:my_flag=%s", v))
+                .collect(joining(" ")));
+
+    if (expectedValue == null) {
+      assertThat(result.getStarlarkOptions()).isEmpty();
+    } else {
+      assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:my_flag");
+      assertThat(result.getStarlarkOptions().get("//test:my_flag"))
+          .isEqualTo(ImmutableSet.copyOf(expectedValue));
+    }
   }
 }

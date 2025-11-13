@@ -13,6 +13,7 @@
 # limitations under the License.
 """Generates and compiles C++ grpc stubs from proto_library rules."""
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":generate_cc.bzl", "generate_cc")
 
 # Simplified version of gRPC upstream's cc_grpc_library.
@@ -47,8 +48,10 @@ def cc_grpc_library(
           https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes
     """
     if len(srcs) != 1:
-        fail("The srcs attribute must be a singleton list but was " + str(srcs),
-             "srcs")
+        fail(
+            "The srcs attribute must be a singleton list but was " + str(srcs),
+            "srcs",
+        )
 
     codegen_grpc_target = "_" + name + "_grpc_codegen"
     generate_cc(
@@ -62,7 +65,7 @@ def cc_grpc_library(
 
     cc_library_kwargs = dict(**extra_cc_library_kwargs)
     cc_library_kwargs.update(**kwargs)
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [":" + codegen_grpc_target],
         hdrs = [":" + codegen_grpc_target],

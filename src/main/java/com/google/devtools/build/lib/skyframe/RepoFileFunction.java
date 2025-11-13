@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.RepoThreadContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -53,9 +55,9 @@ import net.starlark.java.syntax.SyntaxError;
 /** The function to evaluate the REPO.bazel file at the root of a repo. */
 public class RepoFileFunction implements SkyFunction {
   private final BazelStarlarkEnvironment starlarkEnv;
-  private final Path workspaceRoot;
+  private final Root workspaceRoot;
 
-  public RepoFileFunction(BazelStarlarkEnvironment starlarkEnv, Path workspaceRoot) {
+  public RepoFileFunction(BazelStarlarkEnvironment starlarkEnv, Root workspaceRoot) {
     this.starlarkEnv = starlarkEnv;
     this.workspaceRoot = workspaceRoot;
   }
@@ -67,7 +69,7 @@ public class RepoFileFunction implements SkyFunction {
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     // First we need to find the REPO.bazel file. How we do this depends on whether this is for the
     // main repo or an external repo.
-    Path repoRoot;
+    Root repoRoot;
     if (repoName.isMain()) {
       repoRoot = workspaceRoot;
     } else {
@@ -76,14 +78,13 @@ public class RepoFileFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      if (!repoDirValue.repositoryExists()) {
-        throw new RepoFileFunctionException(
-            new IOException(repoDirValue.getErrorMsg()), Transience.PERSISTENT);
+      switch (repoDirValue) {
+        case Success s -> repoRoot = s.root();
+        case Failure(String errorMsg) ->
+            throw new RepoFileFunctionException(new IOException(errorMsg), Transience.PERSISTENT);
       }
-      repoRoot = repoDirValue.getPath();
     }
-    RootedPath repoFilePath =
-        RootedPath.toRootedPath(Root.fromPath(repoRoot), LabelConstants.REPO_FILE_NAME);
+    RootedPath repoFilePath = RootedPath.toRootedPath(repoRoot, LabelConstants.REPO_FILE_NAME);
     FileValue repoFileValue = (FileValue) env.getValue(FileValue.key(repoFilePath));
     if (repoFileValue == null) {
       return null;
@@ -161,7 +162,7 @@ public class RepoFileFunction implements SkyFunction {
           StarlarkThread.create(
               mu,
               starlarkSemantics,
-              /* contextDescription= */ "",
+              "REPO.bazel file of " + repoDisplayName,
               SymbolGenerator.create(repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
       RepoThreadContext context = new RepoThreadContext();

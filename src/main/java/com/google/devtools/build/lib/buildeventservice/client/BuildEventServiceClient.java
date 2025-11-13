@@ -14,25 +14,137 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
-import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
-import com.google.devtools.build.v1.PublishLifecycleEventRequest;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.value.AutoBuilder;
+import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
+import java.time.Instant;
+import java.util.Set;
+import java.util.concurrent.Future;
+import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
 public interface BuildEventServiceClient {
 
+  /** Context for a build command. */
+  public record CommandContext(
+      String buildId,
+      String invocationId,
+      int attemptNumber,
+      Set<String> keywords,
+      @Nullable String projectId,
+      boolean checkPrecedingLifecycleEvents) {
+    public CommandContext {
+      checkNotNull(buildId);
+      checkNotNull(invocationId);
+      checkArgument(attemptNumber >= 1);
+      checkNotNull(keywords);
+    }
+
+    public static Builder builder() {
+      return new AutoBuilder_BuildEventServiceClient_CommandContext_Builder();
+    }
+
+    /** Builder for {@link CommandContext}. */
+    @AutoBuilder
+    public abstract static class Builder {
+      public abstract Builder setBuildId(String buildId);
+
+      public abstract Builder setInvocationId(String invocationId);
+
+      public abstract Builder setAttemptNumber(int attemptNumber);
+
+      public abstract Builder setKeywords(Set<String> keywords);
+
+      public abstract Builder setProjectId(@Nullable String projectId);
+
+      public abstract Builder setCheckPrecedingLifecycleEvents(
+          boolean checkPrecedingLifecycleEvents);
+
+      public abstract CommandContext build();
+    }
+  }
+
+  /** The status of an invocation. */
+  enum InvocationStatus {
+    /** No information is available about the invocation status. */
+    UNKNOWN,
+    /** The invocation succeeded. */
+    SUCCEEDED,
+    /** The invocation failed. */
+    FAILED,
+  }
+
+  /** A lifecycle event. */
+  sealed interface LifecycleEvent {
+    /** The command context for the event. */
+    CommandContext commandContext();
+
+    /** The time at which the event occurred. */
+    Instant eventTime();
+
+    /** The lifecycle event signalling that the build was enqueued. */
+    record BuildEnqueued(CommandContext commandContext, Instant eventTime)
+        implements LifecycleEvent {}
+
+    /** The lifecycle event signalling that the invocation was started. */
+    record InvocationStarted(CommandContext commandContext, Instant eventTime)
+        implements LifecycleEvent {}
+
+    /**
+     * The lifecycle event signalling that the invocation was finished.
+     *
+     * @param status the invocation status
+     */
+    record InvocationFinished(
+        CommandContext commandContext, Instant eventTime, InvocationStatus status)
+        implements LifecycleEvent {}
+
+    /**
+     * The lifecycle event signalling that the build was finished.
+     *
+     * @param status the invocation status
+     */
+    record BuildFinished(CommandContext commandContext, Instant eventTime, InvocationStatus status)
+        implements LifecycleEvent {}
+  }
+
+  /** An event sent over a {@link StreamContext}. */
+  sealed interface StreamEvent {
+    /** The command context for the event. */
+    CommandContext commandContext();
+
+    /** The time at which the event occurred. */
+    Instant eventTime();
+
+    /** The sequence number of the event. */
+    long sequenceNumber();
+
+    /**
+     * An event containing a {@link BuildEventStreamProtos.BuildEvent}.
+     *
+     * @param payload the {@link BuildEventStreamProtos.BuildEvent} in wire format
+     */
+    record BazelEvent(
+        CommandContext commandContext, Instant eventTime, long sequenceNumber, ByteString payload)
+        implements StreamEvent {}
+
+    /** An event signalling the end of the stream. */
+    record StreamFinished(CommandContext commandContext, Instant eventTime, long sequenceNumber)
+        implements StreamEvent {}
+  }
+
   /** Callback for ACKed build events. */
   @FunctionalInterface
   interface AckCallback {
-
     /**
      * Called whenever an ACK from the BES server is received. ACKs are expected to be received in
-     * sequence. Implementations need to be thread-safe.
+     * sequence. Implementations must be thread-safe.
      */
-    void apply(PublishBuildToolEventStreamResponse ack);
+    void apply(long sequenceNumber);
   }
 
   /** A handle to a bidirectional stream. */
@@ -42,16 +154,16 @@ public interface BuildEventServiceClient {
      * The completed status of the stream. The future will never fail, but in case of error will
      * contain a corresponding status.
      */
-    ListenableFuture<Status> getStatus();
+    Future<Status> getStatus();
 
     /**
-     * Sends an event over the currently open stream. In case of error, this method will fail
-     * silently and report the error via the {@link ListenableFuture} returned by {@link
+     * Sends a {@link StreamEvent} over the currently open stream. In case of error, this method
+     * will fail silently and report the error via the {@link Future} returned by {@link
      * #getStatus()}.
      *
      * <p>This method may block due to flow control.
      */
-    void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws InterruptedException;
+    void sendOverStream(StreamEvent streamEvent) throws InterruptedException;
 
     /**
      * Half closes the currently opened stream. This method does not block. Callers should block on
@@ -68,9 +180,8 @@ public interface BuildEventServiceClient {
     void abortStream(Status status);
   }
 
-  /** Makes a blocking RPC call that publishes a {@code lifecycleEvent}. */
-  void publish(PublishLifecycleEventRequest lifecycleEvent)
-      throws StatusException, InterruptedException;
+  /** Makes a blocking RPC call that publishes a {@link LifecycleEvent}. */
+  void publish(LifecycleEvent lifecycleEvent) throws StatusException, InterruptedException;
 
   /**
    * Starts a new stream with the given {@code ackCallback}. Callers must wait on the returned

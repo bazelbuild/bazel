@@ -88,7 +88,12 @@ public class StarlarkBazelModuleTest {
             .build();
     ModuleKey fooKey = createModuleKey("foo", "");
     ModuleKey barKey = createModuleKey("bar", "2.0");
-    Module module = buildModule("foo", "1.0").setKey(fooKey).addDep("bar", barKey).build();
+    Module module =
+        buildModule("foo", "1.0")
+            .setKey(fooKey)
+            .addDep("bar", barKey)
+            .setFlagAliases(ImmutableMap.of())
+            .build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
@@ -139,7 +144,8 @@ public class StarlarkBazelModuleTest {
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
     ModuleKey fooKey = createModuleKey("foo", "");
-    Module module = buildModule("foo", "1.0").setKey(fooKey).build();
+    Module module =
+        buildModule("foo", "1.0").setKey(fooKey).setFlagAliases(ImmutableMap.of()).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =

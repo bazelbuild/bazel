@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,16 +21,16 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# should match the java_runtime in `_BASE_TOOLCHAIN_CONFIGURATION` in
-# `@rules_java//toolchains/default_java_toolchain.bzl`
-DEFAULT_JAVA_RUNTIME_VERSION="remotejdk21"
+# should match the java_runtime of the default Java (compilation) toolchains
+# registered by rules_java.
+DEFAULT_JAVA_RUNTIME_VERSION="remotejdk25"
 
 function test_server_javabase() {
   mkdir -p test_server_javabase/bin
   MAGIC="the cake is a lie"
 
   cat << EOF > test_server_javabase/bin/java
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$MAGIC"
 EOF
   chmod +x test_server_javabase/bin/java
@@ -242,7 +242,7 @@ EOF
   touch zoo/bin/java
 
   cat << EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "toolchain",
     # Implicitly use the host_javabase bootclasspath, since the target doesn't

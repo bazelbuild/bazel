@@ -13,9 +13,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//third_party:jsr305",
-        "//third_party:jsr330_inject",
         "//third_party:junit4",
     ],
 )

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An enum representing Python major versions.
@@ -27,7 +28,7 @@ import java.util.List;
  * when this enum is used to denote the degree of compatibility of source code with the target
  * values.
  */
-public enum PythonVersion {
+public enum PythonVersion implements StarlarkValue {
 
   // TODO(#6445): Remove PY2ONLY and PY3ONLY.
 
@@ -167,4 +168,3 @@ public enum PythonVersion {
     return PythonVersion.valueOf(str);
   }
 }
-

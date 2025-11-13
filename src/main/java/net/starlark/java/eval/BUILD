@@ -1,5 +1,6 @@
 # Description: Bazel's Starlark interpreter
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 
 licenses(["notice"])  # Apache 2.0
@@ -7,7 +8,7 @@ licenses(["notice"])  # Apache 2.0
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/net/starlark/java:bazel"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # The Starlark evaluator
@@ -55,6 +56,7 @@ java_library(
         "StarlarkSemantics.java",
         "StarlarkSet.java",
         "StarlarkThread.java",
+        "StarlarkTypeValue.java",
         "StarlarkValue.java",
         "StringModule.java",
         "Structure.java",

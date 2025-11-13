@@ -30,10 +30,11 @@ import java.util.ArrayList;
  * {@link #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the
  * associated value is invalidated.
  */
-// non-sealed for test fakes
-abstract non-sealed class FileDependencies
+abstract sealed class FileDependencies
     implements FileSystemDependencies.FileOpDependency,
-        FileDependencyDeserializer.FileDependenciesOrFuture {
+        FileDependencyDeserializer.FileDependenciesOrFuture
+    permits FileDependencies.AvailableFileDependencies, FileDependencies.MissingFileDependencies {
+
   /**
    * Finds the earliest version where any contained path matches a change in {@code changes}.
    *
@@ -54,37 +55,67 @@ abstract non-sealed class FileDependencies
    */
   abstract int findEarliestMatch(VersionedChanges changes, int validityHorizon);
 
-  abstract int getDependencyCount();
+  // non-sealed for test fakes
+  abstract static non-sealed class AvailableFileDependencies extends FileDependencies {
+    abstract int getDependencyCount();
 
-  abstract FileDependencies getDependency(int index);
+    abstract AvailableFileDependencies getDependency(int index);
+
+    /**
+     * The real path associated with this node after resolution.
+     *
+     * <p>This is used by {@link FileDependencyDeserializer} to retrieve resolved parent paths but
+     * isn't directly used by invalidation.
+     */
+    abstract String resolvedPath();
+
+    /** Returns the resolved paths associated with the current node for testing. */
+    @VisibleForTesting
+    abstract ImmutableList<String> getAllResolvedPathsForTesting();
+  }
 
   /**
-   * The real path associated with this node after resolution.
+   * Signals missing data in the nested set of dependencies.
    *
-   * <p>This is used by {@link FileDependencyDeserializer} to retrieve resolved parent paths but
-   * isn't directly used by invalidation.
+   * <p>This is deliberately not a singleton to avoid a memory leak in the weak-value caches in
+   * {@link FileDependencyDeserializer}.
    */
-  abstract String resolvedPath();
+  static final class MissingFileDependencies extends FileDependencies {
+    private MissingFileDependencies() {}
 
-  /** Returns the resolved paths associated with the current node for testing. */
-  @VisibleForTesting
-  abstract ImmutableList<String> getAllResolvedPathsForTesting();
+    @Override
+    public boolean isMissingData() {
+      return true;
+    }
+
+    @Override
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      // Missing data means there's no way to prove that a cache value is valid. Returning
+      // ALWAYS_MATCH signals a cache miss.
+      return VersionedChanges.ALWAYS_MATCH;
+    }
+  }
 
   static Builder builder(String firstResolvedPath) {
     return new Builder(firstResolvedPath);
   }
 
+  static FileDependencies newMissingInstance() {
+    return new MissingFileDependencies();
+  }
+
   static final class Builder {
     private final ArrayList<String> paths = new ArrayList<>();
-    private final ArrayList<FileDependencies> dependencies = new ArrayList<>();
+    private final ArrayList<AvailableFileDependencies> dependencies = new ArrayList<>();
 
     /**
      * At least one resolved path is required.
      *
-     * <p>The last path added is treated as the overall {@link #resolvedPath} of the instance. The
-     * {@code firstResolvedPath} argument is the {@link #resolvedPath} if it's the only path.
+     * <p>The last path added is treated as the overall {@link
+     * AvailableFileDependencies#resolvedPath} of the instance. The {@code firstResolvedPath}
+     * argument is the {@link AvailableFileDependencies#resolvedPath} if it's the only path.
      */
-    Builder(String firstResolvedPath) {
+    private Builder(String firstResolvedPath) {
       paths.add(firstResolvedPath);
     }
 
@@ -95,7 +126,7 @@ abstract non-sealed class FileDependencies
     }
 
     @CanIgnoreReturnValue
-    Builder addDependency(FileDependencies dependency) {
+    Builder addDependency(AvailableFileDependencies dependency) {
       dependencies.add(dependency);
       return this;
     }
@@ -116,11 +147,16 @@ abstract non-sealed class FileDependencies
 
   // The implementations here exist to reduce indirection and memory use.
 
-  private static final class SingleResolvedPath extends FileDependencies {
+  private static final class SingleResolvedPath extends AvailableFileDependencies {
     private final String resolvedPath;
 
     private SingleResolvedPath(String resolvedPath) {
       this.resolvedPath = resolvedPath;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
     }
 
     @Override
@@ -134,7 +170,7 @@ abstract non-sealed class FileDependencies
     }
 
     @Override
-    FileDependencies getDependency(int index) {
+    AvailableFileDependencies getDependency(int index) {
       throw new IndexOutOfBoundsException(this + " " + index);
     }
 
@@ -154,13 +190,19 @@ abstract non-sealed class FileDependencies
     }
   }
 
-  private static final class SingleResolvedPathAndDependency extends FileDependencies {
+  private static final class SingleResolvedPathAndDependency extends AvailableFileDependencies {
     private final String resolvedPath;
-    private final FileDependencies dependency;
+    private final AvailableFileDependencies dependency;
 
-    private SingleResolvedPathAndDependency(String resolvedPath, FileDependencies dependency) {
+    private SingleResolvedPathAndDependency(
+        String resolvedPath, AvailableFileDependencies dependency) {
       this.resolvedPath = resolvedPath;
       this.dependency = dependency;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
     }
 
     @Override
@@ -174,7 +216,7 @@ abstract non-sealed class FileDependencies
     }
 
     @Override
-    FileDependencies getDependency(int index) {
+    AvailableFileDependencies getDependency(int index) {
       if (index != 0) {
         throw new IndexOutOfBoundsException(this + " " + index);
       }
@@ -200,14 +242,20 @@ abstract non-sealed class FileDependencies
     }
   }
 
-  private static final class MultiplePaths extends FileDependencies {
+  private static final class MultiplePaths extends AvailableFileDependencies {
     private final ImmutableList<String> resolvedPaths;
-    private final ImmutableList<FileDependencies> dependencies;
+    private final ImmutableList<AvailableFileDependencies> dependencies;
 
     private MultiplePaths(
-        ImmutableList<String> resolvedPaths, ImmutableList<FileDependencies> dependencies) {
+        ImmutableList<String> resolvedPaths,
+        ImmutableList<AvailableFileDependencies> dependencies) {
       this.resolvedPaths = resolvedPaths;
       this.dependencies = dependencies;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
     }
 
     @Override
@@ -228,7 +276,7 @@ abstract non-sealed class FileDependencies
     }
 
     @Override
-    FileDependencies getDependency(int index) {
+    AvailableFileDependencies getDependency(int index) {
       return dependencies.get(index);
     }
 

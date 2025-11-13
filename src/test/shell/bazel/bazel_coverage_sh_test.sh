@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -22,7 +22,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 source "${CURRENT_DIR}/coverage_helpers.sh" \
   || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
-
 
 function set_up_sh_test_coverage() {
   add_rules_shell "MODULE.bazel"
@@ -53,7 +52,7 @@ sh_library(
 )
 EOF
   cat <<EOF > orange-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 java/com/google/orange/orange-bin
 EOF
@@ -168,7 +167,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 EOF
@@ -317,7 +316,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 java/com/google/orange/orange-bin
@@ -529,7 +528,7 @@ sh_test(
 )
 EOF
   cat <<'EOF' > pull-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 touch $COVERAGE_DIR/foo.txt
 # We need a non-empty coverage.dat file for the checks below to work.
 echo "FN:2,com/google/orange/orangeLib::<init> ()V" > $COVERAGE_OUTPUT_FILE

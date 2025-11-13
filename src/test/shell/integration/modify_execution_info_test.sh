@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -41,15 +41,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -152,11 +143,13 @@ function test_modify_execution_info_various_types() {
     add_rules_python "MODULE.bazel"
     add_protobuf "MODULE.bazel"
     add_rules_shell "MODULE.bazel"
+    add_rules_cc "MODULE.bazel"
   fi
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")

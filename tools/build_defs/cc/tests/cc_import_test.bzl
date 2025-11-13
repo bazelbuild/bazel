@@ -15,6 +15,8 @@
 """Tests for Starlark implementation of cc_import"""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//tools/build_defs/cc:cc_import.bzl", "cc_import")
 
 TAGS = ["manual", "nobuilder"]
@@ -37,8 +39,7 @@ def _generic_cc_import_test_setup(
         tags = TAGS,
         **kwargs
     )
-
-    native.cc_binary(
+    cc_binary(
         name = cc_binary_target_name,
         deps = [":" + cc_import_target_name],
         srcs = ["source.cc"],
@@ -207,8 +208,7 @@ def _cc_import_deps_test_setup(
         hdrs = ["mylib2.h"],
         tags = TAGS,
     )
-
-    native.cc_binary(
+    cc_binary(
         name = cc_binary_target_name,
         deps = [":" + cc_import_target_name],
         srcs = ["source.cc"],
@@ -263,8 +263,7 @@ def _cc_import_data_test_setup(
         data = ["data2.file"],
         tags = TAGS,
     )
-
-    native.cc_binary(
+    cc_binary(
         name = cc_binary_target_name,
         deps = [":" + cc_import_target_name],
         srcs = ["source.cc"],

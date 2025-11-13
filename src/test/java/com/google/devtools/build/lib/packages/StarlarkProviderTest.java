@@ -225,6 +225,20 @@ public final class StarlarkProviderTest {
   }
 
   @Test
+  public void hasInstance() throws Exception {
+    StarlarkProvider provider1 =
+        StarlarkProvider.builder(Location.BUILTIN).buildWithIdentityToken(generator.generate());
+    StarlarkInfo info1 = instantiateWithA1B2C3(provider1);
+    StarlarkProvider provider2 =
+        StarlarkProvider.builder(Location.BUILTIN).buildWithIdentityToken(generator.generate());
+    StarlarkInfo info2 = instantiateWithA1B2C3(provider2);
+    assertThat(provider1.hasInstance(info1)).isTrue();
+    assertThat(provider1.hasInstance(info2)).isFalse();
+    assertThat(provider2.hasInstance(info1)).isFalse();
+    assertThat(provider2.hasInstance(info2)).isTrue();
+  }
+
+  @Test
   public void schemaDisallowsUnexpectedFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)

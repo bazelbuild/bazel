@@ -50,16 +50,15 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -69,17 +68,21 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -186,7 +189,7 @@ public class GrpcCacheClientTest {
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+            backoffSupplier, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
             new ChannelConnectionWithServerCapabilitiesFactory() {
@@ -284,18 +287,38 @@ public class GrpcCacheClientTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteExecutionCache client =
         new RemoteExecutionCache(
-            newClient(options), /* diskCacheClient= */ null, options, DIGEST_UTIL);
+            newClient(options),
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
-    MerkleTree merkleTree =
-        MerkleTree.build(
-            ImmutableSortedMap.of(execPath, virtualActionInput),
-            fakeFileCache,
+    Spawn spawn =
+        new SpawnBuilder("unused").withInputs(virtualActionInput).withOutputs("foo").build();
+    SpawnExecutionContext spawnExecutionContext =
+        new FakeSpawnExecutionContext(
+            spawn,
+            /* inputMetadataProvider= */ null,
             execRoot,
-            ArtifactPathResolver.forExecRoot(execRoot),
-            /* spawnScrubber= */ null,
-            DIGEST_UTIL);
+            /* outErr= */ null,
+            ImmutableClassToInstanceMap.of(),
+            /* actionFileSystem= */ null);
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            new MerkleTreeComputer(
+                    DIGEST_UTIL,
+                    client,
+                    "buildRequestId",
+                    "commandId",
+                    TestConstants.WORKSPACE_NAME)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    spawnExecutionContext,
+                    remotePathResolver,
+                    MerkleTreeComputer.BlobPolicy.KEEP);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
@@ -476,7 +499,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -501,7 +525,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -570,7 +595,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -614,7 +640,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -690,7 +717,6 @@ public class GrpcCacheClientTest {
       throws Exception {
     UploadManifest uploadManifest =
         UploadManifest.create(
-            combinedCache.options,
             combinedCache.getRemoteCacheCapabilities(),
             combinedCache.digestUtil,
             remotePathResolver,
@@ -701,7 +727,8 @@ public class GrpcCacheClientTest {
             outErr,
             /* exitCode= */ 0,
             /* startTime= */ null,
-            /* wallTimeInMs= */ 0);
+            /* wallTimeInMs= */ 0,
+            /* preserveExecutableBit= */ false);
     return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
   }
 
@@ -778,7 +805,8 @@ public class GrpcCacheClientTest {
 
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
     var unused =
         combinedCache.downloadActionResult(
             context,
@@ -792,7 +820,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -869,7 +898,8 @@ public class GrpcCacheClientTest {
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -935,7 +965,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
-        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+        new CombinedCache(
+            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");

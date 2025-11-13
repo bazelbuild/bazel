@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
@@ -29,15 +30,22 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.BuildTool.AnalysisPostProcessor;
+import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -50,6 +58,11 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
+import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -62,8 +75,12 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.OptionsSupplier;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.QueryCommandUtils;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -71,6 +88,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
@@ -80,6 +98,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -165,6 +184,11 @@ public class BlazeRuntimeWrapper {
     return newCommand(BuildCommand.class);
   }
 
+  public final CommandEnvironment newCommand(boolean ignoreUserOptions) throws Exception {
+    return newCommandWithExtensions(
+        BuildCommand.class, /* extensions= */ ImmutableList.of(), ignoreUserOptions);
+  }
+
   /** Creates a new command environment; executeBuild does this automatically if you do not. */
   public final CommandEnvironment newCommand(Class<? extends BlazeCommand> command)
       throws Exception {
@@ -181,7 +205,7 @@ public class BlazeRuntimeWrapper {
    */
   @CanIgnoreReturnValue
   public final CommandEnvironment newCustomCommandWithExtensions(
-      BlazeCommand command, List<Message> extensions) throws Exception {
+      BlazeCommand command, List<Message> extensions, boolean ignoreUserOptions) throws Exception {
     Command commandAnnotation =
         checkNotNull(
             command.getClass().getAnnotation(Command.class),
@@ -191,8 +215,8 @@ public class BlazeRuntimeWrapper {
 
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
-            command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()));
-    initializeOptionsParser(commandAnnotation);
+            command.getClass(), runtime.getOptionsSuppliers(), runtime.getRuleClassProvider()));
+    initializeOptionsParser(commandAnnotation, ignoreUserOptions);
 
     checkNotNull(
         optionsParser,
@@ -208,9 +232,10 @@ public class BlazeRuntimeWrapper {
                 InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
-                /* commandStartTime= */ 0L,
-                extensions.stream().map(Any::pack).collect(toImmutableList()),
+                /* commandStartTime= */ runtime.getClock().currentTimeMillis(),
+                /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
                 this.crashMessages::add,
+                extensions.stream().map(Any::pack).collect(toImmutableList()),
                 NO_OP_COMMAND_EXTENSION_REPORTER,
                 /* attemptNumber= */ 1,
                 /* buildRequestIdOverride= */ null,
@@ -230,8 +255,14 @@ public class BlazeRuntimeWrapper {
    */
   public final CommandEnvironment newCommandWithExtensions(
       Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    return newCommandWithExtensions(command, extensions, /* ignoreUserOptions= */ true);
+  }
+
+  private CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions, boolean ignoreUserOptions)
+      throws Exception {
     return newCustomCommandWithExtensions(
-        command.getDeclaredConstructor().newInstance(), extensions);
+        command.getDeclaredConstructor().newInstance(), extensions, ignoreUserOptions);
   }
 
   /**
@@ -297,10 +328,20 @@ public class BlazeRuntimeWrapper {
    * Initializes a new options parser, parsing all the options set by {@link
    * #addOptions(String...)}.
    */
-  private void initializeOptionsParser(Command commandAnnotation) throws OptionsParsingException {
+  private void initializeOptionsParser(Command commandAnnotation, boolean ignoreUserOptions)
+      throws OptionsParsingException {
     // Create the options parser and parse all the options collected so far
-    optionsParser = createOptionsParser(commandAnnotation);
+    optionsParser = createOptionsParser(commandAnnotation, ignoreUserOptions);
     optionsParser.parse(optionsToParse);
+
+    // The exec transition has to know Starlark flags' scope types to figure out which flags should
+    // pass to the exec configuration vs. not. In production builds OptionsParser and
+    // StarlarkOptionsParser handle this. But BlazeRuntimeWrapper injects Starlark flags directly
+    // without going through normal parsing. So we have this extra step to provide default scope
+    // values. Ideally we could more closely match production parsing and avoid extra logic.
+    optionsParser.setScopesAttributes(
+        getStarlarkOptions().entrySet().stream()
+            .collect(toImmutableMap(Map.Entry::getKey, entry -> ScopeType.DEFAULT.toString())));
 
     // Allow the command to edit the options.
     command.editOptions(optionsParser);
@@ -319,7 +360,7 @@ public class BlazeRuntimeWrapper {
     }
   }
 
-  private OptionsParser createOptionsParser(Command commandAnnotation) {
+  private OptionsParser createOptionsParser(Command commandAnnotation, boolean ignoreUserOptions) {
     Set<Class<? extends OptionsBase>> options =
         new HashSet<>(
             ImmutableList.of(
@@ -339,21 +380,28 @@ public class BlazeRuntimeWrapper {
                 SandboxOptions.class));
     options.addAll(additionalOptionsClasses);
 
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      Iterables.addAll(options, module.getCommonCommandOptions());
-      Iterables.addAll(options, module.getCommandOptions(commandAnnotation));
+    for (OptionsSupplier supplier : runtime.getOptionsSuppliers()) {
+      Iterables.addAll(options, supplier.getCommonCommandOptions());
+      Iterables.addAll(options, supplier.getCommandOptions(commandAnnotation.name()));
     }
     options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     // Because the tests that use this class don't set sources for their options, the normal logic
     // for determining user options assumes that all options are user options. This causes tests
     // that enable PROJECT.scl files to fail, so ignore user options instead.
-    return OptionsParser.builder().optionsClasses(options).ignoreUserOptions().build();
+    var optionserParserBuilder = OptionsParser.builder().optionsClasses(options);
+    if (ignoreUserOptions) {
+      optionserParserBuilder.ignoreUserOptions();
+    }
+    optionserParserBuilder.skipStarlarkOptionPrefixes();
+    return optionserParserBuilder.build();
   }
 
   public void executeCustomCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        env.getCommand().buildPhase() == NONE || env.getCommandName().equals("run"),
+        env.getCommand().buildPhase() == NONE
+            || env.getCommandName().equals("run")
+            || env.getCommandName().equals("javahotswap"),
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
@@ -368,7 +416,7 @@ public class BlazeRuntimeWrapper {
       try {
         Crash crash = null;
         try {
-          if (env.getCommandName().equals("run")) {
+          if (env.getCommandName().equals("run") || env.getCommandName().equals("javahotswap")) {
             try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
               env.syncPackageLoading(optionsParser);
             }
@@ -394,7 +442,71 @@ public class BlazeRuntimeWrapper {
     }
   }
 
+  /**
+   * Runs a aquery command with the given target.
+   *
+   * @param target the target to run the aquery against.
+   */
+  public void runAqueryExprCommand(String target) throws Exception {
+    newCommand(AqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid aquery using the pruned graph and
+    // missing entries in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    AqueryProcessor aqueryProcessor =
+        new AqueryProcessor(getQueryExpression(target), TargetPattern.defaultParser());
+    executeBuild(Arrays.asList(target), aqueryProcessor);
+  }
+
+  /**
+   * Runs a cquery command with the given expression and target.
+   *
+   * @param cqueryExpr the cquery expression to evaluate.
+   * @param target the target to run the cquery against.
+   */
+  public void runCqueryExprCommand(String cqueryExpr, String target) throws Exception {
+    newCommand(CqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid cquery using the pruned graph and
+    // missing targets in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    // CqueryCommand, we have to reimplement some of the logic here for cquery expressions like
+    // "deps(//foo)" to work in the integration tests. The alternative is a bigger refactoring
+    // rewriting BlazeRuntimeWrapper to use the *Command.java classes with the possibility of
+    // increasing overall complexity.
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.MAIN));
+    CqueryProcessor cqueryProcessor = new CqueryProcessor(getQueryExpression(cqueryExpr), parser);
+
+    executeBuild(Arrays.asList(target), cqueryProcessor);
+  }
+
+  private QueryExpression getQueryExpression(String cqueryExpr) throws Exception {
+    HashMap<String, QueryFunction> functions = new HashMap<>();
+    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    return QueryParser.parse(cqueryExpr, functions);
+  }
+
   void executeBuild(List<String> targets) throws Exception {
+    // The analysisPostProcessor is only needed for printing to stdout the results from cquery, for
+    // regular builds BuildTool uses a NOOP processor.
+    executeBuild(targets, /* analysisPostProcessor= */ null);
+  }
+
+  void executeBuild(List<String> targets, AnalysisPostProcessor analysisPostProcessor)
+      throws Exception {
     if (command == null) {
       newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
     }
@@ -412,12 +524,22 @@ public class BlazeRuntimeWrapper {
 
         Crash crash = null;
         DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
-        BuildTool buildTool = new BuildTool(env);
+        BuildTool buildTool;
+        if (analysisPostProcessor == null) {
+          buildTool = new BuildTool(env);
+        } else {
+          buildTool = new BuildTool(env, analysisPostProcessor);
+        }
         try {
           try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
             env.syncPackageLoading(lastRequest);
           }
-          buildTool.buildTargets(lastRequest, lastResult, null, optionsParser);
+          buildTool.buildTargets(
+              lastRequest,
+              lastResult,
+              null,
+              optionsParser,
+              /* targetsForProjectResolution= */ null);
           detailedExitCode = DetailedExitCode.success();
         } catch (RuntimeException | Error e) {
           crash = Crash.from(e);
@@ -467,7 +589,8 @@ public class BlazeRuntimeWrapper {
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,
                 /* collectPressureStallIndicators= */ false,
-                /* collectSkyframeCounts= */ false));
+                /* collectSkyframeCounts= */ false,
+                runtime.getBlazeService(SystemNetworkStatsService.class)));
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);

@@ -79,11 +79,9 @@ public record ExtractorContext(
    * also happens to be {@code provider.toString()}).
    */
   String getDocumentedProviderName(StarlarkProviderIdentifier provider) {
-    if (!provider.isLegacy()) {
-      String qualifiedName = providerQualifiedNames.get(provider.getKey());
-      if (qualifiedName != null) {
-        return qualifiedName;
-      }
+    String qualifiedName = providerQualifiedNames.get(provider.getKey());
+    if (qualifiedName != null) {
+      return qualifiedName;
     }
     return provider.toString();
   }

@@ -23,50 +23,52 @@ load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 # The list of repositories required while bootstrapping Bazel offline
 #
 ##################################################################################
-DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
-    # keep sorted
-    "abseil-cpp",
-    "apple_support",
+DIST_ARCHIVE_REPOS = [
+    # Bazel module dependencies, keep sorted
+    "abseil-cpp+",
+    "apple_support+",
+    "bazel_features+",
+    "bazel_skylib+",
+    "blake3+",
+    "c-ares+",
+    "envoy_api+",
+    "googleapis+",
+    "googleapis-grpc-java+",
+    "googleapis-java+",
+    "googleapis-rules-registry+",
+    "grpc+",
+    "grpc-java+",
+    "opencensus-cpp+",
+    "platforms",
+    "protobuf+",
+    "protoc-gen-validate+",
+    "rules_apple+",
+    "rules_cc+",
+    "rules_fuzzing+",
+    "rules_go+",
+    "rules_graalvm+",
+    "rules_java+",
+    "rules_jvm_external+",
+    "rules_kotlin+",
+    "rules_license+",
+    "rules_perl+",
+    "rules_pkg+",
+    "rules_proto+",
+    "rules_python+",
+    "rules_shell+",
+    "rules_swift+",
+    "stardoc+",
+    "with_cfg.bzl+",
+    "xds+",
+    "zlib+",
+    "zstd-jni+",
+] + [get_canonical_repo_name(repo) for repo in [
+    # Module extension repos
     "async_profiler",
     "async_profiler_linux_arm64",
     "async_profiler_linux_x64",
     "async_profiler_macos",
-    "bazel_skylib",
-    "blake3",
-    "c-ares",
-    "com_github_grpc_grpc",
-    "com_google_protobuf",
-    "googleapis",
-    "grpc-java",
-    "io_bazel_skydoc",
-    "platforms",
-    "rules_cc",
-    "rules_go",
-    "rules_graalvm",
-    "rules_java",
-    "rules_jvm_external",
-    "rules_kotlin",
-    "rules_license",
-    "rules_pkg",
-    "rules_proto",
-    "rules_python",
-    "rules_shell",
-    "zlib",
-    "zstd-jni",
-]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [
-    # Extra grpc dependencies introduced via its module extension
-    "com_envoyproxy_protoc_gen_validate",
-    "com_github_cncf_xds",
-    "envoy_api",
-    "google_cloud_cpp",
-    "io_opencensus_cpp",
-]] + [
-    "bazel_features+",
-    "rules_apple+",
-    "rules_foreign_cc+",
-    "rules_fuzzing+",
-    "rules_swift+",
-]
+]]
 
 ##################################################################################
 #
@@ -78,68 +80,67 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-Kf6gF8A8ZFIhujEgjlENeuSPVzW6QWnVZcRst35/ZvI=",
+        integrity = "sha256-Fk2QHlokC4wYUW9atVvBH8lomrboKQRa6oRnNW3Ns0A=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-6J7szd/ax9xCMNA9efw9Bhgv/VwQFXz5glWIoj+UYIc=",
+        integrity = "sha256-tg651UyXukFZVHg0qYzF0BYoHdKz5g50dcukkRMkvLQ=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_aarch64.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-OUGdcggvrqbSUBIj8cv2qRKLwjAArft7fues/OQiUJw=",
-        downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_s390x_linux_hotspot_23.0.1_11.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-GIWrFB/nuO1r63e4FLHByZ/VRxM5m/kX7bakAgVFrd4=",
+        integrity = "sha256-sGC7ErOhkqBZnwPruUlUkveMSMth4pHjNqiwDneY/7A=",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_ppc64le_linux_hotspot_23.0.1_11.tar.gz",
-    )
-    http_file(
-        name = "openjdk_linux_riscv64_vanilla",
-        integrity = "sha256-gNe6uflhS9+TTGvEQQMb0f6tOuqF8WdwEjvYprzcUrY=",
-        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_riscv64_linux_hotspot_23.0.1_11.tar.gz",
+        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25%2B36/OpenJDK25U-jdk_ppc64le_linux_hotspot_25_36.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-e7KJtJ9+mFFSdKCj68thfTXguWH5zXaSSb9phzXf/lQ=",
+        integrity = "sha256-ws3h0xPZBLeTw3YCFO76IH7Mp98E58QISr3x9rvrwno=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-7yXLOJCK0RZ8V1vsexOGxGR9NAwi/pCl95BlO8E8nGU=",
+        integrity = "sha256-c/ZPa618PfMfunQPvLu+98Glzt7/u13zht15vHKrqbY=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-Nfmnb2gAmoKWgefl801WVjTNxxaaT+TmbwSzJ8uccf8=",
+        integrity = "sha256-Xvz05qYTyuBsgEHeijaVtzRqrQMH05e2a/VSgc8aXLY=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-win_x64.zip",
     )
-
-    # Later version of the JDK for Windows ARM64 are not available yet.
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-V8VoNVuX0ojxK3IHYNgCsaGcVemwcHpcKtdtNP2JPbg=",
+        integrity = "sha256-9fbYqRNpVkno4mB/4Nx5yBlTslgwE6wfuXfGPLSTW/s=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.40.17-ca-jdk21.0.6-win_aarch64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu25.28.85-ca-jdk25.0.0-win_aarch64.zip",
+    )
+
+    # TODO: Update to JDK 25 when available for these architectures.
+    http_file(
+        name = "openjdk_linux_s390x_vanilla",
+        integrity = "sha256-VVBZ9JKatkNeuDtJbQuWm8appcB5FdX3YH9dgz44+zk=",
+        downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin24-binaries/releases/download/jdk-24.0.2%2B12/OpenJDK24U-jdk_s390x_linux_hotspot_24.0.2_12.tar.gz",
+    )
+    http_file(
+        name = "openjdk_linux_riscv64_vanilla",
+        integrity = "sha256-k/ta8TSRtbBaw3gAK4qZdhTcD0IocMENX63N/LzQuUg=",
+        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin24-binaries/releases/download/jdk-24.0.2%2B12/OpenJDK24U-jdk_riscv64_linux_hotspot_24.0.2_12.tar.gz",
     )
 
 def _async_profiler_repos(ctx):
     http_file(
         name = "async_profiler",
         downloaded_file_path = "async-profiler.jar",
-        # At commit f0ceda6356f05b7ad0a6593670c8c113113bf0b3 (2024-12-09).
-        sha256 = "da95a5292fb203966196ecb68a39a8c26ad7276aeef642ec1de872513be1d8b3",
-        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler.jar"],
+        integrity = "sha256-d2VI3O7jJpa197ArxjzAixnb/nTciR6X/j4p4H+qeMw=",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler.jar"],
     )
 
     _ASYNC_PROFILER_BUILD_TEMPLATE = """
@@ -159,9 +160,9 @@ copy_file(
             ext = "so",
             tag = "linux-arm64",
         ),
-        sha256 = "7c6243bb91272a2797acb8cc44acf3e406e0b658a94d90d9391ca375fc961857",
-        strip_prefix = "async-profiler-3.0-f0ceda6-linux-arm64/lib",
-        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-arm64.tar.gz"],
+        integrity = "sha256-0Mucl8OAZytiXAblo+1XjpkPRnTGqui1JJ9YTEyaxQ4=",
+        strip_prefix = "async-profiler-4.1-linux-arm64/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler-4.1-linux-arm64.tar.gz"],
     )
 
     http_archive(
@@ -170,9 +171,9 @@ copy_file(
             ext = "so",
             tag = "linux-x64",
         ),
-        sha256 = "448a3dc681375860eba2264d6cae7a848bd3f07f81f547a9ce58b742a1541d25",
-        strip_prefix = "async-profiler-3.0-f0ceda6-linux-x64/lib",
-        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-x64.tar.gz"],
+        integrity = "sha256-OxOjigBj9pcNmFo3ndrtkbzzfiOaHqRh0J6s9inz3eE=",
+        strip_prefix = "async-profiler-4.1-linux-x64/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler-4.1-linux-x64.tar.gz"],
     )
 
     http_archive(
@@ -181,9 +182,9 @@ copy_file(
             ext = "dylib",
             tag = "macos",
         ),
-        sha256 = "0651004c78d080f67763cddde6e1f58cd0d0c4cb0b57034beef80b450ff5adf2",
-        strip_prefix = "async-profiler-3.0-f0ceda6-macos/lib",
-        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-macos.zip"],
+        integrity = "sha256-xfsFjiEiguk4SiYDGgURn183UMdVsrX7bQimtngD6tA=",
+        strip_prefix = "async-profiler-4.1-macos/lib",
+        urls = ["https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler-4.1-macos.zip"],
     )
 
 # This is an extension (instead of use_repo_rule usages) only to create a

@@ -27,17 +27,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Utility class for functionality related to Blaze commands.
- */
+/** Utility class for functionality related to Blaze commands. */
 public class BlazeCommandUtils {
-  /**
-   * Options classes used as startup options in Blaze core.
-   */
+  /** Options classes used as startup options in Blaze core. */
   private static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
-      ImmutableList.of(
-          BlazeServerStartupOptions.class,
-          HostJvmStartupOptions.class);
+      ImmutableList.of(BlazeServerStartupOptions.class, HostJvmStartupOptions.class);
 
   /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
@@ -52,21 +46,21 @@ public class BlazeCommandUtils {
   private BlazeCommandUtils() {}
 
   public static ImmutableList<Class<? extends OptionsBase>> getStartupOptions(
-      Iterable<BlazeModule> modules) {
+      Iterable<OptionsSupplier> suppliers) {
     Set<Class<? extends OptionsBase>> options = new HashSet<>(DEFAULT_STARTUP_OPTIONS);
-    for (BlazeModule blazeModule : modules) {
-      Iterables.addAll(options, blazeModule.getStartupOptions());
+    for (OptionsSupplier supplier : suppliers) {
+      Iterables.addAll(options, supplier.getStartupOptions());
     }
 
     return ImmutableList.copyOf(options);
   }
 
   public static ImmutableSet<Class<? extends OptionsBase>> getCommonOptions(
-      Iterable<BlazeModule> modules) {
+      Iterable<OptionsSupplier> suppliers) {
     ImmutableSet.Builder<Class<? extends OptionsBase>> builder = ImmutableSet.builder();
     builder.addAll(COMMON_COMMAND_OPTIONS);
-    for (BlazeModule blazeModule : modules) {
-      builder.addAll(blazeModule.getCommonCommandOptions());
+    for (OptionsSupplier supplier : suppliers) {
+      builder.addAll(supplier.getCommonCommandOptions());
     }
     return builder.build();
   }
@@ -79,26 +73,26 @@ public class BlazeCommandUtils {
    */
   public static ImmutableList<Class<? extends OptionsBase>> getOptions(
       Class<? extends BlazeCommand> clazz,
-      Iterable<BlazeModule> modules,
+      Iterable<OptionsSupplier> suppliers,
       ConfiguredRuleClassProvider ruleClassProvider) {
     Command commandAnnotation = clazz.getAnnotation(Command.class);
     if (commandAnnotation == null) {
       throw new IllegalStateException("@Command missing for " + clazz.getName());
     }
 
-    Set<Class<? extends OptionsBase>> options = new HashSet<>(getCommonOptions(modules));
+    Set<Class<? extends OptionsBase>> options = new HashSet<>(getCommonOptions(suppliers));
     Collections.addAll(options, commandAnnotation.options());
 
     if (commandAnnotation.usesConfigurationOptions()) {
       options.addAll(ruleClassProvider.getFragmentRegistry().getOptionsClasses());
     }
 
-    for (BlazeModule blazeModule : modules) {
-      Iterables.addAll(options, blazeModule.getCommandOptions(commandAnnotation));
+    for (OptionsSupplier supplier : suppliers) {
+      Iterables.addAll(options, supplier.getCommandOptions(commandAnnotation.name()));
     }
 
     for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {
-      options.addAll(getOptions(base, modules, ruleClassProvider));
+      options.addAll(getOptions(base, suppliers, ruleClassProvider));
     }
     return ImmutableList.copyOf(options);
   }
@@ -143,9 +137,7 @@ public class BlazeCommandUtils {
       throw new IllegalStateException("Help template for '" + topic + "' omits %{options}!");
     }
 
-    String optionStr;
-      optionStr =
-          parser.describeOptions(productName, helpVerbosity).replace("%{product}", productName);
+    String optionStr = parser.describeOptions(helpVerbosity).replace("%{product}", productName);
 
     return template
             .replace("%{product}", productName)
@@ -167,7 +159,7 @@ public class BlazeCommandUtils {
   public static String getUsage(
       Class<? extends BlazeCommand> commandClass,
       OptionsParser.HelpVerbosity verbosity,
-      Iterable<BlazeModule> blazeModules,
+      Iterable<OptionsSupplier> optionsSuppliers,
       ConfiguredRuleClassProvider ruleClassProvider,
       String productName) {
     Command commandAnnotation = commandClass.getAnnotation(Command.class);
@@ -175,7 +167,7 @@ public class BlazeCommandUtils {
         commandAnnotation.name(),
         commandAnnotation.help(),
         commandClass,
-        getOptions(commandClass, blazeModules, ruleClassProvider),
+        getOptions(commandClass, optionsSuppliers, ruleClassProvider),
         verbosity,
         productName);
   }

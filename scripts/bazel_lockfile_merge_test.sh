@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2024 The Bazel Authors. All rights reserved.
 #
@@ -268,6 +268,116 @@ EOF
 
   do_merge base left right
   diff -u base left || fail "output differs"
+}
+
+function test_merge_facts() {
+  cat > base <<'EOF'
+{
+  "lockFileVersion": 22,
+  "registryFileHashes": {
+    "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
+  },
+  "selectedYankedVersions": {},
+  "moduleExtensions": {}
+}
+EOF
+  cat > left <<'EOF'
+{
+  "lockFileVersion": 22,
+  "registryFileHashes": {
+    "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
+  },
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "json_foo@1.0": {
+        "sha256": "1111",
+        "url": "https://example.org/json_foo/1.0.zip"
+      },
+      "cbor_foo@2.0": {
+        "sha256": "2222",
+        "url": "https://example.org/cbor_foo/2.0.zip"
+      }
+    },
+    "@@rules_bar+//:bar_deps.bzl%bar_deps": {
+      "json_bar@1.0": {
+        "sha256": "3333",
+        "url": "https://example.org/json_bar/1.0.zip"
+      }
+    }
+  }
+}
+EOF
+  cat > right <<'EOF'
+{
+  "lockFileVersion": 22,
+  "registryFileHashes": {
+    "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
+  },
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "json_foo@1.0": {
+        "sha256": "1111",
+        "url": "https://example.org/json_foo/1.0.zip"
+      },
+      "xml_foo@3.0": {
+        "sha256": "4444",
+        "url": "https://example.org/xml_foo/3.0.zip"
+      }
+    },
+    "@@rules_baz+//:baz_deps.bzl%baz_deps": {
+      "json_baz@1.0": {
+        "sha256": "5555",
+        "url": "https://example.org/json_baz/1.0.zip"
+      }
+    }
+  }
+}
+EOF
+  cat > expected <<'EOF'
+{
+  "lockFileVersion": 22,
+  "registryFileHashes": {
+    "https://example.org/modules/foo/1.0/MODULE.bazel": "1234"
+  },
+  "selectedYankedVersions": {},
+  "moduleExtensions": {},
+  "facts": {
+    "@@rules_bar+//:bar_deps.bzl%bar_deps": {
+      "json_bar@1.0": {
+        "sha256": "3333",
+        "url": "https://example.org/json_bar/1.0.zip"
+      }
+    },
+    "@@rules_baz+//:baz_deps.bzl%baz_deps": {
+      "json_baz@1.0": {
+        "sha256": "5555",
+        "url": "https://example.org/json_baz/1.0.zip"
+      }
+    },
+    "@@rules_foo+//:foo_deps.bzl%foo_deps": {
+      "cbor_foo@2.0": {
+        "sha256": "2222",
+        "url": "https://example.org/cbor_foo/2.0.zip"
+      },
+      "json_foo@1.0": {
+        "sha256": "1111",
+        "url": "https://example.org/json_foo/1.0.zip"
+      },
+      "xml_foo@3.0": {
+        "sha256": "4444",
+        "url": "https://example.org/xml_foo/3.0.zip"
+      }
+    }
+  }
+}
+EOF
+
+  do_merge base left right
+  diff -u expected left || fail "output differs"
 }
 
 run_suite "Tests of bash completion of 'blaze' command."

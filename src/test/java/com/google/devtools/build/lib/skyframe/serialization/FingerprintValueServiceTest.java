@@ -48,7 +48,8 @@ public final class FingerprintValueServiceTest {
             newSingleThreadExecutor(),
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(),
-            FingerprintValueService.NONPROD_FINGERPRINTER);
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            /* jsonLogWriter= */ null);
 
     assertThat(service.fingerprintPlaceholder().toBytes().length).isEqualTo(16);
     assertThat(service.fingerprintLength()).isEqualTo(16);
@@ -68,7 +69,8 @@ public final class FingerprintValueServiceTest {
             executor,
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(),
-            FingerprintValueService.NONPROD_FINGERPRINTER);
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            /* jsonLogWriter= */ null);
     assertThat(service.getExecutor()).isSameInstanceAs(executor);
   }
 }

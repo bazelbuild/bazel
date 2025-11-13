@@ -16,10 +16,6 @@ java_library(
         ["*.java"],
         exclude = ["SystemExitDetectingShutdownHook.java"],
     ),
-    deps = [
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//third_party:jsr330_inject",
-    ],
 )
 
 java_library(
@@ -38,7 +34,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//third_party:jsr330_inject",
         "//third_party:junit4",
     ],
 )

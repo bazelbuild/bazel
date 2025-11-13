@@ -70,6 +70,7 @@ _TARGET_CPUS_BY_PLATFORM = {
         "ios_x86_64": True,
         "ios_i386": True,
         "ios_sim_arm64": True,
+        "ios_sim_arm64e": True,
     },
     "ios_device": {
         "ios_armv6": True,
@@ -80,14 +81,17 @@ _TARGET_CPUS_BY_PLATFORM = {
     },
     "visionos_simulator": {
         "visionos_sim_arm64": True,
+        "visionos_sim_arm64e": True,
     },
     "visionos_device": {
         "visionos_arm64": True,
+        "visionos_arm64e": True,
     },
     "watchos_simulator": {
         "watchos_i386": True,
         "watchos_x86_64": True,
         "watchos_arm64": True,
+        "watchos_sim_arm64e": True,
     },
     "watchos_device": {
         "watchos_armv7k": True,
@@ -98,9 +102,11 @@ _TARGET_CPUS_BY_PLATFORM = {
     "tvos_simulator": {
         "tvos_x86_64": True,
         "tvos_sim_arm64": True,
+        "tvos_sim_arm64e": True,
     },
     "tvos_device": {
         "tvos_arm64": True,
+        "tvos_arm64e": True,
     },
     "catalyst": {
         "catalyst_x86_64": True,

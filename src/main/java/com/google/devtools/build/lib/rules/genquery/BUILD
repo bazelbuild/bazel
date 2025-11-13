@@ -21,7 +21,6 @@ java_library(
         "GenQueryRule.java",
     ],
     deps = [
-        ":genquery_configuration",
         ":genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -33,7 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -59,35 +58,17 @@ java_library(
 )
 
 java_library(
-    name = "genquery_configuration",
-    srcs = ["GenQueryConfiguration.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_library(
     name = "genquery_package_providers",
     srcs = [
-        "GenQueryDirectPackageProviderFactory.java",
         "GenQueryPackageProvider.java",
         "GenQueryPackageProviderFactory.java",
-        "GenQueryTtvPackageProviderFactory.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_loading_util",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",

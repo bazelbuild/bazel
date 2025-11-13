@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -36,8 +39,14 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1128,11 +1137,13 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "ERROR /workspace/defs.bzl:3:12: //:+ext+ext: expected value of type 'string' for attribute"
-            + " 'data' of 'data_repo', but got 42 (int)");
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo("error evaluating module extension @@//:defs.bzl%ext");
+        """
+        ERROR /workspace/defs.bzl:3:12: Traceback (most recent call last):
+        \tFile "/workspace/defs.bzl", line 3, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data=42)
+        Error: in call to 'data_repo' repo rule with name 'ext', expected value of type 'string' \
+        for attribute 'data', but got 42 (int)\
+        """);
   }
 
   @Test
@@ -1185,9 +1196,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
-        Error in repository_rule: no repository visible as '@not_other_repo' in \
-        the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1228,9 +1239,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         \tFile "/usr/local/google/_blaze_jrluser/FAKEMD5/external/ext_module+/defs.bzl", \
         line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
-        Error in repository_rule: no repository visible as '@not_other_repo' in the extension \
-        '@@ext_module+//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in \
-        attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@ext_module+//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1269,9 +1280,11 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             """
-            in tag at /workspace/MODULE.bazel:2:10: no repository visible as '@other_repo' to the \
-            root module, but referenced by label '@other_repo//:foo' in attribute 'label' of tag \
-            'label'.\
+            Traceback (most recent call last):
+            \tFile "/workspace/MODULE.bazel", line 2, column 10, in <toplevel>
+            \t\text.label(label = '@other_repo//:foo')
+            Error: in 'label' tag, no repository visible as '@other_repo' \
+            to the root module, but referenced by label '@other_repo//:foo' in attribute 'label'\
             """);
   }
 
@@ -1302,9 +1315,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data=['@not_other_repo//:foo'])
-        Error in repository_rule: no repository visible as '@not_other_repo' \
-        in the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1335,9 +1348,42 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data={'@not_other_repo//:foo':'bar'})
-        Error in repository_rule: no repository visible as '@not_other_repo' \
-        in the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
+        """);
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelListDictAttr() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "ext = use_extension('//:defs.bzl','ext')", "use_repo(ext,'ext')");
+    scratch.file(
+        "defs.bzl",
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_list_dict()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data={'bar':['@not_other_repo//:foo']})",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext//:data.bzl', ext_data='data')", "data=ext_data");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    assertContainsEvent(
+        """
+        ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
+        \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data={'bar':['@not_other_repo//:foo']})
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1490,7 +1536,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertContainsEvent(
         """
         ERROR <no location>: Circular definition of repositories generated by module extensions\
-         and/or .bzl files:
+         or files in external repositories:
         .-> @@+my_ext+candy1
         |   module extension @@//:defs.bzl%my_ext
         |   @@+my_ext2+candy2
@@ -1537,7 +1583,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertContainsEvent(
         """
         ERROR <no location>: Circular definition of repositories generated by module extensions\
-         and/or .bzl files:
+         or files in external repositories:
         .-> @@+my_ext+candy1
         |   module extension @@//:defs.bzl%my_ext
         |   @@+my_ext2+candy2
@@ -1577,7 +1623,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertContainsEvent(
         """
         ERROR <no location>: Circular definition of repositories generated by module extensions\
-         and/or .bzl files:
+         or files in external repositories:
         .-> @@+my_ext+candy1
         |   module extension @@//:defs.bzl%my_ext
         |   //:defs.bzl
@@ -2524,6 +2570,124 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
+  @Test
+  public void facts_supportedTypes() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "one": "string",
+                    "two": 42,
+                    "three": 3.14,
+                    "four": True,
+                    "five": None,
+                    "six": [1, 2, 3],
+                    "seven": {
+                        "c": "v1",
+                        "b": "v2",
+                        "a": "v3",
+                    },
+                    "eight": (4, 5, "foo"),
+                }
+            )\
+            """);
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    var facts = Iterables.getOnlyElement(result.values()).facts().value();
+    assertThat((Map<?, ?>) facts)
+        .isEqualTo(
+            Dict.immutableCopyOf(
+                ImmutableMap.of(
+                    "one",
+                    "string",
+                    "two",
+                    StarlarkInt.of(42),
+                    "three",
+                    StarlarkFloat.of(3.14),
+                    "four",
+                    true,
+                    "five",
+                    Starlark.NONE,
+                    "six",
+                    StarlarkList.immutableOf(
+                        StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)),
+                    "seven",
+                    Dict.immutableCopyOf(ImmutableMap.of("a", "v3", "b", "v2", "c", "v1")),
+                    "eight",
+                    StarlarkList.immutableOf(StarlarkInt.of(4), StarlarkInt.of(5), "foo"))));
+    // Validate that keys in a Dict are sorted.
+    assertThat(
+            ((Map<?, ?>) ((Map<?, ?>) facts).get("seven"))
+                .keySet().stream().collect(toImmutableList()))
+        .containsExactly("a", "b", "c")
+        .inOrder();
+  }
+
+  @Test
+  public void facts_unsupportedType() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "unsupported": set([1, 2, 3]),
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("'set([1, 2, 3])' (set) is not supported in facts");
+  }
+
+  @Test
+  public void facts_nonStringKeys() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "top_level": {
+                        1: "one",
+                    },
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Facts keys must be strings, got '1: \"one\"' (int)");
+  }
+
+  @Test
+  public void facts_nestedTooDeeply() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "nested": {
+                        "too": {
+                            "deep": {
+                                "to": {
+                                    "be": {
+                                        "considered": {
+                                            "valid": [1, 2, 3]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Facts cannot be nested more than 7 levels deep");
+  }
+
   private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement) throws Exception {
     return evaluateSimpleModuleExtension(returnStatement, /* devDependency= */ false);
@@ -2542,7 +2706,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "def _ext_impl(ctx):",
         "  repo(name = 'dep1')",
         "  repo(name = 'dep2')",
-        "  " + returnStatement,
+        returnStatement.indent(2),
         "ext = module_extension(implementation=_ext_impl)");
     scratch.overwriteFile("BUILD");
     invalidatePackages(false);
@@ -2847,16 +3011,12 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         """
-        ERROR /workspace/MODULE.bazel:3:10: //:+data_repo+data: expected value of type 'string' \
-        for attribute 'data' of 'data_repo', but got 5 (int)\
+        ERROR /workspace/MODULE.bazel:3:10: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 3, column 10, in <toplevel>
+        \t\tdata_repo(name='data', data=5)
+        Error: in call to 'data_repo' repo rule with name 'data', expected value of type 'string' \
+        for attribute 'data', but got 5 (int)\
         """);
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo(
-            """
-            error creating repo data requested at /workspace/MODULE.bazel:3:10: failed to \
-            instantiate 'data_repo' from this module extension\
-            """);
   }
 
   @Test

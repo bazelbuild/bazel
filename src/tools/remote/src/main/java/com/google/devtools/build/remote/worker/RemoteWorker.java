@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
@@ -26,26 +27,24 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerInitializer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -112,9 +111,12 @@ public final class RemoteWorker {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
-      throw new Error("The specified hash function '" + value + "' is not supported.", e);
+      throw new IllegalStateException(
+          "The specified hash function '" + value + "' is not supported.", e);
     }
-    return new JavaIoFileSystem(hashFunction);
+    return OS.getCurrent() == OS.WINDOWS
+        ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
+        : new UnixFileSystem(hashFunction, /* hashAttributeName= */ "");
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
@@ -144,6 +146,19 @@ public final class RemoteWorker {
       Optional<String> actualToken = getTokenFromMetadata(headers);
       if (!expectedToken.equals(actualToken.get())) {
         call.close(Status.PERMISSION_DENIED, new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
+  }
+
+  private static class UnavailableInterceptor implements ServerInterceptor {
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      if (!call.getMethodDescriptor().getServiceName().contains("Capabilities")) {
+        call.close(Status.UNAVAILABLE, new Metadata());
         return new ServerCall.Listener<ReqT>() {};
       }
       return Contexts.interceptCall(Context.current(), call, headers, next);
@@ -193,6 +208,9 @@ public final class RemoteWorker {
 
   public Server startServer() throws IOException {
     List<ServerInterceptor> interceptors = new ArrayList<>();
+    if (workerOptions.unavailable) {
+      interceptors.add(new UnavailableInterceptor());
+    }
     interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
     if (workerOptions.expectedAuthorizationToken != null) {
       interceptors.add(new AuthorizationTokenInterceptor(workerOptions.expectedAuthorizationToken));
@@ -225,10 +243,12 @@ public final class RemoteWorker {
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
     SslContextBuilder sslContextBuilder =
         SslContextBuilder.forServer(
-            new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
+            new File(internalToPlatform(workerOptions.tlsCertificate.getPathString())),
+            new File(internalToPlatform(workerOptions.tlsPrivateKey.getPathString())));
     if (workerOptions.tlsCaCertificate != null) {
       sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-      sslContextBuilder.trustManager(new File(workerOptions.tlsCaCertificate));
+      sslContextBuilder.trustManager(
+          new File(internalToPlatform(workerOptions.tlsCaCertificate.getPathString())));
     }
     return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
   }
@@ -262,11 +282,8 @@ public final class RemoteWorker {
   @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(RemoteOptions.class, RemoteWorkerOptions.class)
-            .build();
+        OptionsParser.builder().optionsClasses(RemoteWorkerOptions.class).build();
     parser.parseAndExitUponError(args);
-    RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
@@ -294,18 +311,17 @@ public final class RemoteWorker {
       sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
-    if (remoteWorkerOptions.casPath == null
-        || (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
-            || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
-      logger.atSevere().log("--cas_path must be specified and refer to an exiting absolute path");
+    if (remoteWorkerOptions.casPath == null || !remoteWorkerOptions.casPath.isAbsolute()) {
+      logger.atSevere().log("--cas_path must be set to an absolute path");
       System.exit(1);
       return;
     }
 
-    Path casPath =
-        remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
+    Path casPath = fs.getPath(remoteWorkerOptions.casPath);
+    casPath.createDirectoryAndParents();
+
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
-    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
+    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(casPath, digestUtil, remoteWorkerOptions);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);
@@ -354,8 +370,9 @@ public final class RemoteWorker {
       System.exit(1);
     }
 
-    if (remoteWorkerOptions.workPath == null) {
-      logger.atSevere().log("Sandboxing requested, but --work_path was not specified");
+    if (remoteWorkerOptions.workPath == null || !remoteWorkerOptions.workPath.isAbsolute()) {
+      logger.atSevere().log(
+          "Sandboxing requested, but --work_path was not set to an absolute path");
       System.exit(1);
     }
 
@@ -371,7 +388,7 @@ public final class RemoteWorker {
     try {
       sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
       try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
-        ByteStreams.copy(sandbox, fos);
+        sandbox.transferTo(fos);
       }
       sandboxPath.setExecutable(true);
     } catch (IOException e) {
@@ -384,10 +401,10 @@ public final class RemoteWorker {
     Command cmd =
         new Command(
             LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath)
-                .buildForCommand(ImmutableList.of("true"))
-                .toArray(new String[0]),
+                .buildForCommand(ImmutableList.of("true")),
             ImmutableMap.of(),
-            sandboxPath.getParentDirectory().getPathFile());
+            sandboxPath.getParentDirectory().getPathFile(),
+            System.getenv());
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {

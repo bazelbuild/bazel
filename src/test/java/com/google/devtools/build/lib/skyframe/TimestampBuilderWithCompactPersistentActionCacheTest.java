@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,6 +43,7 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
   private final StoredEventHandler storedEventHandler = new StoredEventHandler();
   private Path cacheRoot;
   private Path corruptedCacheRoot;
+  private Path tmpDir;
   private CompactPersistentActionCache cache;
 
   @Before
@@ -51,12 +52,13 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
 
     cacheRoot = scratch.dir("cacheRoot");
     corruptedCacheRoot = scratch.dir("corruptedCacheRoot");
+    tmpDir = scratch.dir("cacheTmp");
     cache = createCache();
   }
 
   private CompactPersistentActionCache createCache() throws IOException {
     return CompactPersistentActionCache.create(
-        cacheRoot, corruptedCacheRoot, clock, storedEventHandler);
+        cacheRoot, corruptedCacheRoot, tmpDir, clock, storedEventHandler);
   }
 
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
@@ -379,7 +381,7 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
     // Remove filename index file.
     assertThat(
             Iterables.getOnlyElement(
-                    new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+                    new UnixGlob.Builder(cacheRoot, FilesystemOps.DIRECT)
                         .addPattern("filename_index*")
                         .globInterruptible())
                 .delete())
@@ -426,7 +428,7 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
     // Get filename index path and store a copy of it.
     Path indexPath =
         Iterables.getOnlyElement(
-            new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+            new UnixGlob.Builder(cacheRoot, FilesystemOps.DIRECT)
                 .addPattern("filename_index*")
                 .globInterruptible());
     Path indexCopy = scratch.resolve("index_copy");

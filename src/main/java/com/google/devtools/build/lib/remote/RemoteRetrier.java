@@ -18,16 +18,14 @@ import static java.lang.Math.max;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -44,86 +42,73 @@ public class RemoteRetrier extends Retrier {
     return null;
   }
 
-  public static final Predicate<? super Exception> RETRIABLE_GRPC_ERRORS =
+  /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */
+  public static final ResultClassifier EXPERIMENTAL_GRPC_RESULT_CLASSIFIER =
       e -> {
         Status s = fromException(e);
         if (s == null) {
           // It's not a gRPC error.
-          return false;
+          return Result.PERMANENT_FAILURE;
         }
         return switch (s.getCode()) {
-          case CANCELLED -> !Thread.currentThread().isInterrupted();
+          case CANCELLED ->
+              !Thread.currentThread().isInterrupted()
+                  ? Result.TRANSIENT_FAILURE
+                  : Result.PERMANENT_FAILURE;
+          case NOT_FOUND, ALREADY_EXISTS -> Result.SUCCESS;
           case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
-              true;
-          default -> false;
+              Result.TRANSIENT_FAILURE;
+          default -> Result.PERMANENT_FAILURE;
         };
       };
 
-  public static final Predicate<? super Exception> RETRIABLE_GRPC_EXEC_ERRORS =
+  /** A ResultClassifier suitable to be used by GrpcRemoteExecutor. */
+  public static final ResultClassifier GRPC_RESULT_CLASSIFIER =
       e -> {
-        if (RETRIABLE_GRPC_ERRORS.test(e)) {
-          return true;
-        }
-        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND);
+        // A WaitExecution call in GrpcRemoteExecutor may fail with a NOT_FOUND error.
+        // That means the Operation was lost on the server, and we will retry to Execute.
+        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
+            ? Result.TRANSIENT_FAILURE
+            : EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(e);
       };
 
   public RemoteRetrier(
       RemoteOptions options,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
         options.remoteMaxRetryAttempts > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
-        shouldRetry,
+        resultClassifier,
         retryScheduler,
         circuitBreaker);
   }
 
   public RemoteRetrier(
       Supplier<Backoff> backoff,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    super(backoff, shouldRetry, retryScheduler, circuitBreaker);
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker);
   }
 
   @VisibleForTesting
   public RemoteRetrier(
       Supplier<Backoff> backoff,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
-    super(backoff, shouldRetry, retryScheduler, circuitBreaker, sleeper);
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker, sleeper);
   }
 
-  /**
-   * Execute a callable with retries. {@link IOException} and {@link InterruptedException} are
-   * propagated directly to the caller. All other exceptions are wrapped in {@link
-   * RuntimeException}.
-   */
+  /** Execute a callable with retries. */
   @Override
-  public <T> T execute(Callable<T> call) throws IOException, InterruptedException {
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
+      throws E, IOException, InterruptedException {
     return execute(call, newBackoff());
-  }
-
-  /**
-   * Execute a callable with retries and given {@link Backoff}. {@link IOException} and {@link
-   * InterruptedException} are propagated directly to the caller. All other exceptions are wrapped
-   * in {@link RuntimeException}.
-   */
-  @Override
-  public <T> T execute(Callable<T> call, Backoff backoff) throws IOException, InterruptedException {
-    try {
-      return super.execute(call, backoff);
-    } catch (Exception e) {
-      Throwables.throwIfInstanceOf(e, IOException.class);
-      Throwables.throwIfInstanceOf(e, InterruptedException.class);
-      Throwables.throwIfUnchecked(e);
-      throw new RuntimeException(e);
-    }
   }
 
   /** Backoff strategy that backs off exponentially. */
@@ -147,8 +132,8 @@ public class RemoteRetrier extends Retrier {
      *     jitter, and 1 providing a duration that is 0-200% of the non-jittered duration.
      * @param maxAttempts Maximal times to attempt a retry 0 means no retries.
      */
-    ExponentialBackoff(Duration initial, Duration max, double multiplier, double jitter,
-        int maxAttempts) {
+    ExponentialBackoff(
+        Duration initial, Duration max, double multiplier, double jitter, int maxAttempts) {
       Preconditions.checkArgument(multiplier > 1, "multipler must be > 1");
       Preconditions.checkArgument(jitter >= 0 && jitter <= 1, "jitter must be in the range (0, 1)");
       Preconditions.checkArgument(maxAttempts >= 0, "maxAttempts must be >= 0");

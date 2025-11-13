@@ -397,6 +397,8 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "genrule3/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         genrule(
             name = "hello_world",
             srcs = ["ignore_me.txt"],

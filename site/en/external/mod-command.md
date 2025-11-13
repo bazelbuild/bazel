@@ -28,11 +28,12 @@ The available subcommands and their respective required arguments are:
 *   `deps <arg>...`: Displays the resolved direct dependencies of each of the
     specified modules, similarly to `graph`.
 
-*   `all_paths <arg>...`: Displays all existing paths from the root to the
-    specified `<arg>...`. If one or more modules are specified in `--from`,
-    these modules are shown directly under the root, and the graph contains
-    any existing path from the `--from` modules to the argument modules (see
-    [example](#mod-example4)).
+*   `all_paths <arg>...`: Displays all dependency paths from the --from modules
+    to the target modules. To simplify the output, only the first shortest path
+    is shown when multiple paths share the same suffix. For example, A -> B -> X
+    would be shown, but the longer A -> C -> B -> X would be omitted. In other
+    words, for every module Y that directly depends on the target module X, the
+    output contains only the shortest path going through Y to reach X.
 
 *   `path <arg>...`: Has the same semantics as `all_paths`, but only display a
     single path from one of the `--from` modules to one of the argument modules.
@@ -46,7 +47,9 @@ The available subcommands and their respective required arguments are:
     4) the argument modules themselves (see [example](#mod-example5)).
 
 *   `show_repo <arg>...`: Displays the definition of the specified repos (see
-    [example](#mod-example6)).
+    [example](#mod-example6)). Use `--all_repos` to show definitions of all
+    repos in the entire dependency graph, or `--all_visible_repos` to show
+    definitions of all repos visible from the `--base_module`.
 
 *   `show_extension <extension>...`: Displays information about each of the
     specified extensions: a list of the generated repos along with the modules
@@ -383,7 +386,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
             └───rules_cc@0.0.1 ...
     ```
 
-6.  <span id="mod-example6"></span>See the underlying rule of some your modules'
+6.  <span id="mod-example6"></span>See the underlying rule of your modules'
     repos.
 
     ```sh
@@ -392,7 +395,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
 
     ```none
     ## rules_cc@0.0.1:
-    # <builtin>
+    load("@@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
     http_archive(
       name = "rules_cc+",
       urls = ["https://bcr.bazel.build/test-mirror/github.com/bazelbuild/rules_cc/releases/download/0.0.1/rules_cc-0.0.1.tar.gz", "https://github.com/bazelbuild/rules_cc/releases/download/0.0.1/rules_cc-0.0.1.tar.gz"],
@@ -401,11 +404,9 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
       remote_patches = {"https://bcr.bazel.build/modules/rules_cc/0.0.1/patches/add_module_extension.patch": "sha256-g3+zmGs0YT2HKOVevZpN0Jet89Ylw90Cp9XsIAY8QqU="},
       remote_patch_strip = 1,
     )
-    # Rule http_archive defined at (most recent call last):
-    #   /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/bazel_tools/tools/build_defs/repo/http.bzl:355:31 in <toplevel>
 
     ## stardoc:
-    # <builtin>
+    load("@@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
     http_archive(
       name = "stardoc+",
       urls = ["https://bcr.bazel.build/test-mirror/github.com/bazelbuild/stardoc/releases/download/0.5.0/stardoc-0.5.0.tar.gz", "https://github.com/bazelbuild/stardoc/releases/download/0.5.0/stardoc-0.5.0.tar.gz"],
@@ -414,15 +415,34 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
       remote_patches = {},
       remote_patch_strip = 0,
     )
-    # Rule http_archive defined at (most recent call last):
-    #   /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/bazel_tools/tools/build_defs/repo/http.bzl:355:31 in <toplevel>
+    ```
+
+    `bazel mod show_repo` also works with repos imported by `use_repo` and repos
+    created with `use_repo_rule`. If `show_repo` is invoked with an apparent
+    repository name or `--all_visible_repos`, then the apparent repository name
+    is shown on a line prefixed with `##`.
+
+    ```sh
+    bazel mod show_repo @jq_linux_arm64
+    bazel mod show_repo --all_visible_repos
+    ```
+
+    ```none
+    ## @jq_linux_arm64:
+    load("@@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+    http_file(
+        name = "+http_file+jq_linux_arm64",
+        executable = True,
+        integrity = "sha256-TdLYoGYd8LIvG7mh+YMPBrbzuPfZEhGh7118TwaotKU=",
+        urls = ["https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64"],
+    )
     ```
 
 7.  <span id="mod-example7"></span>See what module extensions are used in your
     dependency graph.
 
     ```sh
-    bazel mod graph --extension_info=usages --extension_filter=all
+    bazel mod graph --extension_info=usages
     ```
 
     ```none

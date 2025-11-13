@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -46,10 +47,20 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
   public void testPermissions() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
-    for (int mask = 0; mask <= 0777; mask++) {
-      file.chmod(mask);
-      assertThat(file.stat().getPermissions()).isEqualTo(mask);
+    for (int bits = 0; bits <= 0777; bits++) {
+      String msg = "for permissions 0%s".formatted(Integer.toString(bits, 8));
+      file.chmod(bits);
+      assertWithMessage(msg).that(file.stat().getPermissions()).isEqualTo(bits);
+      assertWithMessage(msg).that(file.isReadable()).isEqualTo((bits & 0400) != 0);
+      assertWithMessage(msg).that(file.isWritable()).isEqualTo((bits & 0200) != 0);
+      assertWithMessage(msg).that(file.isExecutable()).isEqualTo((bits & 0100) != 0);
     }
+  }
+
+  @Test
+  public void testPermissionsError() throws Exception {
+    Path file = absolutize("/");
+    assertThrows(IOException.class, () -> file.chmod(0777));
   }
 
   @Test

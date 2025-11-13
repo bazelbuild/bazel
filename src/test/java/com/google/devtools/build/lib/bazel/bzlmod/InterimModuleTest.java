@@ -28,13 +28,14 @@ import org.junit.runners.JUnit4;
 public class InterimModuleTest {
 
   @Test
-  public void withDepSpecsTransformed() throws Exception {
+  public void withDepsTransformed() throws Exception {
     assertThat(
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux", "3.0"))
                 .build()
-                .withDepSpecsTransformed(
+                .withDepsTransformed(
                     depSpec ->
                         DepSpec.fromModuleKey(
                             createModuleKey(
@@ -46,6 +47,7 @@ public class InterimModuleTest {
                 .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
                 .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux_new", "3.0.1"))
                 .build());
   }
 }

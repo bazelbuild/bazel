@@ -96,7 +96,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
           .put("bazel_tools", RepositoryName.create("bazel_tools"))
           .put("platforms", RepositoryName.create("platforms"));
     }
-    return RepositoryMappingValue.createForBzlmodRepo(
+    return RepositoryMappingValue.create(
         RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo),
         associatedModuleName,
         Version.parse(associatedModuleVersion));
@@ -333,8 +333,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Test
   public void builtinsRepo() throws Exception {
     SkyKey builtinsKey = RepositoryMappingValue.key(RepositoryName.create("_builtins"));
-    SkyKey toolsKey =
-        RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);
+    SkyKey toolsKey = RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository());
     EvaluationResult<RepositoryMappingValue> builtinsResult = eval(builtinsKey);
     assertThat(builtinsResult.hasError()).isFalse();
     RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).repositoryMapping();

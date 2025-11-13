@@ -245,6 +245,13 @@ public class RuleDocumentationAttribute
     return location;
   }
 
+  /** Returns the attribute's default value, or null if none set. */
+  @Nullable
+  public String getDefaultValue() {
+    // Strings are stored as "foo". Remove the surrounding quotes.
+    return defaultValue == null ? null : defaultValue.substring(1, defaultValue.length() - 1);
+  }
+
   /**
    * Returns whether this attribute is marked as deprecated.
    */
@@ -408,10 +415,10 @@ public class RuleDocumentationAttribute
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof RuleDocumentationAttribute)) {
+    if (!(obj instanceof RuleDocumentationAttribute ruleDocumentationAttribute)) {
       return false;
     }
-    return attributeName.equals(((RuleDocumentationAttribute) obj).attributeName);
+    return attributeName.equals(ruleDocumentationAttribute.attributeName);
   }
 
   @Override

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -45,15 +45,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### TESTS #############################################################
@@ -61,7 +52,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 function test_workspace_status_with_stderr() {
   local ok="$TEST_TMPDIR/ok.sh"
   cat > "$ok" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo "This is stderr" >&2
 exit 0
 EOF

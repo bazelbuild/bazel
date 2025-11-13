@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -44,8 +45,8 @@ import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Constructor;
-import java.util.function.Supplier;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -106,6 +107,7 @@ public final class SerializationRegistrySetupHelpers {
         .addReferenceConstant(StructProvider.STRUCT)
         .addReferenceConstant(Starlark.NONE)
         .addReferenceConstant(Location.BUILTIN)
+        .addReferenceConstant(SymbolGenerator.CONSTANT_SYMBOL)
         .addReferenceConstants(
             ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedBuildBzlEnv()).values());
 
@@ -127,7 +129,7 @@ public final class SerializationRegistrySetupHelpers {
         .addReferenceConstants(
             ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedBuildBzlNativeBindings()).values())
         .addReferenceConstants(
-            ImmutableSortedMap.copyOf(starlarkEnv.getWorkspaceBzlNativeBindings()).values());
+            ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedModuleBzlNativeBindings()).values());
 
     return builder;
   }
@@ -157,7 +159,8 @@ public final class SerializationRegistrySetupHelpers {
             FeatureConfiguration.class,
             RunfilesArtifactValue.class,
             AliasConfiguredTarget.class,
-            BuildConfigurationValue.class);
+            BuildConfigurationValue.class,
+            InlineFileArtifactValue.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
@@ -199,19 +202,21 @@ public final class SerializationRegistrySetupHelpers {
     }
   }
 
-  /** Initializes an {@link ObjectCodecRegistry} for analysis serialization. */
-  public static Supplier<ObjectCodecRegistry> createAnalysisCodecRegistrySupplier(
+  /**
+   * Initializes an {@link ObjectCodecRegistry.Builder} for analysis serialization.
+   *
+   * <p>This may be an expensive operation because it can trigger codec scanning.
+   */
+  public static ObjectCodecRegistry.Builder initializeAnalysisCodecRegistryBuilder(
       ConfiguredRuleClassProvider ruleClassProvider,
       ImmutableList<Object> additionalReferenceConstants) {
-    return () -> {
-      ObjectCodecRegistry.Builder builder =
-          AutoRegistry.get()
-              .getBuilder()
-              .addReferenceConstants(additionalReferenceConstants)
-              .computeChecksum(false);
-      builder = addStarlarkFunctionality(builder, ruleClassProvider);
-      analysisCachingCodecs().forEach(builder::add);
-      return builder.build();
-    };
+    ObjectCodecRegistry.Builder builder =
+        AutoRegistry.get()
+            .getBuilder()
+            .addReferenceConstants(additionalReferenceConstants)
+            .computeChecksum(false);
+    builder = addStarlarkFunctionality(builder, ruleClassProvider);
+    analysisCachingCodecs().forEach(builder::add);
+    return builder;
   }
 }

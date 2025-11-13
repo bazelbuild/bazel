@@ -90,6 +90,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl;
+import com.google.devtools.build.lib.profiler.TraceProfilerService;
+import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -100,6 +104,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
@@ -141,6 +146,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.runfiles.Runfiles;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -154,6 +160,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -218,6 +225,7 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+  private static final TraceProfilerService profilerService = new TraceProfilerServiceImpl();
 
   @Nullable private UncaughtExceptionHandler oldExceptionHandler;
 
@@ -237,6 +245,7 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
+    Profiler.forceSetInstanceForTestingOnly(profilerService);
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
     FileSystem nativeFileSystem = createFileSystem();
@@ -254,7 +263,7 @@ public abstract class BuildIntegrationTestCase {
             /* installBase= */ outputBase,
             /* outputBase= */ outputBase,
             /* outputUserRoot= */ outputBase,
-            /* execRootBase= */ getExecRootBase(),
+            /* execRootBase= */ outputBase.getRelative(ServerDirectories.EXECROOT),
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
@@ -330,10 +339,6 @@ public abstract class BuildIntegrationTestCase {
   @Nullable
   protected Root getVirtualSourceRoot() {
     return null;
-  }
-
-  protected Path getExecRootBase() {
-    return outputBase.getRelative(ServerDirectories.EXECROOT);
   }
 
   protected void createRuntimeWrapper() throws Exception {
@@ -618,7 +623,9 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(new CredentialModule());
+            .addBlazeModule(new CredentialModule())
+            .addBlazeService(new SystemNetworkStatsServiceImpl())
+            .addBlazeService(profilerService);
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())
@@ -789,7 +796,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Gets all the already computed configured targets. */
-  protected Iterable<ConfiguredTarget> getAllConfiguredTargets() {
+  protected ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
     return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
   }
 
@@ -1012,7 +1019,7 @@ public abstract class BuildIntegrationTestCase {
       boolean verboseFailures)
       throws ExecException, InterruptedException {
     Command command =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs(argv)
             .setEnv(environment)
             .setWorkingDir(workingDirectory)
@@ -1038,6 +1045,15 @@ public abstract class BuildIntegrationTestCase {
 
   protected void assertContents(String expectedContents, String target) throws Exception {
     assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContentsContainsAtLeast(String expectedContents, String target)
+      throws Exception {
+    String actualContents =
+        new String(
+            FileSystemUtils.readContentAsLatin1(
+                Iterables.getOnlyElement(getArtifacts(target)).getPath()));
+    assertThat(actualContents).contains(expectedContents);
   }
 
   protected void assertContents(String expectedContents, Path path) throws Exception {
@@ -1303,7 +1319,9 @@ public abstract class BuildIntegrationTestCase {
           new QueryCommand(),
           new CqueryCommand(),
           new InfoCommand(),
-          new TestCommand());
+          new TestCommand(),
+          new CoverageCommand(),
+          new CleanCommand());
     }
   }
 
@@ -1340,5 +1358,28 @@ public abstract class BuildIntegrationTestCase {
 
   protected Set<SkyKey> getAllKeysInGraph() {
     return getSkyframeExecutor().getEvaluator().getValues().keySet();
+  }
+
+  /**
+   * Copies the protolark-provided {@code project} scl definition into the given scratch file path.
+   *
+   * <p>{@code PROJECT.scl} files load this file to define their configuration. This method loads
+   * the actual (non-mocked) file, so tests can effectively match production code.
+   */
+  public void writeProjectSclDefinition(String dest, boolean alsoWriteBuildFile)
+      throws IOException {
+    write(
+        dest,
+        Files.readString(
+            java.nio.file.Path.of(
+                Runfiles.preload()
+                    .withSourceRepository("")
+                    .rlocation(
+                        TestConstants.WORKSPACE_NAME
+                            + "/"
+                            + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
+    if (alsoWriteBuildFile) {
+      write(dest.substring(0, dest.lastIndexOf('/') + 1) + "BUILD");
+    }
   }
 }

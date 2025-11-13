@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -57,6 +56,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -201,6 +201,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     writeFile(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         implicit_deps_rule(
             name = "my_rule",
             explicit = ":explicit",
@@ -222,7 +223,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     // Check for implicit dependencies (late bound attributes, implicit attributes, platforms)
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(
-            evalToListOfStrings(explicits + " + " + implicits + " + " + PLATFORM_LABEL));
+            unique(evalToListOfStrings(explicits + " + " + implicits + " + " + PLATFORM_LABEL)));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
@@ -235,7 +236,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testNoImplicitDepsOnOutputFile() throws Exception {
     writeFile(
         "test/BUILD",
-        """
+"""
 load(":defs.bzl", "my_dep", "my_rule")
 my_rule(
     name = "buildme",
@@ -248,7 +249,7 @@ my_dep(name = "implicit_dep")
 
     writeFile(
         "test/defs.bzl",
-        """
+"""
 my_dep = rule(
     implementation = lambda ctx: [],
     attrs = {},
@@ -277,7 +278,7 @@ my_rule = rule(
   public void testImplicitDepsOnOutputFile() throws Exception {
     writeFile(
         "test/BUILD",
-        """
+"""
 load(":defs.bzl", "my_dep", "my_rule")
 my_rule(
     name = "buildme",
@@ -290,7 +291,7 @@ my_dep(name = "implicit_dep")
 
     writeFile(
         "test/defs.bzl",
-        """
+"""
 my_dep = rule(
     implementation = lambda ctx: [],
     attrs = {},
@@ -364,7 +365,8 @@ my_rule = rule(
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
+        .containsAtLeastElementsIn(
+            unique(evalToListOfStrings(explicits + "+" + implicits + "+" + PLATFORM_LABEL)));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
@@ -443,6 +445,8 @@ my_rule = rule(
     writeFile(
         "test/toolchain/toolchain_config.bzl",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(
                 ctx = ctx,
@@ -464,6 +468,7 @@ my_rule = rule(
         """);
     writeFile(
         "test/toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain_config(name = 'some-cc-toolchain-config')",
         "filegroup(name = 'nothing', srcs = [])",
@@ -486,6 +491,7 @@ my_rule = rule(
     writeFile(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "my_rule",
             srcs = ["whatever.cpp"],
@@ -499,7 +505,8 @@ my_rule = rule(
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
+        .containsAtLeastElementsIn(
+            unique(evalToListOfStrings(explicits + "+" + implicits + "+" + PLATFORM_LABEL)));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
@@ -531,7 +538,7 @@ my_rule = rule(
     // Check for platform dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
         .containsAtLeastElementsIn(
-            evalToListOfStrings("//test:execution_platform + //test:host_platform"));
+            unique(evalToListOfStrings("//test:execution_platform + //test:host_platform")));
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:my_rule)")).containsExactly("//test:my_rule");
   }
@@ -642,6 +649,7 @@ my_rule = rule(
     writeFile(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "foo")
 
         computed_default_rule(name = "my_rule")
@@ -862,6 +870,138 @@ my_rule = rule(
 
     // `//test:dep` has two configurations.
     assertThat(eval("//test:dep")).hasSize(2);
+  }
+
+  @Test
+  public void testNonIdempotentRuleTransition() throws Exception {
+    writeFile(
+        "test/defs.bzl",
+        """
+        StringSettingInfo = provider(fields = ["value"])
+
+        def _string_impl(ctx):
+            return StringSettingInfo(value = ctx.build_setting_value)
+
+        string_setting = rule(
+            implementation = _string_impl,
+            build_setting = config.string(),
+        )
+
+        def _transition_impl(settings, attr):
+            return {
+                k: v + "-transitioned"
+                for k, v in settings.items()
+            }
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:string_setting"],
+            outputs = ["//test:string_setting"],
+        )
+
+        def _custom_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name)
+            ctx.actions.write(out, ctx.attr._string_setting[StringSettingInfo].value)
+            return [DefaultInfo(files = depset([out]))]
+
+        custom_rule = rule(
+            cfg = _transition,
+            implementation = _custom_rule_impl,
+            attrs = {
+                "_string_setting": attr.label(default = "//test:string_setting"),
+            },
+         )
+        """);
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "custom_rule", "string_setting")
+
+        string_setting(
+            name = "string_setting",
+            build_setting_default = "default",
+        )
+
+        custom_rule(name = "custom_rule_name")
+        """);
+
+    ImmutableList<String> output = evalToListOfStrings("//test:custom_rule_name");
+    assertThat(output).hasSize(1);
+  }
+
+  @Test
+  public void testNonIdempotentRuleTransition_transitionedConfigIsAlsoToplevel() throws Exception {
+    writeFile(
+        "test/defs.bzl",
+        """
+        StringSettingInfo = provider(fields = ["value"])
+
+        def _string_impl(ctx):
+            return StringSettingInfo(value = ctx.build_setting_value)
+
+        string_setting = rule(
+            implementation = _string_impl,
+            build_setting = config.string(),
+        )
+
+        def _transition_impl(settings, attr):
+            return {
+                k: v + "-transitioned"
+                for k, v in settings.items()
+            }
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:string_setting"],
+            outputs = ["//test:string_setting"],
+        )
+
+        def _custom_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name)
+            ctx.actions.write(out, ctx.attr._string_setting[StringSettingInfo].value)
+            return [DefaultInfo(files = depset([out]))]
+
+        custom_rule = rule(
+            cfg = _transition,
+            implementation = _custom_rule_impl,
+            attrs = {
+                "_string_setting": attr.label(default = "//test:string_setting"),
+            },
+         )
+
+        def _wrapper_impl(_):
+            pass
+
+        wrapper = rule(
+            implementation = _wrapper_impl,
+            attrs = {
+                "dep": attr.label(
+                    cfg = _transition,
+                ),
+            },
+        )
+        """);
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "custom_rule", "string_setting", "wrapper")
+
+        string_setting(
+            name = "string_setting",
+            build_setting_default = "default",
+        )
+
+        custom_rule(name = "custom_rule_name")
+
+        wrapper(
+            name = "wrapper_name",
+            dep = ":custom_rule_name",
+        )
+        """);
+
+    ImmutableList<String> output =
+        evalToListOfStrings("//test:all intersect //test:custom_rule_name");
+    assertThat(output).hasSize(1);
   }
 
   @Test
@@ -1195,5 +1335,9 @@ my_rule = rule(
 
   protected static void assertConfigurableQueryCode(FailureDetail failureDetail, Code code) {
     assertThat(failureDetail.getConfigurableQuery().getCode()).isEqualTo(code);
+  }
+
+  protected static List<String> unique(List<String> list) {
+    return list.stream().distinct().toList();
   }
 }

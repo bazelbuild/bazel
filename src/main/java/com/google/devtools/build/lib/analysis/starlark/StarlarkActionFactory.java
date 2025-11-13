@@ -23,7 +23,9 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -39,11 +41,14 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
+import com.google.devtools.build.lib.analysis.actions.StarlarkMapActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -64,7 +69,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -73,6 +77,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -253,6 +258,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       FileApi output,
       Object /* Artifact or None */ targetFile,
       Object /* String or None */ targetPath,
+      Object /* String or None */ targetType,
       Boolean isExecutable,
       Object /* String or None */ progressMessageUnchecked,
       Object useExecRootForSourceObject,
@@ -280,6 +286,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     Action action;
     if (targetFile != Starlark.NONE) {
+      if (targetType != Starlark.NONE) {
+        throw Starlark.errorf("\"target_type\" cannot be used with \"target_file\"");
+      }
+
       Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
@@ -325,23 +335,41 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("\"is_executable\" cannot be True when using \"target_path\"");
       }
 
+      SymlinkTargetType symlinkTargetType = SymlinkTargetType.UNSPECIFIED;
+      if (targetType instanceof String targetTypeStr) {
+        symlinkTargetType =
+            switch (targetTypeStr) {
+              case "file" -> SymlinkTargetType.FILE;
+              case "directory" -> SymlinkTargetType.DIRECTORY;
+              default ->
+                  throw Starlark.errorf("\"target_type\" must be one of \"file\" or \"directory\"");
+            };
+      }
+
       action =
           UnresolvedSymlinkAction.create(
-              ruleContext.getActionOwner(), outputArtifact, (String) targetPath, progressMessage);
+              ruleContext.getActionOwner(),
+              outputArtifact,
+              (String) targetPath,
+              symlinkTargetType,
+              progressMessage);
     }
     registerAction(action);
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable)
+  public void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
+    String mnemonic = getMnemonic(mnemonicUnchecked, AbstractFileWriteAction.MNEMONIC);
+
     final Action action;
     if (content instanceof String) {
       action =
-          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable);
+          FileWriteAction.create(
+              ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       action =
           new ParameterFileWriteAction(
@@ -349,7 +377,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
               args.build(getMainRepoMappingSupplier()),
-              args.getParameterFileType());
+              args.getParameterFileType(),
+              isExecutable,
+              mnemonic,
+              ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), mnemonic),
+              PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }
@@ -638,7 +670,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder);
   }
 
-  private static void buildCommandLine(
+  public static void buildCommandLine(
       SpawnAction.Builder builder,
       Sequence<?> argumentsList,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier)
@@ -760,7 +792,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    String mnemonic = getMnemonic(mnemonicUnchecked);
+    String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
@@ -868,7 +900,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     @Override
-    public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+    public ResourceSet buildResourceSet(OS os, int inputsSize)
+        throws ExecException, InterruptedException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
         // Only numerical values are retained from the result, so a transient SymbolGenerator
         // is fine.
@@ -906,13 +939,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                     FailureDetails.StarlarkAction.newBuilder()
                         .setCode(FailureDetails.StarlarkAction.Code.STARLARK_ACTION_UNKNOWN)
                         .build())
-                .build());
-      } catch (InterruptedException e) {
-        throw new UserExecException(
-            FailureDetail.newBuilder()
-                .setMessage(e.getMessage())
-                .setInterrupted(
-                    Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED).build())
                 .build());
       }
     }
@@ -964,26 +990,30 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (fn instanceof StarlarkFunction sfn) {
-
-      // Reject non-global functions, because arbitrary closures may cause large
-      // analysis-phase data structures to remain live into the execution phase.
-      // We require that the function is "global" as opposed to "not a closure"
-      // because a global function may be closure if it refers to load bindings.
-      // This unfortunately disallows such trivially safe non-global
-      // functions as "lambda x: x".
-      // See https://github.com/bazelbuild/bazel/issues/12701.
-      if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
-        throw Starlark.errorf(
-            "to avoid unintended retention of analysis data structures, "
-                + "the resource_set function (declared at %s) must be declared "
-                + "by a top-level def statement",
-            sfn.getLocation());
-      }
+      validateIsTopLevelStarlarkFunction(sfn);
     }
   }
 
-  private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic = mnemonicUnchecked == Starlark.NONE ? "Action" : (String) mnemonicUnchecked;
+  private static void validateIsTopLevelStarlarkFunction(StarlarkFunction fn) throws EvalException {
+    // Reject non-global functions, because arbitrary closures may cause large
+    // analysis-phase data structures to remain live into the execution phase.
+    // We require that the function is "global" as opposed to "not a closure"
+    // because a global function may be closure if it refers to load bindings.
+    // This unfortunately disallows such trivially safe non-global
+    // functions as "lambda x: x".
+    // See https://github.com/bazelbuild/bazel/issues/12701.
+    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+      throw Starlark.errorf(
+          "to avoid unintended retention of analysis data structures, "
+              + "the function (declared at %s) must be declared "
+              + "by a top-level def statement",
+          fn.getLocation());
+    }
+  }
+
+  private String getMnemonic(Object mnemonicUnchecked, String defaultMnemonic) {
+    String mnemonic =
+        mnemonicUnchecked == Starlark.NONE ? defaultMnemonic : (String) mnemonicUnchecked;
     if (getRuleContext().getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }
@@ -992,6 +1022,105 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private static String mangleMnemonic(String mnemonic) {
     return mnemonic + "FromStarlark";
+  }
+
+  @Override
+  public void mapDirectory(
+      Dict<?, ?> inputDirectories,
+      Dict<?, ?> additionalInputs,
+      Dict<?, ?> outputDirectories,
+      Dict<?, ?> tools,
+      Dict<?, ?> additionalParams,
+      Object executionRequirementsUnchecked,
+      Object execGroupUnchecked,
+      Object toolchainUnchecked,
+      Boolean useDefaultShellEnv,
+      Object envUnchecked,
+      Object mnemonicUnchecked,
+      StarlarkFunction implementation,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    if (!getRuleContext().getConfiguration().allowMapDirectory()) {
+      throw Starlark.errorf(
+          "actions.map_directory() is an experimental API and is subjected to change. "
+              + "Please set the flag --experimental_starlark_action_templates_api to enable it.");
+    }
+    context.checkMutable("actions.map_directory");
+
+    RuleContext ruleContext = getRuleContext();
+    if (inputDirectories.size() < 1) {
+      throw Starlark.errorf("actions.map_directory() requires at least one input.");
+    }
+    if (outputDirectories.size() < 1) {
+      throw Starlark.errorf("actions.map_directory() requires at least one output.");
+    }
+
+    String mnemonic = getMnemonic(mnemonicUnchecked, "ExpandedTemplateAction");
+    ImmutableMap<String, String> executionInfo =
+        ruleContext
+            .getConfiguration()
+            .modifiedExecutionInfo(
+                TargetUtils.getFilteredExecutionInfo(
+                    executionRequirementsUnchecked,
+                    ruleContext.getRule(),
+                    getSemantics()
+                        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
+                mnemonic);
+
+    ActionEnvironment actionEnv =
+        SpawnAction.createActionEnvironment(
+            ruleContext.getConfiguration(),
+            useDefaultShellEnv,
+            envUnchecked == Starlark.NONE
+                ? ImmutableMap.of()
+                : ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
+
+    validateIsTopLevelStarlarkFunction(implementation);
+
+    String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
+
+    SpawnAction.Builder spawnActionBuilder =
+        new SpawnAction.Builder()
+            .setMnemonic(mnemonic)
+            .setResources(DEFAULT_RESOURCE_SET)
+            .setActionEnvironment(actionEnv)
+            .setExecutionInfo(executionInfo)
+            .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
+
+    StarlarkMapActionTemplate template =
+        new StarlarkMapActionTemplate(
+            getRuleContext().getActionOwner(execGroup),
+            Dict.cast(
+                inputDirectories,
+                String.class,
+                SpecialArtifact.class,
+                StarlarkMapActionTemplate.INPUT_DIRECTORIES_KEY),
+            Dict.cast(
+                additionalInputs,
+                String.class,
+                Object.class,
+                StarlarkMapActionTemplate.ADDITIONAL_INPUTS_KEY),
+            Dict.cast(
+                outputDirectories,
+                String.class,
+                SpecialArtifact.class,
+                StarlarkMapActionTemplate.OUTPUT_DIRECTORIES_KEY),
+            Dict.cast(tools, String.class, Object.class, StarlarkMapActionTemplate.TOOLS_KEY),
+            Dict.cast(
+                additionalParams,
+                String.class,
+                Object.class,
+                StarlarkMapActionTemplate.ADDITIONAL_PARAMS_KEY),
+            spawnActionBuilder,
+            executionInfo,
+            PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
+            actionEnv,
+            getMainRepoMappingSupplier(),
+            mnemonic,
+            implementation,
+            thread.getSemantics(),
+            ruleContext.getSymbolGenerator());
+    registerAction(template);
   }
 
   @Override

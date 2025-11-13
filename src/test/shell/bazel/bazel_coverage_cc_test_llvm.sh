@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -214,6 +214,7 @@ function test_cc_test_with_runtime_objects_not_in_runfiles() {
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_test(
     name = "main",
@@ -308,6 +309,9 @@ EOF
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
@@ -66,6 +67,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             DIGEST_UTIL,
             "none",
             "none",
+            TestConstants.WORKSPACE_NAME,
             /* remoteInstanceName= */ "foo",
             /* acceptCached= */ true);
   }

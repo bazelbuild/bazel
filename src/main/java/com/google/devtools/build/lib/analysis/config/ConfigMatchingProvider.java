@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,9 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * A "configuration target" that asserts whether or not it matches the configuration it's bound to.
@@ -45,38 +46,103 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * <p>e.g. If merging where one is InError and the other is No, then currently will propagate the
    * errors, versus a more aggressive future approach could just propagate No.)
    */
-  // TODO(twigg): This is more cleanly implemented when Java record is available.
-  public static interface MatchResult {
-    // Only InError should return non-null.
-    public abstract @Nullable String getError();
+  public sealed interface MatchResult {
+    /**
+     * The configuration matches.
+     *
+     * <p>Preferably use the shared {@link MatchResult#MATCH} instance of this class.
+     */
+    @AutoCodec
+    public record Match() implements MatchResult {}
 
-    public static final MatchResult MATCH = HasResult.MATCH;
-    public static final MatchResult NOMATCH = HasResult.NOMATCH;
+    MatchResult MATCH = new Match();
 
-    /** Some specified error makes the match question irresolvable. */
-    @AutoValue
-    public abstract class InError implements MatchResult {
-      public static InError create(String error) {
-        return new AutoValue_ConfigMatchingProvider_MatchResult_InError(error);
+    /**
+     * The configuration does not match.
+     *
+     * @param diffs an optional list of diffs that describe the differences between the expected and
+     *     actual configuration
+     */
+    @AutoCodec
+    public record NoMatch(ImmutableList<Diff> diffs) implements MatchResult {
+      @AutoCodec.Instantiator
+      public NoMatch {}
+
+      public NoMatch(Diff diff) {
+        this(ImmutableList.of(diff));
+      }
+
+      /**
+       * A human-readable description of the difference between the expected and actual
+       * configuration.
+       *
+       * @param what the label of the constraint or setting that failed to match
+       * @param got the actual value of the setting
+       * @param want the expected value of the setting
+       */
+      @AutoCodec
+      public record Diff(Label what, String got, String want) {
+        public static Builder what(Label what) {
+          return new AutoBuilder_ConfigMatchingProvider_MatchResult_NoMatch_Diff_Builder()
+              .what(what);
+        }
+
+        /** A builder for {@link Diff}. */
+        @AutoBuilder
+        public abstract static class Builder {
+          public abstract Builder what(Label what);
+
+          public abstract Builder got(String got);
+
+          public abstract Builder want(String want);
+
+          public abstract Diff build();
+        }
       }
     }
 
-    public static MatchResult create(boolean matches) {
-      return matches ? MATCH : NOMATCH;
-    }
+    /**
+     * A result for the case in which an analysis error occurred that prevents the match from being
+     * evaluated.
+     */
+    MatchResult ALREADY_REPORTED_NO_MATCH = new NoMatch(ImmutableList.of());
 
-    /** If previously InError or No, keep previous else convert newData. */
-    public static MatchResult merge(MatchResult previousMatch, boolean andWith) {
-      if (!previousMatch.equals(MATCH)) {
-        return previousMatch;
-      }
-      return andWith ? MATCH : NOMATCH;
+    /** Errors make the match question irresolvable. */
+    @AutoCodec
+    public record InError(ImmutableList<String> errors) implements MatchResult {}
+
+    static MatchResult combine(MatchResult previous, MatchResult current) {
+      return switch (previous) {
+        // InError is the most severe state and always takes precedence.
+        case InError(ImmutableList<String> previousErrors) ->
+            switch (current) {
+              case InError(ImmutableList<String> currentErrors) ->
+                  new InError(
+                      ImmutableList.<String>builder()
+                          .addAll(previousErrors)
+                          .addAll(currentErrors)
+                          .build());
+              default -> previous;
+            };
+        case NoMatch(ImmutableList<NoMatch.Diff> previousDiffs) ->
+            switch (current) {
+              case InError(ImmutableList<String> ignored) -> current;
+              case NoMatch(ImmutableList<NoMatch.Diff> currentDiffs) ->
+                  new NoMatch(
+                      ImmutableList.<NoMatch.Diff>builder()
+                          .addAll(previousDiffs)
+                          .addAll(currentDiffs)
+                          .build());
+              case Match() -> previous;
+            };
+        case Match ignored -> current;
+      };
     }
   }
 
   /** Result of accumulating match results: contains any errors or non-matching labels. */
   public record AccumulateResults(
-      ImmutableList<Label> nonMatching, ImmutableMap<Label, String> errors) {
+      ImmutableList<Label> nonMatching, ImmutableMultimap<Label, String> errors) {
     public boolean success() {
       return nonMatching.isEmpty() && errors.isEmpty();
     }
@@ -87,36 +153,18 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * errors and non-matching providers.
    */
   public static AccumulateResults accumulateMatchResults(List<ConfigMatchingProvider> providers) {
-    ImmutableList.Builder<Label> nonMatching = new ImmutableList.Builder<>();
-    ImmutableMap.Builder<Label, String> errors = new ImmutableMap.Builder<>();
+    ImmutableList.Builder<Label> nonMatching = ImmutableList.builder();
+    ImmutableMultimap.Builder<Label, String> errors = ImmutableMultimap.builder();
     for (ConfigMatchingProvider configProvider : providers) {
-      ConfigMatchingProvider.MatchResult matchResult = configProvider.result();
-      if (matchResult.getError() != null) {
-        String message = matchResult.getError();
-        errors.put(configProvider.label(), message);
-      } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+      MatchResult matchResult = configProvider.result();
+      if (matchResult instanceof MatchResult.InError(ImmutableList<String> messages)) {
+        errors.putAll(configProvider.label(), messages);
+      } else if (matchResult instanceof MatchResult.NoMatch) {
         nonMatching.add(configProvider.label());
       }
     }
 
-    return new AccumulateResults(nonMatching.build(), errors.buildKeepingLast());
-  }
-
-  /**
-   * The result was resolved.
-   *
-   * <p>Using an enum to get convenient toString, equals, and hashCode implementations. Interfaces
-   * can't have private members so this is defined here privately and then exported into the
-   * MatchResult interface to allow for ergonomic MatchResult.MATCH checks.
-   */
-  private static enum HasResult implements MatchResult {
-    MATCH,
-    NOMATCH;
-
-    @Override
-    public @Nullable String getError() {
-      return null;
-    }
+    return new AccumulateResults(nonMatching.build(), errors.build());
   }
 
   /**

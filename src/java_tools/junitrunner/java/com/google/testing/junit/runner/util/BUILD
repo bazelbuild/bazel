@@ -24,7 +24,6 @@ java_library(
         "CurrentRunningTest.java",
         "TestNameProvider.java",
     ],
-    visibility = ["//testing/web:webtesting"],
     deps = [
         "//third_party:junit4",
     ],

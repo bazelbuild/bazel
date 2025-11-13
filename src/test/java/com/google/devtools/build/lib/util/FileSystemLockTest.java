@@ -19,7 +19,12 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.testutil.ExternalFileSystemLock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.FileSystemLock.LockAlreadyHeldException;
+import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,51 +43,117 @@ public final class FileSystemLockTest {
   }
 
   @Test
-  public void getShared_whenNotLocked_succeeds() throws Exception {
-    try (var lock = FileSystemLock.getShared(lockPath)) {
+  public void tryGet_shared_whenNotLocked_succeeds() throws Exception {
+    try (var lock = FileSystemLock.tryGet(lockPath, LockMode.SHARED)) {
       assertThat(lock.isShared()).isTrue();
     }
   }
 
   @Test
-  public void getShared_whenLockedForSharedUse_succeeds() throws Exception {
+  public void get_shared_whenNotLocked_succeeds() throws Exception {
+    try (var lock = FileSystemLock.get(lockPath, LockMode.SHARED)) {
+      assertThat(lock.isShared()).isTrue();
+    }
+  }
+
+  @Test
+  public void tryGet_shared_whenLockedForSharedUse_succeeds() throws Exception {
     try (var externalLock = ExternalFileSystemLock.getShared(lockPath);
-        var lock = FileSystemLock.getShared(lockPath)) {
+        var lock = FileSystemLock.tryGet(lockPath, LockMode.SHARED)) {
       assertThat(lock.isShared()).isTrue();
     }
   }
 
   @Test
-  public void getShared_whenLockedForExclusiveUse_fails() throws Exception {
+  public void get_shared_whenLockedForSharedUse_succeeds() throws Exception {
+    try (var externalLock = ExternalFileSystemLock.getShared(lockPath);
+        var lock = FileSystemLock.get(lockPath, LockMode.SHARED)) {
+      assertThat(lock.isShared()).isTrue();
+    }
+  }
+
+  @Test
+  public void tryGet_shared_whenLockedForExclusiveUse_fails() throws Exception {
     try (var externalLock = ExternalFileSystemLock.getExclusive(lockPath)) {
       LockAlreadyHeldException e =
-          assertThrows(LockAlreadyHeldException.class, () -> FileSystemLock.getShared(lockPath));
+          assertThrows(
+              LockAlreadyHeldException.class,
+              () -> FileSystemLock.tryGet(lockPath, LockMode.SHARED));
       assertThat(e).hasMessageThat().contains("failed to acquire shared filesystem lock");
     }
   }
 
   @Test
-  public void getExclusive_whenNotLocked_succeeds() throws Exception {
-    try (var lock = FileSystemLock.getExclusive(lockPath)) {
+  public void get_shared_whenLockedForExclusiveUse_blocks() throws Exception {
+    testBlocks(ExternalFileSystemLock.getExclusive(lockPath), LockMode.SHARED);
+  }
+
+  @Test
+  public void tryGet_exclusive_whenNotLocked_succeeds() throws Exception {
+    try (var lock = FileSystemLock.tryGet(lockPath, LockMode.EXCLUSIVE)) {
       assertThat(lock.isExclusive()).isTrue();
     }
   }
 
   @Test
-  public void getExclusive_whenLockedForSharedUse_fails() throws Exception {
+  public void get_exclusive_whenNotLocked_succeeds() throws Exception {
+    try (var lock = FileSystemLock.get(lockPath, LockMode.EXCLUSIVE)) {
+      assertThat(lock.isExclusive()).isTrue();
+    }
+  }
+
+  @Test
+  public void tryGet_exclusive_whenLockedForSharedUse_fails() throws Exception {
     try (var externalLock = ExternalFileSystemLock.getShared(lockPath)) {
       LockAlreadyHeldException e =
-          assertThrows(LockAlreadyHeldException.class, () -> FileSystemLock.getExclusive(lockPath));
+          assertThrows(
+              LockAlreadyHeldException.class,
+              () -> FileSystemLock.tryGet(lockPath, LockMode.EXCLUSIVE));
       assertThat(e).hasMessageThat().contains("failed to acquire exclusive filesystem lock");
     }
   }
 
   @Test
-  public void getExclusive_whenLockedForExclusiveUse_fails() throws Exception {
+  public void get_exclusive_whenLockedForSharedUse_blocks() throws Exception {
+    testBlocks(ExternalFileSystemLock.getShared(lockPath), LockMode.EXCLUSIVE);
+  }
+
+  @Test
+  public void tryGet_exclusive_whenLockedForExclusiveUse_fails() throws Exception {
     try (var lock = ExternalFileSystemLock.getExclusive(lockPath)) {
       LockAlreadyHeldException e =
-          assertThrows(LockAlreadyHeldException.class, () -> FileSystemLock.getExclusive(lockPath));
+          assertThrows(
+              LockAlreadyHeldException.class,
+              () -> FileSystemLock.tryGet(lockPath, LockMode.EXCLUSIVE));
       assertThat(e).hasMessageThat().contains("failed to acquire exclusive filesystem lock");
     }
+  }
+
+  @Test
+  public void get_exclusive_whenLockedForExclusiveUse_blocks() throws Exception {
+    testBlocks(ExternalFileSystemLock.getExclusive(lockPath), LockMode.EXCLUSIVE);
+  }
+
+  private void testBlocks(ExternalFileSystemLock externalLock, LockMode mode) throws Exception {
+    Future<Boolean> future;
+    try {
+      var latch = new CountDownLatch(1);
+      var externalLockReleased = new AtomicBoolean();
+      future =
+          Executors.newSingleThreadExecutor()
+              .submit(
+                  () -> {
+                    latch.countDown();
+                    try (var lock = FileSystemLock.get(lockPath, mode)) {
+                      return externalLockReleased.get();
+                    }
+                  });
+      latch.await();
+      Thread.sleep(1);
+      externalLockReleased.set(true);
+    } finally {
+      externalLock.close();
+    }
+    assertThat(future.get()).isTrue();
   }
 }

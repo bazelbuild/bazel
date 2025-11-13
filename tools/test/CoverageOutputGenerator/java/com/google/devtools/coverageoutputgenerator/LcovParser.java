@@ -49,6 +49,8 @@ class LcovParser {
   private static final Logger logger = Logger.getLogger(LcovParser.class.getName());
   private final InputStream inputStream;
   private SourceFileCoverage currentSourceFileCoverage;
+  private int baBranchesAtLine = 0;
+  private int lastBaLine = -1;
 
   private LcovParser(InputStream inputStream) {
     this.inputStream = inputStream;
@@ -143,6 +145,7 @@ class LcovParser {
 
   // SF:<path to source file name>
   private boolean parseSFLine(String line) {
+    lastBaLine = -1;
     if (currentSourceFileCoverage != null) {
       logger.log(Level.WARNING, "Tracefile doesn't have SF:<source file> line before" + line);
       return false;
@@ -172,7 +175,7 @@ class LcovParser {
       int lineNrFunctionStart = Integer.parseInt(funcData[0]);
       // Line number of function end is optional and not used.
       String functionName = funcData[funcData.length - 1];
-      currentSourceFileCoverage.addLineNumber(functionName, lineNrFunctionStart);
+      currentSourceFileCoverage.addFunctionLineNumber(functionName, lineNrFunctionStart);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains invalid line number on FN line " + line);
       return false;
@@ -251,17 +254,39 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
-      if (taken < 0 || taken > 2) {
-        logger.log(
-            Level.WARNING,
-            "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
-        return false;
+      int execValue = Integer.parseInt(lineData[1]);
+      boolean evaluated = false;
+      long execCount = 0;
+      switch (execValue) {
+        case 0:
+          // Branch was never evaluated.
+          evaluated = false;
+          execCount = 0;
+          break;
+        case 1:
+          // Branch was evaluated, but not taken.
+          evaluated = true;
+          execCount = 0;
+          break;
+        case 2:
+          // Branch was taken. We don't know how often, so simply record "1".
+          evaluated = true;
+          execCount = 1;
+          break;
+        default:
+          logger.log(
+              Level.WARNING,
+              "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
+          return false;
       }
-
-      BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
+      if (lastBaLine == lineNumber) {
+        baBranchesAtLine++;
+      } else {
+        baBranchesAtLine = 0;
+        lastBaLine = lineNumber;
+      }
+      currentSourceFileCoverage.addBranch(
+          lineNumber, "0", Integer.toString(baBranchesAtLine), evaluated, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;
@@ -295,11 +320,8 @@ class LcovParser {
         executionCount = Long.parseLong(taken);
         wasEvaluated = true;
       }
-      BranchCoverage branchCoverage =
-          BranchCoverage.createWithBlockAndBranch(
-              lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
+      currentSourceFileCoverage.addBranch(
+          lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BRDA line " + line);
       return false;
@@ -360,12 +382,8 @@ class LcovParser {
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
       long executionCount = Long.parseLong(lineData[1]);
-      String checkSum = null;
-      if (lineData.length == 3) {
-        checkSum = lineData[2];
-      }
-      LineCoverage lineCoverage = LineCoverage.create(lineNumber, executionCount, checkSum);
-      currentSourceFileCoverage.addLine(lineNumber, lineCoverage);
+      // Ignore the optional checksum
+      currentSourceFileCoverage.addLine(lineNumber, executionCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on DA line " + line);
       return false;

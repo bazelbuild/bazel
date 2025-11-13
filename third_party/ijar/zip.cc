@@ -779,6 +779,11 @@ bool FindZipCentralDirectory(const u1 *bytes, size_t in_length, u8 *offset,
     return false;
   }
 
+  if (cd.central_dir_offset + cd.central_dir_size > in_length) {
+    fprintf(stderr, "central directory offset/size is invalid\n");
+    return false;
+  }
+
   // Do not change output values before determining that they are OK.
   *offset = cd.central_dir_offset;
   // Central directory start can then be used to determine the actual

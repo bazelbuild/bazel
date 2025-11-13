@@ -44,16 +44,31 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "HtmlUtils.java",
             "InvocationPolicyEnforcer.java",
             "InvocationPolicyParser.java",
         ],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "html_utils",
+    srcs = ["HtmlUtils.java"],
+    deps = [
+        ":options_internal",
+        "//src/main/java/com/google/devtools/build/lib/util:markdown",
+        "//third_party:guava",
     ],
 )

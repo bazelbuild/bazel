@@ -32,18 +32,18 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -77,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -127,8 +126,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             directories);
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -140,7 +137,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
-                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
+                .put(
+                    SkyFunctions.BAZEL_LOCK_FILE,
+                    new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
@@ -152,26 +151,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
-                    new RepositoryDelegatorFunction(
-                        repositoryHandlers,
-                        null,
-                        new AtomicBoolean(true),
-                        ImmutableMap::of,
-                        directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                    new RepositoryFetchFunction(
+                        ImmutableMap::of, directories, new LocalRepoContentsCache()))
+                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))
@@ -188,19 +176,19 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
   }
 
   @Test
@@ -217,6 +205,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "bazel_dep(name='ddd',version='3.0',repo_name=None)",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
         "register_execution_platforms('//my:platform', '//my:platform2')",
+        "flag_alias(name = 'native_flag1', starlark_flag = '//my:starlark_label1')",
+        "flag_alias(name = 'native_flag2', starlark_flag = '//my:starlark_label2')",
         "single_version_override(module_name='ddd',version='18')",
         "local_path_override(module_name='eee',path='somewhere/else')",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
@@ -240,6 +230,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
+                .addFlagAlias("native_flag1", "//my:starlark_label1")
+                .addFlagAlias("native_flag2", "//my:starlark_label2")
                 .addNodepDep(createModuleKey("ddd", "3.0"))
                 .build());
     assertThat(rootModuleFileValue.overrides())
@@ -1398,8 +1390,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         ImmutableMap.of(
             "bazel_tools",
             new NonRegistryOverride(LocalPathRepoSpecs.create("/tools")),
-            "local_config_platform",
-            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1417,7 +1409,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "1.0"))
                 .build());
     assertThat(moduleFileValue.overrides()).containsExactlyEntriesIn(builtinModules);
@@ -1433,8 +1425,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "bazel_tools",
             new NonRegistryOverride(
                 LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
-            "local_config_platform",
-            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1456,7 +1448,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .isEqualTo(
             InterimModuleBuilder.create("bazel_tools", "1.0")
                 .setKey(createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "2.0"))
                 .build());
   }
@@ -1699,7 +1691,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testInvalidRepoInPatches() throws Exception {
+  public void testInvalidRepoInSingleVersionOverridePatches() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -1717,6 +1709,51 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     assertContainsEvent(
         "Error in single_version_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInArchiveOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "archive_override(",
+        "    module_name = 'bbb',",
+        "    urls = ['https://example.com'],",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in archive_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInGitOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "git_override(",
+        "    module_name = 'bbb',",
+        "    remote = 'https://example.com',",
+        "    commit = 'abcd1234',",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in git_override: invalid label in 'patches': only patches in the main"
             + " repository can be applied, not from '@unknown_repo'");
   }
 

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -77,7 +78,6 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -150,7 +150,7 @@ public class RewindingTestsHelper {
   private final SpawnController spawnController = new SpawnController();
   final LostImportantOutputHandlerModule lostOutputsModule;
 
-  RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
+  public RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
     this.lostOutputsModule = createLostOutputsModule();
@@ -748,7 +748,7 @@ public class RewindingTestsHelper {
    * This test sets up {@link ActionRewindStrategy#MAX_ACTION_REWIND_EVENTS} + 1 (N) genrules that
    * consume 1 ... N inputs respectively and will build each of the genrules. All N inputs will be
    * lost and throw a {@link LostInputsExecException} such that all of the genrule actions will
-   * rewind. The {@link ActionRewindingStats} event will contain the top {@link
+   * rewind. The {@link PostableActionRewindingStats} event will contain the top {@link
    * ActionRewindStrategy#MAX_ACTION_REWIND_EVENTS} action rewind events based on the maximum number
    * of nodes invalidated for each rewind action plan. The expected action rewind events logged will
    * not contain the genrule action with one input.
@@ -1478,6 +1478,7 @@ public class RewindingTestsHelper {
     testCase.write(
         "tree/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":tree.bzl", "tree")
 
         tree(
@@ -2249,6 +2250,7 @@ public class RewindingTestsHelper {
     testCase.write(
         "genheader/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         genrule(
             name = "gen_header",
             srcs = [],
@@ -2378,6 +2380,8 @@ public class RewindingTestsHelper {
     testCase.write(
         "genheader/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_header",
             srcs = [],
@@ -3184,25 +3188,19 @@ public class RewindingTestsHelper {
     for (String path : expectedRootRelativePaths) {
       expectedExecPaths.add(PathFragment.create(getExecPath(path)));
     }
-    PathFragment execRoot =
-        testCase.getRuntimeWrapper().getCommandEnvironment().getExecRoot().asFragment();
     List<PathFragment> execPaths = new ArrayList<>();
     for (NestedSet<Artifact> set : reported.artifacts) {
       reported.completionContext.visitArtifacts(
           set.toList(),
           new ArtifactReceiver() {
             @Override
-            public void accept(Artifact artifact) {
+            public void accept(Artifact artifact, FileArtifactValue metadata) {
               execPaths.add(artifact.getExecPath());
             }
 
             @Override
-            public void acceptFilesetMapping(
-                Artifact fileset,
-                PathFragment relName,
-                Path targetFile,
-                FileArtifactValue metadata) {
-              execPaths.add(targetFile.asFragment().relativeTo(execRoot));
+            public void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link) {
+              execPaths.add(link.target().getExecPath());
             }
           });
     }

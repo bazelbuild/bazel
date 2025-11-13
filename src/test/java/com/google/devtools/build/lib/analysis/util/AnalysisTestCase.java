@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -95,7 +94,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 
@@ -123,8 +121,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
-    // The --nolegacy_external_runfiles flag.
-    NO_LEGACY_EXTERNAL_RUNFILES
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -208,14 +204,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
-        .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+        .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
 
   @ForOverride
-  @Nullable
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    return null;
+  protected boolean allowExternalRepositories() {
+    return false;
   }
 
   /** Changes the rule class provider to be used for the loading and the analysis phase. */
@@ -306,9 +301,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
-    if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
-      optionsParser.parse("--nolegacy_external_runfiles");
-    }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
@@ -320,8 +312,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return new FlagBuilder()
         .with(Flag.PUBLIC_VISIBILITY)
         .with(Flag.CPU_K8)
-        .with(Flag.PRODUCT_SPECIFIC_FLAGS)
-        .with(Flag.NO_LEGACY_EXTERNAL_RUNFILES);
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {

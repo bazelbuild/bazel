@@ -166,7 +166,7 @@ public class VisibilityTest extends AnalysisTestCase {
         """
         config_setting(
             name = "my_setting",
-            values = {"cpu": "does_not_matter"},
+            values = {"compilation_mode": "dbg"},
             visibility = ["//:__pkg__"],
         )
         """);
@@ -876,5 +876,916 @@ public class VisibilityTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//otherpkg:it"));
+  }
+
+  @Test
+  public void testVerboseDiagnostics_ruleImplicitDep() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//tool:tool")},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//rule:defs.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an implicit dependency of the consuming target's rule, my_rule, which \
+        is defined in //rule:defs.bzl. Since that file's package, //rule, does not match\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aspectImplicitDep() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("aspect/BUILD");
+    scratch.file(
+        "aspect/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_aspect = aspect(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//tool:tool")},
+        )
+        """);
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        load("//aspect:defs.bzl", "my_aspect")
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list(aspects=[my_aspect])},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//rule:defs.bzl", "my_rule")
+
+        cc_library(name = "dep")
+
+        my_rule(
+            name = "foo",
+            deps = [":dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an implicit dependency of the consuming target's aspect, my_aspect, \
+        which is defined in //aspect:defs.bzl. Since that file's package, //aspect, does not\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_consumingLocation_isNotInMacro() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            deps = ["//tool:tool"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The location being checked is the package where the consuming target lives, //pkg.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_consumingLocation_isInMacro() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility):
+            cc_library(
+                name = name + "_bar",
+                deps = ["//tool:tool"],
+            )
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar"));
+    assertContainsEvent(
+        """
+        * Because the consuming target was declared in the body of the symbolic macro my_macro \
+        defined in //macro:defs.bzl, the location being checked is this file's package, //macro.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_consumingLocation_isDelegatedFromPackage() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility, deps):
+            cc_library(
+                name = name + "_baz",
+                deps = deps,
+            )
+
+        my_submacro = macro(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list()},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//submacro:defs.bzl", "my_submacro")
+
+        def _impl(name, visibility, deps, use_submacro):
+            callable = my_submacro if use_submacro else cc_library
+            callable(
+                name = name + "_bar",
+                deps = deps,
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "use_submacro": attr.bool(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            deps = ["//tool:tool"],
+            use_submacro = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            deps = ["//tool:tool"],
+            use_submacro = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar"));
+    assertContainsEvent(
+        """
+        * Because the dependency was passed to the consuming target from an attribute of the \
+        symbolic macro //pkg:foo, the location being checked is the place where this macro is \
+        declared: package //pkg.\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz"));
+    // Should say "transitive", and should still identify outer macro (foo2), not inner macro
+    // (foo2_bar).
+    assertContainsEvent(
+        """
+        * Because the dependency was transitively passed to the consuming target from an attribute \
+        of the symbolic macro //pkg:foo2, the location being checked is the place where this macro \
+        is declared: package //pkg.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_consumingLocation_isDelegatedFromMacro() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("subsubmacro/BUILD");
+    scratch.file(
+        "subsubmacro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility, deps):
+            cc_library(
+                name = name + "_qux",
+                deps = deps,
+            )
+
+        my_subsubmacro = macro(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list()},
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility, deps):
+            my_subsubmacro(
+                name = name + "_baz",
+                deps = deps,
+            )
+
+        my_submacro = macro(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list()},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility, extra_level_deep):
+            callable = my_submacro if extra_level_deep else my_subsubmacro
+            callable(
+                name = name + "_bar",
+                deps = ["//tool:tool"],
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            extra_level_deep = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            extra_level_deep = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar_qux"));
+    assertContainsEvent(
+        """
+        * Because the dependency was passed to the consuming target from an attribute of the \
+        symbolic macro //pkg:foo_bar, the location being checked is the place where this macro is \
+        declared: the body of the calling macro my_macro, defined in //macro:defs.bzl of package \
+        //macro.\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz_qux"));
+    // Should say "transitive", and should still identify outer macro (foo2_bar), not inner macro
+    // (foo2_bar_baz).
+    assertContainsEvent(
+        """
+        * Because the dependency was transitively passed to the consuming target from an attribute \
+        of the symbolic macro //pkg:foo2_bar, the location being checked is the place where this \
+        macro is declared: the body of the calling macro my_macro, defined in //macro:defs.bzl of \
+        package //macro.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aliasDisclaimer_shownForAlias() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+
+        alias(
+            name = "indirect",
+            actual = ":tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            deps = ["//tool:indirect"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an alias target. Note that it is the visibility of the alias we care \
+        about, not the visibility of the underlying target it refers to.
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aliasDisclaimer_notShownForNonAlias() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            deps = ["//tool:tool"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertDoesNotContainEvent("The dependency is an alias");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility):
+            cc_library(
+                name = name,
+                deps = ["//pkg:tool"],
+            )
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(
+            name = "foo",
+        )
+        """);
+    scratch.file(
+        "pkg2/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * Although both targets live in the same package, they cannot automatically see each other \
+        because they are declared by different symbolic macros.\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg2:foo"));
+    assertDoesNotContainEvent("both targets live in the same package");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer_shownForImplicitDepOfMacro()
+      throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility, _implicit_dep):
+            cc_library(
+                name = name,
+                deps = [_implicit_dep],
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//pkg:tool", configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(
+            name = "foo",
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * Although both targets live in the same package, they cannot automatically see each other \
+        because they are declared by different symbolic macros.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer_notShownForImplicitDepOfRule()
+      throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//pkg:tool")},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//rule:defs.bzl", "my_rule")
+
+        def _impl(name, visibility):
+            my_rule(name = name)
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(name = "foo")
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertDoesNotContainEvent("both targets live in the same package");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_fromAncestorMacro() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//macro:__pkg__"],
+        )
+        """);
+    scratch.file("subsubmacro/BUILD");
+    scratch.file(
+        "subsubmacro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility):
+            cc_library(
+                name = name + "_qux",
+                deps = ["//tool:tool"],
+            )
+
+        my_subsubmacro = macro(implementation = _impl)
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility):
+            my_subsubmacro(name = name + "_baz")
+
+        my_submacro = macro(implementation = _impl)
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility, extra_level_deep):
+            callable = my_submacro if extra_level_deep else my_subsubmacro
+            callable(name = name + "_bar")
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            extra_level_deep = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            extra_level_deep = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar_qux"));
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, //pkg:foo, a my_macro macro defined in //macro. (Perhaps the \
+        caller needs to pass in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz_qux"));
+    // Should say "transitive", and should still identify outer macro (foo2_bar), not inner macro
+    // (foo2_bar_baz).
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, //pkg:foo2, a my_macro macro defined in //macro. \
+        (Perhaps this caller, or an intermediate caller, needs to pass in the dependency as an \
+        argument?)\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_fromBuildFile() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility):
+            cc_library(
+                name = name + "_baz",
+                deps = ["//tool:tool"],
+            )
+
+        my_submacro = macro(implementation = _impl)
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//submacro:defs.bzl", "my_submacro")
+
+        def _impl(name, visibility, extra_level_deep):
+            if extra_level_deep:
+                my_submacro(name = name + "_bar")
+            else:
+                cc_library(
+                    name = name + "_bar",
+                    deps = ["//tool:tool"],
+                )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            extra_level_deep = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            extra_level_deep = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar"));
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, the BUILD file of package //pkg. (Perhaps the caller needs to pass \
+        in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz"));
+    // Should say "transitive".
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, the BUILD file of package //pkg. (Perhaps this caller, \
+        or an intermediate caller, needs to pass in the dependency as an argument?)\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_incompleteDelegation() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        def _impl(name, visibility, deps):
+            if not deps:
+                deps = ["//tool:tool"]
+            cc_library(
+                name = name + "_baz",
+                deps = deps,
+            )
+
+        my_submacro = macro(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list(configurable=False)},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+
+        def _impl(name, visibility, deps, pass_in_tool):
+            my_submacro(
+                name = name + "_bar",
+                deps = ["//tool:tool"] if pass_in_tool else [],
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "pass_in_tool": attr.bool(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            pass_in_tool = True,
+        )
+
+        my_macro(
+            name = "foo2",
+            deps = ["//tool:tool"],
+            pass_in_tool = False,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar_baz"));
+    // my_macro passed it to my_submacro, but BUILD didn't pass it to my_macro.
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, the BUILD file of package //pkg. (Perhaps the caller needs to pass \
+        in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz"));
+    // BUILD passed it to my_macro, but my_macro didn't pass it to my_submacro.
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, the BUILD file of package //pkg. (Perhaps this caller, \
+        or an intermediate caller, needs to pass in the dependency as an argument?)\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_editVisibilitySuggestion_forRuleTarget() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "dep/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "dep",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            deps = ["//dep:dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * If you think the dependency is legitimate, consider updating its visibility declaration.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_editVisibilitySuggestion_forFileTarget() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "dep/BUILD",
+        """
+        exports_files(
+            ["dep"],
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "foo",
+            deps = ["//dep:dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * If you think the dependency on this source file is legitimate, consider updating its \
+        visibility declaration using exports_files().\
+        """);
   }
 }

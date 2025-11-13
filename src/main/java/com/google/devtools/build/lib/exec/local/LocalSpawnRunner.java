@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
@@ -56,6 +55,7 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -106,7 +106,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       BinTools binTools,
       ProcessWrapper processWrapper,
       RunfilesTreeUpdater runfilesTreeUpdater) {
-    this.execRoot = execRoot.devirtualize();
+    this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.getCachedShortHostName();
@@ -123,8 +123,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException, ExecException, ForbiddenActionInputException {
-
+      throws IOException, InterruptedException, ExecException {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
@@ -170,7 +169,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return true;
+    return !Spawns.usesPathMapping(spawn);
   }
 
   @Override
@@ -267,7 +266,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     @FormatMethod
     private void stepLog(Level level, @FormatString String fmt, Object... args) {
-      stepLog(level, /*cause=*/ null, fmt, args);
+      stepLog(level, /* cause= */ null, fmt, args);
     }
 
     @FormatMethod
@@ -316,11 +315,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions
-              .allowedLocalAction
-              .regexPattern()
-              .matcher(actionType)
-              .matches()) {
+          && !localExecutionOptions.allowedLocalAction.matcher().test(actionType)) {
         setState(State.PERMANENT_ERROR);
         outErr
             .getErrorStream()
@@ -328,7 +323,8 @@ public class LocalSpawnRunner implements SpawnRunner {
                 ("Action type "
                         + actionType
                         + " is not allowed to run locally due to regex filter: "
-                        + localExecutionOptions.allowedLocalAction.regexPattern()
+                        + StringEncoding.unicodeToInternal(
+                            localExecutionOptions.allowedLocalAction.regexPattern().toString())
                         + "\n")
                     .getBytes(UTF_8));
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
@@ -370,10 +366,10 @@ public class LocalSpawnRunner implements SpawnRunner {
             localEnvProvider.rewriteLocalEnv(
                 spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
 
-        SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+        SubprocessBuilder subprocessBuilder = new SubprocessBuilder(context.getClientEnv());
         subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());
-        subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
-        subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
+        subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
+        subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
         subprocessBuilder.setEnv(environment);
         ImmutableList<String> args;
         if (processWrapper != null) {

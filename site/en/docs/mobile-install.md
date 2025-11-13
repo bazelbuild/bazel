@@ -4,41 +4,38 @@ Book: /_book.yaml
 # bazel mobile-install
 
 {% include "_buttons.html" %}
+{# disableFinding(LINK_EXTERNAL) #}
 
 <p class="lead">Fast iterative development for Android</p>
 
 This page describes how `bazel mobile-install` makes iterative development
 for Android much faster. It describes the benefits of this approach versus the
-challenges of the traditional app install method.
+drawbacks of separate build and install steps.
 
 ## Summary {:#summary}
 
 To install small changes to an Android app very quickly, do the following:
 
  1. Find the `android_binary` rule of the app you want to install.
- 2. Disable Proguard by removing the `proguard_specs` attribute.
- 3. Set the `multidex` attribute to `native`.
- 4. Set the `dex_shards` attribute to `10`.
- 5. Connect your device running ART (not Dalvik) over USB and enable USB
-    debugging on it.
- 6. Run `bazel mobile-install :your_target`. App startup will be a little
+ 2. Connect your device to `adb`.
+ 3. Run `bazel mobile-install :your_target`. App startup will be a little
     slower than usual.
- 7. Edit the code or Android resources.
- 8. Run `bazel mobile-install --incremental :your_target`.
- 9. Enjoy not having to wait a lot.
+ 4. Edit the code or Android resources.
+ 5. Run `bazel mobile-install :your_target`.
+ 6. Enjoy a fast and minimal incremental installation!
 
 Some command line options to Bazel that may be useful:
 
  - `--adb` tells Bazel which adb binary to use
- - `--adb_arg` can be used to  add extra arguments to the command line of `adb`.
+ - `--adb_arg` can be used to add extra arguments to the command line of `adb`.
    One useful application of this is to select which device you want to install
    to if you have multiple devices connected to your workstation:
-   `bazel mobile-install --adb_arg=-s --adb_arg=<SERIAL> :your_target`
- - `--start_app` automatically starts the app
+   `bazel mobile-install :your_target -- --adb_arg=-s --adb_arg=<SERIAL>`
 
 When in doubt, look at the
-[example](https://github.com/bazelbuild/bazel/tree/master/examples/android){: .external}
-or [contact us](https://groups.google.com/forum/#!forum/bazel-discuss){: .external}.
+[example](https://github.com/bazelbuild/rules_android/tree/main/examples/basicapp){: .external},
+contact us on [Google Groups](https://groups.google.com/forum/#!forum/bazel-discuss){: .external},
+or [file a GitHub issue](https://github.com/bazelbuild/rules_android/issues){: .external}
 
 ## Introduction {:#introduction}
 
@@ -60,9 +57,10 @@ Android internals, all without changing any of your app's code.
 
 Building an Android app has some issues, including:
 
-- Dexing. By default, "dx" is invoked exactly once in the build and it does not
-know how to reuse work from previous builds: it dexes every method again, even
-though only one method was changed.
+- Dexing. By default, the Dexer tool (historically `dx`, now `d8` or `r8`)
+is invoked exactly once in the build and it does not know how to reuse work from
+previous builds: it dexes every method again, even though only one method was
+changed.
 
 - Uploading data to the device. adb does not use the full bandwidth of a USB 2.0
 connection, and larger apps can take a lot of time to upload. The entire app is
@@ -80,9 +78,10 @@ installed many times and each version is run at most a handful of times.
 
 `bazel mobile-install `makes the following improvements:
 
- - Sharded dexing. After building the app's Java code, Bazel shards the class
-   files into approximately equal-sized parts and invokes `dx` separately on
-   them. `dx` is not invoked on shards that did not change since the last build.
+ - Sharded desugaring and dexing. After building the app's Java code, Bazel
+   shards the class files into approximately equal-sized parts and invokes `d8`
+   separately on them. `d8` is not invoked on shards that did not change since
+   the last build. These shards are then compiled into separate sharded APKs.
 
  - Incremental file transfer. Android resources, .dex files, and native
    libraries are removed from the main .apk and are stored in under a separate
@@ -91,18 +90,17 @@ installed many times and each version is run at most a handful of times.
    transferring the files takes less time and only the .dex files that have
    changed are recompiled on-device.
 
- - Loading parts of the app from outside the .apk. A tiny stub application is
-   put into the .apk that loads Android resources, Java code and native code
-   from the on-device mobile-install directory, then transfers control to the
-   actual app. This is all transparent to the app, except in a few corner cases
-   described below.
+ - Sharded installation. Mobile-install uses Android Studio's
+   [`apkdeployer`](https://maven.google.com/web/index.html?q=deployer#com.android.tools.apkdeployer:apkdeployer){: .external}
+   tool to combine sharded APKs on the connected device and provide a cohesive
+   experience.
 
 ### Sharded Dexing {:#sharded-dexing}
 
 Sharded dexing is reasonably straightforward: once the .jar files are built, a
-[tool](https://github.com/bazelbuild/bazel/blob/master/src/tools/android/java/com/google/devtools/build/android/ziputils/DexMapper.java){: .external}
+[tool](https://github.com/bazelbuild/rules_android/blob/main/src/tools/java/com/google/devtools/build/android/ziputils/DexMapper.java){: .external}
 shards them into separate .jar files of approximately equal size, then invokes
-`dx` on those that were changed since the previous build. The logic that
+`d8` on those that were changed since the previous build. The logic that
 determines which shards to dex is not specific to Android: it just uses the
 general change pruning algorithm of Bazel.
 
@@ -115,8 +113,8 @@ packages rather than individual classes. Of course, this still results in
 dexing many shards if a new package is added or removed, but that is much less
 frequent than adding or removing a single class.
 
-The number of shards is controlled by the BUILD file (using the
-`android_binary.dex_shards` attribute). In an ideal world, Bazel would
+The number of shards is controlled by command-line configuration, using the
+`--define=num_dex_shards=N` flag. In an ideal world, Bazel would
 automatically determine how many shards are best, but Bazel currently must know
 the set of actions (for example, commands to be executed during the build) before
 executing any of them, so it cannot determine the optimal number of shards
@@ -125,63 +123,28 @@ app. Generally speaking, the more shards, the faster the build and the
 installation will be, but the slower app startup becomes, because the dynamic
 linker has to do more work. The sweet spot is usually between 10 and 50 shards.
 
-### Incremental file transfer {:#incremental-file-transfer}
+### Incremental deployment {:#incremental-deployment}
 
-After building the app, the next step is to install it, preferably with the
-least effort possible. Installation consists of the following steps:
+Incremental APK shard transfer and installation is now handled by the
+`apkdeployer` utility described in ["The approach of mobile-install"](#approach-mobile-install).
+Whereas earlier (native) versions of mobile-install required manually tracking
+first-time installations and selectively apply the `--incremental`
+flag on subsequent installation, the most recent version in [`rules_android`](https://github.com/bazelbuild/rules_android/tree/main/mobile_install){: .external}
+has been greatly simplified. The same mobile-install
+invocation can be used regardless of how many times the app has been installed
+or reinstalled.
 
- 1. Installing the .apk (typically using `adb install`)
- 2. Uploading the .dex files, Android resources, and native libraries to the
-    mobile-install directory
-
-There is not much incrementality in the first step: the app is either installed
-or not. Bazel currently relies on the user to indicate if it should do this step
-through the `--incremental` command line option because it cannot determine in
-all cases if it is necessary.
-
-In the second step, the app's files from the build are compared to an on-device
-manifest file that lists which app files are on the device and their
-checksums. Any new files are uploaded to the device, any files that have changed
-are updated, and any files that have been removed are deleted from the
-device. If the manifest is not present, it is assumed that every file needs to
-be uploaded.
-
-Note that it is possible to fool the incremental installation algorithm by
-changing a file on the device, but not its checksum in the manifest. This could
-have been safeguarded against by computing the checksum of the files on the
-device, but this was deemed to be not worth the increase in installation time.
-
-### The Stub application {:#stub-app}
-
-The stub application is where the magic to load the dexes, native code and
-Android resources from the on-device `mobile-install` directory happens.
-
-The actual loading is implemented by subclassing `BaseDexClassLoader` and is a
-reasonably well-documented technique. This happens before any of the app's
-classes are loaded, so that any application classes that are in the apk can be
-placed in the on-device `mobile-install` directory so that they can be updated
-without `adb install`.
-
-This needs to happen before any of the
-classes of the app are loaded, so that no application class needs to be in the
-.apk which would mean that changes to those classes would require a full
-re-install.
-
-This is accomplished by replacing the `Application` class specified in
-`AndroidManifest.xml` with the
-[stub application](https://github.com/bazelbuild/bazel/blob/master/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment/StubApplication.java){: .external}. This
-takes control when the app is started, and tweaks the class loader and the
-resource manager appropriately at the earliest moment (its constructor) using
-Java reflection on the internals of the Android framework.
-
-Another thing the stub application does is to copy the native libraries
-installed by mobile-install to another location. This is necessary because the
-dynamic linker needs the `X` bit to be set on the files, which is not possible to
-do for any location accessible by a non-root `adb`.
-
-Once all these things are done, the stub application then instantiates the
-actual `Application` class, changing all references to itself to the actual
-application within the Android framework.
+At a high level, the `apkdeployer` tool is a wrapper around various `adb`
+sub-commands. The main entrypoint logic can be found in the
+[`com.android.tools.deployer.Deployer`](https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:deploy/deployer/src/main/java/com/android/tools/deployer/Deployer.java){: .external}
+class, with other utility classes colocated in the same package.
+The `Deployer` class ingests, among other things, a list of paths to split
+APKs and a protobuf with information about the installation, and leverages
+deployment features for [Android app bundles](https://developer.android.com/guide/app-bundle){: .external}
+in order to create an install session and incrementally deploy app splits.
+See the [`ApkPreInstaller`](https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:deploy/deployer/src/main/java/com/android/tools/deployer/ApkPreInstaller.java){: .external}
+and [`ApkInstaller`](https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:deploy/deployer/src/main/java/com/android/tools/deployer/ApkInstaller.java){: .external}
+classes for implementation details.
 
 ## Results {:#results}
 
@@ -202,24 +165,41 @@ changing a base library takes more time.
 The tricks the stub application plays don't work in every case.
 The following cases highlight where it does not work as expected:
 
- - When `Context` is cast to the `Application` class in
-   `ContentProvider#onCreate()`. This method is called during application
-   startup before we have a chance to replace the instance of the `Application`
-   class, therefore, `ContentProvider` will still reference the stub application
-   instead of the real one. Arguably, this is not a bug since you are not
-   supposed to downcast `Context` like this, but this seems to happen in a few
-   apps at Google.
+ - Mobile-install is only supported via the Starlark rules of `rules_android`.
+   See the ["brief history of mobile-install"](#mobile-install-history) for
+   more detail.
 
- - Resources installed by `bazel mobile-install` are only available from within
-   the app. If resources are accessed by other apps via
-   `PackageManager#getApplicationResources()`, these resources will be from the
-   last non-incremental install.
+ - Only devices running ART are supported. Mobile-install uses API and runtime features
+   that only exist on devices running ART, not Dalvik. Any Android runtime more
+   recent than Android L (API 21+) should be compatible.
 
- - Devices that aren't running ART. While the stub application works well on
-   Froyo and later, Dalvik has a bug that makes it think that the app is
-   incorrect if its code is distributed over multiple .dex files in certain
-   cases, for example, when Java annotations are used in a
-   [specific](https://code.google.com/p/android/issues/detail?id=78144){: .external}
-   way. As long as your app doesn't tickle these bugs, it should work with Dalvik,
-   too (note, however, that support for old Android versions isn't exactly our
-   focus)
+ - Bazel itself must be run with a tool Java runtime _and_ language version
+   of 17 or higher.
+
+ - Bazel versions prior to 8.4.0 must specify some additional flags for
+   mobile-install. See [the Bazel Android tutorial](/start/android-app). These
+   flags inform Bazel where the Starlark mobile-install aspect is and which
+   rules are supported.
+
+### A brief history of mobile-install {:#mobile-install-history}
+Earlier Bazel versions _natively_ included built-in build and test rules for
+popular languages and ecosystems such as C++, Java, and Android. These rules
+were therefore referred to as _native_ rules. Bazel 8 (released in 2024) removed
+support for these rules because many of them had been migrated to the
+[Starlark](/rules/language) language. See the ["Bazel 8.0 LTS blog post"](https://blog.bazel.build/2024/12/09/bazel-8-release.html){: .external}
+for more details.
+
+The legacy native Android rules also supported a legacy _native_ version of
+mobile-install functionality. This is referred to as "mobile-install v1" or
+"native mobile-install" now. This functionality was deleted in Bazel 8, along
+with the built-in Android rules.
+
+Now, all mobile-install functionality, as well as all Android build and test
+rules, are implemented in Starlark and reside in the `rules_android` GitHub
+repository. The latest version is known as "mobile-install v3" or "MIv3".
+
+_Naming note_: There was a "mobile-install **v2**" available only internally
+at Google at one point, but this was never published externally, and only v3
+continues to be used for both Google-internal and OSS rules_android deployment.
+
+

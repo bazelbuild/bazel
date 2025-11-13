@@ -44,8 +44,7 @@ import org.junit.runners.JUnit4;
 public final class BuildTypeTest {
 
   private final LabelConverter labelConverter =
-      new LabelConverter(
-          PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK);
+      new LabelConverter(PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.EMPTY);
 
   @Test
   public void testKeepsDictOrdering() throws Exception {
@@ -74,8 +73,7 @@ public final class BuildTypeTest {
             .put(Label.parseCanonical("//i/was/already/a/label"), "and that's okay")
             .build();
     LabelConverter converter =
-        new LabelConverter(
-            PackageIdentifier.parse("//current/package"), RepositoryMapping.ALWAYS_FALLBACK);
+        new LabelConverter(PackageIdentifier.parse("//current/package"), RepositoryMapping.EMPTY);
 
     Map<Label, String> expected =
         new ImmutableMap.Builder<Label, String>()
@@ -170,8 +168,7 @@ public final class BuildTypeTest {
   public void testLabelKeyedStringDictConvertingMapWithMultipleEquivalentKeysShouldFail()
       throws Exception {
     LabelConverter converter =
-        new LabelConverter(
-            PackageIdentifier.parse("//current/package"), RepositoryMapping.ALWAYS_FALLBACK);
+        new LabelConverter(PackageIdentifier.parse("//current/package"), RepositoryMapping.EMPTY);
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":reference", "value1")
         .put("//current/package:reference", "value2")
@@ -191,8 +188,7 @@ public final class BuildTypeTest {
   public void testLabelKeyedStringDictConvertingMapWithMultipleSetsOfEquivalentKeysShouldFail()
       throws Exception {
     LabelConverter converter =
-        new LabelConverter(
-            PackageIdentifier.parse("//current/rule"), RepositoryMapping.ALWAYS_FALLBACK);
+        new LabelConverter(PackageIdentifier.parse("//current/rule"), RepositoryMapping.EMPTY);
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":rule", "first set")
         .put("//current/rule:rule", "also first set")
@@ -219,8 +215,7 @@ public final class BuildTypeTest {
   public void testLabelKeyedStringDictErrorConvertingMapWithMultipleEquivalentKeysIncludesContext()
       throws Exception {
     LabelConverter converter =
-        new LabelConverter(
-            PackageIdentifier.parse("//current/package"), RepositoryMapping.ALWAYS_FALLBACK);
+        new LabelConverter(PackageIdentifier.parse("//current/package"), RepositoryMapping.EMPTY);
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":reference", "value1")
         .put("//current/package:reference", "value2")

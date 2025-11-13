@@ -144,9 +144,16 @@ final class StringModule implements StarlarkValue {
               + "joined by this string as a separator. Example:<br>"
               + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\""
               + "</pre>",
-      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")},
+      parameters = {
+        @Param(name = "self"),
+        @Param(
+            name = "elements",
+            allowedTypes = {@ParamType(type = StarlarkIterable.class, generic1 = String.class)},
+            doc = "The objects to join.")
+      },
       useStarlarkThread = true)
-  public String join(String self, Object elements, StarlarkThread thread) throws EvalException {
+  public String join(String self, StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
@@ -383,15 +390,13 @@ final class StringModule implements StarlarkValue {
               + "separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc = "The maximum number of splits.")
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> split(
@@ -400,7 +405,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     StarlarkList<String> res = StarlarkList.newList(thread.mutability());
@@ -425,15 +430,13 @@ final class StringModule implements StarlarkValue {
               + "Except for splitting from the right, this method behaves like split().",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc = "The maximum number of splits.")
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> rsplit(
@@ -442,7 +445,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
@@ -905,9 +908,10 @@ final class StringModule implements StarlarkValue {
     if (sub.isEmpty()) {
       return hi(indices) - lo(indices) + 1; // str.length() + 1
     }
-    // Unfortunately Java forces us to allocate here, even though
-    // String has a private indexOf method that accepts indices.
-    // Fortunately the common case is self[0:n].
+    // The allocation could be avoided by starting at lo(indices) and checking
+    // for index <= hi(indices) - sub.length() in the loop, but benchmarks show
+    // that the allocation can be faster (and it is a no-op in the common case
+    // of default values for start and end).
     String str = self.substring(lo(indices), hi(indices));
     int count = 0;
     int index = 0;

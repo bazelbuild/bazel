@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.Test;
@@ -190,6 +191,7 @@ public final class QueryParserTest {
     checkPrettyPrint("let x = e1 in e2");
     checkPrettyPrint("labels('srcs', x)");
     checkPrettyPrint("tests(x)");
+    checkPrettyPrint("executables(x)");
     checkPrettyPrint("set()");
     checkPrettyPrint("set(//a)");
     checkPrettyPrint("set(//a //b)");
@@ -291,5 +293,15 @@ public final class QueryParserTest {
     checkPrettyPrint("\"set('//foo' + 'bar')\"");
     checkPrettyPrint("\"a'a\"");
     checkPrettyPrint("\'a\"a\'");
+  }
+
+  @Test
+  public void testUnicodeLabels() throws Exception {
+    checkPrettyPrint(
+        StringEncoding.unicodeToInternal("//:äöüÄÖÜß🌱"),
+        StringEncoding.unicodeToInternal("'//:äöüÄÖÜß🌱'"));
+    checkPrettyPrint(
+        StringEncoding.unicodeToInternal("//:äöüÄÖÜß🌱"),
+        StringEncoding.unicodeToInternal("//:äöüÄÖÜß🌱"));
   }
 }

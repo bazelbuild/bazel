@@ -1,6 +1,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_graalvm//graalvm:defs.bzl", "native_image")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -8,6 +9,12 @@ package(
 )
 
 licenses(["notice"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
 
 _TURBINE_MAIN_CLASS = "com.google.turbine.main.Main"
 
@@ -153,14 +160,4 @@ sh_binary(
 sh_binary(
     name = "update_turbine_pgo",
     srcs = ["update_turbine_pgo.sh"],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(
-        ["**/*.java"],
-        allow_empty = True,
-    ) + [
-        "BUILD",
-    ],
 )

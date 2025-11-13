@@ -45,8 +45,7 @@ public record NonRegistryOverride(RepoSpec repoSpec) implements ModuleOverride {
    * spec. In {@code RepositoryDelegatorFunction}, the logic to fetch {@code bazel_tools} exits
    * before reading the repo spec.
    */
-  // TODO: wyv@ - refactor so that the builtin modules don't need a repo spec. This should be
-  //   possible once we remove the local_config_platform builtin module, and will reduce confusion.
+  // TODO: wyv@ - refactor so that the builtin modules don't need a repo spec.
   public static final NonRegistryOverride BAZEL_TOOLS_OVERRIDE = new NonRegistryOverride(null);
 
   @Override

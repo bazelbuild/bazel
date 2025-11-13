@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
@@ -192,7 +193,10 @@ public class StandaloneSpawnStrategyTest {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
         /* outputMetadataStore= */ null,
@@ -200,7 +204,7 @@ public class StandaloneSpawnStrategyTest {
         LostInputsCheck.NONE,
         outErr,
         reporter,
-        /* clientEnv= */ ImmutableMap.of(),
+        /* clientEnv= */ System.getenv(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
@@ -210,7 +214,7 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testBinFalseYieldsException() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
-    assertWithMessage("got: " + e.getMessage())
+    assertWithMessage("got: %s", e.getMessage())
         .that(e.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
@@ -308,7 +312,7 @@ public class StandaloneSpawnStrategyTest {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     ActionExecutionException actionExecutionException =
         ActionExecutionException.fromExecException(e, new NullAction());
-    assertWithMessage("got: " + actionExecutionException.getMessage())
+    assertWithMessage("got: %s", actionExecutionException.getMessage())
         .that(
             actionExecutionException.getMessage().contains("failed: error executing Null command"))
         .isTrue();

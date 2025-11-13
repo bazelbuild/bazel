@@ -103,7 +103,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_avoid_hardcoded_objc_compilation_flags",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,

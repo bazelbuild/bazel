@@ -1,0 +1,47 @@
+diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
+index 2a38c7475..e7736a675 100644
+--- a/java/core/BUILD.bazel
++++ b/java/core/BUILD.bazel
+@@ -186,10 +186,7 @@ protobuf_java_export(
+ protobuf_java_library(
+     name = "lite_runtime_only",
+     srcs = LITE_SRCS,
+-    visibility = [
+-        "//java/kotlin:__pkg__",
+-        "//java/lite:__pkg__",
+-    ],
++    visibility = ["//visibility:public"],
+ )
+ 
+ proto_library(
+diff --git a/upb/BUILD b/upb/BUILD
+index 426bf9124..fd17ac96c 100644
+--- a/upb/BUILD
++++ b/upb/BUILD
+@@ -115,6 +115,26 @@ cc_library(
+     visibility = ["//hpb/bazel:__pkg__"],
+ )
+ 
++# Aliases ######################################################################
++
++alias(
++    name = "base",
++    actual = "//upb/base",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "mem",
++    actual = "//upb/mem",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "message",
++    actual = "//upb/message",
++    visibility = ["//visibility:public"],
++)
++
+ # Amalgamation #################################################################
+ 
+ upb_amalgamation(

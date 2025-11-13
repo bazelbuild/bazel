@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
@@ -252,7 +253,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         String.format(
             """
             def _impl(name, visibility):
-                native.cc_library(name="%s")
+                native.filegroup(name="%s")
             my_macro = macro(implementation=_impl)
             """,
             targetName));
@@ -419,7 +420,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name + "_inside_macro")
+            native.filegroup(name = name + "_inside_macro")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -427,7 +428,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
-        cc_library(name = "abc_outside_macro")
+        filegroup(name = "abc_outside_macro")
         """);
 
     Package pkg = getPackage("pkg");
@@ -442,7 +443,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name + "_target")
+            native.filegroup(name = name + "_target")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -450,11 +451,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
-        cc_library(name = "abc_target")
+        filegroup(name = "abc_target")
         """);
 
     assertGetPackageFailsWithEvent(
-        "pkg", "cc_library rule 'abc_target' conflicts with existing cc_library rule");
+        "pkg", "filegroup rule 'abc_target' conflicts with existing filegroup rule");
   }
 
   @Test
@@ -463,7 +464,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name,
                 srcs = [
                     "explicit_input.cc",
@@ -481,7 +482,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
         exports_files(["explicit_input.cc"])
-        cc_library(name = "bar", srcs = ["implicit_input.cc"])
+        filegroup(name = "bar", srcs = ["implicit_input.cc"])
         """);
 
     Package pkg = getPackage("pkg");
@@ -497,7 +498,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _sub_impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_target",
                 srcs = ["implicit_input.cc"],
             )
@@ -505,7 +506,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_submacro = macro(implementation=_sub_impl)
 
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_target",
                 srcs = ["implicit_input.cc"],
             )
@@ -537,7 +538,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _inner_impl(name, visibility):
-            native.cc_library(name = name + "_lib")
+            native.filegroup(name = name + "_lib")
         inner_macro = macro(implementation=_inner_impl)
         def _impl(name, visibility):
             inner_macro(name = name + "_inner")
@@ -594,7 +595,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _inner_impl(name, visibility):
-            native.cc_library(name = name)
+            native.filegroup(name = name)
         inner_macro = macro(implementation=_inner_impl)
 
         def _middle_impl(name, visibility):
@@ -626,8 +627,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name)
-            native.cc_library(name = name)
+            native.filegroup(name = name)
+            native.filegroup(name = name)
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -638,7 +639,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """);
 
     assertGetPackageFailsWithEvent(
-        "pkg", "cc_library rule 'abc' conflicts with existing cc_library rule");
+        "pkg", "filegroup rule 'abc' conflicts with existing filegroup rule");
   }
 
   @Test
@@ -679,7 +680,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
         def _impl(name, visibility):
             inner_macro(name = name)
-            native.cc_library(name = name)
+            native.filegroup(name = name)
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -705,7 +706,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         inner_macro = macro(implementation=_inner_impl)
 
         def _impl(name, visibility):
-            native.cc_library(name = name)
+            native.filegroup(name = name)
             inner_macro(name = name)
         my_macro = macro(implementation=_impl)
         """);
@@ -803,7 +804,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_binary(name = name + "_lib")
+            native.filegroup(name = name + "_lib")
         my_macro = macro(implementation=_impl)
         def query():
             print("existing_rules() keys: %s" % native.existing_rules().keys())
@@ -812,7 +813,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_macro", "query")
-        cc_library(name = "outer_target")
+        filegroup(name = "outer_target")
         my_macro(name="abc")
         query()
         """);
@@ -828,7 +829,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_binary(name = name + "_lib")
+            native.filegroup(name = name + "_lib")
         my_macro = macro(implementation=_impl, finalizer=True)
         def query():
             print("existing_rules() keys: %s" % native.existing_rules().keys())
@@ -837,7 +838,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_macro", "query")
-        cc_library(name = "outer_target")
+        filegroup(name = "outer_target")
         my_macro(name="abc")
         query()
         """);
@@ -1437,10 +1438,10 @@ Label("//conditions:default"): None})\
         "lib1/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_exported",
                 visibility = visibility)
-            native.cc_library(name = name + "_internal")
+            native.filegroup(name = name + "_internal")
 
         submacro = macro(implementation=_impl)
         """);
@@ -1454,10 +1455,10 @@ Label("//conditions:default"): None})\
         load("//lib1:macro.bzl", "submacro")
 
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_exported",
                 visibility = visibility)
-            native.cc_library(name = name + "_internal")
+            native.filegroup(name = name + "_internal")
             submacro(name=name + "_subexported", visibility = visibility)
             submacro(name=name + "_subinternal")
 
@@ -2037,22 +2038,22 @@ my_macro = macro(
 
   @Test
   public void generatorInfoAndCallStack_atTopLevel() throws Exception {
-    // cc_binary_legacy_macro is a legacy macro instantiating a cc_binary rule.
+    // filegroup_legacy_macro is a legacy macro instantiating a filegroup rule.
     scratch.file(
         "pkg/inner_legacy_macro.bzl",
         """
         def inner_legacy_macro(name, **kwargs):
-              native.cc_binary(name = name, **kwargs)
+              native.filegroup(name = name, **kwargs)
         """);
-    // my_macro is a symbolic macro that instantiates 2 cc_binary rules: one directly, and one
-    // wrapped by cc_binary_legacy_macro.
+    // my_macro is a symbolic macro that instantiates 2 filegroup rules: one directly, and one
+    // wrapped by filegroup_legacy_macro.
     scratch.file(
         "pkg/my_macro.bzl",
         """
         load(":inner_legacy_macro.bzl", "inner_legacy_macro")
 
         def _impl(name, visibility, **kwargs):
-            native.cc_binary(name = name + "_lib")
+            native.filegroup(name = name + "_lib")
             inner_legacy_macro(name  = name + "_legacy_macro_lib")
 
         my_macro = macro(implementation = _impl)
@@ -2068,6 +2069,7 @@ my_macro = macro(
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isEqualTo("foo");
     assertThat(foo.getBuildFileLocation())
         .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 9));
     assertThat(foo.reconstructParentCallStack())
@@ -2114,14 +2116,75 @@ my_macro = macro(
   }
 
   @Test
+  public void generatorInfoAndCallStack_withLegacyWrapperWithoutName() throws Exception {
+    // my_macro is a symbolic macro that instantiates a filegroup rule
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility, **kwargs):
+            native.filegroup(name = name + "_bin")
+
+        my_macro = macro(implementation = _impl)
+        """);
+    // legacy_wrapper is a legacy wrapper of my_macro which doesn't have a `name` parameter
+    scratch.file(
+        "pkg/legacy_nameless_wrapper.bzl",
+        """
+        load(":my_macro.bzl", "my_macro")
+
+        def legacy_nameless_wrapper(praenomen):
+            my_macro(name = praenomen)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":legacy_nameless_wrapper.bzl", "legacy_nameless_wrapper")
+
+        legacy_nameless_wrapper(praenomen = "foo")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isNull();
+    assertThat(foo.getBuildFileLocation())
+        .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 24));
+    assertThat(foo.reconstructParentCallStack())
+        .containsExactly(
+            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
+            StarlarkThread.callStackEntry(
+                "legacy_nameless_wrapper",
+                Location.fromFileLineColumn("/workspace/pkg/legacy_nameless_wrapper.bzl", 4, 13)),
+            StarlarkThread.callStackEntry(
+                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 1)))
+        .inOrder();
+
+    Rule fooBin = pkg.getRule("foo_bin");
+    assertThat(fooBin.isRuleCreatedInMacro()).isTrue();
+    assertThat(fooBin.getLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooBin.getAttr("generator_name", Type.STRING)).isEqualTo("foo_bin");
+    assertThat(fooBin.getAttr("generator_function", Type.STRING))
+        .isEqualTo("legacy_nameless_wrapper");
+    assertThat(fooBin.getAttr("generator_location", Type.STRING)).isEqualTo("pkg/BUILD:3:24");
+    assertThat(fooBin.reconstructCallStack())
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(foo.reconstructParentCallStack())
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 2, 21)))
+                .build());
+  }
+
+  @Test
   public void generatorInfoAndCallStack_nestedMacros() throws Exception {
     // inner_legacy_wrapper is a legacy macro wrapper around inner_macro, which is a symbolic macro
-    // that instantiates a cc_binary rule.
+    // that instantiates a filegroup rule.
     scratch.file(
         "pkg/inner.bzl",
         """
         def _inner_impl(name, visibility, **kwargs):
-            native.cc_binary(name = name, **kwargs)
+            native.filegroup(name = name, **kwargs)
 
         inner_macro = macro(implementation = _inner_impl)
 
@@ -2154,6 +2217,7 @@ my_macro = macro(
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isEqualTo("foo");
     assertThat(foo.getBuildFileLocation())
         .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 21));
     assertThat(foo.reconstructParentCallStack())
@@ -2167,6 +2231,7 @@ my_macro = macro(
         .inOrder();
 
     MacroInstance fooInner = getMacroById(pkg, "foo_inner:1");
+    assertThat(fooInner.getGeneratorName()).isEqualTo(foo.getGeneratorName());
     assertThat(fooInner.getBuildFileLocation()).isEqualTo(foo.getBuildFileLocation());
     assertThat(fooInner.reconstructParentCallStack())
         .containsExactly(
@@ -2195,6 +2260,87 @@ my_macro = macro(
                         "_inner_impl",
                         Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 2, 21)))
                 .build());
+  }
+
+  @Test
+  public void maxComputationSteps_enforcedInMacros() throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            # exceed max_computation_steps
+            for i in range(1000):
+                pass
+            native.filegroup(name = name, visibility = visibility)
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        """);
+    setBuildLanguageOptions("--max_computation_steps=100"); // sufficient for BUILD but not my_macro
+    reporter.removeHandler(failFastHandler);
+    NoSuchPackageException exception =
+        assertThrows(
+            NoSuchPackageException.class,
+            () ->
+                getPackageManager()
+                    .getPackage(reporter, PackageIdentifier.createInMainRepo("pkg")));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("computation took 1\\d{3} steps, but --max_computation_steps=100");
+  }
+
+  @Test
+  public void failingMacro_immediatelyThrowsEvalExceptionWithFullCallStack() throws Exception {
+    scratch.file(
+        "pkg/inner.bzl",
+        """
+        def _inner_impl(name, visibility, **kwargs):
+            fail("Inner macro failed")
+
+        inner_macro = macro(implementation = _inner_impl)
+        """);
+    scratch.file(
+        "pkg/outer.bzl",
+        """
+        load(":inner.bzl", "inner_macro")
+
+        def _outer_impl(name, visibility, **kwargs):
+            inner_macro(name  = name + "_inner", **kwargs)
+            fail("This should not be reached")
+
+        outer_macro = macro(implementation = _outer_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":outer.bzl", "outer_macro")
+
+        outer_macro(name = "foo")
+        fail("This should not be reached")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg.containsErrors()).isTrue();
+    assertDoesNotContainEvent("This should not be reached");
+    assertContainsEvent(
+"""
+\tFile "/workspace/pkg/BUILD", line 3, column 12, in <toplevel>
+\t\touter_macro(name = "foo")
+\tFile "/workspace/pkg/outer.bzl", line 7, column 1, in outer_macro
+\t\touter_macro = macro(implementation = _outer_impl)
+\tFile "/workspace/pkg/outer.bzl", line 4, column 16, in _outer_impl
+\t\tinner_macro(name  = name + "_inner", **kwargs)
+\tFile "/workspace/pkg/inner.bzl", line 4, column 1, in inner_macro
+\t\tinner_macro = macro(implementation = _inner_impl)
+\tFile "/workspace/pkg/inner.bzl", line 2, column 9, in _inner_impl
+\t\tfail("Inner macro failed")
+""");
   }
 
   private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {

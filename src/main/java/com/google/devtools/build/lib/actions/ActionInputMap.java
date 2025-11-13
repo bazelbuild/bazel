@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -126,6 +127,18 @@ public final class ActionInputMap implements InputMetadataProvider {
       }
       return null;
     }
+
+    void forEachTreeArtifact(
+        BiConsumer<PathFragment, TreeArtifactValue> consumer, PathFragment execPath) {
+      for (Map.Entry<String, Object> entry : subFolders.entrySet()) {
+        PathFragment childPath = execPath.getRelative(entry.getKey());
+        switch (entry.getValue()) {
+          case TreeArtifactValue val -> consumer.accept(childPath, val);
+          case TrieArtifact next -> next.forEachTreeArtifact(consumer, childPath);
+          default -> throw new AssertionError(entry);
+        }
+      }
+    }
   }
 
   /** The number of elements contained in this map. */
@@ -140,22 +153,15 @@ public final class ActionInputMap implements InputMetadataProvider {
   /** Flat array of the next pointers that make up the linked list behind each hash bucket. */
   private int[] next;
 
-  /**
-   * The {@link ActionInput} keys stored in this map. For performance reasons, they need to be
-   * stored as {@link Object}s as otherwise, the JVM does not seem to be as good optimizing the
-   * store operations (maybe it does checks on the type being stored?).
-   */
-  private Object[] keys;
+  /** The {@link ActionInput} keys stored in this map. */
+  private ActionInput[] keys;
+
+  /** The exec paths of the keys. */
+  private String[] paths;
 
   /**
-   * Extra storage for the execPathStrings of the values in {@link #keys}. This extra storage is
-   * necessary for speed as otherwise, we'd need to cast to {@link ActionInput}, which is slow.
-   */
-  private Object[] paths;
-
-  /**
-   * The {@link FileArtifactValue} data stored in this map. Same as the other arrays, this is stored
-   * as {@link Object} for performance reasons.
+   * The values stored in this map. Each value is one of {@link FileArtifactValue}, {@link
+   * TreeArtifactValue} or {@link RunfilesArtifactValue}.
    */
   private Object[] values;
 
@@ -174,8 +180,8 @@ public final class ActionInputMap implements InputMetadataProvider {
     Arrays.fill(table, -1);
 
     next = new int[sizeHint];
-    keys = new Object[sizeHint];
-    paths = new Object[sizeHint];
+    keys = new ActionInput[sizeHint];
+    paths = new String[sizeHint];
     values = new Object[sizeHint];
   }
 
@@ -270,6 +276,14 @@ public final class ActionInputMap implements InputMetadataProvider {
   }
 
   /**
+   * For each tree artifact in this input map, invokes the given callback with its exec path and its
+   * metadata.
+   */
+  public void forEachTreeArtifact(BiConsumer<PathFragment, TreeArtifactValue> consumer) {
+    treeArtifactsRoot.forEachTreeArtifact(consumer, PathFragment.EMPTY_FRAGMENT);
+  }
+
+  /**
    * Returns metadata for given path.
    *
    * <p>This method is less efficient than {@link #getInputMetadata(ActionInput)}, please use that
@@ -307,10 +321,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     return getTreeMetadata(input.getExecPath());
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
-   * artifact exists.
-   */
   @Nullable
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
     int index = getIndex(execPath.getPathString());
@@ -321,27 +331,22 @@ public final class ActionInputMap implements InputMetadataProvider {
     return value instanceof TreeArtifactValue treeValue ? treeValue : null;
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
-   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
-   * exists.
-   */
   @Nullable
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPathString) {
-    int index = getIndex(execPathString);
+  public ActionInput getInput(PathFragment execPath) {
+    int index = getIndex(execPath.getPathString());
     if (index != -1) {
-      return (ActionInput) keys[index];
+      return keys[index];
     }
 
     // Search ancestor paths since execPathString may point to a TreeFileArtifact within one of the
     // tree artifacts.
-    PathFragment execPath = PathFragment.create(execPathString);
     TreeArtifactValue tree = treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
     if (tree == null) {
       return null;
@@ -375,7 +380,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
     int oldIndex = putIfAbsent(input, metadata);
     checkArgument(
-        oldIndex == -1 || !isTreeArtifact((ActionInput) keys[oldIndex]),
+        oldIndex == -1 || !isTreeArtifact(keys[oldIndex]),
         "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
         input);
   }
@@ -402,7 +407,7 @@ public final class ActionInputMap implements InputMetadataProvider {
     int oldIndex = putIfAbsent(tree, PLACEHOLDER);
     if (oldIndex != -1) {
       checkArgument(
-          isTreeArtifact((ActionInput) keys[oldIndex]),
+          isTreeArtifact(keys[oldIndex]),
           "Tried to overwrite file with a tree artifact: '%s' with the same exec path",
           tree);
       return;
@@ -464,7 +469,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     // there are no duplicate keys.
     if (table.length < size * 2) {
       table = new int[table.length * 2];
-      next = new int[size * 2];
       Arrays.fill(table, -1);
       for (int i = 0; i < size; i++) {
         int index = paths[i].hashCode() & (table.length - 1);

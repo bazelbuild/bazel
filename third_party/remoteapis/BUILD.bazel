@@ -1,6 +1,6 @@
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
 load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(default_visibility = ["//visibility:public"])
@@ -33,8 +33,8 @@ JAVA_LIBRARY_PROTOS = [
 filegroup(
     name = "dist_jars",
     srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS] + [
-        ":build_bazel_remote_asset_v1_remote_asset_java_grpc_srcs",
-        ":build_bazel_remote_execution_v2_remote_execution_java_grpc_srcs",
+        ":libbuild_bazel_remote_asset_v1_remote_asset_java_grpc-src.jar",
+        ":libbuild_bazel_remote_execution_v2_remote_execution_java_grpc-src.jar",
     ],
     visibility = ["@io_bazel//src:__pkg__"],
 )

@@ -15,14 +15,10 @@
 package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.runner.internal.SignalHandlers;
-import com.google.testing.junit.runner.internal.Stderr;
-import com.google.testing.junit.runner.internal.Xml;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.function.Supplier;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.junit.Ignore;
 import org.junit.runner.Description;
 import org.junit.runner.Result;
@@ -31,11 +27,9 @@ import org.junit.runner.notification.RunListener;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
-/**
- * A listener that writes the test output as XML.
- */
-@Singleton
-public class JUnit4TestXmlListener extends RunListener  {
+/** A listener that writes the test output as XML. */
+@SuppressWarnings("SunApi") // no alternative for signal handling?
+public class JUnit4TestXmlListener extends RunListener {
   private final Supplier<TestSuiteModel> modelSupplier;
   private final CancellableRequestFactory requestFactory;
   private final SignalHandlers signalHandlers;
@@ -43,10 +37,12 @@ public class JUnit4TestXmlListener extends RunListener  {
   private final PrintStream errPrintStream;
   private volatile TestSuiteModel model;
 
-  @Inject
-  public JUnit4TestXmlListener(Supplier<TestSuiteModel> modelSupplier,
-      CancellableRequestFactory requestFactory, SignalHandlers signalHandlers,
-      @Xml OutputStream xmlStream, @Stderr PrintStream errPrintStream) {
+  public JUnit4TestXmlListener(
+      Supplier<TestSuiteModel> modelSupplier,
+      CancellableRequestFactory requestFactory,
+      SignalHandlers signalHandlers,
+      OutputStream xmlStream,
+      PrintStream errPrintStream) {
     this.modelSupplier = modelSupplier;
     this.requestFactory = requestFactory;
     this.signalHandlers = signalHandlers;

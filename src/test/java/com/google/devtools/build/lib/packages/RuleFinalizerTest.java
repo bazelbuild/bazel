@@ -77,7 +77,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer")
-        cc_library(name = "foo")
+        filegroup(name = "foo")
         my_finalizer(name = "abc", targets_of_interest = [":foo"])
         """);
 
@@ -114,7 +114,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer_outer")
-        cc_library(name = "foo")
+        filegroup(name = "foo")
         my_finalizer_outer(name = "abc")
         """);
 
@@ -149,7 +149,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer")
-        cc_library(name = "foo")
+        filegroup(name = "foo")
         my_finalizer(name = "abc")
         """);
 
@@ -227,18 +227,18 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
             print("native.existing_rules and native.existing_rule are as expected")
 
         def _impl_macro(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            native.filegroup(name = name + "_inner_lib")
 
         my_macro = macro(implementation = _impl_macro)
 
         def _impl_inner_finalizer(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            native.filegroup(name = name + "_inner_lib")
             check_existing_rules()
 
         inner_finalizer = macro(implementation = _impl_inner_finalizer, finalizer = True)
 
         def _impl_finalizer(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            native.filegroup(name = name + "_inner_lib")
             my_macro(name = name + "_inner_macro")
             inner_finalizer(name = name + "_inner_finalizer")
             check_existing_rules()
@@ -249,11 +249,11 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer", "my_macro")
-        cc_library(name = "top_level_lexically_before_finalizer")
+        filegroup(name = "top_level_lexically_before_finalizer")
         my_macro(name = "macro_lexically_before_finalizer")
         my_finalizer(name = "finalizer")
         my_finalizer(name = "other_finalizer")
-        cc_library(name = "top_level_lexically_after_finalizer")
+        filegroup(name = "top_level_lexically_after_finalizer")
         my_macro(name = "macro_lexically_after_finalizer")
         """);
 
@@ -261,5 +261,67 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     assertPackageNotInError(pkg);
     assertContainsEventWithFrequency(
         "native.existing_rules and native.existing_rule are as expected", 4);
+  }
+
+  @Test
+  public void packageInError_notFinalized() throws Exception {
+    scratch.file(
+        "pkg/finalizers.bzl",
+        """
+        def _impl(name, visibility):
+            print("in my_finalizer")
+            native.filegroup(name = name + "_lib")
+
+        my_finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":finalizers.bzl", "my_finalizer")
+        my_finalizer(name = "finalize")
+        filegroup(name = 1 // 0)  # causes EvalException
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("division by zero");
+    assertDoesNotContainEvent("in my_finalizer");
+    assertThat(pkg.getTargets().keySet()).doesNotContain("finalize_lib");
+  }
+
+  // Regression test for b/419523258.
+  @Test
+  public void finalizerFailure_handledCleanly() throws Exception {
+    scratch.file(
+        "pkg/finalizers.bzl",
+        """
+        def _fail_impl(name, visibility):
+            fail("fail fail fail")
+
+        def _good_impl(name, visibility):
+            native.filegroup(name = name + "_lib")
+
+        fail_finalizer = macro(implementation = _fail_impl, finalizer = True)
+        good_finalizer = macro(implementation = _good_impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":finalizers.bzl", "fail_finalizer", "good_finalizer")
+        good_finalizer(name = "good_finalizer")
+        fail_finalizer(name = "bad_finalizer")
+        good_finalizer(name = "should_not_be_expanded")  # because it follows a failing one
+        filegroup(name = "unrelated_target")  # evaluated before any finalizers
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("fail fail fail");
+    assertThat(pkg.getTargets().keySet()).containsAtLeast("unrelated_target", "good_finalizer_lib");
+    assertThat(pkg.getTargets().keySet()).doesNotContain("should_not_be_expanded_lib");
   }
 }

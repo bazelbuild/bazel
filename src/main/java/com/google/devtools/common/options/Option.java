@@ -37,8 +37,8 @@ public @interface Option {
   char abbrev() default '\0';
 
   /**
-   * A help string for the usage information. Note that this should be in plain text (no HTML tags,
-   * for example).
+   * A help string for the usage information. Note that this should be in plain text or markdown (no
+   * HTML tags, for example). HTML syntax will be escaped in `bazel help everything-as-html`.
    */
   String help() default "";
 

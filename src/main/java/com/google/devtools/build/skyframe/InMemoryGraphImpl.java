@@ -23,10 +23,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
+import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PackageoidValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
@@ -102,9 +103,10 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   public void remove(SkyKey skyKey) {
     weakInternSkyKey(skyKey);
     InMemoryNodeEntry nodeEntry = nodeMap.remove(skyKey);
-    if (skyKey instanceof PackageIdentifier && nodeEntry != null) {
+    if ((skyKey instanceof PackageIdentifier || skyKey instanceof PackagePieceIdentifier)
+        && nodeEntry != null) {
       weakInternPackageTargetsLabels(
-          (PackageValue) nodeEntry.toValue()); // Dirty or changed value are needed.
+          (PackageoidValue) nodeEntry.toValue()); // Dirty or changed value are needed.
     }
   }
 
@@ -115,8 +117,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         (k, e) -> {
           if (e.isDone()) {
             weakInternSkyKey(k);
-            if (k instanceof PackageIdentifier) {
-              weakInternPackageTargetsLabels((PackageValue) e.toValue());
+            if (k instanceof PackageIdentifier || k instanceof PackagePieceIdentifier) {
+              weakInternPackageTargetsLabels((PackageoidValue) e.toValue());
             }
             return null;
           }
@@ -134,13 +136,13 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     }
   }
 
-  private void weakInternPackageTargetsLabels(@Nullable PackageValue packageValue) {
-    if (!usePooledInterning || packageValue == null) {
+  private void weakInternPackageTargetsLabels(@Nullable PackageoidValue packageoidValue) {
+    if (!usePooledInterning || packageoidValue == null) {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
 
-    ImmutableSortedMap<String, Target> targets = packageValue.getPackage().getTargets();
+    ImmutableSortedMap<String, Target> targets = packageoidValue.getPackageoid().getTargets();
     targets.values().forEach(t -> interner.weakIntern(t.getLabel()));
   }
 
@@ -152,6 +154,19 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public NodeBatch getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    if (reason == Reason.REWINDING) {
+      // When rewinding, nodes are typically expected to be in the graph. However, systems with
+      // remote caching might not have loaded all dependencies into the local graph if a value was
+      // fetched from the cache.
+      //
+      // Tree artifacts are a key example. Their value (TreeArtifactValue) contains dependency keys.
+      // If the TreeArtifactValue is a cache hit, its child dependencies might not exist in the
+      // local graph. If a lost input is later discovered to be one of these children, we need to
+      // ensure the node entries exist for the rewinding process to analyze them.
+      //
+      // createIfAbsentBatch ensures that such nodes are present in the graph.
+      return createIfAbsentBatch(requestor, reason, keys);
+    }
     return getBatch;
   }
 
@@ -185,9 +200,14 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @CanIgnoreReturnValue
   public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    // As per the ProcessableGraph contract, ensures that every node is created, even if it is not
+    // consumed from the batch.
     for (SkyKey key : keys) {
       createIfAbsent(key);
     }
+    // Returns `createIfAbsentBatch` instead of `getBatch` because by contract, retrieving a node
+    // from the batch should not result in null, even if the corresponding key was removed from the
+    // graph.
     return createIfAbsentBatch;
   }
 
@@ -258,8 +278,10 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
+            // TODO(https://github.com/bazelbuild/bazel/issues/23852): support
+            // PackagePieceValue.ForMacro.
             if (e.isDone() && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
-              weakInternPackageTargetsLabels((PackageValue) e.toValue());
+              weakInternPackageTargetsLabels((PackageoidValue) e.toValue());
             }
 
             // The graph is about to be thrown away. Remove as we go to avoid temporarily storing
@@ -364,8 +386,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     if (value == null) {
       return null;
     }
-    checkState(value instanceof PackageValue, value);
-    ImmutableSortedMap<String, Target> targets = ((PackageValue) value).getPackage().getTargets();
+    checkState(value instanceof PackageoidValue, value);
+    ImmutableSortedMap<String, Target> targets =
+        ((PackageoidValue) value).getPackageoid().getTargets();
     Target target = targets.get(sample.getName());
     return target != null ? target.getLabel() : null;
   }

@@ -926,7 +926,7 @@ public abstract class MemoizingEvaluatorTest {
       result = tester.eval(/* keepGoing= */ false, values);
       for (int i = 0; i < values.length; i++) {
         SkyValue actual = result.get(skyKey(values[i]));
-        assertWithMessage("Run " + j + ", value " + i)
+        assertWithMessage("Run %s, value %s", j, i)
             .that(actual)
             .isEqualTo(new StringValue("other" + j));
       }
@@ -1143,8 +1143,8 @@ public abstract class MemoizingEvaluatorTest {
           .hasErrorEntryForKeyThat(aKey)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
     } else {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(aKey)
@@ -1165,8 +1165,8 @@ public abstract class MemoizingEvaluatorTest {
           .hasErrorEntryForKeyThat(aKey)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
     } else {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(aKey)
@@ -1354,7 +1354,8 @@ public abstract class MemoizingEvaluatorTest {
       assertThatErrorInfo(errorInfo)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
+              CycleInfo.createCycleInfo(
+                  ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
     } else {
       assertThatErrorInfo(errorInfo).hasCycleInfoThat().hasSize(1);
     }
@@ -1582,12 +1583,12 @@ public abstract class MemoizingEvaluatorTest {
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(topKey)
           .hasCycleInfoThat()
-          .containsExactly(new CycleInfo(ImmutableList.of(topKey)));
+          .containsExactly(CycleInfo.createCycleInfo(ImmutableList.of(topKey)));
       assertThatEvaluationResult(result2).hasDirectDepsInGraphThat(topKey).containsExactly(topKey);
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(depKey)
           .hasCycleInfoThat()
-          .containsExactly(new CycleInfo(ImmutableList.of(depKey)));
+          .containsExactly(CycleInfo.createCycleInfo(ImmutableList.of(depKey)));
     } else {
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(topKey)
@@ -3663,7 +3664,7 @@ public abstract class MemoizingEvaluatorTest {
     result = tester.eval(/*keepGoing=*/ false, motherKey, fatherKey);
     assertThat(result.hasError()).isTrue();
     // Only one of mother or father should be in the graph.
-    assertWithMessage(result.getError(motherKey) + ", " + result.getError(fatherKey))
+    assertWithMessage("%s, %s", result.getError(motherKey), result.getError(fatherKey))
         .that((result.getError(motherKey) == null) != (result.getError(fatherKey) == null))
         .isTrue();
     SkyKey parentKey =

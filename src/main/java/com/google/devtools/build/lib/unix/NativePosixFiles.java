@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.unix;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
@@ -147,149 +145,35 @@ final class NativePosixFiles {
   static native boolean mkdir(String path, int mode) throws IOException;
 
   /**
-   * Makes sure a writable directory exists at a given path. Returns whether a new directory was
-   * created.
-   *
-   * <p>Unlike {@link #mkdir}, it fails if a file/symlink at a given path already exists. If a
-   * directory is already present, it will make sure it is writable and return false.
-   */
-  static native boolean mkdirWritable(String path);
-
-  /**
-   * Implements (effectively) mkdir -p.
-   *
-   * @param path the directory to recursively create.
-   * @param mode the mode with which to create the directories.
-   * @throws IOException if the directory creation failed for any reason.
-   */
-  static native void mkdirs(String path, int mode) throws IOException;
-
-  /**
-   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
+   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscalls.
    *
    * @param path the directory to read.
-   * @return the list of directory entries in the order they were returned by the system, excluding
-   *     "." and "..".
-   * @throws IOException if the call to opendir failed for any reason.
+   * @return an array of {@link Dirent} objects, one for each directory entry, excluding {@code .}
+   *     and {@code ..}.
+   * @throws IOException if the opendir(), readdir() or closedir() calls failed for any reason.
    */
-  static String[] readdir(String path) throws IOException {
-    return readdir(path, ReadTypes.NONE).names;
-  }
+  static native Dirent[] readdir(String path) throws IOException;
 
-  /**
-   * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
-   *
-   * @param path the directory to read.
-   * @param readTypes How the types of individual entries should be returned. If {@code NONE}, the
-   *     "types" field in the result will be null.
-   * @return a Dirents object, containing "names", the list of directory entries (excluding "." and
-   *     "..") in the order they were returned by the system, and "types", an array of entry types
-   *     (file, directory, etc) corresponding positionally to "names".
-   * @throws IOException if the call to opendir failed for any reason.
-   */
-  static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
-    var comp = Blocker.begin();
-    try {
-      // Passing enums to native code is possible, but onerous; we use a char instead.
-      return readdir(path, readTypes.getCode());
-    } finally {
-      Blocker.end(comp);
-    }
-  }
-
-  private static native Dirents readdir(String path, char typeCode) throws IOException;
-
-  /**
-   * An enum for specifying now the types of the individual entries returned by {@link
-   * #readdir(String, ReadTypes)} is to be returned.
-   */
-  enum ReadTypes {
-    NONE('n'),      // Do not read types
-    NOFOLLOW('d'),  // Do not follow symlinks
-    FOLLOW('f');    // Follow symlinks; never returns "SYMLINK" and returns "UNKNOWN" when dangling
-
-    private final char code;
-
-    private ReadTypes(char code) {
-      this.code = code;
-    }
-
-    private char getCode() {
-      return code;
-    }
-  }
-
-  /**
-   * A compound return type for readdir(), analogous to struct dirent[] in C. A low memory profile
-   * is critical for this class, as instances are expected to be kept around for caching for
-   * potentially a long time.
-   */
-  static final class Dirents {
-
+  /** A directory entry and its corresponding type, as returned by readdir(). */
+  record Dirent(String name, Type type) {
     /** The type of the directory entry. */
     enum Type {
-    FILE,
-    DIRECTORY,
-    SYMLINK,
-    UNKNOWN;
-
-    private static Type forChar(char c) {
-      if (c == 'f') {
-        return Type.FILE;
-      } else if (c == 'd') {
-        return Type.DIRECTORY;
-      } else if (c == 's') {
-        return Type.SYMLINK;
-      } else {
-        return Type.UNKNOWN;
-      }
-    }
-  }
-
-    /** The names of the entries in a directory. */
-    private final String[] names;
-
-    /**
-     * An optional (nullable) array of entry types, corresponding positionally to the "names" field.
-     * The possible types are:
-     *
-     * <ul>
-     *   <li>'d': a subdirectory
-     *   <li>'f': a regular file
-     *   <li>'s': a symlink, only returned for {@link ReadTypes.NOFOLLOW}
-     *   <li>'?': anything else, including:
-     *       <ul>
-     *         <li>a special file
-     *         <li>a nonexistent symlink target
-     *         <li>an error occurred while determining the file type, for example because of a
-     *             symlink loop
-     *       </ul>
-     * </ul>
-     *
-     * <p>This is intentionally a byte array rather than a array of enums to save memory.
-     */
-    private final byte[] types;
-
-    /** called from JNI */
-    Dirents(String[] names, byte[] types) {
-      this.names = names;
-      this.types = types;
-    }
-
-    int size() {
-      return names.length;
-    }
-
-    boolean hasTypes() {
-      return types != null;
-    }
-
-    String getName(int i) {
-      return names[i];
-    }
-
-    Type getType(int i) {
-      return Type.forChar((char) types[i]);
+      /** Regular file. */
+      FILE,
+      /** Directory. */
+      DIRECTORY,
+      /** Symbolic link. */
+      SYMLINK,
+      /** Character special device. */
+      CHAR,
+      /* Block special device. */
+      BLOCK,
+      /** Named pipe. */
+      FIFO,
+      /** Unix domain socket. */
+      SOCKET,
+      /** Unknown type. */
+      UNKNOWN
     }
   }
 
@@ -359,26 +243,6 @@ final class NativePosixFiles {
    *     a directory
    */
   static native void deleteTreesBelow(String dir) throws IOException;
-
-  /**
-   * Open a file descriptor for writing.
-   *
-   * <p>This is a low level API. The caller is responsible for calling {@link close} on the returned
-   * file descriptor.
-   *
-   * @param path file to open
-   * @param append whether to open is append mode
-   */
-  static native int openWrite(String path, boolean append) throws FileNotFoundException;
-
-  /** Write a segment of data to a file descriptor. */
-  static native int write(int fd, byte[] data, int off, int len) throws IOException;
-
-  /**
-   * Close a file descriptor. Additionally, accept and ignore an object; this can be used to keep a
-   * reference alive.
-   */
-  static native int close(int fd, Object ignored) throws IOException;
 
   /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
   private static void logBadPath(String path) {

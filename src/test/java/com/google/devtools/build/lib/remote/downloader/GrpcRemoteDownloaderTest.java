@@ -39,7 +39,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
@@ -124,7 +124,7 @@ public class GrpcRemoteDownloaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash(),
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
             null);
     context = RemoteActionExecutionContext.create(metadata);
 
@@ -153,7 +153,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryService);
     final ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
@@ -289,7 +289,6 @@ public class GrpcRemoteDownloaderTest {
 
   @Test
   public void testStatusHandling() throws Exception {
-    final byte[] content = "example content".getBytes(UTF_8);
     serviceRegistry.addService(
         new FetchImplBase() {
           @Override

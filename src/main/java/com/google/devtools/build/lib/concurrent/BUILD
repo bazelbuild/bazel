@@ -16,9 +16,13 @@ java_library(
     name = "concurrent",
     srcs = glob(
         ["*.java"],
-        exclude = ["SettableFutureKeyedValue.java"],
+        exclude = [
+            "SettableFutureKeyedValue.java",
+            "ThreadSafety.java",
+        ],
     ),
     deps = [
+        ":thread_safety",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:flogger",
         "//third_party:guava",

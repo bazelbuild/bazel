@@ -24,6 +24,7 @@ import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.BinaryOperatorExpression;
 import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.CastExpression;
 import net.starlark.java.syntax.Comprehension;
 import net.starlark.java.syntax.ConditionalExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -181,16 +182,14 @@ final class Eval {
       defaults[i - (nparams - defaults.length)] = defaultValue;
 
       // Typecheck the default value
-      if (functionType != null) {
-        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
-          throw Starlark.errorf(
-              "%s(): parameter '%s' has default value of type '%s', declares '%s'",
-              rfn.getName(),
-              rfn.getParameterNames().get(i),
-              TypeChecker.type(defaultValue),
-              parameterType);
-        }
+      StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+      if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+        throw Starlark.errorf(
+            "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+            rfn.getName(),
+            rfn.getParameterNames().get(i),
+            TypeChecker.type(defaultValue),
+            parameterType);
       }
     }
     if (defaults == null) {
@@ -315,6 +314,10 @@ final class Eval {
         return TokenKind.PASS;
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
+      case TYPE_ALIAS:
+        return TokenKind.PASS;
+      case VAR:
+        return TokenKind.PASS;
     }
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
@@ -474,6 +477,7 @@ final class Eval {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private static Object inplaceBinaryOp(StarlarkThread.Frame fr, TokenKind op, Object x, Object y)
       throws EvalException {
     switch (op) {
@@ -481,7 +485,7 @@ final class Eval {
         // list += iterable  behaves like  list.extend(iterable)
         // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
         if (x instanceof StarlarkList<?> xList && y instanceof StarlarkList<?> yList) {
-          xList.extend(yList);
+          xList.extend((StarlarkIterable) yList);
           return xList;
         }
         break;
@@ -556,6 +560,11 @@ final class Eval {
         return evalDot(fr, (DotExpression) expr);
       case CALL:
         return evalCall(fr, (CallExpression) expr);
+      case CAST:
+        return eval(fr, ((CastExpression) expr).getValue());
+      case ISINSTANCE:
+        fr.setErrorLocation(expr.getStartLocation());
+        throw new EvalException("isinstance() is not yet supported");
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
@@ -584,8 +593,10 @@ final class Eval {
         return ((StringLiteral) expr).getValue();
       case UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      case ELLIPSIS:
       case TYPE_APPLICATION:
-        // fall through
+        // fall through, these only appear in type expressions and should be unreachable from
+        // evaluated code.
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
   }

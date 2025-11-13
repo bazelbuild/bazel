@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -372,6 +372,6 @@ function test_other_artifacts() {
 
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
-[ "$PLATFORM" != "darwin" ] || exit 0
+is_linux || exit 0
 
 run_suite "hermetic_sandbox"

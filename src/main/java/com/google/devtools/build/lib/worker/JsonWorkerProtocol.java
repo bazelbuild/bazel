@@ -51,7 +51,7 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
     // WorkRequests are serialized according to ndjson spec.
     // https://github.com/ndjson/ndjson-spec
     jsonPrinter.appendTo(request, jsonWriter);
-    jsonWriter.append(System.lineSeparator());
+    jsonWriter.append("\n");
     jsonWriter.flush();
   }
 

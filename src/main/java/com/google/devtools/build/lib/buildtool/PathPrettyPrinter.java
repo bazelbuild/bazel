@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
@@ -26,11 +28,24 @@ import java.util.Map;
 public final class PathPrettyPrinter {
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
+  private final PathFragment workspaceRelativeToPwd;
   private final String symlinkPrefix;
   private final Map<PathFragment, PathFragment> resolvedSymlinks;
 
+  /**
+   * Creates an instance.
+   *
+   * <p>The provided workspace-relative working directory must be a relative path.
+   */
   public PathPrettyPrinter(
-      String symlinkPrefix, Map<PathFragment, PathFragment> convenienceSymlinks) {
+      PathFragment workspaceRelativeWorkingDirectory,
+      String symlinkPrefix,
+      Map<PathFragment, PathFragment> convenienceSymlinks) {
+    checkArgument(
+        !workspaceRelativeWorkingDirectory.isAbsolute(),
+        "workspaceRelativeWorkingDirectory must be relative to the workspace");
+    this.workspaceRelativeToPwd =
+        PathFragment.create("../".repeat(workspaceRelativeWorkingDirectory.segmentCount()));
     this.symlinkPrefix = symlinkPrefix;
     this.resolvedSymlinks = convenienceSymlinks;
   }
@@ -45,7 +60,7 @@ public final class PathPrettyPrinter {
     }
 
     for (Map.Entry<PathFragment, PathFragment> e : resolvedSymlinks.entrySet()) {
-      PathFragment linkFragment = e.getKey();
+      PathFragment linkFragment = workspaceRelativeToPwd.getRelative(e.getKey());
       PathFragment linkTarget = e.getValue();
       if (file.startsWith(linkTarget)) {
         return linkFragment.getRelative(file.relativeTo(linkTarget));

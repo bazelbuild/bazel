@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -44,12 +44,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -119,19 +117,14 @@ public class IncludeScanningModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(IncludeScanningOptions.class)
         : ImmutableList.of();
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-    if (cppOptions != null && cppOptions.experimentalIncludeScanning) {
-      env.getReporter()
-          .handle(Event.warn("Include scanning enabled. This feature is unsupported."));
-    }
     artifactFactory.set(env.getSkyframeBuildView().getArtifactFactory());
   }
 
@@ -198,7 +191,8 @@ public class IncludeScanningModule extends BlazeModule {
         Artifact source,
         ImmutableSet<Artifact> legalOutputPaths,
         ImmutableList<PathFragment> swigIncludePaths,
-        Artifact grepIncludes)
+        Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform)
         throws IOException, ExecException, InterruptedException {
       SwigIncludeScanner scanner =
           new SwigIncludeScanner(
@@ -231,7 +225,8 @@ public class IncludeScanningModule extends BlazeModule {
             includes,
             actionExecutionMetadata,
             actionExecContext,
-            grepIncludes);
+            grepIncludes,
+            grepIncludesExecutionPlatform);
       } catch (UncheckedIOException e) {
         throw e.getCause();
       } catch (NoSuchPackageException e) {

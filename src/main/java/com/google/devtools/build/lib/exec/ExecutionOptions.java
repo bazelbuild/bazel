@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,18 +43,15 @@ import java.util.Objects;
 /**
  * Options affecting the execution phase of a build.
  *
- * These options are interpreted by the BuildTool to choose an Executor to
- * be used for the build.
+ * <p>These options are interpreted by the BuildTool to choose an Executor to be used for the build.
  *
- * Note: from the user's point of view, the characteristic function of this
- * set of options is indistinguishable from that of the BuildRequestOptions:
- * they are all per-request.  The difference is only apparent in the
- * implementation: these options are used only by the lib.exec machinery, which
- * affects how C++ and Java compilation occur.  (The BuildRequestOptions
- * contain a mixture of "semantic" options affecting the choice of targets to
- * build, and "non-semantic" options affecting the lib.actions machinery.)
- * Ideally, the user would be unaware of the difference.  For now, the usage
- * strings are identical modulo "part 1", "part 2".
+ * <p>Note: from the user's point of view, the characteristic function of this set of options is
+ * indistinguishable from that of the BuildRequestOptions: they are all per-request. The difference
+ * is only apparent in the implementation: these options are used only by the lib.exec machinery,
+ * which affects how C++ and Java compilation occur. (The BuildRequestOptions contain a mixture of
+ * "semantic" options affecting the choice of targets to build, and "non-semantic" options affecting
+ * the lib.actions machinery.) Ideally, the user would be unaware of the difference. For now, the
+ * usage strings are identical modulo "part 1", "part 2".
  */
 public class ExecutionOptions extends OptionsBase {
 
@@ -127,9 +125,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands and --verbose_failures.")
+          "Writes intermediate parameter files to output tree even when using remote action "
+              + "execution or caching. Useful when debugging actions. This is implied by "
+              + "--subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
   @Option(
@@ -292,70 +290,6 @@ public class ExecutionOptions extends OptionsBase {
   public TestSummaryFormat testSummary;
 
   @Option(
-      name = "local_cpu_resources",
-      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
-      deprecationWarning =
-          "--local_cpu_resources is deprecated, please use --local_resources=cpu= instead.",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
-              + " actions executed locally. Takes an integer, or \""
-              + ResourceConverter.HOST_CPUS_KEYWORD
-              + "\", optionally followed"
-              + " by [-|*]<float> (eg. "
-              + ResourceConverter.HOST_CPUS_KEYWORD
-              + "*.5"
-              + " to use half the available CPU cores). By default, (\""
-              + ResourceConverter.HOST_CPUS_KEYWORD
-              + "\"), Bazel will query system"
-              + " configuration to estimate the number of CPU cores available.",
-      converter = CpuResourceConverter.class)
-  public double localCpuResources;
-
-  @Option(
-      name = "local_ram_resources",
-      defaultValue = ResourceConverter.HOST_RAM_KEYWORD + "*.67",
-      deprecationWarning =
-          "--local_ram_resources is deprecated, please use --local_resources=memory= instead.",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
-              + " build actions executed locally. Takes an integer, or \""
-              + ResourceConverter.HOST_RAM_KEYWORD
-              + "\", optionally followed by [-|*]<float>"
-              + " (eg. "
-              + ResourceConverter.HOST_RAM_KEYWORD
-              + "*.5 to use half the available"
-              + " RAM). By default, (\""
-              + ResourceConverter.HOST_RAM_KEYWORD
-              + "*.67\"),"
-              + " Bazel will query system configuration to estimate the amount of RAM available"
-              + " and will use 67% of it.",
-      converter = RamResourceConverter.class)
-  public double localRamResources;
-
-  @Option(
-      name = "local_extra_resources",
-      defaultValue = "null",
-      deprecationWarning =
-          "--local_extra_resources is deprecated, please use --local_resources instead.",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      allowMultiple = true,
-      help =
-          "Set the number of extra resources available to Bazel. "
-              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
-              + "types of extra resources. Bazel will limit concurrently running actions "
-              + "based on the available extra resources and the extra resources required. "
-              + "Tests can declare the amount of extra resources they need "
-              + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
-              + "Available CPU, RAM and resources cannot be set with this flag.",
-      converter = Converters.StringToDoubleAssignmentConverter.class)
-  public List<Map.Entry<String, Double>> localExtraResources;
-
-  @Option(
       name = "local_resources",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -375,10 +309,18 @@ public class ExecutionOptions extends OptionsBase {
               + "types of resources. Bazel will limit concurrently running actions "
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
-              + "by using a tag of the \"resources:<resource name>:<amount>\" format. "
-              + "Overrides resources specified by --local_{cpu|ram|extra}_resources.",
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format. ",
       converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
+
+  public ImmutableMap<String, Double> getLocalResources() {
+    ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
+    return resources
+        .put(ResourceSet.CPU, LocalHostCapacity.getLocalHostCapacity().getCpuUsage())
+        .put(ResourceSet.MEMORY, .67 * LocalHostCapacity.getLocalHostCapacity().getMemoryMb())
+        .putAll(localResources)
+        .buildKeepingLast();
+  }
 
   @Option(
       name = "experimental_cpu_load_scheduling",
@@ -435,15 +377,14 @@ public class ExecutionOptions extends OptionsBase {
   public long cacheSizeForComputedFileDigests;
 
   @Option(
-    name = "experimental_enable_critical_path_profiling",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If set (the default), critical path profiling is enabled for the execution phase. "
-            + "This has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
-            + " aggressive RAM optimizations in some cases."
-  )
+      name = "experimental_enable_critical_path_profiling",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set (the default), critical path profiling is enabled for the execution phase. This"
+              + " has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
+              + " aggressive RAM optimizations in some cases.")
   public boolean enableCriticalPathProfiling;
 
   @Option(
@@ -451,8 +392,7 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       defaultValue = "false",
-      help = "Enable a modernized summary of the build stats."
-  )
+      help = "Enable a modernized summary of the build stats.")
   public boolean statsSummary;
 
   @Option(
@@ -521,17 +461,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean executionLogSort;
 
   @Option(
-      name = "experimental_split_xml_generation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If this flag is set, and a test action does not generate a test.xml file, then "
-              + "Bazel uses a separate action to generate a dummy test.xml file containing the "
-              + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
-  public boolean splitXmlGeneration;
-
-  @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
@@ -544,6 +473,16 @@ public class ExecutionOptions extends OptionsBase {
               + " artifacts are evicted from the remote cache, or in certain cache failure"
               + " conditions. A new invocation id will be generated for each attempt.")
   public int remoteRetryOnTransientCacheError;
+
+  @Option(
+      name = "allow_one_action_on_resource_unavailable",
+      defaultValue = "true", // TODO: b/405364605 - Flip internally and change the default to false.
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, allow at least one action to run even if the resource is not enough or"
+              + " unavailable.")
+  public boolean allowOneActionOnResourceUnavailable;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
@@ -567,6 +506,7 @@ public class ExecutionOptions extends OptionsBase {
     DETAILED, // Print information only about failed test cases.
     NONE, // Do not print summary.
     TESTCASE; // Print summary in test case resolution, do not print detailed information about
+
     // failed test cases.
 
     /** Converts to {@link TestSummaryFormat}. */

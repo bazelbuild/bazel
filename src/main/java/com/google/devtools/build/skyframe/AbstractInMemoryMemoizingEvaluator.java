@@ -174,7 +174,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                                 "skyframe-evaluator-memoizing",
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
-                new SimpleCycleDetector(),
+                evaluationContext.detectCycles()
+                    ? new SimpleCycleDetector(evaluationContext.storeExactCycles())
+                    : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));
         result = evaluator.eval(roots);
@@ -269,7 +271,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Nullable
   public final SkyValue getExistingValue(SkyKey key) {
     InMemoryNodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    return isDone(entry) ? entry.getValue() : null;
+    // Use toValue() to guard against the node being rewound after we check that it's done. Calling
+    // getValue() in such a case would throw an exception, while toValue() returns the latest value.
+    return isDone(entry) ? entry.toValue() : null;
   }
 
   @Override

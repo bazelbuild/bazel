@@ -27,7 +27,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
@@ -53,6 +51,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
@@ -75,7 +74,6 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -138,7 +136,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           }
         };
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -163,20 +161,19 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       Path file = fs.getPath("/file" + i);
-      OutputStream out = file.getOutputStream();
       int blobSize = rand.nextInt(100) + 1;
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
-      out.write(blob);
-      out.close();
+      FileSystemUtils.writeContent(file, blob);
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -204,20 +201,19 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       Path file = fs.getPath("/file" + i);
-      OutputStream out = file.getOutputStream();
       int blobSize = rand.nextInt(100) + 1;
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
-      out.write(blob);
-      out.close();
+      FileSystemUtils.writeContent(file, blob);
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     // number of permits is less than number of uploads to affirm permit is released
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
@@ -239,13 +235,14 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void testDirectoryNotUploaded() throws Exception {
+  public void directory_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -256,13 +253,14 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void testSymlinkNotUploaded() throws Exception {
+  public void symlink_notUploaded() throws Exception {
     Path sym = fs.getPath("/sym");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -273,38 +271,18 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void testUnknown_uploadedIfFile() throws Exception {
-    Path file = fs.getPath("/file");
-    file.getOutputStream().close();
-    Map<Path, LocalFile> filesToUpload = new HashMap<>();
-    filesToUpload.put(
-        file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
-    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
-    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
-
-    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
-    String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
-    long size = file.getFileSize();
-    String conversion = pathConverter.apply(file);
-    assertThat(conversion).isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
-    artifactUploader.release();
-  }
-
-  @Test
-  public void testUnknown_uploadedIfFileBlake3() throws Exception {
+  public void customHashFunction_uploaded() throws Exception {
     assumeNotNull(BazelHashFunctions.BLAKE3);
 
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), BazelHashFunctions.BLAKE3);
     Path file = fs.getPath("/file");
-    file.getOutputStream().close();
+    FileSystemUtils.createEmptyFile(file);
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
-        file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
+        file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -319,33 +297,41 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void testUnknown_notUploadedIfDirectory() throws Exception {
-    Path dir = fs.getPath("/dir");
-    dir.createDirectoryAndParents();
-    var successfulTest = fs.getPath("/test_passed");
-    successfulTest.createDirectory();
-    var failedTest = fs.getPath("/test_failed");
-    failedTest.createDirectory();
+  public void testOutputs_uploadedIfFiles() throws Exception {
+    var successfulFile = fs.getPath("/test.file.passed");
+    FileSystemUtils.createEmptyFile(successfulFile);
+    var successfulDir = fs.getPath("/test.dir.passed");
+    successfulDir.createDirectory();
+    var failedFile = fs.getPath("/test.file.failed");
+    FileSystemUtils.createEmptyFile(failedFile);
+    var failedDir = fs.getPath("/test.dir.failed");
+    failedDir.createDirectory();
     var filesToUpload =
         ImmutableMap.of(
-            dir,
-            new LocalFile(dir, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
-            successfulTest,
+            successfulFile,
             new LocalFile(
-                successfulTest, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null),
-            failedTest,
+                successfulFile, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null),
+            failedFile,
             new LocalFile(
-                failedTest, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
+                failedFile, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null),
+            successfulDir,
+            new LocalFile(
+                successfulDir, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null),
+            failedDir,
+            new LocalFile(
+                failedDir, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
-    assertThat(pathConverter.apply(dir)).isNull();
-    assertThat(pathConverter.apply(successfulTest)).isNull();
-    assertThat(pathConverter.apply(failedTest)).isNull();
+    assertThat(pathConverter.apply(successfulFile)).isNotNull();
+    assertThat(pathConverter.apply(failedFile)).isNotNull();
+    assertThat(pathConverter.apply(successfulDir)).isNull();
+    assertThat(pathConverter.apply(failedDir)).isNull();
     assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
@@ -361,16 +347,13 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       Path file = fs.getPath("/file" + i);
-      OutputStream out = file.getOutputStream();
       int blobSize = rand.nextInt(100) + 1;
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
-      out.write(blob);
-      out.flush();
-      out.close();
+      FileSystemUtils.writeContent(file, blob);
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
     String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(
@@ -408,7 +391,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         });
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -433,7 +417,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // arrange
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
     RemoteActionInputFetcher actionInputFetcher = mock(RemoteActionInputFetcher.class);
@@ -448,12 +433,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             execRoot.asFragment(),
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
-            ImmutableList.of(artifact),
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
-    LocalFile file = new LocalFile(remotePath, LocalFileType.OUTPUT, /* artifactMetadata= */ null);
+    LocalFile file =
+        new LocalFile(remotePath, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null);
 
     // act
 
@@ -491,7 +475,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
     doAnswer(invocationOnMock -> Futures.immediateFuture(null))
@@ -500,12 +485,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
 
     // act
-    Map<Path, LocalFile> files =
+    ImmutableMap<Path, LocalFile> files =
         ImmutableMap.of(
             remoteFile,
-            new LocalFile(remoteFile, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
+            new LocalFile(remoteFile, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
             localFile,
-            new LocalFile(localFile, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
+            new LocalFile(localFile, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     PathConverter pathConverter = artifactUploader.upload(files).get();
 
     // assert
@@ -554,7 +539,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new CombinedCache(cacheClient, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+    return new CombinedCache(
+        cacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {

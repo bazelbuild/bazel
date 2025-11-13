@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -40,15 +40,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
@@ -794,22 +785,6 @@ function test_java_library_exports_java_sandwich() {
 
 function test_java_library_runtime_deps_java_sandwich() {
   write_files_for_java_provider_in_attr "java_library" "runtime_deps"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
-function test_java_import_exports_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "exports"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
-function test_java_import_runtime_deps_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "runtime_deps"
   write_java_custom_rule
 
   bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
@@ -1582,12 +1557,12 @@ EOF
 function test_build_hello_world_with_remote_embedded_tool_targets() {
   write_hello_library_files
 
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
+  bazel build //java/main:main_deploy.jar &> $TEST_log || fail "build failed"
 }
 
 
 function test_target_exec_properties_java() {
+  add_platforms "MODULE.bazel"
   cat > Hello.java << 'EOF'
 public class Hello {
   public static void main(String[] args) {
@@ -1607,7 +1582,7 @@ java_binary(
 
 platform(
     name = "my_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     exec_properties = {
         "key2": "value2",
         "overridden": "parent_value",
@@ -1626,7 +1601,7 @@ EOF
 
 
 function test_current_host_java_runtime_runfiles() {
-  if "$is_windows"; then
+  if is_windows; then
     echo "Skipping test on Windows" && return
   fi
   add_rules_shell "MODULE.bazel"
@@ -1648,18 +1623,17 @@ sh_test(
 EOF
 
   cat > "${pkg}"/run.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
 JAVA=\$1
-[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\$JAVA"
+[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\${JAVA//external/..}"
 "\${JAVA}" -fullversion
 EOF
   chmod +x "${pkg}"/run.sh
 
   bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
-      --legacy_external_runfiles \
       || fail "Expected success"
 }
 
@@ -1739,14 +1713,17 @@ EOF
 
 function test_jni() {
   # Skip on MS Windows, as Bazel does not create a runfiles symlink tree.
-  # (MSYS_NT is the system name reported by MinGW uname.)
   # TODO(adonovan): make this work.
-  uname -s | grep -q MSYS_NT && return
+  if is_windows; then
+    return
+  fi
 
   # Skip on Darwin, as System.loadLibrary looks for a file named
   # .dylib, not .so, and that's not what the file is called.
   # TODO(adonovan): make this just work.
-  uname -s | grep -q Darwin && return
+  if is_darwin; then
+    return
+  fi
 
   setup_jni_targets ""
 
@@ -1757,30 +1734,15 @@ function test_jni() {
   expect_log "hello 123"
 }
 
-function test_jni_external_repo_legacy_external_runfiles() {
-  # Skip on MS Windows, see details in test_jni
-  uname -s | grep -q MSYS_NT && return
-  # Skip on Darwin, see details in test_jni
-  uname -s | grep -q Darwin && return
+function test_jni_external_repo_runfiles() {
+  # Skip on Windows and MacOS. See details in test_jni.
+  if (is_windows || is_darwin); then
+    return
+  fi
 
   setup_jni_targets "my_other_repo"
 
-  bazel run --legacy_external_runfiles //test:app >> $TEST_log || {
-    find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
-  }
-  expect_log "hello 123"
-}
-
-function test_jni_external_repo_no_legacy_external_runfiles() {
-  # Skip on MS Windows, see details in test_jni
-  uname -s | grep -q MSYS_NT && return
-  # Skip on Darwin, see details in test_jni
-  uname -s | grep -q Darwin && return
-
-  setup_jni_targets "my_other_repo"
-
-  bazel run --nolegacy_external_runfiles //test:app >> $TEST_log || {
+  bazel run //test:app >> $TEST_log || {
     find bazel-bin/ | native # helpful for debugging
     fail "bazel run command failed"
   }
@@ -2104,17 +2066,12 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released && "$is_windows" ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
   # JVMs on macOS always support UTF-8 since JEP 400.
   # Windows releases of Turbine are built on a machine with system code page set
   # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
   # have an app manifest patched in to set the system code page to UTF-8 at
   # runtime.
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  if is_linux; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
@@ -2143,7 +2100,7 @@ function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@rules_java//java:java_library.bzl", "java_library")
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 default_java_toolchain(
     name = "java_toolchain",
@@ -2169,9 +2126,15 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if is_windows; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "common --experimental_java_classpath=off"
+  fi
+
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_library.bzl", "java_library")
 
 default_java_toolchain(
@@ -2198,6 +2161,59 @@ EOF
   # Verify that the working directory is only stripped from source file paths.
   expect_log "^pkg[\\/]Lib.java:3: error:"
   expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
+}
+
+function test_sandboxed_multiplexing_full_classpath_fallback() {
+  if is_windows; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "common --experimental_java_classpath=off"
+  fi
+
+  mkdir -p pkg/java/hello || fail "Expected success"
+  cat > "pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A {
+  public void f(B b) { b.getC().getD(); }
+}
+EOF
+  cat > "pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B {
+  public C getC() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C {
+  public D getD() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+
+  bazel build //pkg/java/hello:a \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg/java/hello:java_toolchain_definition \
+    >& $TEST_log || fail "build failed"
 }
 
 function test_strict_deps_error_external_repo_starlark_action() {
@@ -2410,7 +2426,7 @@ EOF
 function test_one_version_allowlist() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 
 default_java_toolchain(

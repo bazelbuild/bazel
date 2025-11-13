@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -72,7 +72,7 @@ function test_3_cpus() {
   set_up_jobcount
   # 3 CPUs, so no more than 3 tests in parallel.
   bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_test_jobs=0 --local_cpu_resources=3 \
+    --local_test_jobs=0 --local_resources=cpu=3 \
     --runs_per_test=10 //dir:test
 }
 
@@ -80,17 +80,20 @@ function test_3_local_jobs() {
   set_up_jobcount
   # 3 local test jobs, so no more than 3 tests in parallel.
   bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_test_jobs=3 --local_cpu_resources=10 \
+    --local_test_jobs=3 --local_resources=cpu=10 \
     --runs_per_test=10 //dir:test
 }
 
-# TODO(#2228): Re-enable when the tmpdir creation is fixed.
-function DISABLED_test_tmpdir() {
+function test_tmpdir() {
   add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/sh
+set -e
 echo TEST_TMPDIR=$TEST_TMPDIR
+echo HOME=$HOME
+touch "$TEST_TMPDIR/foo"
+touch "$HOME/bar"
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
@@ -104,24 +107,12 @@ EOF
   bazel test --test_output=all //foo:bar_test >& $TEST_log || \
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
 
   bazel test --nocache_test_results --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
-
-  # If we run `bazel test //src/test/shell/bazel:bazel_test_test` on Linux, it
-  # will be sandboxed and this "inner test" creating /foo/bar will actually
-  # succeed. If we run it on OS X (or in general without sandboxing enabled),
-  # it will fail to create /foo/bar, since obviously we don't have write
-  # permissions.
-  if bazel test --nocache_test_results --test_output=all \
-    --test_tmpdir=/foo/bar //foo:bar_test >& $TEST_log; then
-    # We are in a sandbox.
-    expect_log "TEST_TMPDIR=/foo/bar"
-  else
-    # We are not sandboxed.
-    expect_log "Could not create TEST_TMPDIR"
-  fi
+  expect_log "HOME=$TEST_TMPDIR"
 }
 
 function test_env_vars() {
@@ -131,6 +122,7 @@ function test_env_vars() {
 #!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
+echo "rd: $RUNFILES_DIR"
 echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
@@ -144,8 +136,9 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/_main$"
-  expect_log "src: .*/foo.runfiles$"
+  expect_log "pwd: /.*/foo.runfiles/_main$"
+  expect_log "src: /.*/foo.runfiles$"
+  expect_log "rd: /.*/foo.runfiles$"
   expect_log "ws: _main$"
 }
 
@@ -177,8 +170,8 @@ sh_test(
 )
 EOF
 
- # The next line ensures that the test passes in IPv6-only networks on macOS.
-  if is_darwin; then
+  # Prefer IPv6 only if the host actually has an IPv6 default route.
+  if is_darwin && has_ipv6_default_route; then
     export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
     export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
   else
@@ -353,7 +346,7 @@ EOF
 
   # With --action_env=PATH, the local PATH is forwarded to the test.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_output=all --action_env=PATH >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
 
   # We need to forward the PATH to make it work.
@@ -488,8 +481,46 @@ EOF
         --runs_per_test=5 \
         --runs_per_test_detects_flakes \
         //:test$i &> $TEST_log || fail "should have succeeded"
-    expect_log "FLAKY"
+    expect_log "FLAKY, failed in 4 out of 5"
   done
+}
+
+function test_runs_per_test_detects_flakes_cancel_concurrent() {
+  # Directory for counters
+  local COUNTER_DIR="${TEST_TMPDIR}/counter_dir"
+  mkdir -p "${COUNTER_DIR}"
+  add_rules_shell "MODULE.bazel"
+
+  # This file holds the number of the next run
+  echo 1 > "${COUNTER_DIR}/counter"
+  cat <<EOF > test.sh
+#!/bin/sh
+i=\$(cat "${COUNTER_DIR}/counter")
+
+echo "Run \$i"
+
+# increment the hidden state
+echo \$((i + 1)) > "${COUNTER_DIR}/counter"
+
+# succeed in the first two runs, fail in the third one
+exit \$((i <= 2 ? 0 : 1))
+}
+EOF
+  chmod +x test.sh
+  cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(name = "test", srcs = [ "test.sh" ])
+EOF
+  bazel test --spawn_strategy=standalone \
+      --jobs=1 \
+      --runs_per_test=5 \
+      --runs_per_test_detects_flakes \
+      --experimental_cancel_concurrent_tests=on_failed \
+      //:test &> $TEST_log || fail "should have succeeded"
+  expect_log_n "^FAIL: //:test" 1
+  expect_log_n "^CANCELLED: //:test" 2
+  expect_log "FLAKY, failed in 1 out of 3"
 }
 
 # Tests that the test.xml is extracted from the sandbox correctly.
@@ -524,7 +555,7 @@ function write_test_xml_timeout_files() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 echo "xmltest"
 echo -n "before "
 # Invalid XML character
@@ -552,28 +583,6 @@ EOF
 function test_xml_is_present_when_timingout() {
   write_test_xml_timeout_files
   bazel test -s --test_timeout=1 --nocache_test_results \
-     --noexperimental_split_xml_generation \
-     //dir:test &> $TEST_log && fail "should have failed" || true
-
-  # Print the log before it's overridden for debugging flakiness
-  cat $TEST_log
-
-  xml_log=bazel-testlogs/dir/test/test.xml
-  [[ -s "${xml_log}" ]] || fail "${xml_log} was not present after test"
-  cat "${xml_log}" > $TEST_log
-  expect_log '"Timed out"'
-  expect_log '<system-out>'
-  # "xmltest" is the first line of output from the test.sh script.
-  expect_log '<!\[CDATA\[xmltest'
-  expect_log 'before ????? after'
-  expect_log '<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]>'
-  expect_log '</system-out>'
-}
-
-function test_xml_is_present_when_timingout_split_xml() {
-  write_test_xml_timeout_files
-  bazel test -s --test_timeout=1 --nocache_test_results \
-     --experimental_split_xml_generation \
      //dir:test &> $TEST_log && fail "should have failed" || true
 
   xml_log=bazel-testlogs/dir/test/test.xml
@@ -582,11 +591,9 @@ function test_xml_is_present_when_timingout_split_xml() {
   # The new script does not convert exit codes to signals.
   expect_log '"exited with error code 142"'
   expect_log '<system-out>'
-  # When using --noexperimental_split_xml_generation, the output of the
-  # subprocesses goes into the xml file, while
-  # --experimental_split_xml_generation inlines the entire test log into
-  # the xml file, which includes a header generated by test-setup.sh;
-  # the header starts with "exec ${PAGER:-/usr/bin/less}".
+  # The entire test log is inlined into the xml file, which includes a header
+  # generated by test-setup.sh; the header starts with
+  # "exec ${PAGER:-/usr/bin/less}".
   expect_log '<!\[CDATA\[exec ${PAGER:-/usr/bin/less}'
   expect_log 'before ????? after'
   # This is different from above, since we're using a SIGTERM trap to output
@@ -808,8 +815,8 @@ exit 1
 EOF
   chmod +x true.sh flaky.sh false.sh
 
-  # The next line ensures that the test passes in IPv6-only networks on macOS.
-  if is_darwin; then
+  # Prefer IPv6 only if the host actually has an IPv6 default route.
+  if is_darwin && has_ipv6_default_route; then
     export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
     export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
   else
@@ -859,7 +866,7 @@ function setup_undeclared_outputs_test() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested"
 echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
 echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested/index.html"
@@ -1108,6 +1115,26 @@ sh_test(
 EOF
   bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
+}
+
+function test_test_with_reserved_env_variable() {
+  mkdir -p dir
+  add_rules_shell "MODULE.bazel"
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'test',
+    srcs = ['test.sh'],
+    env = {
+      "TEST_NAME": "foo"
+    },
+)
+EOF
+  bazel test //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "cannot set env variable TEST_NAME=foo because TEST_NAME is reserved"
 }
 
 function test_run_from_external_repo_sibling_repository_layout() {

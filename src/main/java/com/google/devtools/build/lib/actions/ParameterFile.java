@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.WindowsParamFileEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -29,9 +28,6 @@ import java.io.OutputStream;
  * gcc @param_file}. Note that the parameter file needs to be explicitly deleted after use.
  * Different tools require different parameter file formats, which can be selected via the {@link
  * ParameterFileType} enum.
- *
- * <p>The default charset is ISO-8859-1 (latin1). This also has to match the expectation of the
- * tool.
  *
  * <p>Don't use this class for new code. Use the ParameterFileWriteAction instead!
  */
@@ -86,12 +82,11 @@ public class ParameterFile {
   /** Writes an argument list to a parameter file. */
   public static void writeParameterFile(
       OutputStream out, Iterable<String> arguments, ParameterFileType type) throws IOException {
-    OutputStream bufferedOut = new BufferedOutputStream(out);
     switch (type) {
-      case SHELL_QUOTED -> writeContent(bufferedOut, ShellEscaper.escapeAll(arguments));
-      case GCC_QUOTED -> writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments));
-      case UNQUOTED -> writeContent(bufferedOut, arguments);
-      case WINDOWS -> writeContent(bufferedOut, WindowsParamFileEscaper.escapeAll(arguments));
+      case SHELL_QUOTED -> writeContent(out, ShellEscaper.escapeAll(arguments));
+      case GCC_QUOTED -> writeContent(out, GccParamFileEscaper.escapeAll(arguments));
+      case UNQUOTED -> writeContent(out, arguments);
+      case WINDOWS -> writeContent(out, WindowsParamFileEscaper.escapeAll(arguments));
     }
   }
 

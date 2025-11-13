@@ -25,9 +25,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -59,11 +60,12 @@ import javax.annotation.Nullable;
  * to disk.
  */
 public class DownloadManager {
-  private final RepositoryCache repositoryCache;
+  private final DownloadCache downloadCache;
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
   private final HttpDownloader bzlmodHttpDownloader;
+  private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
@@ -83,10 +85,14 @@ public class DownloadManager {
    *     registry.
    */
   public DownloadManager(
-      RepositoryCache repositoryCache, Downloader downloader, HttpDownloader bzlmodHttpDownloader) {
-    this.repositoryCache = repositoryCache;
+      DownloadCache downloadCache,
+      Downloader downloader,
+      HttpDownloader bzlmodHttpDownloader,
+      ExtendedEventHandler eventHandler) {
+    this.downloadCache = downloadCache;
     this.downloader = downloader;
     this.bzlmodHttpDownloader = bzlmodHttpDownloader;
+    this.eventHandler = eventHandler;
   }
 
   public void setDistdir(List<Path> distdir) {
@@ -123,10 +129,10 @@ public class DownloadManager {
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser) {
+      Phaser downloadPhaser,
+      boolean mayHardlink) {
     return executorService.submit(
         () -> {
           if (downloadPhaser.register() != 0) {
@@ -142,9 +148,9 @@ public class DownloadManager {
                 canonicalId,
                 type,
                 output,
-                eventHandler,
                 clientEnv,
-                context);
+                context,
+                mayHardlink);
           } finally {
             downloadPhaser.arrive();
           }
@@ -173,9 +179,10 @@ public class DownloadManager {
    * @param checksum valid checksum which is checked, or absent to disable
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
-   * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
    * @param context the context in which the file was fetched; used only for reporting
+   * @param mayHardlink whether the output is known not to be modified after download and thus may
+   *     be created as a hardlink to the cache copy
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
@@ -188,9 +195,9 @@ public class DownloadManager {
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      String context)
+      String context,
+      boolean mayHardlink)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -235,7 +242,7 @@ public class DownloadManager {
       try {
         eventHandler.post(
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
-        String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
+        String currentChecksum = DownloadCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
           return destination;
@@ -246,15 +253,15 @@ public class DownloadManager {
         eventHandler.post(new CacheProgress(mainUrl.toString()));
       }
 
-      if (repositoryCache.isEnabled()) {
+      if (downloadCache.isEnabled()) {
         isCachingByProvidedChecksum = true;
 
         try {
           Path cachedDestination =
-              repositoryCache.get(cacheKey, destination, cacheKeyType, canonicalId);
+              downloadCache.get(cacheKey, destination, cacheKeyType, canonicalId, mayHardlink);
           if (cachedDestination != null) {
             // Cache hit!
-            eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUrl));
+            eventHandler.post(new DownloadCacheHitEvent(context, cacheKey, mainUrl));
             return cachedDestination;
           }
         } catch (IOException e) {
@@ -287,7 +294,7 @@ public class DownloadManager {
               eventHandler.post(
                   new CacheProgress(
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
-              match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
+              match = DownloadCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,
@@ -298,7 +305,7 @@ public class DownloadManager {
             if (match) {
               if (isCachingByProvidedChecksum) {
                 try {
-                  repositoryCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
+                  downloadCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
                 } catch (IOException e) {
                   eventHandler.handle(
                       Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
@@ -345,10 +352,10 @@ public class DownloadManager {
     }
 
     if (isCachingByProvidedChecksum) {
-      repositoryCache.put(
+      downloadCache.put(
           checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
-    } else if (repositoryCache.isEnabled()) {
-      repositoryCache.put(destination, KeyType.SHA256, canonicalId);
+    } else if (downloadCache.isEnabled()) {
+      var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
     }
 
     return destination;
@@ -387,7 +394,6 @@ public class DownloadManager {
    * the cache prior to returning the value.
    *
    * @param originalUrl the original URL of the file
-   * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
    * @param checksum checksum of the file used to verify the content and obtain repository cache
    *     hits
@@ -396,23 +402,20 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrlForBzlmod(
-      URL originalUrl,
-      ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv,
-      Optional<Checksum> checksum)
+      URL originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
 
-    if (repositoryCache.isEnabled() && checksum.isPresent()) {
+    if (downloadCache.isEnabled() && checksum.isPresent()) {
       String cacheKey = checksum.get().toString();
       try {
-        byte[] content = repositoryCache.getBytes(cacheKey, checksum.get().getKeyType());
+        byte[] content = downloadCache.getBytes(cacheKey, checksum.get().getKeyType());
         if (content != null) {
           // Cache hit!
           eventHandler.post(
-              new RepositoryCacheHitEvent("Bazel module fetching", cacheKey, originalUrl));
+              new DownloadCacheHitEvent("Bazel module fetching", cacheKey, originalUrl));
           return content;
         }
       } catch (IOException e) {
@@ -473,11 +476,11 @@ public class DownloadManager {
       throw new IllegalStateException("Unexpected error: file should have been downloaded.");
     }
 
-    if (repositoryCache.isEnabled()) {
+    if (downloadCache.isEnabled()) {
       if (checksum.isPresent()) {
-        repositoryCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
+        downloadCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
       } else {
-        repositoryCache.put(content, KeyType.SHA256);
+        downloadCache.put(content, KeyType.SHA256);
       }
     }
     return content;

@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -75,14 +76,14 @@ public class HttpDownloaderTest {
 
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
-  private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
+  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
+  private final DownloadCache downloadCache = mock(DownloadCache.class);
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+      new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
-  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   private final JavaIoFileSystem fs;
 
   public HttpDownloaderTest() {
@@ -599,7 +600,7 @@ public class HttpDownloaderTest {
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashString("hello", UTF_8).toString())),
                       eventHandler,
                       ImmutableMap.of()),
@@ -639,7 +640,7 @@ public class HttpDownloaderTest {
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashUnencodedChars("hello").toString())),
                       eventHandler,
                       ImmutableMap.of()));
@@ -652,7 +653,7 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -691,7 +692,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -703,7 +704,7 @@ public class HttpDownloaderTest {
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
                   try (OutputStream outputStream = output.getOutputStream()) {
-                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                    new ByteArrayInputStream(data).transferTo(outputStream);
                   }
 
                   return null;
@@ -736,7 +737,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -750,8 +751,9 @@ public class HttpDownloaderTest {
                     throw e;
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
-                  try (OutputStream outputStream = output.getOutputStream()) {
-                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  try (InputStream in = new ByteArrayInputStream(data);
+                      OutputStream out = output.getOutputStream()) {
+                    in.transferTo(out);
                   }
 
                   return null;
@@ -784,7 +786,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -796,7 +798,7 @@ public class HttpDownloaderTest {
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
                   try (OutputStream outputStream = output.getOutputStream()) {
-                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                    new ByteArrayInputStream(data).transferTo(outputStream);
                   }
 
                   return null;
@@ -829,7 +831,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -843,8 +845,9 @@ public class HttpDownloaderTest {
                     throw e;
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
-                  try (OutputStream outputStream = output.getOutputStream()) {
-                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  try (InputStream in = new ByteArrayInputStream(data);
+                      OutputStream out = output.getOutputStream()) {
+                    in.transferTo(out);
                   }
 
                   return null;
@@ -897,10 +900,10 @@ public class HttpDownloaderTest {
               canonicalId,
               type,
               output,
-              eventHandler,
               clientEnv,
               context,
-              downloadPhaser);
+              downloadPhaser,
+              /* mayHardlink= */ true);
       Path downloadedPath = downloadManager.finalizeDownload(future);
       // Should not be in the download phase.
       assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);

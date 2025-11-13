@@ -144,7 +144,7 @@ not instantiated by that macro), follow these best practices:
 *   A macro should take a `name` argument and define a target with that name.
     That target becomes that macro's *main target*.
 *   Generated targets, that is all other targets defined by a macro, should:
-    *   Have their names prefixed by `<name>` or `_<name>`. For example, using
+    *   Have their names prefixed by `<name>`. For example, using
         `name = '%s_bar' % (name)`.
     *   Have restricted visibility (`//visibility:private`), and
     *   Have a `manual` tag to avoid expansion in wildcard targets (`:all`,

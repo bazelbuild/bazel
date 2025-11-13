@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +11,8 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
+
+set -eu
 
 # Integration tests for ijar zipper/unzipper
 
@@ -211,6 +213,13 @@ function test_zipper_permissions() {
   fi
 }
 
+function test_zipper_empty_file_list() {
+  local -r LOCAL_TEST_DIR="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p ${LOCAL_TEST_DIR}/files
+  touch ${LOCAL_TEST_DIR}/empty_file_list.txt
+  ${ZIPPER} cC ${LOCAL_TEST_DIR}/output.zip @${LOCAL_TEST_DIR}/empty_file_list.txt
+}
+
 function test_unzipper_zip64_archive() {
   local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
   mkdir -p "${test_dir}"
@@ -236,6 +245,14 @@ function test_unzipper_zip64_archive() {
 function test_zipper_file_large_than_2G() {
   dd if=/dev/zero of=${TEST_TMPDIR}/file_2064M.bin bs=16M count=129
   $ZIPPER c ${TEST_TMPDIR}/output.zip ${TEST_TMPDIR}/file_2064M.bin
+}
+
+function test_no_path_traversal() {
+  local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
+  ! (cd $folder && $ZIPPER x $(dirname ${ZIPPER})/test/path_traversal_zip.jar)
+  if [[ -e ${folder}/../ZIPPER_POC_OWNED ]]; then
+    fail "Path traversal succeeded"
+  fi
 }
 
 run_suite "zipper tests"

@@ -57,6 +57,9 @@ class LcovMergerFlags {
   @Parameter(names = "--parse_parallelism")
   private Integer parseParallelism;
 
+  @Parameter(names = "--legacy_branches")
+  private boolean legacyBranches = false;
+
   public String coverageDir() {
     return coverageDir;
   }
@@ -87,6 +90,10 @@ class LcovMergerFlags {
 
   int parseParallelism() {
     return parseParallelism == null ? DEFAULT_PARSE_FILE_PARALLELISM : parseParallelism;
+  }
+
+  boolean legacyBranches() {
+    return legacyBranches;
   }
 
   static LcovMergerFlags parseFlags(String[] args) {

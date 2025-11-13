@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
@@ -68,8 +68,8 @@ public class DynamicExecutionModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(DynamicExecutionOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }
@@ -152,7 +152,7 @@ public class DynamicExecutionModule extends BlazeModule {
     registerSpawnStrategies(
         registryBuilder,
         options,
-        (int) execOptions.localCpuResources,
+        execOptions.getLocalResources().get(ResourceSet.CPU).intValue(),
         env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 

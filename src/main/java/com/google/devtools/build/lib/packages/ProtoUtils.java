@@ -37,6 +37,7 @@ import static com.google.devtools.build.lib.packages.Types.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_SET;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +62,7 @@ public class ProtoUtils {
           .put(STRING, Discriminator.STRING)
           .put(STRING_NO_INTERN, Discriminator.STRING)
           .put(STRING_LIST, Discriminator.STRING_LIST)
+          .put(STRING_SET, Discriminator.DISTRIBUTION_SET)
           .put(OUTPUT, Discriminator.OUTPUT)
           .put(OUTPUT_LIST, Discriminator.OUTPUT_LIST)
           .put(LICENSE, Discriminator.LICENSE)

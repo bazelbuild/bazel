@@ -3,6 +3,12 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 # This rule is only available from Bazel 7.0.0
 starlark_doc_extract(
     name = "gen_be_proto_stardoc_proto",
@@ -27,6 +33,7 @@ starlark_doc_extract(
     src = "java.bzl",
     deps = [
         "@com_google_protobuf//bazel/common:proto_info_bzl",
+        "@rules_cc//cc:core_rules",
         "@rules_java//java:java_single_jar",
         "@rules_java//java/bazel/rules",
     ],
@@ -35,11 +42,23 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_cpp_stardoc_proto",
     src = "cpp.bzl",
+    deps = [
+        "@rules_cc//cc:core_rules",
+        "@rules_cc//cc/toolchains:toolchain_rules",
+    ],
 )
 
 starlark_doc_extract(
     name = "gen_be_objc_stardoc_proto",
     src = "objc.bzl",
+    deps = [
+        "@rules_cc//cc:core_rules",
+        # Workaround missing deps, can be removed once fixed in rules_cc
+        "@rules_cc//cc/common",
+        "@rules_cc//cc:find_cc_toolchain_bzl",
+        "@rules_cc//cc:action_names_bzl",
+        "@bazel_skylib//lib:paths",
+    ],
 )
 
 starlark_doc_extract(

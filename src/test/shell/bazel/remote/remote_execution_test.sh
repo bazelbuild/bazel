@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -55,28 +55,13 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 function has_utf8_locale() {
   charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
   [[ "${charmap}" == "UTF-8" ]]
 }
 
 function setup_credential_helper_test() {
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir -p a
 
@@ -111,6 +96,9 @@ function test_credential_helper_remote_cache() {
   # First build should have called helper for 4 distinct URIs.
   expect_credential_helper_calls 4
 
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --credential_helper="${TEST_TMPDIR}/credhelper" \
@@ -140,6 +128,9 @@ function test_credential_helper_remote_execution() {
 
   # First build should have called helper for 5 distinct URIs.
   expect_credential_helper_calls 5
+
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
 
   bazel build \
       --spawn_strategy=remote \
@@ -231,13 +222,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_proxy() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -270,13 +257,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_direct() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -354,31 +337,6 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
-      --noexperimental_split_xml_generation \
-      //a:test >& $TEST_log \
-      || fail "Failed to run //a:test with remote execution"
-}
-
-function test_cc_test_split_xml() {
-  add_rules_cc "MODULE.bazel"
-  mkdir -p a
-  cat > a/BUILD <<EOF
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello test!" << std::endl; return 0; }
-EOF
-  bazel test \
-      --spawn_strategy=remote \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --test_output=errors \
-      --experimental_split_xml_generation \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
 }
@@ -827,7 +785,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -1249,7 +1207,7 @@ function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
   add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]
@@ -1379,43 +1337,6 @@ EOF
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
   # given its is superseded by the platform exec_properties.
   expect_log "1 process: .*1 internal."
-}
-
-function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
-  # Test that when changing values of --remote_default_platform_properties all actions are
-  # invalidated.
-  mkdir -p test
-  cat > test/BUILD << 'EOF'
-platform(
-    name = "platform_with_remote_execution_properties",
-    remote_execution_properties = """properties: {name: "foo" value: "baz"}""",
-)
-
-genrule(
-    name = "test",
-    srcs = [],
-    outs = ["output.txt"],
-    cmd = "echo \"foo\" > \"$@\""
-)
-EOF
-
-  bazel build \
-    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_default_exec_properties="build=1234" \
-    //test:test >& $TEST_log || fail "Failed to build //test:test"
-
-  expect_log "2 processes: 1 internal, 1 remote"
-
-  bazel build \
-    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //test:test"
-
-  # Changing --remote_default_platform_properties value does not invalidate SkyFrames
-  # given its is superseded by the platform remote_execution_properties.
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
 function test_combined_disk_remote_exec_with_flag_combinations() {
@@ -2281,13 +2202,6 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
@@ -2352,15 +2266,6 @@ function test_create_tree_artifact_outputs() {
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:a &>$TEST_log || fail "expected build to succeed"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -2451,6 +2356,7 @@ function test_cc_rbe_coverage_produces_report() {
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -2829,7 +2735,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 5 internal, 2 .*-sandbox"
+  expect_log "7 processes: 6 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2837,7 +2743,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 2 disk cache hit, 5 internal"
+  expect_log "7 processes: 2 disk cache hit, 6 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in
@@ -2982,7 +2888,7 @@ EOF
 function test_unicode_execution() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"
@@ -3015,7 +2921,7 @@ function test_unicode_execution() {
 function test_unicode_cache() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"
@@ -3185,15 +3091,6 @@ EOF
   if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
     fail "expected symlink target to be $link_target"
   fi
-
-  bazel clean --expunge
-  bazel \
-    --windows_enable_symlinks \
-    build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
 
   bazel clean --expunge
   bazel \
@@ -3764,6 +3661,122 @@ EOF
     --experimental_output_paths=strip \
     //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
   assert_contains "input" bazel-bin/a/my_rule
+}
+
+# Verifies that the contents of a directory have the same representation with
+# remote execution regardless of whether they are added as a source directory or
+# via globbing.
+function test_source_directory() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+filegroup(
+    name = "source_directory",
+    srcs = ["dir"],
+)
+
+filegroup(
+    name = "glob",
+    srcs = glob(["dir/**"]),
+)
+
+sh_binary(
+    name = "tool_with_source_directory",
+    srcs = ["tool.sh"],
+    data = [":source_directory"],
+)
+
+sh_binary(
+    name = "tool_with_glob",
+    srcs = ["tool.sh"],
+    data = [":glob"],
+)
+
+GENRULE_COMMAND_TEMPLATE = """
+[[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink_dir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
+[[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+
+runfiles_prefix=$(execpath %s).runfiles/_main
+[[ -f $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink_dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/empty_dir ]] || { echo "$$runfiles_prefix/a/dir/empty_dir exists"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/symlink_empty_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_empty_dir exists"; exit 1; }
+
+touch $@
+"""
+
+genrule(
+    name = "gen_source_directory",
+    srcs = [":source_directory"],
+    tools = [":tool_with_source_directory"],
+    outs = ["out1"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_source_directory",
+)
+
+genrule(
+    name = "gen_glob",
+    srcs = [":glob"],
+    tools = [":tool_with_glob"],
+    outs = ["out2"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_glob",
+)
+EOF
+  mkdir -p a/dir
+  touch a/tool.sh
+  chmod +x a/tool.sh
+  touch a/dir/file.txt
+  ln -s file.txt a/dir/symlink.txt
+  mkdir -p a/dir/subdir
+  touch a/dir/subdir/file.txt
+  ln -s subdir a/dir/symlink_dir
+  mkdir a/dir/empty_dir
+  ln -s empty_dir a/dir/symlink_empty_dir
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+}
+
+# TODO: Turn this into a more targeted test after enabling proper source
+#  directory tracking (#25834) - it is not specific to remote execution.
+function test_source_directory_dangling_symlink() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    srcs = ["dir"],
+    outs = ["out"],
+    cmd = """
+touch $@
+""",
+)
+EOF
+  mkdir -p a/dir
+  ln -s does_not_exist a/dir/symlink.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen >& $TEST_log && fail "build //a:gen should fail"
+  expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
 }
 
 run_suite "Remote execution and remote cache tests"

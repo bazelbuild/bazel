@@ -28,8 +28,7 @@ exports_files([
 
 DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
   /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.13 -fobjc-arc -framework CoreServices \
-      -framework Foundation -arch arm64 -arch x86_64 -Wl,-no_adhoc_codesign -Wl,-no_uuid -o $@ $< && \
-  env -i codesign --identifier $@ --force --sign - $@
+      -framework Foundation -arch arm64 -arch x86_64 -o $@ $<
 """
 
 genrule(
@@ -65,8 +64,6 @@ config_setting(
     values = {"cpu": "darwin_arm64e"},
     visibility = ["//visibility:public"],
 )
-
-xcode_config_alias(name = "current_xcode_config")
 
 xcode_version_flag(name = "xcode_version_flag")
 

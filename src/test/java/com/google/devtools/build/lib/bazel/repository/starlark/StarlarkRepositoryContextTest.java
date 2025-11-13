@@ -25,31 +25,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepoRule;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -58,15 +56,16 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -95,9 +94,9 @@ public final class StarlarkRepositoryContextTest {
   private Path outputBase;
   private Path outputDirectory;
   private Root root;
-  private Path workspaceFile;
   private StarlarkRepositoryContext context;
   private Label fakeFileLabel;
+  private RepoRule repoRule;
   private static final StarlarkThread thread =
       StarlarkThread.createTransient(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
@@ -109,19 +108,29 @@ public final class StarlarkRepositoryContextTest {
     outputBase = scratch.dir("/outputBase");
     outputDirectory = scratch.dir("/outputDir");
     root = Root.fromPath(scratch.dir("/wsRoot"));
-    workspaceFile = scratch.file("/wsRoot/WORKSPACE");
+    scratch.file("/wsRoot/WORKSPACE");
+    setUpRepoRule(false);
   }
 
-  private static RuleClass buildRuleClass(Attribute... attributes) {
-    RuleClass.Builder ruleClassBuilder =
-        new RuleClass.Builder("test", RuleClassType.WORKSPACE, true);
+  private void setUpRepoRule(boolean remotable, Attribute... attributes) {
+    RepoRule.Builder repoRuleBuilder = RepoRule.builder();
     for (Attribute attr : attributes) {
-      ruleClassBuilder.addAttribute(attr);
+      repoRuleBuilder.addAttribute(attr);
     }
-    ruleClassBuilder.setWorkspaceOnly();
-    ruleClassBuilder.setConfiguredTargetFunction(
-        (StarlarkFunction) exec("def test(ctx): pass", "test"));
-    return ruleClassBuilder.build();
+    repoRuleBuilder
+        .impl((StarlarkFunction) exec("def test(ctx): pass", "test"))
+        .configure(false)
+        .doc(Optional.empty())
+        .environ(ImmutableSet.of())
+        .local(false)
+        .remotable(remotable)
+        .recordedRepoMappingEntries(ImmutableTable.of())
+        .transitiveBzlDigest(ByteString.EMPTY);
+    repoRuleBuilder
+        .idBuilder()
+        .bzlFileLabel(Label.parseCanonicalUnchecked("//:test.bzl"))
+        .ruleName("test");
+    repoRule = repoRuleBuilder.build();
   }
 
   private static Object exec(String... lines) {
@@ -140,39 +149,26 @@ public final class StarlarkRepositoryContextTest {
           StarlarkThread.callStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 42, 1)),
           StarlarkThread.callStackEntry("myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
-  private void setUpContextForRule(
+  private void setUpRepo(
       Map<String, Object> kwargs,
       IgnoredSubdirectories ignoredSubdirectories,
       ImmutableMap<String, String> envVariables,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor repoRemoteExecutor,
-      Attribute... attributes)
+      @Nullable RepositoryRemoteExecutor repoRemoteExecutor)
       throws Exception {
-    Package.Builder packageBuilder =
-        Package.newExternalPackageBuilder(
-            PackageSettings.DEFAULTS,
-            WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFile)),
-            "runfiles",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            starlarkSemantics.getBool(
-                BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-            PackageOverheadEstimator.NOOP_ESTIMATOR);
+    LabelConverter labelConverter =
+        new LabelConverter(PackageIdentifier.EMPTY_PACKAGE_ID, RepositoryMapping.EMPTY);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
-    Rule rule =
-        WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder,
-            buildRuleClass(attributes),
-            kwargs,
-            DUMMY_STACK);
+    RepoSpec repoSpec =
+        repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
+    RepoDefinition repoDefinition =
+        new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
-        .thenReturn(
-            PackageLookupValue.success(
-                Root.fromPath(workspaceFile.getParentDirectory()), BuildFileName.BUILD));
+        .thenReturn(PackageLookupValue.success(root, BuildFileName.BUILD));
     when(environment.getValueOrThrow(any(), eq(IOException.class)))
         .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =
@@ -188,7 +184,7 @@ public final class StarlarkRepositoryContextTest {
             AnalysisMock.get().getProductName());
     context =
         new StarlarkRepositoryContext(
-            rule,
+            repoDefinition,
             packageLocator,
             outputDirectory,
             ignoredSubdirectories,
@@ -203,13 +199,12 @@ public final class StarlarkRepositoryContextTest {
             directories);
   }
 
-  private void setUpContextForRule(String name) throws Exception {
-    setUpContextForRule(name, StarlarkSemantics.DEFAULT);
+  private void setUpRepo(String name) throws Exception {
+    setUpRepo(name, StarlarkSemantics.DEFAULT);
   }
 
-  private void setUpContextForRule(String name, StarlarkSemantics starlarkSemantics)
-      throws Exception {
-    setUpContextForRule(
+  private void setUpRepo(String name, StarlarkSemantics starlarkSemantics) throws Exception {
+    setUpRepo(
         ImmutableMap.of("name", name),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
@@ -219,13 +214,13 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testAttr() throws Exception {
-    setUpContextForRule(
+    setUpRepoRule(/* remotable= */ false, Attribute.attr("foo", Type.STRING).build());
+    setUpRepo(
         ImmutableMap.of("name", "test", "foo", "bar"),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
-        /* repoRemoteExecutor= */ null,
-        Attribute.attr("foo", Type.STRING).build());
+        /* repoRemoteExecutor= */ null);
 
     assertThat(context.getAttr().getFieldNames()).contains("foo");
     assertThat(context.getAttr().getValue("foo")).isEqualTo("bar");
@@ -233,7 +228,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testWhich() throws Exception {
-    setUpContextForRule(
+    setUpRepo(
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
@@ -255,7 +250,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testFile() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     context.createFile(context.getPath("foobar"), "", true, true, thread);
     context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
     context.createFile(context.getPath("bar/foo/bar"), "", true, true, thread);
@@ -295,7 +290,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testDelete() throws Exception {
-    setUpContextForRule("testDelete");
+    setUpRepo("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
     Object path1 = bar.getPathString();
     StarlarkPath barPath = context.getPath(path1);
@@ -324,7 +319,7 @@ public final class StarlarkRepositoryContextTest {
     }
 
     scratch.file(underWorkspace.getPathString(), "123");
-    setUpContextForRule(
+    setUpRepo(
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("under_workspace"))),
         ImmutableMap.of("FOO", "BAR"),
@@ -335,7 +330,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testRead() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
 
     String content = context.readFile(context.getPath("foo/bar"), "auto", thread);
@@ -344,7 +339,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatch() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     StarlarkPath foo = context.getPath("foo");
     context.createFile(foo, "line one\n", false, true, thread);
     StarlarkPath patchFile = context.getPath("my.patch");
@@ -356,7 +351,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testCannotFindFileToPatch() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
         context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
@@ -375,7 +370,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatchOutsideOfExternalRepository() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
         context.getPath("my.patch"),
@@ -398,7 +393,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testPatchErrorWasThrown() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     StarlarkPath foo = context.getPath("foo");
     StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(foo, "line three\n", false, true, thread);
@@ -428,8 +423,6 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of(
             "name",
             "configure",
-            "$remotable",
-            true,
             "exec_properties",
             Dict.builder().put("OSFamily", "Linux").buildImmutable());
 
@@ -442,16 +435,16 @@ public final class StarlarkRepositoryContextTest {
     when(repoRemoteExecutor.execute(any(), any(), any(), any(), any(), any()))
         .thenReturn(executionResult);
 
-    setUpContextForRule(
+    setUpRepoRule(
+        /* remotable= */ true, Attribute.attr("exec_properties", Types.STRING_DICT).build());
+    setUpRepo(
         attrValues,
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)
             .build(),
-        repoRemoteExecutor,
-        Attribute.attr("$remotable", Type.BOOLEAN).build(),
-        Attribute.attr("exec_properties", Types.STRING_DICT).build());
+        repoRemoteExecutor);
 
     // Execute the `StarlarkRepositoryContext`.
     StarlarkExecutionResult starlarkExecutionResult =
@@ -479,7 +472,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testRename() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     context.createFile(context.getPath("foo"), "foobar", true, true, thread);
 
     context.rename(context.getPath("foo"), context.getPath("bar/baz"), thread);
@@ -508,7 +501,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testRenameConflict() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     context.createFile(context.getPath("foo"), "fooooo", true, true, thread);
     context.createFile(context.getPath("bar"), "baaaar", true, true, thread);
     context.createFile(context.getPath("baz.d/baz"), "baaaaz", true, true, thread);
@@ -536,7 +529,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testSymlink() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     context.createFile(context.getPath("foo"), "foobar", true, true, thread);
 
     context.symlink(context.getPath("foo"), context.getPath("bar"), thread);
@@ -555,7 +548,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testDirectoryListing() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     scratch.file("/my/folder/a");
     scratch.file("/my/folder/b");
     scratch.file("/my/folder/c");
@@ -568,13 +561,13 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testWorkspaceRoot() throws Exception {
-    setUpContextForRule("test");
+    setUpRepo("test");
     assertThat(context.getWorkspaceRoot().getPath()).isEqualTo(root.asPath());
   }
 
   @Test
   public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpContextForRule(
+    setUpRepo(
         "test",
         StarlarkSemantics.DEFAULT.toBuilder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, false)
@@ -587,7 +580,7 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpContextForRule(
+    setUpRepo(
         "test",
         StarlarkSemantics.DEFAULT.toBuilder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, true)

@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -81,6 +82,23 @@ sh_test(
         "//src/test/shell:bashunit",
         "//src/test/shell:unittest.bash",
     ],
+)
+
+sh_test(
+    name = "non_daemon_exit_test",
+    size = "medium",
+    srcs = ["non_daemon_exit_test.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+    flaky = True,
 )
 
 sh_test(

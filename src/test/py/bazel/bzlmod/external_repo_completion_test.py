@@ -59,6 +59,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
             # Make sure Bazel CI tests pass in all environments
             'common --charset=ascii',
+            'common --incompatible_disable_native_repo_rules',
         ],
     )
 
@@ -83,7 +84,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('pkg/BUILD', ['cc_library(name = "my_lib")'])
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '1.0',
         {'bar': '1.0', 'ext': '1.0'},
@@ -96,7 +97,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
             'use_repo(my_ext, my_repo1="repo1")',
         ],
     )
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '2.0',
         {'bar': '2.0', 'ext': '1.0'},
@@ -107,8 +108,8 @@ class ExternalRepoCompletionTest(test_base.TestBase):
             'use_repo(my_ext, my_repo3="repo3", my_repo4="repo4")',
         ],
     )
-    self.main_registry.createCcModule('bar', '1.0', {'ext': '1.0'})
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule('bar', '1.0', {'ext': '1.0'})
+    self.main_registry.createShModule(
         'bar',
         '2.0',
         {'ext': '1.0', 'ext2': '1.0'},
@@ -136,24 +137,40 @@ class ExternalRepoCompletionTest(test_base.TestBase):
         ')',
     ]
 
-    self.main_registry.createLocalPathModule('ext', '1.0', 'ext')
+    self.main_registry.createLocalPathModule(
+        'ext', '1.0', 'ext', {'rules_shell': '0.6.0', 'rules_cc': '0.2.13'}
+    )
     scratchFile(
         self.projects_dir.joinpath('ext', 'BUILD'),
-        ['cc_library(name="lib_ext", visibility = ["//visibility:public"])'],
+        [
+            'load("@rules_shell//shell:sh_library.bzl", "sh_library")',
+            'sh_library(name="lib_ext", visibility = ["//visibility:public"])',
+        ],
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'tools', 'BUILD'),
-        ['cc_binary(name="tool")'],
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(name="tool")'
+        ],
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'tools', 'zip', 'BUILD'),
-        ['cc_binary(name="zipper")'],
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(name="zipper")'
+        ],
     )
     scratchFile(self.projects_dir.joinpath('ext', 'ext.bzl'), ext_src)
-    self.main_registry.createLocalPathModule('ext2', '1.0', 'ext2')
+    self.main_registry.createLocalPathModule(
+        'ext2', '1.0', 'ext2', {'rules_shell': '0.6.0'}
+    )
     scratchFile(
         self.projects_dir.joinpath('ext2', 'BUILD'),
-        ['cc_library(name="lib_ext2", visibility = ["//visibility:public"])'],
+        [
+            'load("@rules_shell//shell:sh_library.bzl", "sh_library")',
+            'sh_library(name="lib_ext2", visibility = ["//visibility:public"])',
+        ],
     )
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 
@@ -211,7 +228,6 @@ echo ${{COMPREPLY[*]}}
             '@',
             '@//',
             '@bazel_tools',
-            '@local_config_platform',
             '@foo',
             '@foobar',
             '@my_project',

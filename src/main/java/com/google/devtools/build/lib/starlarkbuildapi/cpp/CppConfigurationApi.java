@@ -38,12 +38,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       documented = false,
       useStarlarkThread = true)
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
-  
-  @StarlarkMethod(
-      name = "experimental_platform_cc_test",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "copts",
@@ -189,4 +183,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(name = "disable_nocopts", documented = false, useStarlarkThread = true)
   boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "save_temps", documented = false, useStarlarkThread = true)
+  boolean getSaveTempsForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -41,30 +41,15 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"
-  if "$is_windows"; then
+  if is_windows; then
         java_tools_zip_file_url="file:///${java_tools_rlocation}"
   fi
   local java_tools_prebuilt_rlocation=$(rlocation io_bazel/src/java_tools_prebuilt.zip)
   local java_tools_prebuilt_zip_file_url="file://${java_tools_prebuilt_rlocation}"
-  if "$is_windows"; then
+  if is_windows; then
         java_tools_prebuilt_zip_file_url="file:///${java_tools_prebuilt_rlocation}"
   fi
   cat >> $(setup_module_dot_bazel) <<EOF
@@ -77,7 +62,7 @@ http_archive(
     name = "local_java_tools_prebuilt",
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
-bazel_dep(name = "abseil-cpp", version = "20230802.1", repo_name = "com_google_absl")
+bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = "com_google_absl")
 EOF
   # Dependencies of java_tools
   add_platforms "MODULE.bazel"
@@ -102,6 +87,9 @@ function expect_path_in_java_tools_prebuilt() {
   [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_prebuilt.zip"
 }
 
+function test_java_tools_has_import_deps_checker() {
+  expect_path_in_java_tools "java_tools/ImportDepsChecker_deploy.jar"
+}
 
 function test_java_tools_has_ijar() {
   expect_path_in_java_tools "java_tools/ijar"

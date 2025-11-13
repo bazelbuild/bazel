@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2021 The Bazel Authors. All rights reserved.
 #
@@ -39,15 +39,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
 JAVA_TOOLS_ZIP="$1"; shift
@@ -111,7 +102,7 @@ function test_incompatible_system_classpath() {
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
   cat >pkg/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
@@ -154,7 +145,7 @@ function test_incompatible_tool_system_classpath() {
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
   cat >pkg/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(

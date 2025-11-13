@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
@@ -115,9 +115,9 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
           projectScopedFlag,
           new Scope(
               scopes.get(projectScopedFlag).getScopeType(),
-              projectValue.getDefaultActiveDirectory().isEmpty()
+              projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
-                  : new Scope.ScopeDefinition(projectValue.getDefaultActiveDirectory())));
+                  : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
     }
 
     return BuildOptionsScopeValue.create(
@@ -164,13 +164,12 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   private Scope.ScopeType getScopeType(
       Environment env, Label label, PackageIdentifier packageIdentifier)
       throws BuildOptionsScopeFunctionException, InterruptedException {
-    PackageContext packageContext =
-        PackageContext.of(packageIdentifier, RepositoryMapping.ALWAYS_FALLBACK);
+    PackageContext packageContext = PackageContext.of(packageIdentifier, RepositoryMapping.EMPTY);
     SkyframeTargetLoader targetLoader = new SkyframeTargetLoader(env, packageContext);
 
     Target target;
     try {
-      target = targetLoader.loadBuildSetting(label.toString());
+      target = targetLoader.loadBuildSetting(label.getUnambiguousCanonicalForm());
     } catch (TargetParsingException e) {
       throw new BuildOptionsScopeFunctionException(e);
     }
@@ -179,11 +178,15 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       return null;
     }
 
-    Rule rule = target.getAssociatedRule();
-
-    return rule.getAttr("scope") == null
-        ? Scope.ScopeType.UNIVERSAL
-        : Scope.ScopeType.valueOfIgnoreCase(rule.getAttr("scope", Type.STRING).toString());
+    var attrs = RawAttributeMapper.of(target.getAssociatedRule());
+    if (!attrs.has("scope", Type.STRING)
+        // TODO: https://github.com/bazelbuild/bazel/issues/26909 - Honor the rule's actual
+        // value when --incompatible_exclude_starlark_flags_from_exec_config is stably enabled
+        // and existing rules like skylib's have updated to TARGET.
+        || !attrs.isAttributeValueExplicitlySpecified("scope")) {
+      return Scope.ScopeType.DEFAULT;
+    }
+    return Scope.ScopeType.valueOfIgnoreCase(attrs.get("scope", Type.STRING));
   }
 
   /**
@@ -230,6 +233,10 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     }
 
     BuildOptionsScopeFunctionException(TargetParsingException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    BuildOptionsScopeFunctionException(IllegalArgumentException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }

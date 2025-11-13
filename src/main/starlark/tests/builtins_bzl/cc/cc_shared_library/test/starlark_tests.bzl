@@ -16,9 +16,13 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
-load(":semantics.bzl", "semantics")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -66,18 +70,37 @@ def _linking_order_test_impl(env, target):
         env.expect.that_collection(user_libs).contains_at_least_predicates([
             matching.contains("foo.pic.o"),
             matching.contains("baz.pic.o"),
+            matching.contains("a_suffix.pic.o"),
         ]).in_order()
 
         env.expect.that_collection(args).contains_at_least([
-            "-lprivate_lib_so",
-            "-Wl,-rpath,hdr_only",
-        ] if semantics.is_bazel else [
             "-lprivate_lib_so",
         ])
 
         env.expect.where(
             detail = "liba_suffix.pic.o should be the last user library linked",
         ).that_str(user_libs[-1]).equals("a_suffix.pic.o")
+
+        all_objects = [
+            paths.basename(arg)
+            for arg in args
+            if arg.endswith(".o")
+        ]
+
+        env.expect.that_collection(all_objects).contains_at_least_predicates([
+            matching.contains("a_suffix.pic.o"),
+        ])
+
+        # We expect a_suffix.pic.o to be the last object linked if and only if this is Bazel,
+        # as runtimes-on-demand is not enabled in Bazel.
+        if env.ctx.attr.is_bazel:
+            env.expect.where(
+                detail = "a_suffix.pic.o should be the last object linked",
+            ).that_str(all_objects[-1]).equals("a_suffix.pic.o")
+        else:
+            env.expect.where(
+                detail = "a_suffix.pic.o should not be the last object linked",
+            ).that_str(all_objects[-1]).not_equals("a_suffix.pic.o")
 
         # qux2 is a LINKABLE_MORE_THAN_ONCE library which is enabled by semantics.
         # It might not be present but if it is we want to test it's in the right
@@ -101,7 +124,14 @@ def _linking_order_test_macro(name, target):
         impl = _linking_order_test_impl,
         target = target,
         attrs = {
+            "is_bazel": attr.bool(),
             "_is_linux": attr.label(default = "@platforms//os:linux"),
+        },
+        attr_values = {
+            "is_bazel": select({
+                ":is_bazel": True,
+                "//conditions:default": False,
+            }),
         },
     )
 
@@ -179,7 +209,7 @@ def _paths_test_impl(env, _):
     env.expect.that_bool(_check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__"))).equals(True)
 
 def _paths_test_macro(name):
-    native.cc_library(
+    cc_library(
         name = "dummy",
     )
     analysis_test(

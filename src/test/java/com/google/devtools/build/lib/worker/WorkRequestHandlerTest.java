@@ -323,7 +323,7 @@ public class WorkRequestHandlerTest {
       assertThat(response.getOutput()).isEmpty();
       assertThat(response.getExitCode()).isEqualTo(0);
     } else {
-      assertThat(response.getOutput()).isEqualTo("Such work! Much progress! Wow!\n");
+      assertThat(response.getOutput()).startsWith("Such work! Much progress! Wow!");
       assertThat(response.getExitCode()).isEqualTo(1);
     }
 
@@ -507,7 +507,7 @@ public class WorkRequestHandlerTest {
     assertThat(response.getRequestId()).isEqualTo(42);
     assertThat(response.getWasCancelled()).isFalse();
     assertThat(response.getExitCode()).isEqualTo(2);
-    assertThat(response.getOutput()).isEqualTo("Such work! Much progress! Wow!\n");
+    assertThat(response.getOutput()).startsWith("Such work! Much progress! Wow!");
 
     // Checks that nothing more was sent.
     assertThat(dest.available()).isEqualTo(0);

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -44,18 +44,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
@@ -83,6 +74,7 @@ EOF
 }
 
 function write_cc_source_files() {
+  add_rules_cc MODULE.bazel
   mkdir -p cc
   cat > cc/kitty.cc <<EOF
 #include <stdio.h>
@@ -107,6 +99,7 @@ int main(void) {
 EOF
 
   cat > cc/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='kitty',
           srcs=['kitty.cc'],
           data=glob(['*.txt'], allow_empty = True))
@@ -128,7 +121,7 @@ function test_run_py_test() {
 }
 
 function test_runfiles_present_cc_binary() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -148,7 +141,7 @@ EOF
 }
 
 function test_runfiles_updated_correctly_with_nobuild_runfile_links {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -180,7 +173,7 @@ function test_run_with_no_build_runfile_manifests {
 }
 
 function test_script_file_generation {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -311,8 +304,10 @@ EOF
 
 # Tests bazel run with --color=no on a failed build does not produce color.
 function test_no_color_on_failed_run() {
+  add_rules_cc MODULE.bazel
   mkdir -p x || fail "mkdir failed"
-  echo "cc_binary(name = 'x', srcs = ['x.cc'])" > x/BUILD
+  echo "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')" > x/BUILD
+  echo "cc_binary(name = 'x', srcs = ['x.cc'])" >> x/BUILD
   cat > x/x.cc <<EOF
 int main(int, char**) {
   // Missing semicolon
@@ -323,7 +318,7 @@ EOF
   bazel run //x:x &>$TEST_log --color=no && fail "expected failure"
   cat $TEST_log
   # Verify that the failure is a build failure.
-  if $is_windows; then
+  if is_windows; then
     expect_log "missing ';'"
   else
     expect_log "expected ';'"
@@ -335,12 +330,14 @@ EOF
 
 
 function test_no_ansi_stripping_in_stdout_or_stderr() {
-  if $is_windows; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
+  add_rules_cc MODULE.bazel
   mkdir -p x || fail "mkdir failed"
-  echo "cc_binary(name = 'x', srcs = ['x.cc'])" > x/BUILD
+  echo "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')" > x/BUILD
+  echo "cc_binary(name = 'x', srcs = ['x.cc'])" >> x/BUILD
   cat > x/x.cc <<EOF
 #include <unistd.h>
 #include <stdio.h>
@@ -463,7 +460,7 @@ EOF
 
 function test_run_for_custom_executable() {
   mkdir -p a
-  if "$is_windows"; then
+  if is_windows; then
     local -r IsWindows=True
   else
     local -r IsWindows=False
@@ -513,7 +510,7 @@ EOF
 # (when running browser-based tests) and to support debugging tests.
 # See also test_a_test_rule_with_input_from_stdin() in //src/test/shell/integration:test_test
 function test_run_a_test_and_a_binary_rule_with_input_from_stdin() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -527,7 +524,7 @@ sh_test(name = "x", srcs = ["x.sh"])
 sh_binary(name = "control", srcs = ["x.sh"])
 eof
   cat > a/x.sh <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof
@@ -555,7 +552,7 @@ EOF
   local tmpdir_value
   tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
   expected_prefix="${TEST_TMPDIR}"
-  if ${is_windows}; then
+  if is_windows; then
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
     expected_prefix="${bazel_root}"
@@ -568,7 +565,7 @@ function test_blaze_run_with_custom_test_tmpdir() {
   mkdir -p ${pkg}
   local tmpdir
   tmpdir="$(mktemp -d)"
-  if "${is_windows}"; then
+  if is_windows; then
     # Translate from `/*` to a windows path.
     tmpdir="$(cygpath -m "${tmpdir}")"
   fi
@@ -647,7 +644,7 @@ EOF
 }
 
 function test_run_under_script_script_path() {
-  if $is_windows; then
+  if is_windows; then
     # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
     # paths under windows.
     return
@@ -711,7 +708,7 @@ EOF
   # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
   # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
   # break its runfiles discovery.
-  if "$is_windows"; then
+  if is_windows; then
     expect_log "hello there friend"
     expect_log "goodbye buddy"
   else
@@ -721,7 +718,7 @@ EOF
 }
 
 function test_run_under_command_change_preserves_cache() {
-  if $is_windows; then
+  if is_windows; then
     echo "This test requires --run_under to be able to run echo."
     return
   fi
@@ -773,7 +770,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo build_id=\"${BUILD_ID}\"
 EOF
 
@@ -800,7 +797,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo execroot=\"${BUILD_EXECROOT}\"
 EOF
 
@@ -816,6 +813,9 @@ EOF
 
 function test_run_env() {
   add_rules_shell "MODULE.bazel"
+  add_to_bazelrc "run --run_env=OVERRIDDEN_RUN_ENV=OVERRIDDEN_VALUE_FROM_BAZELRC"
+  add_to_bazelrc "run --run_env=FROM_BAZELRC=VALUE_FROM_BAZELRC"
+  add_to_bazelrc "run --run_env=FROM_BAZELRC_THEN_UNUSET=VALUE_FROM_BAZELRC"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
@@ -831,22 +831,147 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
 echo "FROMBUILD: '$FROMBUILD'"
 echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
+echo "FROM_BAZELRC: '$FROM_BAZELRC'"
+echo "FROM_BAZELRC_THEN_UNUSET: '${FROM_BAZELRC_THEN_UNUSET:=<unset>}'"
 echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
+echo "EMPTY_RUN_ENV: '$EMPTY_RUN_ENV'"
+echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
+echo "REMOVED_RUN_ENV: '${REMOVED_RUN_ENV:=<unset>}'"
+echo "SET_UNSET_SET: '$SET_UNSET_SET'"
 EOF
 
   chmod +x "$pkg/foo.sh"
 
-  bazel run --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+  INHERITED_RUN_ENV=BAZ REMOVED_RUN_ENV=QUZ bazel run \
+      --run_env=OVERRIDDEN_RUN_ENV=FOO \
+      --run_env=RUN_ENV_ONLY=BAR \
+      --run_env=EMPTY_RUN_ENV= \
+      --run_env=INHERITED_RUN_ENV \
+      --run_env==REMOVED_RUN_ENV \
+      --run_env==FROM_BAZELRC_THEN_UNUSET \
+      --run_env=SET_UNSET_SET=set1 \
+      --run_env==SET_UNSET_SET \
+      --run_env=SET_UNSET_SET=set2 \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
 
   expect_log "FROMBUILD: '1'"
-  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "OVERRIDDEN_RUN_ENV: '2'"
+  expect_log "FROM_BAZELRC: 'VALUE_FROM_BAZELRC'"
+  expect_log "FROM_BAZELRC_THEN_UNUSET: '<unset>'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
+  expect_log "EMPTY_RUN_ENV: ''"
+  expect_log "INHERITED_RUN_ENV: 'BAZ'"
+  expect_log "REMOVED_RUN_ENV: '<unset>'"
+  expect_log "SET_UNSET_SET: 'set2'"
+}
+
+function test_test_env() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+  env = {
+    "FROMBUILD": "1",
+    "OVERRIDDEN_RUN_ENV": "2",
+  }
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "FROMBUILD: '$FROMBUILD'"
+echo "OVERRIDDEN_TEST_ENV: '$OVERRIDDEN_TEST_ENV'"
+echo "TEST_ENV_ONLY: '$TEST_ENV_ONLY'"
+echo "EMPTY_TEST_ENV: '$EMPTY_TEST_ENV'"
+echo "INHERITED_TEST_ENV: '$INHERITED_TEST_ENV'"
+echo "REMOVED_TEST_ENV: '${REMOVED_TEST_ENV:=<unset>}'"
+echo "SET_UNSET_SET: '$SET_UNSET_SET'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  INHERITED_TEST_ENV=BAZ REMOVED_TEST_ENV=QUZ bazel run \
+      --test_env=OVERRIDDEN_TEST_ENV=FOO \
+      --test_env=TEST_ENV_ONLY=BAR \
+      --test_env=EMPTY_TEST_ENV= \
+      --test_env=INHERITED_TEST_ENV \
+      --test_env==REMOVED_TEST_ENV \
+      --test_env=SET_UNSET_SET=set1 \
+      --test_env==SET_UNSET_SET \
+      --test_env=SET_UNSET_SET=set2 \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "FROMBUILD: '1'"
+  expect_log "OVERRIDDEN_TEST_ENV: 'FOO'"
+  expect_log "TEST_ENV_ONLY: 'BAR'"
+  expect_log "EMPTY_TEST_ENV: ''"
+  expect_log "INHERITED_TEST_ENV: 'BAZ'"
+  # --test_env==NAME is specified to only remove previous --test_env uses for
+  # NAME, it doesn't remove the NAME from the environment when running the test
+  # non-hermetically via bazel run.
+  expect_log "REMOVED_TEST_ENV: 'QUZ'"
+  expect_log "SET_UNSET_SET: 'set2'"
+}
+
+# Test that --run_env does not apply when running a test. Note that this may or
+# may not be desired, but it is the current behavior.
+function test_run_and_test_env() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "INHERITED_TEST_ENV: '$INHERITED_TEST_ENV'"
+echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
+echo "FIXED_TEST_AND_RUN_ENV: '$FIXED_TEST_AND_RUN_ENV'"
+echo "FIXED_TEST_ENV: '$FIXED_TEST_ENV'"
+echo "FIXED_RUN_ENV: '${FIXED_RUN_ENV:=<unset>}'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  INHERITED_TEST_ENV=inherited INHERITED_RUN_ENV=inherited bazel run \
+      --test_env=INHERITED_TEST_ENV \
+      --run_env=INHERITED_TEST_ENV=run \
+      --run_env=INHERITED_RUN_ENV \
+      --test_env=INHERITED_RUN_ENV=test \
+      --test_env=FIXED_TEST_AND_RUN_ENV=test \
+      --run_env=FIXED_TEST_AND_RUN_ENV=run \
+      --test_env=FIXED_TEST_ENV=test \
+      --run_env==FIXED_TEST_ENV \
+      --run_env=FIXED_RUN_ENV=run \
+      --test_env==FIXED_RUN_ENV \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "INHERITED_TEST_ENV: 'inherited'"
+  expect_log "INHERITED_RUN_ENV: 'test'"
+  expect_log "FIXED_TEST_AND_RUN_ENV: 'test'"
+  expect_log "FIXED_TEST_ENV: 'test'"
+  expect_log "FIXED_RUN_ENV: '<unset>'"
 }
 
 function test_run_env_script_path() {
@@ -866,7 +991,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -882,8 +1007,44 @@ EOF
   ./script.bat >"$TEST_log" || fail "expected script to succeed"
 
   expect_log "FROMBUILD: '1'"
-  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "OVERRIDDEN_RUN_ENV: '2'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
+}
+
+function test_run_in_cwd() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "Running in $(pwd)"
+if [ -f "bar.txt" ]; then
+  echo "BAR_TXT"
+fi
+EOF
+
+  cd "$pkg" || fail "cd $pkg failed"
+  chmod +x "foo.sh"
+  touch "bar.txt"
+
+  bazel run "//$pkg:foo" >& "$TEST_log" || fail "bazel run without --run_in_cwd failed"
+  expect_not_log "BAR_TXT"
+  expect_not_log "Running in $(pwd)"
+
+  bazel run --run_in_cwd "//$pkg:foo" >& "$TEST_log" || fail "bazel run with --run_in_cwd failed"
+  expect_log "BAR_TXT"
+  expect_log "Running in $(pwd)"
 }
 
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.

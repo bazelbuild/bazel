@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -39,21 +39,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 add_to_bazelrc "build --package_path=%workspace%"
 
@@ -96,6 +81,17 @@ function test_target_pattern_file_and_cli_pattern() {
   setup
   bazel build --target_pattern_file=build.params -- //:x >& $TEST_log && fail "Expected failure"
   expect_log "ERROR: Command-line target pattern and --target_pattern_file cannot both be specified"
+}
+
+function test_target_pattern_file_unicode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  echo "//foo:äöüÄÖÜß🌱" > my_targets || fail "Could not write my_query"
+  bazel build --target_pattern_file=my_targets >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
 }
 
 run_suite "Tests for using target_pattern_file"

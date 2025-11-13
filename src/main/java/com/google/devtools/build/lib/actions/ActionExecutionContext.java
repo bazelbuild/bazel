@@ -119,11 +119,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return wrapped.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }
@@ -160,7 +155,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
     }
 
@@ -172,7 +167,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
-    public ActionInput getInput(String execPath) {
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
+    }
+
+    @Nullable
+    @Override
+    public ActionInput getInput(PathFragment execPath) {
       return wrapped.getInput(execPath);
     }
 
@@ -202,12 +203,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public ImmutableList<RunfilesTree> getRunfilesTrees() {
       return ImmutableList.of(overriddenTree);
     }
-
-    @Override
-    public FileSystem getFileSystemForInputResolution() {
-      return wrapped.getFileSystemForInputResolution();
-    }
-
   }
 
   /** Enum for --subcommands flag */
@@ -243,6 +238,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final DiscoveredModulesPruner discoveredModulesPruner;
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
+  private final boolean fileSystemSupportsInputDiscovery;
 
   private ActionExecutionContext(
       Executor executor,
@@ -259,7 +255,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -278,6 +275,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
+    this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
   }
 
   public ActionExecutionContext(
@@ -310,7 +308,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        /* fileSystemSupportsInputDiscovery= */ false);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -318,7 +317,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -328,13 +326,14 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscalls,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
@@ -344,7 +343,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscalls,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -375,6 +375,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable
   public FileSystem getActionFileSystem() {
     return actionFileSystem;
+  }
+
+  public boolean fileSystemSupportsInputDiscovery() {
+    return fileSystemSupportsInputDiscovery;
   }
 
   public boolean isRewindingEnabled() {
@@ -532,14 +536,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
-    try {
-      fileOutErr.close();
-    } finally {
-      if (actionFileSystem instanceof Closeable closeable) {
-        closeable.close();
-      }
-    }
+    fileOutErr.close();
   }
 
   private ActionExecutionContext withInputMetadataProvider(
@@ -559,7 +556,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**
@@ -612,7 +610,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**

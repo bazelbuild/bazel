@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForDeserializationFuture;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -35,7 +36,9 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -361,15 +364,24 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
     @Override
     public void onSuccess(byte[] bytes) {
+      if (bytes == null) {
+        // This error should be tolerated by falling back on computation.
+        onFailure(
+            new MissingSharedValueBytesException(
+                String.format(
+                    "missing shared value bytes for a %s instance belonging to a %s instance",
+                    codec.getEncodedClass().getName(), parent.getClass().getName())));
+        return;
+      }
       SharedValueDeserializationContext innerContext = getFreshContext();
       DeferredValue<?> deferred;
       try {
-        deferred = codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(bytes));
-      } catch (SerializationException | IOException | RuntimeException | Error e) {
-        if (skyframeLookupCollector != null) {
-          skyframeLookupCollector.notifyFetchException(e);
+        try (InputStream inputStream = maybeDecompressBytes(bytes)) {
+          deferred =
+              codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
         }
-        getOperation.setException(e);
+      } catch (SerializationException | IOException | RuntimeException | Error e) {
+        onFailure(e);
         return;
       }
       if (skyframeLookupCollector != null) {
@@ -409,6 +421,15 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       }
       getOperation.setException(t);
     }
+  }
+
+  private static InputStream maybeDecompressBytes(byte[] bytes) throws IOException {
+    ByteArrayInputStream byteArrayInputStream =
+        new ByteArrayInputStream(bytes, 1, bytes.length - 1);
+    if (bytes[0] == (byte) 0) {
+      return byteArrayInputStream;
+    }
+    return new ZstdInputStream(byteArrayInputStream);
   }
 
   @Override
@@ -516,7 +537,8 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     /** Set true if the Skyframe dependency has an exception. */
     private boolean isFailed = false;
 
-    private SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
+    @VisibleForTesting
+    SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
       this.key = key;
       this.parent = parent;
       this.setter = setter;
@@ -546,9 +568,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       return isFailed;
     }
 
-    void handleEviction(StateEvictedException exception) {
-      // TODO: b/335901349 - fully handle this. Any retained instances of this future must be
-      // cleared and anything that may be transitively depending on it must be cleaned up.
+    void abandon(LookupAbandonedException exception) {
       setException(exception);
     }
 
@@ -560,5 +580,48 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     }
   }
 
-  public static final class StateEvictedException extends Exception {}
+  /**
+   * Error signaling that a {@link SkyframeLookup} is abandoned.
+   *
+   * <p>This does not indicate a deserialization failure for the value depending on the lookup. See
+   * the subclasses for more details.
+   */
+  static sealed class LookupAbandonedException extends Exception {
+    LookupAbandonedException() {}
+
+    LookupAbandonedException(Throwable cause) {
+      super(cause);
+    }
+  }
+
+  /**
+   * Used when SkyKey compute state is evicted (due to memory pressure).
+   *
+   * <p>Since the compute state is lost, there's no way to perform the Skyframe lookups needed to
+   * satisfy the {@link SkyframeLookup}.
+   */
+  static final class StateEvictedException extends LookupAbandonedException {}
+
+  /**
+   * A lookup is abandoned because another sub-value failed to deserialize (possibly due to a failed
+   * Skyframe lookup).
+   *
+   * <p>Since one sub-value did not deserialize correctly, there's no way to deserialize the value.
+   */
+  static final class PeerFailedException extends LookupAbandonedException {
+    PeerFailedException(Throwable cause) {
+      super(cause);
+    }
+  }
+
+  /**
+   * Indicates that the bytes for a shared value were missing.
+   *
+   * <p>This error should be tolerated by falling back on computation.
+   */
+  static final class MissingSharedValueBytesException extends SerializationException {
+    MissingSharedValueBytesException(String message) {
+      super(message);
+    }
+  }
 }

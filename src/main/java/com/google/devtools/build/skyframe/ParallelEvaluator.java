@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -34,6 +36,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -404,12 +407,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
               ImmutableSet.of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
-      SkyValue resultForDebugging = null;
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
-        // care about a return value except for debugging information.
-        resultForDebugging = skyFunction.compute(parent, env);
+        // care about a return value.
+        skyFunction.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
@@ -463,26 +465,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Skyfunction did not encounter error: %s via %s, %s (%s)",
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
-      try {
-        // Builder didn't throw its own exception, so just propagate this one up.
-        NestedSet<Reportable> events =
-            env.reportEventsAndGetEventsToStore(parentEntry, /* expectDoneDeps= */ false);
-        ValueWithMetadata valueWithMetadata =
-            ValueWithMetadata.error(
-                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
-        replay(events);
-        bubbleErrorInfo.put(errorKey, valueWithMetadata);
-      } catch (RuntimeException e) {
-        logger.atSevere().log(
-            """
-            Exception thrown while reporting events during error bubbling:
-            errorKey=%s
-            completedRun=%s
-            resultForDebugging=%s\
-            """,
-            errorKey, completedRun, resultForDebugging);
-        throw e;
-      }
+      // Builder didn't throw its own exception, so just propagate this one up.
+      NestedSet<Reportable> events =
+          env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
+      ValueWithMetadata valueWithMetadata =
+          ValueWithMetadata.error(
+              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
+      replay(events);
+      bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -551,7 +541,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     }
     if (!cycleRoots.isEmpty()) {
       logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
-      cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", Duration.ofMillis(10))) {
+        cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
+      }
     }
     Preconditions.checkState(
         !result.isEmpty() || !haveKeys,

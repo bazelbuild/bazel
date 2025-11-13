@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2024 The Bazel Authors. All rights reserved.
 #
@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 #### SETUP #############################################################
 
 set -e
+add_to_bazelrc "common --noincompatible_disable_autoloads_in_main_repo"
 
 #### TESTS #############################################################
 
@@ -141,23 +142,6 @@ local_repository(
     path = "${apple_support_workspace}",
 )
 EOF
-}
-
-function test_missing_necessary_repo_fails() {
-  # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
-  cat > WORKSPACE << EOF
-workspace(name = "test")
-# TODO: protobuf's WORKSPACE macro has an unnecessary dependency on build_bazel_apple_support.
-# __SKIP_WORKSPACE_SUFFIX__
-EOF
-  cat > BUILD << EOF
-xcode_version(
-    name = 'xcode_version',
-    version = "5.1.2",
-)
-EOF
-  bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
 }
 
 function test_missing_unnecessary_repo_doesnt_fail() {
@@ -514,31 +498,19 @@ function test_legacy_globals() {
 
   mkdir -p "${rules_java_workspace}/java/common"
   touch "${rules_java_workspace}/java/common/BUILD"
-  cat > "${rules_java_workspace}/java/common/proguard_spec_info.bzl" << EOF
-def _init(specs):
-  return {"specs": specs}
-
-def _proguard_spec_info():
-  if hasattr(native, "legacy_globals"):
-    if hasattr(native.legacy_globals, "ProguardSpecProvider"):
-      print("Native provider")
-      return native.legacy_globals.ProguardSpecProvider
-  print("Starlark provider")
-  return provider(fields = ["specs"], init = _init)[0]
-
-ProguardSpecInfo = _proguard_spec_info()
+  cat > "${rules_java_workspace}/java/common/print_legacy_globals.bzl" << EOF
+def print_legacy_globals():
+  print(dir(native.legacy_globals))
 EOF
 
   cat > BUILD << EOF
-load("@rules_java//java/common:proguard_spec_info.bzl", "ProguardSpecInfo")
+load("@rules_java//java/common:print_legacy_globals.bzl", "print_legacy_globals")
+
+print_legacy_globals()
 EOF
 
-  bazel build --incompatible_autoload_externally=+ProguardSpecProvider :all >&$TEST_log 2>&1 || fail "build unexpectedly failed"
-  expect_log "Native provider"
-
-
-  bazel build --incompatible_autoload_externally=ProguardSpecProvider,-java_lite_proto_library,-java_import :all >&$TEST_log 2>&1 || fail "build unexpectedly failed"
-  expect_log "Starlark provider"
+  bazel build --incompatible_autoload_externally= :all >&$TEST_log 2>&1 || fail "build unexpectedly failed"
+  expect_log '"CcInfo", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "CcToolchainConfigInfo", "DebugPackageInfo", "apple_common", "cc_common", "java_common", "proto_common_do_not_use"'
 }
 
 function test_incompatible_disable_autoloads_in_main_repo() {
@@ -565,11 +537,11 @@ my_java_library(
 )
 EOF
 
-  bazel query --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
-  bazel query --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel query --incompatible_autoload_externally=java_library --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_autoload_externally=java_library --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "name 'java_library' is not defined"
-  bazel query --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
-  bazel query --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel query --incompatible_autoload_externally=java_library --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_autoload_externally=java_library --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "Error: no native function or rule 'java_library'"
 }
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -41,16 +41,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
+if is_windows; then
   declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
   touch "$WORKSPACE_STATUS"
 else
@@ -144,7 +135,7 @@ EOF
   # waiting" message. Do not modify the workspace status writer action
   # implementation to have a progress message, because it breaks all kinds of
   # things.
-  if "$is_windows"; then
+  if is_windows; then
     local -r wsc="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
     # Wait for an event that never comes, give up after 5 seconds (exits with
     # nonzero), then "cd ." to reset %ERRORLEVEL%.
@@ -288,7 +279,7 @@ EOF
   # Give enough head room so that the test won't break again if we tweak
   # our assumptions about local resource usage.
   bazel build --experimental_ui_debug_all_events -j 2 \
-      --local_ram_resources=2048000 --local_cpu_resources=32 \
+      --local_resources=memory=2048000 --local_resources=cpu=32 \
       -k -s "//${pkg}:"{top,longrun} --progress_report_interval=1 \
       >& "$TEST_log" && fail "build succeeded"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"

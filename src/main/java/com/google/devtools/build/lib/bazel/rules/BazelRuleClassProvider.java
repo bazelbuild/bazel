@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -32,37 +33,33 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.bazel.BazelConfiguration;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
-import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
-import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -76,15 +73,17 @@ public class BazelRuleClassProvider {
     @Option(
         name = "incompatible_strict_action_env",
         oldName = "experimental_strict_action_env",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
-            "If true, Bazel uses an environment with a static value for PATH and does not "
-                + "inherit LD_LIBRARY_PATH. Use --action_env=ENV_VARIABLE if you want to "
-                + "inherit specific environment variables from the client, but note that doing so "
-                + "can prevent cross-user caching if a shared cache is used.")
+            """
+            If true, Bazel uses an environment with a static value for PATH and does not
+            inherit `LD_LIBRARY_PATH`. Use `--action_env=ENV_VARIABLE` if you want to
+            inherit specific environment variables from the client, but note that doing so
+            can prevent cross-user caching if a shared cache is used.
+            """)
     public boolean useStrictActionEnv;
   }
 
@@ -99,9 +98,10 @@ public class BazelRuleClassProvider {
           .buildOrThrow();
 
   /**
-   * {@link BuildConfigurationFunction} constructs {@link BuildOptions} out of the options required
-   * by the registered fragments. We create and register this fragment exclusively to ensure {@link
-   * StrictActionEnvOptions} is always available.
+   * {@link com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction} constructs
+   * {@link BuildOptions} out of the options required by the registered fragments. We create and
+   * register this fragment exclusively to ensure {@link StrictActionEnvOptions} is always
+   * available.
    */
   @RequiresOptions(options = {StrictActionEnvOptions.class})
   public static class StrictActionEnvConfiguration extends Fragment {
@@ -117,7 +117,7 @@ public class BazelRuleClassProvider {
     // Honor BAZEL_SH env variable for backwards compatibility.
     String path = System.getenv("BAZEL_SH");
     if (path != null) {
-      return PathFragment.create(path);
+      return PathFragment.create(platformToInternal(path));
     }
     return null;
   }
@@ -163,7 +163,11 @@ public class BazelRuleClassProvider {
           // that is incorrect. We should enable strict_action_env by default and then remove this
           // code, but that change may break Windows users who are relying on the MSYS root being in
           // the PATH.
-          env.put("PATH", pathOrDefault(os, System.getenv("PATH"), shellExecutable));
+          String pathEnv = System.getenv("PATH");
+          if (pathEnv != null) {
+            pathEnv = platformToInternal(pathEnv);
+          }
+          env.put("PATH", pathOrDefault(os, pathEnv, shellExecutable));
         } else {
           // The previous implementation used System.getenv (which uses the server's environment),
           // and fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
@@ -173,8 +177,12 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
-          env.put(entry.getKey(), entry.getValue());
+        for (var envVar : options.get(CoreOptions.class).actionEnvironment) {
+          switch (envVar) {
+            case Converters.EnvVar.Set(String name, String value) -> env.put(name, value);
+            case Converters.EnvVar.Inherit(String name) -> env.put(name, null);
+            case Converters.EnvVar.Unset(String name) -> env.remove(name);
+          }
         }
 
         if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {
@@ -222,12 +230,9 @@ public class BazelRuleClassProvider {
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addUniversalConfigurationFragment(BazelConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
 
-          builder.addStarlarkBuiltinsInternal(
-              ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
 
           // Add the package() function.
@@ -257,21 +262,21 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet ANDROID_RULES =
       new RuleSet() {
+        private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+            ImmutableSet.of(PackageIdentifier.createUnchecked("rules_android", ""));
+
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
 
-          AndroidBootstrap bootstrap = new AndroidBootstrap(new AndroidStarlarkCommon());
-          builder.addStarlarkBootstrap(bootstrap);
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
+          builder.addBzlToplevel(
+              "android_common",
+              ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+                  BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+                  new AndroidStarlarkCommon(),
+                  allowedRepositories));
         }
 
         @Override
@@ -282,6 +287,13 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet PYTHON_RULES =
       new RuleSet() {
+        public static final ImmutableSet<PackageIdentifier> allowedRepositories =
+            ImmutableSet.of(
+                PackageIdentifier.createUnchecked("_builtins", ""),
+                PackageIdentifier.createUnchecked("bazel_tools", ""),
+                PackageIdentifier.createUnchecked("rules_python", ""),
+                PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
+
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(PythonConfiguration.class);
@@ -290,45 +302,13 @@ public class BazelRuleClassProvider {
           // This symbol is overridden by exports.bzl
           builder.addBzlToplevel(
               "py_internal",
-              ContextGuardedValue.onlyInAllowedRepos(
-                  Starlark.NONE, PyBootstrap.allowedRepositories));
+              ContextGuardedValue.onlyInAllowedRepos(Starlark.NONE, allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(
-                    BazelPythonConfiguration.class, "python.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
         }
 
         @Override
         public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE);
-        }
-      };
-
-  public static final RuleSet VARIOUS_WORKSPACE_RULES =
-      new RuleSet() {
-        @Override
-        public void init(ConfiguredRuleClassProvider.Builder builder) {
-          // TODO(ulfjack): Split this up by conceptual units.
-          builder.addRuleDefinition(new NewLocalRepositoryRule());
-          builder.addRuleDefinition(new LocalConfigPlatformRule());
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(
-                    LocalConfigPlatformRule.class, "local_config_platform.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CoreWorkspaceRules.INSTANCE);
         }
       };
 
@@ -344,7 +324,6 @@ public class BazelRuleClassProvider {
       ImmutableSet.of(
           BAZEL_SETUP,
           CoreRules.INSTANCE,
-          CoreWorkspaceRules.INSTANCE,
           GenericRules.INSTANCE,
           ConfigRules.INSTANCE,
           PlatformRules.INSTANCE,
@@ -355,7 +334,6 @@ public class BazelRuleClassProvider {
           PYTHON_RULES,
           ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
-          VARIOUS_WORKSPACE_RULES,
           PACKAGING_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment
           // that has Make variables, so we put it last.
@@ -399,6 +377,8 @@ public class BazelRuleClassProvider {
     String systemRoot = System.getenv("SYSTEMROOT");
     if (Strings.isNullOrEmpty(systemRoot)) {
       systemRoot = "C:\\Windows";
+    } else {
+      systemRoot = platformToInternal(systemRoot);
     }
     newPath += ";" + systemRoot;
     newPath += ";" + systemRoot + "\\System32";

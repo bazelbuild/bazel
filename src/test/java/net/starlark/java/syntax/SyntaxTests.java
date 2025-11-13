@@ -27,6 +27,7 @@ import org.junit.runners.Suite;
   NodeVisitorTest.class,
   ParserInputTest.class,
   ParserTest.class,
+  ProgramTest.class,
   ResolverTest.class,
   StarlarkFileTest.class,
   StarlarkTypesTest.class,

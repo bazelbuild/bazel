@@ -199,7 +199,7 @@ public final class CleanCommand implements BlazeCommand {
     // Daemonize the shell to ensure that the shell exits even while the "rm
     // -rf" command continues.
     CommandResult result =
-        new CommandBuilder()
+        new CommandBuilder(env.getClientEnv())
             .addArg(
                 env.getBlazeWorkspace().getBinTools().getEmbeddedPath("daemonize").getPathString())
             .addArgs("-l", "/dev/null")

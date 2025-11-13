@@ -181,7 +181,7 @@ public class SymlinkForestTest {
   }
 
   private static void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
-    assertWithMessage("stat: " + fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
+    assertWithMessage("stat: %s", fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
     assertThat(fromRoot.readSymbolicLink()).isEqualTo(toRoot.asFragment());
   }
 

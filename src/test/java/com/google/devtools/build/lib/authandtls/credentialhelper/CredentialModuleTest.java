@@ -19,9 +19,9 @@ import static org.mockito.Mockito.when;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Policy.CacheEntry;
-import com.github.benmanes.caffeine.cache.Ticker;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.net.URI;
 import java.time.Duration;
@@ -38,25 +38,23 @@ public final class CredentialModuleTest {
   private static final GetCredentialsResponse DEFAULT_RESPONSE =
       GetCredentialsResponse.newBuilder().build();
 
-  private Instant currentTime = Instant.parse("2001-01-01T00:00:00Z");
-
-  private final Ticker ticker = () -> toEpochNano(currentTime);
-  private final CredentialModule module = new CredentialModule(ticker);
+  private final ManualClock clock = new ManualClock();
+  private final CredentialModule module = new CredentialModule(clock);
   private final Cache<URI, GetCredentialsResponse> cache = module.getCredentialCache();
 
   @Test
   public void putWithExplicitExpiration() {
     initModule("build", Duration.ofMinutes(60));
 
-    var expiry = currentTime.plus(Duration.ofMinutes(123));
+    var expiry = clock.now().plus(Duration.ofMinutes(123));
 
     cache.put(TEST_URI, GetCredentialsResponse.newBuilder().setExpires(expiry).build());
     assertInCache(TEST_URI, expiry);
 
-    currentTime = expiry.minusSeconds(1);
+    clock.advance(Duration.ofMinutes(122));
     assertInCache(TEST_URI, expiry);
 
-    currentTime = expiry.plusSeconds(1);
+    clock.advance(Duration.ofMinutes(2));
     assertNotInCache(TEST_URI);
   }
 
@@ -64,15 +62,15 @@ public final class CredentialModuleTest {
   public void putWithNonzeroDefaultExpiration() {
     initModule("build", Duration.ofMinutes(60));
 
-    var expiry = currentTime.plus(Duration.ofMinutes(60));
+    var expiry = clock.now().plus(Duration.ofMinutes(60));
 
     cache.put(TEST_URI, DEFAULT_RESPONSE);
     assertInCache(TEST_URI, expiry);
 
-    currentTime = expiry.minusSeconds(1);
+    clock.advance(Duration.ofMinutes(59));
     assertInCache(TEST_URI, expiry);
 
-    currentTime = expiry.plusSeconds(1);
+    clock.advance(Duration.ofMinutes(2));
     assertNotInCache(TEST_URI);
   }
 
@@ -90,11 +88,11 @@ public final class CredentialModuleTest {
     initModule("build", Duration.ofMinutes(60));
 
     cache.put(TEST_URI, DEFAULT_RESPONSE);
-    assertInCache(TEST_URI, currentTime.plus(Duration.ofMinutes(60)));
+    assertInCache(TEST_URI, clock.now().plus(Duration.ofMinutes(60)));
 
     initModule("build", Duration.ofMinutes(60));
 
-    assertInCache(TEST_URI, currentTime.plus(Duration.ofMinutes(60)));
+    assertInCache(TEST_URI, clock.now().plus(Duration.ofMinutes(60)));
   }
 
   @Test
@@ -102,7 +100,7 @@ public final class CredentialModuleTest {
     initModule("build", Duration.ofMinutes(60));
 
     cache.put(TEST_URI, DEFAULT_RESPONSE);
-    assertInCache(TEST_URI, currentTime.plus(Duration.ofMinutes(60)));
+    assertInCache(TEST_URI, clock.now().plus(Duration.ofMinutes(60)));
 
     initModule("build", Duration.ofMinutes(30));
 
@@ -114,7 +112,7 @@ public final class CredentialModuleTest {
     initModule("build", Duration.ofMinutes(30));
 
     cache.put(TEST_URI, DEFAULT_RESPONSE);
-    assertInCache(TEST_URI, currentTime.plus(Duration.ofMinutes(30)));
+    assertInCache(TEST_URI, clock.now().plus(Duration.ofMinutes(30)));
 
     initModule("build", Duration.ofMinutes(60));
 
@@ -126,7 +124,7 @@ public final class CredentialModuleTest {
     initModule("build", Duration.ofMinutes(60));
 
     cache.put(TEST_URI, DEFAULT_RESPONSE);
-    assertInCache(TEST_URI, currentTime.plus(Duration.ofMinutes(60)));
+    assertInCache(TEST_URI, clock.now().plus(Duration.ofMinutes(60)));
 
     initModule("clean", Duration.ofMinutes(60));
 
@@ -163,11 +161,6 @@ public final class CredentialModuleTest {
   }
 
   private static Instant fromEpochNano(long nano) {
-    return Instant.ofEpochSecond(
-        nano / Duration.ofSeconds(1).toNanos(), nano % Duration.ofSeconds(1).toNanos());
-  }
-
-  private static long toEpochNano(Instant instant) {
-    return Duration.ofSeconds(1).toNanos() * instant.getEpochSecond() + instant.getNano();
+    return Instant.ofEpochSecond(0, nano);
   }
 }

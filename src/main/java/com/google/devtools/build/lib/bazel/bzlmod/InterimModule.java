@@ -18,14 +18,20 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Represents a node in the external dependency graph during module resolution (discovery &
@@ -59,15 +65,18 @@ public abstract class InterimModule extends ModuleBase {
       requireNonNull(version, "version");
     }
 
-    public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
-      return new DepSpec(name, version, maxCompatibilityLevel);
-    }
+    public static final DepSpec ROOT_MODULE = fromModuleKey(ModuleKey.ROOT);
 
+    @VisibleForTesting
     public static DepSpec fromModuleKey(ModuleKey key) {
-      return create(key.name(), key.version(), -1);
+      return new DepSpec(key.name(), key.version(), -1);
     }
 
-    public final ModuleKey toModuleKey() {
+    public DepSpec withVersion(Version version) {
+      return new DepSpec(name(), version, maxCompatibilityLevel());
+    }
+
+    public ModuleKey toModuleKey() {
       return new ModuleKey(name(), version());
     }
   }
@@ -113,12 +122,13 @@ public abstract class InterimModule extends ModuleBase {
   }
 
   /**
-   * Returns a new {@link InterimModule} with all values in {@link #getDeps} transformed using the
-   * given function.
+   * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
+   * #getNodepDeps} transformed using the given function.
    */
-  public InterimModule withDepSpecsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<DepSpec> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
         .build();
   }
 
@@ -141,6 +151,16 @@ public abstract class InterimModule extends ModuleBase {
     public abstract Builder setRepoName(String value);
 
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
+
+    abstract ImmutableMap.Builder<String, String> flagAliasesBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addFlagAlias(String nativeName, String starlarkLabel)
+        throws LabelSyntaxException {
+      flagAliasesBuilder()
+          .put(nativeName, Label.parseCanonical(starlarkLabel).getUnambiguousCanonicalForm());
+      return this;
+    }
 
     @CanIgnoreReturnValue
     public final Builder addBazelCompatibilityValues(Iterable<String> values) {
@@ -225,6 +245,7 @@ public abstract class InterimModule extends ModuleBase {
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
         .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
         .setExtensionUsages(interim.getExtensionUsages())
+        .setFlagAliases(interim.getFlagAliases())
         .build();
   }
 
@@ -233,14 +254,17 @@ public abstract class InterimModule extends ModuleBase {
     if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    if (singleVersion.patches().isEmpty()) {
+    if (singleVersion.patches().isEmpty()
+        && singleVersion.patchCmds().isEmpty()
+        && singleVersion.patchStrip() == 0) {
       return repoSpec;
     }
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    Dict.Builder<String, Object> attrBuilder = Dict.builder();
     attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.patches());
-    attrBuilder.put("patch_cmds", singleVersion.patchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.patchStrip()));
-    return new RepoSpec(repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildOrThrow()));
+    attrBuilder.put("patches", StarlarkList.immutableCopyOf(singleVersion.patches()));
+    attrBuilder.put("patch_cmds", StarlarkList.immutableCopyOf(singleVersion.patchCmds()));
+    attrBuilder.put("patch_args", StarlarkList.immutableOf("-p" + singleVersion.patchStrip()));
+    return new RepoSpec(
+        repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildImmutable()));
   }
 }

@@ -5,7 +5,10 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 **Note:** There are known limitations on using Bazel for building Android apps.
-Visit the Github [team-Android hotlist](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Ateam-Android) to see the list of known issues. While the Bazel team and Open Source Software (OSS) contributors work actively to address known issues, users should be aware that Android Studio does not officially support Bazel projects.
+Visit the [rules_android issues page](https://github.com/bazelbuild/rules_android/issues)
+to see the list of known issues. While the Bazel team and Open Source Software
+(OSS) contributors work actively to address known issues, users should be aware
+that Android Studio does not officially support Bazel projects.
 
 This tutorial covers how to build a simple Android app using Bazel.
 
@@ -45,8 +48,8 @@ Before you begin the tutorial, install the following software:
 
 ### Get the sample project
 
-For the sample project, use a basic Android app project in
-[Bazel's examples repository](https://github.com/bazelbuild/examples){: .external}.
+For the sample project, use the tutorial Android app project in
+[Bazel's examples repository](https://github.com/bazelbuild/examples/tree/main/android/tutorial){: .external}.
 
 This app has a single button that prints a greeting when clicked:
 
@@ -142,7 +145,15 @@ to build the app. This means that you need to add some information to your
 Add the following line to your `MODULE.bazel` file:
 
 ```python
-bazel_dep(name = "rules_android", version = "0.5.1")
+bazel_dep(name = "rules_android", version = "0.6.6")
+
+remote_android_extensions = use_extension(
+    "@rules_android//bzlmod_extensions:android_extensions.bzl",
+    "remote_android_tools_extensions")
+use_repo(remote_android_extensions, "android_tools")
+
+android_sdk_repository_extension = use_extension("@rules_android//rules/android_sdk_repository:rule.bzl", "android_sdk_repository_extension")
+use_repo(android_sdk_repository_extension, "androidsdk")
 ```
 
 This will use the Android SDK at the path referenced by the `ANDROID_HOME`
@@ -179,7 +190,7 @@ NDK](https://developer.android.com/ndk/downloads/index.html){: .external}
 and use `rules_android_ndk` by adding the following line to your `MODULE.bazel` file:
 
 ```python
-bazel_dep(name = "rules_android_ndk", version = "0.1.2")
+bazel_dep(name = "rules_android_ndk", version = "0.1.3")
 ```
 
 
@@ -237,6 +248,8 @@ and declare a new `android_library` target:
 `src/main/java/com/example/bazel/BUILD`:
 
 ```python
+load("@rules_android//rules:rules.bzl", "android_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -268,9 +281,11 @@ and declare a new `android_binary` target:
 `src/main/BUILD`:
 
 ```python
+load("@rules_android//rules:rules.bzl", "android_binary")
+
 android_binary(
     name = "app",
-    manifest = "AndroidManifest.xml",
+    manifest = "//src/main/java/com/example/bazel:AndroidManifest.xml",
     deps = ["//src/main/java/com/example/bazel:greeter_activity"],
 )
 ```
@@ -343,21 +358,35 @@ file:
 ### Run the app
 
 You can now deploy the app to a connected Android device or emulator from the
-command line using the [`bazel
-mobile-install`](/docs/user-manual#mobile-install) command. This command uses
-the Android Debug Bridge (`adb`) to communicate with the device. You must set up
-your device to use `adb` following the instructions in [Android Debug
-Bridge](http://developer.android.com/tools/help/adb.html){: .external} before deployment. You
-can also choose to install the app on the Android emulator included in Android
-Studio. Make sure the emulator is running before executing the command below.
+command line using `bazel mobile-install`.
+This command uses the Android Debug Bridge (`adb`) to communicate with the
+device. You must set up your device to use `adb` following the instructions in
+[Android Debug Bridge](http://developer.android.com/tools/help/adb.html){: .external}
+before deployment. You can also choose to install the app on the Android emulator
+included in Android Studio. Make sure the emulator is running before executing
+the command below.
 
 Enter the following:
 
 ```posix-terminal
-bazel mobile-install //src/main:app
+bazel mobile-install //src/main:app \
+  --mode=skylark \
+  --mobile_install_aspect=@rules_android//mobile_install:mi.bzl \
+  --mobile_install_supported_rules=android_binary \
+  --java_runtime_version=17 \
+  --java_language_version=17 \
+  --tool_java_runtime_version=17 \
+  --tool_java_language_version=17
 ```
 
-Next, find and launch the "Bazel Tutorial App":
+Note that the extra flags required for mobile-install can be added to your
+project's [bazelrc file](/run/bazelrc). The mobile-install-specific flags
+(`--mode`, `--mobile_install*`) will no longer be required starting from
+Bazel 8.4.0 and onwards. The various Java flags for language and runtime version
+may be required depending on your workspace's Java configuration.
+_Mobile-install sub-tools require a language and runtime level of 17 or higher._
+
+Now the "Bazel Tutorial App" should install and launch automatically:
 
 ![Bazel tutorial app](/docs/images/android_tutorial_before.png "Bazel tutorial app")
 
@@ -365,24 +394,16 @@ Next, find and launch the "Bazel Tutorial App":
 
 **Congratulations! You have just installed your first Bazel-built Android app.**
 
-Note that the `mobile-install` subcommand also supports the
-[`--incremental`](/docs/user-manual#mobile-install) flag that can be used to
-deploy only those parts of the app that have changed since the last deployment.
-
-It also supports the `--start_app` flag to start the app immediately upon
-installing it.
-
 ## Further reading
 
 For more details, see these pages:
 
-* Open issues on [GitHub](https://github.com/bazelbuild/bazel/issues)
+* Open issues on [rules_android GitHub](https://github.com/bazelbuild/rules_android/issues)
 * More information on [mobile-install](/docs/mobile-install)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
   repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external){: .external}
 * Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel){: .external}
   integration.
-* Testing your app with [Android instrumentation tests](/docs/android-instrumentation-test)
 * Integrating C and C++ code into your Android app with the [NDK](/docs/android-ndk)
 * See more Bazel example projects of:
   * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app){: .external}

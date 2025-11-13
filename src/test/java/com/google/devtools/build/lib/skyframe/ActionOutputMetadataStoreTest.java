@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
@@ -97,7 +96,7 @@ public final class ActionOutputMetadataStoreTest {
   private final Path execRoot = scratch.resolve("/workspace");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
 
   @Before
   public void createRootDirs() throws Exception {
@@ -120,15 +119,16 @@ public final class ActionOutputMetadataStoreTest {
         ArtifactPathResolver.createPathResolver(actionFs, execRoot));
   }
 
-  private RemoteActionFileSystem createRemoteActionFileSystem(
-      ActionInputMap inputMap, ImmutableSet<Artifact> outputs) {
+  private RemoteActionFileSystem createRemoteActionFileSystem() {
+    return createRemoteActionFileSystem(new ActionInputMap(0));
+  }
+
+  private RemoteActionFileSystem createRemoteActionFileSystem(ActionInputMap inputMap) {
     return new RemoteActionFileSystem(
         scratch.getFileSystem(),
         execRoot.asFragment(),
         outputRoot.getExecPathString(),
         inputMap,
-        outputs,
-        StaticInputMetadataProvider.empty(),
         mock(RemoteActionInputFetcher.class));
   }
 
@@ -379,8 +379,7 @@ public final class ActionOutputMetadataStoreTest {
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("output"));
 
-    RemoteActionFileSystem actionFs =
-        createRemoteActionFileSystem(new ActionInputMap(0), ImmutableSet.of(outputArtifact));
+    RemoteActionFileSystem actionFs = createRemoteActionFileSystem();
 
     ActionOutputMetadataStore store = createStore(ImmutableSet.of(outputArtifact), actionFs);
     store.prepareForActionExecution();
@@ -431,8 +430,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionInputMap inputMap = new ActionInputMap(0);
     inputMap.put(inputArtifact, inputMetadata);
 
-    RemoteActionFileSystem actionFs =
-        createRemoteActionFileSystem(inputMap, ImmutableSet.of(outputArtifact));
+    RemoteActionFileSystem actionFs = createRemoteActionFileSystem(inputMap);
 
     ActionOutputMetadataStore store = createStore(ImmutableSet.of(outputArtifact), actionFs);
     store.prepareForActionExecution();
@@ -457,8 +455,7 @@ public final class ActionOutputMetadataStoreTest {
     SpecialArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "output");
 
-    RemoteActionFileSystem actionFs =
-        createRemoteActionFileSystem(new ActionInputMap(0), ImmutableSet.of(outputArtifact));
+    RemoteActionFileSystem actionFs = createRemoteActionFileSystem();
 
     ActionOutputMetadataStore store = createStore(ImmutableSet.of(outputArtifact), actionFs);
     store.prepareForActionExecution();
@@ -509,8 +506,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionInputMap inputMap = new ActionInputMap(0);
     inputMap.putTreeArtifact(inputArtifact, inputMetadata);
 
-    RemoteActionFileSystem actionFs =
-        createRemoteActionFileSystem(inputMap, ImmutableSet.of(outputArtifact));
+    RemoteActionFileSystem actionFs = createRemoteActionFileSystem(inputMap);
 
     ActionOutputMetadataStore store = createStore(ImmutableSet.of(outputArtifact), actionFs);
     store.prepareForActionExecution();

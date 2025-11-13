@@ -145,9 +145,10 @@ projects:
 ## Configuring the Java toolchains {:#config-java-toolchains}
 
 Bazel uses two types of Java toolchains:
-- execution, used to execute and test Java binaries, controlled with
+
+* execution, used to execute and test Java binaries, controlled with the
   `--java_runtime_version` flag
-- compilation, used to compile Java sources, controlled with
+* compilation, used to compile Java sources, controlled with the
   `--java_language_version` flag
 
 ### Configuring additional execution toolchains {:#config-execution-toolchains}
@@ -161,24 +162,26 @@ Java execution toolchains may added using the `local_java_repository` or
 the JVM available using a flag. When multiple definitions for the same operating
 system and CPU architecture are given, the first one is used.
 
-Example configuration of local JVM:
+Example configuration of local JVM in MODULE.bazel:
 
 ```python
-load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+custom_jdk = use_extension("@rules_java//java:extensions.bzl", "java_repository")
 
-local_java_repository(
+custom_jdk.local(
   name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk, --java_runtime_version=11 or --java_runtime_version=additionaljdk_11
-  version = 11,                    # Optional, if not set it is autodetected
+  version = "11",                  # Optional, if not set it is autodetected
   java_home = "/usr/lib/jdk-15/",  # Path to directory containing bin/java
 )
+use_repo(custom_jdk, "additionaljdk")
+register_toolchains("@additionaljdk//:all")
 ```
 
 Example configuration of remote JVM:
 
 ```python
-load("@rules_java//toolchains:remote_java_repository.bzl", "remote_java_repository")
+custom_jdk = use_extension("@rules_java//java:extensions.bzl", "java_repository")
 
-remote_java_repository(
+custom_jdk.remote(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
@@ -190,6 +193,9 @@ remote_java_repository(
   sha256 = ...,
   strip_prefix = ...
 )
+use_repo(custom_jdk, "openjdk_canary_linux_arm", "openjdk_canary_linux_arm_toolchain_config_repo")
+
+register_toolchains("@openjdk_canary_linux_arm_toolchain_config_repo//:all")
 ```
 
 ### Configuring additional compilation toolchains {:#config-compilation-toolchains}

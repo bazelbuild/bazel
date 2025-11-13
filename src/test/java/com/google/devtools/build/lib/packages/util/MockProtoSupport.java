@@ -41,6 +41,9 @@ public final class MockProtoSupport {
     createNetProto2(config);
     setupWorkspace(config);
     registerProtoToolchain(config);
+    // copybara:strip_begin(internal-only)
+    createProtoFlags(config);
+    // copybara:strip_end
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
@@ -55,6 +58,80 @@ public final class MockProtoSupport {
             + "')");
   }
 
+  // copybara:strip_begin(internal-only)
+  private static void createProtoFlags(MockToolsConfig config) throws IOException {
+    config.create(
+        "third_party/protobuf/bazel/flags/java/mutable/BUILD",
+        """
+        label_flag(
+            name = "proto_toolchain_for_javamutable",
+            build_setting_default = "//tools/proto/toolchains:javamutable",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby1",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby1",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby3",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby3",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby13",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby13",
+        )
+        """);
+    config.create(
+        "third_party/protobuf/bazel/flags/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+        cc_binary(
+            name = "empty",
+            srcs = ["empty_cc_plugin.cc"],
+        )
+
+        bool_flag(
+            name = "emit_proto_annotation_metadata",
+            build_setting_default = False,
+        )
+        """);
+    config.create(
+        "third_party/protobuf/bazel/flags/cc/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+        bool_flag(
+            name = "dual_proto_modules",
+            build_setting_default = False,
+        )
+
+        label_flag(
+            name = "protoc_cc_lib",
+            build_setting_default = ":empty",
+        )
+
+        label_flag(
+            name = "protoc_cc_plugin",
+            build_setting_default = ":empty",
+        )
+
+        bool_flag(
+            name = "experimental_proto_static_reflection_h",
+            build_setting_default = False,
+        )
+
+        sh_binary(
+            name = "empty",
+            srcs = ["empty.sh"],
+        )
+        """);
+  }
+
+  // copybara:strip_end
   /**
    * Create a dummy net/proto2 compiler, a dummy protoc_minimal and proto APIs for all languages and
    * versions.
@@ -158,6 +235,7 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -174,6 +252,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -186,6 +266,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -202,6 +284,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/bridge/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -212,6 +296,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto/BUILD",
         getPyLoad("py_library"),
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'proto',",
         "           srcs = [ 'proto.cc' ])",
@@ -226,6 +311,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby12_proto_rpc_libs")
@@ -233,6 +320,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc4/public/core/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby4_rpc_libs")
@@ -240,6 +329,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -412,6 +503,11 @@ public final class MockProtoSupport {
           "  proto = struct(starlark_proto_info = True),",
           "  cc = struct(protobuf_on_allowlist = True),",
           ")");
+      config.overwrite(
+          "third_party/protobuf/src/google/protobuf/compiler/BUILD.bazel",
+          """
+          genrule(name = "protoc", cmd = '', outs = ["protoc_minimal"], executable = True)
+          """);
     }
   }
 }

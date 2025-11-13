@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static com.google.devtools.build.lib.rules.java.JavaInfo.PROVIDER;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.util.Arrays.stream;
 
@@ -33,11 +34,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -257,6 +258,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("@rules_java//java:defs.bzl", "java_library")
         load(":custom_rule.bzl", "java_custom_library")
 
@@ -336,13 +338,18 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
 
-    JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
-    NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    StructImpl info = (StructImpl) configuredTarget.get(PROVIDER.getKey());
+    NestedSet<LibraryToLink> nativeLibraries =
+        LibraryToLink.wrap(
+            Depset.cast(
+                info.getValue("transitive_native_libraries"),
+                StarlarkInfo.class,
+                "transitive_native_libraries"));
+    assertThat(nativeLibraries.toList().stream().map(lib -> lib.getStaticLibrary().prettyPrint()))
         .containsExactly(
-            "java/test/libnative_rdeps1.so",
-            "java/test/libnative_exports1.so",
-            "java/test/libnative_deps1.so")
+            "java/test/libnative_rdeps1.so.a",
+            "java/test/libnative_exports1.so.a",
+            "java/test/libnative_deps1.so.a")
         .inOrder();
   }
 
@@ -355,6 +362,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":custom_rule.bzl", "java_custom_library")
 
         java_custom_library(
@@ -371,6 +379,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/custom_rule.bzl",
         "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -399,10 +408,15 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
 
-    JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
-    NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("java/test/libnative.so")
+    StructImpl info = (StructImpl) configuredTarget.get(PROVIDER.getKey());
+    NestedSet<LibraryToLink> nativeLibraries =
+        LibraryToLink.wrap(
+            Depset.cast(
+                info.getValue("transitive_native_libraries"),
+                StarlarkInfo.class,
+                "transitive_native_libraries"));
+    assertThat(nativeLibraries.toList().stream().map(lib -> lib.getStaticLibrary().prettyPrint()))
+        .containsExactly("java/test/libnative.so.a")
         .inOrder();
   }
 
@@ -454,9 +468,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
-    List<String> directJars =
-        prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars());
-    assertThat(directJars).containsExactly("foo/liba-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
+        .containsExactly("foo/liba-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
+        .containsExactly("foo/liba.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directHeaderCompilationJars()))
+        .containsExactly("foo/liba-tjar.jar");
   }
 
   @Test
@@ -507,8 +524,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
-    List<String> directJars = prettyArtifactNames(javaCompilationArgsProvider.runtimeJars());
-    assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
+        .containsExactly("foo/liba.jar", "foo/libb.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
+        .containsExactly("foo/liba-hjar.jar", "foo/libb-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
+        .containsExactly("foo/liba.jar", "foo/libb.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directHeaderCompilationJars()))
+        .containsExactly("foo/liba-hjar.jar", "foo/libb-hjar.jar");
   }
 
   @Test
@@ -702,69 +725,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
     Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
-  }
-
-  @Test
-  public void testCompileExports() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-            srcs = ["Main.java"],
-            exports = [":dep"],
-        )
-
-        java_library(
-            name = "dep",
-            srcs = ["Dep.java"],
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('amazing.jar')",
-        "  exports = [export[java_common.provider] for export in ctx.attr.exports]",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    exports = exports,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_jar]),",
-        "      ),",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'output': 'amazing.jar',",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "    'exports': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    JavaInfo info = JavaInfo.getJavaInfo(getConfiguredTarget("//java/test:custom"));
-    assertThat(prettyArtifactNames(info.getTransitiveSourceJars().getSet(Artifact.class)))
-        .containsExactly("java/test/amazing-src.jar", "java/test/libdep-src.jar");
-    JavaCompilationArgsProvider provider = info.getProvider(JavaCompilationArgsProvider.class);
-    assertThat(prettyArtifactNames(provider.directCompileTimeJars()))
-        .containsExactly("java/test/amazing-hjar.jar", "java/test/libdep-hjar.jar");
-    assertThat(prettyArtifactNames(provider.compileTimeJavaDependencyArtifacts()))
-        .containsExactly("java/test/amazing-hjar.jdeps", "java/test/libdep-hjar.jdeps");
   }
 
   @Test
@@ -1137,6 +1097,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "lib",
@@ -1545,36 +1506,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void disallowJavaImportEmptyJars_fails() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        """
-        result = provider()
-
-        def _impl(ctx):
-            ctx.fragments.java.disallow_java_import_empty_jars()
-            return []
-
-        myrule = rule(
-            implementation = _impl,
-            fragments = ["java"],
-        )
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":rule.bzl", "myrule")
-
-        myrule(name = "myrule")
-        """);
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
-  }
-
-  @Test
   public void testRunIjarWithOutputParameterIsPrivateApi() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
@@ -1720,6 +1651,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file("a/libStatic.a");
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_import.bzl', 'cc_import')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "load(':rule.bzl', 'jrule')",
         "load('"
@@ -1758,13 +1691,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
     @SuppressWarnings("unchecked")
-    Sequence<CcInfo> hermeticStaticLibs =
-        (Sequence<CcInfo>) myInfo.getValue("hermetic_static_libs");
+    Sequence<StarlarkInfo> hermeticStaticLibs =
+        (Sequence<StarlarkInfo>) myInfo.getValue("hermetic_static_libs");
     assertThat(hermeticStaticLibs).hasSize(1);
     assertThat(
-            hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
-                .map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("a/libStatic");
+            CcInfo.wrap(hermeticStaticLibs.get(0))
+                .getCcLinkingContext()
+                .getLibraries()
+                .toList()
+                .stream()
+                .map(lib -> lib.getStaticLibrary().prettyPrint()))
+        .containsExactly("a/libStatic.a");
   }
 
   @Test
@@ -1955,6 +1892,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/rule.bzl",
         """
         load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
         def _impl(ctx):
             cc_info = ctx.attr.dep[CcInfo]
             JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])
@@ -1969,6 +1908,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":rule.bzl", "myrule")
 
         cc_library(name = "cc_lib")

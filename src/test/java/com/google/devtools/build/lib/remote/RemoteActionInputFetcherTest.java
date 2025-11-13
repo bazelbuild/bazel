@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -40,7 +38,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -53,10 +50,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
-      new RemoteOutputChecker(
-          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+      new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
-  private RemoteOptions options;
   private DigestUtil digestUtil;
 
   @Override
@@ -65,13 +60,12 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     Path dev = fs.getPath("/dev");
     dev.createDirectory();
     dev.setWritable(false);
-    options = Options.getDefaults(RemoteOptions.class);
     digestUtil = new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION);
   }
 
   @Override
   protected AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas) {
-    CombinedCache combinedCache = newCombinedCache(options, digestUtil, cas);
+    CombinedCache combinedCache = newCombinedCache(digestUtil, cas);
     return new RemoteActionInputFetcher(
         new Reporter(eventBus),
         "none",
@@ -87,7 +81,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   @Test
   public void testStagingVirtualActionInput() throws Exception {
     // arrange
-    CombinedCache combinedCache = newCombinedCache(options, digestUtil, new HashMap<>());
+    CombinedCache combinedCache = newCombinedCache(digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(
             new Reporter(new EventBus()),
@@ -121,7 +115,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   @Test
   public void testStagingEmptyVirtualActionInput() throws Exception {
     // arrange
-    CombinedCache combinedCache = newCombinedCache(options, digestUtil, new HashMap<>());
+    CombinedCache combinedCache = newCombinedCache(digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(
             new Reporter(new EventBus()),
@@ -175,8 +169,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
   }
 
-  private CombinedCache newCombinedCache(
-      RemoteOptions options, DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
+  private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
     Map<Digest, byte[]> cacheEntries = Maps.newHashMapWithExpectedSize(cas.size());
     for (Map.Entry<HashCode, byte[]> entry : cas.entrySet()) {
       cacheEntries.put(
@@ -184,6 +177,9 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
           entry.getValue());
     }
     return new CombinedCache(
-        new InMemoryCacheClient(cacheEntries), /* diskCacheClient= */ null, options, digestUtil);
+        new InMemoryCacheClient(cacheEntries),
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil);
   }
 }

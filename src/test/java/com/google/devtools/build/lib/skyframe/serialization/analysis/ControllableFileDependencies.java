@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -23,17 +24,22 @@ import java.util.concurrent.CountDownLatch;
  *
  * <p>This can be used to exercise certain concurrency conditions.
  */
-final class ControllableFileDependencies extends FileDependencies {
+final class ControllableFileDependencies extends AvailableFileDependencies {
   private final ImmutableList<String> resolvedPaths;
-  private final ImmutableList<FileDependencies> dependencies;
+  private final ImmutableList<AvailableFileDependencies> dependencies;
 
   private final CountDownLatch findEarliestMatchEntered = new CountDownLatch(1);
   private final CountDownLatch countDown = new CountDownLatch(1);
 
   ControllableFileDependencies(
-      ImmutableList<String> resolvedPaths, ImmutableList<FileDependencies> dependencies) {
+      ImmutableList<String> resolvedPaths, ImmutableList<AvailableFileDependencies> dependencies) {
     this.resolvedPaths = resolvedPaths;
     this.dependencies = dependencies;
+  }
+
+  @Override
+  public boolean isMissingData() {
+    return false;
   }
 
   void awaitEarliestMatchEntered() throws InterruptedException {
@@ -68,7 +74,7 @@ final class ControllableFileDependencies extends FileDependencies {
   }
 
   @Override
-  FileDependencies getDependency(int index) {
+  AvailableFileDependencies getDependency(int index) {
     return dependencies.get(index);
   }
 

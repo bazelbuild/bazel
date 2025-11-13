@@ -84,6 +84,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "base/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "system_malloc",
             visibility = ["//visibility:public"],
@@ -99,6 +100,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load(':do_gen.bzl', 'test_generation', 'test_generation_2', 'test_generation_empty')",
         "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
         "",
@@ -124,6 +127,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "       )");
     scratch.file(
         "pkg/do_gen.bzl",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "def _create_cc_impl(ctx):",
         "    directory = ctx.actions.declare_directory(ctx.label.name + \"_gen_cc\")",
         "    ctx.actions.run_shell(",
@@ -137,7 +141,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "def test_generation(name):",
         "    _create_cc(name=name + \"_ccgen\")",
         "",
-        "    native.cc_library(",
+        "    cc_library(",
         "        name = name,",
         "        hdrs = [\"treelib.h\",],",
         "        srcs = [\":\" + name + \"_ccgen\",]",
@@ -158,7 +162,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "def test_generation_2(name):",
         "    _create_cc_2(name=name + \"_ccgen_2\")",
         "",
-        "    native.cc_library(",
+        "    cc_library(",
         "        name = name,",
         "        hdrs = [\"treelib_2.h\",],",
         "        srcs = [\":\" + name + \"_ccgen_2\",]",
@@ -176,7 +180,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "def test_generation_empty(name):",
         "    _create_cc_empty(name=name + \"_ccgen_empty\")",
         "",
-        "    native.cc_library(",
+        "    cc_library(",
         "        name = name,",
         "        srcs = [\":\" + name + \"_ccgen_empty\",]",
         ")");
@@ -201,6 +205,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "load(':do_gen.bzl', 'test_generation')",
         "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
         "",
@@ -232,6 +238,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/do_gen.bzl",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "def _create_cc_impl(ctx):",
         "    directory = ctx.actions.declare_directory(ctx.label.name + \"_gen_cc\")",
         "    ctx.actions.run_shell(",
@@ -245,7 +252,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "def test_generation(name):",
         "    _create_cc(name=name + \"_ccgen\")",
         "",
-        "    native.cc_library(",
+        "    cc_library(",
         "        name = name,",
         "        hdrs = [\"treelib.h\",],",
         "        srcs = [\":\" + name + \"_ccgen\",]",
@@ -775,6 +782,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = [
             "thin_lto",
             "use_lto_native_object_directory",
@@ -1095,6 +1103,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = [
             "thin_lto",
             "use_lto_native_object_directory",
@@ -1163,6 +1172,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1196,6 +1206,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1236,6 +1247,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1277,6 +1289,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1320,6 +1333,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = [
             "-thin_lto",
             "use_lto_native_object_directory",
@@ -1370,6 +1384,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1403,6 +1418,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1443,6 +1459,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1484,6 +1501,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1528,6 +1546,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = [
             "-thin_lto",
             "use_lto_native_object_directory",
@@ -1579,6 +1598,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1615,6 +1636,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1658,6 +1681,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1702,6 +1727,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1748,6 +1775,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         package(features = [
             "-thin_lto",
             "use_lto_native_object_directory",
@@ -1791,6 +1820,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         package(features = [
             "thin_lto",
             "use_lto_native_object_directory",
@@ -1840,6 +1871,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -2008,6 +2041,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testPropellerHostBuilds() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
         "",
         "cc_binary(name = '" + targetName + "',",
@@ -2096,6 +2131,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     createBuildFiles();
     scratch.file(
         "fdo/BUILD",
+        "load('@rules_cc//cc/toolchains:propeller_optimize.bzl',"
+            + " 'propeller_optimize')",
         "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
             + " ld_profile=':ld_profile.txt')");
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
@@ -2129,7 +2166,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
   private void testLLVMCachePrefetchBackendOption(String extraOption) throws Exception {
     createBuildFiles();
-    scratch.file("fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
+    scratch.file(
+        "fdo/BUILD",
+        "load('@rules_cc//cc/toolchains:fdo_prefetch_hints.bzl',"
+            + " 'fdo_prefetch_hints')",
+        "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
     useConfiguration(

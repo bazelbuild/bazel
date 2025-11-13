@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -19,17 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
-# this var instead, or better yet a common $IS_WINDOWS var.
-PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
-
-function is_darwin() {
-  [[ "${PLATFORM}" =~ darwin ]]
-}
-
-function is_windows() {
-  [[ "${PLATFORM}" =~ msys ]]
-}
+source "$(rlocation "io_bazel/src/test/shell/platform_utils.sh")" \
+  || { echo "platform_utils.sh not found!" >&2; exit 1; }
 
 function _log_base() {
   prefix=$1
@@ -79,10 +70,9 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
+if is_windows; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
-esac
+fi
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
   && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
@@ -270,16 +260,15 @@ function try_with_timeout() {
   done
 }
 
-function setup_localjdk_javabase() {
-  if is_windows; then
-    jdk_binary=local_jdk/bin/java.exe
-  else
-    jdk_binary=local_jdk/bin/java
+function setup_javabase() {
+  if [[ -z "${JAVA_ROOTPATH:-}" ]]; then
+    log_fatal "set JAVA_ROOTPATH to the rootpath of a java binary to use setup_javabase"
   fi
-  jdk_binary_rlocation=$(rlocation ${jdk_binary})
+  jdk_binary_rlocation=$(rlocation ${JAVA_ROOTPATH#../}) || {
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
+  }
   if [[ -z "${jdk_binary_rlocation}" ]]; then
-    echo "error: failed to find $jdk_binary, make sure you have java \
-installed or pass --java_runtime_verison=XX with the correct version" >&2
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
@@ -306,15 +295,6 @@ build --sandbox_tmpfs_path=/tmp
 build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
-
-# Enable Bzlmod in all shell integration tests
-common --enable_bzlmod
-
-# Disable WORKSPACE in all shell integration tests
-common --noenable_workspace
-
-# Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
-common --nolegacy_external_runfiles
 
 # Support JDK 21, data dependencies that get compiled and used tools need to be
 # run with 21 runtime.
@@ -354,11 +334,22 @@ EOF
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 
-  if is_darwin; then
+  if is_darwin && has_ipv6_default_route; then
     echo "Add flags to prefer ipv6 network"
     echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
     echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
   fi
+}
+
+# Returns 0 on macOS if an IPv6 default route is present according to netstat.
+function has_ipv6_default_route() {
+  if ! is_darwin; then
+    return 1
+  fi
+  if netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
+    return 0
+  fi
+  return 1
 }
 
 function enable_disk_cache() {
@@ -501,7 +492,7 @@ EOF
 # TODO(#7844): Delete this custom (and machine-specific) test setup once we have
 # an autodetecting Python toolchain for Windows.
 function maybe_setup_python_windows_tools() {
-  if [[ ! $PLATFORM =~ msys ]]; then
+  if ! is_windows; then
     return
   fi
 
@@ -602,9 +593,12 @@ function add_zlib() {
 }
 
 function add_protobuf() {
-  version=$(get_version_from_default_lock_file "protobuf")
+  protobuf_version=$(get_version_from_default_lock_file "protobuf")
+  abseil_version=$(get_version_from_default_lock_file "abseil-cpp")
   cat >> "$1" <<EOF
-bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "$protobuf_version", repo_name = "com_google_protobuf")
+# Fixes compilation errors with old C++ compiler versions.
+bazel_dep(name = "abseil-cpp", version = "$abseil_version", repo_name = None)
 EOF
 }
 
@@ -907,4 +901,13 @@ function override_java_tools() {
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
   fi
+}
+
+# Copies the PROJECT.scl schema definition into a test directory so test
+# PROJECT.scl files can load it.
+function write_project_scl_definition() {
+  local TEST_DIR=third_party/bazel/src/main/protobuf/project
+  mkdir -p ${TEST_DIR}
+  cp "$(rlocation "io_bazel/src/main/protobuf/project/project_proto.scl")" "${TEST_DIR}"
+  touch "${TEST_DIR}/BUILD"
 }

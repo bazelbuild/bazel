@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.Arrays;
 
 /** Bazel implementation of {@link MockCcSupport} */
@@ -72,6 +73,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     createStarlarkLooseHeadersWhitelist(config, "//...");
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
     if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       config.append(
@@ -123,8 +125,81 @@ public final class BazelMockCcSupport extends MockCcSupport {
     PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
     config.copyDirectory(
         path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
+
+    // avoid cc_compatibility_proxy indirection
+    for (String ruleName :
+        ImmutableList.of(
+            "cc_binary",
+            "cc_import",
+            "cc_library",
+            "cc_shared_library",
+            "cc_static_library",
+            "cc_test",
+            "objc_import",
+            "objc_library")) {
+      config.overwrite(
+          "third_party/bazel_rules/rules_cc/cc/" + ruleName + ".bzl",
+          MessageFormat.format(
+              """
+              load("//cc/private/rules_impl:{0}.bzl", _{0} = "{0}")
+              {0} = _{0}
+              """,
+              ruleName));
+    }
+    for (String ruleName : ImmutableList.of("cc_toolchain", "cc_toolchain_alias")) {
+      config.overwrite(
+          "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
+          MessageFormat.format(
+              """
+              load("//cc/private/rules_impl:{0}.bzl", _{0} = "{0}")
+              {0} = _{0}
+              """,
+              ruleName));
+    }
+    for (String ruleName :
+        ImmutableList.of("fdo_prefetch_hints", "fdo_profile", "propeller_optimize")) {
+      config.overwrite(
+          "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
+          MessageFormat.format(
+              """
+              load("//cc/private/rules_impl:fdo/{0}.bzl", _{0} = "{0}")
+              {0} = _{0}
+              """,
+              ruleName));
+    }
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_info.bzl",
+        """
+        load("//cc/private:cc_info.bzl", _CcInfo = "CcInfo")
+        CcInfo = _CcInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/debug_package_info.bzl",
+        """
+        load("//cc/private:debug_package_info.bzl", _DebugPackageInfo = "DebugPackageInfo")
+        DebugPackageInfo = _DebugPackageInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_common.bzl",
+        """
+        load("//cc/private:cc_common.bzl", _cc_common = "cc_common")
+        cc_common = _cc_common
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/objc_info.bzl",
+        """
+        load("//cc/private:objc_info.bzl", _ObjcInfo = "ObjcInfo")
+        ObjcInfo = _ObjcInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/cc_toolchain_config_info.bzl",
+        """
+        load("//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
+        CcToolchainConfigInfo = _CcToolchainConfigInfo
+        """);
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
   }
 
   @Override

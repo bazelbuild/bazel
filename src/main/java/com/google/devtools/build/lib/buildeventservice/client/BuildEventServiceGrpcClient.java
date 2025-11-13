@@ -89,8 +89,9 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   }
 
   @Override
-  public void publish(PublishLifecycleEventRequest lifecycleEvent)
-      throws StatusException, InterruptedException {
+  public void publish(LifecycleEvent lifecycleEvent) throws StatusException, InterruptedException {
+    PublishLifecycleEventRequest request =
+        BuildEventServiceProtoUtil.publishLifecycleEventRequest(lifecycleEvent);
     throwIfInterrupted();
     try {
       besBlocking
@@ -102,7 +103,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                       commandId.toString(),
                       "publish_lifecycle_event",
                       /* actionMetadata= */ null)))
-          .publishLifecycleEvent(lifecycleEvent);
+          .publishLifecycleEvent(request);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
       throw e.getStatus().asException();
@@ -132,7 +133,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                   new StreamObserver<PublishBuildToolEventStreamResponse>() {
                     @Override
                     public void onNext(PublishBuildToolEventStreamResponse response) {
-                      ackCallback.apply(response);
+                      ackCallback.apply(response.getSequenceNumber());
                     }
 
                     @Override
@@ -159,11 +160,12 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     }
 
     @Override
-    public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent)
-        throws InterruptedException {
+    public void sendOverStream(StreamEvent streamEvent) throws InterruptedException {
+      PublishBuildToolEventStreamRequest request =
+          BuildEventServiceProtoUtil.publishBuildToolEventStreamRequest(streamEvent);
       throwIfInterrupted();
       try {
-        stream.onNext(buildEvent);
+        stream.onNext(request);
       } catch (StatusRuntimeException e) {
         Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
         streamStatus.set(Status.fromThrowable(e));
@@ -200,7 +202,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
         }
 
         @Override
-        public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) {}
+        public void sendOverStream(StreamEvent streamEvent) {}
 
         @Override
         public void halfCloseStream() {}

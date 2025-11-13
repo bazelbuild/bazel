@@ -31,8 +31,10 @@ import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -40,7 +42,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.io.IOException;
 import java.util.List;
@@ -81,7 +82,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     scratch.appendFile(
         "tools/proto/toolchains/BUILD",
-        """
+"""
 load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')
 package(default_visibility = ["//visibility:public"])
 
@@ -324,10 +325,15 @@ proto_lang_toolchain(
 
         proto_library(name = "bar")
         """);
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            keyForBuild(
+                Label.parseCanonicalUnchecked(
+                    "@rules_java//java/common:proguard_spec_info.bzl")),
+            "ProguardSpecInfo");
+    StarlarkInfo proguardSpecInfo = (StarlarkInfo) getConfiguredTarget("//x:lite_pb2").get(key);
     NestedSet<Artifact> providedSpecs =
-        getConfiguredTarget("//x:lite_pb2")
-            .get(ProguardSpecProvider.PROVIDER)
-            .getTransitiveProguardSpecs();
+        proguardSpecInfo.getValue("specs", Depset.class).getSet(Artifact.class);
 
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
         .containsExactly("javalite_runtime.pro_valid");

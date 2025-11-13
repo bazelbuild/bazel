@@ -17,9 +17,13 @@ This is a quick and dirty rule to make Bazel compile itself.  It
 only supports Java.
 """
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 def win_cc_library(srcs = [], deps = [], hdrs = [], **kwargs):
     """Replace srcs and hdrs with a dummy.cc on non-Windows platforms."""
-    native.cc_library(
+    cc_library(
         srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,
@@ -37,7 +41,7 @@ def win_cc_library(srcs = [], deps = [], hdrs = [], **kwargs):
 
 def win_cc_binary(srcs = [], deps = [], **kwargs):
     """Replace srcs with a dummy.cc on non-Windows platforms."""
-    native.cc_binary(
+    cc_binary(
         srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,
@@ -51,7 +55,7 @@ def win_cc_binary(srcs = [], deps = [], **kwargs):
 
 def win_cc_test(srcs = [], deps = [], **kwargs):
     """Replace srcs with a dummy.cc on non-Windows platforms."""
-    native.cc_test(
+    cc_test(
         srcs = select({
             "//conditions:default": ["dummy.cc"],
             "//src/conditions:windows": srcs,

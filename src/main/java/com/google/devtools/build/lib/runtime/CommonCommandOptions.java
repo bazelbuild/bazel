@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -46,7 +47,7 @@ public class CommonCommandOptions extends OptionsBase {
   // value during options parsing based on its (string) name.
   @Option(
       name = "enable_platform_specific_config",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -117,6 +118,77 @@ public class CommonCommandOptions extends OptionsBase {
               + " If nonzero, the server will attempt to garbage collect other install bases when"
               + " idle.")
   public Duration installBaseGcMaxAge;
+
+  @Option(
+      name = "experimental_action_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the action cache is"
+              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public Duration actionCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_action_cache_gc_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
+      help =
+          "The percentage of stale action cache entries required for garbage collection to be"
+              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public int actionCacheGcThreshold;
+
+  @Option(
+      name = "experimental_action_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "If set to a nonzero value, the action cache will be periodically garbage collected to"
+              + " remove entries older than this age. Garbage collection occurs in the background"
+              + " once the server has become idle, as determined by the"
+              + " --experimental_action_cache_gc_idle_delay and"
+              + " --experimental_action_cache_gc_threshold flags.")
+  public Duration actionCacheGcMaxAge;
+
+  @Option(
+      name = "experimental_enable_thread_dump",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to enable thread dumps. If true, Bazel will dump the state of all threads"
+              + " (including virtual threads) to a file every --experimental_thread_dump_interval,"
+              + " or after action execution being inactive for"
+              + " --experimental_thread_dump_action_execution_inactivity_duration. The dumps will"
+              + " be written to the <output_base>/server/thread_dumps/ directory.")
+  public boolean enableThreadDump;
+
+  @Option(
+      name = "experimental_thread_dump_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to dump the threads periodically. If zero, no thread dumps are written"
+              + " periodically.")
+  public Duration threadDumpInterval;
+
+  @Option(
+      name = "experimental_thread_dump_action_execution_inactivity_duration",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "Dump the threads when action execution being inactive for this duration. If zero, no"
+              + " thread dumps are written for action execution being inactive.")
+  public Duration threadDumpActionExecutionInactivityDuration;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
@@ -248,7 +320,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + " too large.")
+              + "too large.")
   public boolean slimProfile;
 
   @Option(
@@ -323,7 +395,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_collect_worker_data_in_profiler",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects worker's aggregated resource data.")
@@ -533,17 +605,34 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "repo_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies additional environment variables to be available only for repository rules."
-              + " Note that repository rules see the full environment anyway, but in this way"
-              + " configuration information can be passed to repositories through options without"
-              + " invalidating the action graph.")
-  public List<Map.Entry<String, String>> repositoryEnvironment;
+          """
+          Specifies additional environment variables to be available only for repository rules. \
+          Note that repository rules see the full environment anyway, but in this way \
+          variables can be set via command-line flags and <code>.bazelrc</code> entries. \
+          The special syntax <code>=NAME</code> can be used to explicitly unset a variable. \
+          The string <code>%bazel_workspace%</code> in a value will be replaced with the absolute \
+          path of the workspace as printed by <code>bazel info workspace</code>.
+          """)
+  public List<Converters.EnvVar> repositoryEnvironment;
+
+  @Option(
+      name = "incompatible_repo_env_ignores_action_env",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
+          and module extension environments.
+          """)
+  public boolean repoEnvIgnoresActionEnv;
 
   @Option(
       name = "heuristically_drop_nodes",

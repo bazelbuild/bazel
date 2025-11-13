@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -39,21 +39,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
 
 # Tests in this file do not actually start a Python interpreter, but plug in a
 # fake stub executable to serve as the "interpreter".
@@ -136,7 +121,7 @@ sh_binary(
 EOF
 
   cat > python_through_bash/outer.sh << EOF
-#!/bin/bash
+#!/usr/bin/env bash
 # * Bazel run guarantees that our CWD is the runfiles directory itself, so a
 #   relative path will work.
 # * We can't use the usual shell runfiles library because it doesn't work in the

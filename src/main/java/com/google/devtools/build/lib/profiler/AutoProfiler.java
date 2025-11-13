@@ -151,7 +151,7 @@ public class AutoProfiler implements SilentCloseable {
     private final ProfilerTask profilerTaskType;
 
     ProfilingElapsedTimeReceiver(String description, ProfilerTask profilerTaskType) {
-      this.startTimeNanos = Profiler.nanoTimeMaybe();
+      this.startTimeNanos = Profiler.instance().nanoTimeMaybe();
       this.description = description;
       this.profilerTaskType = profilerTaskType;
     }

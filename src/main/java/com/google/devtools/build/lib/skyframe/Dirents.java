@@ -14,18 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.Dirent;
-
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
  * Interface for both iterating over the entries in a directory and getting the entry, if any, for a
  * given basename.
  */
-public interface Dirents extends Iterable<Dirent> {
-
-  int size();
+public interface Dirents extends Collection<Dirent> {
 
   @Nullable
   Dirent maybeGetDirent(String baseName);
 }
-

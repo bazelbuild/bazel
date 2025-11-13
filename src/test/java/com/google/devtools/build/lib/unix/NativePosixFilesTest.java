@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.unix;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -52,23 +50,6 @@ public class NativePosixFilesTest {
     IOException e = assertThrows(IOException.class, () -> NativePosixFiles.readlink(foo.getPath()));
     assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
     assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
-  }
-
-  // TODO(tjgq): Move this into FileSystemTest, and add more comprehensive coverage for chmod.
-  @Test
-  public void chmod_throwsFilePermissionException() throws Exception {
-    File foo = new File("/bin");
-    try {
-      int perms =
-          NativePosixFiles.lstat(foo.getPath(), StatErrorHandling.ALWAYS_THROW).getPermissions();
-      NativePosixFiles.chmod(foo.getPath(), perms | UnixFileStatus.S_IWUSR);
-      fail("Expected FilePermissionException or IOException, but wasn't thrown.");
-    } catch (FilePermissionException e) {
-      assertThat(e).hasMessageThat().endsWith(foo + " (Operation not permitted)");
-    } catch (IOException e) {
-      // When running in a sandbox, /bin might actually be a read-only file system.
-      assertThat(e).hasMessageThat().endsWith(foo + " (Read-only file system)");
-    }
   }
 
   /** Skips the test if the file system does not support extended attributes. */
@@ -109,31 +90,5 @@ public class NativePosixFilesTest {
         FileNotFoundException.class, () -> NativePosixFiles.getxattr(nonexistentFile, "foo"));
     assertThrows(
         FileNotFoundException.class, () -> NativePosixFiles.lgetxattr(nonexistentFile, "foo"));
-  }
-
-  @Test
-  public void writing() throws Exception {
-    java.nio.file.Path myfile = Files.createTempFile("myfile", null);
-    int fd1 = NativePosixFiles.openWrite(myfile.toString(), false);
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 5, 1));
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, -1, 1));
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, -1));
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 5));
-    NativePosixFiles.write(fd1, new byte[] {0, 1, 2, 3}, 0, 4);
-    NativePosixFiles.close(fd1, null);
-    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3});
-    // Try appending.
-    int fd2 = NativePosixFiles.openWrite(myfile.toString(), true);
-    NativePosixFiles.write(fd2, new byte[] {5, 6, 7, 8, 9}, 1, 3);
-    NativePosixFiles.close(fd2, null);
-    assertThat(Files.readAllBytes(myfile)).isEqualTo(new byte[] {0, 1, 2, 3, 6, 7, 8});
   }
 }

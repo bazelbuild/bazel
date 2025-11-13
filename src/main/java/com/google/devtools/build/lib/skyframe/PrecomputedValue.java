@@ -21,6 +21,7 @@ import com.google.common.base.Suppliers;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -104,6 +105,9 @@ public final class PrecomputedValue implements SkyValue {
   // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
   public static final Precomputed<BuildOptions> BASELINE_EXEC_CONFIGURATION =
       new Precomputed<>("baseline_exec_configuration", /* shareable= */ false);
+
+  public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
+      new Precomputed<>("lazy_macro_expansion_packages");
 
   private final Object value;
 

@@ -321,10 +321,6 @@ public final class IncrementalArtifactConflictFinder {
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
-    if (alv.getNumActions() == 0) {
-      // No actions on deserialized ALVs.
-      return null;
-    }
     for (ActionAnalysisMetadata action : alv.getActions()) {
       try {
         actionGraph.registerAction(action);

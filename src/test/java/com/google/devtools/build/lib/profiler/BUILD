@@ -18,6 +18,9 @@ filegroup(
 java_test(
     name = "ProfilerTests",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
@@ -29,7 +32,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:collect_local_resource_usage",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
-        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats",
+        "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
+        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",

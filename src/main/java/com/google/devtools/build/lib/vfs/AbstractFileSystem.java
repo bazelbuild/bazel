@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -40,49 +41,37 @@ import java.nio.file.StandardOpenOption;
 @ThreadSafe
 public abstract class AbstractFileSystem extends FileSystem {
 
-  protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
-  protected static final Profiler profiler = Profiler.instance();
-
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
   }
 
   @Override
-  protected InputStream getInputStream(PathFragment path) throws IOException {
-    // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
-    // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
-    // retry here.
-    for (; ; ) {
-      try {
-        return createMaybeProfiledInputStream(path);
-      } catch (FileNotFoundException e) {
-        if (e.getMessage().endsWith("(Interrupted system call)")) {
-          continue;
-        } else {
-          // FileInputStream throws FileNotFoundException if opening fails for any reason,
-          // including permissions. Fix it up here.
-          // TODO(tjgq): Migrate to java.nio.
-          if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
-            throw new FileAccessException(e.getMessage());
-          }
-          throw e;
-        }
+  public InputStream getInputStream(PathFragment path) throws IOException {
+    try {
+      return createMaybeProfiledInputStream(path);
+    } catch (FileNotFoundException e) {
+      // FileInputStream throws FileNotFoundException if opening fails for any reason, including
+      // permissions. Fix it up here.  TODO(tjgq): Migrate to java.nio.
+      if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
+        throw new FileAccessException(e.getMessage());
       }
+      throw e;
     }
   }
 
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(getIoFile(path));
+    return new FileInputStream(checkNotNull(getIoFile(path)));
   }
 
   /** Returns either normal or profiled FileInputStream. */
   private InputStream createMaybeProfiledInputStream(PathFragment path) throws IOException {
     final String name = path.toString();
+    var profiler = Profiler.instance();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         // Replace default FileInputStream instance with the custom one that does profiling.
         return new ProfiledInputStream(createFileInputStream(path), name);
@@ -99,10 +88,11 @@ public abstract class AbstractFileSystem extends FileSystem {
       Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
 
   @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    var profiler = Profiler.instance();
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
 
     try {
       // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
@@ -120,11 +110,12 @@ public abstract class AbstractFileSystem extends FileSystem {
    */
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
+    var profiler = Profiler.instance();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return new ProfiledFileOutputStream(getIoFile(path), append);
       } finally {
@@ -136,7 +127,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     try {
       return createFileOutputStream(path, append, internal);
@@ -163,11 +154,11 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public int read() throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return impl.read();
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
     }
 
@@ -178,11 +169,11 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return impl.read(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
     }
   }
@@ -202,11 +193,11 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, file.toString());
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, file.toString());
       }
     }
   }

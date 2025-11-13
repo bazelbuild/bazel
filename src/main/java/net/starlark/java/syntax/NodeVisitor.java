@@ -32,6 +32,7 @@ public class NodeVisitor {
 
   // All four subclasses of Parameter are handled together.
   public void visit(Parameter node) {
+    // TODO(brandjon): visit type annotation
     visit(node.getIdentifier());
     if (node.getDefaultValue() != null) {
       visit(node.getDefaultValue());
@@ -52,6 +53,16 @@ public class NodeVisitor {
     visit(node.getFunction());
     visitAll(node.getArguments());
   }
+
+  public void visit(CastExpression node) {
+    visit(node.getValue());
+  }
+
+  public void visit(IsInstanceExpression node) {
+    visit(node.getValue());
+  }
+
+  public void visit(Ellipsis node) {}
 
   public void visit(Identifier node) {}
 
@@ -98,6 +109,7 @@ public class NodeVisitor {
   public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
   public void visit(AssignmentStatement node) {
+    // TODO(brandjon): Visit type annotation if present
     visit(node.getRHS());
     visit(node.getLHS());
   }
@@ -115,6 +127,7 @@ public class NodeVisitor {
   }
 
   public void visit(DefStatement node) {
+    // TODO(brandjon): Visit return type annotation
     visit(node.getIdentifier());
     visitAll(node.getParameters());
     visitBlock(node.getBody());
@@ -127,6 +140,14 @@ public class NodeVisitor {
   }
 
   public void visit(FlowStatement node) {}
+
+  public void visit(TypeAliasStatement node) {
+    // TODO(brandjon): resolve type alias
+  }
+
+  public void visit(VarStatement node) {
+    // TODO(brandjon): resolve var statement
+  }
 
   public void visit(DictExpression node) {
     visitAll(node.getEntries());

@@ -112,7 +112,8 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider(),
-                env.getCommandId());
+                env.getCommandId(),
+                env.getReporter());
       } catch (InterruptedException e) {
         env.getReporter()
             .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
@@ -170,10 +171,7 @@ public final class SpawnLogModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest buildRequest) {
     if (spawnLogContext != null) {
-      // TODO(b/63987502): Pretty sure the "spawn-log" commandline identifier is never used as there
-      // is no other SpawnLogContext to distinguish from.
-      registryBuilder.register(SpawnLogContext.class, spawnLogContext, "spawn-log");
-      registryBuilder.restrictTo(SpawnLogContext.class, "");
+      registryBuilder.register(SpawnLogContext.class, spawnLogContext);
     }
   }
 

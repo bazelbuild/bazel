@@ -14,9 +14,22 @@
 
 package net.starlark.java.types;
 
+import com.google.common.collect.ImmutableList;
+import java.util.List;
+
 /**
  * Base class for all Starlark types.
  *
  * <p>Tracking issue: https://github.com/bazelbuild/bazel/issues/22935
  */
-public abstract class StarlarkType {}
+public abstract class StarlarkType {
+  /**
+   * Returns the list of supertypes of this type.
+   *
+   * <p>Preferred order is from the most specific to the least specific supertype. But if that is
+   * not possible, the order can be arbitrary.
+   */
+  public List<StarlarkType> getSupertypes() {
+    return ImmutableList.of();
+  }
+}

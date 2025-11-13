@@ -8,7 +8,11 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -65,22 +69,12 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
-    ],
-)
-
-java_test(
-    name = "WorkspaceNameValueCodecTest",
-    size = "small",
-    srcs = ["WorkspaceNameValueCodecTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
     ],
 )
 
@@ -154,7 +148,7 @@ java_test(
     srcs = ["StarlarkInfoCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
@@ -368,7 +362,7 @@ java_test(
     srcs = ["ProviderCodecTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/syntax",
@@ -426,14 +420,21 @@ java_library(
             "ProviderCodecTest.java",
         ],
     ),
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect:iterable_codecs",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:depend_on_future_shim",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:error_message_helper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
@@ -445,7 +446,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
-        "//third_party:auto_value",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",

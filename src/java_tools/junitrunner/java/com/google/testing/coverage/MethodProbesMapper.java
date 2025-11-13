@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import org.jacoco.core.internal.analysis.Instruction;
 import org.jacoco.core.internal.analysis.filter.IFilter;
 import org.jacoco.core.internal.analysis.filter.IFilterContext;
 import org.jacoco.core.internal.analysis.filter.IFilterOutput;
@@ -68,19 +67,20 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   private int currentLine = -1;
   private List<Label> currentLabels = new ArrayList<>();
   private AbstractInsnNode currentInstructionNode = null;
-  private Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
+  private final Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
   private int instructionNodeIndex = 0;
-  private Map<AbstractInsnNode, Integer> instructionNodeIndexMap = new HashMap<>();
+  private final Map<AbstractInsnNode, Integer> instructionNodeIndexMap = new HashMap<>();
 
   // Filtering
-  private IFilter filter;
-  private IFilterContext filterContext;
-  private HashSet<AbstractInsnNode> ignored = new HashSet<>();
-  private Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
-  private Map<AbstractInsnNode, Set<AbstractInsnNode>> branchReplacements = new HashMap<>();
+  private final IFilter filter;
+  private final IFilterContext filterContext;
+  private final HashSet<AbstractInsnNode> ignored = new HashSet<>();
+  private final Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
+  private final Map<AbstractInsnNode, Set<AbstractInsnNode>> branchReplacements = new HashMap<>();
 
   // Result
-  private Map<Integer, BranchExp> lineToBranchExp = new TreeMap();
+  private Map<Integer, BranchExp> lineToBranchExp = new TreeMap<>();
+
   public Map<Integer, BranchExp> result() {
     return lineToBranchExp;
   }
@@ -89,24 +89,10 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   //
   // These values are built up during the visitor methods. They will be used to compute
   // the final results.
-  private List<Instruction> instructions = new ArrayList<Instruction>();
-  private List<Jump> jumps = new ArrayList<>();
-  private Map<Integer, Instruction> probeToInsn = new TreeMap<>();
-
-  // A map which associates intructions with their coverage expressions.
-  private final Map<Instruction, CovExp> insnToCovExp = new HashMap();
-
-  // A map which associates a instruction to the branch index in its predecessor
-  // e.g., the instruction that follows a conditional jump instruction must exists in
-  // this map.
-  private final Map<Instruction, Integer> insnToIdx = new HashMap();
-
-  // Local cache
-  //
-  // These are maps corresponding to data structures available in JaCoCo in other form.
-  // We use local data structure to avoid need to change the JaCoCo internal code.
-  private Map<Instruction, Instruction> predecessors = new HashMap<>();
-  private Map<Label, Instruction> labelToInsn = new HashMap<>();
+  private final List<Instruction> instructions = new ArrayList<>();
+  private final List<Jump> jumps = new ArrayList<>();
+  private final List<Instruction> probedInstructions = new ArrayList<>();
+  private final Map<Label, Instruction> labelToInsn = new HashMap<>();
 
   public MethodProbesMapper(IFilterContext filterContext, IFilter filter) {
     this.filterContext = filterContext;
@@ -129,8 +115,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     Instruction instruction = new Instruction(currentLine);
     instructions.add(instruction);
     if (lastInstruction != null) {
-      lastInstruction.addBranch(instruction, 0); // the first branch from last instruction
-      predecessors.put(instruction, lastInstruction); // Update local cache
+      lastInstruction.addBranch(instruction, /* branchIndex= */ 0);
     }
 
     for (Label label : currentLabels) {
@@ -194,7 +179,6 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     visitInsn();
   }
 
-
   // Methods that need to update the states
   @Override
   public void visitJumpInsn(int opcode, Label label) {
@@ -229,6 +213,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     LabelInfo.resetDone(labels);
     for (Label label : labels) {
       if (!LabelInfo.isDone(label)) {
+        branch++;
         jumps.add(new Jump(lastInstruction, label, branch));
         LabelInfo.setDone(label);
       }
@@ -245,11 +230,11 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     visitSwitchInsn(dflt, labels);
   }
 
-  private void addProbe(int probeId) {
+  private void addProbe(int probeId, int branchIdx) {
     // We do not add probes to the flow graph, but we need to update
     // the branch count of the predecessor of the probe
-    lastInstruction.addBranch(false, 0);
-    probeToInsn.put(probeId, lastInstruction);
+    lastInstruction.addBranch(new ProbeExp(probeId), branchIdx);
+    probedInstructions.add(lastInstruction);
   }
 
   // Probe visit methods
@@ -257,23 +242,23 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   public void visitProbe(int probeId) {
     // This function is only called when visiting a merge node which
     // is a successor.
-    // It adds an probe point to the last instruction
+    // It adds a probe point to the last instruction
     assert (lastInstruction != null);
 
-    addProbe(probeId);
+    addProbe(probeId, /* branchIdx= */ 0);
     lastInstruction = null; // Merge point should have no predecessor.
   }
 
   @Override
   public void visitJumpInsnWithProbe(int opcode, Label label, int probeId, IFrame frame) {
     visitInsn();
-    addProbe(probeId);
+    addProbe(probeId, /* branchIdx= */ 1);
   }
 
   @Override
   public void visitInsnWithProbe(int opcode, int probeId) {
     visitInsn();
-    addProbe(probeId);
+    addProbe(probeId, /* branchIdx= */ 0);
   }
 
   @Override
@@ -295,6 +280,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     int branch = 0;
     visitTargetWithProbe(dflt, branch);
     for (Label l : labels) {
+      branch++;
       visitTargetWithProbe(l, branch);
     }
   }
@@ -309,49 +295,10 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
         // for the probes. These probes will be added for the switch instruction.
         //
         // There is no direct jump between lastInstruction and the label either.
-        addProbe(id);
+        addProbe(id, branch);
       }
       LabelInfo.setDone(label);
     }
-  }
-
-  // If a CovExp of pred is ProbeExp, create a single-branch BranchExp and put it in the map.
-  // Also update the index of insn.
-  private BranchExp getPredBranchExp(Instruction predecessor) {
-    BranchExp result = null;
-    CovExp exp = insnToCovExp.get(predecessor);
-    if (exp instanceof ProbeExp) {
-      result = new BranchExp(exp); // Change ProbeExp to BranchExp
-      insnToCovExp.put(predecessor, result);
-      // This can only happen if the internal data of Jacoco is inconsistent:
-      // the instruction is the predecessor of more than one instructions,
-      // but its branch count is not > 1.
-    } else {
-      result = (BranchExp) exp;
-    }
-    return result;
-  }
-
-  // Update a branch predecessor and returns whether the BranchExp of the predecessor is new.
-  private boolean updateBranchPredecessor(Instruction predecessor, Instruction insn, CovExp exp) {
-    CovExp predExp = insnToCovExp.get(predecessor);
-    if (predExp == null) {
-      BranchExp branchExp = new BranchExp(exp);
-      insnToCovExp.put(predecessor, branchExp);
-      insnToIdx.put(insn, 0); // current insn is the first branch
-      return true;
-    }
-
-    BranchExp branchExp = getPredBranchExp(predecessor);
-    Integer branchIdx = insnToIdx.get(insn);
-    if (branchIdx == null) {
-      // Keep track of the instructions in the branches that are already added
-      branchIdx = branchExp.add(exp);
-      insnToIdx.put(insn, branchIdx);
-    }
-    // If the branch where the instruction is on is already added, no need to do anything as
-    // branchExp has a reference to exp already.
-    return false;
   }
 
   /** Finishing the method */
@@ -360,53 +307,10 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     for (Jump jump : jumps) {
       Instruction insn = labelToInsn.get(jump.target);
       jump.source.addBranch(insn, jump.branch);
-      predecessors.put(insn, jump.source);
     }
 
-    // Compute CovExp for every instruction.
-    for (Map.Entry<Integer, Instruction> entry : probeToInsn.entrySet()) {
-      int probeId = entry.getKey();
-      Instruction ins = entry.getValue();
-
-      Instruction insn = ins;
-      CovExp exp = new ProbeExp(probeId);
-
-      // Compute CovExp for the probed instruction.
-      CovExp existingExp = insnToCovExp.get(insn);
-      if (existingExp != null) {
-        // The instruction already has a branch, add the probeExp as
-        // a new branch.
-        if (existingExp instanceof BranchExp) {
-          BranchExp branchExp = (BranchExp) existingExp;
-          branchExp.add(exp);
-        } else {
-          // This can only happen if the internal data is inconsistent.
-          // The instruction is a predecessor of another instruction and also
-          // has a probe, but the branch count is not > 1.
-        }
-      } else {
-        if (insn.getBranchCounter().getTotalCount() > 1) {
-          exp = new BranchExp(exp);
-        }
-        insnToCovExp.put(insn, exp);
-      }
-
-      Instruction predecessor = predecessors.get(insn);
-      while (predecessor != null) {
-        if (predecessor.getBranchCounter().getTotalCount() > 1) {
-          boolean isNewBranch = updateBranchPredecessor(predecessor, insn, exp);
-          if (!isNewBranch) {
-            // If the branch already exists, no need to visit predecessors any more.
-            break;
-          }
-        } else {
-          // No branch at predecessor, use the same CovExp
-          insnToCovExp.put(predecessor, exp);
-        }
-        insn = predecessor;
-        exp = insnToCovExp.get(predecessor);
-        predecessor = predecessors.get(insn);
-      }
+    for (Instruction insn : probedInstructions) {
+      Instruction.wireBranchPredecessors(insn);
     }
 
     // Handle merged instructions
@@ -414,9 +318,9 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       AbstractInsnNode rep = findRepresentative(node);
       Instruction insn = instructionMap.get(node);
       Instruction repInsn = instructionMap.get(rep);
-      BranchExp branch = BranchExp.ensureIsBranchExp(insnToCovExp.get(insn));
-      BranchExp repBranch = BranchExp.ensureIsBranchExp(insnToCovExp.get(repInsn));
-      insnToCovExp.put(repInsn, BranchExp.zip(repBranch, branch));
+      BranchExp branch = BranchExp.ensureIsBranchExp(insn.branchExp);
+      BranchExp repBranch = BranchExp.ensureIsBranchExp(repInsn.branchExp);
+      repInsn.branchExp = BranchExp.zip(repBranch, branch);
       ignored.add(node);
     }
 
@@ -424,16 +328,14 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     for (Map.Entry<AbstractInsnNode, Set<AbstractInsnNode>> entry : branchReplacements.entrySet()) {
       // The replacement set is not ordered deterministically and we require it to be so to be able
       // to merge multiple coverage reports later on. We use the order in which we encountered
-      // nodes to determine the order of branches for the new BranchExp
+      // nodes to determine the order of branches for the new BranchExp.
       ArrayList<AbstractInsnNode> replacements = new ArrayList<>(entry.getValue());
       replacements.sort(comparing(instructionNodeIndexMap::get));
       BranchExp newBranch = new BranchExp(new ArrayList<>());
-      // Merging of coverage reports down the line only makes sense now if replacements is iterated
-      // in a deterministic order, which is a false assumption.
-      for (AbstractInsnNode node : replacements) {
-        newBranch.add(insnToCovExp.get(instructionMap.get(node)));
+      for (AbstractInsnNode replacement : replacements) {
+        newBranch.add(instructionMap.get(replacement).branchExp);
       }
-      insnToCovExp.put(instructionMap.get(entry.getKey()), newBranch);
+      instructionMap.get(entry.getKey()).branchExp = newBranch;
     }
 
     HashSet<Instruction> ignoredInstructions = new HashSet<>();
@@ -448,15 +350,15 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       if (ignoredInstructions.contains(insn)) {
         continue;
       }
-      if (insn.getBranchCounter().getTotalCount() > 1) {
-        CovExp insnExp = insnToCovExp.get(insn);
+      if (insn.logicalBranches > 1) {
+        CovExp insnExp = insn.branchExp;
         if (insnExp != null && (insnExp instanceof BranchExp)) {
           BranchExp exp = (BranchExp) insnExp;
-          BranchExp lineExp = lineToBranchExp.get(insn.getLine());
+          BranchExp lineExp = lineToBranchExp.get(insn.line);
           if (lineExp == null) {
-            lineToBranchExp.put(insn.getLine(), exp);
+            lineToBranchExp.put(insn.line, exp);
           } else {
-            lineToBranchExp.put(insn.getLine(), BranchExp.concatenate(lineExp, exp));
+            lineToBranchExp.put(insn.line, BranchExp.concatenate(lineExp, exp));
           }
         } else {
           // If we reach here, the internal data of the mapping is inconsistent, either
@@ -507,15 +409,66 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   }
 
   /** Jumps between instructions and labels */
-  class Jump {
+  private static class Jump {
     public final Instruction source;
     public final Label target;
     public final int branch;
 
-    public Jump(Instruction i, Label l, int b) {
+    Jump(Instruction i, Label l, int b) {
       source = i;
       target = l;
       branch = b;
+    }
+  }
+
+  /** Associate an instruction with a CovExp and its predecessor. */
+  private static class Instruction {
+
+    final int line;
+
+    BranchExp branchExp = BranchExp.initializeEmptyBranches();
+
+    Instruction predecessor = null;
+
+    int predecessorBranchIndex = -1;
+
+    int logicalBranches = 0;
+
+    Instruction(int line) {
+      this.line = line;
+    }
+
+    void addBranch(Instruction target, int branchIndex) {
+      logicalBranches++;
+      target.predecessor = this;
+      target.predecessorBranchIndex = branchIndex;
+    }
+
+    void addBranch(ProbeExp probeExp, int branchIndex) {
+      logicalBranches++;
+      branchExp.setBranchAtIndex(branchIndex, probeExp);
+    }
+
+    /** Sets the target for a given branch. */
+    void setBranchTarget(CovExp targetExp, int branchIndex) {
+      branchExp.setBranchAtIndex(branchIndex, targetExp);
+    }
+
+    static void wireBranchPredecessors(Instruction root) {
+      // This is not a recursive method because some of these chains can be quite long
+      Instruction current = root;
+      Instruction predecessor = root.predecessor;
+      while (predecessor != null) {
+        boolean alreadyHasBranches = predecessor.branchExp.hasBranches();
+        predecessor.setBranchTarget(current.branchExp, current.predecessorBranchIndex);
+        if (alreadyHasBranches) {
+          // if the predecessor already had a configured branchExp we don't need to continue the
+          // walk; it should already have wired up its predecessors.
+          break;
+        }
+        current = predecessor;
+        predecessor = current.predecessor;
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,6 +107,7 @@ CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
 KEEP_FOR_COMPILE=$IJAR_SRCDIR/test/keep_for_compile_lib.jar
 DYNAMICCONSTANT_JAR=$IJAR_SRCDIR/test/dynamic_constant.jar
 DYNAMICCONSTANT_IJAR=$TEST_TMPDIR/dynamic_constant_interface.jar
+CORRUPT_ZIP=$IJAR_SRCDIR/test/corrupt_zip.jar
 
 #### Setup
 
@@ -625,5 +626,12 @@ function test_central_dir_zip64() {
   $IJAR $CENTRAL_DIR_ZIP64 $TEST_TMPDIR/ijar.jar || fail "ijar failed"
   $ZIP_COUNT $TEST_TMPDIR/ijar.jar 70000 || fail
 }
+
+function test_corrupt_eocd_zip() {
+  ! $IJAR $CORRUPT_ZIP
+  original_code=${PIPESTATUS[0]}
+  check_eq 134 $original_code "ijar should have aborted"
+}
+
 
 run_suite "ijar tests"

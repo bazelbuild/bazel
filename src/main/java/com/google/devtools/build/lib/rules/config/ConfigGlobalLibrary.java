@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -74,7 +75,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         semantics,
         moduleContext.label(),
         location,
-        moduleContext.repoMapping());
+        moduleContext.repoMapping(),
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   @Override
@@ -111,7 +113,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         semantics,
         moduleContext.label(),
         location,
-        moduleContext.repoMapping());
+        moduleContext.repoMapping(),
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   // TODO(b/237422931): move into testing module
@@ -130,7 +133,11 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
-        changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);
+        changedSettingsMap,
+        moduleContext.repoMapping(),
+        moduleContext.label(),
+        location,
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   private void validateBuildSettingKeys(
@@ -153,7 +160,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                 singularErrorDescriptor,
                 label,
                 label.getRepository().getName(),
-                label.getRepository().getOwnerRepoDisplayString());
+                label.getRepository().getContextRepoDisplayString());
           }
         } catch (LabelSyntaxException e) {
           throw Starlark.errorf(
@@ -190,7 +197,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
-        || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
         || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
       // This is specifically allowed.
       return true;

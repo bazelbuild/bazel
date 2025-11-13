@@ -225,6 +225,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     .setConfiguration(targetAndConfiguration.getConfiguration())
                     .build(),
                 /* aspects= */ ImmutableList.of(),
+                /* loadExecAspectsKey= */ null,
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
                 starlarkExecTransition.orElse(null),
                 env,
@@ -406,6 +407,8 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "dep1",
             srcs = ["dep1.cc"],
@@ -510,6 +513,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//a:defs.bzl", "split_deps_rule")
 
         cc_library(

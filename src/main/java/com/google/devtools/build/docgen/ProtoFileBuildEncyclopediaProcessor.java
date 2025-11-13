@@ -38,13 +38,13 @@ public class ProtoFileBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   @Override
   public void generateDocumentation(
       List<String> inputJavaDirs,
-      List<String> inputStardocBinaryprotoDirs,
+      List<String> buildEncyclopediaStardocProtos,
       String outputFile,
       String denyList)
       throws BuildEncyclopediaDocException, IOException {
     BuildDocCollector collector = new BuildDocCollector(linkExpander, urlMapper, ruleClassProvider);
     Map<String, RuleDocumentation> ruleDocEntries =
-        collector.collect(inputJavaDirs, inputStardocBinaryprotoDirs, denyList);
+        collector.collect(inputJavaDirs, buildEncyclopediaStardocProtos, denyList);
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());
     ImmutableList.Builder<RuleDocumentation> ruleDocsBuilder = new ImmutableList.Builder<>();
 

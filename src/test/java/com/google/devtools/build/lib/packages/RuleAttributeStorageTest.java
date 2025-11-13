@@ -209,7 +209,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
     for (int i = 1; i < size; i++) { // Skip attribute 0 (name) which is never stored.
       assertThat(rule.getAttrIfStored(i)).isEqualTo("value " + i);
-      assertWithMessage("attribute " + i)
+      assertWithMessage("attribute %s", i)
           .that(rule.isAttributeValueExplicitlySpecified(attrAt(i)))
           .isEqualTo(i % 2 == 0);
     }
@@ -360,6 +360,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "simplifiable_single_select",
             srcs = select({"//conditions:default": ["unconditional.cc"]})
@@ -404,6 +406,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "simplifiable",
             srcs = select({"//conditions:default": ["unconditional.cc"]})

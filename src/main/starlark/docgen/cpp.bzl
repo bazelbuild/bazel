@@ -14,26 +14,41 @@
 """C / C++"""
 # Build Encyclopedia entry point for C / C++ rules implemented in Starlark in Blaze's @_builtins
 
+load(
+    "@cc_compatibility_proxy//:proxy.bzl",
+    "cc_binary",
+    "cc_import",
+    "cc_library",
+    "cc_shared_library",
+    "cc_static_library",
+    "cc_test",
+    "fdo_prefetch_hints",
+    "fdo_profile",
+    "memprof_profile",
+    "propeller_optimize",
+)
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+
 binary_rules = struct(
-    cc_binary = native.cc_binary,
+    cc_binary = cc_binary,
 )
 
 library_rules = struct(
-    cc_library = native.cc_library,
-    cc_import = native.cc_import,
-    cc_shared_library = native.cc_shared_library,
+    cc_library = cc_library,
+    cc_import = cc_import,
+    cc_shared_library = cc_shared_library,
     # TODO: Replace with native.cc_static_library after bumping .bazelversion.
-    **({"cc_static_library": native.cc_static_library} if hasattr(native, "cc_static_library") else {})
+    **({"cc_static_library": cc_static_library} if hasattr(native, "cc_static_library") else {})
 )
 
 test_rules = struct(
-    cc_test = native.cc_test,
+    cc_test = cc_test,
 )
 
 other_rules = struct(
-    fdo_prefetch_hints = native.fdo_prefetch_hints,
-    fdo_profile = native.fdo_profile,
-    memprof_profile = native.memprof_profile,
-    propeller_optimize = native.propeller_optimize,
-    cc_toolchain = native.cc_toolchain,
+    fdo_prefetch_hints = fdo_prefetch_hints,
+    fdo_profile = fdo_profile,
+    memprof_profile = memprof_profile,
+    propeller_optimize = propeller_optimize,
+    cc_toolchain = cc_toolchain,
 )

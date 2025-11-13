@@ -16,64 +16,46 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
-
-  /** Returns cpp toolchain type. */
-  String getCppToolchainType();
-
-  /** What language to treat the headers. */
-  Language language();
-
-  /**
-   * Called before a C++ compile action is built.
-   *
-   * <p>Gives the semantics implementation the opportunity to change compile actions at the last
-   * minute.
-   */
-  void finalizeCompileActionBuilder(
-      BuildConfigurationValue configuration,
-      FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder)
-      throws EvalException;
-
-  /**
-   * Returns if include scanning is allowed.
-   *
-   * <p>If false, {@link CppCompileActionBuilder#setShouldScanIncludes(boolean)} has no effect.
-   */
-  boolean allowIncludeScanning();
-
-  /** Returns true iff this build should perform .d input pruning. */
-  boolean needsDotdInputPruning(BuildConfigurationValue configuration);
-
-  /** Returns true iff this build requires include validation. */
-  boolean needsIncludeValidation();
-
   /** No-op in Bazel */
+  @StarlarkMethod(
+      name = "validate_layering_check_features",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", named = true),
+        @Param(name = "cc_toolchain", named = true),
+        @Param(name = "unsupported_features", named = true),
+      })
+  default void validateLayeringCheckFeaturesForStarlark(
+      StarlarkRuleContext ruleContext, Info ccToolchainInfo, Sequence<?> unsupportedFeatures)
+      throws EvalException {
+    try {
+      validateLayeringCheckFeatures(
+          ruleContext.getRuleContext(),
+          ruleContext.getAspectDescriptor(),
+          CcToolchainProvider.wrap(ccToolchainInfo),
+          ImmutableSet.copyOf(
+              Sequence.cast(unsupportedFeatures, String.class, "unsupported_features")));
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+  }
+
   void validateLayeringCheckFeatures(
       RuleContext ruleContext,
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures)
-      throws EvalException;
-
-  void validateStarlarkCompileApiCall(
-      StarlarkActionFactory actionFactory,
-      StarlarkThread thread,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      int stackDepth)
       throws EvalException;
 }

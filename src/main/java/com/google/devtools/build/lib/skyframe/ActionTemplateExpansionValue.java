@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 
 /** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {

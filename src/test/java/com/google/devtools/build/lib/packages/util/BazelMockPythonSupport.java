@@ -99,18 +99,22 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
         "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
         "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])",
+        "filegroup(name = 'site_init_template', srcs = ['site_init_template.py'])",
         "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
         "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag')",
+        "load('@rules_python//python/private:flags.bzl', rp_string_flag = 'string_flag')",
         "string_flag(name = 'python_version', build_setting_default = '3.11')",
         "string_flag(name = 'precompile', build_setting_default = 'auto')",
         "string_flag(name = 'py_freethreaded', build_setting_default = 'no')",
         "string_flag(name = 'add_srcs_to_runfiles', build_setting_default = 'auto')",
         "string_flag(name = 'pyc_collection', build_setting_default = 'disabled')",
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
-        "string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python')",
+        "rp_string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python', ",
+        "    values = ['system_python'])",
+        "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
     config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");
     config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
@@ -128,13 +132,6 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "load('@rules_python//tools/build_defs/python/private:py_internal_renamed.bzl',"
             + " 'py_internal_renamed')",
         "py_internal_impl = py_internal_renamed");
-  }
-
-  @Override
-  public String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
-      throws IOException {
-    // Under BazelPythonSemantics, we can simply set --python_top to be the py_runtime target.
-    return pyRuntimeLabel;
   }
 
   @Override

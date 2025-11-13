@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -71,6 +73,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -290,7 +293,17 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
 
     @Override
     public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
-      return new ReportedArtifacts(artifacts, CompletionContext.FAILED_COMPLETION_CTX);
+      ActionInputMap importantInputMap = new ActionInputMap(0);
+      for (NestedSet<Artifact> artifactSet : artifacts) {
+        for (Artifact artifact : artifactSet.toList()) {
+          // This is good enough to make the tests pass because they don't care about the metadata.
+          importantInputMap.put(artifact, FileArtifactValue.MISSING_FILE_MARKER);
+        }
+      }
+      return new ReportedArtifacts(
+          artifacts,
+          new CompletionContext(
+              ArtifactPathResolver.IDENTITY, importantInputMap, /* expandFilesets= */ false));
     }
 
     @Override
@@ -1769,6 +1782,57 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                 .build());
   }
 
+  private static final class ReplaceableTestBuildEvent extends GenericBuildEvent
+      implements ReplaceableBuildEvent {
+    private final boolean replaceable;
+
+    ReplaceableTestBuildEvent(BuildEventId id, boolean replaceable) {
+      super(id, ImmutableSet.of());
+      this.replaceable = replaceable;
+    }
+
+    @Override
+    public boolean replaceable() {
+      return replaceable;
+    }
+  }
+
+  @Test
+  public void replaceableEvent_doesNotPostBecauseisReplaced() {
+    BuildEventId buildEventId = testId("replaceable_event");
+    BuildEvent replaceable = new ReplaceableTestBuildEvent(buildEventId, /* replaceable= */ true);
+    BuildEvent replacedBy = new ReplaceableTestBuildEvent(buildEventId, /* replaceable= */ false);
+
+    streamer.buildEvent(replaceable);
+    assertThat(transport.getEvents()).isEmpty();
+    streamer.buildEvent(replacedBy);
+    assertThat(transport.getEvents()).doesNotContain(replaceable);
+    assertThat(transport.getEvents()).contains(replacedBy);
+  }
+
+  @Test
+  public void replaceableEvent_postsBecauseisNotReplacedAndBuildAborts() {
+    BuildEventId buildEventId = testId("replaceable_event");
+    BuildEvent replaceable = new ReplaceableTestBuildEvent(buildEventId, /* replaceable= */ true);
+
+    streamer.buildEvent(replaceable);
+    assertThat(transport.getEvents()).isEmpty();
+    streamer.noAnalyze(new NoAnalyzeEvent());
+    streamer.close();
+    assertThat(transport.getEvents()).contains(replaceable);
+  }
+
+  @Test
+  public void replaceableEvent_postsBecauseisNotReplacedAndBuildCompletes() {
+    BuildEventId buildEventId = testId("replaceable_event");
+    BuildEvent replaceable = new ReplaceableTestBuildEvent(buildEventId, /* replaceable= */ true);
+
+    streamer.buildEvent(replaceable);
+    assertThat(transport.getEvents()).isEmpty();
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
+    assertThat(transport.getEvents()).contains(replaceable);
+  }
+
   @Nullable
   private BuildEventStreamProtos.BuildEvent getBepEvent(BuildEventId buildEventId) {
     return transport.getEventProtos().stream()
@@ -1824,7 +1888,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     return BuildConfigurationValue.createForTesting(
         BuildOptions.of(ImmutableList.of(CoreOptions.class)),
         "some_mnemonic",
-        "workspace",
         /* siblingRepositoryLayout= */ false,
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
@@ -1846,6 +1909,11 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           @Override
           public ImmutableSet<String> getReservedActionMnemonics() {
             return ImmutableSet.of();
+          }
+
+          @Override
+          public String getRunfilesPrefix() {
+            return "bleh";
           }
         },
         new FragmentFactory());

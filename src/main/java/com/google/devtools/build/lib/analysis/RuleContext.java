@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -141,6 +142,12 @@ public class RuleContext extends TargetContext
      */
     void validate(
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+
+    /**
+     * Returns whether a package is considered experimental. Packages outside of experimental may
+     * not depend on packages that are experimental.
+     */
+    public abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
@@ -212,7 +219,8 @@ public class RuleContext extends TargetContext
         builder.target.getAssociatedRule(),
         builder.configuration,
         getDirectPrerequisites(builder.prerequisiteMap),
-        builder.visibility);
+        builder.visibility,
+        builder.transitiveVisibilityImposedByThisPackage);
     this.rule = builder.target.getAssociatedRule();
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.ruleClassProvider = builder.ruleClassProvider;
@@ -316,10 +324,6 @@ public class RuleContext extends TargetContext
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
-  public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
-  }
-
   public ArtifactRoot getTestLogsDirectory() {
     return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
   }
@@ -377,7 +381,7 @@ public class RuleContext extends TargetContext
 
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
-    return rule.getPackageDeclarations().getWorkspaceName();
+    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -717,17 +721,7 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getPackageRelativeArtifact(
       PathFragment relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} but includes the option
-   * option to use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  private Artifact.DerivedArtifact getPackageRelativeArtifact(
-      PathFragment relative, ArtifactRoot root, boolean contentBasedPath) {
-    return getDerivedArtifact(getPackageDirectory().getRelative(relative), root, contentBasedPath);
+    return getDerivedArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
   /**
@@ -735,17 +729,7 @@ public class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getPackageRelativeArtifact(String, ArtifactRoot)} but includes the option to
-   * use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  private Artifact getPackageRelativeArtifact(
-      String relative, ArtifactRoot root, boolean contentBasedPath) {
-    return getPackageRelativeArtifact(PathFragment.create(relative), root, contentBasedPath);
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
   }
 
   @Override
@@ -765,24 +749,15 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
-    return getDerivedArtifact(rootRelativePath, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
-   * a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  public Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
     Preconditions.checkState(
         rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
         rootRelativePath,
         getPackageDirectory(),
         getLabel());
-    return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root, contentBasedPath);
+    return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
+
 
   @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -1262,6 +1237,15 @@ public class RuleContext extends TargetContext
     return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
+  @Nullable
+  public PlatformInfo getExecutionPlatformForToolchainType(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContextForToolchainType(toolchainType);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+  }
+
   /**
    * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
    * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
@@ -1341,16 +1325,6 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
-    return getImplicitOutputArtifact(function, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getImplicitOutputArtifact(ImplicitOutputsFunction)} but includes the option to
-   * use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  public Artifact getImplicitOutputArtifact(
-      ImplicitOutputsFunction function, boolean contentBasedPath) throws InterruptedException {
     Iterable<String> result;
     try {
       result =
@@ -1360,23 +1334,12 @@ public class RuleContext extends TargetContext
       // It's ok as long as we don't use this method from Starlark.
       throw new IllegalStateException(e);
     }
-    return getImplicitOutputArtifact(Iterables.getOnlyElement(result), contentBasedPath);
+    return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
   }
 
   /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
-    return getImplicitOutputArtifact(path, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getImplicitOutputArtifact(String)} but includes the option to use a a
-   * content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  // TODO(bazel-team): Consider removing contentBasedPath stuff, which is unused as of 18 months
-  // after its introduction in cl/252148134.
-  private Artifact getImplicitOutputArtifact(String path, boolean contentBasedPath) {
-    return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory(), contentBasedPath);
+    return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory());
   }
 
   /**
@@ -1435,6 +1398,17 @@ public class RuleContext extends TargetContext
         .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
   }
 
+  /** Returns the OS of the execution platform. */
+  public OS getExecutionPlatformOs() {
+    for (var osToConstraint : OS_TO_CONSTRAINTS.entrySet()) {
+      if (getExecutionPlatform().constraints().hasConstraintValue(osToConstraint.getValue())) {
+        return osToConstraint.getKey();
+      }
+    }
+    // Fall back to assuming exec OS == host OS.
+    return OS.getCurrent();
+  }
+
   /**
    * @return the set of features applicable for the current rule.
    */
@@ -1478,9 +1452,15 @@ public class RuleContext extends TargetContext
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap;
+    private boolean allowMaterializerRuleRealDeps;
+
+    @Nullable
+    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
+
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
+    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1594,6 +1574,9 @@ public class RuleContext extends TargetContext
       for (String attributeName : attributes.getAttributeNames()) {
         Attribute attr = attributes.getAttributeDefinition(attributeName);
         if (attr.getType() != BuildType.LABEL_LIST) {
+          // It is not obvious but correct to skip LABEL_LIST_DICT here: since concatenating selects
+          // of dicts of lists does not concatenate the lists but picks the last one for each key,
+          // all possible duplicates have already been ruled out by AggregatingAttributeMapper.
           continue;
         }
 
@@ -1607,6 +1590,12 @@ public class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setAllowMaterializerRuleRealDeps(boolean allowMaterializerRuleRealDeps) {
+      this.allowMaterializerRuleRealDeps = allowMaterializerRuleRealDeps;
       return this;
     }
 
@@ -1645,6 +1634,13 @@ public class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setMaterializerTargets(
+        @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets) {
+      this.materializerTargets = materializerTargets;
+      return this;
+    }
+
     /**
      * Sets the configuration conditions needed to determine which paths to follow for this rule's
      * configurable attributes.
@@ -1652,6 +1648,13 @@ public class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setConfigConditions(ConfigConditions configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setTransitiveVisibilityImposedByThisPackage(
+        @Nullable PackageSpecificationProvider transitiveVisibility) {
+      this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }
 
@@ -1767,8 +1770,44 @@ public class RuleContext extends TargetContext
                           configuredTarget, TargetMode.WITH_KIND)));
             }
           }
+
+          // Run materializer attribute validation only when constructing a context for rules and
+          // not for aspects because aspects aren't materializer rules. In particular doing this
+          // would break any aspect that has dependencies when it encounters a materializer rule.
+          if (!forAspect() && !allowMaterializerRuleRealDeps) {
+            // Materializer rules can depend only on dependency resolution rules via "normal" /
+            // non-dormant attributes, and everything else only via dormant attributes, except
+            // for PackageGroupConfiguredTargets and build settings.
+            if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
+                && !(attribute.getType() == BuildType.DORMANT_LABEL
+                    || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
+                && !configuredTarget.isForDependencyResolution()
+                && !(configuredTarget.getConfiguredTarget()
+                    instanceof PackageGroupConfiguredTarget)) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "materializer rules can depend on only dependency resolution rules via"
+                          + " non-dormant attributes; %s is a non-dormant attribute, and %s is not"
+                          + " a dependency resolution rule",
+                      attribute.getName(), configuredTarget.getTargetLabel()));
+            }
+          }
         }
       }
+
+      if (materializerTargets != null) {
+        for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry :
+            materializerTargets.entries()) {
+          Attribute attribute = entry.getKey().getAttribute();
+          if (attribute == null) {
+            continue;
+          }
+          ConfiguredTargetAndData materializerTarget = entry.getValue();
+          validateDirectPrerequisite(attribute, materializerTarget);
+        }
+      }
+
       return mapBuilder.build();
     }
 
@@ -1825,6 +1864,13 @@ public class RuleContext extends TargetContext
 
     private void validateDirectPrerequisiteType(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
+
+      if (prerequisite.getRuleClassObject() != null
+          && prerequisite.getRuleClassObject().isMaterializerRule()) {
+        // Materializer rules pass along other targets, so don't check their providers.
+        return;
+      }
+
       String ruleClass = prerequisite.getRuleClass();
       if (!ruleClass.isEmpty()) {
         validateRuleDependency(prerequisite, attribute);

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
  # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,7 +77,6 @@ function init_gcov() {
 # Writes the collected coverage into the given output file.
 function llvm_coverage_lcov() {
   local output_file="${1}"; shift
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
   "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
@@ -97,7 +96,6 @@ function llvm_coverage_lcov() {
 
 function llvm_coverage_profdata() {
   local output_file="${1}"; shift
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
   "${LLVM_PROFDATA}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }

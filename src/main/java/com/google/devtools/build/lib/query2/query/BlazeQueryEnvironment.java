@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -148,9 +149,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Collection<Target> getSiblingTargetsInPackage(Target target) {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
-    ImmutableCollection<Target> siblings = target.getPackage().getTargets().values();
+  public Collection<Target> getSiblingTargetsInPackage(Target target)
+      throws QueryException, InterruptedException {
+    ImmutableCollection<Target> siblings;
+    try {
+      siblings = targetProvider.getSiblingTargetsInPackage(eventHandler, target);
+    } catch (NoSuchPackageException e) {
+      throw new QueryException(e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
+    }
     // Ensure that the sibling targets are in the graph being built-up.
     siblings.forEach(this::getNode);
     return siblings;
@@ -350,14 +356,22 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
-      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
-        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid())).getLabel();
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel)
+          throws InterruptedException {
+        return getNode(
+                new FakeLoadTarget(bzlLabel, getBuildFileTarget(originalTarget).getPackageoid()))
+            .getLabel();
+      }
+
+      @Override
+      public Target getBuildFileTarget(Target originalTarget) throws InterruptedException {
+        return targetProvider.getBuildFile(originalTarget);
       }
 
       @Nullable
       @Override
-      public Target maybeGetBuildFileTargetForLoadFileTarget(
-          Target originalTarget, Label bzlLabel) {
+      public Target maybeGetBuildFileTargetForLoadFileTarget(Target originalTarget, Label bzlLabel)
+          throws InterruptedException {
         PackageIdentifier pkgIdOfBzlLabel = bzlLabel.getPackageIdentifier();
         String baseName = cachingPackageLocator.getBaseNameForLoadedPackage(pkgIdOfBzlLabel);
         if (baseName == null) {
@@ -366,7 +380,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         return getNode(
                 new FakeLoadTarget(
                     Label.createUnvalidated(pkgIdOfBzlLabel, baseName),
-                    originalTarget.getPackageoid()))
+                    getBuildFileTarget(originalTarget).getPackageoid()))
             .getLabel();
       }
     };

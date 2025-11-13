@@ -15,7 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
@@ -111,7 +113,7 @@ final class Discovery {
     @Nullable
     Result run() throws InterruptedException, ExternalDepsException {
       SequencedMap<String, Optional<Checksum>> registryFileHashes = new LinkedHashMap<>();
-      depGraph.put(ModuleKey.ROOT, root.module().withDepSpecsTransformed(this::applyOverrides));
+      depGraph.put(ModuleKey.ROOT, root.module().withDepsTransformed(this::applyOverrides));
       ImmutableSet<ModuleKey> horizon = ImmutableSet.of(ModuleKey.ROOT);
       while (!horizon.isEmpty()) {
         ImmutableSet<ModuleFileValue.Key> nextHorizonSkyKeys = advanceHorizon(horizon);
@@ -131,7 +133,7 @@ final class Discovery {
             depGraph.put(depKey, null);
           } else {
             depGraph.put(
-                depKey, moduleFileValue.module().withDepSpecsTransformed(this::applyOverrides));
+                depKey, moduleFileValue.module().withDepsTransformed(this::applyOverrides));
             registryFileHashes.putAll(moduleFileValue.registryFileHashes());
             nextHorizon.add(depKey);
           }
@@ -141,7 +143,26 @@ final class Discovery {
       if (env.valuesMissing()) {
         return null;
       }
-      return new Result(ImmutableMap.copyOf(depGraph), ImmutableMap.copyOf(registryFileHashes));
+      // Remove all unfulfilled nodep edges from the dep graph. It should be just as if they never
+      // existed.
+      var result = ImmutableMap.<ModuleKey, InterimModule>builderWithExpectedSize(depGraph.size());
+      for (Map.Entry<ModuleKey, InterimModule> entry : depGraph.entrySet()) {
+        InterimModule module = entry.getValue();
+        if (module.getNodepDeps().stream()
+            .allMatch(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))) {
+          result.put(entry.getKey(), module);
+        } else {
+          result.put(
+              entry.getKey(),
+              module.toBuilder()
+                  .setNodepDeps(
+                      module.getNodepDeps().stream()
+                          .filter(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))
+                          .collect(toImmutableList()))
+                  .build());
+        }
+      }
+      return new Result(result.buildOrThrow(), ImmutableMap.copyOf(registryFileHashes));
     }
 
     /**
@@ -150,15 +171,14 @@ final class Discovery {
      */
     DepSpec applyOverrides(DepSpec depSpec) {
       if (root.module().getName().equals(depSpec.name())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
+        return DepSpec.ROOT_MODULE;
       }
-      Version newVersion =
+      return depSpec.withVersion(
           switch (root.overrides().get(depSpec.name())) {
-            case NonRegistryOverride nro -> Version.EMPTY;
+            case NonRegistryOverride ignored -> Version.EMPTY;
             case SingleVersionOverride svo when !svo.version().isEmpty() -> svo.version();
             case null, default -> depSpec.version();
-          };
-      return new DepSpec(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
+          });
     }
 
     /**
@@ -201,6 +221,11 @@ final class Discovery {
       return nextHorizon.build();
     }
 
+    private static final ImmutableSet<FailureDetails.ExternalDeps.Code> SHOW_DEP_CHAIN =
+        immutableEnumSet(
+            FailureDetails.ExternalDeps.Code.BAD_MODULE,
+            FailureDetails.ExternalDeps.Code.MODULE_NOT_FOUND);
+
     /**
      * When an exception occurs while discovering a new dep, try to add information about the
      * dependency chain that led to that dep.
@@ -208,11 +233,10 @@ final class Discovery {
     private ExternalDepsException maybeReportDependencyChain(
         ExternalDepsException e, ModuleKey depKey) {
       if (e.getDetailedExitCode().getFailureDetail() == null
-          || e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode()
-              != FailureDetails.ExternalDeps.Code.BAD_MODULE) {
-        // This is not due to a bad module, so don't print a dependency chain. This covers cases
-        // such as a parse error in the lockfile or an I/O exception during registry access,
-        // which aren't related to any particular module dep.
+          || !SHOW_DEP_CHAIN.contains(
+              e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode())) {
+        // This covers cases such as a parse error in the lockfile or an I/O exception during
+        // registry access, which aren't related to any particular module dep.
         return e;
       }
       // Trace back a dependency chain to the root module. There can be multiple paths to the

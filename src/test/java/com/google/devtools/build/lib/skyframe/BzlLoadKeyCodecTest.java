@@ -30,10 +30,6 @@ public final class BzlLoadKeyCodecTest {
     SerializationTester serializationTester =
         new SerializationTester(
             BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked("//foo/bar:baz")),
-            BzlLoadValue.keyForWorkspace(
-                Label.parseCanonicalUnchecked("//foo/bar:baz"),
-                /* workspaceChunk= */ 4,
-                /* workspacePath= */ FsUtils.TEST_ROOTED_PATH),
             BzlLoadValue.keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:foo/bar")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();

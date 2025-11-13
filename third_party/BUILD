@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
@@ -20,6 +21,7 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/proguard:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
@@ -36,6 +38,11 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [],
+)
+
+filegroup(
+    name = "patches",
+    srcs = glob(["*.patch"]),
 )
 
 alias(
@@ -74,35 +81,35 @@ java_library(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.7.1.jar"],
-    srcjar = "asm/asm-9.7.1-sources.jar",
+    jars = ["asm/asm-9.9.jar"],
+    srcjar = "asm/asm-9.9-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.7.1.jar"],
-    srcjar = "asm/asm-analysis-9.7.1-sources.jar",
+    jars = ["asm/asm-analysis-9.9.jar"],
+    srcjar = "asm/asm-analysis-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.7.1.jar"],
-    srcjar = "asm/asm-commons-9.7.1-sources.jar",
+    jars = ["asm/asm-commons-9.9.jar"],
+    srcjar = "asm/asm-commons-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.7.1.jar"],
-    srcjar = "asm/asm-tree-9.7.1-sources.jar",
+    jars = ["asm/asm-tree-9.9.jar"],
+    srcjar = "asm/asm-tree-9.9-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.7.1.jar"],
-    srcjar = "asm/asm-util-9.7.1-sources.jar",
+    jars = ["asm/asm-util-9.9.jar"],
+    srcjar = "asm/asm-util-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -312,7 +319,7 @@ genrule(
     name = "fastutil_stripped_jar",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
-        "@rules_java//toolchains:platformclasspath",
+        "@rules_java//toolchains:platformclasspath_nostrip",
     ],
     outs = ["fastutil-stripped.jar"],
     # ProGuard output is silenced below because it prints
@@ -324,7 +331,7 @@ genrule(
     $(location :proguard) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
-        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
         @$(location //tools:fastutil.proguard) > /dev/null
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
@@ -355,7 +362,6 @@ java_library(
     name = "error_prone_annotations",
     exports = [
         "@maven//:com_google_errorprone_error_prone_annotations",
-        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
@@ -506,15 +512,15 @@ alias(
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll",
+    "//src/conditions:darwin": "*.so *.dll *.pyd",
+    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
+    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
     # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
     # Default is to play it safe -- better have a big binary than a slow binary
     #   The empty string means nothing is to be removed from the library;
     #   the rule command tests for the empty string explictly to avoid
@@ -673,4 +679,17 @@ filegroup(
         "@maven//:junit_junit_file",
         "@maven//:org_hamcrest_hamcrest_core_file",
     ],
+)
+
+java_library(
+    name = "jmh",
+    exported_plugins = [":jmh_benchmark_processor"],
+    exports = ["@maven//:org_openjdk_jmh_jmh_core"],
+)
+
+java_plugin(
+    name = "jmh_benchmark_processor",
+    processor_class = "org.openjdk.jmh.generators.BenchmarkProcessor",
+    visibility = ["//visibility:private"],
+    deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
 )

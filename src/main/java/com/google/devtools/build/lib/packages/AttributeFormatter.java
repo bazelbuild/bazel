@@ -36,6 +36,7 @@ import static com.google.devtools.build.lib.packages.Types.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_SET;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
@@ -218,7 +219,7 @@ public class AttributeFormatter {
         || type == GENQUERY_SCOPE_TYPE
         || type == DORMANT_LABEL) {
       builder.setStringValue(internalToUnicode(labelPrinter.toString((Label) value)));
-    } else if (type == STRING_LIST) {
+    } else if (type == STRING_LIST || type == STRING_SET) {
       for (Object entry : (Collection<?>) value) {
         builder.addStringListValue(internalToUnicode(entry.toString()));
       }

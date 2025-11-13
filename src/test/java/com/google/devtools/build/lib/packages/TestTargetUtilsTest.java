@@ -87,7 +87,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             srcs = ["notest.sh"],
         )
 
-        cc_library(name = "xUnit")
+        filegroup(name = "xUnit")
 
         test_suite(
             name = "smallTests",

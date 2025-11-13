@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -80,7 +79,10 @@ public interface ConfiguredAspect extends ProviderCollection {
   }
 
   static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new BasicConfiguredAspect(real.getActions(), real.getProviders());
+    // Aspect on aliases don't have actions, so don't return the actions of the
+    // aliased target. They still propagate providers from the real aspect,
+    // though.
+    return new BasicConfiguredAspect(ImmutableList.of(), real.getProviders());
   }
 
   static Builder builder(RuleContext ruleContext) {
@@ -198,6 +200,9 @@ public interface ConfiguredAspect extends ProviderCollection {
         }
       }
 
+      if (actions.isEmpty() && providerMap.getProviderCount() == 0) {
+        return BasicConfiguredAspect.EMPTY;
+      }
       return new BasicConfiguredAspect(actions, providerMap);
     }
 
@@ -220,13 +225,11 @@ public interface ConfiguredAspect extends ProviderCollection {
 
   /** Basic implementation of {@link ConfiguredAspect}. */
   static class BasicConfiguredAspect implements ConfiguredAspect {
-    /**
-     * Operations accessing actions, for example, executing them, should be performed in the same
-     * Bazel instance that constructs the {@code ConfiguredAspect} instance and not on a Bazel
-     * instance that retrieves it remotely using deserialization.
-     */
-    @Nullable // Null when deserialized.
-    private final transient ImmutableList<ActionAnalysisMetadata> actions;
+
+    private static final BasicConfiguredAspect EMPTY =
+        new BasicConfiguredAspect(ImmutableList.of(), TransitiveInfoProviderMapImpl.empty());
+
+    private final ImmutableList<ActionAnalysisMetadata> actions;
 
     private final TransitiveInfoProviderMap providers;
 
@@ -238,7 +241,7 @@ public interface ConfiguredAspect extends ProviderCollection {
 
     @Override
     public ImmutableList<ActionAnalysisMetadata> getActions() {
-      return checkNotNull(actions, "actions are not available on deserialized instances");
+      return actions;
     }
 
     @Override

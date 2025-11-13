@@ -13,17 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.ByteString;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -33,12 +36,19 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheMode mode();
 
-  default boolean isRemoteFetchEnabled() {
+  default boolean isRetrievalEnabled() {
     return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
   }
 
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
   String serializedFrontierProfile();
+
+  /**
+   * True if matching for active directories is available.
+   *
+   * <p>If this is false, it is illegal to call {@link #withinActiveDirectories}.
+   */
+  boolean hasActiveDirectoriesMatcher();
 
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
@@ -54,20 +64,49 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>Calling this can be an expensive process as the codec registry will be initialized.
    */
-  ObjectCodecs getObjectCodecs();
+  ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
-  FingerprintValueService getFingerprintValueService();
+  FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-  RequestBatcher<ByteString, ByteString> getAnalysisCacheClient();
+  /** Returns the desination for file invalidation data when uploading. */
+  KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
+
+  RemoteAnalysisCacheClient getAnalysisCacheClient();
+
+  RemoteAnalysisMetadataWriter getMetadataWriter();
+
+  /** Returns the JSON log writer or null if this log is not enabled. */
+  @Nullable
+  RemoteAnalysisJsonLogWriter getJsonLogWriter();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
-  void recordSerializationException(SerializationException e);
+  void recordSerializationException(SerializationException e, SkyKey key);
 
   void setTopLevelConfigChecksum(String checksum);
 
-  ModifiedFileSet getDiffFromEvaluatingVersion();
+  void setConfigMetadata(BuildOptions buildOptions);
+
+  void queryMetadataAndMaybeBailout() throws InterruptedException;
+
+  /**
+   * Returns the set of SkyKeys to be invalidated.
+   *
+   * <p>May call the remote analysis cache to get the set of keys to invalidate.
+   */
+  Set<SkyKey> lookupKeysToInvalidate(
+      ImmutableSet<SkyKey> keysToLookup,
+      RemoteAnalysisCachingServerState remoteAnalysisCachingState)
+      throws InterruptedException;
+
+  SkycacheMetadataParams getSkycacheMetadataParams();
+
+  default boolean bailedOut() {
+    return false;
+  }
+
+  boolean areMetadataQueriesEnabled();
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -84,6 +123,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     @Override
     public String serializedFrontierProfile() {
       return "";
+    }
+
+    @Override
+    public boolean hasActiveDirectoriesMatcher() {
+      return false;
     }
 
     @Override
@@ -107,8 +151,24 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
+    public KeyValueWriter getFileInvalidationWriter() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RemoteAnalysisMetadataWriter getMetadataWriter() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
+      return null;
     }
 
     @Override
@@ -117,7 +177,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public void recordSerializationException(SerializationException e) {
+    public void recordSerializationException(SerializationException e, SkyKey key) {
       throw new UnsupportedOperationException();
     }
 
@@ -127,7 +187,29 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public ModifiedFileSet getDiffFromEvaluatingVersion() {
+    public void setConfigMetadata(BuildOptions buildOptions) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void queryMetadataAndMaybeBailout() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+        ImmutableSet<SkyKey> keysToLookup,
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SkycacheMetadataParams getSkycacheMetadataParams() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean areMetadataQueriesEnabled() {
       throw new UnsupportedOperationException();
     }
   }

@@ -67,6 +67,52 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
           + " volatile nature the output file of this action is special cased in Bazel, similar to"
           + " <code>ctx.version_file</code>. Therefore changes in this file will not retrigger"
           + " actions depending on it.";
+  static final String TOOLS_ARG_DOC =
+"""
+List or <a href="../builtins/depset.html"><code>depset</code></a> of any tools needed by the \
+action. Tools are executable inputs that may have their own runfiles which are automatically made \
+available to the action. \
+<p>
+When a list is provided, it can be a heterogenous collection of:
+<ul>
+    <li><code>File</code>s</li>
+    <li><code>FilesToRunProvider</code> instances</li>
+    <li><code>depset</code>s of <code>File</code>s</li>
+</ul>
+<code>File</code>s from <a href="../builtins/ctx#executable"><code>ctx.executable</code></a> \
+and <code>FilesToRunProvider</code>s which are directly in the list will have their runfiles \
+automatically added. All tools are implicitly added as inputs.
+</p>
+""";
+  static final String MAP_DIRECTORY_IMPLEMENTATION_DOC =
+"""
+A Starlark function that gets called after input directories have been built to generate actions
+that output files to the specified output directories. This function is passed the following
+arguments:
+
+<ul>
+  <li><code>template_ctx</code> (positional): A <a
+      href='../builtins/template_ctx.html'><code>template_ctx</code></a> object that can be used to
+      create actions.</li>
+  <li><code>input_directories</code> (keyword-only): A dictionary mapping from the string keys of
+      the <code>input_directories</code> argument of <code>actions.map_directory()</code> to their
+      values' corresponding <a href='../builtins/File.html'><code>ExpandedDirectory</code></a>
+      objects.</li>
+  <li><code>output_directories</code> (keyword-only): The value of the
+      <code>output_directories</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to output directories.</li>
+  <li><code>additional_inputs</code> (keyword-only): The value of the
+      <code>additional_inputs</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to input files.</li>
+  <li><code>tools</code> (keyword-only): The value of the <code>tools</code> argument of
+      <code>actions.map_directory()</code>; a dictionary mapping from strings to tools.</li>
+  <li><code>additional_params</code> (keyword-only): The value of the
+      <code>additional_params</code> argument of <code>actions.map_directory()</code>; a
+      dictionary mapping from strings to strings, booleans, or integers.</li>
+</ul>
+
+This function must be top-level, i.e. lambdas and nested functions are not allowed.
+""";
 
   @StarlarkMethod(
       name = "declare_file",
@@ -236,6 +282,21 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                 "The exact path that the output symlink will point to. No normalization or other "
                     + "processing is applied."),
         @Param(
+            name = "target_type",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "May only be used with <code>target_path</code>, not <code>target_file</code>. If"
+                    + " specified, it must be one of 'file' or 'directory', indicating the target"
+                    + " path's expected type.<p>On Windows, this determines which kind of"
+                    + " filesystem object to create (junction for a directory, symlink for a file)."
+                    + " It has no effect on other operating systems."),
+        @Param(
             name = "is_executable",
             named = true,
             positional = false,
@@ -270,6 +331,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       FileApi output,
       Object targetFile,
       Object targetPath,
+      Object targetType,
       Boolean isExecutable,
       Object progressMessage,
       Object useExecRootForSourceObject,
@@ -300,9 +362,19 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "is_executable",
             defaultValue = "False",
             doc = "Whether the output file should be executable.",
-            named = true)
+            named = true),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable)
+  void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -365,15 +437,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional runfiles that are automatically made available to the action. "
-                    + "When a list is provided, it can be a heterogenous collection of "
-                    + "Files, FilesToRunProvider instances, or depsets of Files. Files which are "
-                    + "directly in the list and come from ctx.executable will have their runfiles "
-                    + "automatically added. When a depset is provided, it must contain only Files. "
-                    + "In both cases, files within depsets are not cross-referenced with "
-                    + "ctx.executable for runfiles."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -581,10 +645,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional runfiles that are automatically made available to the action. "
-                    + "The list can contain Files or FilesToRunProvider instances."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -792,6 +853,191 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object shadowedAction,
       Object resourceSetUnchecked,
       Object toolchainUnchecked)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "map_directory",
+      doc =
+          "Creates multiple actions based on the files within one or more input directories, to"
+              + " output one or more output directories.",
+      parameters = {
+        @Param(
+            name = "input_directories",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = FileApi.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to input directories, as declared by"
+                    + " <code>ctx.actions.declare_directory()</code> (only directories are allowed"
+                    + " as values here). The values specify the directories that we want expanded"
+                    + " to access their files in the implementation function. The keys (strings)"
+                    + " act as identifiers to easily reference a specific directory in the"
+                    + " implementation function."),
+        @Param(
+            name = "additional_inputs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary of mapping of strings to additional inputs (only files,"
+                    + " FilesToRunProvider(s) and Depset(s) are allowed here). The values specify"
+                    + " any additional inputs that we want to make accessible to actions created by"
+                    + " the implementation function. The keys (strings) act as identifiers to"
+                    + " easily reference a specific input from within the implementation"
+                    + " function."),
+        @Param(
+            name = "output_directories",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = FileApi.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to output directories, as declared by"
+                    + " <code>ctx.actions.declare_directory()</code>. The values specify the output"
+                    + " directories that we want to generate by the actions created by the"
+                    + " implementation function. The keys (strings) act as identifiers to easily"
+                    + " reference a specific output directory from within the implementation"
+                    + " function."),
+        @Param(
+            name = "tools",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to tools (only files, FilesToRunProvider(s) and"
+                    + " Depset(s) are allowed here). The values specify the tools that we want to"
+                    + " make accessible to actions created by the implementation function. The keys"
+                    + " (strings) act as identifiers to easily reference a specific tool from"
+                    + " within the implementation function."),
+        @Param(
+            name = "additional_params",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "A dictionary mapping of strings to additional parameters (only string, boolean and"
+                    + " integer values are allowed here). The values specify any additional"
+                    + " parameters that we want to make accessible to the implementation function"
+                    + " that could be used to influence its behavior. The keys (strings) act as"
+                    + " identifiers to easily reference a specific parameter from within the"
+                    + " implementation function."),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the created actions. See "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
+                    + "for useful keys."),
+        @Param(
+            name = "exec_group",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Run the created actions on the given exec group's execution platform. If"
+                    + " none, uses the target's default execution platform."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used by the created actions.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " <code>None</code>.</p><p>If executable and tools are coming from a"
+                    + " toolchain, toolchain type must be set so that the created actions execute"
+                    + " on the correct execution platform.</p><p>Note that the rule which creates"
+                    + " these actions needs to define this toolchain inside its 'rule()'"
+                    + " function.</p><p>When <code>toolchain</code> and <code>exec_group</code>"
+                    + " parameters are both set, <code>exec_group</code> will be used. An error is"
+                    + " raised in case the <code>exec_group</code> doesn't specify the same"
+                    + " toolchain.</p>"),
+        @Param(
+            name = "use_default_shell_env",
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "Whether the created actions should use the default shell environment, which"
+                    + " consists of a few OS-dependent variables as well as variables set via <a"
+                    + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
+                    + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
+        @Param(
+            name = "env",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Sets the dictionary of environment variables.<p>If both"
+                    + " <code>use_default_shell_env</code> and <code>env</code> are set to"
+                    + " <code>True</code>, values set in <code>env</code> will overwrite the"
+                    + " default shell environment."),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A one-word description of the created actions, for example, CppCompile or"
+                    + " GoLink."),
+        @Param(
+            name = "implementation",
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            named = true,
+            positional = false,
+            doc = MAP_DIRECTORY_IMPLEMENTATION_DOC),
+      },
+      useStarlarkThread = true)
+  public void mapDirectory(
+      Dict<?, ?> inputDirectories,
+      Dict<?, ?> additionalInputs,
+      Dict<?, ?> outputDirectories,
+      Dict<?, ?> tools,
+      Dict<?, ?> additionalKwargs,
+      Object executionRequirementsUnchecked,
+      Object execGroupUnchecked,
+      Object toolchainUnchecked,
+      Boolean useDefaultShellEnv,
+      Object envUnchecked,
+      Object mnemonicUnchecked,
+      StarlarkFunction implementation,
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

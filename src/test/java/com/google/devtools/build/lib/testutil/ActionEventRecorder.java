@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindingStats;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
+import com.google.devtools.build.lib.skyframe.rewinding.PostableActionRewindingStats;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +49,7 @@ public final class ActionEventRecorder {
       Collections.synchronizedList(new ArrayList<>());
   private final List<ActionRewoundEvent> actionRewoundEvents =
       Collections.synchronizedList(new ArrayList<>());
-  private final List<ActionRewindingStats> actionRewindingStatsPosts =
+  private final List<PostableActionRewindingStats> actionRewindingStatsPosts =
       Collections.synchronizedList(new ArrayList<>());
 
   private Consumer<ActionRewoundEvent> actionRewoundEventSubscriber = e -> {};
@@ -78,7 +78,7 @@ public final class ActionEventRecorder {
     return actionRewoundEvents;
   }
 
-  public List<ActionRewindingStats> getActionRewindingStatsPosts() {
+  public List<PostableActionRewindingStats> getActionRewindingStatsPosts() {
     return actionRewindingStatsPosts;
   }
 
@@ -128,7 +128,7 @@ public final class ActionEventRecorder {
   @SuppressWarnings("unused")
   @Subscribe
   @AllowConcurrentEvents
-  void actionRewindingStats(ActionRewindingStats actionRewindingStats) {
+  void actionRewindingStats(PostableActionRewindingStats actionRewindingStats) {
     actionRewindingStatsPosts.add(actionRewindingStats);
   }
 
@@ -226,32 +226,32 @@ public final class ActionEventRecorder {
   }
 
   /**
-   * Asserts that the total lost input counts from posted {@link ActionRewindingStats} matches
-   * expected results.
+   * Asserts that the total lost input counts from posted {@link PostableActionRewindingStats}
+   * matches expected results.
    *
    * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each {@link
-   *     ActionRewindingStats} post.
+   *     PostableActionRewindingStats} post.
    */
   public void assertTotalLostInputCountsFromStats(ImmutableList<Integer> totalLostInputCounts) {
     assertThat(actionRewindingStatsPosts).hasSize(totalLostInputCounts.size());
     for (int postIndex = 0; postIndex < totalLostInputCounts.size(); postIndex++) {
-      ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
+      PostableActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
       assertThat(actionRewindingStats.lostInputsCount())
           .isEqualTo(totalLostInputCounts.get(postIndex));
     }
   }
 
   /**
-   * Asserts that the total lost output counts from posted {@link ActionRewindingStats} matches
-   * expected results.
+   * Asserts that the total lost output counts from posted {@link PostableActionRewindingStats}
+   * matches expected results.
    *
    * @param totalLostOutputCounts - The list of the counts of all lost outputs logged with each
-   *     {@link ActionRewindingStats} post.
+   *     {@link PostableActionRewindingStats} post.
    */
   public void assertTotalLostOutputCountsFromStats(ImmutableList<Integer> totalLostOutputCounts) {
     assertThat(actionRewindingStatsPosts).hasSize(totalLostOutputCounts.size());
     for (int postIndex = 0; postIndex < totalLostOutputCounts.size(); postIndex++) {
-      ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
+      PostableActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
       assertThat(actionRewindingStats.lostOutputsCount())
           .isEqualTo(totalLostOutputCounts.get(postIndex));
     }

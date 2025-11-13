@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
@@ -511,7 +512,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
         @Nullable InputMetadataProvider inputMetadataProvider,
-        CoreOptions.OutputPathsMode outputPathsMode)
+        CoreOptions.OutputPathsMode outputPathsMode,
+        RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
       Location location = null;
@@ -549,7 +551,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? inputMetadataProvider : null,
+                  (features & EXPAND_DIRECTORIES) != 0 || wantsDirectoryExpander(mapEach)
+                      ? inputMetadataProvider
+                      : null,
                   outputPathsMode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
@@ -566,6 +570,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
           }
         } else {
           fingerprint.addInt(stringificationType.ordinal());
+          if (stringificationType == StringificationType.LABEL) {
+            fingerprint.addStringMap(
+                Maps.transformValues(mainRepoMapping.entries(), RepositoryName::getName));
+          }
           actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
         }
       } else {
@@ -594,7 +602,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
-            addSingleObjectToFingerprint(fingerprint, value);
+            addSingleObjectToFingerprint(fingerprint, value, mainRepoMapping);
           }
         }
       }
@@ -767,23 +775,24 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
+  /** Denotes that the following two elements are an object and format string. */
+  @SerializationConstant @VisibleForSerialization
+  public static final Object SINGLE_FORMATTED_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "SINGLE_FORMATTED_ARG_MARKER";
+        }
+      };
+
   /** Representation of a single formatted argument originating from {@code Args.add} */
   private static final class SingleFormattedArg {
-
-    /** Denotes that the following two elements are an object and format string. */
-    private static final Object MARKER =
-        new Object() {
-          @Override
-          public String toString() {
-            return "SINGLE_FORMATTED_ARG_MARKER";
-          }
-        };
 
     private static final UUID SINGLE_FORMATTED_ARG_UUID =
         UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
 
     static void push(List<Object> arguments, Object object, String format) {
-      arguments.add(MARKER);
+      arguments.add(SINGLE_FORMATTED_ARG_MARKER);
       arguments.add(object);
       arguments.add(format);
     }
@@ -793,7 +802,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
      *
      * @param arguments result of {@link #rawArgsAsList}
      * @param argi index in {@code arguments} at which the {@link SingleFormattedArg} begins; should
-     *     be directly preceded by {@link #MARKER}
+     *     be directly preceded by {@link #SINGLE_FORMATTED_ARG_MARKER}
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
      *     representation of this arg
      * @param mainRepoMapping the repository mapping to use for formatting labels if needed
@@ -818,9 +827,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
-    static int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
+    static int addToFingerprint(
+        List<Object> arguments,
+        int argi,
+        Fingerprint fingerprint,
+        @Nullable RepositoryMapping mainRepoMapping) {
       Object object = arguments.get(argi++);
-      addSingleObjectToFingerprint(fingerprint, object);
+      addSingleObjectToFingerprint(fingerprint, object, mainRepoMapping);
       String formatStr = (String) arguments.get(argi++);
       fingerprint.addString(formatStr);
       fingerprint.addUUID(SINGLE_FORMATTED_ARG_UUID);
@@ -929,7 +942,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
             ((VectorArg) arg)
                 .preprocess(
                     arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
-      } else if (arg == SingleFormattedArg.MARKER) {
+      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
         argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
       } else {
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
@@ -954,7 +967,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
   private static Object /* String | DerivedArtifact */ expandToCommandLine(
       Object object, @Nullable RepositoryMapping mainRepoMapping) {
     // Label arguments are rare, so we don't bother rendering them lazily.
-    if (mainRepoMapping != null && object instanceof Label label) {
+    if (object instanceof Label label) {
       return label.getDisplayForm(mainRepoMapping);
     }
 
@@ -964,13 +977,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
         : CommandLineItem.expandToCommandLine(object);
   }
 
-  private static void addSingleObjectToFingerprint(Fingerprint fingerprint, Object object) {
+  private static void addSingleObjectToFingerprint(
+      Fingerprint fingerprint, Object object, @Nullable RepositoryMapping mainRepoMapping) {
+    if (object instanceof Label label) {
+      fingerprint.addString(label.getDisplayForm(mainRepoMapping));
+      return;
+    }
     StringificationType stringificationType =
-        switch (object) {
-          case FileApi ignored -> StringificationType.FILE;
-          case Label ignored -> StringificationType.LABEL;
-          default -> StringificationType.DEFAULT;
-        };
+        object instanceof FileApi ? StringificationType.FILE : StringificationType.DEFAULT;
     fingerprint.addInt(stringificationType.ordinal());
     fingerprint.addString(CommandLineItem.expandToCommandLine(object));
   }
@@ -1020,7 +1034,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 ((VectorArg) arg)
                     .preprocess(
                         arguments, argi, line, inputMetadataProvider, pathMapper, mainRepoMapping);
-          } else if (arg == SingleFormattedArg.MARKER) {
+          } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
             argi = SingleFormattedArg.preprocess(arguments, argi, line, mainRepoMapping);
           } else {
             line.addArg(expandToCommandLine(arg, mainRepoMapping));
@@ -1043,11 +1057,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     int size;
-    if (arguments.getLast() instanceof RepositoryMapping mainRepoMapping) {
-      fingerprint.addStringMap(
-          Maps.transformValues(mainRepoMapping.entries(), RepositoryName::getName));
+    RepositoryMapping mainRepoMapping;
+    if (arguments.getLast() instanceof RepositoryMapping mapping) {
+      mainRepoMapping = mapping;
       size = arguments.size() - 1;
     } else {
+      mainRepoMapping = null;
       size = arguments.size();
     }
     for (int argi = 0; argi < size; ) {
@@ -1061,11 +1076,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     actionKeyContext,
                     fingerprint,
                     inputMetadataProvider,
-                    effectiveOutputPathsMode);
-      } else if (arg == SingleFormattedArg.MARKER) {
-        argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint);
+                    effectiveOutputPathsMode,
+                    mainRepoMapping);
+      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
+        argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint, mainRepoMapping);
       } else {
-        addSingleObjectToFingerprint(fingerprint, arg);
+        addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
       }
     }
   }
@@ -1123,14 +1139,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
-      // map_each can accept either each object, or each object + a directory expander.
-      boolean wantsDirectoryExpander =
-          mapFn instanceof StarlarkFunction starlarkFunction
-              && starlarkFunction.getParameterNames().size() >= 2;
       // We create a list that we reuse for the args to map_each
       List<Object> args = new ArrayList<>(2);
       args.add(null); // This will be overwritten each iteration.
-      if (wantsDirectoryExpander) {
+      // map_each can accept either each object, or each object + a directory expander.
+      if (wantsDirectoryExpander(mapFn)) {
         DirectoryExpander expander;
         if (inputMetadataProvider != null) {
           expander = new FullExpander(inputMetadataProvider);
@@ -1167,6 +1180,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throw new CommandLineExpansionException(
           errorMessage(e.getMessageWithStack(), loc, e.getCause()));
     }
+  }
+
+  private static boolean wantsDirectoryExpander(StarlarkCallable mapFn) {
+    return mapFn instanceof StarlarkFunction starlarkFunction
+        && starlarkFunction.getParameterNames().size() >= 2;
   }
 
   private static class CommandLineItemMapEachAdaptor

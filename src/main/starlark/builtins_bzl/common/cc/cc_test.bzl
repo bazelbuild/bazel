@@ -18,11 +18,11 @@ load(":common/cc/attrs.bzl", "cc_binary_attrs", "linkstatic_doc", "stamp_doc")
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_postmark.bzl", "postmark")
 load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
 config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
@@ -60,6 +60,7 @@ def _legacy_cc_test_impl(ctx):
     return providers
 
 def _impl(ctx):
+    semantics.validate(ctx, "cc_test")
     cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
     if cc_test_toolchain:
         cc_test_info = cc_test_toolchain.cc_test_info
@@ -113,6 +114,7 @@ def cc_test_initializer(**kwargs):
 
     if "linkstatic" not in kwargs:
         kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
+    kwargs = postmark.initializer(**kwargs)
 
     return dynamic_deps_initializer(**kwargs)
 
@@ -160,7 +162,7 @@ attributes common to all test rules (*_test)</a>.</p>
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         # testing.ExecutionInfo defaults to an exec_group of "test".
         "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
-    },
+    } | semantics.extra_exec_groups,
     toolchains = [] +
                  cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),

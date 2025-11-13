@@ -15,6 +15,9 @@ java_test(
     name = "BuildOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -38,6 +41,9 @@ java_test(
     name = "GraphOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["GraphOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -58,6 +64,9 @@ java_test(
     size = "medium",
     timeout = "long",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 2,
     deps = [
         ":configured_target_query_test",
@@ -91,11 +100,13 @@ java_library(
     testonly = 1,
     srcs = ["ConfiguredTargetQueryHelper.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
@@ -124,6 +135,9 @@ java_test(
     name = "ProtoOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["ProtoOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -141,11 +155,13 @@ java_test(
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -153,6 +169,9 @@ java_test(
     name = "TransitionsOutputFormatterTest",
     size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -179,6 +198,9 @@ java_test(
 java_test(
     name = "FilesOutputFormatterCallbackTest",
     srcs = ["FilesOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",

@@ -36,47 +36,15 @@ public class CcBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_cc", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
 
-  private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
-  private final DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider;
-  private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
-
   public CcBootstrap(
       CcModuleApi<
               ? extends StarlarkActionFactoryApi,
               ? extends FileApi,
               ? extends FeatureConfigurationApi,
-              ? extends
-                  CcCompilationContextApi<
-                      ? extends FileApi, ? extends CppModuleMapApi<? extends FileApi>>,
-              ? extends LtoBackendArtifactsApi<? extends FileApi>,
-              ? extends
-                  LinkerInputApi<
-                      ? extends
-                          LibraryToLinkApi<
-                              ? extends FileApi,
-                              ? extends LtoBackendArtifactsApi<? extends FileApi>>,
-                      ? extends LtoBackendArtifactsApi<? extends FileApi>,
-                      ? extends FileApi>,
-              ? extends CcLinkingContextApi<? extends FileApi>,
-              ? extends
-                  LibraryToLinkApi<
-                      ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
-              ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
-              ? extends CcToolchainConfigInfoApi,
-              ? extends CcCompilationOutputsApi<? extends FileApi>,
-              ? extends CcDebugInfoContextApi,
-              ? extends CppModuleMapApi<? extends FileApi>,
-              ? extends CcLinkingOutputsApi<?, ?>>
-          ccModule,
-      CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
-      DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
-      CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider) {
-    this.ccInfoProvider = ccInfoProvider;
-    this.debugPackageInfoProvider = debugPackageInfoProvider;
-    this.ccToolchainConfigInfoProvider = ccToolchainConfigInfoProvider;
-  }
+              ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>>
+          ccModule) {}
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
@@ -87,22 +55,10 @@ public class CcBootstrap implements Bootstrap {
             Starlark.NONE,
             allowedRepositories));
     builder.put(
-        "CcInfo",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            ccInfoProvider,
-            allowedRepositories));
-    builder.put(
-        "DebugPackageInfo",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            debugPackageInfoProvider,
-            allowedRepositories));
-    builder.put(
         "CcToolchainConfigInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            ccToolchainConfigInfoProvider,
+            Starlark.NONE,
             allowedRepositories));
   }
 }

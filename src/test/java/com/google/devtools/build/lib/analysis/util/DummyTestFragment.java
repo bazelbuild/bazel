@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Converters.OptionalAssignmentConverter;
+import com.google.devtools.common.options.Converters.EnvVarsConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Expose a set of options that can be added to {@link BuildViewTestCase} and friends in order to
@@ -111,14 +111,14 @@ public final class DummyTestFragment extends Fragment {
     public UnreadableStringBox unreadableByStarlark;
 
     @Option(
-        name = "allow_multiple_with_optional_assignment_converter",
+        name = "allow_multiple_with_env_vars_converter",
         defaultValue = "null",
         allowMultiple = true,
-        converter = OptionalAssignmentConverter.class,
+        converter = EnvVarsConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        help = "allowMultiple flag with OptionalAssignmentConverter")
-    public List<Map.Entry<String, String>> allowMultipleWithOptionalAssignmentConverter;
+        help = "allowMultiple flag with EnvVarsConverter")
+    public List<Converters.EnvVar> allowMultipleWithEnvVarsConverter;
 
     @Option(
         name = "allow_multiple_with_list_converter",

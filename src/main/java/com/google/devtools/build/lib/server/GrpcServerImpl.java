@@ -420,7 +420,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 .build()
                 .start();
         break;
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
+        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
         if (attempt == maxRetries) {
           throw e;
         }
@@ -460,7 +461,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 .directExecutor()
                 .build()
                 .start();
-      } catch (IOException ipv4Exception) {
+      } catch (IOException | RuntimeException ipv4Exception) {
+        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
         throw new AbruptExitException(
             DetailedExitCode.of(
                 createFailureDetail(
@@ -612,6 +614,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
+                commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
                 new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
       } catch (OptionsParsingException e) {
@@ -629,7 +632,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
 
       // Record tasks to be run by IdleTaskManager. This is triggered in RunningCommand#close()
       // (as a Closeable), as we go out of scope immediately after this.
-      command.setIdleTasks(result.getIdleTasks(), result.stateKeptAfterBuild());
+      command.setIdleTasks(result.getIdleTasks());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(

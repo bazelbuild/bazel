@@ -27,7 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
@@ -35,10 +35,10 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:builtin_java_proto",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:apache_velocity",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
@@ -51,9 +51,6 @@ java_binary(
     name = "docgen_bin",
     srcs = ["BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
-    runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
-    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -65,18 +62,16 @@ java_binary(
     name = "skydoc_bin",
     srcs = ["StarlarkDocumentationGenerator.java"],
     main_class = "com.google.devtools.build.docgen.StarlarkDocumentationGenerator",
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/repository"],
-    deps = [":docgen_javalib"],
+    deps = [
+        ":docgen_javalib",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
 )
 
 java_binary(
     name = "api_exporter",
     srcs = ["ApiExporter.java"],
     main_class = "com.google.devtools.build.docgen.ApiExporter",
-    runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
-        "//src/main/java/net/starlark/java/syntax",
-    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/common/options",

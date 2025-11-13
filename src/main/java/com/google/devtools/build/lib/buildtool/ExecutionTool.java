@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIde
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -106,7 +103,6 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -114,9 +110,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -147,6 +141,8 @@ public class ExecutionTool {
 
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
+
+  @Nullable private ActionCacheChecker actionCacheChecker;
 
   private boolean informedOutputServiceToStartTheBuild = false;
 
@@ -267,8 +263,6 @@ public class ExecutionTool {
     init();
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    boolean localActionsSupported =
-        env.getOutputService().actionFileSystemType().shouldDoTopLevelOutputSetup();
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       IncrementalPackageRoots incrementalPackageRoots =
@@ -281,9 +275,7 @@ public class ExecutionTool {
               skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
-      if (localActionsSupported) {
-        incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
-      }
+      incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       env.getSkyframeBuildView()
           .getArtifactFactory()
@@ -293,7 +285,7 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
-    if (localActionsSupported) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
         createActionLogDirectory(outputService.bulkDeleter());
@@ -311,13 +303,9 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
       skyframeBuilder =
           (SkyframeBuilder)
-              createBuilder(
-                  request,
-                  actionCache,
-                  skyframeExecutor,
-                  modifiedOutputFiles,
-                  outputService.shouldStoreRemoteOutputMetadataInActionCache());
+              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
+    actionCacheChecker = skyframeBuilder.getActionCacheChecker();
 
     skyframeExecutor.drainChangedFiles();
 
@@ -391,7 +379,7 @@ public class ExecutionTool {
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
-    if (outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory(outputService.bulkDeleter());
     }
@@ -409,13 +397,7 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder =
-          createBuilder(
-              request,
-              actionCache,
-              skyframeExecutor,
-              modifiedOutputFiles,
-              outputService.shouldStoreRemoteOutputMetadataInActionCache());
+      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
 
     //
@@ -625,34 +607,30 @@ public class ExecutionTool {
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
-    Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
-        packageRoots.getPackageRootsMap();
-    if (packageRootMap.isPresent()) {
-      // Prepare for build.
-      Profiler.instance().markPhase(ProfilePhase.PREPARE);
+    // Prepare for build.
+    Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
-      // Plant the symlink forest.
-      try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-        SymlinkForest symlinkForest =
-            new SymlinkForest(
-                packageRootMap.get(),
-                getExecRoot(),
-                runtime.getProductName(),
-                request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
-        symlinkForest.plantSymlinkForest();
-      } catch (IOException e) {
-        String message = String.format("Source forest creation failed: %s", e.getMessage());
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(message)
-                    .setSymlinkForest(
-                        FailureDetails.SymlinkForest.newBuilder()
-                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
-                    .build()),
-            e);
+    // Plant the symlink forest.
+    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
+      SymlinkForest symlinkForest =
+          new SymlinkForest(
+              packageRoots.getPackageRootsMap(),
+              getExecRoot(),
+              runtime.getProductName(),
+              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      symlinkForest.plantSymlinkForest();
+    } catch (IOException e) {
+      String message = String.format("Source forest creation failed: %s", e.getMessage());
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setSymlinkForest(
+                      FailureDetails.SymlinkForest.newBuilder()
+                          .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                  .build()),
+          e);
       }
-    }
   }
 
   private static void logDeleteTreeFailure(
@@ -707,26 +685,6 @@ public class ExecutionTool {
           "Couldn't create action output directory",
           Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
-    }
-  }
-
-  /**
-   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
-   * symlink creation.
-   *
-   * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
-   * returned.
-   */
-  @Nullable
-  private static BuildConfigurationValue getConfiguration(
-      SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
-    try {
-      return executor.getConfiguration(reporter, options, /* keepGoing= */ false);
-    } catch (InvalidConfigurationException e) {
-      reporter.handle(
-          Event.warn(
-              "Couldn't get configuration for convenience symlink creation: " + e.getMessage()));
-      return null;
     }
   }
 
@@ -828,7 +786,6 @@ public class ExecutionTool {
           env.getDirectories(),
           getReporter(),
           targetConfigs,
-          options -> getConfiguration(executor, reporter, options),
           productName);
     }
   }
@@ -955,8 +912,7 @@ public class ExecutionTool {
       BuildRequest request,
       @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles,
-      boolean shouldStoreRemoteOutputMetadataInActionCache) {
+      ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
     skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
@@ -964,6 +920,7 @@ public class ExecutionTool {
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
+    OutputService outputService = env.getOutputService();
     return new SkyframeBuilder(
         skyframeExecutor,
         env.getLocalResourceManager(),
@@ -972,10 +929,11 @@ public class ExecutionTool {
             artifactFactory,
             skyframeExecutor.getActionKeyContext(),
             executionFilter,
+            outputService.getProxyMetadataFactory(),
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
-                .setVerboseExplanations(options.verboseExplanations)
-                .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
+                .setStoreOutputMetadata(
+                    outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),
         modifiedOutputFiles,
         env.getFileCache(),
@@ -987,32 +945,18 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    ImmutableMap<String, Double> cpuRam =
-        ImmutableMap.of(
-            ResourceSet.CPU,
-            // Replace with 1.0 * ResourceConverter.HOST_CPUS.get() after flag deprecation
-            options.localCpuResources,
-            ResourceSet.MEMORY,
-            // Replace with 0.67 * ResourceConverter.HOST_RAM.get() after flag deprecation
-            options.localRamResources);
-    ImmutableMap<String, Double> resources =
-        Streams.concat(
-                options.localExtraResources.stream(),
-                cpuRam.entrySet().stream(),
-                options.localResources.stream())
-            .collect(
-                ImmutableMap.toImmutableMap(
-                    Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
-
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            resources, options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+            options.getLocalResources(),
+            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
 
     resourceMgr.initializeCpuLoadFunctionality(
         MachineLoadProvider.instance(),
         options.experimentalCpuLoadScheduling,
         options.experimentalCpuLoadSchedulingWindowSize);
     resourceMgr.scheduleCpuLoadWindowUpdate();
+
+    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
   }
 
   /**
@@ -1027,6 +971,16 @@ public class ExecutionTool {
       Duration duration = actionCache.getLoadTime();
       if (duration != null) {
         builder.setLoadTimeInMs(duration.toMillis());
+      }
+      if (actionCacheChecker != null) {
+        long totalCacheCheckSemaphoreWaitMillis =
+            actionCacheChecker.getTotalCacheCheckSemaphoreWaitMillis();
+        if (totalCacheCheckSemaphoreWaitMillis > 0) {
+          builder.setCacheCheckSemaphoreWaitTimeInMs(totalCacheCheckSemaphoreWaitMillis);
+          logger.atInfo().log(
+              "Total action cache check semaphore wait time: %,d ms",
+              totalCacheCheckSemaphoreWaitMillis);
+        }
       }
 
       AutoProfiler p =

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -35,8 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
-        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcInfoApiT extends CcInfoApi<?>>
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -57,12 +55,7 @@ public interface AppleCommonApi<
               + "<li><code>visionos</code></li>" //
               + "<li><code>watchos</code></li>" //
               + "</ul><p>" //
-              + "These values can be passed to methods that expect a platform type, like the"
-              + " 'apple' configuration fragment's <a"
-              + " href='../fragments/apple.html#multi_arch_platform'>multi_arch_platform</a>"
-              + " method.<p>Example:<p><pre class='language-python'>\n"
-              + "ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)\n"
-              + "</pre>",
+              + "These values can be passed to methods that expect a platform type.",
       structField = true)
   default StructApi getPlatformTypeStruct() {
     throw new UnsupportedOperationException(); // just for docs

@@ -130,8 +130,8 @@ public final class FutureHelpers {
   }
 
   private static SerializationException asSerializationException(Throwable cause) {
-    if (cause instanceof SerializationException) {
-      return new SerializationException(cause);
+    if (cause instanceof SerializationException serializationException) {
+      return serializationException;
     }
     if (cause instanceof IOException) {
       return new SerializationException("serialization I/O error", cause);

@@ -51,22 +51,22 @@ public enum ApplePlatform implements ApplePlatformApi {
   CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64");
+      ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64", "ios_sim_arm64e");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e");
   private static final ImmutableSet<String> VISIONOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("visionos_sim_arm64");
+      ImmutableSet.of("visionos_sim_arm64", "visionos_sim_arm64e");
   private static final ImmutableSet<String> VISIONOS_DEVICE_TARGET_CPUS =
-      ImmutableSet.of("visionos_arm64");
+      ImmutableSet.of("visionos_arm64", "visionos_arm64e");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
+      ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64", "watchos_sim_arm64e");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of(
           "watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e");
   private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64");
+      ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64", "tvos_sim_arm64e");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
-      ImmutableSet.of("tvos_arm64");
+      ImmutableSet.of("tvos_arm64", "tvos_arm64e");
   private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
       ImmutableSet.of("catalyst_x86_64");
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =

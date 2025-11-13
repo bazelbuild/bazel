@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering;
+import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.NULL_TRANSITION_KEYS;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
 import static java.util.Arrays.copyOfRange;
@@ -39,10 +40,13 @@ import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.LoadAspectsValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -88,8 +92,12 @@ final class PrerequisitesProducer
   // -------------------- Output --------------------
   private final ResultSink sink;
 
+  // -------------------- Sequencing --------------------
+  private final StateMachine next;
+
   // -------------------- Internal State --------------------
   private ConfiguredTargetAndData[] configuredTargets;
+  private ImmutableList<Aspect> execAspects = ImmutableList.of();
   private boolean hasError;
 
   PrerequisitesProducer(
@@ -99,7 +107,8 @@ final class PrerequisitesProducer
       AttributeConfiguration configuration,
       ImmutableList<Aspect> propagatingAspects,
       ResultSink sink,
-      boolean useBaseTargetPrerequisitesSupplier) {
+      boolean useBaseTargetPrerequisitesSupplier,
+      StateMachine next) {
     this.parameters = parameters;
     this.label = label;
     this.executionPlatformLabel = executionPlatformLabel;
@@ -107,6 +116,7 @@ final class PrerequisitesProducer
     this.propagatingAspects = propagatingAspects;
     this.sink = sink;
     this.useBaseTargetPrerequisitesSupplier = useBaseTargetPrerequisitesSupplier;
+    this.next = next;
 
     // size > 0 guaranteed by contract of SplitTransition.
     int size = configuration.count();
@@ -211,11 +221,19 @@ final class PrerequisitesProducer
 
     cleanupValues();
 
+    if (parameters.loadExecAspectsKey() != null) {
+      tasks.lookUp(parameters.loadExecAspectsKey(), (Consumer<SkyValue>) this::acceptExecAspects);
+    }
+    return this::maybeFilterAspects;
+  }
+
+  private StateMachine maybeFilterAspects(Tasks tasks) throws InterruptedException {
     AspectCollection aspects;
     try {
       // All configured targets in the set have the same underlying target so using an arbitrary one
       // for aspect filtering is safe.
-      var filteredAspects = filterAspectsBasedOnTarget(propagatingAspects, configuredTargets[0]);
+      var filteredAspects =
+          filterAspectsBasedOnTarget(propagatingAspects, execAspects, configuredTargets[0]);
       if (filteredAspects.isEmpty()) {
         aspects = AspectCollection.EMPTY;
       } else {
@@ -249,7 +267,7 @@ final class PrerequisitesProducer
 
     if (aspects.isEmpty()) { // Short circuits if there are no aspects.
       sink.acceptPrerequisitesValue(configuredTargets);
-      return DONE;
+      return next;
     }
 
     for (int i = 0; i < configuredTargets.length; ++i) {
@@ -267,7 +285,9 @@ final class PrerequisitesProducer
   }
 
   private static ImmutableList<Aspect> filterAspectsBasedOnTarget(
-      ImmutableList<Aspect> propagatingAspects, ConfiguredTargetAndData prerequisite) {
+      ImmutableList<Aspect> propagatingAspects,
+      ImmutableList<Aspect> execAspects,
+      ConfiguredTargetAndData prerequisite) {
     if (prerequisite.isTargetOutputFile()) {
       return propagatingAspects.stream()
           .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
@@ -276,6 +296,10 @@ final class PrerequisitesProducer
 
     if (!prerequisite.isTargetRule()) {
       return ImmutableList.of();
+    }
+
+    if (prerequisite.getConfiguration().isExecConfiguration()) {
+      return ImmutableList.<Aspect>builder().addAll(propagatingAspects).addAll(execAspects).build();
     }
 
     return propagatingAspects;
@@ -308,11 +332,19 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesAspectError(error);
   }
 
+  public void acceptExecAspects(SkyValue execAspects) {
+    if (execAspects instanceof LoadAspectsValue loadAspectsValue) {
+      this.execAspects = loadAspectsValue.getAspects();
+    }
+  }
+
   private StateMachine emitMergedTargets(Tasks tasks) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
+      return next;
+    } else {
+      return DONE;
     }
-    return DONE;
   }
 
   private ConfiguredTargetKey getPrerequisiteKey(@Nullable BuildConfigurationKey configurationKey) {

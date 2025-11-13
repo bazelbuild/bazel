@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
@@ -54,16 +55,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.UUID;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for package loading. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class PackageLoadingTest extends FoundationTestCase {
 
   private SkyframeExecutor skyframeExecutor;
@@ -198,7 +200,10 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private void createPkg1() throws IOException {
-    scratch.file("pkg1/BUILD", "cc_library(name = 'foo') # a BUILD file");
+    scratch.file(
+        "pkg1/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo') # a BUILD file");
   }
 
   // Check that a substring is present in an error message.
@@ -227,15 +232,81 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   @Test
   public void testGetNonexistentPackage() {
-    checkGetPackageFails("not-there", "no such package 'not-there': " + "BUILD file not found");
+    checkGetPackageFails("not-there", "no such package 'not-there': BUILD file not found");
   }
 
   @Test
   public void testGetPackageWithInvalidName() throws Exception {
-    scratch.file("invalidpackagename:42/BUILD", "cc_library(name = 'foo') # a BUILD file");
+    scratch.file(
+        "invalidpackagename:42/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo') # a BUILD file");
     checkGetPackageFails(
         "invalidpackagename:42",
         "no such package 'invalidpackagename:42': Invalid package name 'invalidpackagename:42'");
+  }
+
+  @Test
+  public void getBuildFile_basicFunctionality(@TestParameter boolean lazyMacroExpansion)
+      throws Exception {
+    if (lazyMacroExpansion) {
+      setOptions("--experimental_lazy_macro_expansion_packages=*");
+    }
+    createPkg1();
+    InputFile buildFile = getPackage("pkg1").getBuildFile();
+    assertThat(buildFile.getLabel().getName()).isEqualTo("BUILD");
+    assertThat(
+            getPackageManager().getBuildFile(reporter, PackageIdentifier.createInMainRepo("pkg1")))
+        .isSameInstanceAs(buildFile);
+    if (lazyMacroExpansion) {
+      assertThat(buildFile.getPackageoid()).isInstanceOf(PackagePiece.ForBuildFile.class);
+    } else {
+      assertThat(buildFile.getPackageoid()).isInstanceOf(Package.class);
+    }
+  }
+
+  @Test
+  public void getBuildFile_onNonexistentPackage_failsCleanly(
+      @TestParameter boolean lazyMacroExpansion) throws Exception {
+    if (lazyMacroExpansion) {
+      setOptions("--experimental_lazy_macro_expansion_packages=*");
+    }
+    NoSuchPackageException e =
+        assertThrows(NoSuchPackageException.class, () -> getPackage("not-there"));
+    assertThat(e).hasMessageThat().contains("no such package 'not-there': BUILD file not found");
+  }
+
+  @Test
+  public void getBuildFile_doesNotExpandMacrosInLazyMacroExpansionMode(
+      @TestParameter boolean lazyMacroExpansion) throws Exception {
+    if (lazyMacroExpansion) {
+      setOptions("--experimental_lazy_macro_expansion_packages=*");
+    }
+    scratch.file(
+        "pkg1/BUILD",
+        """
+        load(":bad_macro.bzl", "bad_macro")
+        bad_macro(name = "foo")
+        """);
+    scratch.file(
+        "pkg1/bad_macro.bzl",
+        """
+        def _impl(name, visibility):
+            fail("bad_macro is broken")
+
+        bad_macro = macro(implementation = _impl)
+        """);
+    reporter.removeHandler(failFastHandler);
+    InputFile buildFile =
+        getPackageManager().getBuildFile(reporter, PackageIdentifier.createInMainRepo("pkg1"));
+    if (lazyMacroExpansion) {
+      // In lazy mode, getBuildFile() doesn't expand bad_macro and doesn't encounter the fail().
+      assertThat(buildFile.getPackageoid().containsErrors()).isFalse();
+      assertNoEvents();
+    } else {
+      assertThat(buildFile.getPackageoid().containsErrors()).isTrue();
+      assertContainsEvent("bad_macro is broken");
+    }
   }
 
   @Test
@@ -322,14 +393,22 @@ public class PackageLoadingTest extends FoundationTestCase {
     // PackageLoader doesn't support --package_path.
     initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
 
-    Path buildFile1 = scratch.file("pkg/BUILD", "cc_library(name = 'foo')");
-    Path buildFile2 = scratch.file("/otherroot/pkg/BUILD", "cc_library(name = 'bar')");
+    Path buildFile1 =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'foo')");
+    Path buildFile2 =
+        scratch.file(
+            "/otherroot/pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'bar')");
     setOptions("--package_path=/workspace:/otherroot");
 
     Package oldPkg = getPackage("pkg");
     assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
     assertThat(oldPkg.getFilename().asPath()).isEqualTo(buildFile1);
-    assertThat(oldPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(rootDirectory));
+    assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
 
     buildFile1.delete();
     invalidatePackages();
@@ -337,7 +416,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     Package newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameInstanceAs(oldPkg);
     assertThat(newPkg.getFilename().asPath()).isEqualTo(buildFile2);
-    assertThat(newPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
+    assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 
     // TODO(bazel-team): (2009) test BUILD file moves in the other direction too.
   }
@@ -486,7 +565,10 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testAddedBuildFileCausesLabelToBecomeInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("pkg/BUILD", "cc_library(name = 'foo', srcs = ['x/y.cc'])");
+    scratch.file(
+        "pkg/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo', srcs = ['x/y.cc'])");
 
     assertLabelValidity(true, "//pkg:x/y.cc");
 
@@ -575,9 +657,10 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "peach/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         package(features = ["crosstool_default_false"])
 
-        cc_library(
+        foo_library(
             name = "cc",
             srcs = ["cc.cc"],
         )

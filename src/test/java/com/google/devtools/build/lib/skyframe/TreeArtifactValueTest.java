@@ -57,7 +57,7 @@ public final class TreeArtifactValueTest {
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
       ArtifactRoot.asDerivedRoot(
-          scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
+          scratch.resolve("root"), RootType.OUTPUT, PathFragment.create("bin"));
 
   record VisitTreeArgs(
       PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
@@ -617,6 +617,17 @@ public final class TreeArtifactValueTest {
     TreeArtifactValue.newMultiBuilder().forEach(results::put);
 
     assertThat(results).isEmpty();
+  }
+
+  @Test
+  public void multiBuilder_injectsEmptyTreeArtifact() {
+    TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+
+    treeArtifacts.addTree(parent).forEach(results::put);
+
+    assertThat(results).containsExactly(parent, TreeArtifactValue.empty());
   }
 
   @Test

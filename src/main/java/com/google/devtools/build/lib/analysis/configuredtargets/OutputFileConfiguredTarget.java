@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -72,6 +73,12 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   public boolean isCreatedInSymbolicMacro() {
     return generatingRule.isCreatedInSymbolicMacro();
+  }
+
+  @Nullable
+  @Override
+  protected TransitiveVisibilityProvider createTransitiveVisibilityProvider() {
+    return generatingRule.getProvider(TransitiveVisibilityProvider.class);
   }
 
   @Override

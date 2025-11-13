@@ -31,18 +31,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PlatformUtils } */
 @RunWith(JUnit4.class)
 public final class PlatformUtilsTest {
-  private static String platformOptionsString() {
-    return String.join(
-        "\n",
-        "properties: {",
-        " name: \"b\"",
-        " value: \"2\"",
-        "}",
-        "properties: {",
-        " name: \"a\"",
-        " value: \"1\"",
-        "}");
-  }
 
   private static RemoteOptions remoteOptions() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -50,19 +38,6 @@ public final class PlatformUtilsTest {
         ImmutableList.of(
             new AbstractMap.SimpleEntry<>("b", "2"), new AbstractMap.SimpleEntry<>("a", "1"));
     return remoteOptions;
-  }
-
-  @Test
-  public void testParsePlatformLegacyOptions() throws Exception {
-    Platform expected =
-        Platform.newBuilder()
-            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
-            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
-            .build();
-    PlatformInfo platform =
-        PlatformInfo.builder().setRemoteExecutionProperties(platformOptionsString()).build();
-    Spawn s = new SpawnBuilder("dummy").withPlatform(platform).build();
-    assertThat(PlatformUtils.getPlatformProto(s, null)).isEqualTo(expected);
   }
 
   @Test

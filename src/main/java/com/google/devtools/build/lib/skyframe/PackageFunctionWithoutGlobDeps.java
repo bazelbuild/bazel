@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.concurrent.Semaphore;
@@ -65,8 +66,8 @@ final class PackageFunctionWithoutGlobDeps extends PackageFunction {
   }
 
   private static final class LoadedPackageWithoutDeps extends LoadedPackage {
-    LoadedPackageWithoutDeps(Package.Builder builder, long loadTimeNanos) {
-      super(builder, loadTimeNanos);
+    LoadedPackageWithoutDeps(Package.AbstractBuilder builder, Metrics metrics) {
+      super(builder, metrics);
     }
   }
 
@@ -91,7 +92,7 @@ final class PackageFunctionWithoutGlobDeps extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
-    return new LoadedPackageWithoutDeps(packageBuilder, loadTimeNanos);
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, Metrics metrics) {
+    return new LoadedPackageWithoutDeps(packageBuilder, metrics);
   }
 }

@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,7 +28,9 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import net.starlark.java.eval.EvalException;
 
 /** Command-line options for repositories. */
@@ -40,11 +44,57 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Specifies the cache location of the downloaded values obtained "
-              + "during the fetching of external repositories. An empty string "
-              + "as argument requests the cache to be disabled, "
-              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
-  public PathFragment experimentalRepositoryCache;
+          """
+          Specifies the cache location of the downloaded values obtained
+          during the fetching of external repositories. An empty string
+          as argument requests the cache to be disabled,
+          otherwise the default of `{--output_user_root}/cache/repos/v1` is used.
+          """)
+  public PathFragment repositoryCache;
+
+  @Option(
+      name = "repo_contents_cache",
+      oldName = "repository_contents_cache",
+      oldNameWarning = false,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          """
+          Specifies the location of the repo contents cache, which contains fetched repo
+          directories shareable across workspaces. An empty string as argument requests the repo
+          contents cache to be disabled, otherwise the default of `{--repository_cache}/contents`
+          is used. Note that this means setting `--repository_cache=` would by default disable the
+          repo contents cache as well, unless `--repo_contents_cache={some_path}` is also set.
+          """)
+  public PathFragment repoContentsCache;
+
+  @Option(
+      name = "repo_contents_cache_gc_max_age",
+      defaultValue = "14d",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time an entry in the repo contents cache can stay unused before
+          it's garbage collected. If set to zero, only duplicate entries will be garbage collected.
+          """)
+  public Duration repoContentsCacheGcMaxAge;
+
+  @Option(
+      name = "repo_contents_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time the server must remain idle before garbage collection happens
+          to the repo contents cache.
+          """)
+  public Duration repoContentsCacheGcIdleDelay;
 
   @Option(
       name = "registry",
@@ -59,19 +109,46 @@ public class RepositoryOptions extends OptionsBase {
   public List<String> registries;
 
   @Option(
+      name = "module_mirrors",
+      defaultValue = "null",
+      converter = Converters.StringToStringListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          Specifies URLs under which the source URLs of Bazel modules can be found, in addition
+          to and taking precedence over any registry-provided mirror URLs. This flag can be
+          specified per-registry using the syntax
+          `--module_mirrors=<registry>=<mirror1>[,<mirror2>,...]` (e.g.,
+          `--module_mirrors=https://bcr.bazel.build=https://mirror.example.com`). It can also
+          be specified as a comma-separated list of mirror URLs that applies to all registries that
+          don't have an explicit list (e.g., `--module_mirrors=https://mirror1,https://mirror2`).
+          Set this to an empty value to disable the use of any mirrors not specified by the
+          registries. Later uses of this flag override earlier ones with the same (or no) registry.
+          The default set of mirrors may change over time, but all downloads from mirrors are
+          verified by hashes stored in the registry (and thus pinned by the lockfile).
+          """)
+  public List<Map.Entry<String, List<String>>> moduleMirrors;
+
+  @Option(
       name = "allow_yanked_versions",
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
-          "Specified the module versions in the form of"
-              + " `<module1>@<version1>,<module2>@<version2>` that will be allowed in the resolved"
-              + " dependency graph even if they are declared yanked in the registry where they come"
-              + " from (if they are not coming from a NonRegistryOverride). Otherwise, yanked"
-              + " versions will cause the resolution to fail. You can also define allowed yanked"
-              + " version with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can"
-              + " disable this check by using the keyword 'all' (not recommended).")
+          """
+          Specified the module versions in the form of
+          `{module1}@{version1},module2@{version2}` that will be allowed in the resolved
+          dependency graph even if they are declared yanked in the registry where they come
+          from (if they are not coming from a [`NonRegistryOverride`]).
+          Otherwise, yanked versions will cause the resolution to fail. You can also define allowed
+          yanked versions with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can
+          disable this check by using the keyword `all` (not recommended).
+
+          [`NonRegistryOverride`]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/bzlmod/NonRegistryOverride.java
+          """)
   public List<String> allowedYankedVersions;
 
   @Option(
@@ -91,21 +168,12 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If set, downloading using ctx.download{,_and_extract} is not allowed during repository"
-              + " fetching. Note that network access is not completely disabled; ctx.execute could"
-              + " still run an arbitrary executable that accesses the Internet.")
+          """
+          If set, downloading using `ctx.download{,_and_extract}` is not allowed during repository
+          fetching. Note that network access is not completely disabled; ctx.execute could
+          still run an arbitrary executable that accesses the Internet.
+          """)
   public boolean disableDownload;
-
-  @Option(
-      name = "incompatible_disable_native_repo_rules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
-              + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, and android_sdk_repository.")
-  public boolean disableNativeRepoRules;
 
   @Option(
       name = "experimental_repository_downloader_retries",
@@ -139,12 +207,14 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Override a repository with a local path in the form of <repository name>=<path>. If the"
-              + " given path is an absolute path, it will be used as it is. If the given path is a"
-              + " relative path, it is relative to the current working directory. If the given path"
-              + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`. If the given path is empty, then remove any"
-              + " previous overrides.")
+          """
+          Override a repository with a local path in the form of `{repository name}={path}`. If the
+          given path is an absolute path, it will be used as it is. If the given path is a
+          relative path, it is relative to the current working directory. If the given path
+          starts with `%workspace%`, it is relative to the workspace root, which is the
+          output of `bazel info workspace`. If the given path is empty, then remove any
+          previous overrides.
+          """)
   public List<RepositoryOverride> repositoryOverrides;
 
   @Option(
@@ -155,14 +225,16 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Adds a new repository with a local path in the form of <repository name>=<path>. This"
-              + " only takes effect with --enable_bzlmod and is equivalent to adding a"
-              + " corresponding `local_repository` to the root module's MODULE.bazel file via"
-              + " `use_repo_rule`. If the given path is an absolute path, it will be used as it is."
-              + " If the given path is a relative path, it is relative to the current working"
-              + " directory. If the given path starts with '%workspace%', it is relative to the"
-              + " workspace root, which is the output of `bazel info workspace`. If the given path"
-              + " is empty, then remove any previous injections.")
+          """
+          Adds a new repository with a local path in the form of `{repository name}={path}`. This
+          only takes effect with `--enable_bzlmod` and is equivalent to adding a
+          corresponding `local_repository` to the root module's `MODULE.bazel` file via
+          `use_repo_rule`. If the given path is an absolute path, it will be used as it is.
+          If the given path is a relative path, it is relative to the current working
+          directory. If the given path starts with `%workspace%`, it is relative to the
+          workspace root, which is the output of `bazel info workspace`. If the given path
+          is empty, then remove any previous injections.
+          """)
   public List<RepositoryInjection> repositoryInjections;
 
   @Option(
@@ -173,12 +245,14 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Override a module with a local path in the form of <module name>=<path>. If the given"
-              + " path is an absolute path, it will be used as it is. If the given path is a"
-              + " relative path, it is relative to the current working directory. If the given path"
-              + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`. If the given path is empty, then remove any"
-              + " previous overrides.")
+          """
+          Override a module with a local path in the form of `{module name}={path}`. If the given
+          path is an absolute path, it will be used as it is. If the given path is a
+          relative path, it is relative to the current working directory. If the given path
+          starts with `%workspace%`, it is relative to the workspace root, which is the
+          output of `bazel info workspace`. If the given path is empty, then remove any
+          previous overrides.
+          """)
   public List<ModuleOverride> moduleOverrides;
 
   @Option(
@@ -193,14 +267,6 @@ public class RepositoryOptions extends OptionsBase {
               + " that are slower than the rule author expected, without changing the"
               + " source code")
   public double experimentalScaleTimeouts;
-
-  @Option(
-      name = "experimental_resolved_file_instead_of_workspace",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
-  public String experimentalResolvedFileInsteadOfWorkspace;
 
   @Option(
       name = "downloader_config",
@@ -218,42 +284,18 @@ public class RepositoryOptions extends OptionsBase {
               + "given, and in this case multiple URLs will be returned.")
   public PathFragment downloaderConfig;
 
-  /** See {@link #workerForRepoFetching}. */
-  public enum WorkerForRepoFetching {
-    OFF,
-    PLATFORM,
-    VIRTUAL,
-    AUTO;
-
-    static class Converter extends EnumConverter<WorkerForRepoFetching> {
-      public Converter() {
-        super(WorkerForRepoFetching.class, "worker for repo fetching");
-      }
-    }
-  }
-
-  @Option(
-      name = "experimental_worker_for_repo_fetching",
-      defaultValue = "auto",
-      converter = WorkerForRepoFetching.Converter.class,
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
-              + " and the repo fetching is subject to restarts. Otherwise, uses a virtual worker"
-              + " thread.")
-  public WorkerForRepoFetching workerForRepoFetching;
-
   @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
-          "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
-              + "the MODULE.bazel of the root module. Note that, those dev dependencies are always "
-              + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
-              + "of this flag.")
+          """
+          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
+          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
+          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
+          of this flag.
+          """)
   public boolean ignoreDevDependency;
 
   @Option(

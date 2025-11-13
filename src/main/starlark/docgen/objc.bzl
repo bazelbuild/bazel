@@ -11,15 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Objective-C"""
-# Build Encyclopedia entry point for Objc rules implemented in Starlark in Blaze's @_builtins
+
+load("@cc_compatibility_proxy//:proxy.bzl", "objc_import", "objc_library")
+
+# Build Encyclopedia entry point for Objc rules implemented in Starlark
 
 binary_rules = struct()
 
 library_rules = struct(
-    objc_library = native.objc_library,
-    objc_import = native.objc_import,
+    objc_library = objc_library,
+    objc_import = objc_import,
 )
 
 test_rules = struct()

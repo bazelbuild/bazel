@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -46,20 +48,24 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static PlatformKey key(Label platformLabel) {
-    return PlatformKey.intern(new PlatformKey(platformLabel));
+  public static Key key(Label platformLabel, List<Map.Entry<String, String>> flagAliasMappings) {
+    return Key.create(platformLabel, flagAliasMappings);
   }
 
-  private static final class PlatformKey extends AbstractSkyKey<Label> {
-    private static final SkyKeyInterner<PlatformKey> interner = new SkyKeyInterner<>();
+  /**
+   * Key definition.
+   *
+   * @param label The platform label.
+   * @param flagAliasMappings {@code --flag_alias} maps that apply to this build.
+   */
+  @AutoCodec
+  public record Key(Label label, List<Map.Entry<String, String>> flagAliasMappings)
+      implements SkyKey {
+    private static final SkyKeyInterner<Key> interner = new SkyKeyInterner<>();
 
-    @AutoCodec.Interner
-    static PlatformKey intern(PlatformKey key) {
-      return interner.intern(key);
-    }
-
-    private PlatformKey(Label arg) {
-      super(arg);
+    @AutoCodec.Instantiator
+    static Key create(Label label, List<Map.Entry<String, String>> flagAliasMappings) {
+      return interner.intern(new Key(label, flagAliasMappings));
     }
 
     @Override
@@ -68,7 +74,7 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     }
 
     @Override
-    public SkyKeyInterner<PlatformKey> getSkyKeyInterner() {
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
       return interner;
     }
   }

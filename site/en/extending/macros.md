@@ -56,7 +56,7 @@ my_macro = macro(
 Attribute type declarations accept the
 [parameters](https://bazel.build/rules/lib/toplevel/attr#parameters),
 `mandatory`, `default`, and `doc`. Most attribute types also accept the
-`configurable` parameter, which determines wheher the attribute accepts
+`configurable` parameter, which determines whether the attribute accepts
 `select`s. If an attribute is `configurable`, it will parse non-`select` values
 as an unconfigurable `select` – `"foo"` will become
 `select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
@@ -101,7 +101,7 @@ make sure to handle the `None` case in your macro's implementation function:
 
 ```starlark
 # macro/macro.bzl
-_my_macro_implementation(name, visibility, tags, **kwargs):
+def _my_macro_impl(name, visibility, tags, **kwargs):
     # Append a tag; tags attr is an inherited non-mandatory attribute, and
     # therefore is None unless explicitly set by the caller of our macro.
     my_tags = (tags or []) + ["another_tag"]

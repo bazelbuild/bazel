@@ -16,6 +16,9 @@ java_test(
     name = "AllTests",
     size = "medium",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 10,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -28,6 +31,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

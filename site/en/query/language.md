@@ -158,9 +158,13 @@ aspects of it, for example:
 
 Build dependency graphs should be acyclic.
 
-The algorithms used by the query language are intended for use in
-acyclic graphs, but are robust against cycles. The details of how
-cycles are treated are not specified and should not be relied upon.
+The algorithms used by the query language are robust against cycles, and will
+not report cycles as errors.
+
+Note that the post-loading phase unconfigured target graph that `bazel query`
+operates over may contain cycles that do not exist in the configured target
+graph. Cycles in the configured target graph are detected and reported as errors
+by [`bazel cquery`](/query/cquery) and [`bazel aquery`](/query/aquery).
 
 ### Implicit dependencies {:#implicit-dependencies}
 
@@ -507,6 +511,7 @@ functions are available:
 * [`buildfiles`](#buildfiles)
 * [`rbuildfiles`](#rbuildfiles)
 * [`deps`](#deps)
+* [`executables`](#executables)
 * [`filter`](#filter)
 * [`kind`](#kind)
 * [`labels`](#labels)
@@ -1025,6 +1030,20 @@ individual tests that would be executed by `bazel test
 foo:*`: this may include tests belonging to other packages,
 that are referenced directly or indirectly
 via `test_suite` rules.
+
+### Executable targets: executables {:#executables}
+
+```
+expr ::= executables({{ '<var>' }}expr{{ '</var>' }})
+```
+
+The `executables({{ '<var>' }}x{{ '</var>' }})` operator returns the set of all
+executable targets in set {{ '<var>' }}x{{ '</var>' }}. These targets
+are of rule types that can be run with `bazel run`, such as `cc_binary`,
+or any other rule that sets `executable = True` in its definition.
+
+This doesn't include test targets, which can be added to the result with
+the [`tests`](#tests) operator.
 
 ### Package definition files: buildfiles {:#buildfiles}
 

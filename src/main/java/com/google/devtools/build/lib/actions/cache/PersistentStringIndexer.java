@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static java.lang.Math.max;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -169,23 +170,20 @@ final class PersistentStringIndexer implements StringIndexer {
     }
   }
 
-  @Override
-  public String toString() {
+  public void dump(PrintStream out) {
     lock.lock();
     try {
-      StringBuilder builder = new StringBuilder();
-      builder.append("size = ").append(size()).append("\n");
-      for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
-        builder.append(entry.getKey()).append(" <==> ").append(entry.getValue()).append("\n");
+      out.format("String indexer (%d records):\n", size());
+      for (int i = 0; i < size(); i++) {
+        out.format("  %s <=> %s\n", i, getStringForIndex(i));
       }
-      return builder.toString();
     } finally {
       lock.unlock();
     }
   }
 
   private static final MapCodec<String, Integer> CODEC =
-      new MapCodec<String, Integer>() {
+      new MapCodec<>() {
         @Override
         protected String readKey(DataInput in) throws IOException {
           int length = in.readInt();
@@ -194,7 +192,7 @@ final class PersistentStringIndexer implements StringIndexer {
           }
           byte[] content = new byte[length];
           in.readFully(content);
-          return new String(content, UTF_8);
+          return StringUnsafe.newInstance(content, StringUnsafe.LATIN1);
         }
 
         @Override
@@ -204,7 +202,7 @@ final class PersistentStringIndexer implements StringIndexer {
 
         @Override
         protected void writeKey(String key, DataOutput out) throws IOException {
-          byte[] content = key.getBytes(UTF_8);
+          byte[] content = StringUnsafe.getInternalStringBytes(key);
           out.writeInt(content.length);
           out.write(content);
         }
@@ -220,7 +218,7 @@ final class PersistentStringIndexer implements StringIndexer {
    * metadata cache.
    */
   private static final class PersistentIndexMap extends PersistentMap<String, Integer> {
-    private static final int VERSION = 0x01;
+    private static final int VERSION = 0x02;
     private static final long SAVE_INTERVAL_NS = 3L * 1000 * 1000 * 1000;
 
     private final Clock clock;

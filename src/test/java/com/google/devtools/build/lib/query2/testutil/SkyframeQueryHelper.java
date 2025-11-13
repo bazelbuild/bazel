@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
@@ -89,6 +90,8 @@ import java.util.UUID;
 
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
+  private static final String FAKE_INSTALL_MD5_STRING = "abcedf1234567890abcedf1234567890";
+
   protected SkyframeExecutor skyframeExecutor;
   protected FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
@@ -105,6 +108,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
+  private LazyMacroExpansionPackages lazyMacroExpansionPackages = LazyMacroExpansionPackages.NONE;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredSubdirectoriesFile = PathFragment.create(".bazelignore");
@@ -124,7 +128,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 outputBase,
                 outputBase.getRelative(ServerDirectories.EXECROOT),
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
-                /* installMD5= */ null),
+                FAKE_INSTALL_MD5_STRING),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
@@ -324,6 +328,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
+    packageOptions.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
@@ -356,7 +361,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
-          /* commandName= */ "query");
+          /* commandName= */ "query",
+          /* commandExecutes= */ false);
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }
@@ -371,6 +377,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   public void setSyscallCache(SyscallCache syscallCache) {
     this.delegatingSyscallCache.setDelegate(syscallCache);
+  }
+
+  public void setLazyMacroExpansionPackages(LazyMacroExpansionPackages lazyMacroExpansionPackages) {
+    this.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
   }
 
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {

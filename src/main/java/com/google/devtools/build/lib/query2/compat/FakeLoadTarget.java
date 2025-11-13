@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -33,10 +34,20 @@ public class FakeLoadTarget implements Target {
   private final Label label;
   private final Packageoid pkg;
 
-  public FakeLoadTarget(Label label, Packageoid pkg) {
+  /**
+   * @param packageoidOfBuildFile the {@link Packageoid} owning the package's BUILD file: in other
+   *     words, either a monolithic {@link Package} (under eager symbolic macro expansion), or a
+   *     {@link PackagePiece.ForBuildFile} (under lazy symbolic macro expansion).
+   */
+  public FakeLoadTarget(Label label, Packageoid packageoidOfBuildFile) {
     this.label = Preconditions.checkNotNull(label);
-    // Fake load targets should be in the same package piece as the package's BUILD file.
-    this.pkg = Preconditions.checkNotNull(pkg).getDeclarations().getBuildFile().getPackageoid();
+    Preconditions.checkNotNull(packageoidOfBuildFile);
+    Preconditions.checkArgument(
+        (packageoidOfBuildFile instanceof Package pkg && pkg.getBuildFile().getPackageoid() == pkg)
+            || packageoidOfBuildFile instanceof PackagePiece.ForBuildFile,
+        "%s must be either a monolithic package or a top-level package piece",
+        packageoidOfBuildFile);
+    this.pkg = packageoidOfBuildFile;
   }
 
   @Override
@@ -76,7 +87,7 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return getPackageDeclarations().getBuildFile().getLocation();
+    return getPackageMetadata().getBuildFileLocation();
   }
 
   @Override
