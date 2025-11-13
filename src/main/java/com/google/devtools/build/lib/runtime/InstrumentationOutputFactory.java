@@ -145,7 +145,7 @@ public final class InstrumentationOutputFactory {
             .setName(name)
             .setDestination(destination)
             .setDestinationRelatedToType(destinationRelativeTo)
-            .setOptions(env.getOptions())
+            .setCommandEnvironment(env)
             .setCreateParent(createParent)
             .build();
       }
