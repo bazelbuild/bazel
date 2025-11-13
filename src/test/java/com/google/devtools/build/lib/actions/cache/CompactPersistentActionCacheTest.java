@@ -766,12 +766,12 @@ public class CompactPersistentActionCacheTest {
 
   private static ActionCache.Entry.Builder builder(String actionKey, boolean discoversInputs) {
     return new ActionCache.Entry.Builder(
-            actionKey,
-            discoversInputs,
-            /* clientEnv= */ ImmutableMap.of(),
-            /* execProperties= */ ImmutableMap.of(),
-            OutputPermissions.READONLY,
-            /* useArchivedTreeArtifacts= */ false)
-        .setMandatoryInputsDigest(discoversInputs ? new byte[DigestUtils.ESTIMATED_SIZE] : null);
+        actionKey,
+        discoversInputs,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* execProperties= */ ImmutableMap.of(),
+        OutputPermissions.READONLY,
+        /* useArchivedTreeArtifacts= */ false,
+        discoversInputs ? new byte[DigestUtils.ESTIMATED_SIZE] : null);
   }
 }

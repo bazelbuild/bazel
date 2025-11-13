@@ -311,6 +311,8 @@ public interface ActionCache {
        * @param discoversInputs whether the action discovers inputs.
        * @param outputPermissions the requested output permissions.
        * @param useArchivedTreeArtifacts whether archived tree artifacts are enabled.
+       * @param mandatoryInputsDigest the digest of the mandatory inputs, or null if the action
+       *     doesn't discover inputs.
        */
       public Builder(
           String actionKey,
@@ -318,13 +320,18 @@ public interface ActionCache {
           ImmutableMap<String, String> clientEnv,
           ImmutableMap<String, String> execProperties,
           OutputPermissions outputPermissions,
-          boolean useArchivedTreeArtifacts) {
+          boolean useArchivedTreeArtifacts,
+          @Nullable byte[] mandatoryInputsDigest) {
         this.actionKey = actionKey;
         this.clientEnv = clientEnv;
         this.execProperties = execProperties;
         this.discoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
         this.outputPermissions = outputPermissions;
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
+        checkArgument(
+            (mandatoryInputsDigest != null) == discoversInputs,
+            "mandatoryInputsDigest must be set iff the action discovers inputs");
+        this.mandatoryInputsDigest = mandatoryInputsDigest;
       }
 
       /** Adds metadata of an input file. */
@@ -398,17 +405,7 @@ public interface ActionCache {
         return this;
       }
 
-      /** Sets the mandatory inputs digest for actions that discover inputs. */
-      @CanIgnoreReturnValue
-      public Builder setMandatoryInputsDigest(@Nullable byte[] mandatoryInputsDigest) {
-        this.mandatoryInputsDigest = mandatoryInputsDigest;
-        return this;
-      }
-
       public Entry build() {
-        checkState(
-            (mandatoryInputsDigest == null) == (discoveredInputPaths == null),
-            "mandatoryInputsDigest must be set iff the action discovers inputs");
         return new Entry(
             computeDigest(
                 actionKey,
