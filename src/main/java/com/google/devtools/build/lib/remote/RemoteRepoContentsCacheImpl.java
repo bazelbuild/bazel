@@ -198,10 +198,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   @Override
   public boolean lookupCache(
+      SkyFunction.Environment env,
       RepositoryName repoName,
       Path repoDir,
-      String predeclaredInputHash,
-      ExtendedEventHandler reporter)
+      String predeclaredInputHash)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return false;
@@ -226,7 +226,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (actionResult.getExitCode() != 0
         || actionResult.getOutputFilesCount() != 1
         || actionResult.getOutputDirectoriesCount() != 1) {
-      reporter.handle(
+      env.getListener().handle(
           Event.warn(
               String.format(
                   "Unexpected action result for cached repo %s: exit code %d, %d output files, %d"
@@ -256,31 +256,19 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
             directExecutor());
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
+
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
-    Tree repoDirectoryContent = repoDirectoryContentFuture.resultNow();
-    var markerFileLines =
-        Splitter.on('\n')
-            .splitToStream(markerFileContent)
-            .filter(line -> !line.isEmpty())
-            .collect(toImmutableList());
-    if (markerFileLines.size() > 1) {
-      reporter.handle(
-          Event.warn(
-              "Marker file for repo %s has extra lines, skipping:\n%s"
-                  .formatted(
-                      repoName,
-                      String.join("\n", markerFileLines.subList(1, markerFileLines.size())))));
+    var maybeRecordedInputs =
+        DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
+    if (maybeRecordedInputs.isEmpty()) {
       return false;
     }
-    if (!markerFileLines.getFirst().equals(predeclaredInputHash)) {
-      reporter.handle(
-          Event.warn(
-              "Predeclared input hash mismatch for repo %s: expected %s, got %s"
-                  .formatted(repoName, predeclaredInputHash, markerFileLines.getFirst())));
+    var outdatedReason = RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
+    if (env.valuesMissing() || outdatedReason.isPresent()) {
       return false;
     }
 
-    remoteFs.injectRemoteRepo(repoName, repoDirectoryContent, markerFileContent);
+    remoteFs.injectRemoteRepo(repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
     return true;
   }
 
@@ -384,11 +372,17 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     record Invalid(String reason) implements CacheEntry {}
   }
 
-  private CacheEntry followActionResultChain(
+  private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
-      RepositoryName repoName,
-      String inputHash)
+      String predeclaredInputHash)
+      throws IOException, InterruptedException {
+    var nextHashes = new ArrayList<>
+  }
+
+  @Nullable
+  private CacheEntry fetchCacheEntry(
+      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
       throws IOException, InterruptedException {
     var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result is
@@ -405,12 +399,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (actionResult.getExitCode() != 0) {
       return new CacheEntry.Invalid(
           "Unexpected exit code in action result for cached repo %s:\n%s"
-              .formatted(repoName, actionResult));
+              .formatted(context.getRequestMetadata().getActionId(), actionResult));
     }
     if (actionResult.getOutputFilesCount() == 1
         && actionResult.getOutputDirectoriesCount() == 1
         && actionResult.getOutputSymlinksCount() == 0) {
-      // This is the final action result that contains the repo contents.
       return new CacheEntry.Final(
           actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0));
     }
@@ -420,13 +413,16 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
       return new CacheEntry.Invalid(
           "Unexpected intermediate action result for cached repo %s:\n%s"
-              .formatted(repoName, actionResult));
+              .formatted(context.getRequestMetadata().getActionId(), actionResult));
     }
     var stdoutFuture = fetchStdout(context, actionResult);
     waitForBulkTransfer(ImmutableList.of(stdoutFuture));
     var nextInputs =
         stdoutFuture.resultNow().lines().map(RepoRecordedInput::parse).collect(toImmutableSet());
     RepoRecordedInput.prefetch(env, directories, nextInputs);
+    if (env.valuesMissing()) {
+      return null;
+    }
     var nextHashes = ImmutableList.<String>builder();
     for (var input : nextInputs) {
       var value = input.getValue(env, directories);
