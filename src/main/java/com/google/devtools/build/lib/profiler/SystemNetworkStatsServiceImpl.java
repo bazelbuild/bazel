@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsService.NetIoCounter;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,44 +27,28 @@ import java.util.List;
 import java.util.Map;
 
 /** Utility class for query system network stats. */
-public class SystemNetworkStats {
+public class SystemNetworkStatsServiceImpl implements SystemNetworkStatsService {
   private static final Splitter SPLITTER = Splitter.on(" ").omitEmptyStrings().trimResults();
 
   static {
     JniLoader.loadJni();
   }
 
-  private SystemNetworkStats() {}
+  public SystemNetworkStatsServiceImpl() {}
 
-  /**
-   * Value class for network IO counters.
-   *
-   * @param bytesSent Number of bytes sent.
-   * @param bytesRecv Number of bytes received.
-   * @param packetsSent Number of packets sent.
-   * @param packetsRecv Number of packets received.
-   */
-  public record NetIoCounter(long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {
-    public static NetIoCounter create(
-        long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {
-      return new NetIoCounter(bytesSent, bytesRecv, packetsSent, packetsRecv);
-    }
-  }
-
-  /** Returns a map from network interface name to the respective I/O counters. */
-  public static Map<String, NetIoCounter> getNetIoCounters() throws IOException {
+  @Override
+  public Map<String, NetIoCounter> getNetIoCounters() throws IOException {
     HashMap<String, NetIoCounter> countersMap = new HashMap<>();
     switch (OS.getCurrent()) {
-      case OS.LINUX -> getNetIoCountersLinux(countersMap);
+      case LINUX -> SystemNetworkStatsServiceImpl.getNetIoCountersLinux(countersMap);
       default -> {
         if (JniLoader.isJniAvailable()) {
-          getNetIoCountersNative(countersMap);
+          SystemNetworkStatsServiceImpl.getNetIoCountersNative(countersMap);
         }
       }
     }
     return countersMap;
   }
-
   private static void getNetIoCountersLinux(Map<String, NetIoCounter> countersMap)
       throws IOException {
     List<String> lines = Files.readAllLines(Paths.get("/proc/net/dev"), UTF_8);

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -588,7 +589,8 @@ public class BlazeRuntimeWrapper {
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,
                 /* collectPressureStallIndicators= */ false,
-                /* collectSkyframeCounts= */ false));
+                /* collectSkyframeCounts= */ false,
+                runtime.getBlazeService(SystemNetworkStatsService.class)));
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);

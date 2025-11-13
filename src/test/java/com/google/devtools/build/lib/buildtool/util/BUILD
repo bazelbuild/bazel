@@ -80,6 +80,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:collect_local_resource_usage",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
+        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service",
+        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",

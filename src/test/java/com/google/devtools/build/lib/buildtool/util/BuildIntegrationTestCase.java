@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl;
 import com.google.devtools.build.lib.profiler.TraceProfilerService;
 import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -623,6 +624,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
             .addBlazeModule(new CredentialModule())
+            .addBlazeService(new SystemNetworkStatsServiceImpl())
             .addBlazeService(profilerService);
     getSpawnModules().forEach(builder::addBlazeModule);
     builder

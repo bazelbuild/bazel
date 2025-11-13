@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
 import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -481,7 +482,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     commandOptions.collectSystemNetworkUsage,
                     commandOptions.collectResourceEstimation,
                     commandOptions.collectPressureStallIndicators,
-                    commandOptions.collectSkyframeCounts));
+                    commandOptions.collectSkyframeCounts,
+                    getBlazeService(SystemNetworkStatsService.class)));
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
