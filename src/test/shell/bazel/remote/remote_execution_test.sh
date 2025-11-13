@@ -2735,7 +2735,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 5 internal, 2 .*-sandbox"
+  expect_log "7 processes: 6 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2743,7 +2743,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 2 disk cache hit, 5 internal"
+  expect_log "7 processes: 2 disk cache hit, 6 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in
