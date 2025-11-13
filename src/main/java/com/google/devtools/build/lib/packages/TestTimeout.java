@@ -33,9 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Symbolic labels of test timeout. Borrows heavily from {@link TestSize}.
- */
+/** Symbolic labels of test timeout. Borrows heavily from {@link TestSize}. */
 public enum TestTimeout {
 
   // These symbolic labels are used in the build files.
@@ -44,9 +42,8 @@ public enum TestTimeout {
   LONG(900),
   ETERNAL(3600);
 
-  /**
-   * Default --test_timeout flag, used when collecting code coverage.
-   */
+  /** Default --test_timeout flag, used when collecting code coverage. */
+  // Do not increase these values without consulting b/459811767#comment3.
   public static final String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
 
   /** Map from test time to suggested TestTimeout. */
@@ -161,9 +158,7 @@ public enum TestTimeout {
     return super.toString().toLowerCase();
   }
 
-  /**
-   * We print to upper case to make the test timeout warnings more readable.
-   */
+  /** We print to upper case to make the test timeout warnings more readable. */
   public String prettyPrint() {
     return super.toString().toUpperCase();
   }
@@ -246,9 +241,7 @@ public enum TestTimeout {
     }
   }
 
-  /**
-   * Converter for the --test_timeout_filters option.
-   */
+  /** Converter for the --test_timeout_filters option. */
   public static class TestTimeoutFilterConverter extends EnumFilterConverter<TestTimeout> {
     public TestTimeoutFilterConverter() {
       super(TestTimeout.class, "test timeout");

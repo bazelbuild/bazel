@@ -153,7 +153,7 @@ public class JavaOptions extends FragmentOptions {
         "--test_arg=--wrapper_script_flag=--debug",
         "--test_output=streamed",
         "--test_strategy=exclusive",
-        "--test_timeout=9999",
+        "--test_timeout=9999", // Do not increase this without consulting b/459811767#comment3.
         "--nocache_test_results"
       },
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
