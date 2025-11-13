@@ -45,6 +45,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
   ubuntu1804:
     shards: 4
     shell_commands:
@@ -151,6 +153,8 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
   macos:
     xcode_version: "16.2.0"
     shards: 5
@@ -221,6 +225,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
       - "-//scripts/docs:rewriter_test"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
       
   windows:
     shards: 4
