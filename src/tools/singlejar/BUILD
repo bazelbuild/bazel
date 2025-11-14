@@ -493,6 +493,7 @@ cc_library(
         ":options",
         ":port",
         "//src/main/cpp/util",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@zlib",
     ],
 )

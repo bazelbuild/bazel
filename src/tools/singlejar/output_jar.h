@@ -21,7 +21,6 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 // Must be included before <io.h> (on Windows) and <fcntl.h>.
@@ -30,6 +29,7 @@
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/options.h"
+#include "absl/container/flat_hash_map.h"
 
 /*
  * Jar file we are writing.
@@ -118,7 +118,7 @@ class OutputJar {
     int input_jar_index_;  // Input jar index for the plain entry or -1.
   };
 
-  std::unordered_map<std::string, struct EntryInfo> known_members_;
+  absl::flat_hash_map<std::string, struct EntryInfo> known_members_;
   FILE *file_;
   off64_t outpos_;
   std::unique_ptr<char[]> buffer_;
