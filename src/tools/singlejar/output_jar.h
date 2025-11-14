@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Must be included before <io.h> (on Windows) and <fcntl.h>.
@@ -54,6 +55,8 @@ class OutputJar {
   bool NewEntry(const std::string& entry_name) {
     return known_members_.count(entry_name) == 0;
   }
+
+  virtual bool IncludeEntry(std::string_view file_name);
 
  protected:
   // The purpose  of these two tiny utility methods is to avoid creating a

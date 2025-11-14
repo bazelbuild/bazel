@@ -30,6 +30,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -403,6 +404,8 @@ bool OutputJar::AddJar(int jar_path_index) {
                       options_->exclude_zip_entries.end();
     }
     include_entry &= !exclude_entry;
+    include_entry &=
+        IncludeEntry(std::string_view(file_name, file_name_length));
     if (!include_entry) {
       continue;
     }
@@ -745,6 +748,8 @@ void OutputJar::WriteMetaInf() {
       sizeof(extra_fields) / sizeof(extra_fields[0]);
   WriteDirEntry(path, extra_fields, n_extra_fields);
 }
+
+bool OutputJar::IncludeEntry(std::string_view file_name) { return true; }
 
 // Writes a directory entry with the given name and extra fields.
 void OutputJar::WriteDirEntry(const std::string &name,
