@@ -225,7 +225,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     Parts parts = Parts.parse(raw);
     Label parsed = parseWithPackageContextInternal(parts, packageContext);
     if (repoMappingRecorder != null && parts.repo() != null && !parts.repoIsCanonical()) {
-      repoMappingRecorder.entries.put(
+      repoMappingRecorder.record(
           packageContext.currentRepo(), parts.repo(), parsed.getRepository());
     }
     return parsed;
@@ -245,12 +245,27 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /** Records repo mapping entries used by {@link #parseWithPackageContext}. */
-  public static final class RepoMappingRecorder {
-    /** {@code <fromRepo, apparentRepoName, canonicalRepoName> } */
+  public interface RepoMappingRecorder {
+    void record(RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName);
+
+    default void record(Table<RepositoryName, String, RepositoryName> entries) {
+      for (Table.Cell<RepositoryName, String, RepositoryName> cell : entries.cellSet()) {
+        record(cell.getRowKey(), cell.getColumnKey(), cell.getValue());
+      }
+    }
+  }
+
+  /**
+   * A {@link RepoMappingRecorder} backed by a {@link Table} that is used for BUILD and .bzl load
+   * threads.
+   */
+  public static final class SimpleRepoMappingRecorder implements RepoMappingRecorder {
     Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
 
-    public void mergeEntries(Table<RepositoryName, String, RepositoryName> entries) {
-      this.entries.putAll(entries);
+    @Override
+    public void record(
+        RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName) {
+      entries.put(fromRepo, apparentRepoName, canonicalRepoName);
     }
 
     public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
