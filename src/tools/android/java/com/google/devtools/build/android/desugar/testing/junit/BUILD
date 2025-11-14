@@ -24,6 +24,9 @@ java_library(
         "//third_party:jsr330_inject",
         "//third_party:junit4",
     ],
+    # Avoid throwing errors due to compiler warnings described in:
+    # https://issues.apache.org/jira/browse/MCOMPILER-548
+    javacopts = ["-proc:full"],
 )
 
 filegroup(
