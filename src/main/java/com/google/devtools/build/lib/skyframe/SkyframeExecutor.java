@@ -3296,8 +3296,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     ImmutableMap<String, String> flagAliases = bzlmodDepGraph.get(ModuleKey.ROOT).getFlagAliases();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    if (flagAliases != null) {
-      aliasesMap.putAll(flagAliases);
+    for (Module module : evalResult.get(BazelDepGraphValue.KEY).getDepGraph().values()) {
+        ImmutableMap<String, String> flagAliases = module.getFlagAliases();
+        for (String flag : flagAliases.keySet()) {
+          aliasesMap.put(flag, flagAliases.get(flag));
+        }
     }
     // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
     // alias definitions straight fromrules_python's MODULE.bazel.
