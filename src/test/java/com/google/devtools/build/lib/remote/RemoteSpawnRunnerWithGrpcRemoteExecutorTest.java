@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -369,7 +370,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
     command =
         Command.newBuilder()
-            .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))
+            .addAllArguments(ImmutableList.of(OS.getCurrent() == OS.WINDOWS ? "\\bin\\echo" : "/bin/echo", "Hi!"))
             .addEnvironmentVariables(
                 Command.EnvironmentVariable.newBuilder()
                     .setName("VARIABLE")

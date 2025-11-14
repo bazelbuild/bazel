@@ -67,6 +67,29 @@ public final class PlatformUtils {
     return getPlatformProto(spawn, remoteOptions, ImmutableMap.of());
   }
 
+  private static boolean shouldProducePlatformProto(
+      Spawn spawn, SortedMap<String, String> defaultExecProperties, Map<String, String> additionalProperties) {
+    PlatformInfo executionPlatform = spawn.getExecutionPlatform();
+    if (executionPlatform != null) {
+      if (!executionPlatform.execProperties().isEmpty()) {
+        return true;
+      }
+      if (!executionPlatform.remoteExecutionProperties().isEmpty()) {
+        return true;
+      }
+    }
+    if (!spawn.getCombinedExecProperties().isEmpty()) {
+      return true;
+    }
+    if (!defaultExecProperties.isEmpty()) {
+      return true;
+    }
+    if (!additionalProperties.isEmpty()) {
+      return true;
+    }
+    return false;
+  }
+
   @Nullable
   public static Platform getPlatformProto(
       Spawn spawn, @Nullable RemoteOptions remoteOptions, Map<String, String> additionalProperties)
@@ -76,10 +99,8 @@ public final class PlatformUtils {
             ? remoteOptions.getRemoteDefaultExecProperties()
             : ImmutableSortedMap.of();
 
-    if (spawn.getExecutionPlatform() == null
-        && spawn.getCombinedExecProperties().isEmpty()
-        && defaultExecProperties.isEmpty()
-        && additionalProperties.isEmpty()) {
+    if (!shouldProducePlatformProto(spawn, defaultExecProperties, additionalProperties)) {
+      // Execution platform is null or functionally empty
       return null;
     }
 
