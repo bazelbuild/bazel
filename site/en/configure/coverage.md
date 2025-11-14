@@ -39,10 +39,12 @@ however the latter can be more difficult for complex projects.
 "Instrumentation" in this case refers to the coverage tools that are
 used for a specific target. Bazel allows turning this on for a
 specific subset of files using the
-[`--instrumentation_filter`](/reference/command-line-reference#flag--instrumentation_filter)
+[`--instrumentation_filter`]
+(/reference/command-line-reference#flag--instrumentation_filter)
 flag, which specifies a filter for targets that are tested with the
 instrumentation enabled. To enable instrumentation for tests, the
-[`--instrument_test_targets`](/reference/command-line-reference#flag--instrument_test_targets)
+[`--instrument_test_targets`]
+(/reference/command-line-reference#flag--instrument_test_targets)
 flag is required.
 
 By default, bazel tries to match the target package(s), and prints the
@@ -80,7 +82,7 @@ Note that `genhtml` reads the source code as well, to annotate missing
 coverage in these files. For this to work, it is expected that
 `genhtml` is executed in the root of the bazel project.
 
-To view the result, simply open the `index.html` file produced in the
+To view the result, open the `index.html` file produced in the
 `genhtml` directory in any web browser.
 
 For further help and information around the `genhtml` tool, or the
@@ -88,11 +90,11 @@ For further help and information around the `genhtml` tool, or the
 
 ## Remote execution {:#remote-execution}
 
-Running with remote test execution currently has a few caveats:
+Running with remote test execution has a few caveats:
 
 - The report combination action cannot yet run remotely. This is
   because Bazel does not consider the coverage output files as part of
-  its graph (see [this issue][remote_report_issue]), and can therefore
+  its graph (see [Bazel issue #4685][remote_report_issue]), and can therefore
   not correctly treat them as inputs to the combination action. To
   work around this, use `--strategy=CoverageReport=local`.
   - Note: It may be necessary to specify something like
@@ -100,7 +102,7 @@ Running with remote test execution currently has a few caveats:
     up to try `local,remote`, due to how Bazel resolves strategies.
 - `--remote_download_minimal` and similar flags can also not be used
   as a consequence of the former.
-- Bazel will currently fail to create coverage information if tests
+- Bazel will fail to create coverage information if tests
   have been cached previously. To work around this,
   `--nocache_test_results` can be set specifically for coverage runs,
   although this of course incurs a heavy cost in terms of test times.
@@ -109,10 +111,31 @@ Running with remote test execution currently has a few caveats:
   - Usually coverage is run as part of the test action, and so by
     default, we don't get all coverage back as outputs of the remote
     execution by default. These flags override the default and obtain
-    the coverage data. See [this issue][split_coverage_issue] for more
+    the coverage data. See [Bazel issue #4685][split_coverage_issue] for more
     details.
 
 ## Language-specific configuration
+
+The following sections detail language-specific considerations for setting up
+code coverage with Bazel.
+
+### C++
+
+#### Linux
+
+C++ coverage should work out-of-the-box with the default configuration.
+
+#### macOS
+
+The default value of `GCOV_PREFIX_STRIP` is almost certainly incorrect and needs
+adjusting manually because the correct value depends on your setup.
+
+When the value is incorrect, no coverage data will be found.
+
+Example to set `GCOV_PREFIX_STRIP=10`
+```
+bazel coverage //foo:foo_test --test_env=GCOV_PREFIX_STRIP=10`
+```
 
 ### Java
 
