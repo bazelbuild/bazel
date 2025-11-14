@@ -1,5 +1,6 @@
 ---
 tasks:
+  # This task actually runs Rocky Linux 8 (OpenJDK 11, gcc 10.2.1)
   centos7_java11_devtoolset10:
     shards: 4
     shell_commands:
@@ -47,6 +48,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel:python_version_test"
   ubuntu1804:
     shards: 4
     shell_commands:
@@ -295,6 +298,8 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel:python_version_test"
   rbe_ubuntu1804:
     platform: ubuntu1804
     name: "RBE"
