@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/functional/function_ref.h"
@@ -43,7 +44,8 @@ class RcFile {
   enum class ParseError { NONE, UNREADABLE_FILE, INVALID_FORMAT, IMPORT_LOOP };
   static std::unique_ptr<RcFile> Parse(
       const std::string& filename, const WorkspaceLayout* workspace_layout,
-      const std::string& workspace, ParseError* error, std::string* error_text,
+      const std::string& workspace, const std::string& build_label,
+      const std::optional<SemVer>& sem_ver, ParseError* error, std::string* error_text,
       ReadFileFn read_file = &ReadFileDefault,
       CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
 
@@ -69,6 +71,8 @@ class RcFile {
   ParseError ParseFile(const std::string& filename,
                        const std::string& workspace,
                        const WorkspaceLayout& workspace_layout,
+                       const std::string& build_label,
+                       const std::optional<SemVer>& sem_ver,
                        ReadFileFn read_file,
                        CanonicalizePathFn canonicalize_path,
                        std::vector<std::string>& import_stack,
@@ -85,6 +89,19 @@ class RcFile {
   // All options parsed from the file.
   OptionMap options_;
 };
+
+// Checks if the build label passes the given comparison operation and
+// condition. An empty return (nullopt) indicates a failure and error_text will
+// be filled.
+//
+// Eg. The following values would evaluate to true since 8.4.5 >= 5.4.0
+//  - build_label=8.4.5
+//  - op='>='
+//  - compare_version=5.4.0
+std::optional<bool> BazelVersionMatchesCondition(const SemVer &build_label,
+                                                 absl::string_view op,
+                                                 absl::string_view compare_version,
+                                                 std::string *error_text);
 
 }  // namespace blaze
 
