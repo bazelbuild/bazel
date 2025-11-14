@@ -58,7 +58,7 @@ public abstract class CompressedFunction implements Decompressor {
       Path filePath = descriptor.destinationPath().getRelative(entryName);
       filePath.getParentDirectory().createDirectoryAndParents();
       try (OutputStream out = filePath.getOutputStream()) {
-        ByteStreams.copy(decompressorStream, out);
+        decompressorStream.transferTo(out);
       }
       setFileAttributes(decompressorStream, filePath);
       if (Thread.interrupted()) {
