@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -649,7 +651,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             0,
             new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")),
             new FakeActionInputFileCache(),
-            null));
+            mock(OutputMetadataStore.class),
+            mock(ActionLookupData.class)));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))
@@ -685,7 +688,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             /* spawnIdentifier= */ "foo"));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
     module.actionComplete(
-        new ActionCompletionEvent(0, 0, action, new FakeActionInputFileCache(), null));
+        new ActionCompletionEvent(
+            0,
+            0,
+            action,
+            new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
+            mock(ActionLookupData.class)));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))
@@ -719,7 +728,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("foo/out"));
     module.actionComplete(
-        new ActionCompletionEvent(1000000, 2000000, action, new FakeActionInputFileCache(), null));
+        new ActionCompletionEvent(
+            1000000,
+            2000000,
+            action,
+            new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
+            mock(ActionLookupData.class)));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))

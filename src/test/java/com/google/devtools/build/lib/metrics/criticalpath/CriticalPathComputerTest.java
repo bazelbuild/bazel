@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent.ChangePhase;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MockAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
@@ -551,6 +552,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             shared1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     simulateActionExec(action1, 10);
     AggregatedCriticalPath criticalPath = computer.aggregate();
@@ -605,6 +607,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     clock.advanceMillis(2000);
@@ -617,6 +620,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action2,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     clock.advanceMillis(2000);
@@ -629,6 +633,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action3,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     // The runtime of the critical path ignoring gaps is 8 seconds.
@@ -657,6 +662,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     clock.advanceMillis(2000);
     computer.actionComplete(
@@ -665,6 +671,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action2,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     // The total run time of all actions in the critical path is 5 seconds.
@@ -698,6 +705,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     clock.advanceMillis(2000);
     computer.actionComplete(
@@ -706,6 +714,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action2,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     // The total run time of all actions in the critical path is 5 seconds.
@@ -740,6 +749,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     // Action 2 - 3s - 7s
     long action2Start = clock.nanoTime();
@@ -755,6 +765,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action2,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     computer.actionComplete(
         new ActionCompletionEvent(
@@ -762,6 +773,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action3,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     // The total run time should be 6s (Action 1 + Action 3) since Action 2 overlaps with
@@ -889,6 +901,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     SpawnMetrics metrics = computer.getMaxCriticalPath().getSpawnMetrics().getRemoteMetrics();
     assertThat(metrics.parseTimeInMs()).isEqualTo(5 * 1000);
@@ -932,6 +945,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             parentAction,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     assertThat(Iterables.getOnlyElement(computer.aggregate().components()).getAction())
         .isEqualTo(parentAction);
@@ -1030,6 +1044,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action1,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     // Action 2 - 1s - 3s
     long action2Start = clock.nanoTime();
@@ -1041,6 +1056,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action2,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
     // Action 3 - 3s - 3s, change pruned, no events
     computer.actionChangePruned(
@@ -1055,6 +1071,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action4,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
 
     // The total run time should be 6s (Action 1 + Action 2 + Action 4) since Action 3 is
@@ -1087,6 +1104,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
   }
 
@@ -1164,6 +1182,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
               clock.nanoTime(),
               action,
               new FakeActionInputFileCache(),
+              mock(OutputMetadataStore.class),
               mock(ActionLookupData.class)));
     }
   }
@@ -1184,6 +1203,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             clock.nanoTime(),
             action,
             new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
             mock(ActionLookupData.class)));
   }
 

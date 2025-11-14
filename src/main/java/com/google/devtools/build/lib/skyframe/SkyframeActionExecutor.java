@@ -1185,6 +1185,7 @@ public final class SkyframeActionExecutor {
                 BlazeClock.nanoTime(),
                 action,
                 inputMetadataProvider,
+                outputMetadataStore,
                 actionLookupData));
       }
       String message = action.getProgressMessage();

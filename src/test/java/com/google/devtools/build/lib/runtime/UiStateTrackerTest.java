@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -344,7 +345,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionLookupData actionLookupData = ActionLookupData.create(mock(ActionLookupKey.class), 1);
     stateTracker.actionCompletion(
         new ActionCompletionEvent(
-            20, clock.nanoTime(), fastAction, new FakeActionInputFileCache(), actionLookupData));
+            20,
+            clock.nanoTime(),
+            fastAction,
+            new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
+            actionLookupData));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);

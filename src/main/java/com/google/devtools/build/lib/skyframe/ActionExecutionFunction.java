@@ -527,6 +527,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                     BlazeClock.nanoTime(),
                     action,
                     inputMetadataProvider,
+                    /* outputMetadataStore= */ null,
                     actionLookupData));
       }
     }
