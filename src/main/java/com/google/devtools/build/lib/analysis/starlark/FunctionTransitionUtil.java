@@ -580,7 +580,6 @@ public final class FunctionTransitionUtil {
     BuildOptions toOptions = null;
     // The names of options (Starlark + native) that are different after this transition and must
     //   be added to "affected by Starlark transition"
-    Set<String> convertedAffectedOptions = new HashSet<>();
     // Starlark options that are different after this transition. We collect all of them, then clone
     // the build options once with all cumulative changes. Native option changes, in contrast, are
     // set directly in the BuildOptions instance. The former approach is preferred since it makes
@@ -625,7 +624,6 @@ public final class FunctionTransitionUtil {
         }
         if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
-          convertedAffectedOptions.add(optionLabel.toString());
         }
       } else {
         // The transition changes a native option.
@@ -720,7 +718,6 @@ public final class FunctionTransitionUtil {
             }
             def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
-            convertedAffectedOptions.add(optionKey);
           }
 
         } catch (IllegalArgumentException e) {
@@ -746,18 +743,7 @@ public final class FunctionTransitionUtil {
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.
-      convertedAffectedOptions.add("//command_line_option:evaluating for analysis test");
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
-    }
-
-    CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    boolean isExecTransition = starlarkTransition != null && starlarkTransition.isExecTransition();
-
-    if (!isExecTransition
-        && coreOptions.outputDirectoryNamingScheme.equals(
-            CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
-      // The exec transition uses its own logic in ExecutionTransitionFactory.
-      updateAffectedByStarlarkTransition(coreOptions, convertedAffectedOptions);
     }
     return toOptions;
   }

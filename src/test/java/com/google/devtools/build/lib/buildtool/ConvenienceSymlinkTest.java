@@ -633,8 +633,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   @Test
   public void differentConfigurationSameOutputDirectory_setsSymlinks() throws Exception {
-    // TODO(blaze-configurability-team): Remove when `--experimental_output_directory_naming_scheme`
-    //    is universally set to `diff_from_baseline`
     addOptions(
         "--output_directory_name=from_flag",
         "--symlink_prefix=unchanged-",

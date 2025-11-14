@@ -697,48 +697,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           """)
   public List<Label> actionListeners;
 
-  /** Values for the --experimental_output_directory_naming_scheme options */
-  public enum OutputDirectoryNamingScheme implements StarlarkValue {
-    /** Use `affected by starlark transition` to track configuration changes */
-    LEGACY,
-    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE,
-    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
-    DIFF_AGAINST_DYNAMIC_BASELINE
-  }
-
-  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
-  public static class OutputDirectoryNamingSchemeConverter
-      extends EnumConverter<OutputDirectoryNamingScheme> {
-    public OutputDirectoryNamingSchemeConverter() {
-      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
-    }
-  }
-
-  @Option(
-      name = "experimental_output_directory_naming_scheme",
-      defaultValue = "diff_against_dynamic_baseline",
-      converter = OutputDirectoryNamingSchemeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          """
-          Please only use this flag as part of a suggested migration or testing strategy. In
-          `legacy` mode, transitions (generally only Starlark) set and use `affected by Starlark transition`
-          to determine the ST hash. In `diff_against_baseline` mode,
-          `affected by Starlark transition` is ignored and instead ST hash is determined,
-          for all configuration, by diffing against the top-level configuration.
-          """)
-  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
-
-  public boolean useBaselineForOutputDirectoryNamingScheme() {
-    return switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
-      case LEGACY -> false;
-    };
-  }
-
   @Option(
       name = "is exec configuration",
       defaultValue = "false",

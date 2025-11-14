@@ -1905,10 +1905,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleNativeOptionTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleNativeOptionTransitions() throws Exception {
     writeFilesWithMultipleNativeOptionTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     @SuppressWarnings("unchecked")
@@ -1929,7 +1927,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_onlyExec_diffDynamic() throws Exception {
+  public void testOutputDirHash_onlyExec() throws Exception {
     scratch.file(
         "test/rules.bzl",
         """
@@ -1963,9 +1961,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         simple(name = "dep")
         """);
 
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
-
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
@@ -1976,7 +1972,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_starlarkRevertedByExec_diffDynamic() throws Exception {
+  public void testOutputDirHash_starlarkRevertedByExec() throws Exception {
     scratch.file(
         "test/transitions.bzl",
         """
@@ -2024,9 +2020,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         simple(name = "dep")
         """);
 
-    useConfiguration(
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline",
-        "--copt=toplevel_copt");
+    useConfiguration("--copt=toplevel_copt");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
@@ -2482,10 +2476,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleStarlarkTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleStarlarkTransitions() throws Exception {
     writeFilesWithMultipleStarlarkTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     @SuppressWarnings("unchecked")
@@ -2618,11 +2610,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleMixedTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleMixedTransitions() throws Exception {
     writeFilesWithMultipleMixedTransitions();
 
     // test:top (foo_transition)
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget top = getConfiguredTarget("//test:top");
 
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
