@@ -230,6 +230,8 @@ maven.install(
         "org.ow2.asm:asm-util:9.9",
         "org.pcollections:pcollections:4.0.1",
         "org.threeten:threeten-extra:1.5.0",
+        "com.fasterxml.jackson.core:jackson-core:2.18.2",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.18.2",
         "org.tukaani:xz:1.9",
         "org.yaml:snakeyaml:2.0",
         # The following jars are for testing.
