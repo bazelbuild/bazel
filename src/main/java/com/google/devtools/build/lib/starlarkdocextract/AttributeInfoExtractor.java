@@ -69,6 +69,17 @@ public final class AttributeInfoExtractor {
         builder.setDefaultValue(UNREPRESENTABLE_VALUE);
       }
     }
+    if (attribute.getAllowedValues() instanceof Attribute.AllowedValueSet allowedValueSet) {
+      for (Object value : allowedValueSet.getAllowedValues()) {
+        try {
+          builder.addValues(
+              StringEncoding.internalToUnicode(
+                  context.labelRenderer().reprWithoutLabelConstructor(value)));
+        } catch (InvalidStarlarkValueException e) {
+          builder.addValues(UNREPRESENTABLE_VALUE);
+        }
+      }
+    }
     return builder.build();
   }
 
