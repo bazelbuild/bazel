@@ -438,7 +438,6 @@ bazel_fragments["PythonOptions"] = fragment(
     # And not make them flags. Must each one toggle independently of the others?
     propagate = [
         "//command_line_option:build_python_zip",
-        "//command_line_option:experimental_py_binaries_include_label",
         "//command_line_option:incompatible_default_to_explicit_init_py",
         "//command_line_option:incompatible_python_disallow_native_rules",
         "//command_line_option:python_native_rules_allowlist",

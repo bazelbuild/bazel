@@ -32,15 +32,11 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void getExec_copiesMostValues() throws Exception {
     BuildOptions options =
-        parseBuildOptions(
-            /* starlarkOptions= */ ImmutableMap.of(),
-            "--build_python_zip=true",
-            "--experimental_py_binaries_include_label=true");
+        parseBuildOptions(/* starlarkOptions= */ ImmutableMap.of(), "--build_python_zip=true");
 
     PythonOptions execOpts =
         AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter).get(PythonOptions.class);
 
     assertThat(execOpts.buildPythonZip).isEqualTo(TriState.YES);
-    assertThat(execOpts.includeLabelInPyBinariesLinkstamp).isTrue();
   }
 }
