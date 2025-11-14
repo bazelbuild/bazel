@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
-import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import com.google.devtools.build.lib.util.Pair;
@@ -228,8 +227,6 @@ public class ExecutionTransitionFactory
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
       coreOptions.platformSuffix = "exec";
-      coreOptions.affectedByStarlarkTransition =
-          options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
       coreOptions.overridePlatformCpuName =

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelL
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -33,7 +32,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -431,40 +429,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           [GH-17134]: https://github.com/bazelbuild/bazel/issues/17134
           """)
   public boolean useAutoExecGroups;
-
-  /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
-  public static class EmptyListConverter extends Converter.Contextless<List<String>> {
-    @Override
-    public List<String> convert(String input) throws OptionsParsingException {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "Regardless of input, converts to an empty list. For use with"
-          + " affectedByStarlarkTransition";
-    }
-  }
-
-  /**
-   * This internal option is a *set* of names of options that have been changed by starlark
-   * transitions at any point in the build at the time of accessing. It contains both native and
-   * starlark options in label form. e.g. "//command_line_option:cpu" for native options and
-   * "//myapp:foo" for starlark options. This is used to regenerate {@code
-   * transitionDirectoryNameFragment} after each starlark transition.
-   */
-  @Option(
-      name = "affected by starlark transition",
-      defaultValue = "",
-      converter = EmptyListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public List<String> affectedByStarlarkTransition;
 
   /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
    * is being used as a configuration distinguisher for the exec transition. */

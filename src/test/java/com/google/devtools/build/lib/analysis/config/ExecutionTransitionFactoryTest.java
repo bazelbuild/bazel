@@ -107,7 +107,6 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             new BuildOptionsView(options, transition.requiresOptionFragments()),
             new StoredEventHandler());
 
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
     assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
   }
 

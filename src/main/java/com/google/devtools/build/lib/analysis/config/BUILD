@@ -282,7 +282,6 @@ java_library(
         ":core_options",
         ":fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",

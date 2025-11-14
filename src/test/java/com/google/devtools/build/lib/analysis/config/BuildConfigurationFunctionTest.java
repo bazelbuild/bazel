@@ -78,10 +78,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         """);
   }
 
-  private CoreOptions getCoreOptions(ConfiguredTarget target) {
-    return getConfiguration(target).getOptions().get(CoreOptions.class);
-  }
-
   private String getMnemonic(ConfiguredTarget target) {
     return getConfiguration(target).getMnemonic();
   }
@@ -145,7 +141,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -156,7 +151,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
-    assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
   @Test
@@ -213,7 +207,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
 
     assertThat(getConfiguration(test).getMnemonic()).contains("fastbuild");
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -222,7 +215,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
 
     assertThat(getConfiguration(dep).getMnemonic()).contains("opt");
     assertThat(getMnemonic(dep)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
   @Test
@@ -292,7 +284,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget middle =
@@ -303,7 +294,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
-    assertThat(getCoreOptions(middle).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget root =
@@ -311,7 +301,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
             (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     assertThat(getConfiguration(test)).isEqualTo(getConfiguration(root));
     assertThat(getConfiguration(test)).isNotEqualTo(getConfiguration(middle));
