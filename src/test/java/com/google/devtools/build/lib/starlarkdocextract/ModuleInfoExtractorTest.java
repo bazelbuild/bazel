@@ -703,7 +703,7 @@ public final class ModuleInfoExtractorTest {
                 implementation = _my_impl,
                 attrs = {
                     "a": attr.string(doc = "My doc", default = "foo"),
-                    "b": attr.string(mandatory = True),
+                    "b": attr.string(mandatory = True, values = ["foo", "bar"]),
                     "c": attr.label(providers = [MyInfo1, MyInfo2]),
                     "d": attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),
                     "_e": attr.string(doc = "Hidden attribute"),
@@ -727,6 +727,7 @@ public final class ModuleInfoExtractorTest {
                         .setName("b")
                         .setType(AttributeType.STRING)
                         .setMandatory(true)
+                        .addAllValues(ImmutableList.of("\"foo\"", "\"bar\""))
                         .build(),
                     AttributeInfo.newBuilder()
                         .setName("c")
