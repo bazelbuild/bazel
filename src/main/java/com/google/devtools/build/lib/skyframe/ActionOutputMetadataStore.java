@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -71,9 +70,9 @@ import javax.annotation.Nullable;
  * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
  * ctime is up to date.
  *
- * <p>After action execution, {@link #getOutputMetadata} should be called on each of the action's
- * outputs (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared
- * outputs were in fact created and are valid.
+ * <p>After action execution, {@link #getOutputMetadata} or {@link #getTreeArtifactValue} should be
+ * called on each of the action's outputs (except those that were {@linkplain #artifactOmitted
+ * omitted}) to ensure that declared outputs were in fact created and are valid.
  */
 final class ActionOutputMetadataStore implements OutputMetadataStore {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -176,18 +175,15 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
 
   @Nullable
   @Override
-  public FileArtifactValue getOutputMetadata(ActionInput actionInput)
+  public FileArtifactValue getOutputMetadata(Artifact artifact)
       throws IOException, InterruptedException {
-    Artifact artifact = (Artifact) actionInput;
-    FileArtifactValue value;
-
     if (!isKnownOutput(artifact)) {
       return null;
     }
 
     if (artifact.isRunfilesTree()) {
       // Runfiles trees get a placeholder value, see the Javadoc of RUNFILES_TREE_MARKER as to why
-      value = artifactData.get(artifact);
+      FileArtifactValue value = artifactData.get(artifact);
       if (value != null) {
         return checkExists(value, artifact);
       }
@@ -202,11 +198,12 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
 
     if (artifact.isChildOfDeclaredDirectory()) {
       TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
-      value = tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
+      FileArtifactValue value =
+          tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
       return checkExists(value, artifact);
     }
 
-    value = artifactData.get(artifact);
+    FileArtifactValue value = artifactData.get(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }

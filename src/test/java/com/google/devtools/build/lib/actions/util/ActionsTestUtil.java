@@ -1008,7 +1008,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public FileArtifactValue getOutputMetadata(ActionInput input)
+    public FileArtifactValue getOutputMetadata(Artifact artifact)
         throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
