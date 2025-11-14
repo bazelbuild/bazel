@@ -21,6 +21,7 @@ java_library(
         "RepositoryCache.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
