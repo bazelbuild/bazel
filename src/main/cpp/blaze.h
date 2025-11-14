@@ -26,7 +26,7 @@ namespace blaze {
 
 // Prints client version information to standard output, e.g. when invoking the
 // client with "--version".
-void PrintVersionInfo(const std::string& self_path,
+void PrintVersionInfo(const std::string& build_label,
                       const std::string& product_name);
 
 int Main(int argc, const char* const* argv, WorkspaceLayout* workspace_layout,
