@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/util/file.h"
@@ -73,11 +74,14 @@ class RcOptionsTest : public ::testing::Test {
   std::unique_ptr<RcFile> Parse(const std::string& filename,
                                 RcFile::ParseError* error,
                                 std::string* error_text) {
+    const std::string test_build_label = "8.4.2";
     return RcFile::Parse(
         blaze_util::JoinPath(test_file_dir_, filename),
         &workspace_layout_,
         // Set workspace to test_file_dir_ so importing %workspace%/foo works.
         test_file_dir_,
+        test_build_label,
+        SemVer::Parse(test_build_label),
         error,
         error_text);
   }
@@ -551,8 +555,10 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
   EXPECT_CALL(canonicalize_path, Call("second.bazelrc"))
       .WillOnce(Return("second.bazelrc"));
 
+  const std::string test_build_label = "8.4.2";
   std::unique_ptr<RcFile> rcfile = RcFile::Parse(
-      "the base file", &workspace_layout, "my workspace", &error, &error_text,
+      "the base file", &workspace_layout, "my workspace", test_build_label,
+      SemVer::Parse(test_build_label), &error, &error_text,
       read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
   EXPECT_THAT(error_text, IsEmpty());
   ASSERT_EQ(error, RcFile::ParseError::NONE);

@@ -267,6 +267,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":sem_ver",
         ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:logging",
@@ -278,6 +279,20 @@ cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "sem_ver",
+    srcs = ["sem_ver.cc"],
+    hdrs = ["sem_ver.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
     ],
 )
 
