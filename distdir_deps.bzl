@@ -203,6 +203,10 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
         ],
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/upb:01_remove_werror.patch",
+        ],
     },
     "c-ares": {
         "archive": "6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",

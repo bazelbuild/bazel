@@ -12,18 +12,21 @@ license(
         "@rules_license//licenses/spdx:0BSD",
     ],
     license_text = "LICENSE",
-    package_version = "1.2.12",
+    package_version = "1.3.1",
 )
 
 cc_library(
     name = "zlib",
     srcs = glob(["*.c"]),
     hdrs = glob(["*.h"]),
-    # Use -Dverbose=-1 to turn off zlib's trace logging. (#3280)
-    copts = [
-        "-w",
-        "-Dverbose=-1",
-    ],
+    copts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "-Wno-deprecated-non-prototype",
+            "-Wno-unused-variable",
+            "-Wno-implicit-function-declaration",
+        ],
+    }),
     includes = ["."],
     visibility = ["//visibility:public"],
 )

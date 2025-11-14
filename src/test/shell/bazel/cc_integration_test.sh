@@ -1869,6 +1869,13 @@ int main() {
 }
 EOF
 
+  # Try to resolve the following error on Linux in CI per:
+  # - https://github.com/google/sanitizers/issues/1716
+  # FATAL: ThreadSanitizer: unexpected memory mapping 0x5a7e3c4ba000-0x5a7e3c4bd000
+  if [ "$PLATFORM" != "darwin" ]; then
+    sudo sysctl vm.mmap_rnd_bits=30
+  fi
+
   bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
   expect_log "WARNING: ThreadSanitizer: data race"
 }

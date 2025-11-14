@@ -92,7 +92,12 @@ class PywrapperTest(test_base.TestBase):
     path = which(cmd)
     self.assertIsNotNone(
         path, msg="Could not locate '%s' command on PATH" % cmd)
-    self.CopyFile(path, os.path.join("dir", cmd), executable=True)
+    # On recent MacOs versions, copying the coreutils tools elsewhere doesn't
+    # work -- they simply fail with "Killed: 9". To workaround that, just
+    # re-exec the actual binary.
+    self.ScratchFile("dir/" + cmd,
+                     ["#!/bin/sh", 'exec {} "$@"'.format(cmd)],
+                     executable=True)
 
   def locate_runfile(self, runfile_path):
     resolved_path = self.Rlocation(runfile_path)
@@ -157,7 +162,7 @@ class PywrapperTest(test_base.TestBase):
 
   def assert_wrapper_failure(self, returncode, out, err, message):
     self.assertEqual(returncode, 1, msg="Expected to exit with error code 1")
-    self.assertRegexpMatches(
+    self.assertRegex(
         err, message, msg="stderr did not contain expected string")
 
   def test_finds_python2(self):
