@@ -145,11 +145,12 @@ public class RunfilesTreeUpdater {
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(inputManifest, outputManifest, runfilesDir, tree.getWorkspaceName());
 
-    if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
-      helper.createRunfilesSymlinks(tree.getMapping());
-      outputManifest.createSymbolicLink(inputManifest);
-    } else {
-      helper.clearRunfilesDirectory();
+    switch (tree.getSymlinksMode()) {
+      case CREATE -> {
+        helper.createRunfilesSymlinks(tree.getMapping());
+        helper.linkManifest();
+      }
+      case SKIP -> helper.createMinimalRunfilesDirectory();
     }
   }
 
