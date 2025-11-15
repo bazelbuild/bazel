@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -55,7 +57,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
@@ -89,9 +90,9 @@ public final class GoogleAuthUtils {
               .executor(executor)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-      if (options.grpcKeepaliveTime != null) {
-        builder.keepAliveTime(options.grpcKeepaliveTime.toSeconds(), TimeUnit.SECONDS);
-        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toSeconds(), TimeUnit.SECONDS);
+      if (options.grpcKeepaliveTime != null && !options.grpcKeepaliveTime.isZero()) {
+        builder.keepAliveTime(options.grpcKeepaliveTime.toNanos(), NANOSECONDS);
+        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toNanos(), NANOSECONDS);
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
