@@ -90,9 +90,7 @@ def _jvm_import_external(repository_ctx):
         lines.append(repository_ctx.attr.rule_load)
         lines.append("")
     if repository_ctx.attr.default_visibility:
-        lines.append("package(default_visibility = %s)" % (
-            repository_ctx.attr.default_visibility
-        ))
+        lines.append("package(default_visibility = %s)" % repository_ctx.attr.default_visibility)
         lines.append("")
     lines.append("licenses(%s)" % repr(repository_ctx.attr.licenses))
     lines.append("")
@@ -142,10 +140,7 @@ def _jvm_import_external(repository_ctx):
     repository_ctx.file("%s/BUILD" % extension, "\n".join([
         _HEADER,
         "",
-        "package(default_visibility = %r)" % (
-            repository_ctx.attr.visibility or
-            repository_ctx.attr.default_visibility
-        ),
+        "package(default_visibility = %r)" % repository_ctx.attr.default_visibility,
         "",
         "alias(",
         "    name = \"%s\"," % extension,
