@@ -70,6 +70,7 @@ public class WindowsFileOperations {
   private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 4;
   private static final int CREATE_JUNCTION_ACCESS_DENIED = 5;
   private static final int CREATE_JUNCTION_DISAPPEARED = 6;
+  private static final int CREATE_JUNCTION_NOT_SUPPORTED = 7;
 
   // Keep CREATE_SYMLINK_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_SYMLINK_SUCCESS = 0;
@@ -171,6 +172,9 @@ public class WindowsFileOperations {
         break;
       case CREATE_JUNCTION_DISAPPEARED:
         error[0] = "the junction's path got modified unexpectedly";
+        break;
+      case CREATE_JUNCTION_NOT_SUPPORTED:
+        error[0] = "filesystem does not support junctions";
         break;
       default:
         // This is CREATE_JUNCTION_ERROR (1). The JNI code puts a custom message in 'error[0]'.
