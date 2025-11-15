@@ -18,6 +18,8 @@ import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
@@ -40,6 +42,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
+import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
 
 /**
  * HTTP implementation of {@link Downloader}.
@@ -50,6 +54,9 @@ import java.util.concurrent.Semaphore;
  * <p>This class is (outside of tests) a singleton instance, living in `BazelRepositoryModule`.
  */
 public class HttpDownloader implements Downloader {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Clock CLOCK = new JavaClock();
   private static final Sleeper SLEEPER = new JavaSleeper();
   private static final Locale LOCALE = Locale.getDefault();
@@ -58,17 +65,20 @@ public class HttpDownloader implements Downloader {
   private final float timeoutScaling;
   private final int maxAttempts;
   private final Duration maxRetryTimeout;
+  private final AuthAndTLSOptions authAndTLSOptions;
 
   public HttpDownloader(
-      int maxAttempts, Duration maxRetryTimeout, int maxParallelDownloads, float timeoutScaling) {
+      int maxAttempts, Duration maxRetryTimeout, int maxParallelDownloads, float timeoutScaling,
+      AuthAndTLSOptions authAndTLSOptions) {
     this.maxAttempts = maxAttempts;
     this.maxRetryTimeout = maxRetryTimeout;
     semaphore = new Semaphore(maxParallelDownloads, true);
     this.timeoutScaling = timeoutScaling;
+    this.authAndTLSOptions = authAndTLSOptions;
   }
 
   public HttpDownloader() {
-    this(0, Duration.ZERO, 8, 1.0f);
+    this(0, Duration.ZERO, 8, 1.0f, new AuthAndTLSOptions());
   }
 
   @Override
@@ -172,8 +182,23 @@ public class HttpDownloader implements Downloader {
   }
 
   private HttpConnectorMultiplexer setUpConnectorMultiplexer(
-      ExtendedEventHandler eventHandler, Map<String, String> clientEnv) {
+      ExtendedEventHandler eventHandler, Map<String, String> clientEnv) throws IOException {
     ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
+
+    @Nullable SSLContext maybeSslContext;
+    try {
+      maybeSslContext = SSLContextBuilder.build(authAndTLSOptions);
+    } catch (IOException e) {
+      // This should be a hard error.  However, the HTTP downloader did NOT try to use the TLS
+      // credentials when it was first written and the attempt to create an SSL context could fail
+      // while parsing the configured certificates (if any).  By ignoring the error, we don't
+      // regress behavior: builds that would fail due to problems with downloads before would still
+      // fail in the same way.
+      logger.atWarning().withCause(e)
+          .log("Not using configured TLS credentials in the HTTP downloader");
+      maybeSslContext = null;
+    }
+
     HttpConnector connector =
         new HttpConnector(
             LOCALE,
@@ -182,7 +207,8 @@ public class HttpDownloader implements Downloader {
             SLEEPER,
             timeoutScaling,
             maxAttempts,
-            maxRetryTimeout);
+            maxRetryTimeout,
+            maybeSslContext);
     ProgressInputStream.Factory progressInputStreamFactory =
         new ProgressInputStream.Factory(LOCALE, CLOCK, eventHandler);
     HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);

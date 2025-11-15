@@ -33,6 +33,10 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
     ],
+    data = [
+        "test-tls.crt",
+        "test-tls.key",
+    ],
 )
 
 java_test(
