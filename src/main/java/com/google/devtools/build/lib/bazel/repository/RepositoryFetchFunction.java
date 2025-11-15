@@ -19,9 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata.Reproducibility;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryContext;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDefinitionLocationEvent;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -70,11 +68,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.SequencedMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -140,11 +135,10 @@ public final class RepositoryFetchFunction implements SkyFunction {
    *
    * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
    *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
-   *     Not an ImmutableMap, because regrettably the values can be null sometimes.
    * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
    */
   private record FetchResult(
-      SequencedMap<? extends RepoRecordedInput, String> recordedInputValues,
+      ImmutableList<RepoRecordedInput.WithValue> recordedInputValues,
       Reproducibility reproducible) {}
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
@@ -173,7 +167,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
       Path repoRoot =
           RepositoryUtils.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
-
 
       RepoDefinition repoDefinition;
       switch ((RepoDefinitionValue) env.getValue(RepoDefinitionValue.key(repositoryName))) {
@@ -602,7 +595,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return null;
     }
 
-    var recordedInputValues = new LinkedHashMap<RepoRecordedInput, String>();
+    ImmutableList<RepoRecordedInput.WithValue> recordedInputValues;
     RepoMetadata repoMetadata;
     try (Mutability mu = Mutability.create("Starlark repository");
         StarlarkRepositoryContext starlarkRepositoryContext =
@@ -627,9 +620,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               "repository " + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
               SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      var repoMappingRecorder = new Label.RepoMappingRecorder();
-      repoMappingRecorder.mergeEntries(repoDefinition.repoRule().recordedRepoMappingEntries());
-      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      starlarkRepositoryContext.storeRepoMappingRecorderInThread(thread);
 
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.
@@ -649,8 +640,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // structure as it is.
       Object result;
       try (SilentCloseable c =
-          Profiler.instance()
-              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> repoDefinition.name())) {
+          Profiler.instance().profile(ProfilerTask.STARLARK_REPOSITORY_FN, repoDefinition::name)) {
         result = Starlark.positionalOnlyCall(thread, function, starlarkRepositoryContext);
         starlarkRepositoryContext.markSuccessful();
       }
@@ -673,22 +663,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files/dirents/env vars used by the rule's implementation
-      // function.
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
-      recordedInputValues.putAll(
-          Maps.transformValues(
-              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
-
-      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
-          repoMappingRecorder.recordedEntries().cellSet()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.RecordedRepoMapping(
-                repoMappings.getRowKey(), repoMappings.getColumnKey()),
-            repoMappings.getValue().getName());
-      }
+      recordedInputValues = starlarkRepositoryContext.getRecordedInputs();
     } catch (NeedsSkyframeRestartException e) {
       return null;
     } catch (EvalException e) {
@@ -734,8 +709,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
     }
 
-    return new FetchResult(
-        Collections.unmodifiableSequencedMap(recordedInputValues), repoMetadata.reproducible());
+    return new FetchResult(recordedInputValues, repoMetadata.reproducible());
   }
 
   @Nullable

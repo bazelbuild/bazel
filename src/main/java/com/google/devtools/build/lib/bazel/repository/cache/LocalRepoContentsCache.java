@@ -156,7 +156,7 @@ public final class LocalRepoContentsCache {
    */
   public Path moveToCache(
       Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
-      throws IOException, InterruptedException {
+      throws IOException {
     Preconditions.checkState(path != null);
 
     Path entryDir = path.getRelative(predeclaredInputHash);

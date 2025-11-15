@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
@@ -46,18 +46,14 @@ public class BazelLockFileModuleTest {
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableSortedMap.of())
-            .setRecordedDirentsInputs(ImmutableSortedMap.of())
-            .setEnvVariables(ImmutableSortedMap.of())
+            .setRecordedInputs(ImmutableList.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .build();
     reproducibleResult =
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableSortedMap.of())
-            .setRecordedDirentsInputs(ImmutableSortedMap.of())
-            .setEnvVariables(ImmutableSortedMap.of())
+            .setRecordedInputs(ImmutableList.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .setModuleExtensionMetadata(
                 LockfileModuleExtensionMetadata.of(
