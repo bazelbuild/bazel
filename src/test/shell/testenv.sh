@@ -897,6 +897,7 @@ function override_java_tools() {
     unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
     touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux_aarch64=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"

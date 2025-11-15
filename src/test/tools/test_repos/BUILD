@@ -24,6 +24,7 @@ filegroup(
         "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_linux_aarch64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
         "@rules_cc//:LICENSE",
         "@rules_java//:WORKSPACE",
