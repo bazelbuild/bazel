@@ -289,6 +289,33 @@ EOF
   expect_log "'//target_skipping:foo3_config_setting' does not have mandatory providers: 'ConstraintValueInfo'"
 }
 
+# Validates that we get an error when target_compatible_with contains duplicate
+# constraint values from the same constraint setting. This is a regression test
+# for https://github.com/bazelbuild/bazel/issues/27580.
+function test_duplicate_constraint_values_in_target_compatible_with() {
+  cat >> target_skipping/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "target_with_duplicate_constraints",
+    srcs = ["pass.sh"],
+    target_compatible_with = [
+        ":foo1",
+        ":foo2",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    //target_skipping:target_with_duplicate_constraints &> "${TEST_log}" \
+    && fail "Bazel succeeded unexpectedly."
+
+  expect_log "Duplicate constraint values detected: constraint_setting //target_skipping:foo_version has \[//target_skipping:foo1, //target_skipping:foo2\]"
+  expect_log "ERROR: Analysis of target '//target_skipping:target_with_duplicate_constraints' failed"
+}
+
 # Validates that the console log provides useful information to the user for
 # builds.
 function test_console_log_for_builds() {
