@@ -101,6 +101,7 @@ public class ConsistencyTest {
     BuildLanguageOptions defaultOptions = Options.getDefaults(BuildLanguageOptions.class);
     StarlarkSemantics defaultSemantics =
         StarlarkSemantics.DEFAULT.toBuilder()
+            .setBool(StarlarkSemantics.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, true)
             // This flag must be false in Starlark, but true in Bazel by default.
             .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true)
             .build();
