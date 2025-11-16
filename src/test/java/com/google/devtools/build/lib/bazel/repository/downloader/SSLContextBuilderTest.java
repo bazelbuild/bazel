@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -139,8 +140,11 @@ public class SSLContextBuilderTest {
 
   @Test
   public void parseCertificates() throws Exception {
-    Certificate[] certs = SSLContextBuilder.parseCertificates(
-        "src/test/java/com/google/devtools/build/lib/bazel/repository/downloader/test-tls.crt");
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    String testTlsCrt = runfiles.rlocation(
+        "io_bazel/src/test/java/com/google/devtools/build/lib/bazel/repository/downloader/testdata/test-tls.crt");
+
+    Certificate[] certs = SSLContextBuilder.parseCertificates(testTlsCrt);
     assertThat(certs.length).isEqualTo(1);
     Certificate cert = certs[0];
     assertThat(cert.getType()).isEqualTo("X.509");
@@ -148,8 +152,11 @@ public class SSLContextBuilderTest {
 
   @Test
   public void parsePrivateKey() throws Exception {
-    PrivateKey key = SSLContextBuilder.parsePrivateKey(
-        "src/test/java/com/google/devtools/build/lib/bazel/repository/downloader/test-tls.key");
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    String testTlsKey = runfiles.rlocation(
+        "io_bazel/src/test/java/com/google/devtools/build/lib/bazel/repository/downloader/testdata/test-tls.key");
+
+    PrivateKey key = SSLContextBuilder.parsePrivateKey(testTlsKey);
     assertThat(key.getFormat()).isEqualTo("PKCS#8");
   }
 }

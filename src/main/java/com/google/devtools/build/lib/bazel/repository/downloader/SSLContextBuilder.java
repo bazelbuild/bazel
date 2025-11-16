@@ -65,7 +65,7 @@ class SSLContextBuilder {
       return sslContext;
     } catch (IOException | CertificateException | NoSuchAlgorithmException | KeyStoreException
              | UnrecoverableKeyException | KeyManagementException | InvalidKeySpecException e) {
-      throw new RuntimeException("Failed to build SSLContext", e);
+      throw new IOException("Failed to build SSLContext", e);
     }
   }
 
