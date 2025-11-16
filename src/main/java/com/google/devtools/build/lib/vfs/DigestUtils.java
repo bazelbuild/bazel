@@ -17,6 +17,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
+
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -55,6 +56,44 @@ public class DigestUtils {
           status.getLastChangeTime(),
           status.getLastModifiedTime(),
           status.getSize());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (other == null || other.getClass() != this.getClass()) return false;
+      CacheKey key = (CacheKey) other;
+
+      // Be aware that, after unlinking and immediately recreating a file at the same path,
+      // the filesystem may recycle the just‑freed inode number.
+      if (nodeId != key.nodeId) return false;
+
+      if (size != key.size) return false;
+      if (!path.equals(key.path)) return false;
+      if (lastModifiedTime != key.lastModifiedTime) return false;
+
+      // An mtime of zero is obviously synthetic, but otherwise assume that mtime is trustworthy enough
+      // to detect changes without checking ctime. Not checking ctime prevents undesired detection of a
+      // changed inode reference counter as a file change, e.g. when the hermetic sandbox creates
+      // and deletes hard links.
+      if (lastModifiedTime <= 0) {
+        return changeTime == key.changeTime;
+      } else {
+        return true;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + Long.hashCode(nodeId);
+      result = 31 * result + Long.hashCode(size);
+      result = 31 * result + path.hashCode();
+      result = 31 * result + Long.hashCode(lastModifiedTime);
+      if (lastModifiedTime <= 0) {
+        result = 31 * result + Long.hashCode(changeTime);
+      }
+      return result;
     }
   }
 

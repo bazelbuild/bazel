@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -201,6 +202,10 @@ public final class SandboxHelpers {
       try {
         // Prefer to move outputs through a rename, avoiding a more expensive copy.
         source.renameTo(target);
+        // Bazel actions, in general, are expected not to care about Bazel updating the mtime of their outputs because
+        // mtime is not preserved when obtaining a remote cache hit either, and the copyFile fallback below explicitly
+        // states that it does not care about preserving attributes.
+        FileSystemUtils.updateModifiedTimeIfOtherThanChangeTime(target, stat);
       } catch (IOException unused) {
         // Assume that the rename failed because it was cross-device.
         // TODO(tjgq): Distinguish a cross-device rename from other errors.

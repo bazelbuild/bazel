@@ -137,11 +137,6 @@ public abstract class CompressedTarFunction implements Decompressor {
               tarStream.transferTo(out);
             }
             filePath.chmod(entry.getMode());
-
-            // This can only be done on real files, not links, or it will skip the reader to
-            // the next "real" file to try to find the mod time info.
-            Date lastModified = entry.getLastModifiedDate();
-            filePath.setLastModifiedTime(lastModified.getTime());
           }
         }
         if (Thread.interrupted()) {

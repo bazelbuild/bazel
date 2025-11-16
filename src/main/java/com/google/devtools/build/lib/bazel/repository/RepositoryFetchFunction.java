@@ -536,7 +536,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 "starlark-repository-" + repoDefinition.name(),
                 (workerEnv) -> {
                   setupRepoRoot(outputDirectory);
-                  return fetchInternal(repoDefinition, outputDirectory, workerEnv, key);
+                  FetchResult fetchInternalResult = fetchInternal(repoDefinition, outputDirectory, workerEnv, key);
+                  // TODO Placing the mtime update inside this block aligns with the placement of other
+                  //  outputDirectory management operation (i.e., setupRepoRoot) close to here. However, consider
+                  //  whether updating the modification time at this point may be too late. Is there a risk that
+                  //  DigestUtil already been called for paths in outputDirectory when we reach here?
+                  FileSystemUtils.updateModifiedTimeIfOtherThanChangeTimeRecursively(outputDirectory);
+                  return fetchInternalResult;
                 });
         return state.result;
       } catch (ExecutionException e) {

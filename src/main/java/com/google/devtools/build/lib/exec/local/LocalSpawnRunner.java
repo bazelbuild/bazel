@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -412,6 +413,9 @@ public class LocalSpawnRunner implements SpawnRunner {
             subprocess.waitFor();
             terminationStatus =
                 new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
+            for (ActionInput output : spawn.getOutputFiles()) {
+              FileSystemUtils.updateModifiedTimeIfOtherThanChangeTime(context.getPathResolver().toPath(output));
+            }
           } catch (InterruptedException | IOException e) {
             subprocess.destroyAndWait();
             throw e;

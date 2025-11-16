@@ -168,7 +168,6 @@ public class ZipDecompressor implements Decompressor {
         }
       }
       outputPath.chmod(permissions);
-      outputPath.setLastModifiedTime(entry.getTime());
     }
   }
 
