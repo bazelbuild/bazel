@@ -462,6 +462,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
+    timeout = "long",
 )
 
 # Test java coverage with the java_toolchain in the released java_tools versions.
@@ -485,6 +486,7 @@ sh_test(
         tags = [
             "no_windows",
         ],
+        timeout = "long",
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
@@ -511,6 +513,7 @@ sh_test(
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
+        timeout = "long",
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
@@ -978,6 +981,7 @@ sh_test(
         "no-sandbox",
         "no_windows",
     ],
+    timeout = "moderate",
 )
 
 sh_test(
