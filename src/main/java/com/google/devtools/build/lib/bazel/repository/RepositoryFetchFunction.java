@@ -257,6 +257,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
               return new RepositoryDirectoryValue.Success(
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
+            if (env.valuesMissing()) {
+              return null;
+            }
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(

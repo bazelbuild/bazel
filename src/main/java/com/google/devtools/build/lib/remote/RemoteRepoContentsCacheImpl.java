@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
@@ -33,7 +32,6 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -211,35 +209,13 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var actionKey = new ActionKey(digestUtil.compute(buildAction(predeclaredInputHash)));
-    // The marker file is read right after and thus requested to be inlined. If the action result is
-    // an intermediate node, the full result will be contained in the stdout, which should thus also
-    // be inlined.
-    var cachedActionResult =
-        cache.downloadActionResult(
-            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
-    if (cachedActionResult == null) {
-      return false;
-    }
-
-    var actionResult = cachedActionResult.actionResult();
-    if (actionResult.getExitCode() != 0
-        || actionResult.getOutputFilesCount() != 1
-        || actionResult.getOutputDirectoriesCount() != 1) {
-      env.getListener().handle(
-          Event.warn(
-              String.format(
-                  "Unexpected action result for cached repo %s: exit code %d, %d output files, %d"
-                      + " output directories",
-                  repoName,
-                  actionResult.getExitCode(),
-                  actionResult.getOutputFilesCount(),
-                  actionResult.getOutputDirectoriesCount())));
+    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
 
     ListenableFuture<byte[]> markerFileContentFuture;
-    var markerFile = actionResult.getOutputFiles(0);
+    var markerFile = finalEntry.markerFile();
     // Inlining is an optional feature, so we have to be prepared to download the marker file.
     if (markerFile.getContents().isEmpty()) {
       markerFileContentFuture =
@@ -248,7 +224,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     } else {
       markerFileContentFuture = immediateFuture(markerFile.getContents().toByteArray());
     }
-    var repoDirectory = actionResult.getOutputDirectories(0);
+    var repoDirectory = finalEntry.repoDirectory();
     var repoDirectoryContentFuture =
         transformAsync(
             cache.downloadBlob(
@@ -258,13 +234,18 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
-    var maybeRecordedInputs =
-        DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
+    var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
     if (maybeRecordedInputs.isEmpty()) {
       return false;
     }
-    var outdatedReason = RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
+    var outdatedReason =
+        RepoRecordedInput.isAnyValueOutdated(env, directories, maybeRecordedInputs.get());
     if (env.valuesMissing() || outdatedReason.isPresent()) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "Unexpectedly outdated cached repo %s: %s"
+                      .formatted(repoName, outdatedReason.orElse("unknown reason"))));
       return false;
     }
 
@@ -372,12 +353,37 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     record Invalid(String reason) implements CacheEntry {}
   }
 
+  @Nullable
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
       String predeclaredInputHash)
       throws IOException, InterruptedException {
-    var nextHashes = new ArrayList<>
+    var currentHashes = ImmutableList.of(predeclaredInputHash);
+    while (!currentHashes.isEmpty()) {
+      var nextHashes = ImmutableList.<String>builder();
+      for (var hash : currentHashes) {
+        var entry = fetchCacheEntry(env, context, hash);
+        if (env.valuesMissing()) {
+          // Keep checking hashes to batch missing values in fewer restarts.
+          nextHashes.add(hash);
+          continue;
+        }
+        switch (entry) {
+          case CacheEntry.Final finalEntry -> {
+            return finalEntry;
+          }
+          case CacheEntry.Intermediate intermediateEntry ->
+              nextHashes.addAll(intermediateEntry.nextInputHashes());
+          case null, default -> {}
+        }
+      }
+      currentHashes = nextHashes.build();
+      if (env.valuesMissing()) {
+        return null;
+      }
+    }
+    return null;
   }
 
   @Nullable
