@@ -186,14 +186,12 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
-    # Change back to previous recorded inputs: not cached
-    # TODO: This is the current behavior, but it's not desired. Support for
-    #  caching repos with dynamic deps should be added.
+    # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('data.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
   def testNotCachedWhenRecordedInputsChange_staticDep(self):
     self.ScratchFile(
