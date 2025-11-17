@@ -1,7 +1,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_SEMVER_H_
 #define BAZEL_SRC_MAIN_CPP_SEMVER_H_
 
-#include <iostream>
 #include <optional>
 #include <string>
 #include <utility>

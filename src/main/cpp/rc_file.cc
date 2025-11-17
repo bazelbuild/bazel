@@ -161,9 +161,9 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
 
         if (!match.value()) {
           BAZEL_LOG(INFO) << absl::StrFormat(
-              "Skipped optional import '%s' because Bazel version (%s) did not "
-              "match the condition",
-              line, version);
+              "Skipped optional import '%s' because the condition (%s) did not "
+              "match the current running Bazel version (%s)",
+              line, conditional, build_label);
           continue;
         }
       } else {
@@ -217,8 +217,9 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                       error_text);
         parse_error != ParseError::NONE) {
       if (parse_error == ParseError::UNREADABLE_FILE &&
-          command == kCommandTryImport) {
-        // For try-import, we ignore it if we couldn't find a file.
+          (command == kCommandTryImport ||
+           command == kCommandTryImportIfBazelVersion)) {
+        // For try-import.*, we ignore it if we couldn't find a file.
         BAZEL_LOG(INFO) << "Skipped optional import of " << import_filename
                         << ", the specified rc file either does not exist or "
                            "is not readable.";
@@ -247,7 +248,7 @@ std::string RcFile::CanonicalizePathDefault(const std::string& filename) {
 
 std::optional<bool>
 BazelVersionMatchesCondition(const SemVer& build_label, absl::string_view op,
-                             absl::string_view compare_version,
+                             const std::string& compare_version,
                              std::string* error_text) {
   if (op == kBazelVersionTilde) {
     // For the tilde operator, the version string after the operator can be a
@@ -264,7 +265,7 @@ BazelVersionMatchesCondition(const SemVer& build_label, absl::string_view op,
       semver_compare_version =
           SemVer::Parse(absl::StrCat(compare_version, ".0"));
     } else {  // Assume a valid semantic version.
-      semver_compare_version = SemVer::Parse(compare_version.data());
+      semver_compare_version = SemVer::Parse(compare_version);
     }
     if (!semver_compare_version.has_value()) {
       *error_text = absl::StrFormat("Could not parse the tilde range version "
@@ -283,7 +284,7 @@ BazelVersionMatchesCondition(const SemVer& build_label, absl::string_view op,
   }
 
   std::optional<SemVer> semver_compare_version =
-      SemVer::Parse(compare_version.data());
+      SemVer::Parse(compare_version);
   if (!semver_compare_version.has_value()) {
     *error_text = absl::StrFormat(
         "Could not parse version '%s' as a valid semantic version.",
