@@ -95,6 +95,8 @@ class OutputJar {
   // Reserve space for the Central Directory Header in CEN buffer.
   uint8_t* ReserveCdh(size_t size);
   // Close output.
+  // Be sure to call this: Some users of OutputJar avoid calling the destructor.
+  // (They do that as a performance optimization.)
   bool Close();
   // Set classpath resource with given resource name and path.
   void ClasspathResource(const std::string& resource_name,
