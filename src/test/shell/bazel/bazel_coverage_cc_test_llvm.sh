@@ -601,4 +601,35 @@ end_of_record"
   assert_llvm_cc_coverage_result "$expected_foo_cc" "$cov_file"
 }
 
+function test_cc_test_llvm_coverage_with_path_mapping() {
+  setup_llvm_coverage_tools_for_lcov || return 0
+  setup_a_cc_lib_and_t_cc_test
+
+  bazel coverage --experimental_output_paths=strip \
+      --modify_execution_info=CppCompile=+supports-path-mapping \
+      --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+
+  local expected_result="SF:a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+BRDA:4,0,0,1
+BRDA:4,0,1,0
+BRF:2
+BRH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,0
+DA:8,0
+DA:9,1
+LH:5
+LF:7
+end_of_record"
+
+  assert_llvm_cc_coverage_result "$expected_result" "$(get_coverage_file_path_from_test_log)"
+}
+
 run_suite "test tests"
