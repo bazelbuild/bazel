@@ -215,10 +215,12 @@ function test_filters_deprecated_targets() {
 
   mkdir -p $pkg/{relativity,ether}
   cat > $pkg/relativity/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = 'relativity', srcs = ['relativity.cc'], deps = ['//$pkg/ether'])
 EOF
 
   cat > $pkg/ether/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(name = 'ether', srcs = ['ether.cc'], deprecation = 'Disproven',
            visibility = ['//visibility:public'])
 EOF
