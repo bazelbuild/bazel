@@ -475,7 +475,7 @@ function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
   case "$(uname -s)" in
-    Linux)
+    [Ll]inux)
       # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
       # within the network namespace... but that doesn't seem to be the case.
       check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
