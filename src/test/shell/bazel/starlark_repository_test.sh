@@ -2897,7 +2897,7 @@ EOF
 
   repo_cache_dir=$TEST_TMPDIR/repository_cache
   trap 'rm -rf ${repo_cache_dir}' EXIT
-  bazel build --repository_cache="$repo_cache_dir" \
+  bazel build --repository_cache="$repo_cache_dir" --action_env=PATH \
     //:unique_hashes >& $TEST_log || fail "expected bazel to succeed"
   assert_equals 1 "$(wc -l < bazel-bin/unique_hashes | tr -d ' ')"
   assert_equals $sha "$(cat bazel-bin/unique_hashes)"
