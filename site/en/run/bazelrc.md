@@ -51,7 +51,22 @@ before the command (`build`, `test`, etc).
 
     It is not an error if this file does not exist.
 
-4.  **The user-specified RC file**, if specified with
+4.  **The BAZELRC environment variable RC files**, if the `BAZELRC` environment
+    variable is set.
+
+    The `BAZELRC` environment variable can contain one or more paths to bazelrc
+    files, separated by commas. For example:
+
+    ```
+    export BAZELRC=/path/to/first.bazelrc,/path/to/second.bazelrc
+    ```
+
+    Each path will be resolved to an absolute path and environment variables
+    within the paths will be expanded. It is not an error if these files do not
+    exist - they will be silently skipped, similar to the system, workspace,
+    and home RC files.
+
+5.  **The user-specified RC file**, if specified with
     <code>--bazelrc=<var>file</var></code>
 
     This flag is optional but can also be specified multiple times.

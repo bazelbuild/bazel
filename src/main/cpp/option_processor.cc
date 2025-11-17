@@ -381,6 +381,20 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     }
   }
 
+  // Get rc files from BAZELRC environment variable (comma-separated paths)
+  const char* bazelrc_env = std::getenv("BAZELRC");
+  if (bazelrc_env != nullptr && bazelrc_env[0] != '\0') {
+    std::string bazelrc_env_str(bazelrc_env);
+    std::vector<std::string> env_rc_paths;
+    blaze_util::Split(bazelrc_env_str, ',', &env_rc_paths);
+
+    for (const std::string& env_rc : env_rc_paths) {
+      if (!env_rc.empty()) {
+        rc_files.push_back(blaze_util::MakeAbsoluteAndResolveEnvvars(env_rc));
+      }
+    }
+  }
+
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
   vector<std::string> cmd_line_rc_files =
