@@ -53,32 +53,33 @@ class InputJar {
 #endif
 
   // Opens the file, memory maps it and locates Central Directory.
-  bool Open(const std::string &path);
+  bool Open(const std::string& path);
 
   // Creates an input jar from data that's already in memory.
   // Requires a non-empty path for use in diagnostics.
-  bool Open(const std::string &path, unsigned char *data, size_t length);
+  bool Open(const std::string& path, unsigned char* data, size_t length);
 
   // Returns the next Central Directory Header or nullptr.
-  const CDH *NextEntry(const LH **local_header_ptr) {
+  const CDH* NextEntry(const LH** local_header_ptr) {
     if (path_.empty()) {
       diag_errx(1, "%s:%d: call Open() first!", __FILE__, __LINE__);
     }
     if (!cdh_->is()) {
       return nullptr;
     }
-    const CDH *current_cdh = cdh_;
-    const uint8_t *new_cdr = ziph::byte_ptr(cdh_) + cdh_->size();
+    const CDH* current_cdh = cdh_;
+    const uint8_t* new_cdr = ziph::byte_ptr(cdh_) + cdh_->size();
     if (!mapped_file_.mapped(new_cdr)) {
       diag_errx(
           1,
-          "Bad directory record at offset 0x%" PRIx64 " of %s\n"
+          "Bad directory record at offset 0x%" PRIx64
+          " of %s\n"
           "file name length = %u, extra_field length = %u, comment length = %u",
           CentralDirectoryRecordOffset(cdh_), path_.c_str(),
           cdh_->file_name_length(), cdh_->extra_fields_length(),
           cdh_->comment_length());
     }
-    cdh_ = reinterpret_cast<const CDH *>(new_cdr);
+    cdh_ = reinterpret_cast<const CDH*>(new_cdr);
     *local_header_ptr = LocalHeader(current_cdh);
     return current_cdh;
   }
@@ -86,29 +87,27 @@ class InputJar {
   // Closes the file.
   bool Close();
 
-  uint64_t CentralDirectoryRecordOffset(const void *cdr) const {
+  uint64_t CentralDirectoryRecordOffset(const void* cdr) const {
     return mapped_file_.offset(cdr);
   }
 
-  const LH *LocalHeader(const CDH *cdh) const {
-    return reinterpret_cast<const LH *>(
+  const LH* LocalHeader(const CDH* cdh) const {
+    return reinterpret_cast<const LH*>(
         mapped_file_.address(cdh->local_header_offset() + preamble_size_));
   }
 
-  uint64_t LocalHeaderOffset(const LH *lh) const {
+  uint64_t LocalHeaderOffset(const LH* lh) const {
     return mapped_file_.offset(lh);
   }
 
-  const uint8_t *mapped_start() const {
-    return mapped_file_.address(0);
-  }
+  const uint8_t* mapped_start() const { return mapped_file_.address(0); }
 
  private:
-  bool LocateCentralDirectory(const std::string &path);
+  bool LocateCentralDirectory(const std::string& path);
 
   std::string path_;
   MappedFile mapped_file_;
-  const CDH *cdh_;  // current directory entry
+  const CDH* cdh_;          // current directory entry
   uint64_t preamble_size_;  // Bytes before the Zip proper.
 };
 

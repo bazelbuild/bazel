@@ -325,15 +325,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   @Test
   public void sanityCheckOutputDirectory() throws Exception {
-    // Other tests in this file expect that changing the output_directory_name flag changes the
-    // output directory of the configuration to the same value.
-
-    // This test relies on hard-coded paths for intermediate artifacts so
-    // must force output directory naming into legacy behaviors for now.
-    addOptions(
-        "--output_directory_name=set_by_flag",
-        "--compilation_mode=fastbuild",
-        "--experimental_exec_configuration_distinguisher=legacy");
+    addOptions("--output_directory_name=set_by_flag", "--compilation_mode=fastbuild");
 
     write(
         "path/BUILD",
@@ -641,8 +633,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   @Test
   public void differentConfigurationSameOutputDirectory_setsSymlinks() throws Exception {
-    // TODO(blaze-configurability-team): Remove when `--experimental_output_directory_naming_scheme`
-    //    is universally set to `diff_from_baseline`
     addOptions(
         "--output_directory_name=from_flag",
         "--symlink_prefix=unchanged-",

@@ -562,18 +562,18 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   /**
    * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
-   * {@link ActionInput}s as inputs.
+   * {@link Artifact}s as inputs.
    *
-   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
-   * it must already have been built.
+   * <p>Each {@link Artifact} must be an output of the current {@link ActionExecutionContext} and it
+   * must already have been built.
    */
-  public ActionExecutionContext withOutputsAsInputs(
-      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
+  public ActionExecutionContext withOutputsAsInputs(Iterable<Artifact> outputs)
+      throws IOException, InterruptedException {
     ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
         ImmutableMap.builder();
 
-    for (ActionInput input : additionalInputs) {
-      additionalInputMap.put(input, outputMetadataStore.getOutputMetadata(input));
+    for (Artifact output : outputs) {
+      additionalInputMap.put(output, outputMetadataStore.getOutputMetadata(output));
     }
 
     StaticInputMetadataProvider additionalInputMetadata =

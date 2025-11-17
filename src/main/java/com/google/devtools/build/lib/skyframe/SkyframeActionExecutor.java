@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -147,7 +146,7 @@ public final class SkyframeActionExecutor {
   private static final OutputMetadataStore THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS =
       new OutputMetadataStore() {
         @Override
-        public FileArtifactValue getOutputMetadata(ActionInput output) {
+        public FileArtifactValue getOutputMetadata(Artifact artifact) {
           throw new IllegalStateException();
         }
 
@@ -1185,6 +1184,7 @@ public final class SkyframeActionExecutor {
                 BlazeClock.nanoTime(),
                 action,
                 inputMetadataProvider,
+                outputMetadataStore,
                 actionLookupData));
       }
       String message = action.getProgressMessage();

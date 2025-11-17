@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Builds different {@link InstrumentationOutput} objects with correct input parameters. */
@@ -40,9 +39,13 @@ public interface InstrumentationOutputBuilder {
     return this;
   }
 
-  /** Provides the options necessary for building the {@link InstrumentationOutput}. */
+  /**
+   * Provides the {@link CommandEnvironment} necessary for building the {@link
+   * InstrumentationOutput}.
+   */
   @CanIgnoreReturnValue
-  default InstrumentationOutputBuilder setOptions(OptionsProvider options) {
+  default InstrumentationOutputBuilder setCommandEnvironment(
+      CommandEnvironment commandEnvironment) {
     return this;
   }
 

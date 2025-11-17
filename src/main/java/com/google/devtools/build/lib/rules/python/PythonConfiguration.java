@@ -44,9 +44,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final TriState buildPythonZip;
 
-  /* Whether to include the build label in unstamped builds. */
-  private final boolean includeLabelInLinkstamp;
-
   private final boolean defaultToExplicitInitPy;
   @Nullable private final Label nativeRulesAllowlist;
   private final boolean disallowNativeRules;
@@ -59,7 +56,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
-    this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
 
     // Only set disablePyFragment, which removes ctx.fragments.py, if all PythonOptions flags are
     // flag aliased. We specially check here to see if any flags lack Starlark flag aliases.
@@ -150,14 +146,5 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   @Nullable
   public Label getNativeRulesAllowlist() {
     return nativeRulesAllowlist;
-  }
-
-  /** Returns whether the build label is included in unstamped builds. */
-  @StarlarkMethod(
-      name = "include_label_in_linkstamp",
-      doc = "Whether the build label is included in unstamped builds.",
-      structField = true)
-  public boolean isIncludeLabelInLinkstamp() {
-    return includeLabelInLinkstamp;
   }
 }

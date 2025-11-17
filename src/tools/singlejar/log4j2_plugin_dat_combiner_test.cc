@@ -18,9 +18,9 @@
 #include <string>
 
 #include "googletest/include/gtest/gtest.h"
+#include "rules_cc/cc/runfiles/runfiles.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
-#include "rules_cc/cc/runfiles/runfiles.h"
 
 namespace {
 
@@ -52,8 +52,8 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerSimple) {
               "io_bazel/src/tools/singlejar/data/log4j2_plugins_set_1.jar")
           .c_str()));
 
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar1.NextEntry(&lh))) {
     if (cdh->file_name_is(plugins_cache_path.c_str())) {
       ASSERT_TRUE(combiner.Merge(cdh, lh));
@@ -72,7 +72,7 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerSimple) {
     }
   }
 
-  LH *entry = reinterpret_cast<LH *>(combiner.OutputEntry(true));
+  LH* entry = reinterpret_cast<LH*>(combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());
   EXPECT_EQ(20, entry->version());
   EXPECT_EQ(Z_DEFLATED, entry->compression_method());
@@ -89,7 +89,7 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerSimple) {
   std::streampos expected_size = expected_file.tellg();
   expected_file.seekg(0, std::ios::beg);
   ASSERT_GT(expected_size, 0);
-  char *expected_content = new char[expected_size];
+  char* expected_content = new char[expected_size];
   expected_file.read(expected_content, expected_size);
   ASSERT_TRUE(expected_file.good());
   expected_file.close();
@@ -102,10 +102,10 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerSimple) {
   uint8_t buffer[256];
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
   ASSERT_EQ(
-      memcmp(reinterpret_cast<char *>(buffer), expected_content, expected_size),
+      memcmp(reinterpret_cast<char*>(buffer), expected_content, expected_size),
       0)
       << "Byte arrays are not equal";
-  free(reinterpret_cast<void *>(entry));
+  free(reinterpret_cast<void*>(entry));
 }
 
 TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerDuplicate) {
@@ -120,8 +120,8 @@ TEST_F(Log4J2PluginDatCombinerTest, Log4J2PluginDatCombinerDuplicate) {
               "io_bazel/src/tools/singlejar/data/log4j2_plugins_set_1.jar")
           .c_str()));
 
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar1.NextEntry(&lh))) {
     if (cdh->file_name_is(plugins_cache_path.c_str())) {
       ASSERT_TRUE(combiner.Merge(cdh, lh));

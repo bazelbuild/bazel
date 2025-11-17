@@ -90,8 +90,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Returns the metadata for an {@link ActionInput}.
    *
-   * <p>This will generally call through to a {@link InputMetadataProvider} and ask for the metadata
-   * of either an input or an output artifact.
+   * <p>This will generally call through to a {@link InputMetadataProvider} or {@link
+   * OutputMetadataStore} and ask for the metadata of either an input or an output artifact.
    */
   @VisibleForTesting
   public interface MetadataSupplier {
@@ -762,7 +762,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             prefetchFilesInterruptibly(
                 action,
                 outputsToDownload,
-                outputMetadataStore::getOutputMetadata,
+                output -> outputMetadataStore.getOutputMetadata((Artifact) output),
                 Priority.HIGH,
                 Reason.OUTPUTS));
       }

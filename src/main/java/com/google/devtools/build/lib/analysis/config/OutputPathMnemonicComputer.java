@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -167,14 +167,9 @@ public final class OutputPathMnemonicComputer {
    *
    * <p>platform_suffix is omitted if empty.
    *
-   * <p>The exact ST-hash used depends on if baselineOptions is available:
-   *
-   * <p>If not, assume in legacy mode and use `affected by starlark transition` to see what options
-   * need to be hashed.
-   *
-   * <p>If available, the hash includes all options that are different between buildOptions and
-   * baselineOptions but were also not excluded from the output path by a call to {@link
-   * Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
+   * <p>The exact ST-hash used depends on baselineOptions. The hash includes all options that are
+   * different between buildOptions and baselineOptions but were also not excluded from the output
+   * path by a call to {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
    */
   static final String computeMnemonic(
       BuildOptions buildOptions,
@@ -226,15 +221,10 @@ public final class OutputPathMnemonicComputer {
               + missingOptions);
     }
 
-    if (baselineOptions == null) {
-      ctx.checkedAddToMnemonic(
-          computeNameFragmentWithAffectedByStarlarkTransition(buildOptions),
-          "Transition directory name fragment");
-    } else {
-      ctx.checkedAddToMnemonic(
-          computeNameFragmentWithDiff(buildOptions, baselineOptions, explicitInOutputPathOptions),
-          "Transition directory name fragment");
-    }
+    ctx.checkedAddToMnemonic(
+        computeNameFragmentWithDiff(
+            buildOptions, Verify.verifyNotNull(baselineOptions), explicitInOutputPathOptions),
+        "Transition directory name fragment");
     return ctx.getMnemonic();
   }
 
@@ -317,43 +307,6 @@ public final class OutputPathMnemonicComputer {
     ImmutableSet<String> chosenStarlarkOptions =
         diff.getChangedStarlarkOptions().stream().map(Label::toString).collect(toImmutableSet());
     return hashChosenOptions(toOptions, chosenNativeOptions, chosenStarlarkOptions);
-  }
-
-  /**
-   * Compute the output directory name fragment corresponding to the new BuildOptions based on the
-   * names and values of all options (both native and Starlark) previously transitioned anywhere in
-   * the build by Starlark transitions. Options only set on command line are not affecting the
-   * computation.
-   *
-   * @param toOptions the {@link BuildOptions} to use to calculate which we need to compute {@code
-   *     transitionDirectoryNameFragment}.
-   */
-  private static String computeNameFragmentWithAffectedByStarlarkTransition(
-      BuildOptions toOptions) {
-    CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
-    if (buildConfigOptions.affectedByStarlarkTransition.isEmpty()) {
-      return "";
-    }
-
-    ImmutableList.Builder<String> affectedNativeOptions = ImmutableList.builder();
-    ImmutableList.Builder<String> affectedStarlarkOptions = ImmutableList.builder();
-
-    // Note that explicitInOutputPathOptions is not sent to this function.
-    // It is possible for two BuildOptions to differ only in `affected by Starlark transition`
-    //   where the only different is one includes a marked option and the other doesn't.
-    // Thus, must include all options so those cases get a different output path.
-    // This legacy is no longer the default and thus entire code path is slated for removal.
-    for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
-      if (optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        affectedNativeOptions.add(nativeOptionName);
-      } else {
-        affectedStarlarkOptions.add(optionName);
-      }
-    }
-
-    return hashChosenOptions(
-        toOptions, affectedNativeOptions.build(), affectedStarlarkOptions.build());
   }
 
   /**

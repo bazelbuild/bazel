@@ -518,6 +518,14 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "experimental_py_binaries_include_label",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean includeLabelInPyBinariesLinkstamp;
+
+    @Option(
         name = "incompatible_python_disable_py2",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

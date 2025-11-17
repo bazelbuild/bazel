@@ -454,6 +454,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:collect_local_resource_usage",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
@@ -682,7 +683,7 @@ genrule(
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
-        "help everything-as-html >> $@ 2>/dev/null && " +
+        "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
     toolchains = ["@rules_java//toolchains:current_host_java_runtime"],

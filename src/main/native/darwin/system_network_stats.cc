@@ -26,8 +26,8 @@
 namespace blaze_jni {
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersNative(
-    JNIEnv *env, jclass clazz, jobject counters_map) {
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+    JNIEnv* env, jclass clazz, jobject counters_map) {
   int mib[6] = {CTL_NET,         // networking subsystem
                 PF_ROUTE,        // type of information
                 0,               // always 0 for CTL_NET/PF_ROUTE
@@ -62,11 +62,12 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersN
       "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 
   jclass counter_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/SystemNetworkStats$NetIoCounter");
+      "com/google/devtools/build/lib/profiler/"
+      "SystemNetworkStatsService$NetIoCounter");
   jmethodID counter_create =
       env->GetStaticMethodID(counter_class, "create",
                              "(JJJJ)Lcom/google/devtools/build/lib/profiler/"
-                             "SystemNetworkStats$NetIoCounter;");
+                             "SystemNetworkStatsService$NetIoCounter;");
 
   const char *end = buf.data() + buf_len;
   for (const char *next = buf.data(); next < end;) {

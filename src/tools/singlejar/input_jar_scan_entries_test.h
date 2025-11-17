@@ -112,7 +112,7 @@ class InputJarScanEntries : public testing::Test {
 
   void SetUp() override { input_jar_.reset(new InputJar); }
 
-  static void SmogCheck(const CDH *cdh, const LH *lh) {
+  static void SmogCheck(const CDH* cdh, const LH* lh) {
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
     ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
@@ -149,8 +149,8 @@ TYPED_TEST_P(InputJarScanEntries, Basic) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
   this->CreateBasicJar();
   ASSERT_TRUE(this->input_jar_->Open(kJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   int file_count = 0;
   bool res1_present = false;
   bool res2_present = false;
@@ -171,10 +171,10 @@ TYPED_TEST_P(InputJarScanEntries, Basic) {
 
   this->input_jar_->Close();
   unlink(kJar);
-  EXPECT_TRUE(res1_present) << "Jar file " << kJar << " lacks expected '"
-                            << kRes1 << "' file.";
-  EXPECT_TRUE(res2_present) << "Jar file " << kJar << " lacks expected '"
-                            << kRes2 << "' file.";
+  EXPECT_TRUE(res1_present)
+      << "Jar file " << kJar << " lacks expected '" << kRes1 << "' file.";
+  EXPECT_TRUE(res2_present)
+      << "Jar file " << kJar << " lacks expected '" << kRes2 << "' file.";
 }
 
 /*
@@ -185,8 +185,8 @@ TYPED_TEST_P(InputJarScanEntries, HugeUncompressed) {
   this->CreateJarWithHugeUncompressed();
   singlejar_test_util::LsZip(kJar);
   ASSERT_TRUE(this->input_jar_->Open(kJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   bool huge_file_present = false;
 
   while ((cdh = this->input_jar_->NextEntry(&lh))) {
@@ -199,8 +199,8 @@ TYPED_TEST_P(InputJarScanEntries, HugeUncompressed) {
   }
   this->input_jar_->Close();
   unlink(kJar);
-  EXPECT_TRUE(huge_file_present) << "Jar file " << kJar << " lacks expected '"
-                                 << kHuge << "' file.";
+  EXPECT_TRUE(huge_file_present)
+      << "Jar file " << kJar << " lacks expected '" << kHuge << "' file.";
 }
 
 /*
@@ -212,8 +212,8 @@ TYPED_TEST_P(InputJarScanEntries, TestZip64) {
   this->CreateJarWithZip64Entries();
   singlejar_test_util::LsZip(kJar);
   ASSERT_TRUE(this->input_jar_->Open(kJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = this->input_jar_->NextEntry(&lh))) {
     this->SmogCheck(cdh, lh);
 
@@ -249,8 +249,8 @@ TYPED_TEST_P(InputJarScanEntries, LotsOfEntries) {
   ASSERT_EQ(0, system(kTailUnzip)) << "Failed command: " << kTailUnzip;
 #endif
   ASSERT_TRUE(this->input_jar_->Open(kJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   int entry_count = 0;
   int file_count = 0;
   int dir_count = 0;
@@ -280,10 +280,10 @@ TYPED_TEST_P(InputJarScanEntries, BasicInMemory) {
   MappedFile mapped_file;
   ASSERT_TRUE(mapped_file.Open(kJar));
   ASSERT_TRUE(this->input_jar_->Open(
-      kJar, const_cast<unsigned char *>(mapped_file.start()),
+      kJar, const_cast<unsigned char*>(mapped_file.start()),
       mapped_file.size()));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   int file_count = 0;
   bool res1_present = false;
   bool res2_present = false;

@@ -74,7 +74,7 @@ public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestC
     ConfiguredTarget dataLibTarget = getConfiguredTarget("//data:data_bin");
     assertThat(getFilesToBuild(dataLibTarget).toList()).isNotEmpty();
     for (Artifact dataOut : getFilesToBuild(dataLibTarget).toList()) {
-      assertWithMessage("Missing output: " + dataOut.getPath())
+      assertWithMessage("Missing output: %s", dataOut.getPath())
           .that(dataOut.getPath().exists())
           .isTrue();
     }

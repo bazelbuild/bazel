@@ -27,11 +27,9 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
-import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import com.google.devtools.build.lib.util.Pair;
@@ -228,36 +226,7 @@ public class ExecutionTransitionFactory
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
-      switch (coreOptions.execConfigurationDistinguisherScheme) {
-        case LEGACY ->
-            coreOptions.platformSuffix =
-                String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
-        case FULL_HASH -> {
-          coreOptions.platformSuffix = "";
-          // execOptions creation above made a clone, which will have a fresh hashCode
-          int fullHash = result.hashCode();
-          coreOptions.platformSuffix = String.format("exec-%X", fullHash);
-          // Previous call to hashCode irreparably locked in state so must clone to refresh since
-          // options mutated after that
-          result = result.clone();
-        }
-        case DIFF_TO_AFFECTED -> {
-          // Setting platform_suffix here should not be necessary for correctness but
-          // done for user clarity.
-          coreOptions.platformSuffix = "exec";
-          ImmutableSet<String> diff =
-              FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
-                  result, options.underlying());
-          FunctionTransitionUtil.updateAffectedByStarlarkTransition(coreOptions, diff);
-          // Previous call to diff irreparably locked in state so must clone to refresh.
-          result = result.clone();
-        }
-        default ->
-            // else if OFF just mark that we are now in an exec transition
-            coreOptions.platformSuffix = "exec";
-      }
-      coreOptions.affectedByStarlarkTransition =
-          options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
+      coreOptions.platformSuffix = "exec";
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
       coreOptions.overridePlatformCpuName =

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -311,15 +312,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Action message '" + message + "' should be present in output: " + output)
+    assertWithMessage("Action message '%s' should be present in output: %s", message, output)
         .that(output.contains(message))
         .isTrue();
 
     terminalWriter = new LoggingTerminalWriter();
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage(
-            "Action message '" + message + "' should be present in short output: " + output)
+    assertWithMessage("Action message '%s' should be present in short output: %s", message, output)
         .that(output.contains(message))
         .isTrue();
   }
@@ -345,17 +345,22 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionLookupData actionLookupData = ActionLookupData.create(mock(ActionLookupKey.class), 1);
     stateTracker.actionCompletion(
         new ActionCompletionEvent(
-            20, clock.nanoTime(), fastAction, new FakeActionInputFileCache(), actionLookupData));
+            20,
+            clock.nanoTime(),
+            fastAction,
+            new FakeActionInputFileCache(),
+            mock(OutputMetadataStore.class),
+            actionLookupData));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Completed action '" + messageFast + "' should not be present in output: " + output)
+            "Completed action '%s' should not be present in output: %s", messageFast, output)
         .that(output.contains(messageFast))
         .isFalse();
     assertWithMessage(
-            "Only running action '" + messageSlow + "' should be present in output: " + output)
+            "Only running action '%s' should be present in output: %s", messageSlow, output)
         .that(output.contains(messageSlow))
         .isTrue();
 
@@ -363,17 +368,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Completed action '"
-                + messageFast
-                + "' should not be present in short output: "
-                + output)
+            "Completed action '%s' should not be present in short output: %s", messageFast, output)
         .that(output.contains(messageFast))
         .isFalse();
     assertWithMessage(
-            "Only running action '"
-                + messageSlow
-                + "' should be present in short output: "
-                + output)
+            "Only running action '%s' should be present in short output: %s", messageSlow, output)
         .that(output.contains(messageSlow))
         .isTrue();
   }
@@ -402,7 +401,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Longest running action '" + messageOld + "' should be visible in output: " + output)
+            "Longest running action '%s' should be visible in output: %s", messageOld, output)
         .that(output.contains(messageOld))
         .isTrue();
 
@@ -410,10 +409,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
     assertWithMessage(
-            "Longest running action '"
-                + messageOld
-                + "' should be visible in short output: "
-                + output)
+            "Longest running action '%s' should be visible in short output: %s", messageOld, output)
         .that(output.contains(messageOld))
         .isTrue();
   }
@@ -442,18 +438,18 @@ public class UiStateTrackerTest extends FoundationTestCase {
           new LoggingTerminalWriter(/* discardHighlight= */ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
-      assertWithMessage("Action " + (i - 1) + " should still be shown in the output: '" + output)
+      assertWithMessage("Action %s should still be shown in the output: '%s", (i - 1), output)
           .that(output.contains("A" + (i - 1) + "."))
           .isTrue();
-      assertWithMessage("Action " + i + " should not be shown in the output: " + output)
+      assertWithMessage("Action %s should not be shown in the output: %s", i, output)
           .that(output.contains("A" + i + "."))
           .isFalse();
       if (i < 10) {
-        assertWithMessage("Ellipsis symbol should be shown in output: " + output)
+        assertWithMessage("Ellipsis symbol should be shown in output: %s", output)
             .that(output.contains("..."))
             .isTrue();
       } else {
-        assertWithMessage("Ellipsis symbol should not be shown in output: " + output)
+        assertWithMessage("Ellipsis symbol should not be shown in output: %s", output)
             .that(output.contains("..."))
             .isFalse();
       }
@@ -482,17 +478,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in output: " + output)
+    assertWithMessage("Runtime of first action should be visible in output: %s", output)
         .that(output.contains("27s"))
         .isTrue();
-    assertWithMessage("Runtime of second action should be visible in output: " + output)
+    assertWithMessage("Runtime of second action should be visible in output: %s", output)
         .that(output.contains("20s"))
         .isTrue();
 
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in short output: " + output)
+    assertWithMessage("Runtime of first action should be visible in short output: %s", output)
         .that(output.contains("27s"))
         .isTrue();
   }
@@ -547,14 +543,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
-    assertWithMessage("Test count should be visible in output: " + output)
+    assertWithMessage("Test count should be visible in output: %s", output)
         .that(output.contains(" 1 / 2 tests"))
         .isTrue();
 
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Test count should be visible in short output: " + output)
+    assertWithMessage("Test count should be visible in short output: %s", output)
         .that(output.contains(" 1 / 2 tests"))
         .isTrue();
   }
@@ -586,7 +582,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     String expected = LoggingTerminalWriter.OK + labelA;
     assertWithMessage(
-            "Sequence '" + expected + "' should be present in colored progress bar: " + output)
+            "Sequence '%s' should be present in colored progress bar: %s", expected, output)
         .that(output.contains(expected))
         .isTrue();
   }
@@ -619,7 +615,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     String expected = LoggingTerminalWriter.FAIL + labelA;
     assertWithMessage(
-            "Sequence '" + expected + "' should be present in colored progress bar: " + output)
+            "Sequence '%s' should be present in colored progress bar: %s", expected, output)
         .that(output.contains(expected))
         .isTrue();
   }
@@ -664,11 +660,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain 'Building ', but was:\n" + output)
+    assertWithMessage("Progress bar should contain 'Building ', but was:\n%s", output)
         .that(output.contains("Building "))
         .isTrue();
     assertWithMessage(
-            "Progress bar should contain 'foo.jar (42 source files)', but was:\n" + output)
+            "Progress bar should contain 'foo.jar (42 source files)', but was:\n%s", output)
         .that(output.contains("foo.jar (42 source files)"))
         .isTrue();
   }
@@ -698,7 +694,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Output should mention strategy '" + strategy + "', but was: " + output)
+    assertWithMessage("Output should mention strategy '%s', but was: %s", strategy, output)
         .that(output.contains(strategy))
         .isTrue();
   }
@@ -828,12 +824,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Output should mention strategies '"
-                + strategy1
-                + "' and '"
-                + strategy2
-                + "', but was: "
-                + output)
+            "Output should mention strategies '%s' and '%s', but was: %s",
+            strategy1, strategy2, output)
         .that(output.contains(strategy1 + ", " + strategy2))
         .isTrue();
   }
@@ -937,21 +929,21 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Only lines with at most 70 chars should be present in the output:\n" + output)
+            "Only lines with at most 70 chars should be present in the output:\n%s", output)
         .that(longestLine(output) <= 70)
         .isTrue();
     if (actions >= 1) {
-      assertWithMessage("Running action 'foobuild' should be mentioned in output:\n" + output)
+      assertWithMessage("Running action 'foobuild' should be mentioned in output:\n%s", output)
           .that(output.contains("foobuild"))
           .isTrue();
     }
     if (actions >= 2) {
-      assertWithMessage("Running action 'bazbuild' should be mentioned in output:\n" + output)
+      assertWithMessage("Running action 'bazbuild' should be mentioned in output:\n%s", output)
           .that(output.contains("bazbuild"))
           .isTrue();
     }
     if (withTest) {
-      assertWithMessage("Passed test ':bartest' should be mentioned in output:\n" + output)
+      assertWithMessage("Passed test ':bartest' should be mentioned in output:\n%s", output)
           .that(output.contains(":bartest"))
           .isTrue();
     }
@@ -992,7 +984,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action foo being scanned should be visible in output:\n" + output)
+    assertWithMessage("Action foo being scanned should be visible in output:\n%s", output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
 
@@ -1003,16 +995,16 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action bar being scheduled should be visible in output:\n" + output)
+    assertWithMessage("Action bar being scheduled should be visible in output:\n%s", output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Action foo being scanned should still be visible in output:\n" + output)
+    assertWithMessage("Action foo being scanned should still be visible in output:\n%s", output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
-    assertWithMessage("Indication that no actions are running is missing in output:\n" + output)
+    assertWithMessage("Indication that no actions are running is missing in output:\n%s", output)
         .that(output.contains("0 running"))
         .isTrue();
-    assertWithMessage("Total number of actions expected  in output:\n" + output)
+    assertWithMessage("Total number of actions expected  in output:\n%s", output)
         .that(output.contains("2 actions"))
         .isTrue();
 
@@ -1023,19 +1015,19 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Action foo's xyz-sandbox strategy should be shown in output:\n" + output)
+    assertWithMessage("Action foo's xyz-sandbox strategy should be shown in output:\n%s", output)
         .that(output.contains("xyz-sandbox"))
         .isTrue();
-    assertWithMessage("Action foo should no longer be analyzed in output:\n" + output)
+    assertWithMessage("Action foo should no longer be analyzed in output:\n%s", output)
         .that(output.contains("ana") || output.contains("Ana"))
         .isFalse();
-    assertWithMessage("Action bar being scheduled should still be visible in output:\n" + output)
+    assertWithMessage("Action bar being scheduled should still be visible in output:\n%s", output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Indication that one action is running is missing in output:\n" + output)
+    assertWithMessage("Indication that one action is running is missing in output:\n%s", output)
         .that(output.contains("1 running"))
         .isTrue();
-    assertWithMessage("Total number of actions expected  in output:\n" + output)
+    assertWithMessage("Total number of actions expected  in output:\n%s", output)
         .that(output.contains("2 actions"))
         .isTrue();
   }
@@ -1071,10 +1063,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should be visible in output: " + output)
+    assertWithMessage("Runtime of first action should be visible in output: %s", output)
         .that(output.contains("28s"))
         .isTrue();
-    assertWithMessage("Scheduling time of second action should be visible in output: " + output)
+    assertWithMessage("Scheduling time of second action should be visible in output: %s", output)
         .that(output.contains("21s"))
         .isTrue();
 
@@ -1082,10 +1074,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Runtime of first action should still be visible in output: " + output)
+    assertWithMessage("Runtime of first action should still be visible in output: %s", output)
         .that(output.contains("28s"))
         .isTrue();
-    assertWithMessage("Time of second action should no longer be visible in output: " + output)
+    assertWithMessage("Time of second action should no longer be visible in output: %s", output)
         .that(output.contains("21s"))
         .isFalse();
 
@@ -1093,10 +1085,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("New runtime of first action should be visible in output: " + output)
+    assertWithMessage("New runtime of first action should be visible in output: %s", output)
         .that(output.contains("58s"))
         .isTrue();
-    assertWithMessage("Runtime of second action should be visible in output: " + output)
+    assertWithMessage("Runtime of second action should be visible in output: %s", output)
         .that(output.contains("30s"))
         .isTrue();
   }
@@ -1131,7 +1123,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
-    assertWithMessage("Even a strategy announced early should be shown in output:\n" + output)
+    assertWithMessage("Even a strategy announced early should be shown in output:\n%s", output)
         .that(output.contains("foo-sandbox"))
         .isTrue();
   }
@@ -1164,10 +1156,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
           new LoggingTerminalWriter(/* discardHighlight= */ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
-      assertWithMessage("Action quickstart" + i + " should be visible in output:\n" + output)
+      assertWithMessage("Action quickstart%s should be visible in output:\n%s", i, output)
           .that(output.contains("quickstart" + i))
           .isTrue();
-      assertWithMessage("Number of running actions should be indicated in output:\n" + output)
+      assertWithMessage("Number of running actions should be indicated in output:\n%s", output)
           .that(output.contains((i + 1) + " running"))
           .isTrue();
     }
@@ -1274,13 +1266,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain ':footest', but was:\n" + output)
+    assertWithMessage("Progress bar should contain ':footest', but was:\n%s", output)
         .that(output.contains(":footest"))
         .isTrue();
-    assertWithMessage("Progress bar should contain ':bartest', but was:\n" + output)
+    assertWithMessage("Progress bar should contain ':bartest', but was:\n%s", output)
         .that(output.contains(":bartest"))
         .isTrue();
-    assertWithMessage("Progress bar should contain 'Other action', but was:\n" + output)
+    assertWithMessage("Progress bar should contain 'Other action', but was:\n%s", output)
         .that(output.contains("Other action"))
         .isTrue();
     assertThat(output).doesNotContain("Testing //baz:baztest");
@@ -1407,13 +1399,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output = terminalWriter.getTranscript();
 
     assertWithMessage(
-            "Only lines with at most 60 chars should be present in the output:\n" + output)
+            "Only lines with at most 60 chars should be present in the output:\n%s", output)
         .that(longestLine(output) <= 60)
         .isTrue();
-    assertWithMessage("Output still should contain the filename, but was:\n" + output)
+    assertWithMessage("Output still should contain the filename, but was:\n%s", output)
         .that(output.contains("filename.tar.gz"))
         .isTrue();
-    assertWithMessage("Output still should contain the host name, but was:\n" + output)
+    assertWithMessage("Output still should contain the host name, but was:\n%s", output)
         .that(output.contains("example.org"))
         .isTrue();
   }

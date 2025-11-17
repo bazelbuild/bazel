@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.profiler;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIoCounter;
+import com.google.devtools.build.lib.profiler.SystemNetworkStatsService.NetIoCounter;
 import java.io.IOException;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
@@ -51,7 +51,8 @@ public final class NetworkMetricsCollector {
   }
 
   @Nullable
-  public SystemNetworkUsages collectSystemNetworkUsages(double deltaNanos) {
+  public SystemNetworkUsages collectSystemNetworkUsages(
+      double deltaNanos, SystemNetworkStatsService systemNetworkStatsService) {
     if (loopbackInterfaceNames == null) {
       try {
         loopbackInterfaceNames = getLoopbackInterfaceNames();
@@ -62,7 +63,7 @@ public final class NetworkMetricsCollector {
 
     Map<String, NetIoCounter> nextNetworkIoCounters = null;
     try {
-      nextNetworkIoCounters = SystemNetworkStats.getNetIoCounters();
+      nextNetworkIoCounters = systemNetworkStatsService.getNetIoCounters();
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to get Net IO counters");
     }

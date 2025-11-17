@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 import static java.util.stream.Collectors.joining;
@@ -30,13 +29,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.CustomFlagConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
-import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
@@ -56,9 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
@@ -578,9 +573,6 @@ public final class FunctionTransitionUtil {
     // toOptions being null means the transition hasn't changed anything. We avoid preemptively
     // cloning it from fromOptions since options cloning is an expensive operation.
     BuildOptions toOptions = null;
-    // The names of options (Starlark + native) that are different after this transition and must
-    //   be added to "affected by Starlark transition"
-    Set<String> convertedAffectedOptions = new HashSet<>();
     // Starlark options that are different after this transition. We collect all of them, then clone
     // the build options once with all cumulative changes. Native option changes, in contrast, are
     // set directly in the BuildOptions instance. The former approach is preferred since it makes
@@ -625,7 +617,6 @@ public final class FunctionTransitionUtil {
         }
         if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
-          convertedAffectedOptions.add(optionLabel.toString());
         }
       } else {
         // The transition changes a native option.
@@ -719,8 +710,6 @@ public final class FunctionTransitionUtil {
               toOptions = fromOptions.clone();
             }
             def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
-
-            convertedAffectedOptions.add(optionKey);
           }
 
         } catch (IllegalArgumentException e) {
@@ -744,58 +733,9 @@ public final class FunctionTransitionUtil {
             .addStarlarkOptions(changedStarlarkOptions)
             .build();
     if (starlarkTransition.isForAnalysisTesting()) {
-      // We need to record every time we change a configuration option.
-      // see {@link #updateOutputDirectoryNameFragment} for usage.
-      convertedAffectedOptions.add("//command_line_option:evaluating for analysis test");
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
-
-    CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    boolean isExecTransition = starlarkTransition != null && starlarkTransition.isExecTransition();
-
-    if (!isExecTransition
-        && coreOptions.outputDirectoryNamingScheme.equals(
-            CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
-      // The exec transition uses its own logic in ExecutionTransitionFactory.
-      updateAffectedByStarlarkTransition(coreOptions, convertedAffectedOptions);
-    }
     return toOptions;
-  }
-
-  /** Return different options in "affected by Starlark transition" form */
-  // TODO(blaze-configurability-team):This only exists for pseudo-legacy fixups of native
-  //   transitions. Remove once those fixups are removed in favor of the global fixup.
-  public static ImmutableSet<String> getAffectedByStarlarkTransitionViaDiff(
-      BuildOptions toOptions, BuildOptions baselineOptions) {
-    if (toOptions.equals(baselineOptions)) {
-      return ImmutableSet.of();
-    }
-
-    OptionsDiff diff = OptionsDiff.diff(toOptions, baselineOptions);
-    Stream<String> diffNative =
-        diff.getFirst().keySet().stream()
-            .map(option -> COMMAND_LINE_OPTION_PREFIX + option.getOptionName());
-    // Note: getChangedStarlarkOptions includes all changed options, added options and removed
-    //   options between baselineOptions and toOptions. This is necessary since there is no current
-    //   notion of trimming a Starlark option: 'null' or non-existent justs means set to default.
-    Stream<String> diffStarlark = diff.getChangedStarlarkOptions().stream().map(Label::toString);
-    return Streams.concat(diffNative, diffStarlark).collect(toImmutableSet());
-  }
-
-  /**
-   * Extend the global build config affectedByStarlarkTransition, by adding any new option names
-   * from changedOptions. Does nothing if output directory naming scheme is not in legacy mode.
-   */
-  public static void updateAffectedByStarlarkTransition(
-      CoreOptions buildConfigOptions, Set<String> changedOptions) {
-    if (changedOptions.isEmpty()) {
-      return;
-    }
-    Set<String> mutableCopyToUpdate =
-        new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
-    mutableCopyToUpdate.addAll(changedOptions);
-    buildConfigOptions.affectedByStarlarkTransition =
-        ImmutableList.sortedCopyOf(mutableCopyToUpdate);
   }
 
   private FunctionTransitionUtil() {}

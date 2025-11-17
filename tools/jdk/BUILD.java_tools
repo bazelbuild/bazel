@@ -553,6 +553,7 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@zlib",
     ],
 )
@@ -565,6 +566,7 @@ cc_library(
     deps = [
         ":diag",
         ":filesystem",
+        ":mapped_file",
     ],
 )
 

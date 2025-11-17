@@ -43,7 +43,7 @@ class Options {
   virtual ~Options() {}
 
   // Parses command line arguments into the fields of this instance.
-  void ParseCommandLine(int argc, const char *const argv[]);
+  void ParseCommandLine(int argc, const char* const argv[]);
 
   std::string output_jar;
   std::string output_jar_creator;
@@ -84,7 +84,7 @@ class Options {
    * flag may result in many tokens being consumed, as flags like --inputs ends
    * up consuming many future tokens: --inputs a b c d e --some_other_flag
    */
-  virtual bool ParseToken(ArgTokenStream *tokens);
+  virtual bool ParseToken(ArgTokenStream* tokens);
 
   /*
    * After all of the command line options are consumed, validate that the

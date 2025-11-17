@@ -58,7 +58,7 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
       command = m.group("command");
     }
 
-    assertWithMessage("Expected command to be \"" + expected + "\", but found \"" + command + "\"")
+    assertWithMessage("Expected command to be \"%s\", but found \"%s\"", expected, command)
         .that(command)
         .isEqualTo(expected);
   }

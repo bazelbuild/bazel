@@ -23,9 +23,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -754,13 +757,13 @@ public class StandaloneTestStrategy extends TestStrategy {
               .getOutputMetadataStore()
               .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
 
-      ImmutableSet<? extends ActionInput> expandedCoverageDir =
+      ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
           actionExecutionContext
               .getOutputMetadataStore()
               .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
               .getChildren();
-      ImmutableSet<ActionInput> coverageSpawnMetadata =
-          ImmutableSet.<ActionInput>builder()
+      ImmutableSet<Artifact> coverageSpawnMetadata =
+          ImmutableSet.<Artifact>builder()
               .addAll(expandedCoverageDir)
               .add(testAction.getCoverageDirectoryTreeArtifact())
               .build();

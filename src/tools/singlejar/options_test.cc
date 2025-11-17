@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-
 #include "src/tools/singlejar/options.h"
+
+#include <memory>
 
 #include "src/main/cpp/util/port.h"
 #include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
-  const char *args[] = {
+  const char* args[] = {
       "--exclude_build_data", "--compression",     "--normalize",
       "--no_duplicates",      "--output",          "output_jar",
       "--hermetic_java_home", "hermetic_java_home"};
@@ -41,7 +41,7 @@ TEST(OptionsTest, Flags1) {
 }
 
 TEST(OptionsTest, Flags2) {
-  const char *args[] = {"--dont_change_compression",
+  const char* args[] = {"--dont_change_compression",
                         "--verbose",
                         "--warn_duplicate_resources",
                         "--check_desugar_deps",
@@ -64,15 +64,13 @@ TEST(OptionsTest, Flags2) {
 }
 
 TEST(OptionsTest, SingleOptargs) {
-  const char *args[] = {"--output", "output_jar",
-                        "--main_class", "com.google.Main",
-                        "--java_launcher", "//tools:mylauncher",
-                        "--build_info_file", "build_file1",
-                        "--extra_build_info", "extra_build_line1",
-                        "--build_info_file", "build_file2",
-                        "--extra_build_info", "extra_build_line2",
-                        "--cds_archive", "classes.jsa",
-                        "--jdk_lib_modules", "modules"};
+  const char* args[] = {
+      "--output",           "output_jar",        "--main_class",
+      "com.google.Main",    "--java_launcher",   "//tools:mylauncher",
+      "--build_info_file",  "build_file1",       "--extra_build_info",
+      "extra_build_line1",  "--build_info_file", "build_file2",
+      "--extra_build_info", "extra_build_line2", "--cds_archive",
+      "classes.jsa",        "--jdk_lib_modules", "modules"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -90,7 +88,7 @@ TEST(OptionsTest, SingleOptargs) {
 }
 
 TEST(OptionsTest, MultiOptargs) {
-  const char *args[] = {"--output",
+  const char* args[] = {"--output",
                         "output_file",
                         "--sources",
                         "jar1",
@@ -154,12 +152,14 @@ TEST(OptionsTest, MultiOptargs) {
 }
 
 TEST(OptionsTest, EmptyMultiOptargs) {
-  const char *args[] = {"--output", "output_file",
+  const char* args[] = {"--output",
+                        "output_file",
                         "--sources",
                         "--resources",
                         "--classpath_resources",
                         "--sources",
-                        "--include_prefixes", "prefix1",
+                        "--include_prefixes",
+                        "prefix1",
                         "--resources"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
@@ -171,7 +171,7 @@ TEST(OptionsTest, EmptyMultiOptargs) {
 }
 
 TEST(OptionTest, CustomCreatedBy) {
-  const char *args[] = {"--output", "output_file", "--output_jar_creator",
+  const char* args[] = {"--output", "output_file", "--output_jar_creator",
                         "CustomCreatedBy 123.456"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
@@ -179,7 +179,7 @@ TEST(OptionTest, CustomCreatedBy) {
 }
 
 TEST(OptionTest, DefaultCreatedBy) {
-  const char *args[] = {"--output", "output_file"};
+  const char* args[] = {"--output", "output_file"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
   EXPECT_EQ("singlejar", options.output_jar_creator);

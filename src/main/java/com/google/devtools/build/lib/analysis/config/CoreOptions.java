@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelL
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -33,7 +32,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -432,79 +430,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           """)
   public boolean useAutoExecGroups;
 
-  /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
-  public static class EmptyListConverter extends Converter.Contextless<List<String>> {
-    @Override
-    public List<String> convert(String input) throws OptionsParsingException {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "Regardless of input, converts to an empty list. For use with"
-          + " affectedByStarlarkTransition";
-    }
-  }
-
-  /**
-   * This internal option is a *set* of names of options that have been changed by starlark
-   * transitions at any point in the build at the time of accessing. It contains both native and
-   * starlark options in label form. e.g. "//command_line_option:cpu" for native options and
-   * "//myapp:foo" for starlark options. This is used to regenerate {@code
-   * transitionDirectoryNameFragment} after each starlark transition.
-   */
-  @Option(
-      name = "affected by starlark transition",
-      defaultValue = "",
-      converter = EmptyListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public List<String> affectedByStarlarkTransition;
-
-  /** Values for the --experimental_exec_configuration_distinguisher options */
-  public enum ExecConfigurationDistinguisherScheme implements StarlarkValue {
-    /** Use hash of selected execution platform for platform_suffix. */
-    LEGACY,
-    /** Do not touch platform_suffix or do anything else. * */
-    OFF,
-    /** Use hash of entire configuration (with platform_suffix="") for platform_suffix. * */
-    FULL_HASH,
-    /** Set platform_suffix to "exec", instead update `affected by starlark transition` * */
-    DIFF_TO_AFFECTED
-  }
-
-  /** Converter for the {@code --experimental_exec_configuration_distinguisher} options. */
-  public static class ExecConfigurationDistinguisherSchemeConverter
-      extends EnumConverter<ExecConfigurationDistinguisherScheme> {
-    public ExecConfigurationDistinguisherSchemeConverter() {
-      super(
-          ExecConfigurationDistinguisherScheme.class,
-          "Exec transition configuration distinguisher scheme");
-    }
-  }
-
-  @Option(
-      name = "experimental_exec_configuration_distinguisher",
-      defaultValue = "off",
-      converter = ExecConfigurationDistinguisherSchemeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          """
-          Please only use this flag as part of a suggested migration or testing strategy due to
-          potential for action conflicts. Controls how the execution transition changes the
-          `--platform_suffix` flag. In `legacy` mode, sets it to a hash of the execution
-          platform. In `fullhash` mode, sets it to a hash of the entire configuration. In `off`
-          mode, does not touch it.
-          """)
-  public ExecConfigurationDistinguisherScheme execConfigurationDistinguisherScheme;
-
   /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
    * is being used as a configuration distinguisher for the exec transition. */
   @Option(
@@ -735,48 +660,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           existing build actions.
           """)
   public List<Label> actionListeners;
-
-  /** Values for the --experimental_output_directory_naming_scheme options */
-  public enum OutputDirectoryNamingScheme implements StarlarkValue {
-    /** Use `affected by starlark transition` to track configuration changes */
-    LEGACY,
-    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE,
-    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
-    DIFF_AGAINST_DYNAMIC_BASELINE
-  }
-
-  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
-  public static class OutputDirectoryNamingSchemeConverter
-      extends EnumConverter<OutputDirectoryNamingScheme> {
-    public OutputDirectoryNamingSchemeConverter() {
-      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
-    }
-  }
-
-  @Option(
-      name = "experimental_output_directory_naming_scheme",
-      defaultValue = "diff_against_dynamic_baseline",
-      converter = OutputDirectoryNamingSchemeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          """
-          Please only use this flag as part of a suggested migration or testing strategy. In
-          `legacy` mode, transitions (generally only Starlark) set and use `affected by Starlark transition`
-          to determine the ST hash. In `diff_against_baseline` mode,
-          `affected by Starlark transition` is ignored and instead ST hash is determined,
-          for all configuration, by diffing against the top-level configuration.
-          """)
-  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
-
-  public boolean useBaselineForOutputDirectoryNamingScheme() {
-    return switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
-      case LEGACY -> false;
-    };
-  }
 
   @Option(
       name = "is exec configuration",

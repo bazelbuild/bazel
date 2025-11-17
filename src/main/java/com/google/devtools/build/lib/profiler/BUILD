@@ -19,6 +19,7 @@ java_library(
     deps = [
         ":network_metrics_collector",
         ":profiler",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -119,7 +120,7 @@ java_library(
     name = "network_metrics_collector",
     srcs = ["NetworkMetricsCollector.java"],
     deps = [
-        ":system_network_stats",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
@@ -128,9 +129,16 @@ java_library(
 )
 
 java_library(
-    name = "system_network_stats",
-    srcs = ["SystemNetworkStats.java"],
+    name = "system_network_stats_service",
+    srcs = ["SystemNetworkStatsService.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+)
+
+java_library(
+    name = "system_network_stats_service_impl",
+    srcs = ["SystemNetworkStatsServiceImpl.java"],
     deps = [
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",

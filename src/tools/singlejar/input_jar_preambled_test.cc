@@ -42,14 +42,13 @@ namespace {
 
 using rules_cc::cc::runfiles::Runfiles;
 
-void Verify(const std::string &path) {
+void Verify(const std::string& path) {
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
-    ASSERT_TRUE(cdh->is())
-        << "No expected tag in the Central Directory Entry.";
+    ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
     ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
     EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
@@ -110,10 +109,9 @@ TEST(InputJarPreambledTest, Huge) {
                                                file4g.c_str(), nullptr));
   std::string exe_path = singlejar_test_util::OutputFilePath("exe");
   std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
-  ASSERT_EQ(0,
-            singlejar_test_util::RunCommand("cat", exe_path.c_str(),
-                                            huge_jar.c_str(),
-                                            ">", out_path.c_str(), nullptr));
+  ASSERT_EQ(0, singlejar_test_util::RunCommand("cat", exe_path.c_str(),
+                                               huge_jar.c_str(), ">",
+                                               out_path.c_str(), nullptr));
   Verify(out_path);
 }
 

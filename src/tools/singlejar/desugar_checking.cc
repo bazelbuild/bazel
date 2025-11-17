@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include "src/tools/singlejar/desugar_checking.h"
-#include "src/tools/singlejar/diag.h"
-#include "src/main/protobuf/desugar_deps.pb.h"
 
-bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
+#include "src/main/protobuf/desugar_deps.pb.h"
+#include "src/tools/singlejar/diag.h"
+
+bool Java8DesugarDepsChecker::Merge(const CDH* cdh, const LH* lh) {
   // Throw away anything previously read, no need to concatenate
   buffer_.reset(new TransientBytes());
   if (Z_NO_COMPRESSION == lh->compression_method()) {
@@ -34,8 +35,8 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   // Note we only copy one file at a time, so overhead should be modest.
   uint32_t checksum;
   const size_t data_size = buffer_->data_size();
-  uint8_t *buf = reinterpret_cast<uint8_t *>(malloc(data_size));
-  buffer_->CopyOut(reinterpret_cast<uint8_t *>(buf), &checksum);
+  uint8_t* buf = reinterpret_cast<uint8_t*>(malloc(data_size));
+  buffer_->CopyOut(reinterpret_cast<uint8_t*>(buf), &checksum);
   buffer_.reset();  // release buffer eagerly
 
   bazel::tools::desugar::DesugarDepsInfo deps_info;
@@ -48,21 +49,21 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   }
   free(buf);
 
-  for (const auto &assume_present : deps_info.assume_present()) {
+  for (const auto& assume_present : deps_info.assume_present()) {
     // This means we need file named <target>.class in the output.  Remember
     // the first origin of this requirement for error messages, drop others.
     needed_deps_.emplace(assume_present.target().binary_name() + ".class",
                          assume_present.origin().binary_name());
   }
 
-  for (const auto &missing : deps_info.missing_interface()) {
+  for (const auto& missing : deps_info.missing_interface()) {
     // Remember the first origin of this requirement for error messages, drop
     // subsequent ones.
     missing_interfaces_.emplace(missing.target().binary_name(),
                                 missing.origin().binary_name());
   }
 
-  for (const auto &extends : deps_info.interface_with_supertypes()) {
+  for (const auto& extends : deps_info.interface_with_supertypes()) {
     // Remember interface hierarchy the first time we see this interface, drop
     // subsequent ones for consistency with how singlejar will keep the first
     // occurrence of the file defining the interface.  We'll lazily derive
@@ -70,7 +71,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
     if (extends.extended_interface_size() > 0) {
       std::vector<std::string> extended;
       extended.reserve(extends.extended_interface_size());
-      for (const auto &itf : extends.extended_interface()) {
+      for (const auto& itf : extends.extended_interface()) {
         extended.push_back(itf.binary_name());
       }
       extended_interfaces_.emplace(extends.origin().binary_name(),
@@ -78,7 +79,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
     }
   }
 
-  for (const auto &companion : deps_info.interface_with_companion()) {
+  for (const auto& companion : deps_info.interface_with_companion()) {
     // Only remember interfaces that definitely have default methods for now.
     // For all other interfaces we'll transitively check extended interfaces
     // in HasDefaultMethods.
@@ -89,7 +90,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
+void* Java8DesugarDepsChecker::OutputEntry(bool compress) {
   if (verbose_) {
     fprintf(stderr, "Needed deps: %zu\n", needed_deps_.size());
     fprintf(stderr, "Interfaces to check: %zu\n", missing_interfaces_.size());
@@ -97,7 +98,7 @@ void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
     fprintf(stderr, "Interfaces w/ default methods: %zu\n",
             has_default_methods_.size());
   }
-  for (const auto &needed : needed_deps_) {
+  for (const auto& needed : needed_deps_) {
     if (verbose_) {
       fprintf(stderr, "Looking for %s\n", needed.first.c_str());
     }
@@ -113,7 +114,7 @@ void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
     }
   }
 
-  for (const auto &missing : missing_interfaces_) {
+  for (const auto& missing : missing_interfaces_) {
     if (verbose_) {
       fprintf(stderr, "Checking %s\n", missing.first.c_str());
     }
@@ -135,7 +136,7 @@ void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
 }
 
 bool Java8DesugarDepsChecker::HasDefaultMethods(
-    const std::string &interface_name) {
+    const std::string& interface_name) {
   auto cached = has_default_methods_.find(interface_name);
   if (cached != has_default_methods_.end()) {
     return cached->second;
@@ -145,7 +146,7 @@ bool Java8DesugarDepsChecker::HasDefaultMethods(
   // (ignoring the cycle) below.
   has_default_methods_.emplace(interface_name, false);
 
-  for (const std::string &extended : extended_interfaces_[interface_name]) {
+  for (const std::string& extended : extended_interfaces_[interface_name]) {
     if (HasDefaultMethods(extended)) {
       has_default_methods_[interface_name] = true;
       return true;

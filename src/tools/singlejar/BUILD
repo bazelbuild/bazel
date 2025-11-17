@@ -493,6 +493,7 @@ cc_library(
         ":options",
         ":port",
         "//src/main/cpp/util",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@zlib",
     ],
 )
@@ -514,6 +515,7 @@ cc_library(
     hdrs = ["token_stream.h"],
     deps = [
         ":diag",
+        ":mapped_file",
         "//src/main/cpp/util",
     ],
 )

@@ -19,6 +19,7 @@
 #endif
 
 #include <inttypes.h>
+
 #include <algorithm>
 #include <ostream>
 
@@ -53,7 +54,7 @@ class TransientBytes {
   }
 
   // Appends raw bytes.
-  void Append(const uint8_t *data, uint64_t data_size) {
+  void Append(const uint8_t* data, uint64_t data_size) {
     uint64_t chunk_size;
     auto data_end = data + data_size;
     for (; data < data_end; data += chunk_size) {
@@ -64,12 +65,12 @@ class TransientBytes {
   }
 
   // Same, but for a string.
-  void Append(const char *str) {
-    Append(reinterpret_cast<const uint8_t *>(str), strlen(str));
+  void Append(const char* str) {
+    Append(reinterpret_cast<const uint8_t*>(str), strlen(str));
   }
 
   // Appends the contents of the uncompressed Zip entry.
-  void ReadEntryContents(const CDH *cdh, const LH *lh) {
+  void ReadEntryContents(const CDH* cdh, const LH* lh) {
     uint64_t uncompressed_file_size;
     if (cdh->no_size_in_local_header()) {
       uncompressed_file_size = cdh->uncompressed_file_size();
@@ -81,12 +82,12 @@ class TransientBytes {
 
   // Appends the contents of the compressed Zip entry. Resets the inflater
   // used to decompress.
-  void DecompressEntryContents(const CDH *cdh, const LH *lh,
-                               Inflater *inflater) {
+  void DecompressEntryContents(const CDH* cdh, const LH* lh,
+                               Inflater* inflater) {
     uint64_t old_total_out = inflater->total_out();
     uint64_t in_bytes;
     uint64_t out_bytes;
-    const uint8_t *data = lh->data();
+    const uint8_t* data = lh->data();
 
     if (cdh->no_size_in_local_header()) {
       in_bytes = cdh->compressed_file_size();
@@ -160,8 +161,8 @@ class TransientBytes {
   // shorter of compressed or uncompressed. Sets the checksum and number of
   // bytes written and returns Z_DEFLATED if compression took place or
   // Z_NO_COMPRESSION otherwise.
-  uint16_t CompressOut(uint8_t *buffer, uint32_t *checksum,
-                       uint64_t *bytes_written) {
+  uint16_t CompressOut(uint8_t* buffer, uint32_t* checksum,
+                       uint64_t* bytes_written) {
     *checksum = 0;
     uint64_t to_compress = data_size();
     if (to_compress == 0) {
@@ -224,9 +225,9 @@ class TransientBytes {
   }
 
   // Copies the bytes to the buffer and sets the checksum.
-  void CopyOut(uint8_t *buffer, uint32_t *checksum) {
+  void CopyOut(uint8_t* buffer, uint32_t* checksum) {
     uint64_t to_copy = data_size();
-    uint8_t *buffer_end = buffer + to_copy;
+    uint8_t* buffer_end = buffer + to_copy;
     *checksum = 0;
     for (auto data_block = first_block_; data_block;
          data_block = data_block->next_block_) {
@@ -246,7 +247,7 @@ class TransientBytes {
   //     void operator()(const void *chunk, uint64_t chunk_size) const;
   //
   template <class Sink>
-  void stream_out(const Sink &sink) const {
+  void stream_out(const Sink& sink) const {
     uint64_t to_copy = data_size();
     for (auto data_block = first_block_; data_block;
          data_block = data_block->next_block_) {
@@ -275,7 +276,7 @@ class TransientBytes {
   // Ensures there is some space to write to, returns the amount available.
   uint64_t ensure_space() {
     if (!free_size()) {
-      auto *data_block = new DataBlock();
+      auto* data_block = new DataBlock();
       if (last_block_) {
         last_block_->next_block_ = data_block;
       }
@@ -290,22 +291,22 @@ class TransientBytes {
 
   // Records that given amount of bytes is to be appended to the buffer.
   // Returns the old write position.
-  uint8_t *advance(size_t amount) {
+  uint8_t* advance(size_t amount) {
     if (amount > free_size()) {
       diag_errx(
           2, "%s: %d: Cannot advance %zu bytes, only %" PRIu64 " is available",
           __FILE__, __LINE__, amount, free_size());
     }
-    uint8_t *pos = append_position();
+    uint8_t* pos = append_position();
     data_size_ += amount;
     return pos;
   }
 
-  void copy(const uint8_t *from, size_t count) {
+  void copy(const uint8_t* from, size_t count) {
     memcpy(advance(count), from, count);
   }
 
-  uint8_t *append_position() {
+  uint8_t* append_position() {
     return last_block_ ? last_block_->End() - free_size() : nullptr;
   }
 
@@ -315,16 +316,16 @@ class TransientBytes {
   // The bytes are kept in an linked list of the DataBlock instances.
   // TODO(asmundak): perhaps use mmap to allocate these?
   struct DataBlock {
-    struct DataBlock *next_block_;
+    struct DataBlock* next_block_;
     uint8_t data_[0x40000 - 8];
     DataBlock() : next_block_(nullptr) {}
-    uint8_t *End() { return data_ + sizeof(data_); }
+    uint8_t* End() { return data_ + sizeof(data_); }
   };
 
   uint64_t allocated_;
   uint64_t data_size_;
-  struct DataBlock *first_block_;
-  struct DataBlock *last_block_;
+  struct DataBlock* first_block_;
+  struct DataBlock* last_block_;
 };
 
 #endif  // SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_

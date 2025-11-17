@@ -93,92 +93,20 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_legacy() throws Exception {
+  public void executionTransitionOutputPathDistinguisher() throws Exception {
     PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=legacy");
+            targetConfig.getOptions().getFragmentClasses(), "--platforms=//platform:target");
 
     BuildOptions result =
         transition.patch(
             new BuildOptionsView(options, transition.requiresOptionFragments()),
             new StoredEventHandler());
 
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .contains(String.format("%X", EXECUTION_PLATFORM.getCanonicalForm().hashCode()));
-  }
-
-  @Test
-  public void executionTransition_confDist_fullHash() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=full_hash");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    BuildOptions mutableCopy = result.clone();
-    mutableCopy.get(CoreOptions.class).platformSuffix = "";
-    int fullHash = mutableCopy.hashCode();
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .contains(String.format("%X", fullHash));
-  }
-
-  @Test
-  public void executionTransition_confDist_diffToAffected() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=diff_to_affected");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isNotEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
-  }
-
-  @Test
-  public void executionTransition_confDist_off() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=off");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
     assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
   }
 

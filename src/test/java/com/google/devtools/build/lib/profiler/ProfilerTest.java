@@ -128,7 +128,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     return buffer;
   }
 
@@ -157,7 +158,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
   }
 
   @Test
@@ -271,7 +273,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       long before = clock.nanoTime();
@@ -369,7 +372,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     metricsCollected.await(10, TimeUnit.SECONDS);
     profiler.stop();
 
@@ -415,7 +419,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
     // don't record the slowest remote exec events (see ProfilerTask.java).
@@ -549,7 +554,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -756,7 +762,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
   }
@@ -811,7 +818,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     profiler.logSimpleTaskDuration(
         profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -851,7 +859,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     profiler.logSimpleTaskDuration(
         profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -886,7 +895,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     try (SilentCloseable c =
         profiler.profileAction(
             ProfilerTask.ACTION, /* mnemonic */
@@ -936,7 +946,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     try (SilentCloseable c =
         profiler.profileAction(
             ProfilerTask.ACTION, /* mnemonic */
@@ -986,7 +997,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     try (SilentCloseable c =
         profiler.profileAction(
             ProfilerTask.ACTION, /* mnemonic */ null, "test", "foo.out", "//foo:bar", "012345")) {
@@ -1029,7 +1041,8 @@ public final class ProfilerTest {
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
-            /* collectSkyframeCounts= */ false));
+            /* collectSkyframeCounts= */ false,
+            new SystemNetworkStatsServiceImpl()));
     long curTime = profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
       Duration duration;

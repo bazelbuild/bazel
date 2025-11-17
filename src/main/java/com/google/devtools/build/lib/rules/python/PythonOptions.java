@@ -78,15 +78,6 @@ public class PythonOptions extends FragmentOptions {
   public boolean disallowNativeRules;
 
   @Option(
-      name = "experimental_py_binaries_include_label",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "py_binary targets include their label even when stamping is disabled.")
-  public boolean includeLabelInPyBinariesLinkstamp;
-
-  @Option(
       name = "incompatible_remove_ctx_py_fragment",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

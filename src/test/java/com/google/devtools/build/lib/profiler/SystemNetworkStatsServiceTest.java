@@ -13,20 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.devtools.build.lib.profiler.SystemNetworkStats.getNetIoCounters;
-
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SystemNetworkStats}. */
+/** Tests for {@link SystemNetworkStatsServiceImpl}. */
 @RunWith(JUnit4.class)
-public class SystemNetworkStatsTest {
+public class SystemNetworkStatsServiceTest {
 
   @SuppressWarnings("CheckReturnValue")
   @Test
   public void getNetIoCounters_doesNotCrash() throws IOException {
-    getNetIoCounters();
+    new SystemNetworkStatsServiceImpl().getNetIoCounters();
   }
 }

@@ -55,7 +55,7 @@ interface SerializationCodeGenerator {
     }
 
     DeclaredType getDeclaredType() {
-      Preconditions.checkState(type instanceof DeclaredType, "Expected DeclaredType, was " + type);
+      Preconditions.checkState(type instanceof DeclaredType, "Expected DeclaredType, was %s", type);
       return (DeclaredType) type;
     }
 

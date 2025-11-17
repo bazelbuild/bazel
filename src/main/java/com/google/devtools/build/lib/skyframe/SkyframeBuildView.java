@@ -1048,9 +1048,8 @@ public final class SkyframeBuildView {
           eventHandler.handle(
               Event.warn(
                   String.format(
-                      "errors encountered while analyzing target '"
-                          + e.getArtifact().getOwnerLabel()
-                          + "': it will not be built")));
+                      "errors encountered while analyzing target '%s': it will not be built",
+                      e.getArtifact().getOwnerLabel())));
         }
       }
     }

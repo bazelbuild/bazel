@@ -23,9 +23,9 @@
 
 class PluginEntry {
  public:
-  PluginEntry(const std::string &key, const std::string &className,
-              const std::string &name, bool printable, bool defer,
-              const std::string &category)
+  PluginEntry(const std::string& key, const std::string& className,
+              const std::string& name, bool printable, bool defer,
+              const std::string& category)
       : key(key),
         className(className),
         name(name),
@@ -43,13 +43,13 @@ class PluginEntry {
 
 class Log4J2PluginDatCombiner : public Combiner {
  public:
-  Log4J2PluginDatCombiner(const std::string &filename, const bool no_duplicates)
+  Log4J2PluginDatCombiner(const std::string& filename, const bool no_duplicates)
       : filename_(filename), no_duplicates_(no_duplicates) {
     concatenator_.reset(new Concatenator(filename_, false));
   }
   ~Log4J2PluginDatCombiner() override;
-  bool Merge(const CDH *cdh, const LH *lh) override;
-  void *OutputEntry(bool compress) override;
+  bool Merge(const CDH* cdh, const LH* lh) override;
+  void* OutputEntry(bool compress) override;
 
  private:
   std::unique_ptr<Concatenator> concatenator_;

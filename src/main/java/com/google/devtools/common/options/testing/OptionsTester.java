@@ -62,8 +62,8 @@ public final class OptionsTester {
     for (Field field : getAllFields(optionsClass)) {
       if (!Modifier.isStatic(field.getModifiers())) {
         assertWithMessage(
-                field
-                    + " is missing an @Option annotation; it will not be considered for equality.")
+                "%s is missing an @Option annotation; it will not be considered for equality.",
+                field)
             .that(field.getAnnotation(Option.class))
             .isNotNull();
       }
@@ -97,19 +97,16 @@ public final class OptionsTester {
         converterClassesBuilder.build();
     for (Class<? extends Converter<?>> converter : converterClasses.keySet()) {
       assertWithMessage(
-              "Converter " + converter.getCanonicalName() + " has no corresponding ConverterTester")
+              "Converter %s has no corresponding ConverterTester", converter.getCanonicalName())
           .that(testers)
           .containsKey(converter);
       for (Field field : converterClasses.get(converter)) {
         Option option = field.getAnnotation(Option.class);
         if (!option.allowMultiple() && !"null".equals(option.defaultValue())) {
           assertWithMessage(
-                  "Default value \""
-                      + option.defaultValue()
-                      + "\" on "
-                      + field
-                      + " is not tested in the corresponding ConverterTester for "
-                      + converter.getCanonicalName())
+                  "Default value \"%s\" on %s is not tested in the corresponding ConverterTester"
+                      + " for %s",
+                  option.defaultValue(), field, converter.getCanonicalName())
               .that(testers.get(converter).hasTestForInput(option.defaultValue()))
               .isTrue();
         }

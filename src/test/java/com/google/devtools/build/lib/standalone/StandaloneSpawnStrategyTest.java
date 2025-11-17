@@ -214,7 +214,7 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testBinFalseYieldsException() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
-    assertWithMessage("got: " + e.getMessage())
+    assertWithMessage("got: %s", e.getMessage())
         .that(e.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
@@ -312,7 +312,7 @@ public class StandaloneSpawnStrategyTest {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     ActionExecutionException actionExecutionException =
         ActionExecutionException.fromExecException(e, new NullAction());
-    assertWithMessage("got: " + actionExecutionException.getMessage())
+    assertWithMessage("got: %s", actionExecutionException.getMessage())
         .that(
             actionExecutionException.getMessage().contains("failed: error executing Null command"))
         .isTrue();

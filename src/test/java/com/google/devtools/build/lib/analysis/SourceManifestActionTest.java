@@ -247,7 +247,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testSymlinkProgressMessage() {
     String progress = createSymlinkAction().getProgressMessage();
-    assertWithMessage("null action not found in " + progress)
+    assertWithMessage("null action not found in %s", progress)
         .that(progress.contains("//null/action:owner"))
         .isTrue();
   }
@@ -255,7 +255,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testSymlinkProgressMessageNoPyInitFiles() {
     String progress = createAction(ManifestType.SOURCE_SYMLINKS, false).getProgressMessage();
-    assertWithMessage("null action not found in " + progress)
+    assertWithMessage("null action not found in %s", progress)
         .that(progress.contains("//null/action:owner"))
         .isTrue();
   }
@@ -269,7 +269,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             getBinArtifactWithNoOwner("trivial.runfiles_manifest"),
             Runfiles.EMPTY);
     String progress = action.getProgressMessage();
-    assertWithMessage("null action not found in " + progress)
+    assertWithMessage("null action not found in %s", progress)
         .that(progress.contains("//null/action:owner"))
         .isTrue();
   }

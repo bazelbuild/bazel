@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
@@ -67,18 +66,7 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
           || !configFeatureFlagOptions.enforceTransitiveConfigsForConfigFeatureFlag) {
         return options.underlying();
       }
-      BuildOptions toOptions = FeatureFlagValue.trimFlagValues(options.underlying(), flags);
-      // In legacy mode, need to update `affected by Starlark transition` to include changed flags.
-      if (toOptions
-          .get(CoreOptions.class)
-          .outputDirectoryNamingScheme
-          .equals(CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
-        FunctionTransitionUtil.updateAffectedByStarlarkTransition(
-            toOptions.get(CoreOptions.class),
-            FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
-                toOptions, options.underlying()));
-      }
-      return toOptions;
+      return FeatureFlagValue.trimFlagValues(options.underlying(), flags);
     }
 
     @Override
