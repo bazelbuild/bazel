@@ -180,7 +180,7 @@ public class ModExecutor {
     try {
       outputStream.flush();
     } catch (IOException ex) {
-      // do nothing
+      // Ignore IOException like PrintWriter.
     }
     printer.flush();
   }

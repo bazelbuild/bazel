@@ -46,6 +46,7 @@ public class RepoOutputFormatter {
           }
         }
       }
+      default -> throw new IllegalArgumentException("Unknown output format: " + outputFormat);
     }
   }
 
@@ -91,8 +92,6 @@ public class RepoOutputFormatter {
     Build.Target serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
       serialized.writeDelimitedTo(outputStream);
-    } catch (InvalidProtocolBufferException e) {
-      throw new IllegalArgumentException(e);
     } catch (IOException e) {
       // Ignore IOException like PrintWriter.
     }
