@@ -620,7 +620,7 @@ class BlazercImportTest : public ParseOptionsTest {
           "startup --io_nice_level=4",
         imported_rc_path, 0755));
 
-    // Add startup flags the imported bazelrc.
+    // Add startup flags to the imported bazelrc.
     std::string workspace_rc;
     ASSERT_TRUE(SetUpWorkspaceRcFile(
         "startup --max_idle_secs=42\n" +
@@ -859,7 +859,7 @@ TEST_F(BlazercImportTest, SuccessfulTryImportIfBazelVersion) {
                                     imported_rc_path, 0755));
 
   option_processor_->SetBuildLabel("8.4.2");
-  // Add startup flags the imported bazelrc.
+  // Add startup flags to the imported bazelrc.
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
                                    "try-import-if-bazel-version >=8.4.2 " +
@@ -882,7 +882,7 @@ TEST_F(BlazercImportTest, TryImportVersionSkippedIfBuildVersionInvalid) {
 
   // On dev builds, no_version is the build label.
   option_processor_->SetBuildLabel("no_version");
-  // Add startup flags the imported bazelrc.
+  // Add startup flags to the imported bazelrc.
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
                                    "try-import-if-bazel-version >=8.4.2 " +
@@ -895,6 +895,7 @@ TEST_F(BlazercImportTest, TryImportVersionSkippedIfBuildVersionInvalid) {
   // The try-import-if-bazel-version does NOT get processed.
   EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
 }
+
 TEST_F(BlazercImportTest, TryImportVersionSkippedIfComparisonFails) {
   const std::string imported_rc_path =
       blaze_util::JoinPath(workspace_, "myimportedbazelrc");
@@ -905,7 +906,7 @@ TEST_F(BlazercImportTest, TryImportVersionSkippedIfComparisonFails) {
 
   // Old version that does not pass the condition >=8.4.2
   option_processor_->SetBuildLabel("5.4.0");
-  // Add startup flags the imported bazelrc.
+  // Add startup flags to the imported bazelrc.
   std::string workspace_rc;
   ASSERT_TRUE(SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
                                    "try-import-if-bazel-version >=8.4.2 " +
@@ -917,6 +918,20 @@ TEST_F(BlazercImportTest, TryImportVersionSkippedIfComparisonFails) {
 
   // The try-import-if-bazel-version does NOT get processed.
   EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+}
+
+TEST_F(BlazercImportTest, TryImportVersionSkippedIfFileDoesNotExist) {
+  option_processor_->SetBuildLabel("8.4.2");
+  // Add startup flags to the imported bazelrc.
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
+                                   "try-import-if-bazel-version >=8.4.2 "
+                                   "non-existent/file.rc\n",
+                                   &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  // The Parse does NOT fail if the file is missing.
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }
 
 TEST_F(BlazercImportTest, TryImportVersionInvalidCondition) {
@@ -1126,7 +1141,7 @@ TEST(BazelVersionMatchesCondition_Tilde, VersionMajorVersion) {
 TEST(BazelVersionMatchesCondition_Tilde, VersionPrerelease) {
   std::string unused_error_text;
   const std::string compare_version = "1.2.3-beta.2";
-  // ~1.2.3-beta.2 => >=~1.2.3-beta.2 <1.3.0
+  // ~1.2.3-beta.2 => >=1.2.3-beta.2 <1.3.0
   EXPECT_THAT(
       BazelVersionMatchesCondition(SemVer::Parse("1.2.3-beta.2").value(), "~",
                                    compare_version, &unused_error_text),

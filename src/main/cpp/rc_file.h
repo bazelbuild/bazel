@@ -98,10 +98,10 @@ class RcFile {
 //  - build_label=8.4.5
 //  - op='>='
 //  - compare_version=5.4.0
-std::optional<bool> BazelVersionMatchesCondition(const SemVer &build_label,
+std::optional<bool> BazelVersionMatchesCondition(const SemVer& build_label,
                                                  absl::string_view op,
-                                                 absl::string_view compare_version,
-                                                 std::string *error_text);
+                                                 const std::string& compare_version,
+                                                 std::string* error_text);
 
 }  // namespace blaze
 
