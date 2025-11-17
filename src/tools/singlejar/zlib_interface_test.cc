@@ -38,8 +38,7 @@ TEST(ZlibInterfaceTest, DeflateIntoChunks) {
   deflater.next_out = compressed + 2;
   deflater.avail_out = sizeof(compressed) - 2;
   EXPECT_EQ(Z_STREAM_END,
-            deflater.Deflate(deflater.next_in,
-                               deflater.avail_in, Z_FINISH));
+            deflater.Deflate(deflater.next_in, deflater.avail_in, Z_FINISH));
 }
 
 TEST(ZlibInterfaceTest, DeflateChunks) {
@@ -66,8 +65,7 @@ TEST(ZlibInterfaceTest, InflateFully) {
 
   uint8_t uncompressed[256];
   memset(uncompressed, 0, sizeof(uncompressed));
-  EXPECT_EQ(Z_STREAM_END,
-            inflater.Inflate(uncompressed, sizeof(uncompressed)));
+  EXPECT_EQ(Z_STREAM_END, inflater.Inflate(uncompressed, sizeof(uncompressed)));
   EXPECT_EQ(sizeof(bytes), sizeof(uncompressed) - inflater.available_out());
   EXPECT_EQ(0, memcmp(bytes, uncompressed, sizeof(bytes)));
 }

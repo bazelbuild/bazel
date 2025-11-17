@@ -74,7 +74,7 @@ class ArgTokenStream {
     ~FileTokenStream() = default;
 
     // Assign next token to TOKEN, return true on success, false on EOF.
-    bool next_token(std::string *token) {
+    bool next_token(std::string* token) {
       *token = "";
       while (current_char_ != EOF && isspace(current_char_)) {
         next_char();
@@ -114,7 +114,7 @@ class ArgTokenStream {
     // Append the quoted string to the TOKEN. The quote character (which can be
     // single or double quote) is in the current character. Everything up to the
     // matching quote character is appended.
-    void process_quoted(std::string *token) {
+    void process_quoted(std::string* token) {
       char quote = current_char_;
       next_char();
       while (current_char_ != quote) {
@@ -176,7 +176,7 @@ class ArgTokenStream {
 
  public:
   // Constructor. Automatically reads the first token.
-  ArgTokenStream(int argc, const char *const *argv)
+  ArgTokenStream(int argc, const char* const* argv)
       : argv_(argv), argv_end_(argv + argc) {
     token_.reserve(1024);
     next();
@@ -185,7 +185,7 @@ class ArgTokenStream {
   // Process --OPTION
   // If the current token is --OPTION, set given FLAG to true, proceed to next
   // token and return true
-  bool MatchAndSet(const char *option, bool *flag) {
+  bool MatchAndSet(const char* option, bool* flag) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -197,7 +197,7 @@ class ArgTokenStream {
   // Process --OPTION OPTARG
   // If the current token is --OPTION, set OPTARG to the next token, proceed to
   // the next token after it and return true.
-  bool MatchAndSet(const char *option, std::string *optarg) {
+  bool MatchAndSet(const char* option, std::string* optarg) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -214,7 +214,7 @@ class ArgTokenStream {
   // If a current token is --OPTION, push_back all subsequent tokens up to the
   // next option to the OPTARGS array, proceed to the next option and return
   // true.
-  bool MatchAndSet(const char *option, std::vector<std::string> *optargs) {
+  bool MatchAndSet(const char* option, std::vector<std::string>* optargs) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -230,7 +230,7 @@ class ArgTokenStream {
   // If a current token is --OPTION, insert all subsequent tokens up to the
   // next option to the OPTARGS set, proceed to the next option and return
   // true.
-  bool MatchAndSet(const char *option, std::set<std::string> *optargs) {
+  bool MatchAndSet(const char* option, std::set<std::string>* optargs) {
     if (token_ != option) {
       return false;
     }
@@ -246,8 +246,8 @@ class ArgTokenStream {
   // If a current token is --OPTION, push_back all subsequent tokens up to the
   // next option to the OPTARGS array, splitting the OPTARG,OPTSUFF by a comma,
   // proceed to the next option and return true.
-  bool MatchAndSet(const char *option,
-                   std::vector<std::pair<std::string, std::string> > *optargs) {
+  bool MatchAndSet(const char* option,
+                   std::vector<std::pair<std::string, std::string> >* optargs) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -268,7 +268,7 @@ class ArgTokenStream {
   }
 
   // Current token.
-  const std::string &token() const { return token_; }
+  const std::string& token() const { return token_; }
 
   // Read the next token.
   void next() {
@@ -303,8 +303,8 @@ class ArgTokenStream {
     return false;
   }
   std::unique_ptr<FileTokenStream> file_token_stream_;
-  const char *const *argv_;
-  const char *const *argv_end_;
+  const char* const* argv_;
+  const char* const* argv_end_;
   std::string token_;
 };
 
