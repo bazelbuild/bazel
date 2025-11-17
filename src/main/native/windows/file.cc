@@ -445,6 +445,11 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
       if (err == ERROR_DIR_NOT_EMPTY) {
         return CreateJunctionResult::kAlreadyExistsButNotJunction;
       }
+      // ERROR_INVALID_FUNCTION indicates the filesystem doesn't support
+      // junction/reparse point operations (e.g., virtiofs).
+      if (err == ERROR_INVALID_FUNCTION) {
+        return CreateJunctionResult::kNotSupported;
+      }
       // Some unknown error occurred.
       if (error) {
         *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl",
@@ -574,6 +579,11 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
                          nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_NOT_A_REPARSE_POINT) {
+      return ReadSymlinkOrJunctionResult::kNotALink;
+    }
+    // ERROR_INVALID_FUNCTION indicates the filesystem doesn't support
+    // reparse point operations (e.g., virtiofs). Treat as not a link.
+    if (err == ERROR_INVALID_FUNCTION) {
       return ReadSymlinkOrJunctionResult::kNotALink;
     }
 
