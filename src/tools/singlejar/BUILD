@@ -515,6 +515,7 @@ cc_library(
     hdrs = ["token_stream.h"],
     deps = [
         ":diag",
+        ":mapped_file",
         "//src/main/cpp/util",
     ],
 )

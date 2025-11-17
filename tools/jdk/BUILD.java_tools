@@ -566,6 +566,7 @@ cc_library(
     deps = [
         ":diag",
         ":filesystem",
+        ":mapped_file",
     ],
 )
 
