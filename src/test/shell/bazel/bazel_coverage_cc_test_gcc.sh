@@ -1127,7 +1127,7 @@ function test_cc_test_coverage_gcov_with_path_mapping() {
 
   bazel coverage --experimental_output_paths=strip \
       --modify_execution_info=CppCompile=+supports-path-mapping \
-      --test_output=all //:t &>"$TEST_log" \
+      --test_output=all -s //:t &>"$TEST_log" \
       || fail "Coverage for //:t failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"

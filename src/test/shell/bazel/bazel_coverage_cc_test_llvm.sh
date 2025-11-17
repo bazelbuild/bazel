@@ -607,7 +607,7 @@ function test_cc_test_llvm_coverage_with_path_mapping() {
 
   bazel coverage --experimental_output_paths=strip \
       --modify_execution_info=CppCompile=+supports-path-mapping \
-      --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+      --test_output=all -s //:t &>$TEST_log || fail "Coverage for //:t failed"
 
   local expected_result="SF:a.cc
 FN:3,_Z1ab
