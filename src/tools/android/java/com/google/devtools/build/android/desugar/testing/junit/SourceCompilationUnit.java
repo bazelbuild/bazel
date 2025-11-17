@@ -72,11 +72,12 @@ public final class SourceCompilationUnit {
             .addAll(customJavacOptions)
             .add("-d " + compiledRootDir);
 
-    if (compiler.isSupportedOption("-proc") != -1) {
-        // Avoid throwing errors due to compiler warnings described in:
-        // https://issues.apache.org/jira/browse/MCOMPILER-548
-        javacOptionsBuilder.add("-proc:full");
-    }
+    // Avoid throwing errors due to compiler warnings described in:
+    // https://issues.apache.org/jira/browse/MCOMPILER-548
+    javacOptionsBuilder.add(
+        compiler.isSupportedOption("-proc:full") != -1 ?
+            "-proc:full" :
+            "-Xlint:-options");
 
     ImmutableList<String> javacOptions = javacOptionsBuilder.build();
     final List<Path> compiledFiles;
