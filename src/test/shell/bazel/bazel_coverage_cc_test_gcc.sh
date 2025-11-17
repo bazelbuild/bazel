@@ -1127,6 +1127,7 @@ function test_cc_test_coverage_gcov_with_path_mapping() {
 
   bazel coverage --experimental_output_paths=strip \
       --modify_execution_info=CppCompile=+supports-path-mapping,InstrumentedFileManifest=+supports-path-mapping \
+      --test_env=VERBOSE_COVERAGE=1 \
       --test_output=all -s //:t &>"$TEST_log" \
       || fail "Coverage for //:t failed"
 

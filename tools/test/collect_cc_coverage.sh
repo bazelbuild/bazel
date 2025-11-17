@@ -114,6 +114,8 @@ function gcov_coverage() {
   # We'll save the standard output of each the gcov command in this log.
   local gcov_log="$output_file.gcov.log"
 
+  cat "${COVERAGE_MANIFEST}"
+
   # Copy .gcno files next to their corresponding .gcda files in $COVERAGE_DIR
   # because gcov expects them to be in the same directory.
   while read -r line; do
