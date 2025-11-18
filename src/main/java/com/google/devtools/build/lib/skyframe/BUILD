@@ -297,6 +297,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/producers",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:unloaded_toolchain_contexts_inputs",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
