@@ -208,12 +208,13 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           """
-          Override a repository with a local path in the form of `{repository name}={path}`. If the
-          given path is an absolute path, it will be used as it is. If the given path is a
-          relative path, it is relative to the current working directory. If the given path
-          starts with `%workspace%`, it is relative to the workspace root, which is the
-          output of `bazel info workspace`. If the given path is empty, then remove any
-          previous overrides.
+          Override a repository with a local path in the form of `{repository name}={path}`,
+          where the repository name can be either a canonical name or an apparent name from the
+          point of view of the main repository. If the given path is an absolute path, it will be
+          used as it is. If the given path is a relative path, it is relative to the current
+          working directory. If the given path starts with `%workspace%`, it is relative to the
+          workspace root, which is the output of `bazel info workspace`. If the given path is
+          empty, then remove any previous overrides.
           """)
   public List<RepositoryOverride> repositoryOverrides;
 
