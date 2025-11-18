@@ -14,6 +14,8 @@ Cherry picks:
      Compare paths as fragments in `AbstractActionInputPrefetcher`.
    + 08d7a4ce0a428b7758d55644987de7289c9ad04e:
      Release 10.0.0-pre.20251105.2 (2025-11-18)
+   + 1dc713325f1186cbf9e2c713768b79eb3eb857da:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
 ```
 
 This release contains contributions from many people at Google, as well as .
