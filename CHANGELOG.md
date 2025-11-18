@@ -12,6 +12,28 @@ Cherry picks:
      artifact.
    + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
      Compare paths as fragments in `AbstractActionInputPrefetcher`.
+   + 08d7a4ce0a428b7758d55644987de7289c9ad04e:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+   + 1dc713325f1186cbf9e2c713768b79eb3eb857da:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
 ```
 
 This release contains contributions from many people at Google, as well as .
