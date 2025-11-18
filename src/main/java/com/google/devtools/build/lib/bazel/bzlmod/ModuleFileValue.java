@@ -57,8 +57,10 @@ public interface ModuleFileValue extends SkyValue {
    *
    * @param overrides The overrides specified by the evaluated module file. The key is the module
    *     name and the value is the override itself.
-   * @param nonRegistryOverrideCanonicalRepoNameLookup A mapping from a canonical repo name to the
-   *     apparent repo name of the module. Only works for modules with non-registry overrides.
+   * @param nonRegistryOverrideCanonicalRepoToModuleName A mapping from a canonical repo name to the
+   *     name of the module. Only works for modules with non-registry overrides.
+   * @param nonRegistryOverrideModuleToRepoName A mapping from a module name to the repo name as
+   *     used by the root module. Only works for modules with non-registry overrides.
    * @param moduleFilePaths The set of relative paths to the root MODULE.bazel file itself and all
    *     its transitive includes.
    */
@@ -66,7 +68,8 @@ public interface ModuleFileValue extends SkyValue {
   record RootModuleFileValue(
       InterimModule module,
       ImmutableMap<String, ModuleOverride> overrides,
-      ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup,
+      ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName,
+      ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName,
       ImmutableSet<PathFragment> moduleFilePaths)
       implements ModuleFileValue {
     @Override

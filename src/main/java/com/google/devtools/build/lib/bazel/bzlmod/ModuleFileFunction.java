@@ -570,10 +570,11 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
-    Map<String, String> moduleNameToRepoName =
+    ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName =
         module.getDeps().entrySet().stream()
+            .filter(dep -> overrides.containsKey(dep.getValue().name()))
             .collect(toImmutableMap(dep -> dep.getValue().name(), Map.Entry::getKey));
-    ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup =
+    ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
             .keySet()
             .stream()
@@ -582,7 +583,7 @@ public class ModuleFileFunction implements SkyFunction {
                     // A module with a non-registry override always has a unique version across the
                     // entire dep graph.
                     name -> new ModuleKey(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
-                    name -> moduleNameToRepoName.get(name)));
+                    name -> name));
     ImmutableSet<PathFragment> moduleFilePaths =
         Stream.concat(
                 Stream.of(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
@@ -590,7 +591,11 @@ public class ModuleFileFunction implements SkyFunction {
                     .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
             .collect(toImmutableSet());
     return new RootModuleFileValue(
-        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup, moduleFilePaths);
+        module,
+        overrides,
+        nonRegistryOverrideCanonicalRepoToModuleName,
+        nonRegistryOverrideModuleToRepoName,
+        moduleFilePaths);
   }
 
   private static ModuleThreadContext execModuleFile(

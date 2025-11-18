@@ -206,6 +206,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
         "bazel_dep(name='ddd',version='3.0',repo_name=None)",
+        "bazel_dep(name='ggg',repo_name='gee')",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
         "register_execution_platforms('//my:platform', '//my:platform2')",
         "flag_alias(name = 'native_flag1', starlark_flag = '//my:starlark_label1')",
@@ -233,6 +234,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
+                .addDep("gee", createModuleKey("ggg", ""))
                 .addFlagAlias("native_flag1", "@aaa//my:starlark_label1")
                 .addFlagAlias("native_flag2", "@aaa//my:starlark_label2")
                 .addNodepDep(createModuleKey("ddd", "3.0"))
@@ -252,10 +254,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 new ArchiveRepoSpecBuilder()
                     .setUrls(ImmutableList.of("https://hello.com/world.zip"))
                     .build()));
-    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoNameLookup())
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName())
         .containsExactly(
             RepositoryName.create("eee+"), "eee",
             RepositoryName.create("ggg+"), "ggg");
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName())
+        .containsExactly("ggg", "gee");
   }
 
   @Test
@@ -280,7 +284,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .build());
     assertThat(rootModuleFileValue.overrides()).isEmpty();
-    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoNameLookup()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName()).isEmpty();
   }
 
   @Test

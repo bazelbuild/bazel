@@ -104,17 +104,20 @@ public final class RepoDefinitionFunction implements SkyFunction {
     }
 
     // Step 1: Look for repositories defined by non-registry overrides.
-    String overriddenModuleRepoName =
-        root.nonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
-    if (overriddenModuleRepoName != null) {
-      // As we know the apparent name is overriddenModuleRepoName, we can directly look it up in
-      // --override_repository without going through the main repo mapping.
-      var commandLineOverride =
-          overrides.get(RepositoryName.createUnvalidated(overriddenModuleRepoName));
-      if (commandLineOverride != null) {
-        return new RepoDefinitionValue.RepoOverride(commandLineOverride);
+    String overriddenModuleName =
+        root.nonRegistryOverrideCanonicalRepoToModuleName().get(repositoryName);
+    if (overriddenModuleName != null) {
+      // If this module is a direct dep of the root module, its apparent name may be named by the
+      // --override_repository flag, which takes precedence over the non-registry override.
+      String overriddenModuleRepoName =
+          root.nonRegistryOverrideModuleToRepoName().get(overriddenModuleName);
+      if (overriddenModuleRepoName != null) {
+        var commandLineOverride =
+            overrides.get(RepositoryName.createUnvalidated(overriddenModuleRepoName));
+        if (commandLineOverride != null) {
+          return new RepoDefinitionValue.RepoOverride(commandLineOverride);
+        }
       }
-      String overriddenModuleName = root.module().getDeps().get(overriddenModuleRepoName).name();
       var override = (NonRegistryOverride) root.overrides().get(overriddenModuleName);
       return createRepoDefinitionFromSpec(
           override.repoSpec(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
