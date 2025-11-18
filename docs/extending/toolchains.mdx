@@ -425,6 +425,51 @@ are linked into the final artifact, and so need to be built for the same
 platform, whereas the compiler is a tool invoked during the build, and needs to
 be able to run on the execution platform.
 
+
+**NOTE:** For toolchain config rules, adding a `select()` to an attribute with `cfg = "exec"`
+does **not** make the `select()` use the exec configuration.
+It will still be resolved under the **target** configuration.
+
+
+Assuming the target platform is not matching any of these constraints, the select for the compiler
+will fail to analyze.
+```python
+bar_toolchain(
+    name = "barc_omni",
+    compiler = select({
+        "@platforms//os:linux": Label(":linux_compiler"),
+        "@platforms//os:windows": Label(":windows_compiler"),
+        "//some/exec:platform": Label(":special_compiler"),
+        },
+        no_match_error = "No compiler for this execution platform",
+    }),
+    # <...>
+)
+```
+
+A known workaround for this is to defer the evaluation behind another target,
+e.g. [`alias()`](/reference/be/general#alias).
+This analyzes the `select` inside the alias under the exec configuration.
+
+```python
+alias(
+    name = "host_specific_compiler",
+    actual = select({
+        "@platforms//os:linux": Label(":linux_compiler"),
+        "@platforms//os:windows": Label(":windows_compiler"),
+        "//some/exec:platform": Label(":special_compiler"),
+        },
+        no_match_error = "No compiler for this execution platform",
+    ),
+)
+
+bar_toolchain(
+    name = "barc_omni",
+    compiler = ":host_specific_compiler",
+    # <...>
+)
+```
+
 ## Registering and building with toolchains
 
 At this point all the building blocks are assembled, and you just need to make
