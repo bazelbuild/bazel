@@ -245,7 +245,10 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
-    Profiler.forceSetInstanceForTestingOnly(profilerService);
+
+    // Must initialize manually because we never call globalInit() on modules/services.
+    Profiler.setTraceProfilerServiceForTesting(profilerService);
+
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
     FileSystem nativeFileSystem = createFileSystem();
@@ -345,6 +348,7 @@ public abstract class BuildIntegrationTestCase {
     if (runtimeWrapper != null) {
       cleanupInterningPools();
     }
+
     runtimeWrapper =
         new BlazeRuntimeWrapper(
             events,

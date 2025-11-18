@@ -116,7 +116,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
-    Profiler.forceSetInstanceForTestingOnly(new TraceProfilerServiceImpl());
+    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"),
