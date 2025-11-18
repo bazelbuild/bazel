@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_EXEC;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_LOAD;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.dylibso.chicory.compiler.MachineFactoryCompiler;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ExportFunction;
 import com.dylibso.chicory.runtime.Instance;
@@ -154,6 +155,7 @@ final class StarlarkWasmModule implements StarlarkValue {
               // Chicory documentation recommends ByteArrayMemory for OpenJDK
               // https://chicory.dev/docs/advanced/memory
               .withMemoryFactory(ByteArrayMemory::new)
+              .withMachineFactory(MachineFactoryCompiler::compile)
               .build();
       // If `_initialize()` is present then call it to perform early setup.
       //
