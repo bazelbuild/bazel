@@ -206,7 +206,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "configuration",
       structField = true,
       doc =
-          "The current rule's build configuration. See the <a href=\"../builtins/configuration.html\">"
+          "The current target's build configuration. See the <a href=\"../builtins/configuration.html\">"
               + "Starlark configuration type</a> and <a href=\"/extending/rules#configurations\">"
               + "configuration documentation</a> for more details.")
   BuildConfigurationApi getConfiguration() throws EvalException;
