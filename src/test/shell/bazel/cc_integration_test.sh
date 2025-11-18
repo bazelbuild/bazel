@@ -1841,16 +1841,13 @@ function test_cc_toolchain_tsan_feature() {
   local feature=tsan
   __is_installed "lib$feature" || return 0
 
-  # Try to resolve the following error on Linux in CI by skipping when using
-  # older gcc/llvm versions and setting a kernel parameter otherwise per:
+  # Try to resolve the following error on Linux in CI by skipping the test,
+  # since we can't invoke sysctl and it's not using LLVM per:
   # - https://github.com/google/sanitizers/issues/1716
   # - https://github.com/llvm/llvm-project/commit/0784b1eefa36d4acbb0dacd2d18796e26313b6c5
   # FATAL: ThreadSanitizer: unexpected memory mapping 0x5a7e3c4ba000-0x5a7e3c4bd000
   if [[ "$PLATFORM" != "darwin" ]]; then
-    if [[ "$(gcc -dumpversion)" =~ ^[0-7]\. ]]; then
-      return 0
-    fi
-    sudo sysctl vm.mmap_rnd_bits=30
+    return 0
   fi
 
   mkdir pkg
