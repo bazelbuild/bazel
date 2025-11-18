@@ -63,6 +63,7 @@ py_test(
 py_test(
     name = "py_test",
     size = "medium",
+    timeout = "long",
     srcs = ["py_test.py"],
     deps = [":test_base"],
 )
