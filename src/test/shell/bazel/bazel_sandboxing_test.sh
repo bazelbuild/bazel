@@ -437,8 +437,8 @@ function check_network_ok() {
     # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
     set +u
 
-    bazel build "${@}" "pkg:${target}" &>$TEST_log \
-      || fail "'${target}' could not access the network"
+    bazel build --sandbox_add_mount_pair=/tmp "${@}" "pkg:${target}" \
+      &>$TEST_log || fail "'${target}' could not access the network"
   )
 }
 
@@ -452,7 +452,7 @@ function check_network_not_ok() {
     # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
     set +u
 
-    bazel build "${@}" "pkg:${target}" &> $TEST_log \
+    bazel build --sandbox_add_mount_pair=/tmp "${@}" "pkg:${target}" &> $TEST_log \
       && fail "'${target}' trying to use network succeeded but should have failed" || true
   )
   [[ ! -f "${BAZEL_GENFILES_DIR}/pkg/${target}.txt" ]] \
@@ -890,7 +890,7 @@ EOF
   chmod +x pkg/tmp_test.sh
 
   touch "${temp_dir}/file"
-  bazel test //pkg:tmp_test \
+  bazel test //pkg:tmp_test --sandbox_add_mount_pair=/tmp \
     --test_output=errors &>$TEST_log || fail "Expected test to pass"
 }
 
