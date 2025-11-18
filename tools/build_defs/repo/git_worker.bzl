@@ -27,9 +27,9 @@ _GitRepoInfo = provider(
         "directory": "Working directory path",
         "shallow": "Defines the depth of a fetch. Either empty, --depth=1, or --shallow-since=<>",
         "reset_ref": """Reference to use for resetting the git repository.
-Either commit hash, tag or branch.""",
+Either commit hash, tag, branch name, or default branch.""",
         "fetch_ref": """Reference for fetching.
-Either commit hash, tag or branch.""",
+Either commit hash, tag, branch name, or default branch.""",
         "remote": "URL of the git repository to fetch from.",
         "init_submodules": """If True, submodules update command will be called after fetching
 and resetting to the specified reference.""",
@@ -75,6 +75,9 @@ def git_repo(ctx, directory):
     elif ctx.attr.branch:
         reset_ref = "origin/" + ctx.attr.branch
         fetch_ref = ctx.attr.branch + ":origin/" + ctx.attr.branch
+    else:
+        reset_ref = "origin/HEAD"
+        fetch_ref = "HEAD:refs/remotes/origin/HEAD"
 
     git_repo = _GitRepoInfo(
         directory = ctx.path(directory),
