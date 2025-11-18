@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_EXEC;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_LOAD;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.dylibso.chicory.experimental.dircache.DirectoryCache;
 import com.dylibso.chicory.compiler.MachineFactoryCompiler;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ExportFunction;
@@ -32,11 +33,15 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import com.google.devtools.build.lib.vfs.Path;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -55,9 +60,10 @@ final class StarlarkWasmModule implements StarlarkValue {
   private final WasmModule wasmModule;
   private final String allocFnName;
   private final boolean hasInitializeFn;
+  private final DirectoryCache cache;
 
   public StarlarkWasmModule(
-      StarlarkPath path, Object origPath, byte[] moduleContent, String allocFnName)
+          StarlarkPath path, Object origPath, byte[] moduleContent, String allocFnName, Path wasmCacheDir)
       throws EvalException {
     WasmModule wasmModule;
     try (SilentCloseable c1 =
@@ -77,6 +83,7 @@ final class StarlarkWasmModule implements StarlarkValue {
     this.wasmModule = wasmModule;
     this.allocFnName = allocFnName;
     this.hasInitializeFn = hasInitializeFn(wasmModule);
+    this.cache = new DirectoryCache(Paths.get(wasmCacheDir.getPathString()));
   }
 
   private static boolean hasInitializeFn(WasmModule wasmModule) {
@@ -155,7 +162,7 @@ final class StarlarkWasmModule implements StarlarkValue {
               // Chicory documentation recommends ByteArrayMemory for OpenJDK
               // https://chicory.dev/docs/advanced/memory
               .withMemoryFactory(ByteArrayMemory::new)
-              .withMachineFactory(MachineFactoryCompiler::compile)
+              .withMachineFactory(MachineFactoryCompiler.builder(wasmModule).withCache(cache).compile())
               .build();
       // If `_initialize()` is present then call it to perform early setup.
       //
