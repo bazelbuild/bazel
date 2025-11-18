@@ -279,10 +279,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
+    // target. A symlink may have already been created as an input to an action.
     for (var remoteSymlink : walkResult.symlinks()) {
       var nativeSymlink = nativeFs.getPath(remoteSymlink.asFragment());
-      nativeSymlink.createSymbolicLink(remoteSymlink.readSymbolicLink());
+      FileSystemUtils.ensureSymbolicLink(nativeSymlink, remoteSymlink.readSymbolicLink());
     }
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
