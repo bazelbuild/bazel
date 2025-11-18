@@ -130,6 +130,9 @@ public final class RepoDefinitionFunction implements SkyFunction {
 
     // Step 2: Look for repository overrides via apparent names.
     Map<RepositoryName, PathFragment> apparentNameOverrides = getApparentNameOverrides(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
     if (apparentNameOverrides.containsKey(repositoryName)) {
       return new RepoDefinitionValue.RepoOverride(apparentNameOverrides.get(repositoryName));
     }
