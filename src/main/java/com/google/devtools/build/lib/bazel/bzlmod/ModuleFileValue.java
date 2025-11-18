@@ -58,7 +58,7 @@ public interface ModuleFileValue extends SkyValue {
    * @param overrides The overrides specified by the evaluated module file. The key is the module
    *     name and the value is the override itself.
    * @param nonRegistryOverrideCanonicalRepoNameLookup A mapping from a canonical repo name to the
-   *     name of the module. Only works for modules with non-registry overrides.
+   *     apparent repo name of the module. Only works for modules with non-registry overrides.
    * @param moduleFilePaths The set of relative paths to the root MODULE.bazel file itself and all
    *     its transitive includes.
    */

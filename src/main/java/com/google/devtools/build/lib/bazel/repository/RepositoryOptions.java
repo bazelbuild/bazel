@@ -422,8 +422,12 @@ public class RepositoryOptions extends OptionsBase {
       OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
       String pathString = pathConverter.convert(pieces[1]).getPathString();
       try {
+        var repoName = RepositoryName.create(pieces[0]);
+        if (repoName.isApparent()) {
+          RepositoryName.validateUserProvidedRepoName(repoName.getName());
+        }
         return new RepositoryOverride(RepositoryName.create(pieces[0]), pathString);
-      } catch (LabelSyntaxException e) {
+      } catch (LabelSyntaxException | EvalException e) {
         throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
     }

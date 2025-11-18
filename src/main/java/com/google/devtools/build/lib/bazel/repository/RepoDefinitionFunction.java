@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.R
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -49,6 +51,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
 /** Looks up the definition of a repo with the given name. */
@@ -88,7 +91,9 @@ public final class RepoDefinitionFunction implements SkyFunction {
 
     RepositoryName repositoryName = ((RepoDefinitionValue.Key) skyKey).argument();
 
-    // Step 0: Look for repository overrides.
+    // Step 0: Look for repository overrides via canonical names. Requesting the main repo mapping
+    // at this point would result in a cycle, so any lookup by apparent name requires special
+    // handling.
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
       return new RepoDefinitionValue.RepoOverride(overrides.get(repositoryName));
@@ -99,10 +104,20 @@ public final class RepoDefinitionFunction implements SkyFunction {
     }
 
     // Step 1: Look for repositories defined by non-registry overrides.
-    Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);
-    if (repoSpec.isPresent()) {
+    String overriddenModuleRepoName =
+        root.nonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
+    if (overriddenModuleRepoName != null) {
+      // As we know the apparent name is overriddenModuleRepoName, we can directly look it up in
+      // --override_repository without going through the main repo mapping.
+      var commandLineOverride =
+          overrides.get(RepositoryName.createUnvalidated(overriddenModuleRepoName));
+      if (commandLineOverride != null) {
+        return new RepoDefinitionValue.RepoOverride(commandLineOverride);
+      }
+      String overriddenModuleName = root.module().getDeps().get(overriddenModuleRepoName).name();
+      var override = (NonRegistryOverride) root.overrides().get(overriddenModuleName);
       return createRepoDefinitionFromSpec(
-          repoSpec.get(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
+          override.repoSpec(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
     }
 
     // BazelDepGraphValue is affected by repos found in Step 1, therefore it should NOT
@@ -113,14 +128,20 @@ public final class RepoDefinitionFunction implements SkyFunction {
       return null;
     }
 
-    // Step 2: Look for repositories derived from Bazel Modules.
-    repoSpec = checkRepoFromBazelModules(bazelDepGraphValue, repositoryName);
+    // Step 2: Look for repository overrides via apparent names.
+    Map<RepositoryName, PathFragment> apparentNameOverrides = getApparentNameOverrides(env);
+    if (apparentNameOverrides.containsKey(repositoryName)) {
+      return new RepoDefinitionValue.RepoOverride(apparentNameOverrides.get(repositoryName));
+    }
+
+    // Step 3: Look for repositories derived from Bazel Modules.
+    Optional<RepoSpec> repoSpec = checkRepoFromBazelModules(bazelDepGraphValue, repositoryName);
     if (repoSpec.isPresent()) {
       return createRepoDefinitionFromSpec(
           repoSpec.get(), repositoryName, /* originalName= */ null, basicMainRepoMapping, env);
     }
 
-    // Step 3: look for the repo from module extension evaluation results.
+    // Step 4: look for the repo from module extension evaluation results.
     Optional<ModuleExtensionId> extensionId =
         bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
             .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
@@ -146,14 +167,39 @@ public final class RepoDefinitionFunction implements SkyFunction {
         extRepoSpec, repositoryName, internalRepo, basicMainRepoMapping, env);
   }
 
-  private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
-      RootModuleFileValue root, RepositoryName repositoryName) {
-    String moduleName = root.nonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
-    if (moduleName == null) {
-      return Optional.empty();
+  @Nullable
+  private ImmutableMap<RepositoryName, PathFragment> getApparentNameOverrides(Environment env)
+      throws InterruptedException, RepoDefinitionFunctionException {
+    var mainRepoMapping =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMapping == null) {
+      return null;
     }
-    NonRegistryOverride override = (NonRegistryOverride) root.overrides().get(moduleName);
-    return Optional.of(override.repoSpec());
+    Map<RepositoryName, PathFragment> rawOverrides =
+        Preconditions.checkNotNull(REPOSITORY_OVERRIDES.get(env));
+    var apparentNameOverrides = ImmutableMap.<RepositoryName, PathFragment>builder();
+    for (var entry : rawOverrides.entrySet()) {
+      if (!entry.getKey().isApparent()) {
+        continue;
+      }
+      var apparentName = entry.getKey();
+      var canonicalName = mainRepoMapping.repositoryMapping().get(apparentName.getName());
+      if (!canonicalName.isVisible()) {
+        throw new RepoDefinitionFunctionException(
+            ExternalDepsException.withMessage(
+                Code.BAD_MODULE,
+                "no repository visible as '@%s'%s from the main repository, but overridden with --override_repository. Use --inject_repository to add new repositories.",
+                apparentName.getName(),
+                SpellChecker.didYouMean(
+                    apparentName.getName(),
+                    Iterables.transform(
+                        mainRepoMapping.repositoryMapping().entries().keySet(),
+                        name -> "@" + name))),
+            Transience.PERSISTENT);
+      }
+      apparentNameOverrides.put(canonicalName, entry.getValue());
+    }
+    return apparentNameOverrides.buildOrThrow();
   }
 
   private Optional<RepoSpec> checkRepoFromBazelModules(

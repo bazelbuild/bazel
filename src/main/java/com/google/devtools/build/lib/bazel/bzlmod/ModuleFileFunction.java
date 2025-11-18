@@ -570,6 +570,9 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
+    Map<String, String> moduleNameToRepoName =
+        module.getDeps().entrySet().stream()
+            .collect(toImmutableMap(Map.Entry::getKey, dep -> dep.getValue().name()));
     ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
             .keySet()
@@ -579,7 +582,7 @@ public class ModuleFileFunction implements SkyFunction {
                     // A module with a non-registry override always has a unique version across the
                     // entire dep graph.
                     name -> new ModuleKey(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
-                    name -> name));
+                    name -> moduleNameToRepoName.get(name)));
     ImmutableSet<PathFragment> moduleFilePaths =
         Stream.concat(
                 Stream.of(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
