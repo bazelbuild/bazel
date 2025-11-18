@@ -61,7 +61,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "A dictionary containing user-specified test environment variables and their values, as"
-              + " set by the --test_env options. DO NOT USE! This is not the complete"
+              + " set by the <code>--test_env</code> options. DO NOT USE! This is not the complete"
               + " environment!")
   ImmutableMap<String, String> getTestEnv();
 
