@@ -62,7 +62,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
 
-  def writeMainProjectFiles(self):
+  def writeMainProjectFiles(self, aaa_repo_name='aaa'):
     self.ScratchFile(
         'aaa.patch',
         [
@@ -85,7 +85,7 @@ class BazelOverridesTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.sh"],',
             '  deps = [',
-            '    "@aaa//:lib_aaa",',
+            '    "@%s//:lib_aaa",' % aaa_repo_name,
             '    "@bbb//:lib_bbb",',
             '  ],',
             '  use_bash_launcher = True,',
@@ -95,7 +95,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'main.sh',
         [
-            'source $(rlocation aaa/aaa.sh)',
+            'source $(rlocation %s/aaa.sh)' % aaa_repo_name,
             'source $(rlocation bbb/bbb.sh)',
             'hello_aaa "main function"',
             'hello_bbb "main function"',
@@ -472,11 +472,11 @@ class BazelOverridesTest(test_base.TestBase):
     ).createShModule('aaa', '1.0')
     src_aaa_override = other_registry.projects.joinpath('aaa', '1.0')
 
-    self.writeMainProjectFiles()
+    self.writeMainProjectFiles(aaa_repo_name='aaa_renamed')
     self.ScratchFile(
       'MODULE.bazel',
       [
-        'bazel_dep(name = "aaa", version = "1.1")',
+        'bazel_dep(name = "aaa", version = "1.1", repo_name = "aaa_renamed")',
         'bazel_dep(name = "bbb", version = "1.1")',
         'local_path_override(',
         '  module_name = "aaa",',
@@ -487,7 +487,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel([
         'run',
-        '--override_repository=aaa=%s' % str(src_aaa_override.resolve()).replace('\\', '/'),
+        '--override_repository=aaa_renamed=%s' % str(src_aaa_override.resolve()).replace('\\', '/'),
         '//:main',
     ])
     self.assertIn('main function => aaa@1.0 overridden', stdout)
