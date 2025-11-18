@@ -26,7 +26,7 @@ source "${CURRENT_DIR}/coverage_helpers.sh" \
 COVERAGE_GENERATOR_DIR="$1"; shift
 if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
-  add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+  add_to_bazelrc "build --override_repository=bazel_tools+remote_coverage_tools_extension+remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
 function set_up() {
