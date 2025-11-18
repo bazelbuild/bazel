@@ -193,12 +193,20 @@ function test_new_git_repository_with_build_file_strip_prefix() {
   do_new_git_repository_test "3-subdir-bare" "build_file" "pluto"
 }
 
+function test_new_git_repository_with_build_file_strip_prefix_default_branch() {
+  do_new_git_repository_test "" "build_file" "pluto"
+}
+
 function test_new_git_repository_with_build_file_content() {
   do_new_git_repository_test "0-initial" "build_file_content"
 }
 
 function test_new_git_repository_with_build_file_content_strip_prefix() {
   do_new_git_repository_test "3-subdir-bare" "build_file_content" "pluto"
+}
+
+function test_new_git_repository_with_build_file_content_strip_prefix_default_branch() {
+  do_new_git_repository_test "" "build_file_content" "pluto"
 }
 
 # Test cloning a Git repository using the new_git_repository rule.
@@ -215,6 +223,9 @@ function test_new_git_repository_with_build_file_content_strip_prefix() {
 #   pluto/
 #     info
 #
+# Finally, it uses the pluto Git repository at the default branch, which is the
+# master branch, which is at the same revision as the 3-subdir-bare tag.
+#
 # Set up workspace with the following files:
 #
 # $WORKSPACE_DIR/
@@ -229,17 +240,19 @@ function test_new_git_repository_with_build_file_content_strip_prefix() {
 function do_new_git_repository_test() {
   local pluto_repo_dir=$(get_pluto_repo)
   local strip_prefix=""
+  local tag=""
   [ $# -eq 3 ] && strip_prefix="strip_prefix=\"$3\","
+  [ "$1" != "" ] && tag="tag = \"$1\","
 
   # Create a workspace that clones the repository at the first commit.
 
-  if [ "$2" == "build_file" ] ; then
+  if [ "$2" == "build_file" ]; then
     cat >> MODULE.bazel <<EOF
 new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
-    tag = "$1",
+    $tag
     build_file = "//:pluto.BUILD",
     $strip_prefix
 )
@@ -261,7 +274,7 @@ new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl'
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
-    tag = "$1",
+    $tag
     $strip_prefix
     build_file_content = """
 filegroup(
@@ -622,33 +635,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "Exactly one of commit"
-}
-
-# Verifies that rule fails if neither tag or commit are set.
-#
-# This test uses the pluto Git repository at tag 1-build, which contains the
-# following files:
-#
-# pluto/
-#   MODULE.bazel
-#   BUILD
-#   info
-function test_git_repository_no_commit_tag_error() {
-  setup_error_test
-  local pluto_repo_dir=$(get_pluto_repo)
-
-  cat >> MODULE.bazel <<EOF
-git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(
-    name = "pluto",
-    remote = "$pluto_repo_dir",
-)
-EOF
-
-  bazel fetch //planets:planet-info >& $TEST_log \
-    || echo "Expect run to fail."
-  expect_log "Exactly one of commit"
+  expect_log "At most one of commit"
 }
 
 # Verifies that if a non-existent subdirectory is supplied, then strip_prefix
