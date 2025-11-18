@@ -572,7 +572,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
     ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName =
         module.getDeps().entrySet().stream()
-            .filter(dep -> overrides.containsKey(dep.getValue().name()))
+            .filter(dep -> overrides.get(dep.getValue().name()) instanceof NonRegistryOverride)
             .collect(toImmutableMap(dep -> dep.getValue().name(), Map.Entry::getKey));
     ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
