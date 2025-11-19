@@ -78,39 +78,29 @@ java_library(
     ],
 )
 
-distrib_java_import(
+alias(
     name = "asm",
-    enable_distributions = ["debian"],
-    jars = ["asm/asm-9.9.jar"],
-    srcjar = "asm/asm-9.9-sources.jar",
+    actual = "@maven//:org_ow2_asm_asm",
 )
 
-java_import(
+alias(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.9.jar"],
-    srcjar = "asm/asm-analysis-9.9-sources.jar",
-    runtime_deps = [":asm-tree"],
+    actual = "@maven//:org_ow2_asm_asm_analysis",
 )
 
-java_import(
+alias(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.9.jar"],
-    srcjar = "asm/asm-commons-9.9-sources.jar",
-    runtime_deps = [":asm-tree"],
+    actual = "@maven//:org_ow2_asm_asm_commons",
 )
 
-java_import(
+alias(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.9.jar"],
-    srcjar = "asm/asm-tree-9.9-sources.jar",
-    runtime_deps = [":asm"],
+    actual = "@maven//:org_ow2_asm_asm_tree",
 )
 
-java_import(
+alias(
     name = "asm-util",
-    jars = ["asm/asm-util-9.9.jar"],
-    srcjar = "asm/asm-util-9.9-sources.jar",
-    runtime_deps = [":asm-tree"],
+    actual = "@maven//:org_ow2_asm_asm_util",
 )
 
 java_library(
