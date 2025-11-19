@@ -174,7 +174,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           RepositoryUtils.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
 
-
       RepoDefinition repoDefinition;
       switch ((RepoDefinitionValue) env.getValue(RepoDefinitionValue.key(repositoryName))) {
         case null -> {
@@ -258,10 +257,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           try {
             if (remoteRepoContentsCache.lookupCache(
                 repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
-              env.getListener()
-                  .handle(
-                      Event.debug(
-                          "Got %s from the remote repo contents cache".formatted(repositoryName)));
               return new RepositoryDirectoryValue.Success(
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }

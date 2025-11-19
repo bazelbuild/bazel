@@ -190,7 +190,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   public void globalInit() {
     // This is to ensure that the profiler is available as early as possible during the server
     // startup.
-    Profiler.setInstance(this);
+    Profiler.setTraceProfilerService(this);
   }
 
   // TODO(ulfjack): This returns incomplete data by design. Maybe we should return the histograms on

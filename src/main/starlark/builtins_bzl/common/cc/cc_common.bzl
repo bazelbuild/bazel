@@ -719,9 +719,10 @@ def _cc_toolchain_variables(*, vars):
     return _cc_internal.cc_toolchain_variables(vars = vars)
 
 def _internal_exports():
-    _builtins.internal.cc_internal.check_private_api(allowlist = [
+    _cc_internal.check_private_api(allowlist = [
         ("", "third_party/bazel_rules/rules_cc"),
         ("rules_cc", ""),
+        ("", "javatests/com/google/devtools/grok/kythe"),
     ])
     return _cc_internal
 

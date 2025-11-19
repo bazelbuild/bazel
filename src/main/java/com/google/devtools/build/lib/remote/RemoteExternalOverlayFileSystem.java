@@ -135,6 +135,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   public void afterCommand() {
+    if (cache == null) {
+      // Not all commands cause beforeCommand to be called, but afterCommand is called
+      // unconditionally.
+      return;
+    }
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;

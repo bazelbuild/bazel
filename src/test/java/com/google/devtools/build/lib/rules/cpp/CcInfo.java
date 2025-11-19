@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.EvalException;
 
 /** Provider for C++ compilation and linking information. */
@@ -43,8 +44,9 @@ public final class CcInfo {
   public static class CcInfoProvider extends StarlarkProviderWrapper<CcInfo> {
     public CcInfoProvider() {
       super(
-          BzlLoadValue.keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
+          BzlLoadValue.keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  TestConstants.RULES_CC_CANNONICAL + "/private:cc_info.bzl")),
           "CcInfo");
     }
 

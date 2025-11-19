@@ -76,6 +76,17 @@ OutputJar::OutputJar()
                          EntryInfo{&protobuf_meta_handler_});
 }
 
+static size_t WriteNoLock(const void* ptr, size_t size, size_t nmemb,
+                          FILE* stream) {
+#if defined(__linux__)
+  return fwrite_unlocked(ptr, size, nmemb, stream);
+#elif defined(_WIN32)
+  return _fwrite_nolock(ptr, size, nmemb, stream);
+#else
+  return fwrite(ptr, size, nmemb, stream);
+#endif
+}
+
 static std::string Basename(const std::string& path) {
   size_t pos = path.rfind('/');
   if (pos == std::string::npos) {
@@ -1103,7 +1114,7 @@ off64_t OutputJar::PageAlignedAppendFile(const std::string& file_path,
       diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
     }
     memset(zeros, 0, gap);
-    written = fwrite(zeros, 1, gap, file_);
+    written = WriteNoLock(zeros, 1, gap, file_);
     outpos_ += written;
     free(zeros);
   }
@@ -1155,7 +1166,7 @@ void OutputJar::ExtraCombiner(const std::string& entry_name,
 }
 
 bool OutputJar::WriteBytes(const void* buffer, size_t count) {
-  size_t written = fwrite(buffer, 1, count, file_);
+  size_t written = WriteNoLock(buffer, 1, count, file_);
   outpos_ += written;
   return written == count;
 }
