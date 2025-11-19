@@ -3330,7 +3330,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           aliasesMap.put(flag, flagAliases.get(flag));
         }
 
-        // check to see if these are already added
+        // keep the below logic for now
         if (ensurePyAliases) {
             // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
             PY_FLAG_ALIASES.entrySet().stream()

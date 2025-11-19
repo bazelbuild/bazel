@@ -158,7 +158,7 @@ public abstract class InterimModule extends ModuleBase {
     public final Builder addFlagAlias(String nativeName, String starlarkLabel)
         throws LabelSyntaxException {
       flagAliasesBuilder()
-          .put(nativeName, Label.parseCanonical(starlarkLabel).getUnambiguousCanonicalForm());
+          .put(nativeName, starlarkLabel);
       return this;
     }
 
