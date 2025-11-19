@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
