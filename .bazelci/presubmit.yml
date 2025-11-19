@@ -117,7 +117,7 @@ tasks:
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
-  ubuntu2004:
+  ubuntu2004_java11:
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -136,9 +136,7 @@ tasks:
       - "//src/main/java/..."
     test_flags:
       - "--test_output=errors"
-      # Required by //src/test/shell/bazel:bazel_bootstrap_distfile_tar_test to
-      # download Java 11 SDKs.
-      - "--sandbox_default_allow_network=true"
+      - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
