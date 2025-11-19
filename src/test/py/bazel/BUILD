@@ -286,6 +286,7 @@ py_test(
 py_test(
     name = "bazel_lockfile_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bzlmod/bazel_lockfile_test.py"],
     tags = [
         "requires-network",
@@ -312,6 +313,7 @@ py_test(
 py_test(
     name = "bazel_repo_mapping_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bzlmod/bazel_repo_mapping_test.py"],
     tags = [
         "requires-network",
@@ -325,6 +327,7 @@ py_test(
 py_test(
     name = "bazel_yanked_versions_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bzlmod/bazel_yanked_versions_test.py"],
     tags = [
         "requires-network",
