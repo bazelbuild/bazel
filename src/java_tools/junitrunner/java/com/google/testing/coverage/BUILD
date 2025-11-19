@@ -49,6 +49,8 @@ java_library(
         "//third_party/java/jacoco:blaze-agent",
         "//third_party/java/jacoco:core",
         "//third_party/java/jacoco:report",
+        "@maven//:org_ow2_asm_asm",
+        "@maven//:org_ow2_asm_asm_tree",
     ],
 )
 
