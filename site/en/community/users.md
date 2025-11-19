@@ -52,6 +52,13 @@ ASML is an innovation leader in the semiconductor industry. We provide chipmaker
 with everything they need – hardware, software and services – to mass produce
 patterns on silicon through lithography.
 
+### [Augment Code](https://augmentcode.com){: .external}
+
+Augment Code is the first Developer AI for teams.
+Every Augment feature is context aware. Every suggestion, completion, and
+interaction reflects the components, APIs, and coding patterns in your
+codebase to help your teams build better software.
+
 ### [Beeswax](https://www.beeswax.com/){: .external}
 
 > Beeswax is a New York based startup that provides real time bidding as
