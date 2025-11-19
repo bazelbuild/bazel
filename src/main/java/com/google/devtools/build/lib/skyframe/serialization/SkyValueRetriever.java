@@ -32,6 +32,7 @@ import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -392,6 +393,14 @@ public final class SkyValueRetriever {
             return NoCachedData.NO_CACHED_DATA;
         }
       }
+    } catch (CancellationException e) {
+      // CancellationException may be thrown from any of the calls to getDone. Reports
+      // NO_CACHED_DATA to bail out of remote retrieval.
+      //
+      // TODO: b/438142239 - ideally, CancellationException would be handled by Skyframe. However,
+      // it is only thrown by this method and NO_CACHED_DATA is a safe fallback.
+      serializationState = NoCachedData.NO_CACHED_DATA;
+      return NoCachedData.NO_CACHED_DATA;
     } finally {
       retrievalContext.setState(serializationState);
     }

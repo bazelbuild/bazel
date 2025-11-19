@@ -562,6 +562,47 @@ public final class SkyValueRetrieverTest {
   }
 
   @Test
+  public void retrievalCancelled_returnsNoCachedData() throws Exception {
+    var recordingStore = new GetRecordingStore();
+    var fingerprintValueService = FingerprintValueService.createForTesting(recordingStore);
+    var state = new RetrievalContext();
+
+    var key = new TrivialKey("k");
+    var value = new TrivialValue("v");
+    uploadKeyValuePair(key, value, fingerprintValueService);
+
+    RetrievalResult result =
+        SkyValueRetriever.tryRetrieve(
+            NO_LOOKUP_ENVIRONMENT,
+            SkyValueRetrieverTest::dependOnFutureImpl,
+            codecs,
+            fingerprintValueService,
+            /* analysisCacheClient= */ null,
+            key,
+            state,
+            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureValueBytes.class);
+
+    recordingStore.pollRequest().response().cancel(false);
+
+    result =
+        SkyValueRetriever.tryRetrieve(
+            NO_LOOKUP_ENVIRONMENT,
+            SkyValueRetrieverTest::dependOnFutureImpl,
+            codecs,
+            fingerprintValueService,
+            /* analysisCacheClient= */ null,
+            key,
+            state,
+            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+
+    assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
+    assertThat(state.getState()).isSameInstanceAs(NO_CACHED_DATA);
+  }
+
+  @Test
   public void sharedValueRetrievalError_throwsException() throws Exception {
     var recordingStore = new GetRecordingStore();
     var fingerprintValueService = FingerprintValueService.createForTesting(recordingStore);
