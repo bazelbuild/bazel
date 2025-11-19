@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.protobuf.ByteString;
 
 /** Interface to the remote analysis cache. */
@@ -25,7 +26,12 @@ public interface RemoteAnalysisCacheClient {
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
 
   /** Usage statistics. */
-  record Stats(long bytesSent, long bytesReceived, long requestsSent, long batches) {}
+  record Stats(
+      long bytesSent,
+      long bytesReceived,
+      long requestsSent,
+      long batches,
+      TopLevelTargetsMatchStatus matchStatus) {}
 
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
   ListenableFuture<ByteString> lookup(ByteString key);

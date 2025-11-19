@@ -393,7 +393,8 @@ class MetricsCollector {
           .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
           .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
           .setAnalysisCacheOps(raccStats.requestsSent())
-          .setAnalysisCacheBatches(raccStats.batches());
+          .setAnalysisCacheBatches(raccStats.batches())
+          .setMetadataLookupResult(raccStats.matchStatus());
     }
 
     return result.build();
