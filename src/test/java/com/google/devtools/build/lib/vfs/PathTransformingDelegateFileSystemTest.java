@@ -91,12 +91,11 @@ public final class PathTransformingDelegateFileSystemTest {
       throws Exception {
     PathFragment path = PathFragment.create("/original/dir/file");
     when(delegateFileSystem.resolveSymbolicLinks(PathFragment.create("/transformed/dir/file")))
-        .thenReturn(Path.create("/transformed/resolved", delegateFileSystem));
+        .thenReturn(PathFragment.create("/transformed/resolved"));
 
-    Path resolvedPath = fileSystem.resolveSymbolicLinks(path);
+    PathFragment resolvedPath = fileSystem.resolveSymbolicLinks(path);
 
-    assertThat(resolvedPath.asFragment()).isEqualTo(PathFragment.create("/original/resolved"));
-    assertThat(resolvedPath.getFileSystem()).isSameInstanceAs(fileSystem);
+    assertThat(resolvedPath).isEqualTo(PathFragment.create("/original/resolved"));
   }
 
   @Test

@@ -609,7 +609,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *     example, the path does not exist)
    */
   public Path resolveSymbolicLinks() throws IOException {
-    return fileSystem.resolveSymbolicLinks(asFragment());
+    return fileSystem.getPath(fileSystem.resolveSymbolicLinks(asFragment()));
   }
 
   /**
@@ -960,7 +960,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   private void checkSameFileSystem(Path that) {
     if (this.fileSystem != that.fileSystem) {
       throw new IllegalArgumentException(
-          "Files are on different filesystems: " + this + ", " + that);
+          "Files are on different filesystems: %s (on %s), %s (on %s)"
+              .formatted(this, this.fileSystem, that, that.fileSystem));
     }
   }
 }
