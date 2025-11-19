@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ByteString;
 import java.lang.ref.WeakReference;
 import java.time.Duration;
@@ -312,7 +311,8 @@ public final class NestedSet<E> {
   /** Same as {@link #getChildren}, except propagates {@link InterruptedException}. */
   Object getChildrenInterruptibly() throws InterruptedException {
     return children instanceof ListenableFuture
-        ? MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children)
+        ? MoreFutures.waitForFutureAndGet(
+            (ListenableFuture<Object[]>) children, /* cancelOnInterrupt= */ false)
         : children;
   }
 
@@ -335,7 +335,8 @@ public final class NestedSet<E> {
       return children;
     }
     try {
-      return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
+      return MoreFutures.waitForFutureAndGet(
+          (ListenableFuture<Object[]>) children, /* cancelOnInterrupt= */ false);
     } catch (InterruptedException e) {
       FailureDetail failureDetail =
           FailureDetail.newBuilder()
@@ -433,7 +434,9 @@ public final class NestedSet<E> {
     if (children instanceof ListenableFuture) {
       actualChildren =
           MoreFutures.waitForFutureAndGetWithCheckedException(
-              (ListenableFuture<Object[]>) children, MissingFingerprintValueException.class);
+              (ListenableFuture<Object[]>) children,
+              /* cancelOnInterrupt= */ false,
+              MissingFingerprintValueException.class);
     } else {
       actualChildren = children;
     }

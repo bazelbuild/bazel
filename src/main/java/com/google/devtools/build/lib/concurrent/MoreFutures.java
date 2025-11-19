@@ -68,33 +68,48 @@ public class MoreFutures {
    * Returns the result of {@code future}. If it threw an {@link InterruptedException} (wrapped in
    * an {@link ExecutionException}), throws that underlying {@link InterruptedException}. Crashes on
    * all other exceptions.
+   *
+   * <p>If {@code cancelOnInterrupt} is true, the future is cancelled if it threw an {@link
+   * InterruptedException}.
    */
   @CanIgnoreReturnValue
-  public static <R> R waitForFutureAndGet(Future<R> future) throws InterruptedException {
+  public static <R> R waitForFutureAndGet(Future<R> future, boolean cancelOnInterrupt)
+      throws InterruptedException {
     try {
       return future.get();
     } catch (ExecutionException e) {
       throwIfInstanceOf(e.getCause(), InterruptedException.class);
       throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
+    } catch (InterruptedException e) {
+      if (cancelOnInterrupt) {
+        future.cancel(/* mayInterruptIfRunning= */ true);
+      }
+      throw e;
     }
   }
 
   public static <R, E extends Exception> R waitForFutureAndGetWithCheckedException(
-      Future<R> future, Class<E> exceptionClass) throws E, InterruptedException {
-    return waitForFutureAndGetWithCheckedException(future, exceptionClass, null);
+      Future<R> future, boolean cancelOnInterrupt, Class<E> exceptionClass)
+      throws E, InterruptedException {
+    return waitForFutureAndGetWithCheckedException(future, cancelOnInterrupt, exceptionClass, null);
   }
 
   public static <R, E1 extends Exception, E2 extends Exception>
       R waitForFutureAndGetWithCheckedException(
-          Future<R> future, Class<E1> exceptionClass1, @Nullable Class<E2> exceptionClass2)
+          Future<R> future,
+          boolean cancelOnInterrupt,
+          Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2)
           throws E1, E2, InterruptedException {
-    return waitForFutureAndGetWithCheckedException(future, exceptionClass1, exceptionClass2, null);
+    return waitForFutureAndGetWithCheckedException(
+        future, cancelOnInterrupt, exceptionClass1, exceptionClass2, null);
   }
 
   public static <R, E1 extends Exception, E2 extends Exception, E3 extends Exception>
       R waitForFutureAndGetWithCheckedException(
           Future<R> future,
+          boolean cancelOnInterrupt,
           Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3)
@@ -112,6 +127,11 @@ public class MoreFutures {
       throwIfUnchecked(e.getCause());
       throwIfInstanceOf(e.getCause(), InterruptedException.class);
       throw new IllegalStateException(e);
+    } catch (InterruptedException e) {
+      if (cancelOnInterrupt) {
+        future.cancel(/* mayInterruptIfRunning= */ true);
+      }
+      throw e;
     }
   }
 }
