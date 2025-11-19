@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
@@ -93,10 +92,25 @@ public class BulkTransferException extends IOException {
       CacheNotFoundException e = (CacheNotFoundException) suppressed;
       var missingDigest = e.getMissingDigest();
       var execPath = e.getExecPath();
-      checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
+      if (execPath == null) {
+        // This can happen if the lost artifact is not an input of the action, but a special output
+        // such as stdout/stderr. This can't be solved by the rewinding that LostArtifacts would
+        // trigger, but is rather a failure of the current action execution.
+        if (e.getFilename() == null) {
+          throw new IllegalArgumentException(
+              "CacheNotFoundException that may represent a lost artifact should have been annotated"
+                  + " with a filename",
+              e);
+        }
+        return LostArtifacts.EMPTY;
+      }
       var actionInput = actionInputResolver.apply(execPath);
-      checkNotNull(
-          actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
+      if (actionInput == null) {
+        // This can happen if the lost artifact is not an input of the action, but an output that
+        // e.g. failed to be retrieved from the remote cache after a cache hit. This also can't be
+        // solved by the rewinding that LostArtifacts would trigger.
+        return LostArtifacts.EMPTY;
+      }
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
     var byDigest = byDigestBuilder.buildKeepingLast();

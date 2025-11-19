@@ -244,8 +244,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (CredentialHelperException e) {
       throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(
-          action, spawn, context, uploadLocalResults, e, FailureReason.DOWNLOAD);
+      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
 
     if (remoteOptions.remoteRequireCached) {
@@ -266,23 +265,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
-    AtomicBoolean ioExceptionCausedByUpload = new AtomicBoolean(false);
     try {
       return retrier.execute(
           () -> {
-            ioExceptionCausedByUpload.set(false);
             // Upload the command and all the inputs into the remote cache.
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
               // Upon retry, we force upload inputs
-              try {
-                remoteExecutionService.uploadInputsIfNotPresent(
-                    action, forceUploadInput.getAndSet(true));
-              } catch (IOException e) {
-                ioExceptionCausedByUpload.set(true);
-                throw e;
-              }
+              remoteExecutionService.uploadInputsIfNotPresent(
+                  action, forceUploadInput.getAndSet(true));
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
@@ -352,13 +344,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (CredentialHelperException e) {
       throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(
-          action,
-          spawn,
-          context,
-          uploadLocalResults,
-          e,
-          ioExceptionCausedByUpload.get() ? FailureReason.UPLOAD : FailureReason.DOWNLOAD);
+      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
   }
 
@@ -580,8 +566,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       boolean uploadLocalResults,
-      IOException cause,
-      FailureReason reason)
+      IOException cause)
       throws ExecException, InterruptedException, IOException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
@@ -589,9 +574,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       throw new InterruptedException();
     }
     // If the failure is caused by eviction of inputs to the current action that are only available
-    // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
-    // current action.
-    if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
+    // remotely, try to regenerate the lost inputs.
+    if (cause instanceof BulkTransferException e) {
       e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
