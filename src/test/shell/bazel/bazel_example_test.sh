@@ -52,6 +52,7 @@ javabase=${javabase%/bin/java}
 function set_up() {
   copy_examples
   create_workspace_with_default_repos "WORKSPACE" "io_bazel"
+  add_to_bazelrc "build --java_language_version=11"
 }
 
 #
