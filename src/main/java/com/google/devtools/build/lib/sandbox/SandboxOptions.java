@@ -85,14 +85,6 @@ public class SandboxOptions extends OptionsBase {
   }
 
   @Option(
-      name = "ignore_unsupported_sandboxing",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Do not print a warning when sandboxed execution is not supported on this system.")
-  public boolean ignoreUnsupportedSandboxing;
-
-  @Option(
       name = "sandbox_debug",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
