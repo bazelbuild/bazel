@@ -1690,6 +1690,44 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testBuildFailsToComplete_testCommand() {
+    BuildEventId abortedEventId =
+        BuildEventIdUtil.targetPatternExpanded(ImmutableList.of("//foo:bar"));
+    BuildEvent startEvent =
+        BuildStartingEvent.create(
+            "tmpfs",
+            true,
+            BuildRequest.builder()
+                .setCommandName("test")
+                .setRunTests(true)
+                .setTargets(ImmutableList.of("//foo:bar"))
+                .setOptions(createMockOptions())
+                .setId(UUID.randomUUID())
+                .setStartTimeMillis(10842L)
+                .build(),
+            null,
+            "/tmp/build");
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setSpawn(Spawn.newBuilder().setCode(Spawn.Code.NON_ZERO_EXIT))
+                    .build()),
+            true,
+            null,
+            false);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(abortedEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isTrue();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.INCOMPLETE);
+  }
+
+  @Test
   public void testStreamAbortedWithTimeout() {
     BuildEventId buildEventId = testId("abort_expected");
     BuildEvent startEvent =
