@@ -238,6 +238,86 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
+  def testBifurcatedDynamicDep(self):
+    platform_file = self.ScratchFile('platform.txt')
+
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'platform_dependent_repo = use_repo_rule("//:platform_dependent_repo.bzl", "platform_dependent_repo")',
+        'platform_dependent_repo(name = "platform_dependent_repo")',
+        'repo = use_repo_rule("//:repo.bzl", "repo")',
+        'repo(name = "my_repo")',
+      ],
+    )
+    self.ScratchFile(
+      'BUILD.bazel',
+      [
+        'genrule(',
+        '  name = "show_platform",',
+        '  outs = ["platform.txt"],',
+        '  cmd = "cat $(location @my_repo//:data.txt) > $@",',
+        '  srcs = ["@my_repo//:data.txt"],',
+        ')',
+      ]
+    )
+    self.ScratchFile(
+      'platform_dependent_repo.bzl',
+      [
+        'def _platform_dependent_repo_impl(rctx):',
+        '  rctx.file("BUILD")',
+        '  platform = rctx.read(rctx.path("%s"))' % platform_file,
+        '  rctx.file("data.txt", platform)',
+        'platform_dependent_repo = repository_rule(_platform_dependent_repo_impl)',
+      ],
+    )
+    self.ScratchFile(
+      'repo.bzl',
+      [
+        'def _repo_impl(rctx):',
+        '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+        '  platform = rctx.read(Label("@platform_dependent_repo//:data.txt"))',
+        '  print("JUST FETCHED ON " + platform)',
+        '  rctx.file("data.txt", platform)',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(_repo_impl)',
+      ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch on Linux: not cached
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('JUST FETCHED ON Linux', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'Linux')
+
+    # First fetch on macOS: not cached
+    self.ScratchFile('platform.txt', ['macOS'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('JUST FETCHED ON macOS', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'macOS')
+
+    # Second fetch on Linux: cached
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'Linux')
+
+    # Second fetch on macOS: cached
+    self.ScratchFile('platform.txt', ['macOS'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'macOS')
+
   def testNoThrashingBetweenWorkspaces(self):
     module_bazel_lines = [
         'repo = use_repo_rule("//:repo.bzl", "repo")',
