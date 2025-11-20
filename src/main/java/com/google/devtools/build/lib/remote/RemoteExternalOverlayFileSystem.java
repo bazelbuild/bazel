@@ -182,7 +182,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   public void injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException {
     var repoDir = externalDirectory.getChild(repo.getName());
-    nativeFs.deleteTree(repoDir);
+    deleteTree(repoDir);
+    delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
