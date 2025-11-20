@@ -40,21 +40,38 @@ filegroup(
     srcs = [":copy_source_jars"],
 )
 
+load(":extract_source_jars.bzl", "extract_source_jars")
+
+extract_source_jars(
+    name = "agent_source_jar",
+    deps = ["@maven//:org_jacoco_org_jacoco_agent"],
+)
+
+extract_source_jars(
+    name = "core_source_jar",
+    deps = ["@maven//:org_jacoco_org_jacoco_core"],
+)
+
+extract_source_jars(
+    name = "report_source_jar",
+    deps = ["@maven//:org_jacoco_org_jacoco_report"],
+)
+
 genrule(
     name = "copy_source_jars",
     srcs = [
-        "@maven//:org_jacoco_org_jacoco_agent_jar_sources_0_8_11_extension",
-        "@maven//:org_jacoco_org_jacoco_core_jar_sources_0_8_11_extension",
-        "@maven//:org_jacoco_org_jacoco_report_jar_sources_0_8_11_extension",
+        ":agent_source_jar",
+        ":core_source_jar",
+        ":report_source_jar",
     ],
     outs = [
         "org.jacoco.agent-0.8.11-sources.jar",
         "org.jacoco.core-0.8.11-sources.jar",
         "org.jacoco.report-0.8.11-sources.jar",
     ],
-    cmd = "cp $(location @maven//:org_jacoco_org_jacoco_agent_jar_sources_0_8_11_extension) $(location org.jacoco.agent-0.8.11-sources.jar) && " +
-          "cp $(location @maven//:org_jacoco_org_jacoco_core_jar_sources_0_8_11_extension) $(location org.jacoco.core-0.8.11-sources.jar) && " +
-          "cp $(location @maven//:org_jacoco_org_jacoco_report_jar_sources_0_8_11_extension) $(location org.jacoco.report-0.8.11-sources.jar)",
+    cmd = "cp $(location :agent_source_jar) $(location org.jacoco.agent-0.8.11-sources.jar) && " +
+          "cp $(location :core_source_jar) $(location org.jacoco.core-0.8.11-sources.jar) && " +
+          "cp $(location :report_source_jar) $(location org.jacoco.report-0.8.11-sources.jar)",
 )
 
 filegroup(

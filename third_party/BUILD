@@ -689,14 +689,41 @@ filegroup(
     srcs = [":copy_asm_source_jars"],
 )
 
+load("//third_party/java/jacoco:extract_source_jars.bzl", "extract_source_jars")
+
+extract_source_jars(
+    name = "asm_source_jar",
+    deps = ["@maven//:org_ow2_asm_asm"],
+)
+
+extract_source_jars(
+    name = "asm_analysis_source_jar",
+    deps = ["@maven//:org_ow2_asm_asm_analysis"],
+)
+
+extract_source_jars(
+    name = "asm_commons_source_jar",
+    deps = ["@maven//:org_ow2_asm_asm_commons"],
+)
+
+extract_source_jars(
+    name = "asm_tree_source_jar",
+    deps = ["@maven//:org_ow2_asm_asm_tree"],
+)
+
+extract_source_jars(
+    name = "asm_util_source_jar",
+    deps = ["@maven//:org_ow2_asm_asm_util"],
+)
+
 genrule(
     name = "copy_asm_source_jars",
     srcs = [
-        "@maven//:org_ow2_asm_asm_jar_sources_9_9_extension",
-        "@maven//:org_ow2_asm_asm_analysis_jar_sources_9_9_extension",
-        "@maven//:org_ow2_asm_asm_commons_jar_sources_9_9_extension",
-        "@maven//:org_ow2_asm_asm_tree_jar_sources_9_9_extension",
-        "@maven//:org_ow2_asm_asm_util_jar_sources_9_9_extension",
+        ":asm_source_jar",
+        ":asm_analysis_source_jar",
+        ":asm_commons_source_jar",
+        ":asm_tree_source_jar",
+        ":asm_util_source_jar",
     ],
     outs = [
         "asm/asm-9.9-sources.jar",
@@ -705,9 +732,9 @@ genrule(
         "asm/asm-tree-9.9-sources.jar",
         "asm/asm-util-9.9-sources.jar",
     ],
-    cmd = "cp $(location @maven//:org_ow2_asm_asm_jar_sources_9_9_extension) $(location asm/asm-9.9-sources.jar) && " +
-          "cp $(location @maven//:org_ow2_asm_asm_analysis_jar_sources_9_9_extension) $(location asm/asm-analysis-9.9-sources.jar) && " +
-          "cp $(location @maven//:org_ow2_asm_asm_commons_jar_sources_9_9_extension) $(location asm/asm-commons-9.9-sources.jar) && " +
-          "cp $(location @maven//:org_ow2_asm_asm_tree_jar_sources_9_9_extension) $(location asm/asm-tree-9.9-sources.jar) && " +
-          "cp $(location @maven//:org_ow2_asm_asm_util_jar_sources_9_9_extension) $(location asm/asm-util-9.9-sources.jar)",
+    cmd = "cp $(location :asm_source_jar) $(location asm/asm-9.9-sources.jar) && " +
+          "cp $(location :asm_analysis_source_jar) $(location asm/asm-analysis-9.9-sources.jar) && " +
+          "cp $(location :asm_commons_source_jar) $(location asm/asm-commons-9.9-sources.jar) && " +
+          "cp $(location :asm_tree_source_jar) $(location asm/asm-tree-9.9-sources.jar) && " +
+          "cp $(location :asm_util_source_jar) $(location asm/asm-util-9.9-sources.jar)",
 )
