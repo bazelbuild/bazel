@@ -266,4 +266,7 @@ public class StarlarkSemantics {
   /** Whether the Starlark interpreter uses UTF-8 byte strings instead of UTF-16 strings. */
   public static final String INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS =
       "-internal_bazel_only_utf_8_byte_strings";
+
+  /** Globally Override fail(stack_trace=) to true. Flag default is false. */
+  public static final String FORCE_STARLARK_STACK_TRACE = "-force_starlark_stack_trace";
 }

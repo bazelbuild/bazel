@@ -845,6 +845,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " the BUILD file they are ultimately loaded from.")
   public boolean incompatibleResolveSelectKeysEagerly;
 
+  @Option(
+      name = "force_starlark_stack_trace",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If --force_starlark_stack_trace=true, Starlark stace traces will always be printed from"
+              + " calls to fail(), including those normally supressed with fail(..., stack_trace ="
+              + " False)")
+  public boolean forceStarlarkStackTrace;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -956,7 +967,8 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
                 internalStarlarkUtf8ByteStrings)
-            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm);
+            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, forceStarlarkStackTrace);
   }
 
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
@@ -1130,6 +1142,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_repository_ctx_execute_wasm";
   public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
       "-incompatible_resolve_select_keys_eagerly";
+
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
       new StarlarkSemantics.Key<>("incompatible_disable_transitions_on", ImmutableList.of());
