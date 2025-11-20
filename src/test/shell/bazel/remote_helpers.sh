@@ -81,7 +81,7 @@ public class Mongoose {
     }
 }
 EOF
-  ${bazel_javabase}/bin/javac $pkg_dir/Mongoose.java
+  ${bazel_javabase}/bin/javac -source 11 -target 11 $pkg_dir/Mongoose.java
   test_jar=$TEST_TMPDIR/libcarnivore.jar
   test_srcjar=$TEST_TMPDIR/libcarnivore-sources.jar
   cd ${TEST_TMPDIR}
