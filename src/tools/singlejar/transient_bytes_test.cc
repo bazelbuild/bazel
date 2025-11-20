@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 
+#include <cstdint>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -255,13 +256,14 @@ TEST_F(TransientBytesTest, CompressOut) {
     uint8_t* buffer =
         reinterpret_cast<uint8_t*>(malloc(cdh->uncompressed_file_size()));
     ASSERT_NE(nullptr, buffer);
-    uint32_t crc32 = 0;
+    uint32_t crc32_var = 0;
     uint64_t bytes_written;
-    uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+    uint16_t rc =
+        transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
 
     EXPECT_EQ(Z_DEFLATED, rc)
         << "TransientBytes::Write did not compress " << cdh->file_name_string();
-    EXPECT_EQ(cdh->crc32(), crc32)
+    EXPECT_EQ(cdh->cdh_crc32(), crc32_var)
         << "TransientBytes::Write has wrong crc32 for "
         << cdh->file_name_string();
 
@@ -308,39 +310,41 @@ TEST_F(TransientBytesTest, CompressOut) {
 TEST_F(TransientBytesTest, CompressOutStore) {
   transient_bytes_->Append("a");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
+  uint32_t crc32_var = 0;
   uint64_t bytes_written;
-  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+  uint16_t rc =
+      transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
   ASSERT_EQ(Z_NO_COMPRESSION, rc);
   ASSERT_EQ(1, bytes_written);
   ASSERT_EQ('a', buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0xE8B7BE43, crc32);
+  ASSERT_EQ(0xE8B7BE43, crc32_var);
 }
 
 // Verify CompressOut: if there are zero bytes in the buffer, just store.
 TEST_F(TransientBytesTest, CompressZero) {
   transient_bytes_->Append("");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
+  uint32_t crc32_var = 0;
   uint64_t bytes_written;
-  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+  uint16_t rc =
+      transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
   ASSERT_EQ(Z_NO_COMPRESSION, rc);
   ASSERT_EQ(0, bytes_written);
   ASSERT_EQ(0xfe, buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0, crc32);
+  ASSERT_EQ(0, crc32_var);
 }
 
 // Verify CopyOut.
 TEST_F(TransientBytesTest, CopyOut) {
   transient_bytes_->Append("a");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
-  transient_bytes_->CopyOut(buffer, &crc32);
+  uint32_t crc32_var = 0;
+  transient_bytes_->CopyOut(buffer, &crc32_var);
   ASSERT_EQ('a', buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0xE8B7BE43, crc32);
+  ASSERT_EQ(0xE8B7BE43, crc32_var);
 }
 
 }  // namespace
