@@ -102,8 +102,8 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
     BAZEL_ARGS=(
-      '--java_runtime_version=remotejdk_11'
-      '--tool_java_runtime_version=remotejdk_11'
+      '--java_runtime_version=11'
+      '--tool_java_runtime_version=11'
     )
 
     env EXTRA_BAZEL_ARGS="${BAZEL_ARGS[*]}" ./compile.sh \
