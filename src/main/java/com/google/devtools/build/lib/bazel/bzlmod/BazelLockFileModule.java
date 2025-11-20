@@ -119,6 +119,7 @@ public class BazelLockFileModule extends BlazeModule {
     var newExtensionInfos =
         new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(numExtensions);
     var combinedFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
+    combinedFacts.putAll(oldLockfile.getFacts());
     var doneValues = evaluator.getDoneValues();
     for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
       if (extensionId.isInnate()) {
