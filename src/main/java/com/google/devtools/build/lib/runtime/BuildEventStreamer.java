@@ -586,6 +586,18 @@ public class BuildEventStreamer {
       }
     }
 
+    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
+      if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
+        if (isOom(buildCompleteEvent)) {
+          addAbortReason(AbortReason.OUT_OF_MEMORY);
+        } else {
+          addAbortReason(AbortReason.INTERNAL);
+        }
+      } else if (isIncomplete(buildCompleteEvent)) {
+        addAbortReason(AbortReason.INCOMPLETE);
+      }
+    }
+
     switch (routeBuildEvent(event)) {
       case DISCARD:
         // Check if there are pending events waiting on this event
@@ -653,17 +665,6 @@ public class BuildEventStreamer {
     // For most commands, exactly one `BuildCompletingEvent` will be posted to the EventBus. If the
     // command is "run" or "test", a non-crashing/catastrophic `BuildCompleteEvent` will be followed
     // by a RunBuildCompleteEvent/TestingCompleteEvent.
-    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
-      if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
-        if (isOom(buildCompleteEvent)) {
-          addAbortReason(AbortReason.OUT_OF_MEMORY);
-        } else {
-          addAbortReason(AbortReason.INTERNAL);
-        }
-      } else if (isIncomplete(buildCompleteEvent)) {
-        addAbortReason(AbortReason.INCOMPLETE);
-      }
-    }
 
     if (event instanceof BuildCompletingEvent) {
       buildComplete(event);

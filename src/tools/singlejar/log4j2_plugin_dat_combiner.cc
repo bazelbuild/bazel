@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
+
 #include <cstdint>
 #include <map>
 #include <sstream>
@@ -19,7 +21,6 @@
 #include <vector>
 
 #include "src/tools/singlejar/diag.h"
-#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/transient_bytes.h"
 #include "src/tools/singlejar/zip_headers.h"
 #include "src/tools/singlejar/zlib_interface.h"
@@ -39,7 +40,7 @@
 // to big-endian order to maintain compatibility with the file format
 // specification.
 template <typename T>
-inline static T swapByteOrder(const T &val) {
+inline static T swapByteOrder(const T& val) {
   int totalBytes = sizeof(val);
   T swapped = (T)0;
   for (int i = 0; i < totalBytes; ++i) {
@@ -48,41 +49,41 @@ inline static T swapByteOrder(const T &val) {
   return swapped;
 }
 
-bool readBool(std::istringstream &stream) {
+bool readBool(std::istringstream& stream) {
   bool value;
-  stream.read(reinterpret_cast<char *>(&value), sizeof(value));
+  stream.read(reinterpret_cast<char*>(&value), sizeof(value));
   return value;
 }
 
-uint32_t readInt(std::istringstream &stream) {
+uint32_t readInt(std::istringstream& stream) {
   uint32_t value;
-  stream.read(reinterpret_cast<char *>(&value), sizeof(value));
+  stream.read(reinterpret_cast<char*>(&value), sizeof(value));
   return swapByteOrder(value);
 }
 
-std::string readUTFString(std::istringstream &stream) {
+std::string readUTFString(std::istringstream& stream) {
   uint16_t length;
-  stream.read(reinterpret_cast<char *>(&length), sizeof(length));
+  stream.read(reinterpret_cast<char*>(&length), sizeof(length));
   length = swapByteOrder(length);  // Convert to host byte order
   std::string result(length, '\0');
   stream.read(&result[0], length);
   return result;
 }
 
-void writeBoolean(std::vector<uint8_t> &buffer, bool value) {
+void writeBoolean(std::vector<uint8_t>& buffer, bool value) {
   uint8_t byte = value ? 1 : 0;
   buffer.push_back(byte);
 }
 
-void writeInt(std::vector<uint8_t> &buffer, int value) {
+void writeInt(std::vector<uint8_t>& buffer, int value) {
   value = swapByteOrder(value);
-  const uint8_t *data = reinterpret_cast<const uint8_t *>(&value);
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(&value);
   buffer.insert(buffer.end(), data, data + sizeof(value));
 }
 
-void writeUTFString(std::vector<uint8_t> &buffer, const std::string &str) {
+void writeUTFString(std::vector<uint8_t>& buffer, const std::string& str) {
   uint16_t length = swapByteOrder(static_cast<uint16_t>(str.size()));
-  const uint8_t *lengthData = reinterpret_cast<const uint8_t *>(&length);
+  const uint8_t* lengthData = reinterpret_cast<const uint8_t*>(&length);
   buffer.insert(buffer.end(), lengthData, lengthData + sizeof(length));
   buffer.insert(buffer.end(), str.begin(), str.end());
 }
@@ -92,15 +93,15 @@ void writeUTFString(std::vector<uint8_t> &buffer, const std::string &str) {
 // Modeled after the Java canonical implementation here:
 // https://github.com/apache/logging-log4j2/blob/8573ef778d2fad2bbec50a687955dccd2a616cc5/log4j-core/src/main/java/org/apache/logging/log4j/core/config/plugins/processor/PluginCache.java#L66-L85
 std::vector<uint8_t> writeLog4j2PluginCacheFile(
-    const std::map<std::string, std::map<std::string, PluginEntry>>
-        &categories) {
+    const std::map<std::string, std::map<std::string, PluginEntry>>&
+        categories) {
   std::vector<uint8_t> buffer;
   writeInt(buffer, static_cast<int>(categories.size()));
-  for (const auto &categoryPair : categories) {
+  for (const auto& categoryPair : categories) {
     writeUTFString(buffer, categoryPair.first);
     writeInt(buffer, static_cast<int>(categoryPair.second.size()));
-    for (const auto &pluginPair : categoryPair.second) {
-      const PluginEntry &plugin = pluginPair.second;
+    for (const auto& pluginPair : categoryPair.second) {
+      const PluginEntry& plugin = pluginPair.second;
       writeUTFString(buffer, plugin.key);
       writeUTFString(buffer, plugin.className);
       writeUTFString(buffer, plugin.name);
@@ -117,7 +118,7 @@ std::vector<uint8_t> writeLog4j2PluginCacheFile(
 // Modeled after the Java canonical implementation here:
 // https://github.com/apache/logging-log4j2/blob/8573ef778d2fad2bbec50a687955dccd2a616cc5/log4j-core/src/main/java/org/apache/logging/log4j/core/config/plugins/processor/PluginCache.java#L93-L124
 std::map<std::string, std::map<std::string, PluginEntry>>
-loadLog4j2PluginCacheFile(TransientBytes &transientBytes) {
+loadLog4j2PluginCacheFile(TransientBytes& transientBytes) {
   uint64_t data_size = transientBytes.data_size();
   std::vector<uint8_t> byteData(data_size);
   uint32_t checksum = 0;
@@ -145,7 +146,7 @@ loadLog4j2PluginCacheFile(TransientBytes &transientBytes) {
 
 Log4J2PluginDatCombiner::~Log4J2PluginDatCombiner() {}
 
-bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
+bool Log4J2PluginDatCombiner::Merge(const CDH* cdh, const LH* lh) {
   TransientBytes bytes_;
   if (lh->compression_method() == Z_NO_COMPRESSION) {
     bytes_.ReadEntryContents(cdh, lh);
@@ -159,13 +160,13 @@ bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
   }
 
   auto newCategories = loadLog4j2PluginCacheFile(bytes_);
-  for (const auto &newCategoryPair : newCategories) {
+  for (const auto& newCategoryPair : newCategories) {
     auto newCategoryId = newCategoryPair.first;
     auto newPlugins = newCategoryPair.second;
 
     auto existingCategoryPair = categories_.find(newCategoryId);
     if (existingCategoryPair != categories_.end()) {
-      for (const auto &pluginPair : newPlugins) {
+      for (const auto& pluginPair : newPlugins) {
         auto newPluginKey = pluginPair.first;
         auto newPlugin = pluginPair.second;
 
@@ -187,12 +188,12 @@ bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void *Log4J2PluginDatCombiner::OutputEntry(bool compress) {
+void* Log4J2PluginDatCombiner::OutputEntry(bool compress) {
   if (categories_.empty()) {
     return nullptr;
   }
   auto buffer = writeLog4j2PluginCacheFile(categories_);
-  concatenator_->Append(reinterpret_cast<const char *>(buffer.data()),
+  concatenator_->Append(reinterpret_cast<const char*>(buffer.data()),
                         buffer.size());
   return concatenator_->OutputEntry(compress);
 }

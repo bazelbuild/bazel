@@ -20,10 +20,10 @@
 
 #ifdef _WIN32
 #include "src/main/cpp/util/strings.h"
-int wmain(int argc, wchar_t *wargv[]) {
-  char **argv = blaze_util::WArgsToCArgs(argc, wargv);
+int wmain(int argc, wchar_t* wargv[]) {
+  char** argv = blaze_util::WArgsToCArgs(argc, wargv);
 #else
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 #endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
   // TODO(b/67733424): support desugar deps checking in Bazel
   if (options.check_desugar_deps) {
     diag_errx(1, "%s:%d: Desugar checking not currently supported in Bazel.",
-                 __FILE__, __LINE__);
+              __FILE__, __LINE__);
   } else {
     output_jar.ExtraCombiner("META-INF/desugar_deps", new NullCombiner());
   }

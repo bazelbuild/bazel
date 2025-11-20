@@ -16,7 +16,7 @@
 
 #include "src/tools/singlejar/diag.h"
 
-void Options::ParseCommandLine(int argc, const char *const argv[]) {
+void Options::ParseCommandLine(int argc, const char* const argv[]) {
   ArgTokenStream tokens(argc, argv);
   std::string optarg;
   while (!tokens.AtEnd()) {
@@ -30,7 +30,7 @@ void Options::ParseCommandLine(int argc, const char *const argv[]) {
   PostValidateOptions();
 }
 
-bool Options::ParseToken(ArgTokenStream *tokens) {
+bool Options::ParseToken(ArgTokenStream* tokens) {
   std::string optarg;
 
   if (tokens->MatchAndSet("--output", &output_jar) ||

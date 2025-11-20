@@ -113,6 +113,7 @@ struct CreateJunctionResult {
     kAlreadyExistsButNotJunction = 4,
     kAccessDenied = 5,
     kDisappeared = 6,
+    kNotSupported = 7,
   };
 };
 

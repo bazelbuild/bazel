@@ -26,7 +26,14 @@ Combiner::~Combiner() {}
 
 Concatenator::~Concatenator() {}
 
-bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
+namespace {
+// possibly marginally faster than ascii_isspace
+inline bool IsAsciiSpace(int c) {
+  return c == ' ' || (static_cast<unsigned int>(c) - 9 < 5);
+}
+}  // namespace
+
+bool Concatenator::Merge(const CDH* cdh, const LH* lh) {
   if (insert_newlines_ && buffer_.get() && buffer_->data_size() &&
       '\n' != buffer_->last_byte()) {
     Append("\n", 1);
@@ -45,7 +52,7 @@ bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void *Concatenator::OutputEntry(bool compress) {
+void* Concatenator::OutputEntry(bool compress) {
   if (!buffer_) {
     return nullptr;
   }
@@ -64,7 +71,7 @@ void *Concatenator::OutputEntry(bool compress) {
   if (huge_buffer) {
     deflated_buffer_size += sizeof(zip64_extension_buffer);
   }
-  LH *lh = reinterpret_cast<LH *>(malloc(deflated_buffer_size));
+  LH* lh = reinterpret_cast<LH*>(malloc(deflated_buffer_size));
   if (lh == nullptr) {
     return nullptr;
   }
@@ -73,19 +80,19 @@ void *Concatenator::OutputEntry(bool compress) {
   lh->bit_flag(0x0);
   lh->last_mod_file_time(1);                     // 00:00:01
   lh->last_mod_file_date(30 << 9 | 1 << 5 | 1);  // 2010-01-01
-  lh->crc32(0x12345678);
+  lh->lh_crc32(0x12345678);
   lh->compressed_file_size32(0);
   lh->file_name(filename_.c_str(), filename_.size());
 
   if (huge_buffer) {
     // Add Z64 extension if this is a huge entry.
     lh->uncompressed_file_size32(0xFFFFFFFF);
-    Zip64ExtraField *z64 =
-        reinterpret_cast<Zip64ExtraField *>(zip64_extension_buffer);
+    Zip64ExtraField* z64 =
+        reinterpret_cast<Zip64ExtraField*>(zip64_extension_buffer);
     z64->signature();
     z64->payload_size(2 * sizeof(uint64_t));
     z64->attr64(0, buffer_->data_size());
-    lh->extra_fields(reinterpret_cast<uint8_t *>(z64), z64->size());
+    lh->extra_fields(reinterpret_cast<uint8_t*>(z64), z64->size());
   } else {
     lh->uncompressed_file_size32(buffer_->data_size());
     lh->extra_fields(nullptr, 0);
@@ -101,7 +108,7 @@ void *Concatenator::OutputEntry(bool compress) {
     method = Z_NO_COMPRESSION;
     compressed_size = buffer_->data_size();
   }
-  lh->crc32(checksum);
+  lh->lh_crc32(checksum);
   lh->compression_method(method);
   if (huge_buffer) {
     lh->compressed_file_size32(ziph::zfield_needs_ext64(compressed_size)
@@ -109,26 +116,24 @@ void *Concatenator::OutputEntry(bool compress) {
                                    : compressed_size);
     // Not sure if this has to be written in the small case, but it shouldn't
     // hurt.
-    const_cast<Zip64ExtraField *>(lh->zip64_extra_field())
+    const_cast<Zip64ExtraField*>(lh->zip64_extra_field())
         ->attr64(1, compressed_size);
   } else {
     // If original data is <4GB, the compressed one is, too.
     lh->compressed_file_size32(compressed_size);
   }
-  return reinterpret_cast<void *>(lh);
+  return reinterpret_cast<void*>(lh);
 }
 
 NullCombiner::~NullCombiner() {}
 
-bool NullCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
-  return true;
-}
+bool NullCombiner::Merge(const CDH* /*cdh*/, const LH* /*lh*/) { return true; }
 
-void *NullCombiner::OutputEntry(bool /*compress*/) { return nullptr; }
+void* NullCombiner::OutputEntry(bool /*compress*/) { return nullptr; }
 
 XmlCombiner::~XmlCombiner() {}
 
-bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
+bool XmlCombiner::Merge(const CDH* cdh, const LH* lh) {
   if (!concatenator_) {
     concatenator_.reset(new Concatenator(filename_, false));
     concatenator_->Append(start_tag_);
@@ -148,15 +153,15 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
     diag_errx(2, "%s is neither stored nor deflated", filename_.c_str());
   }
   uint32_t checksum;
-  char *buf = reinterpret_cast<char *>(malloc(bytes_.data_size()));
+  char* buf = reinterpret_cast<char*>(malloc(bytes_.data_size()));
   // TODO(b/37631490): optimize this to avoid copying the bytes twice
-  bytes_.CopyOut(reinterpret_cast<uint8_t *>(buf), &checksum);
+  bytes_.CopyOut(reinterpret_cast<uint8_t*>(buf), &checksum);
   int start_offset = 0;
   if (strncmp(buf, start_tag_.c_str(), start_tag_.length()) == 0) {
     start_offset = start_tag_.length();
   }
   uint64_t end = bytes_.data_size();
-  while (end >= end_tag_.length() && std::isspace(buf[end - 1])) end--;
+  while (end >= end_tag_.length() && IsAsciiSpace(buf[end - 1])) end--;
   if (strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
               end_tag_.length()) == 0) {
     end -= end_tag_.length();
@@ -169,7 +174,7 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void *XmlCombiner::OutputEntry(bool compress) {
+void* XmlCombiner::OutputEntry(bool compress) {
   if (!concatenator_) {
     return nullptr;
   }
@@ -180,37 +185,37 @@ void *XmlCombiner::OutputEntry(bool compress) {
 
 PropertyCombiner::~PropertyCombiner() {}
 
-bool PropertyCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
+bool PropertyCombiner::Merge(const CDH* /*cdh*/, const LH* /*lh*/) {
   return false;  // This should not be called.
 }
 
 ManifestCombiner::~ManifestCombiner() {}
 
-static const char *MULTI_RELEASE = "Multi-Release: true";
+static const char* MULTI_RELEASE = "Multi-Release: true";
 
-static const char *MULTI_RELEASE_PREFIX = "Multi-Release: ";
+static const char* MULTI_RELEASE_PREFIX = "Multi-Release: ";
 static const size_t MULTI_RELEASE_PREFIX_LENGTH = strlen(MULTI_RELEASE_PREFIX);
 
-static const char *ADD_EXPORTS_PREFIX = "Add-Exports: ";
+static const char* ADD_EXPORTS_PREFIX = "Add-Exports: ";
 static const size_t ADD_EXPORTS_PREFIX_LENGTH = strlen(ADD_EXPORTS_PREFIX);
 
-static const char *ADD_OPENS_PREFIX = "Add-Opens: ";
+static const char* ADD_OPENS_PREFIX = "Add-Opens: ";
 static const size_t ADD_OPENS_PREFIX_LENGTH = strlen(ADD_OPENS_PREFIX);
 
 void ManifestCombiner::EnableMultiRelease() { multi_release_ = true; }
 
-void ManifestCombiner::AddExports(const std::vector<std::string> &add_exports) {
+void ManifestCombiner::AddExports(const std::vector<std::string>& add_exports) {
   add_exports_.insert(std::end(add_exports_), std::begin(add_exports),
                       std::end(add_exports));
 }
 
-void ManifestCombiner::AddOpens(const std::vector<std::string> &add_opens) {
+void ManifestCombiner::AddOpens(const std::vector<std::string>& add_opens) {
   add_opens_.insert(std::end(add_opens_), std::begin(add_opens),
                     std::end(add_opens));
 }
 
-bool ManifestCombiner::HandleModuleFlags(std::vector<std::string> &output,
-                                         const char *key, size_t key_length,
+bool ManifestCombiner::HandleModuleFlags(std::vector<std::string>& output,
+                                         const char* key, size_t key_length,
                                          std::string line) {
   if (line.find(key, 0, key_length) == std::string::npos) {
     return false;
@@ -221,7 +226,7 @@ bool ManifestCombiner::HandleModuleFlags(std::vector<std::string> &output,
   return true;
 }
 
-void ManifestCombiner::AppendLine(const std::string &line) {
+void ManifestCombiner::AppendLine(const std::string& line) {
   if (line.find(MULTI_RELEASE_PREFIX, 0, MULTI_RELEASE_PREFIX_LENGTH) !=
       std::string::npos) {
     if (line.find("true", MULTI_RELEASE_PREFIX_LENGTH) != std::string::npos) {
@@ -248,7 +253,7 @@ void ManifestCombiner::AppendLine(const std::string &line) {
   }
 }
 
-bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
+bool ManifestCombiner::Merge(const CDH* cdh, const LH* lh) {
   // Ignore Multi-Release attributes in inputs: we write the manifest first,
   // before inputs are processed, so we reply on  deploy_manifest_lines to
   // create Multi-Release jars instead of doing it automatically based on
@@ -256,14 +261,14 @@ bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void ManifestCombiner::OutputModuleFlags(std::vector<std::string> &flags,
-                                         const char *key) {
+void ManifestCombiner::OutputModuleFlags(std::vector<std::string>& flags,
+                                         const char* key) {
   std::sort(flags.begin(), flags.end());
   flags.erase(std::unique(flags.begin(), flags.end()), flags.end());
   if (!flags.empty()) {
     concatenator_->Append(key);
     bool first = true;
-    for (const auto &flag : flags) {
+    for (const auto& flag : flags) {
       if (!first) {
         concatenator_->Append("\r\n  ");
       }
@@ -274,7 +279,7 @@ void ManifestCombiner::OutputModuleFlags(std::vector<std::string> &flags,
   }
 }
 
-void *ManifestCombiner::OutputEntry(bool compress) {
+void* ManifestCombiner::OutputEntry(bool compress) {
   if (multi_release_) {
     concatenator_->Append(MULTI_RELEASE);
     concatenator_->Append("\r\n");

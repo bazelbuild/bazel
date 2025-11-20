@@ -48,11 +48,11 @@ namespace {
 const char kEmptyJar[] =
     "io_bazel/src/tools/singlejar/data/empty.zip";
 
-void VerifyEmpty(const std::string &jar_path) {
+void VerifyEmpty(const std::string& jar_path) {
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(jar_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     ADD_FAILURE() << "There should not be any entries in " << jar_path;
   }

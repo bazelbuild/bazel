@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/tools/singlejar/transient_bytes.h"
+
 #include <stdio.h>
+
+#include <cstdint>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -21,7 +25,6 @@
 
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
-#include "src/tools/singlejar/transient_bytes.h"
 #include "googletest/include/gtest/gtest.h"
 
 #ifdef _MSC_VER
@@ -45,13 +48,12 @@ const char kBytesSmall[] =
     "0123456789012345678901234567890123456789"
     "0123456789012345678901234567890123456789";
 
-std::ostream &operator<<(std::ostream &out,
-                                TransientBytes const &bytes) {
+std::ostream& operator<<(std::ostream& out, TransientBytes const& bytes) {
   struct Sink {
-    void operator()(const void *chunk, uint64_t chunk_size) const {
-      out_.write(reinterpret_cast<const char *>(chunk), chunk_size);
+    void operator()(const void* chunk, uint64_t chunk_size) const {
+      out_.write(reinterpret_cast<const char*>(chunk), chunk_size);
     }
-    std::ostream &out_;
+    std::ostream& out_;
   };
   Sink sink{out};
   bytes.stream_out(sink);
@@ -77,8 +79,8 @@ class TransientBytesTest : public ::testing::Test {
   }
 
   // Create file with given name and size and contents.
-  static bool CreateFile(const char *filename, uint64_t size) {
-    FILE *fp = fopen(filename, "wb");
+  static bool CreateFile(const char* filename, uint64_t size) {
+    FILE* fp = fopen(filename, "wb");
     if (fp == nullptr) {
       perror(filename);
       return false;
@@ -157,8 +159,8 @@ TEST_F(TransientBytesTest, ReadEntryContents) {
   CreateStoredJar();
   std::unique_ptr<InputJar> input_jar(new InputJar);
   ASSERT_TRUE(input_jar->Open(kStoredJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar->NextEntry(&lh))) {
     transient_bytes_.reset(new TransientBytes);
     if (!cdh->uncompressed_file_size()) {
@@ -168,18 +170,18 @@ TEST_F(TransientBytesTest, ReadEntryContents) {
     transient_bytes_->ReadEntryContents(cdh, lh);
     ASSERT_EQ(cdh->uncompressed_file_size(), transient_bytes_->data_size());
     struct Sink {
-      Sink(const LH *lh)
+      Sink(const LH* lh)
           : data_start_(lh->data()),
             data_(lh->data()),
             entry_name_(lh->file_name(), lh->file_name_length()) {}
-      void operator()(const void *chunk, uint64_t chunk_size) const {
+      void operator()(const void* chunk, uint64_t chunk_size) const {
         ASSERT_EQ(0, memcmp(chunk, data_, chunk_size))
             << "Entry " << entry_name_ << "The chunk [" << data_ - data_start_
             << ".." << data_ + chunk_size - data_start_ << ") differs";
         data_ += chunk_size;
       }
-      const uint8_t *data_start_;
-      mutable const uint8_t *data_;
+      const uint8_t* data_start_;
+      mutable const uint8_t* data_;
       std::string entry_name_;
     };
     Sink sink(lh);
@@ -192,8 +194,8 @@ TEST_F(TransientBytesTest, ReadEntryContents) {
 TEST_F(TransientBytesTest, DecompressEntryContents) {
   std::unique_ptr<InputJar> input_jar(new InputJar);
   ASSERT_TRUE(input_jar->Open(kCompressedJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   std::unique_ptr<Inflater> inflater;
   while ((cdh = input_jar->NextEntry(&lh))) {
     transient_bytes_.reset(new TransientBytes);
@@ -207,18 +209,18 @@ TEST_F(TransientBytesTest, DecompressEntryContents) {
     ASSERT_EQ(cdh->uncompressed_file_size(), transient_bytes_->data_size());
     // A sink that verifies decompressed entry contents.
     struct Sink {
-      Sink(const LH *lh)
+      Sink(const LH* lh)
           : offset_(0), entry_name_(lh->file_name(), lh->file_name_length()) {}
-      void operator()(const void *chunk, uint64_t chunk_size) const {
+      void operator()(const void* chunk, uint64_t chunk_size) const {
         for (uint64_t i = 0; i < chunk_size; ++i) {
           // ASSERT_EQ is quite slow in the non-optimized build, avoid calling
           // it 4billion files on a 4GB file.
           if (file_byte_at(offset_ + i) ==
-              reinterpret_cast<const uint8_t *>(chunk)[i]) {
+              reinterpret_cast<const uint8_t*>(chunk)[i]) {
             break;
           }
           ASSERT_EQ(file_byte_at(offset_ + i),
-                    reinterpret_cast<const uint8_t *>(chunk)[i])
+                    reinterpret_cast<const uint8_t*>(chunk)[i])
               << "Entry " << entry_name_ << ": mismatch at offset "
               << (offset_ + i);
         }
@@ -238,8 +240,8 @@ TEST_F(TransientBytesTest, DecompressEntryContents) {
 TEST_F(TransientBytesTest, CompressOut) {
   std::unique_ptr<InputJar> input_jar(new InputJar);
   ASSERT_TRUE(input_jar->Open(kCompressedJar));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   std::unique_ptr<Inflater> inflater;
   while ((cdh = input_jar->NextEntry(&lh))) {
     transient_bytes_.reset(new TransientBytes);
@@ -251,16 +253,17 @@ TEST_F(TransientBytesTest, CompressOut) {
     transient_bytes_->DecompressEntryContents(cdh, lh, inflater.get());
     ASSERT_EQ(cdh->uncompressed_file_size(), transient_bytes_->data_size());
     // Now let us compress it back.
-    uint8_t *buffer =
-        reinterpret_cast<uint8_t *>(malloc(cdh->uncompressed_file_size()));
+    uint8_t* buffer =
+        reinterpret_cast<uint8_t*>(malloc(cdh->uncompressed_file_size()));
     ASSERT_NE(nullptr, buffer);
-    uint32_t crc32 = 0;
+    uint32_t crc32_var = 0;
     uint64_t bytes_written;
-    uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+    uint16_t rc =
+        transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
 
-    EXPECT_EQ(Z_DEFLATED, rc) << "TransientBytes::Write did not compress "
-                              << cdh->file_name_string();
-    EXPECT_EQ(cdh->crc32(), crc32)
+    EXPECT_EQ(Z_DEFLATED, rc)
+        << "TransientBytes::Write did not compress " << cdh->file_name_string();
+    EXPECT_EQ(cdh->cdh_crc32(), crc32_var)
         << "TransientBytes::Write has wrong crc32 for "
         << cdh->file_name_string();
 
@@ -307,39 +310,41 @@ TEST_F(TransientBytesTest, CompressOut) {
 TEST_F(TransientBytesTest, CompressOutStore) {
   transient_bytes_->Append("a");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
+  uint32_t crc32_var = 0;
   uint64_t bytes_written;
-  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+  uint16_t rc =
+      transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
   ASSERT_EQ(Z_NO_COMPRESSION, rc);
   ASSERT_EQ(1, bytes_written);
   ASSERT_EQ('a', buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0xE8B7BE43, crc32);
+  ASSERT_EQ(0xE8B7BE43, crc32_var);
 }
 
 // Verify CompressOut: if there are zero bytes in the buffer, just store.
 TEST_F(TransientBytesTest, CompressZero) {
   transient_bytes_->Append("");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
+  uint32_t crc32_var = 0;
   uint64_t bytes_written;
-  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+  uint16_t rc =
+      transient_bytes_->CompressOut(buffer, &crc32_var, &bytes_written);
   ASSERT_EQ(Z_NO_COMPRESSION, rc);
   ASSERT_EQ(0, bytes_written);
   ASSERT_EQ(0xfe, buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0, crc32);
+  ASSERT_EQ(0, crc32_var);
 }
 
 // Verify CopyOut.
 TEST_F(TransientBytesTest, CopyOut) {
   transient_bytes_->Append("a");
   uint8_t buffer[400] = {0xfe, 0xfb};
-  uint32_t crc32 = 0;
-  transient_bytes_->CopyOut(buffer, &crc32);
+  uint32_t crc32_var = 0;
+  transient_bytes_->CopyOut(buffer, &crc32_var);
   ASSERT_EQ('a', buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
-  ASSERT_EQ(0xE8B7BE43, crc32);
+  ASSERT_EQ(0xE8B7BE43, crc32_var);
 }
 
 }  // namespace

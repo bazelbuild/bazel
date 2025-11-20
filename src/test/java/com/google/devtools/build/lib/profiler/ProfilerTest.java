@@ -52,7 +52,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -61,18 +61,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ProfilerTest {
 
-  private TraceProfilerService profiler = new TraceProfilerServiceImpl();
-  private final ManualClock clock = new ManualClock();
+  private static final Profiler profiler = Profiler.instance();
+  private static final ManualClock clock = new ManualClock();
 
-  @Before
-  public void setManualClock() {
-    Profiler.forceSetInstanceForTestingOnly(profiler);
+  @BeforeClass
+  public static void setUp() {
+    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
     BlazeClock.setClock(clock);
-    profiler.clear();
   }
 
   @AfterClass
-  public static void resetBlazeClock() {
+  public static void tearDownClass() {
     BlazeClock.setClock(new JavaClock());
   }
 
@@ -82,6 +81,7 @@ public final class ProfilerTest {
     // because the profiler is still running, so we force-stop the profiler here.
     try {
       profiler.stop();
+      profiler.clear();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

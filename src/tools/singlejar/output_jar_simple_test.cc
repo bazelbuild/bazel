@@ -16,14 +16,13 @@
 #include <stdlib.h>
 
 // Must be included before anything else.
-#include "src/tools/singlejar/port.h"
-
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
+#include "src/tools/singlejar/port.h"
 #include "src/tools/singlejar/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -58,11 +57,11 @@ const char kPathLibData1[] =
 const char kPathLibData2[] =
     "io_bazel/src/tools/singlejar/libdata2.jar";
 
-static bool HasSubstr(const string &s, const string &what) {
+static bool HasSubstr(const string& s, const string& what) {
   return string::npos != s.find(what);
 }
 
-static bool EndsWith(const string &s, const string &what) {
+static bool EndsWith(const string& s, const string& what) {
   return what.size() <= s.size() && s.substr(s.size() - what.size()) == what;
 }
 
@@ -75,8 +74,8 @@ static bool StartsWith(const string& s, const string& what) {
 class CustomOutputJar : public OutputJar {
  public:
   ~CustomOutputJar() override {}
-  void ExtraHandler(const std::string & /*input_jar_path*/, const CDH *cdh,
-                    const std::string *input_jar_aux_label) override {
+  void ExtraHandler(const std::string& /*input_jar_path*/, const CDH* cdh,
+                    const std::string* input_jar_aux_label) override {
     auto file_name = cdh->file_name();
     auto file_name_length = cdh->file_name_length();
     if (file_name_length > 0 && file_name[file_name_length - 1] != '/' &&
@@ -95,11 +94,11 @@ class OutputJarSimpleTest : public ::testing::Test {
  protected:
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
-  void CreateOutput(const string &out_path, const std::vector<string> &args) {
-    const char *option_list[100] = {"--output", out_path.c_str(),
+  void CreateOutput(const string& out_path, const std::vector<string>& args) {
+    const char* option_list[100] = {"--output", out_path.c_str(),
                                     "--build_target", "//some/target"};
     int nargs = 4;
-    for (auto &arg : args) {
+    for (auto& arg : args) {
       if (arg.empty()) {
         continue;
       }
@@ -116,7 +115,7 @@ class OutputJarSimpleTest : public ::testing::Test {
     EXPECT_EQ(0, VerifyZip(out_path));
   }
 
-  string CompressionOptionsTestingJar(const string &compression_option) {
+  string CompressionOptionsTestingJar(const string& compression_option) {
     string cp_res_path =
         CreateTextFile("cp_res", "line1\nline2\nline3\nline4\n");
     string out_path = OutputFilePath("out.jar");
@@ -148,8 +147,8 @@ TEST_F(OutputJarSimpleTest, Empty) {
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   int entry_count = 0;
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   const uint8_t cafe_extra_field[] = {0xFE, 0xCA, 0, 0};
   while ((cdh = input_jar.NextEntry(&lh))) {
     ++entry_count;
@@ -196,8 +195,8 @@ TEST_F(OutputJarSimpleTest, Empty) {
     // Without --normalize option all the entries should have reasonably
     // current timestamp (which we arbitrarily choose to be <5 minutes).
     EXPECT_GE(now, entry_time) << now_time_str << " vs. " << entry_time_str;
-    EXPECT_LE(now, entry_time + 300) << now_time_str << " vs. "
-                                     << entry_time_str;
+    EXPECT_LE(now, entry_time + 300)
+        << now_time_str << " vs. " << entry_time_str;
 
     // The first entry should be for the META-INF/ directory, and it should
     // contain a single extra field 0xCAFE. Although
@@ -239,8 +238,8 @@ TEST_F(OutputJarSimpleTest, Source) {
            .c_str()});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   int file_count = 0;
   while ((cdh = input_jar.NextEntry(&lh))) {
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
@@ -270,8 +269,8 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   // check that the offset of the first entry equals launcher size.
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path.c_str()));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   cdh = input_jar.NextEntry(&lh);
   ASSERT_NE(nullptr, cdh);
   struct stat statbuf;
@@ -287,8 +286,8 @@ TEST_F(OutputJarSimpleTest, CDSArchive) {
   string out_path = OutputFilePath("out.jar");
   string launcher_path = CreateTextFile("launcher", "Dummy");
   string cds_archive_path = CreateTextFile("classes.jsa", "Dummy");
-  CreateOutput(out_path, {"--java_launcher", launcher_path,
-                          "--cds_archive", cds_archive_path});
+  CreateOutput(out_path, {"--java_launcher", launcher_path, "--cds_archive",
+                          cds_archive_path});
 
   // check META-INF/MANIFEST.MF attribute
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
@@ -307,8 +306,7 @@ TEST_F(OutputJarSimpleTest, CDSArchive) {
   // check build-data.properties entry
   string build_properties = GetEntryContents(out_path, "build-data.properties");
   char prop[4096];
-  snprintf(prop, sizeof(prop), "\ncds.archive=%s\n",
-           cds_archive_path.c_str());
+  snprintf(prop, sizeof(prop), "\ncds.archive=%s\n", cds_archive_path.c_str());
   EXPECT_PRED2(HasSubstr, build_properties, prop);
 }
 
@@ -317,8 +315,8 @@ TEST_F(OutputJarSimpleTest, JDKLibModules) {
   string out_path = OutputFilePath("out.jar");
   string launcher_path = CreateTextFile("launcher", "Dummy");
   string jdk_lib_modules_path = CreateTextFile("modules", "Dummy");
-  CreateOutput(out_path, {"--java_launcher", launcher_path,
-                          "--jdk_lib_modules", jdk_lib_modules_path});
+  CreateOutput(out_path, {"--java_launcher", launcher_path, "--jdk_lib_modules",
+                          jdk_lib_modules_path});
 
   // Test META-INF/MANIFEST.MF attributes.
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
@@ -335,13 +333,13 @@ TEST_F(OutputJarSimpleTest, JDKLibModules) {
   size_t modules_size = statbuf.st_size;
 
   char offset_attr[128];
-  snprintf(offset_attr, sizeof(offset_attr),
-           "JDK-Lib-Modules-Offset: %ld", pagesize);
+  snprintf(offset_attr, sizeof(offset_attr), "JDK-Lib-Modules-Offset: %ld",
+           pagesize);
   EXPECT_PRED2(HasSubstr, manifest, offset_attr);
 
   char size_attr[128];
-  snprintf(size_attr, sizeof(size_attr),
-           "JDK-Lib-Modules-Size: %ld", modules_size);
+  snprintf(size_attr, sizeof(size_attr), "JDK-Lib-Modules-Size: %ld",
+           modules_size);
   EXPECT_PRED2(HasSubstr, manifest, size_attr);
 }
 
@@ -353,11 +351,11 @@ TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
   string launcher_path = CreateTextFile("launcher", "Dummy");
   string cds_archive_path = CreateTextFile("classes.jsa", cds_data.c_str());
   string jdk_lib_modules_path = CreateTextFile("modules", modules_data.c_str());
-  CreateOutput(out_path, {"--java_launcher", launcher_path,
-                          "--cds_archive", cds_archive_path,
-                          "--jdk_lib_modules", jdk_lib_modules_path});
+  CreateOutput(out_path,
+               {"--java_launcher", launcher_path, "--cds_archive",
+                cds_archive_path, "--jdk_lib_modules", jdk_lib_modules_path});
 
-  FILE *fp = fopen(out_path.c_str(), "r");
+  FILE* fp = fopen(out_path.c_str(), "r");
   ASSERT_NE(nullptr, fp);
 
   // Test META-INF/MANIFEST.MF attributes.
@@ -389,8 +387,7 @@ TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
   size_t page_aligned_modules_offset = pagesize * 2;
   char modules_offset_attr[128];
   snprintf(modules_offset_attr, sizeof(modules_offset_attr),
-           "JDK-Lib-Modules-Offset: %ld",
-           page_aligned_modules_offset);
+           "JDK-Lib-Modules-Offset: %ld", page_aligned_modules_offset);
   EXPECT_PRED2(HasSubstr, manifest, modules_offset_attr);
   char modules_size_attr[128];
   snprintf(modules_size_attr, sizeof(modules_size_attr),
@@ -519,8 +516,8 @@ TEST_F(OutputJarSimpleTest, ResourcesParentDirectories) {
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     jar_entries.push_back(cdh->file_name_string());
   }
@@ -538,13 +535,16 @@ TEST_F(OutputJarSimpleTest, ResourcesDirectories) {
 
   // The output should contain entries for the directory
   std::vector<string> expected_entries({
-      "META-INF/", "META-INF/MANIFEST.MF", "the/", "the/dir/",
+      "META-INF/",
+      "META-INF/MANIFEST.MF",
+      "the/",
+      "the/dir/",
   });
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     jar_entries.push_back(cdh->file_name_string());
   }
@@ -604,7 +604,7 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
   string resolvedLibDataPath2 = runfiles->Rlocation(kPathLibData2);
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
-  const char *option_list[] = {"--output", out_path.c_str(), "--sources",
+  const char* option_list[] = {"--output", out_path.c_str(), "--sources",
                                resolvedLibDataPath1.c_str(),
                                resolvedLibDataPath2.c_str()};
   CustomOutputJar custom_output_jar;
@@ -637,8 +637,8 @@ TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     jar_entries.push_back(cdh->file_name_string());
   }
@@ -666,8 +666,8 @@ TEST_F(OutputJarSimpleTest, ExcludeFilenames) {
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     jar_entries.push_back(cdh->file_name_string());
   }
@@ -732,8 +732,8 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   // 01/01/2010 00:00:02 and the rest have the timestamp of 01/01/2010 00:00:00.
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = cdh->file_name_string();
     EXPECT_EQ(lh->last_mod_file_date(), cdh->last_mod_file_date())
@@ -789,8 +789,8 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
   // 01/01/2010 00:00:02 and the rest have the timestamp of 01/01/2010 00:00:00.
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   bool seen_a = false;
   bool seen_ab = false;
   bool seen_ac = false;
@@ -880,15 +880,21 @@ TEST_F(OutputJarSimpleTest, Services) {
   // spring.handlers and spring.schemas entries.
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, {"--sources", zip1_path, zip2_path});
-  EXPECT_EQ("my.DateProviderImpl1\n" "my.DateProviderImpl2\n",
-            GetEntryContents(out_path, "META-INF/services/spi.DateProvider"));
+  EXPECT_EQ(
+      "my.DateProviderImpl1\n"
+      "my.DateProviderImpl2\n",
+      GetEntryContents(out_path, "META-INF/services/spi.DateProvider"));
   EXPECT_EQ("my.TimeProviderImpl1\n",
             GetEntryContents(out_path, "META-INF/services/spi.TimeProvider"));
 
-  EXPECT_EQ("schema1\n" "schema2\n",
-            GetEntryContents(out_path, "META-INF/spring.schemas"));
-  EXPECT_EQ("handler1\n" "handler2\n",
-            GetEntryContents(out_path, "META-INF/spring.handlers"));
+  EXPECT_EQ(
+      "schema1\n"
+      "schema2\n",
+      GetEntryContents(out_path, "META-INF/spring.schemas"));
+  EXPECT_EQ(
+      "handler1\n"
+      "handler2\n",
+      GetEntryContents(out_path, "META-INF/spring.handlers"));
 }
 
 // Test that in the absence of the compression option all the plain files in
@@ -897,8 +903,8 @@ TEST_F(OutputJarSimpleTest, NoCompressionOption) {
   string out_path = CompressionOptionsTestingJar("");
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = lh->file_name_string();
     // Each file entry is compressed, each directory entry is uncompressed.
@@ -915,8 +921,8 @@ TEST_F(OutputJarSimpleTest, CompressionOption) {
   string out_path = CompressionOptionsTestingJar("--compression");
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = lh->file_name_string();
     // Each file entry is compressed, each directory entry is uncompressed.
@@ -940,8 +946,8 @@ TEST_F(OutputJarSimpleTest, DontChangeCompressionOption) {
   string out_path = CompressionOptionsTestingJar("--dont_change_compression");
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   std::string kStoredEntry = DATA_DIR_TOP "src/tools/singlejar/output_jar.cc";
 
   while ((cdh = input_jar.NextEntry(&lh))) {
@@ -976,8 +982,8 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData1) {
   CreateOutput(out_path, {"--exclude_build_data"});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = lh->file_name_string();
     EXPECT_NE(kBuildDataFile, lh->file_name_string());
@@ -1019,10 +1025,10 @@ TEST_F(OutputJarSimpleTest, Nocompress) {
        ".h"});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
-  const LH *lh;
-  const CDH *cdh;
+  const LH* lh;
+  const CDH* cdh;
   while ((cdh = input_jar.NextEntry(&lh))) {
-    const char *entry_name_end = lh->file_name() + lh->file_name_length();
+    const char* entry_name_end = lh->file_name() + lh->file_name_length();
     if (!strncmp(entry_name_end - 4, ".foo", 4) ||
         !strncmp(entry_name_end - 2, ".h", 2)) {
       EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())

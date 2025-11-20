@@ -37,25 +37,39 @@ public class EvalException extends Exception {
   // stack when popping a frame. Thus an exception newly created by a
   // built-in function has no stack until it is thrown out of a function call.
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
+  private final boolean includeStackTrace;
 
   /** Constructs an EvalException. Use {@link Starlark#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this(message, /* cause= */ (Throwable) null);
+    this(message, /* cause= */ (Throwable) null, /* includeStackTrace= */ true);
   }
 
   /**
-   * Constructs an EvalException with a message and optional cause.
+   * Constructs an EvalException with a message and optional cause and bool indicating if the error
+   * should contain a stack trace.
+   *
+   * <p>The cause does not affect the error message, so callers should incorporate {@code
+   * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
+   */
+  public EvalException(String message, @Nullable Throwable cause, boolean includeStackTrace) {
+    super(checkNotNull(message), cause);
+    this.includeStackTrace = includeStackTrace;
+  }
+
+  /**
+   * Constructs an EvalException with a message and optional cause and defaulting stack trace to
+   * true.
    *
    * <p>The cause does not affect the error message, so callers should incorporate {@code
    * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
    */
   public EvalException(String message, @Nullable Throwable cause) {
-    super(checkNotNull(message), cause);
+    this(checkNotNull(message), cause, /* includeStackTrace= */ true);
   }
 
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
-    super(getCauseMessage(cause), cause);
+    this(getCauseMessage(cause), cause, /* includeStackTrace= */ true);
   }
 
   /**
@@ -135,7 +149,7 @@ public class EvalException extends Exception {
    * source line for each stack frame is obtained from the provided SourceReader.
    */
   public final String getMessageWithStack(SourceReader src) {
-    if (callstack != null) {
+    if (includeStackTrace && callstack != null) {
       return formatCallStack(callstack, getMessage(), src);
     }
     return getMessage();

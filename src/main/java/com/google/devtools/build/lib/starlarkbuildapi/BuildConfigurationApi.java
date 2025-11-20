@@ -61,7 +61,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "A dictionary containing user-specified test environment variables and their values, as"
-              + " set by the --test_env options. DO NOT USE! This is not the complete"
+              + " set by the <code>--test_env</code> options. DO NOT USE! This is not the complete"
               + " environment!")
   ImmutableMap<String, String> getTestEnv();
 
@@ -91,7 +91,8 @@ public interface BuildConfigurationApi extends StarlarkValue {
             <li>The value may differ across Bazel versions, including patch releases. \
             <li>The value encodes the value of <b>every</b> flag, including those that aren't \
                 otherwise relevant for the current target and may thus invalidate caches more \
-                frequently.
+                frequently. \
+          </ul>
           """)
   String getShortId();
 

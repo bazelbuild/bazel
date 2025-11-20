@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.actionConfigFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.featureFromStarlark;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -96,9 +95,9 @@ public class CcToolchainConfigInfo {
 
     private Provider() {
       super(
-          keyForBuiltins(
+          keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@_builtins//:common/cc/toolchain_config/cc_toolchain_config_info.bzl")),
+                  "//third_party/bazel_rules/rules_cc/cc/private/toolchain_config:cc_toolchain_config_info.bzl")),
           "CcToolchainConfigInfo");
     }
 

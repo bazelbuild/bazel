@@ -187,7 +187,7 @@ issues.
 *   [`team-Remote-Exec`](https://github.com/bazelbuild/bazel/labels/team-Remote-Exec){: .external}: Issues for Execution (Remote) team
     * Contact: [coeuvre](https://github.com/coeuvre){: .external}
 *   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external} / [`team-Rules-ObjC`](https://github.com/bazelbuild/bazel/labels/team-Rules-ObjC){: .external}: Issues for C++/Objective-C rules, including native Apple rule logic
     * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
@@ -195,7 +195,7 @@ issues.
 *   [`team-Rules-Python`](https://github.com/bazelbuild/bazel/labels/team-Rules-Python){: .external}: Issues for the native Python rules
     * Contact: [rickeylev](https://github.com/rickeylev){: .external}
 *   [`team-Rules-Server`](https://github.com/bazelbuild/bazel/labels/team-Rules-Server){: .external}: Issues for server-side rules included with Bazel
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Starlark-Integration`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Integration){: .external}: Non-API Bazel + Starlark integration. Includes: how Bazel triggers the Starlark interpreter, Stardoc, builtins injection, character encoding.  Does *not* include: BUILD or .bzl language issues.
     * Contact: [brandjon](https://github.com/brandjon){: .external}
 *   [`team-Starlark-Interpreter`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Interpreter){: .external}: Issues for the Starlark interpreter (anything in [java.net.starlark](https://github.com/bazelbuild/bazel/tree/master/src/main/java/net/starlark/java)). BUILD and .bzl API issues (which represent Bazel's *integration* with Starlark) go in `team-Build-Language`.

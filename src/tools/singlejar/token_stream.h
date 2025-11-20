@@ -27,6 +27,7 @@
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/diag.h"
+#include "src/tools/singlejar/mapped_file.h"
 
 /*
  * Tokenize command line containing indirect command line arguments.
@@ -59,45 +60,32 @@ class ArgTokenStream {
   // Internal class to handle indirect command files.
   class FileTokenStream {
    public:
-    FileTokenStream(const char *filename) {
-#ifdef _WIN32
-      std::wstring wpath;
-      std::string error;
-      if (!blaze_util::AsAbsoluteWindowsPath(filename, &wpath, &error)) {
-        diag_err(1, "%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__,
-                 __LINE__, error.c_str());
-      }
-      fp_ = _wfopen(wpath.c_str(), L"r");
-#else
-      fp_ = fopen(filename, "r");
-#endif
-
-      if (!fp_) {
-        diag_err(1, "%s", filename);
+    FileTokenStream(const char* filename)
+        : next_ptr_(nullptr), end_ptr_(nullptr) {
+      if (!mapped_file_.Open(filename)) {
+        diag_err(1, "Cannot open param file: %s", filename);
       }
       filename_ = filename;
+      next_ptr_ = static_cast<const unsigned char*>(mapped_file_.start());
+      end_ptr_ = static_cast<const unsigned char*>(mapped_file_.end());
       next_char();
     }
 
-    ~FileTokenStream() { close(); }
+    ~FileTokenStream() = default;
 
     // Assign next token to TOKEN, return true on success, false on EOF.
-    bool next_token(std::string *token) {
-      if (!fp_) {
-        return false;
-      }
+    bool next_token(std::string* token) {
       *token = "";
-      while (current_char_ != EOF && isspace(current_char_)) {
+      while (IsAsciiSpace(current_char_)) {
         next_char();
       }
       if (current_char_ == EOF) {
-        close();
         return false;
       }
       for (;;) {
         if (current_char_ == '\'' || current_char_ == '"') {
           process_quoted(token);
-          if (isspace(current_char_)) {
+          if (IsAsciiSpace(current_char_)) {
             next_char();
             return true;
           } else {
@@ -112,7 +100,7 @@ class ArgTokenStream {
             diag_errx(1, "Expected character after \\, got EOF in %s",
                       filename_.c_str());
           }
-        } else if (current_char_ == EOF || isspace(current_char_)) {
+        } else if (current_char_ == EOF || IsAsciiSpace(current_char_)) {
           next_char();
           return true;
         } else {
@@ -123,18 +111,15 @@ class ArgTokenStream {
     }
 
    private:
-    void close() {
-      if (fp_) {
-        fclose(fp_);
-        fp_ = nullptr;
-      }
-      filename_.clear();
+    // possibly marginally faster than ascii_isspace
+    static inline bool IsAsciiSpace(int c) {
+      return c == ' ' || (static_cast<unsigned int>(c) - 9 < 5);
     }
 
     // Append the quoted string to the TOKEN. The quote character (which can be
     // single or double quote) is in the current character. Everything up to the
     // matching quote character is appended.
-    void process_quoted(std::string *token) {
+    void process_quoted(std::string* token) {
       char quote = current_char_;
       next_char();
       while (current_char_ != quote) {
@@ -164,41 +149,48 @@ class ArgTokenStream {
     // Get the next character from the input stream. Skip backslash followed
     // by the newline.
     void next_char() {
-      if (feof(fp_)) {
-        current_char_ = EOF;
-        return;
-      }
-      current_char_ = getc(fp_);
-      // Eat "\\\n" sequence.
-      while (current_char_ == '\\') {
-        int c = getc(fp_);
-        if (c == '\n') {
-          current_char_ = getc(fp_);
-        } else {
-          if (c != EOF) {
-            ungetc(c, fp_);
-          }
-          break;
-        }
-      }
+      do {
+        current_char_ = raw_next();
+      } while (eat_line_continuation());
     }
 
-    FILE *fp_;
+    bool eat_line_continuation() {
+      if (current_char_ == '\\' && peek_raw_next() == '\n') {
+        next_ptr_++;
+        return true;
+      } else if (current_char_ == '\\' && peek_raw_next() == '\r' &&
+                 peek_raw_next(1) == '\n') {
+        next_ptr_ += 2;
+        return true;
+      }
+      return false;
+    }
+
+    int raw_next() { return next_ptr_ < end_ptr_ ? *next_ptr_++ : EOF; }
+
+    int peek_raw_next(size_t offset = 0) {
+      return (next_ptr_ + offset) < end_ptr_ ? *(next_ptr_ + offset) : EOF;
+    }
+
+    MappedFile mapped_file_;
     std::string filename_;
+    const unsigned char* next_ptr_;
+    const unsigned char* end_ptr_;
     int current_char_;
   };
 
  public:
   // Constructor. Automatically reads the first token.
-  ArgTokenStream(int argc, const char *const *argv)
+  ArgTokenStream(int argc, const char* const* argv)
       : argv_(argv), argv_end_(argv + argc) {
+    token_.reserve(1024);
     next();
   }
 
   // Process --OPTION
   // If the current token is --OPTION, set given FLAG to true, proceed to next
   // token and return true
-  bool MatchAndSet(const char *option, bool *flag) {
+  bool MatchAndSet(const char* option, bool* flag) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -210,7 +202,7 @@ class ArgTokenStream {
   // Process --OPTION OPTARG
   // If the current token is --OPTION, set OPTARG to the next token, proceed to
   // the next token after it and return true.
-  bool MatchAndSet(const char *option, std::string *optarg) {
+  bool MatchAndSet(const char* option, std::string* optarg) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -227,7 +219,7 @@ class ArgTokenStream {
   // If a current token is --OPTION, push_back all subsequent tokens up to the
   // next option to the OPTARGS array, proceed to the next option and return
   // true.
-  bool MatchAndSet(const char *option, std::vector<std::string> *optargs) {
+  bool MatchAndSet(const char* option, std::vector<std::string>* optargs) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -243,7 +235,7 @@ class ArgTokenStream {
   // If a current token is --OPTION, insert all subsequent tokens up to the
   // next option to the OPTARGS set, proceed to the next option and return
   // true.
-  bool MatchAndSet(const char *option, std::set<std::string> *optargs) {
+  bool MatchAndSet(const char* option, std::set<std::string>* optargs) {
     if (token_ != option) {
       return false;
     }
@@ -259,8 +251,8 @@ class ArgTokenStream {
   // If a current token is --OPTION, push_back all subsequent tokens up to the
   // next option to the OPTARGS array, splitting the OPTARG,OPTSUFF by a comma,
   // proceed to the next option and return true.
-  bool MatchAndSet(const char *option,
-                   std::vector<std::pair<std::string, std::string> > *optargs) {
+  bool MatchAndSet(const char* option,
+                   std::vector<std::pair<std::string, std::string> >* optargs) {
     if (token_.compare(option) != 0) {
       return false;
     }
@@ -281,7 +273,7 @@ class ArgTokenStream {
   }
 
   // Current token.
-  const std::string &token() const { return token_; }
+  const std::string& token() const { return token_; }
 
   // Read the next token.
   void next() {
@@ -316,8 +308,8 @@ class ArgTokenStream {
     return false;
   }
   std::unique_ptr<FileTokenStream> file_token_stream_;
-  const char *const *argv_;
-  const char *const *argv_end_;
+  const char* const* argv_;
+  const char* const* argv_end_;
   std::string token_;
 };
 

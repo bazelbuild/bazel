@@ -15,6 +15,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:srcs",
     ],
     visibility = ["//src:__subpackages__"],

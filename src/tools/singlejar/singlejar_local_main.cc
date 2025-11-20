@@ -21,24 +21,24 @@
 
 #ifdef _WIN32
 #include "src/main/cpp/util/strings.h"
-int wmain(int argc, wchar_t *wargv[]) {
-  char **argv = blaze_util::WArgsToCArgs(argc, wargv);
+int wmain(int argc, wchar_t* wargv[]) {
+  char** argv = blaze_util::WArgsToCArgs(argc, wargv);
 #else
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 #endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
   OutputJar output_jar;
   // Process or drop Java 8 desugaring metadata, see b/65645388.  We don't want
   // or need these files afterwards so make sure we drop them either way.
-  Combiner *desugar_checker =
+  Combiner* desugar_checker =
       options.check_desugar_deps
           ? new Java8DesugarDepsChecker(
-                [&output_jar](const std::string &filename) {
+                [&output_jar](const std::string& filename) {
                   return !output_jar.NewEntry(filename);
                 },
                 options.verbose)
-          : static_cast<Combiner *>(new NullCombiner());
+          : static_cast<Combiner*>(new NullCombiner());
   output_jar.ExtraCombiner("META-INF/desugar_deps", desugar_checker);
   output_jar.ExtraCombiner(
       "META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat",

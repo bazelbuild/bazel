@@ -22,6 +22,7 @@ import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
+import "src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto/analysis_cache_service_metadata_status.proto";
 import "src/main/protobuf/action_cache.proto";
 import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/failure_details.proto";
@@ -1384,6 +1385,9 @@ message BuildMetrics {
     int64 analysis_cache_key_bytes_sent = 13;
     int64 analysis_cache_ops = 14;
     int64 analysis_cache_batches = 15;
+
+    // The result of the Skycache metadata lookup.
+    devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;
   }
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }

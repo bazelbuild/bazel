@@ -1,3 +1,86 @@
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+   + 08d7a4ce0a428b7758d55644987de7289c9ad04e:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+   + 1dc713325f1186cbf9e2c713768b79eb3eb857da:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+Incompatible changes:
+
+  - `--incompatible_compact_repo_mapping_manifest` is now enabled by
+    default. If you encounter issues with runfile lookups failing at
+    runtime, make sure that the language rulesets you use are
+    up-to-date and runfiles libraries support the new format. Further
+    details are available in the tracking issue
+    https://github.com/bazelbuild/bazel/issues/26262.
+
+New features:
+
+  - The results of reproducible repository rules without dependencies
+    added at runtime (e.g., via `repository_ctx.watch` or `.getenv`)
+    can now be cached in a regular HTTP or gRPC remote cache if the
+    new `--experimental_remote_repo_contents_cache` startup option is
+    provided.
+
+Important changes:
+
+  - The `--module_mirrors` flag now supports specifying mirrors for
+    individual registries via the syntax
+    `--module_mirrors=<registry>=<mirror1>[,<mirror2>,...]`.
+  - The deprecated `remote_execution_properties` platform attribute
+    has been removed in favor of `exec_properties`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Keith Smiley, Lev Leontev, Mark Reuter, PikachuHy, Timothy Gu.
+
 ## Release 7.7.1 (2025-11-12)
 
 ```

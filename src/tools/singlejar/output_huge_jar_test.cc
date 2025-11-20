@@ -37,10 +37,10 @@ class OutputHugeJarTest : public ::testing::Test {
  protected:
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
-  void CreateOutput(const string &out_path, const std::vector<string> &args) {
-    const char *option_list[100] = {"--output", out_path.c_str()};
+  void CreateOutput(const string& out_path, const std::vector<string>& args) {
+    const char* option_list[100] = {"--output", out_path.c_str()};
     int nargs = 2;
-    for (auto &arg : args) {
+    for (auto& arg : args) {
       if (arg.empty()) {
         continue;
       }

@@ -35,9 +35,9 @@ class MappedFile {
 
   ~MappedFile() { Close(); }
 
-  bool Open(const std::string &path);
+  bool Open(const std::string& path);
 
-  bool MapExisting(unsigned char *mapped_start, unsigned char *mapped_end) {
+  bool MapExisting(unsigned char* mapped_start, unsigned char* mapped_end) {
     mapped_start_ = mapped_start;
     mapped_end_ = mapped_end;
     return true;
@@ -45,17 +45,17 @@ class MappedFile {
 
   void Close();
 
-  bool mapped(const void *addr) const {
+  bool mapped(const void* addr) const {
     return mapped_start_ <= addr && addr < mapped_end_;
   }
 
-  const unsigned char *start() const { return mapped_start_; }
-  const unsigned char *end() const { return mapped_end_; }
-  const unsigned char *address(off64_t offset) const {
+  const unsigned char* start() const { return mapped_start_; }
+  const unsigned char* end() const { return mapped_end_; }
+  const unsigned char* address(off64_t offset) const {
     return mapped_start_ + offset;
   }
-  off64_t offset(const void *address) const {
-    return reinterpret_cast<const unsigned char *>(address) - mapped_start_;
+  off64_t offset(const void* address) const {
+    return reinterpret_cast<const unsigned char*>(address) - mapped_start_;
   }
 
 #ifndef _WIN32
@@ -71,11 +71,11 @@ class MappedFile {
  private:
   bool is_open() const;
 
-  unsigned char *mapped_start_;
-  unsigned char *mapped_end_;
+  unsigned char* mapped_start_;
+  unsigned char* mapped_end_;
 #ifdef _WIN32
-  /* HANDLE */ void *hFile_;
-  /* HANDLE */ void *hMapFile_;
+  /* HANDLE */ void* hFile_;
+  /* HANDLE */ void* hMapFile_;
 #else
   int fd_;
 #endif

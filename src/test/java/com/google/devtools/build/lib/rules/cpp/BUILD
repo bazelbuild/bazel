@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

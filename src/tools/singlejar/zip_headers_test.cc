@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "googletest/include/gtest/gtest.h"
-
 #include "src/tools/singlejar/zip_headers.h"
+
+#include "googletest/include/gtest/gtest.h"
 
 namespace {
 
@@ -23,7 +23,7 @@ const uint8_t kPoison = 0xFB;
 TEST(ZipHeadersTest, LocalHeader) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
-  LH *lh = reinterpret_cast<LH *>(bytes);
+  LH* lh = reinterpret_cast<LH*>(bytes);
 
   // Simple fields.
   lh->signature();
@@ -38,8 +38,8 @@ TEST(ZipHeadersTest, LocalHeader) {
   EXPECT_EQ(0xBACD, lh->last_mod_file_time());
   lh->last_mod_file_date(0xCDEF);
   EXPECT_EQ(0xCDEF, lh->last_mod_file_date());
-  lh->crc32(0xEF015423);
-  EXPECT_EQ(0xEF015423, lh->crc32());
+  lh->lh_crc32(0xEF015423);
+  EXPECT_EQ(0xEF015423, lh->lh_crc32());
   lh->compressed_file_size32(1234);
   EXPECT_EQ(1234UL, lh->compressed_file_size32());
   EXPECT_EQ(1234UL, lh->compressed_file_size());
@@ -74,14 +74,14 @@ TEST(ZipHeadersTest, LocalHeader) {
   lh->extra_fields(extra_data, sizeof(extra_data));
   EXPECT_EQ(sizeof(extra_data), lh->extra_fields_length());
   EXPECT_EQ(36 + sizeof(extra_data), lh->size());
-  const Zip64ExtraField *zip64_field = lh->zip64_extra_field();
+  const Zip64ExtraField* zip64_field = lh->zip64_extra_field();
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
   EXPECT_EQ(20, zip64_field->size());
   EXPECT_EQ(5000000000UL, zip64_field->attr64(0));
   EXPECT_EQ(3000000UL, zip64_field->attr64(1));
 
-  const UnixTimeExtraField *ut_extra_field = lh->unix_time_extra_field();
+  const UnixTimeExtraField* ut_extra_field = lh->unix_time_extra_field();
   ASSERT_NE(nullptr, ut_extra_field);
   EXPECT_EQ(9, ut_extra_field->payload_size());
   EXPECT_EQ(13, ut_extra_field->size());
@@ -104,7 +104,7 @@ TEST(ZipHeadersTest, LocalHeader) {
 TEST(ZipHeadersTest, CentralDirectoryHeader) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
-  CDH *cdh = reinterpret_cast<CDH *>(bytes);
+  CDH* cdh = reinterpret_cast<CDH*>(bytes);
 
   // Simple fields.
   cdh->signature();
@@ -121,8 +121,8 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   EXPECT_EQ(0xBACD, cdh->last_mod_file_time());
   cdh->last_mod_file_date(0xCDEF);
   EXPECT_EQ(0xCDEF, cdh->last_mod_file_date());
-  cdh->crc32(0xEF015423);
-  EXPECT_EQ(0xEF015423, cdh->crc32());
+  cdh->cdh_crc32(0xEF015423);
+  EXPECT_EQ(0xEF015423, cdh->cdh_crc32());
   cdh->compressed_file_size32(1234);
   EXPECT_EQ(1234U, cdh->compressed_file_size32());
   EXPECT_EQ(1234UL, cdh->compressed_file_size());
@@ -169,13 +169,13 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   cdh->extra_fields(extra_data, sizeof(extra_data));
   EXPECT_EQ(sizeof(extra_data), cdh->extra_fields_length());
   EXPECT_EQ(52 + sizeof(extra_data), cdh->size());
-  const Zip64ExtraField *zip64_field = cdh->zip64_extra_field();
+  const Zip64ExtraField* zip64_field = cdh->zip64_extra_field();
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
   EXPECT_EQ(20, zip64_field->size());
   EXPECT_EQ(5000000000UL, zip64_field->attr64(0));
   EXPECT_EQ(3000000UL, zip64_field->attr64(1));
-  const UnixTimeExtraField *ut_extra_field = cdh->unix_time_extra_field();
+  const UnixTimeExtraField* ut_extra_field = cdh->unix_time_extra_field();
   ASSERT_NE(nullptr, ut_extra_field);
   EXPECT_EQ(5, ut_extra_field->payload_size());
   EXPECT_EQ(9, ut_extra_field->size());
@@ -194,9 +194,9 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   // field is this case contains two 64-bit quantities, original file size
   // and offset.
   uint8_t extra_data2[] = {
-    1, 0, 16, 0,    // tag 0x0001, length 0x0010
-    0, 0xf2, 0x5, 0x2a, 1, 0, 0, 0,   // 0x12a05f200 = 5000000000
-    0, 0xbc, 0xa0, 0x65, 1, 0, 0, 0,  // 0x165A0BC00 = 6000000000
+      1, 0,    16,   0,                 // tag 0x0001, length 0x0010
+      0, 0xf2, 0x5,  0x2a, 1, 0, 0, 0,  // 0x12a05f200 = 5000000000
+      0, 0xbc, 0xa0, 0x65, 1, 0, 0, 0,  // 0x165A0BC00 = 6000000000
   };
   cdh->extra_fields(extra_data2, sizeof(extra_data2));
   EXPECT_EQ(sizeof(extra_data2), cdh->extra_fields_length());
@@ -209,8 +209,8 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
 
   // Only uncompressed file size is 64-bit quantity.
   uint8_t extra_data3[] = {
-    1, 0, 8, 0,    // tag 0x0001, length 0x0008
-    0, 0xbc, 0xa0, 0x65, 1, 0, 0, 0,  // 0x165A0BC00 = 6000000000
+      1, 0,    8,    0,                 // tag 0x0001, length 0x0008
+      0, 0xbc, 0xa0, 0x65, 1, 0, 0, 0,  // 0x165A0BC00 = 6000000000
   };
   cdh->extra_fields(extra_data3, sizeof(extra_data3));
   EXPECT_EQ(sizeof(extra_data3), cdh->extra_fields_length());
@@ -225,7 +225,7 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
 TEST(ZipHeadersTest, ECD64Locator) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
-  ECD64Locator *ecd64loc = reinterpret_cast<ECD64Locator *>(bytes);
+  ECD64Locator* ecd64loc = reinterpret_cast<ECD64Locator*>(bytes);
 
   ecd64loc->signature();
   EXPECT_TRUE(ecd64loc->is());
@@ -241,7 +241,7 @@ TEST(ZipHeadersTest, Zip64EndOfCentralDirectory) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
 
-  ECD64 *ecd64 = reinterpret_cast<ECD64 *>(bytes);
+  ECD64* ecd64 = reinterpret_cast<ECD64*>(bytes);
   ecd64->signature();
   EXPECT_TRUE(ecd64->is());
   ecd64->remaining_size(44);
@@ -267,8 +267,8 @@ TEST(ZipHeadersTest, Zip64EndOfCentralDirectory) {
 TEST(ZipHeadersTest, EndOfCentralDirectory) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
-  ECD64Locator *ecd64loc = reinterpret_cast<ECD64Locator *>(bytes);
-  ECD *ecd = reinterpret_cast<ECD *>(bytes + sizeof(ECD64Locator));
+  ECD64Locator* ecd64loc = reinterpret_cast<ECD64Locator*>(bytes);
+  ECD* ecd = reinterpret_cast<ECD*>(bytes + sizeof(ECD64Locator));
 
   ecd->signature();
   EXPECT_TRUE(ecd->is());
@@ -302,7 +302,7 @@ TEST(ZipHeadersTest, EndOfCentralDirectory) {
 TEST(ZipHeadersTest, Zip64ExtraFieldTest) {
   uint8_t bytes[256];
   memset(bytes, kPoison, sizeof(bytes));
-  Zip64ExtraField *z64 = reinterpret_cast<Zip64ExtraField *>(bytes);
+  Zip64ExtraField* z64 = reinterpret_cast<Zip64ExtraField*>(bytes);
 
   z64->signature();
   EXPECT_TRUE(z64->is());
@@ -315,4 +315,3 @@ TEST(ZipHeadersTest, Zip64ExtraFieldTest) {
 }
 
 }  // namespace
-
