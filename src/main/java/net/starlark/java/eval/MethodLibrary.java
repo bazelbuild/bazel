@@ -869,7 +869,13 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
             defaultValue = "\" \"",
             named = true,
             positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")
+            doc = "The separator string between the objects, default is space (\" \")."),
+        @Param(
+            name = "stack_trace",
+            doc = "If False stack trace is elided from failure for friendlier user messages",
+            defaultValue = "True",
+            positional = false,
+            named = true),
       },
       extraPositionals =
           @Param(
@@ -879,8 +885,11 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
                       + " default) and joined with sep (defaults to \" \"), that appear in the"
                       + " error message."),
       useStarlarkThread = true)
-  public void fail(Object msg, Object attr, String sep, Tuple args, StarlarkThread thread)
+  public void fail(
+      Object msg, Object attr, String sep, Boolean stackTrace, Tuple args, StarlarkThread thread)
       throws EvalException {
+    boolean includeStack =
+        stackTrace || thread.getSemantics().getBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE);
     Printer printer = new Printer();
     boolean needSeparator = false;
     if (attr != Starlark.NONE) {
@@ -902,7 +911,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       printer.debugPrint(arg, thread);
       needSeparator = true;
     }
-    throw Starlark.errorf("%s", printer.toString());
+    throw new EvalException(printer.toString(), null, includeStack);
   }
 
   @StarlarkMethod(
