@@ -76,7 +76,7 @@ class ArgTokenStream {
     // Assign next token to TOKEN, return true on success, false on EOF.
     bool next_token(std::string* token) {
       *token = "";
-      while (current_char_ != EOF && isspace(current_char_)) {
+      while (IsAsciiSpace(current_char_)) {
         next_char();
       }
       if (current_char_ == EOF) {
@@ -85,7 +85,7 @@ class ArgTokenStream {
       for (;;) {
         if (current_char_ == '\'' || current_char_ == '"') {
           process_quoted(token);
-          if (isspace(current_char_)) {
+          if (IsAsciiSpace(current_char_)) {
             next_char();
             return true;
           } else {
@@ -100,7 +100,7 @@ class ArgTokenStream {
             diag_errx(1, "Expected character after \\, got EOF in %s",
                       filename_.c_str());
           }
-        } else if (current_char_ == EOF || isspace(current_char_)) {
+        } else if (current_char_ == EOF || IsAsciiSpace(current_char_)) {
           next_char();
           return true;
         } else {
@@ -111,6 +111,11 @@ class ArgTokenStream {
     }
 
    private:
+    // possibly marginally faster than ascii_isspace
+    static inline bool IsAsciiSpace(int c) {
+      return c == ' ' || (static_cast<unsigned int>(c) - 9 < 5);
+    }
+
     // Append the quoted string to the TOKEN. The quote character (which can be
     // single or double quote) is in the current character. Everything up to the
     // matching quote character is appended.

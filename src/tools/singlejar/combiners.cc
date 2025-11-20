@@ -26,6 +26,13 @@ Combiner::~Combiner() {}
 
 Concatenator::~Concatenator() {}
 
+namespace {
+// possibly marginally faster than ascii_isspace
+inline bool IsAsciiSpace(int c) {
+  return c == ' ' || (static_cast<unsigned int>(c) - 9 < 5);
+}
+}  // namespace
+
 bool Concatenator::Merge(const CDH* cdh, const LH* lh) {
   if (insert_newlines_ && buffer_.get() && buffer_->data_size() &&
       '\n' != buffer_->last_byte()) {
@@ -154,7 +161,7 @@ bool XmlCombiner::Merge(const CDH* cdh, const LH* lh) {
     start_offset = start_tag_.length();
   }
   uint64_t end = bytes_.data_size();
-  while (end >= end_tag_.length() && std::isspace(buf[end - 1])) end--;
+  while (end >= end_tag_.length() && IsAsciiSpace(buf[end - 1])) end--;
   if (strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
               end_tag_.length()) == 0) {
     end -= end_tag_.length();
