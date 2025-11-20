@@ -306,8 +306,6 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertEqual(f.read().strip(), 'macOS')
 
     # Second fetch on Linux: cached
-    # TODO: Cleaning shouldn't be necessary.
-    self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('platform.txt', ['Linux'])
     _, _, stderr = self.RunBazel(['build', '//:show_platform'])
     self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
@@ -317,8 +315,6 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertEqual(f.read().strip(), 'Linux')
 
     # Second fetch on macOS: cached
-    # TODO: Cleaning shouldn't be necessary.
-    self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('platform.txt', ['macOS'])
     _, _, stderr = self.RunBazel(['build', '//:show_platform'])
     self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
