@@ -254,7 +254,8 @@ maven.install(
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
-    strict_visibility = True,
+    fetch_sources = True,
+    strict_visibility = False,
 )
 
 # Test only maven dependencies

@@ -22,7 +22,7 @@ filegroup(
 
 release_archive(
     name = "jacoco_jars_zip",
-    srcs = ["LICENSE"] + [
+    srcs = ["LICENSE", ":source_jars"] + [
         ":agent",
         ":blaze-agent",
         ":core",
@@ -36,8 +36,34 @@ release_archive(
 )
 
 filegroup(
+    name = "source_jars",
+    srcs = [":copy_source_jars"],
+)
+
+genrule(
+    name = "copy_source_jars",
+    srcs = [
+        "@maven//:org_jacoco_org_jacoco_agent_jar_sources_0_8_11_extension",
+        "@maven//:org_jacoco_org_jacoco_core_jar_sources_0_8_11_extension",
+        "@maven//:org_jacoco_org_jacoco_report_jar_sources_0_8_11_extension",
+    ],
+    outs = [
+        "org.jacoco.agent-0.8.11-sources.jar",
+        "org.jacoco.core-0.8.11-sources.jar",
+        "org.jacoco.report-0.8.11-sources.jar",
+    ],
+    cmd = "cp $(location @maven//:org_jacoco_org_jacoco_agent_jar_sources_0_8_11_extension) $(location org.jacoco.agent-0.8.11-sources.jar) && " +
+          "cp $(location @maven//:org_jacoco_org_jacoco_core_jar_sources_0_8_11_extension) $(location org.jacoco.core-0.8.11-sources.jar) && " +
+          "cp $(location @maven//:org_jacoco_org_jacoco_report_jar_sources_0_8_11_extension) $(location org.jacoco.report-0.8.11-sources.jar)",
+)
+
+filegroup(
     name = "transitive_sources",
-    srcs = ["LICENSE"],
+    srcs = [
+        "LICENSE",
+        ":source_jars",
+        "//third_party:asm_source_jars",
+    ],
 )
 
 alias(

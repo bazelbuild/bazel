@@ -683,3 +683,31 @@ java_plugin(
     visibility = ["//visibility:private"],
     deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
 )
+
+filegroup(
+    name = "asm_source_jars",
+    srcs = [":copy_asm_source_jars"],
+)
+
+genrule(
+    name = "copy_asm_source_jars",
+    srcs = [
+        "@maven//:org_ow2_asm_asm_jar_sources_9_9_extension",
+        "@maven//:org_ow2_asm_asm_analysis_jar_sources_9_9_extension",
+        "@maven//:org_ow2_asm_asm_commons_jar_sources_9_9_extension",
+        "@maven//:org_ow2_asm_asm_tree_jar_sources_9_9_extension",
+        "@maven//:org_ow2_asm_asm_util_jar_sources_9_9_extension",
+    ],
+    outs = [
+        "asm/asm-9.9-sources.jar",
+        "asm/asm-analysis-9.9-sources.jar",
+        "asm/asm-commons-9.9-sources.jar",
+        "asm/asm-tree-9.9-sources.jar",
+        "asm/asm-util-9.9-sources.jar",
+    ],
+    cmd = "cp $(location @maven//:org_ow2_asm_asm_jar_sources_9_9_extension) $(location asm/asm-9.9-sources.jar) && " +
+          "cp $(location @maven//:org_ow2_asm_asm_analysis_jar_sources_9_9_extension) $(location asm/asm-analysis-9.9-sources.jar) && " +
+          "cp $(location @maven//:org_ow2_asm_asm_commons_jar_sources_9_9_extension) $(location asm/asm-commons-9.9-sources.jar) && " +
+          "cp $(location @maven//:org_ow2_asm_asm_tree_jar_sources_9_9_extension) $(location asm/asm-tree-9.9-sources.jar) && " +
+          "cp $(location @maven//:org_ow2_asm_asm_util_jar_sources_9_9_extension) $(location asm/asm-util-9.9-sources.jar)",
+)
