@@ -1,0 +1,24 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+package(default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library:__subpackages__"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    linkopts = ["-framework", "Security", "-framework", "IOKit"],
+)
+
+cc_shared_library(
+    name = "bar_so",
+    deps = [":bar"],
+)
+
+cc_test(
+    name = "cc_test",
+    srcs = ["main.cc"],
+    dynamic_deps = select({"@platforms//os:macos": [":bar_so"]}),
+)
