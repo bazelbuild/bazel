@@ -9,7 +9,10 @@ licenses(["notice"])
 cc_library(
     name = "bar",
     srcs = ["bar.cc"],
-    linkopts = ["-framework", "Security", "-framework", "IOKit"],
+    linkopts = select({
+        "@platforms//os:macos": ["-framework", "Security", "-framework", "IOKit"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_shared_library(
@@ -20,8 +23,5 @@ cc_shared_library(
 cc_test(
     name = "cc_test",
     srcs = ["main.cc"],
-    dynamic_deps = select({
-        "@platforms//os:macos": [":bar_so"],
-        "//conditions:default": [],
-    }),
+    dynamic_deps = [":bar_so"],
 )
