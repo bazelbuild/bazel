@@ -65,13 +65,13 @@ genrule(
         ":report_source_jar",
     ],
     outs = [
-        "org.jacoco.agent-0.8.11-sources.jar",
-        "org.jacoco.core-0.8.11-sources.jar",
-        "org.jacoco.report-0.8.11-sources.jar",
+        "org.jacoco.agent-%s-sources.jar" % LASTVERSION,
+        "org.jacoco.core-%s-sources.jar" % LASTVERSION,
+        "org.jacoco.report-%s-sources.jar" % LASTVERSION,
     ],
-    cmd = "cp $(location :agent_source_jar) $(location org.jacoco.agent-0.8.11-sources.jar) && " +
-          "cp $(location :core_source_jar) $(location org.jacoco.core-0.8.11-sources.jar) && " +
-          "cp $(location :report_source_jar) $(location org.jacoco.report-0.8.11-sources.jar)",
+    cmd = "cp $(location :agent_source_jar) $(location org.jacoco.agent-%s-sources.jar) && " % LASTVERSION +
+          "cp $(location :core_source_jar) $(location org.jacoco.core-%s-sources.jar) && " % LASTVERSION +
+          "cp $(location :report_source_jar) $(location org.jacoco.report-%s-sources.jar)" % LASTVERSION,
 )
 
 filegroup(
