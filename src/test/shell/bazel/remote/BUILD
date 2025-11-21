@@ -28,6 +28,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
+        "@local_jdk//:jdk",
     ],
     shard_count = 5,
 )
