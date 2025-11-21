@@ -13,8 +13,6 @@ exports_files(["LICENSE"])
 
 LASTVERSION = "0.8.11"
 
-VERSIONS = ["0.8.11"]
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -91,6 +89,11 @@ alias(
 alias(
     name = "core",
     actual = "@maven//:org_jacoco_org_jacoco_core",
+)
+
+filegroup(
+    name = "core-jars",
+    srcs = ["@maven//:org_jacoco_org_jacoco_core_file"],
 )
 
 alias(
