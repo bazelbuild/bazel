@@ -664,7 +664,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     boolean stateKeptAfterBuild =
-        !env.getCommandName().equals("clean") && options.keepStateAfterBuild;
+        !env.getCommandName().equals("clean")
+            && env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
     env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
 
     if (options.installBaseGcMaxAge != null && !options.installBaseGcMaxAge.isZero()) {
@@ -797,8 +798,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Wipe the dependency graph if requested. Note that this method always runs at the end of
     // a commands unless the server crashes, in which case no inmemory state will linger for the
     // next build anyway.
-    CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (!commonOptions.keepStateAfterBuild && !forceKeepStateForTesting) {
+    KeepStateAfterBuildOption keepStateAfterBuildOption =
+        env.getOptions().getOptions(KeepStateAfterBuildOption.class);
+    if (!keepStateAfterBuildOption.keepStateAfterBuild && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 

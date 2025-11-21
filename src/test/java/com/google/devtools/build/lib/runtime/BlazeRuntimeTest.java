@@ -69,7 +69,9 @@ public class BlazeRuntimeTest {
           serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
   private final OptionsParser optionsParser =
       OptionsParser.builder()
-          .optionsClasses(ImmutableList.of(CommonCommandOptions.class, ClientOptions.class))
+          .optionsClasses(
+              ImmutableList.of(
+                  CommonCommandOptions.class, KeepStateAfterBuildOption.class, ClientOptions.class))
           .build();
   private final Thread commandThread = mock(Thread.class);
   private final AtomicReference<String> shutdownReason = new AtomicReference<>();
@@ -178,10 +180,9 @@ public class BlazeRuntimeTest {
   @Test
   public void addsGcAndInternerShrinkingIdleTask_noStateKeptAfterBuild() throws Exception {
     BlazeRuntime runtime = createRuntime();
+    optionsParser.parse("--nokeep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
-    options.keepStateAfterBuild = false;
-
     runtime.beforeCommand(env, options);
 
     ImmutableList<IdleTask> gcIdleTasks =
@@ -196,9 +197,10 @@ public class BlazeRuntimeTest {
   @Test
   public void addsGcAndInternerShrinkingIdleTask_stateKeptAfterBuild() throws Exception {
     BlazeRuntime runtime = createRuntime();
+    optionsParser.parse("--keep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
+    env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild = true;
     CommonCommandOptions options = new CommonCommandOptions();
-    options.keepStateAfterBuild = true;
 
     runtime.beforeCommand(env, options);
 

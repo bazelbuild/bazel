@@ -174,6 +174,12 @@ java_library(
 )
 
 java_library(
+    name = "keep-state-after-build-option",
+    srcs = ["runtime/KeepStateAfterBuildOption.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
@@ -334,6 +340,7 @@ java_library(
             "runtime/ConfigFlagDefinitions.java",
             "runtime/GcThrashingDetector.java",
             "runtime/KeepGoingOption.java",
+            "runtime/KeepStateAfterBuildOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
             "runtime/MemoryPressureEvent.java",
             "runtime/MemoryPressureOptions.java",
@@ -348,6 +355,7 @@ java_library(
         ":build-request-options",
         ":buildtool/symlink_forest",
         ":keep-going-option",
+        ":keep-state-after-build-option",
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",
         ":runtime/blaze_service",

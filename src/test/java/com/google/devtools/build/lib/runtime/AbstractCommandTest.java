@@ -133,6 +133,7 @@ public class AbstractCommandTest {
     Collections.addAll(result, optionClasses);
     result.add(UiOptions.class);
     result.add(CommonCommandOptions.class);
+    result.add(KeepStateAfterBuildOption.class);
     result.add(ClientOptions.class);
     result.add(BuildLanguageOptions.class);
     return result;

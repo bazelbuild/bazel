@@ -870,10 +870,11 @@ public class CommandEnvironment {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setActive(false);
     var commonOptions = options.getOptions(CommonCommandOptions.class);
+    var keepStateAfterBuildOption = options.getOptions(KeepStateAfterBuildOption.class);
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild,
+        keepStateAfterBuildOption.keepStateAfterBuild,
         commonOptions.trackIncrementalState,
         commonOptions.heuristicallyDropNodes,
         analysisOptions != null && analysisOptions.discardAnalysisCache,

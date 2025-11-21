@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -205,6 +206,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               BuildRequestOptions.class,
               CoreOptions.class,
               ExecutionOptions.class,
+              KeepStateAfterBuildOption.class,
               KeepGoingOption.class,
               PackageOptions.class)
           .build();

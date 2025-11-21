@@ -187,6 +187,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
@@ -1955,6 +1956,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper) {
+    boolean keepStateAfterBuild =
+        tracksStateForIncrementality()
+            && options.getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
     skyframeActionExecutor.prepareForExecution(
         reporter,
         executor,
@@ -1962,7 +1966,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         actionCacheChecker,
         outputDirectoryHelper,
         outputService,
-        tracksStateForIncrementality());
+        keepStateAfterBuild);
   }
 
   /** Asks the Skyframe evaluator to run a single exclusive test. */

@@ -325,7 +325,7 @@ public final class SkyframeActionExecutor {
       ActionCacheChecker actionCacheChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputService outputService,
-      boolean trackIncrementalState) {
+      boolean keepStateAfterBuild) {
     this.reporter = checkNotNull(reporter);
     this.executorEngine = checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
@@ -349,8 +349,8 @@ public final class SkyframeActionExecutor {
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
-    freeDiscoveredInputsAfterExecution =
-        !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+    this.freeDiscoveredInputsAfterExecution =
+        !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
     boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
 

@@ -593,17 +593,6 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean trackIncrementalState;
 
   @Option(
-      name = "keep_state_after_build",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "If false, Blaze will discard the inmemory state from this build when the build "
-              + "finishes. Subsequent builds will not have any incrementality with respect to this "
-              + "one.")
-  public boolean keepStateAfterBuild;
-
-  @Option(
       name = "repo_env",
       converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,

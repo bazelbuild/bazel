@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -159,6 +160,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 KeepGoingOption.class,
+                KeepStateAfterBuildOption.class,
                 BuildRequestOptions.class,
                 CoreOptions.class,
                 ExecutionOptions.class)
@@ -350,7 +352,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 null),
             ActionOutputDirectoryHelper.createForTesting(),
             new LocalOutputService(directories),
-            /* trackIncrementalState= */ true);
+            /* keepStateAfterBuild= */ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             () -> "", EMPTY_COMPLETION_RECEIVER);
 
