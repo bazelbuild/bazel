@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.types.StarlarkType;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -232,8 +233,7 @@ public final class Module implements Resolver.Module {
     if (v != null) {
       if (v instanceof GuardedValue) {
         // Name is correctly spelled, but access is disabled by a flag or by client data.
-        throw new Undefined(
-            ((GuardedValue) v).getErrorFromAttemptingAccess(name), /*candidates=*/ null);
+        throw new Undefined(((GuardedValue) v).getErrorFromAttemptingAccess(name));
       }
       return Resolver.Scope.PREDECLARED;
     }
@@ -249,6 +249,22 @@ public final class Module implements Resolver.Module {
     candidates.addAll(predeclared.keySet());
     candidates.addAll(Starlark.UNIVERSE.keySet());
     throw new Undefined(String.format("name '%s' is not defined", name), candidates);
+  }
+
+  @Override
+  public StarlarkType resolveType(String name) throws Undefined {
+    Resolver.Scope scope = resolve(name);
+    Object value;
+    switch (scope) {
+      case GLOBAL -> value = getGlobal(name);
+      case PREDECLARED -> value = getPredeclared(name);
+      case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
+      default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
+    }
+    if (!(value instanceof StarlarkType starlarkType)) {
+      throw new Undefined(String.format("%s symbol '%s' cannot be used as a type", scope, name));
+    }
+    return starlarkType;
   }
 
   /**
