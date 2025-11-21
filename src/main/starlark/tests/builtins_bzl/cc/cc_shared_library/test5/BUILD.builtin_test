@@ -20,5 +20,8 @@ cc_shared_library(
 cc_test(
     name = "cc_test",
     srcs = ["main.cc"],
-    dynamic_deps = select({"@platforms//os:macos": [":bar_so"]}),
+    dynamic_deps = select({
+        "@platforms//os:macos": [":bar_so"],
+        "//conditions:default": [],
+    }),
 )
