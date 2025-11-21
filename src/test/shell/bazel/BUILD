@@ -697,7 +697,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
-        "@local_jdk//:jdk"
+        "@local_jdk//:jdk",
     ],
     shard_count = 15,
     tags = [
@@ -1182,6 +1182,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/tools/workspacelog:parser",
+        "@local_jdk//:jdk",
     ],
     tags = [
         "no_windows",
