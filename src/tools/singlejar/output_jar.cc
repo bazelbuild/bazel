@@ -52,8 +52,9 @@
 #include "src/tools/singlejar/zip_headers.h"
 #include <zlib.h>
 
-OutputJar::OutputJar()
-    : options_(nullptr),
+OutputJar::OutputJar(Options* options)
+    : options_(options),
+      done_(false),
       file_(nullptr),
       outpos_(0),
       buffer_(nullptr),
@@ -96,11 +97,11 @@ static std::string Basename(const std::string& path) {
   }
 }
 
-int OutputJar::Doit(Options* options) {
-  if (nullptr != options_) {
+int OutputJar::Doit() {
+  if (done_) {
     diag_errx(1, "%s:%d: Doit() can be called only once.", __FILE__, __LINE__);
   }
-  options_ = options;
+  done_ = true;
 
   // Register the handler for the build-data.properties file unless
   // --exclude_build_data is present. Otherwise we do not generate this file,
@@ -149,7 +150,7 @@ int OutputJar::Doit(Options* options) {
   // Copy CDS archive file (.jsa) if it is set. Page aligned start offset
   // is required.
   if (!options_->cds_archive.empty()) {
-    AppendPageAlignedFile(options->cds_archive, "Jsa-Offset", std::string(),
+    AppendPageAlignedFile(options_->cds_archive, "Jsa-Offset", std::string(),
                           "cds.archive");
   }
 

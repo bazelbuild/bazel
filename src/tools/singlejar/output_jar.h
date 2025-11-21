@@ -38,9 +38,9 @@
 class OutputJar {
  public:
   // Constructor.
-  OutputJar();
+  OutputJar(Options* options);
   // Do all that needs to be done. Can be called only once.
-  int Doit(Options* options);
+  int Doit();
   // Destructor.
   virtual ~OutputJar();
   // Add a combiner to handle the entries with given name. OutputJar will
@@ -116,6 +116,7 @@ class OutputJar {
   bool WriteBytes(const void* buffer, size_t count);
 
   Options* options_;
+  bool done_;
   struct EntryInfo {
     EntryInfo(Combiner* combiner, int index = -1)
         : combiner_(combiner), input_jar_index_(index) {}

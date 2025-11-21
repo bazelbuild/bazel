@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 #endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
-  OutputJar output_jar;
+  OutputJar output_jar(&options);
   // Process or drop Java 8 desugaring metadata, see b/65645388.  We don't want
   // or need these files afterwards so make sure we drop them either way.
   Combiner* desugar_checker =
@@ -47,5 +47,5 @@ int main(int argc, char* argv[]) {
                                   options.no_duplicates));
   output_jar.ExtraCombiner("reference.conf",
                            new Concatenator("reference.conf"));
-  return output_jar.Doit(&options);
+  return output_jar.Doit();
 }

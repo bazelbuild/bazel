@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 #endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
-  OutputJar output_jar;
+  OutputJar output_jar(&options);
   // TODO(b/67733424): support desugar deps checking in Bazel
   if (options.check_desugar_deps) {
     diag_errx(1, "%s:%d: Desugar checking not currently supported in Bazel.",
@@ -42,5 +42,5 @@ int main(int argc, char* argv[]) {
                                   options.no_duplicates));
   output_jar.ExtraCombiner("reference.conf",
                            new Concatenator("reference.conf"));
-  return output_jar.Doit(&options);
+  return output_jar.Doit();
 }

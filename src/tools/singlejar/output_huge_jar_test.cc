@@ -53,11 +53,11 @@ class OutputHugeJarTest : public ::testing::Test {
     }
     fprintf(stderr, "\n");
     options_.ParseCommandLine(nargs, option_list);
-    ASSERT_EQ(0, output_jar_.Doit(&options_));
+    OutputJar output_jar_(&options_);
+    ASSERT_EQ(0, output_jar_.Doit());
     EXPECT_EQ(0, VerifyZip(out_path));
   }
 
-  OutputJar output_jar_;
   Options options_;
   std::unique_ptr<Runfiles> runfiles;
 };

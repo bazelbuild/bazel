@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 // Must be included before anything else.
 #include "src/main/cpp/util/file.h"
@@ -73,6 +74,7 @@ static bool StartsWith(const string& s, const string& what) {
 // entry in the data/ directory from the input archives.
 class CustomOutputJar : public OutputJar {
  public:
+  CustomOutputJar(Options* options) : OutputJar(options) {}
   ~CustomOutputJar() override {}
   void ExtraHandler(const std::string& /*input_jar_path*/, const CDH* cdh,
                     const std::string* input_jar_aux_label) override {
@@ -94,7 +96,8 @@ class OutputJarSimpleTest : public ::testing::Test {
  protected:
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
-  void CreateOutput(const string& out_path, const std::vector<string>& args) {
+  void ParseCommandLine(const string& out_path,
+                        const std::vector<string>& args) {
     const char* option_list[100] = {"--output", out_path.c_str(),
                                     "--build_target", "//some/target"};
     int nargs = 4;
@@ -111,7 +114,12 @@ class OutputJarSimpleTest : public ::testing::Test {
     }
     fprintf(stderr, "\n");
     options_.ParseCommandLine(nargs, option_list);
-    ASSERT_EQ(0, output_jar_.Doit(&options_));
+  }
+
+  void CreateOutput(const string& out_path, const std::vector<string>& args) {
+    ParseCommandLine(out_path, args);
+    OutputJar output_jar(&options_);
+    ASSERT_EQ(0, output_jar.Doit());
     EXPECT_EQ(0, VerifyZip(out_path));
   }
 
@@ -135,7 +143,6 @@ class OutputJarSimpleTest : public ::testing::Test {
     return out_path;
   }
 
-  OutputJar output_jar_;
   Options options_;
   std::unique_ptr<Runfiles> runfiles;
 };
@@ -590,9 +597,13 @@ TEST_F(OutputJarSimpleTest, ExtraCombiners) {
   string resolvedLibDataPath2 = runfiles->Rlocation(kPathLibData2);
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
-  output_jar_.ExtraCombiner(kEntry, new Concatenator(kEntry));
-  CreateOutput(out_path, {"--sources", resolvedLibDataPath1.c_str(),
-                          resolvedLibDataPath2.c_str()});
+  ParseCommandLine(out_path, {"--sources", resolvedLibDataPath1.c_str(),
+                              resolvedLibDataPath2.c_str()});
+  OutputJar output_jar(&options_);
+  output_jar.ExtraCombiner(kEntry, new Concatenator(kEntry));
+  ASSERT_EQ(0, output_jar.Doit());
+  EXPECT_EQ(0, VerifyZip(out_path));
+
   string contents1 = GetEntryContents(resolvedLibDataPath1.c_str(), kEntry);
   string contents2 = GetEntryContents(resolvedLibDataPath2.c_str(), kEntry);
   EXPECT_EQ(contents1 + contents2, GetEntryContents(out_path, kEntry));
@@ -607,9 +618,9 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
   const char* option_list[] = {"--output", out_path.c_str(), "--sources",
                                resolvedLibDataPath1.c_str(),
                                resolvedLibDataPath2.c_str()};
-  CustomOutputJar custom_output_jar;
   options_.ParseCommandLine(arraysize(option_list), option_list);
-  ASSERT_EQ(0, custom_output_jar.Doit(&options_));
+  CustomOutputJar custom_output_jar(&options_);
+  ASSERT_EQ(0, custom_output_jar.Doit());
   EXPECT_EQ(0, VerifyZip(out_path));
 
   string contents1 = GetEntryContents(resolvedLibDataPath1.c_str(), kEntry);
