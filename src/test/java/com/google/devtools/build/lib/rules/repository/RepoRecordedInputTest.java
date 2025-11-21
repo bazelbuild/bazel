@@ -15,14 +15,25 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.when;
 
+import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Test class for {@link RepoRecordedInput}. */
 @RunWith(JUnit4.class)
-public class RepoRecordedInputTest {
+public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
     String escaped = RepoRecordedInput.WithValue.escape(testCase);
     assertThat(RepoRecordedInput.WithValue.unescape(escaped)).isEqualTo(testCase);
@@ -40,5 +51,23 @@ public class RepoRecordedInputTest {
     assertMarkerFileEscaping("a \\\\nb");
     assertMarkerFileEscaping("a \\\nb");
     assertMarkerFileEscaping("a \nb");
+  }
+
+  @Test
+  public void testFileValueToMarkerValue() throws Exception {
+    RootedPath path =
+        RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
+
+    // Digest should be returned if the FileValue has it.
+    FileValue fv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo("01020304");
+
+    // Digest should also be returned if the FileStateValue doesn't have it.
+    FileStatus status = Mockito.mock(FileStatus.class);
+    when(status.getLastChangeTime()).thenReturn(100L);
+    when(status.getNodeId()).thenReturn(200L);
+    fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
+    String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
   }
 }

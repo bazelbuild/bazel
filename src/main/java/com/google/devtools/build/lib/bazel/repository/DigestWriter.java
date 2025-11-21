@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -44,7 +43,7 @@ class DigestWriter {
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
-  // Input value map to force repo invalidation upon an invalid marker file.
+  // Input value list to force repo invalidation upon an invalid marker file.
   private static final ImmutableList<RepoRecordedInput.WithValue> PARSE_FAILURE =
       ImmutableList.of(
           new RepoRecordedInput.WithValue(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, ""));
@@ -75,41 +74,6 @@ class DigestWriter {
       return null;
     }
     return new DigestWriter(directories, repositoryName, predeclaredInputHash);
-  }
-
-  // Escape a value for the marker file
-  @VisibleForTesting
-  static String escape(String str) {
-    return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-  }
-
-  // Unescape a value from the marker file
-  @Nullable
-  @VisibleForTesting
-  static String unescape(String str) {
-    if (str.equals("\\0")) {
-      return null; // \0 == null string
-    }
-    StringBuilder result = new StringBuilder();
-    boolean escaped = false;
-    for (int i = 0; i < str.length(); i++) {
-      char c = str.charAt(i);
-      if (escaped) {
-        if (c == 'n') { // n means new line
-          result.append("\n");
-        } else if (c == 's') { // s means space
-          result.append(" ");
-        } else { // Any other escaped characters are just un-escaped
-          result.append(c);
-        }
-        escaped = false;
-      } else if (c == '\\') {
-        escaped = true;
-      } else {
-        result.append(c);
-      }
-    }
-    return result.toString();
   }
 
   void writeMarkerFile(List<RepoRecordedInput.WithValue> recordedInputValues)
@@ -177,7 +141,7 @@ class DigestWriter {
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
-    @Nullable List<RepoRecordedInput.WithValue> recordedInputValues = null;
+    var recordedInputValues = ImmutableList.<RepoRecordedInput.WithValue>builder();
     boolean firstLineVerified = false;
     for (String line : lines) {
       if (line.isEmpty()) {
@@ -194,7 +158,6 @@ class DigestWriter {
                   ""));
         }
         firstLineVerified = true;
-        recordedInputValues = new ArrayList<>();
       } else {
         var inputAndValue = RepoRecordedInput.WithValue.parse(line);
         if (inputAndValue.isEmpty()) {
@@ -207,7 +170,7 @@ class DigestWriter {
     if (!firstLineVerified) {
       return PARSE_FAILURE;
     }
-    return Preconditions.checkNotNull(recordedInputValues);
+    return recordedInputValues.build();
   }
 
   @Nullable

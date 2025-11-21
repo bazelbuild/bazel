@@ -171,16 +171,16 @@ public abstract sealed class RepoRecordedInput {
    * env.valuesMissing()} and triggering a Skyframe restart if needed.
    */
   public static Optional<String> isAnyValueOutdated(
-      Environment env, BlazeDirectories directories, List<WithValue> recordedInputs)
+      Environment env, BlazeDirectories directories, List<WithValue> recordedInputValues)
       throws InterruptedException {
     env.getValuesAndExceptions(
-        recordedInputs.stream()
-            .map(rri -> rri.input().getSkyKey(directories))
+        recordedInputValues.stream()
+            .map(riv -> riv.input().getSkyKey(directories))
             .collect(toImmutableSet()));
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
-    for (var recordedInput : recordedInputs) {
+    for (var recordedInput : recordedInputValues) {
       Optional<String> reason =
           recordedInput.input().isOutdated(env, directories, recordedInput.value());
       if (reason.isPresent()) {
