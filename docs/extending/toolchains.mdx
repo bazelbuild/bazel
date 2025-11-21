@@ -409,21 +409,79 @@ bar_toolchain = rule(
 The use of [`attr.label`](/rules/lib/toplevel/attr#label) is the same as for a standard rule,
 but the meaning of the `cfg` parameter is slightly different.
 
-The dependency from a target (called the "parent") to a toolchain via toolchain
-resolution uses a special configuration transition called the "toolchain
-transition". The toolchain transition keeps the configuration the same, except
-that it forces the execution platform to be the same for the toolchain as for
-the parent (otherwise, toolchain resolution for the toolchain could pick any
-execution platform, and wouldn't necessarily be the same as for parent). This
-allows any `exec` dependencies of the toolchain to also be executable for the
-parent's build actions. Any of the toolchain's dependencies which use `cfg =
-"target"` (or which don't specify `cfg`, since "target" is the default) are
-built for the same target platform as the parent. This allows toolchain rules to
-contribute both libraries (the `system_lib` attribute above) and tools (the
-`compiler` attribute) to the build rules which need them. The system libraries
-are linked into the final artifact, and so need to be built for the same
-platform, whereas the compiler is a tool invoked during the build, and needs to
-be able to run on the execution platform.
+When a target (the "parent") depends on a toolchain via toolchain resolution,
+Bazel applies a special configuration transition called the "toolchain transition".
+
+In this transition Bazel keeps the overall configuration identical, but forces
+the toolchain to use the same execution platform as the parent. Without this,
+toolchain resolution could pick a different execution platform for the
+toolchain, and the tools it provides might not be runnable for the parent's
+actions.
+
+This alignment of execution platforms guarantees that any dependencies of the
+toolchain declared with `cfg = "exec"` are built so they can run where the
+parent's actions run.
+
+Dependencies declared with `cfg = "target"` (or which omit `cfg`, since
+"target" is the default) are built for the parent's target platform. This lets
+the toolchain contribute both runtime libraries and build-time tools.
+
+In practice:
+
+- `cfg = "exec"`: build artifacts intended to run during the build (e.g.
+  the `compiler` tool) and therefore for the execution platform.
+- `cfg = "target"`: build artifacts intended to be linked into or shipped with
+  the final output (e.g. the `system_lib`) and therefore for the target
+  platform.
+
+The system libraries must be built for the same target platform as the final
+artifact, while the compiler must be runnable on the execution platform.
+
+### Selecting `exec` dependencies
+
+For toolchain config rules, adding a `select()` to an attribute with `cfg = "exec"`
+does **not** make the `select()` use the exec configuration.
+It will still be resolved under the **target** configuration.
+
+Assuming the target platform is not matching any of these constraints, the select for the compiler
+will fail to analyze.
+
+```python
+bar_toolchain(
+    name = "barc_omni",
+    compiler = select({
+        "@platforms//os:linux": Label(":linux_compiler"),
+        "@platforms//os:windows": Label(":windows_compiler"),
+        "//some/exec:platform": Label(":special_compiler"),
+        },
+        no_match_error = "No compiler for this execution platform",
+    }),
+    # <...>
+)
+```
+
+A known workaround for this is to defer the evaluation behind another target,
+e.g. [`alias()`](/reference/be/general#alias).
+This analyzes the `select` inside the alias under the exec configuration.
+
+```python
+alias(
+    name = "host_specific_compiler",
+    actual = select({
+        "@platforms//os:linux": Label(":linux_compiler"),
+        "@platforms//os:windows": Label(":windows_compiler"),
+        "//some/exec:platform": Label(":special_compiler"),
+        },
+        no_match_error = "No compiler for this execution platform",
+    ),
+)
+
+bar_toolchain(
+    name = "barc_omni",
+    compiler = ":host_specific_compiler",
+    # <...>
+)
+```
 
 ## Registering and building with toolchains
 
