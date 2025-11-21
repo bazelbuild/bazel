@@ -60,6 +60,8 @@ OutputJar::OutputJar(Options* options)
       buffer_(nullptr),
       entries_(0),
       duplicate_entries_(0),
+      fallocated_(0),
+      fallocate_failed_(false),
       cen_(nullptr),
       cen_size_(0),
       cen_capacity_(0),
@@ -77,17 +79,6 @@ OutputJar::OutputJar(Options* options)
                          EntryInfo{&protobuf_meta_handler_});
 }
 
-static size_t WriteNoLock(const void* ptr, size_t size, size_t nmemb,
-                          FILE* stream) {
-#if defined(__linux__)
-  return fwrite_unlocked(ptr, size, nmemb, stream);
-#elif defined(_WIN32)
-  return _fwrite_nolock(ptr, size, nmemb, stream);
-#else
-  return fwrite(ptr, size, nmemb, stream);
-#endif
-}
-
 static std::string Basename(const std::string& path) {
   size_t pos = path.rfind('/');
   if (pos == std::string::npos) {
@@ -95,6 +86,59 @@ static std::string Basename(const std::string& path) {
   } else {
     return std::string(path, pos + 1);
   }
+}
+
+size_t OutputJar::WriteNoLock(const void* buffer, size_t count) {
+  EnsureCapacity(count);
+#if defined(__linux__)
+  return fwrite_unlocked(buffer, 1, count, file_);
+#elif defined(_WIN32)
+  return _fwrite_nolock(buffer, 1, count, file_);
+#else
+  return fwrite(buffer, 1, count, file_);
+#endif
+}
+
+void OutputJar::EnsureCapacity(size_t to_write) {
+#ifdef __linux__
+  if (fallocate_failed_) {
+    return;
+  }
+
+  size_t new_pos = outpos_ + to_write;
+  if (new_pos <= fallocated_) {
+    return;
+  }
+
+  // Usually double the size, but add 1 GiB at most (unless we need more now).
+
+  size_t growth = fallocated_ == 0 ? (1024 * 1024) : fallocated_;
+
+  static const off_t kMaxGrowth = 1024LL * 1024 * 1024;
+  if (growth > kMaxGrowth) {
+    growth = kMaxGrowth;
+  }
+
+  if (fallocated_ + growth < new_pos) {
+    growth = new_pos - fallocated_;
+  }
+
+  // On FUSE and similar filesystems, fallocate isn't supported.
+  // An alternative, posix_fallocate, emulates fallocate *very* expensively.
+  // If we don't have the real thing, we'd rather not presize at all.
+  if (fallocate(fileno(file_), 0, static_cast<off_t>(fallocated_),
+                static_cast<off_t>(growth)) == 0) {
+    fallocated_ += growth;
+  } else {
+    fallocate_failed_ = true;
+
+    if (options_->verbose) {
+      fprintf(stderr,
+              "fallocate failed with errno %d. Disabling pre-allocation.\n",
+              errno);
+    }
+  }
+#endif
 }
 
 int OutputJar::Doit() {
@@ -965,6 +1009,16 @@ bool OutputJar::Close() {
   }
   free(cen_);
 
+#ifdef __linux__
+  if (!fallocate_failed_) {
+    if (fflush(file_) != 0) {
+      diag_err(1, "fflush failed");
+    }
+    if (ftruncate(fileno(file_), outpos_) != 0) {
+      diag_err(1, "ftruncate failed");
+    }
+  }
+#endif
   if (fclose(file_)) {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, path());
   }
@@ -1115,7 +1169,7 @@ off64_t OutputJar::PageAlignedAppendFile(const std::string& file_path,
       diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
     }
     memset(zeros, 0, gap);
-    written = WriteNoLock(zeros, 1, gap, file_);
+    written = WriteNoLock(zeros, gap);
     outpos_ += written;
     free(zeros);
   }
@@ -1167,7 +1221,7 @@ void OutputJar::ExtraCombiner(const std::string& entry_name,
 }
 
 bool OutputJar::WriteBytes(const void* buffer, size_t count) {
-  size_t written = WriteNoLock(buffer, 1, count, file_);
+  size_t written = WriteNoLock(buffer, count);
   outpos_ += written;
   return written == count;
 }

@@ -114,6 +114,10 @@ class OutputJar {
   ssize_t CopyAppendData(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void* buffer, size_t count);
+  // Write to the output file without updating outpos_.
+  size_t WriteNoLock(const void* buffer, size_t count);
+  // Try to expand the file to be at least large enough for the upcoming write.
+  void EnsureCapacity(size_t to_write);
 
   Options* options_;
   bool done_;
@@ -130,6 +134,8 @@ class OutputJar {
   std::unique_ptr<char[]> buffer_;
   int entries_;
   int duplicate_entries_;
+  size_t fallocated_;
+  bool fallocate_failed_;
   uint8_t* cen_;
   size_t cen_size_;
   size_t cen_capacity_;
