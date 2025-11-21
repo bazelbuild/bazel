@@ -19,6 +19,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
@@ -169,7 +170,7 @@ final class Eval {
     Object[] defaults = null;
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
-    CallableType functionType = rfn.getFunctionType();
+    @Nullable CallableType functionType = rfn.getFunctionType();
     for (int i = 0; i < nparams; i++) {
       Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {
@@ -181,15 +182,17 @@ final class Eval {
       Object defaultValue = expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
       defaults[i - (nparams - defaults.length)] = defaultValue;
 
-      // Typecheck the default value
-      StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-      if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
-        throw Starlark.errorf(
-            "%s(): parameter '%s' has default value of type '%s', declares '%s'",
-            rfn.getName(),
-            rfn.getParameterNames().get(i),
-            TypeChecker.type(defaultValue),
-            parameterType);
+      if (functionType != null) {
+        // Typecheck the default value
+        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+          throw Starlark.errorf(
+              "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+              rfn.getName(),
+              rfn.getParameterNames().get(i),
+              TypeChecker.type(defaultValue),
+              parameterType);
+        }
       }
     }
     if (defaults == null) {

@@ -26,7 +26,7 @@ import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types.CallableType;
+import net.starlark.java.types.Types;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -94,7 +94,8 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType() {
-    return rfn.getFunctionType();
+    Types.CallableType type = rfn.getFunctionType();
+    return type != null ? type : Types.ANY;
   }
 
   // TODO(adonovan): many functions would be simpler if
@@ -538,7 +539,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
       // Runtime type check
       StarlarkType type = owner.getStarlarkType();
-      if (type instanceof CallableType functionType) {
+      if (type instanceof Types.CallableType functionType) {
         for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
           if (locals[i] == null) {
             continue; // the default value is already type checked
@@ -572,7 +573,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
 
       // Return value check
-      if (type instanceof CallableType functionType) {
+      if (type instanceof Types.CallableType functionType) {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",

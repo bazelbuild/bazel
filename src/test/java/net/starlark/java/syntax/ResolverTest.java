@@ -461,7 +461,7 @@ public class ResolverTest {
     assertThat(errors.get(0).message()).isEqualTo("name 'undef' is not defined");
   }
 
-  // TODO: #27370 - Add resolver behavior for type expressions, add bindingScopeAndIndex tests here.
+  // TODO: #27728 - Add resolver behavior for type expressions, add bindingScopeAndIndex tests here.
 
   @Test
   public void testBindingScopeAndIndex_basic() throws Exception {
@@ -837,7 +837,7 @@ public class ResolverTest {
       public void visit(VarStatement varStatement) {
         visit(varStatement.getIdentifier());
         // Don't visit type expression, it isn't processed.
-        // TODO: #27370 - Include the type expression in these tests.
+        // TODO: #27728 - Include the type expression in these tests.
       }
     }.visit(file);
     assertThat(out[0]).isEqualTo(src);

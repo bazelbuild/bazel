@@ -25,55 +25,52 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark types. */
+/** Tests for Starlark type resolution. */
 @RunWith(JUnit4.class)
-public class StarlarkTypesTest {
+public class TypeResolverTest {
   @Test
   public void resolveType_onPrimitiveTypes() throws Exception {
-    assertThat(resolveType("None")).isEqualTo(Types.NONE);
-    assertThat(resolveType("bool")).isEqualTo(Types.BOOL);
-    assertThat(resolveType("int")).isEqualTo(Types.INT);
-    assertThat(resolveType("float")).isEqualTo(Types.FLOAT);
-    assertThat(resolveType("str")).isEqualTo(Types.STR);
+    assertThat(evalType("None")).isEqualTo(Types.NONE);
+    assertThat(evalType("bool")).isEqualTo(Types.BOOL);
+    assertThat(evalType("int")).isEqualTo(Types.INT);
+    assertThat(evalType("float")).isEqualTo(Types.FLOAT);
+    assertThat(evalType("str")).isEqualTo(Types.STR);
   }
 
   @Test
   public void resolveType_union() throws Exception {
-    assertThat(resolveType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
+    assertThat(evalType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
   }
 
   @Test
   public void resolveType_list() throws Exception {
-    assertThat(resolveType("list[int]")).isEqualTo(Types.list(Types.INT));
-    assertThat(resolveType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
+    assertThat(evalType("list[int]")).isEqualTo(Types.list(Types.INT));
+    assertThat(evalType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("list[int, bool]"));
+    var exception = assertThrows(SyntaxError.Exception.class, () -> evalType("list[int, bool]"));
     assertThat(exception).hasMessageThat().isEqualTo("list[] accepts exactly 1 argument but got 2");
 
-    exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("list[[int]]"));
+    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("list[[int]]"));
     assertThat(exception).hasMessageThat().isEqualTo("unexpected expression '[int]'");
-
-    // TODO(ilist@): prevent list[None|bool]
   }
 
   @Test
   public void resolveType_dict() throws Exception {
-    assertThat(resolveType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
-    assertThat(resolveType("dict[int, list[str]]"))
+    assertThat(evalType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
+    assertThat(evalType("dict[int, list[str]]"))
         .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int]"));
+    var exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict[int]"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("dict[] accepts exactly 2 arguments but got 1");
 
-    exception =
-        assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int, str, bool]"));
+    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict[int, str, bool]"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("dict[] accepts exactly 2 arguments but got 3");
 
-    exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict"));
+    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("expected type arguments after the type constructor 'dict'");
@@ -81,7 +78,7 @@ public class StarlarkTypesTest {
 
   @Test
   public void resolveType_unknownIdentifier() {
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo"));
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo"));
 
     assertThat(e).hasMessageThat().isEqualTo("type 'Foo' is not defined");
   }
@@ -89,20 +86,22 @@ public class StarlarkTypesTest {
   @Test
   public void resolveType_badTypeApplications() {
     SyntaxError.Exception e =
-        assertThrows(SyntaxError.Exception.class, () -> resolveType("int[bool]"));
+        assertThrows(SyntaxError.Exception.class, () -> evalType("int[bool]"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("'int' is not a type constructor, cannot be applied to '[bool]'");
 
-    e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo[int]"));
+    e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo[int]"));
     assertThat(e).hasMessageThat().isEqualTo("type constructor 'Foo' is not defined");
 
-    e = assertThrows(SyntaxError.Exception.class, () -> resolveType("list"));
+    e = assertThrows(SyntaxError.Exception.class, () -> evalType("list"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected type arguments after the type constructor 'list'");
   }
 
+  // TODO: #27728 - This is a test of CallableType, not the TypeResolver. Split into its own file,
+  // either in this package or in types/.
   @Test
   public void callable_toSignatureString() {
     // ordinary only
@@ -174,8 +173,10 @@ public class StarlarkTypesTest {
             "(bool, /, a: int, b: [float], *args: int, c: None, d: [Any], **kwargs: int) -> bool");
   }
 
-  private StarlarkType resolveType(String type) throws Exception {
+  private StarlarkType evalType(String type) throws Exception {
     Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
-    return Resolver.resolveType(typeExpr, Resolver.moduleWithPredeclared(), FileOptions.DEFAULT);
+    // TODO: #27728 - When type resolution can consider non-universal types, use a better mock
+    // module here that supports evalType().
+    return TypeResolver.evalTypeExpression(typeExpr, Resolver.moduleWithPredeclared());
   }
 }
