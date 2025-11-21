@@ -562,6 +562,9 @@ final class Eval {
         return evalCall(fr, (CallExpression) expr);
       case CAST:
         return eval(fr, ((CastExpression) expr).getValue());
+      case ISINSTANCE:
+        fr.setErrorLocation(expr.getStartLocation());
+        throw new EvalException("isinstance() is not yet supported");
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:

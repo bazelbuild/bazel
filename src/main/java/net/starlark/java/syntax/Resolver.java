@@ -805,6 +805,14 @@ public final class Resolver extends NodeVisitor {
   }
 
   @Override
+  public void visit(IsInstanceExpression node) {
+    // TODO(b/350661266): restrict the types that can be used on the RHS of isinstance(); e.g.
+    // `list` or `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,
+    // since a list can subsequently be mutated to add a non-int element.
+    errorf(node, "isinstance() is not yet supported");
+  }
+
+  @Override
   public void visit(TypeAliasStatement node) {
     if (!(locals.syntax instanceof StarlarkFile)) {
       errorf(node, "type alias statement not at top level");

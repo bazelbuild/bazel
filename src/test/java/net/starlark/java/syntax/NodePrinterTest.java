@@ -405,8 +405,15 @@ public final class NodePrinterTest {
   @Test
   public void castExpression() throws SyntaxError.Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    assertExprPrettyMatches("cast(list[int],foo())", "cast(list[int], foo())");
+    assertExprPrettyMatches("cast(list[int]|str,x+y)", "cast(list[int] | str, x + y)");
     assertExprTostringMatches("cast(set|None,bar(),)", "cast(set | None, bar())");
+  }
+
+  @Test
+  public void isinstanceExpression() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertExprPrettyMatches("isinstance(x+y, list|tuple)", "isinstance(x + y, list | tuple)");
+    assertExprTostringMatches("isinstance(foo(), T[U],)", "isinstance(foo(), T[U])");
   }
 
   @Test

@@ -562,6 +562,9 @@ final class Lexer {
 
   private static final Map<String, TokenKind> keywordMap = new HashMap<>();
 
+  /** Additional keywords that are only recognized if --experimental_starlark_type_syntax is set. */
+  private static final Map<String, TokenKind> typeSyntaxExtraKeywordMap = new HashMap<>();
+
   static {
     keywordMap.put("and", TokenKind.AND);
     keywordMap.put("as", TokenKind.AS);
@@ -594,6 +597,9 @@ final class Lexer {
     keywordMap.put("while", TokenKind.WHILE);
     keywordMap.put("with", TokenKind.WITH);
     keywordMap.put("yield", TokenKind.YIELD);
+
+    typeSyntaxExtraKeywordMap.put("cast", TokenKind.CAST);
+    typeSyntaxExtraKeywordMap.put("isinstance", TokenKind.ISINSTANCE);
   }
 
   /**
@@ -606,16 +612,14 @@ final class Lexer {
     int oldPos = pos - 1;
     String id = identInterner.intern(scanIdentifier());
     TokenKind kind = keywordMap.get(id);
+    if (kind == null && options.allowTypeSyntax()) {
+      kind = typeSyntaxExtraKeywordMap.get(id);
+    }
     if (kind == null) {
-      if (options.allowTypeSyntax() && id.equals("cast")) {
-        // `cast` is treated as a keyword iff --experimental_starlark_type_syntax is enabled.
-        setToken(TokenKind.CAST, oldPos, pos);
-      } else {
-        setToken(TokenKind.IDENTIFIER, oldPos, pos);
-        // setValue allocates a new String for the raw text, but it's not retained so we don't
-        // bother interning it.
-        setValue(id);
-      }
+      setToken(TokenKind.IDENTIFIER, oldPos, pos);
+      // setValue allocates a new String for the raw text, but it's not retained so we don't
+      // bother interning it.
+      setValue(id);
     } else {
       setToken(kind, oldPos, pos);
     }

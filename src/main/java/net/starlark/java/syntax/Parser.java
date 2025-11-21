@@ -569,6 +569,21 @@ final class Parser {
     return new CastExpression(locs, startOffset, typeExpr, valueExpr, rparenOffset);
   }
 
+  // isinstance_expression = 'isinstance' '(' expr ',' TypeExpr [','] ')'
+  private Expression parseIsInstanceExpression() {
+    checkAllowTypeSyntax(token.start, token.kind, token.value);
+    int startOffset = expect(TokenKind.ISINSTANCE);
+    expect(TokenKind.LPAREN);
+    Expression valueExpr = parseTest();
+    expect(TokenKind.COMMA);
+    Expression typeExpr = parseTypeExprWithFallback();
+    if (token.kind == TokenKind.COMMA) {
+      expect(TokenKind.COMMA);
+    }
+    int rparenOffset = expect(TokenKind.RPAREN);
+    return new IsInstanceExpression(locs, startOffset, valueExpr, typeExpr, rparenOffset);
+  }
+
   // Parse a list of call arguments.
   //
   // arg_list = ( (arg ',')* arg ','? )?
@@ -753,6 +768,9 @@ final class Parser {
 
       case CAST:
         return parseCastExpression();
+
+      case ISINSTANCE:
+        return parseIsInstanceExpression();
 
       case ELLIPSIS:
         if (!insideTypeExpr) {
