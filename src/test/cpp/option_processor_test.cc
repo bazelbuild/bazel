@@ -15,6 +15,8 @@
 #include "src/main/cpp/option_processor.h"
 
 #include <memory>
+#include <vector>
+#include <string>
 
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze_util.h"
@@ -24,6 +26,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
@@ -121,10 +124,10 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(1),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
@@ -156,10 +159,10 @@ TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(1),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
@@ -218,12 +221,10 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
   EXPECT_EQ("42",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[2]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(2),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
-  EXPECT_EQ("42",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam", "42"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
   EXPECT_EQ("", option_processor_->GetCommand());
