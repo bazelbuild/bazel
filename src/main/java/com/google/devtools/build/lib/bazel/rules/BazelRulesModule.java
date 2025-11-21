@@ -181,6 +181,16 @@ public final class BazelRulesModule extends BlazeModule {
     public String targetPlatformFallback;
 
     @Option(
+        name = "incompatible_allow_tags_propagation",
+        oldName = "experimental_allow_tags_propagation",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public boolean allowTagsPropagation;
+
+    @Option(
         name = "incompatible_auto_configure_host_platform",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

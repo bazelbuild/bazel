@@ -536,9 +536,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .modifiedExecutionInfo(
                   ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1"),
                   JavaCompileActionBuilder.MNEMONIC));
-      executionInfo.putAll(
-          TargetUtils.getExecutionInfo(
-              ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+      executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
       ActionOwner actionOwner =
           ruleContext.useAutoExecGroups()
