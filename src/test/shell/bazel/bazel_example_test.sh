@@ -41,14 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# $1 is equal to the $(JAVABASE) make variable
-javabase="$1"
-if [[ $javabase = external/* ]]; then
-  javabase=${javabase#external/}
-fi
-javabase="$(rlocation "${javabase}/bin/java")"
-javabase=${javabase%/bin/java}
-
 function set_up() {
   copy_examples
   create_workspace_with_default_repos "WORKSPACE" "io_bazel"
@@ -71,7 +63,7 @@ function test_cpp() {
 # An assertion that execute a binary from a sub directory (to test runfiles)
 function assert_binary_run_from_subdir() {
     ( # Needed to make execution from a different path work.
-    export PATH=${javabase}/bin:"$PATH" &&
+    export PATH="$(bazel info java-home)/bin:${PATH}" &&
     mkdir -p x &&
     cd x &&
     unset JAVA_RUNFILES &&

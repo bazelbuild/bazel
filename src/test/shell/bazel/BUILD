@@ -87,14 +87,12 @@ sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
-    args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
     tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
