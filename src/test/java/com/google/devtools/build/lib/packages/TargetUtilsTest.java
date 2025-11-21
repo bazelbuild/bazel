@@ -247,9 +247,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            Dict.<String, String>builder().put("supports-worker", "1").buildImmutable(),
-            noTag, /* allowTagsPropagation */
-            true);
+            Dict.<String, String>builder().put("supports-worker", "1").buildImmutable(), noTag);
     assertThat(execInfo).containsExactly("supports-worker", "1");
 
     execInfo =
@@ -258,8 +256,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
                 .put("some-custom-tag", "1")
                 .put("no-cache", "1")
                 .buildImmutable(),
-            noTag,
-            /* allowTagsPropagation */ true);
+            noTag);
     assertThat(execInfo).containsExactly("no-cache", "1");
   }
 
@@ -279,8 +276,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
                 .put("supports-workers", "1")
                 .put("worker-key-mnemonic", "MyMnemonic")
                 .buildImmutable(),
-            noTag, /* allowTagsPropagation */
-            true);
+            noTag);
     assertThat(execInfo)
         .containsExactly("supports-workers", "1", "worker-key-mnemonic", "MyMnemonic");
   }
@@ -296,8 +292,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
 
     Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked, tag1, /* allowTagsPropagation */ true);
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
 
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "", "no-remote", "1");
   }
@@ -313,8 +308,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         Dict.<String, String>builder().put("no-cache", "1").buildImmutable();
 
     Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked, tag1, /* allowTagsPropagation */ true);
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, tag1);
 
     assertThat(execInfo).containsExactly("no-cache", "1", "supports-workers", "");
   }
@@ -327,31 +321,11 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "foo_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
 
-    Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(null, tag1, /* allowTagsPropagation */ true);
+    Map<String, String> execInfo = TargetUtils.getFilteredExecutionInfo(null, tag1);
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
 
-    execInfo =
-        TargetUtils.getFilteredExecutionInfo(Starlark.NONE, tag1, /* allowTagsPropagation */ true);
+    execInfo = TargetUtils.getFilteredExecutionInfo(Starlark.NONE, tag1);
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
-  }
-
-  @Test
-  public void testFilteredExecutionInfo_whenIncompatibleFlagDisabled() throws Exception {
-    // when --incompatible_allow_tags_propagation=false
-    scratch.file(
-        "tests/BUILD",
-        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
-        "foo_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
-    Rule tag1 = (Rule) getTarget("//tests:tag1");
-    Dict<String, String> executionRequirementsUnchecked =
-        Dict.<String, String>builder().put("no-remote", "1").buildImmutable();
-
-    Map<String, String> execInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked, tag1, /* allowTagsPropagation */ false);
-
-    assertThat(execInfo).containsExactly("no-remote", "1");
   }
 
   @Test

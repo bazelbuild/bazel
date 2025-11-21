@@ -117,15 +117,10 @@ public class ResourceJarActionBuilder {
       command.addExecPaths("--classpath_resources", classpathResources);
     }
 
-    ImmutableMap<String, String> executionInfo = EXECUTION_INFO;
-    if (ruleContext.isAllowTagsPropagation()) {
-      ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
-      executionInfoBuilder.putAll(EXECUTION_INFO);
-      executionInfoBuilder.putAll(
-          TargetUtils.getExecutionInfo(
-              ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
-      executionInfo = executionInfoBuilder.build();
-    }
+    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+    executionInfoBuilder.putAll(EXECUTION_INFO);
+    executionInfoBuilder.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
+    ImmutableMap<String, String> executionInfo = executionInfoBuilder.build();
 
     ruleContext.registerAction(
         builder
