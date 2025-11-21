@@ -17,6 +17,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -79,7 +80,9 @@ int main(int argc, char *argv[]) {
     }
     allowlist = std::make_unique<one_version::MapAllowlist>(std::move(map));
   }
-  one_version::OneVersion one_version(std::move(allowlist));
+  // Guess at the number of class files in the input jars in the hope of
+  // reducing the need to resize our internal map.
+  one_version::OneVersion one_version(std::move(allowlist), inputs.size() * 30);
 
   for (const std::string &input : inputs) {
     std::vector<std::string> pieces = absl::StrSplit(input, ',');

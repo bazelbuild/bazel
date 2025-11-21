@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_ONE_VERSION_ONE_VERSION_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_ONE_VERSION_ONE_VERSION_H_
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -31,8 +32,10 @@ namespace one_version {
 
 class OneVersion {
  public:
-  explicit OneVersion(std::unique_ptr<one_version::Allowlist> whitelist)
-      : whitelist_file_(std::move(whitelist)) {}
+  explicit OneVersion(std::unique_ptr<one_version::Allowlist> whitelist,
+                      size_t file_count_to_reserve_in_maps)
+      : whitelist_file_(std::move(whitelist)),
+        duplicate_class_collector_(file_count_to_reserve_in_maps) {}
 
   // Record the jar entry (if it's a class file).
   void Add(absl::string_view file_name_of_entry, const CDH* jar_entry,

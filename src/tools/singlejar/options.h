@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 
+#include <cstddef>
 #include <set>
 #include <string>
 #include <vector>
@@ -41,6 +42,11 @@ class Options {
         no_strip_module_info(false) {}
 
   virtual ~Options() {}
+
+  // Guesses at the total number of entries in the resulting jar.
+  // The estimate is based on the current value of input_jars.
+  // This is useful for pre-sizing maps to reduce the need for later resizing.
+  size_t EstimateFileCount() const { return input_jars.size() * 30; }
 
   // Parses command line arguments into the fields of this instance.
   void ParseCommandLine(int argc, const char* const argv[]);

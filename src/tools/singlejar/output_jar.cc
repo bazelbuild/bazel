@@ -17,7 +17,6 @@
  */
 #include "src/tools/singlejar/output_jar.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +42,6 @@
 
 #endif  // _WIN32
 
-#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
@@ -70,6 +68,8 @@ OutputJar::OutputJar(Options* options)
       protobuf_meta_handler_("protobuf.meta", false),
       manifest_("META-INF/MANIFEST.MF"),
       build_properties_("build-data.properties") {
+  known_members_.reserve(options->EstimateFileCount());
+
   known_members_.emplace(spring_handlers_.filename(),
                          EntryInfo{&spring_handlers_});
   known_members_.emplace(spring_schemas_.filename(),

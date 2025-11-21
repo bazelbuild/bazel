@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/desugar_checking.h"
 #include "src/tools/singlejar/diag.h"

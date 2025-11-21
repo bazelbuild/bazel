@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_ONE_VERSION_DUPLICATE_CLASS_COLLECTOR_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_ONE_VERSION_DUPLICATE_CLASS_COLLECTOR_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -79,6 +80,8 @@ class Violation {
 // A collector for one version violations.
 class DuplicateClassCollector {
  public:
+  explicit DuplicateClassCollector(size_t file_count_to_reserve_in_maps = 0);
+
   // Records the class name, crc, and label of a classpath entry.
   void Add(const std::string &class_name, uint32_t crc32, const Label &label);
 

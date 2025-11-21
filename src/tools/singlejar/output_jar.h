@@ -17,8 +17,8 @@
 
 #include <stdio.h>
 
-#include <cinttypes>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -38,7 +38,7 @@
 class OutputJar {
  public:
   // Constructor.
-  OutputJar(Options* options);
+  explicit OutputJar(Options* options);
   // Do all that needs to be done. Can be called only once.
   int Doit();
   // Destructor.
