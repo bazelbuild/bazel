@@ -428,11 +428,12 @@ public class RepositoryOptions extends OptionsBase {
       OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
       String pathString = pathConverter.convert(pieces[1]).getPathString();
       try {
-        var repoName = RepositoryName.create(pieces[0]);
-        if (repoName.isApparent()) {
-          RepositoryName.validateUserProvidedRepoName(repoName.getName());
+        if (RepositoryName.isApparent(pieces[0])) {
+          RepositoryName.validateUserProvidedRepoName(pieces[0]);
+        } else {
+          RepositoryName.create(pieces[0]);
         }
-        return new RepositoryOverride(RepositoryName.create(pieces[0]), pathString);
+        return new RepositoryOverride(pieces[0], pathString);
       } catch (LabelSyntaxException | EvalException e) {
         throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
@@ -505,7 +506,7 @@ public class RepositoryOptions extends OptionsBase {
   }
 
   /** A repository override, represented by a name and an absolute path to a repository. */
-  public record RepositoryOverride(RepositoryName repositoryName, String path) {}
+  public record RepositoryOverride(String repositoryName, String path) {}
 
   /**
    * A repository injected into the scope of the root module, represented by a name and an absolute

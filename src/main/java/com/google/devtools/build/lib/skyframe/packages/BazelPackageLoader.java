@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -100,7 +99,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
           PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
           PrecomputedValue.injected(
-              RepositoryMappingFunction.REPOSITORY_OVERRIDES,
+              RepoDefinitionFunction.REPOSITORY_OVERRIDES,
               Suppliers.ofInstance(ImmutableMap.of())),
           PrecomputedValue.injected(
               RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),

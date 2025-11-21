@@ -207,10 +207,8 @@ public final class RepositoryName {
     }
   }
 
-  /**
-   * Returns true if the given name cannot possibly be a canonical repository name.
-   */
-  public boolean isApparent() {
+  /** Returns true if the given name cannot possibly be a canonical repository name. */
+  public static boolean isApparent(String name) {
     return !name.isEmpty() && !name.contains("+");
   }
 
