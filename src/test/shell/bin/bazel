@@ -23,4 +23,9 @@ bazel_bin=$(rlocation io_bazel/src/bazel)
 unset RUNFILES_DIR
 unset RUNFILES_MANIFEST_FILE
 unset RUNFILES_MANIFEST_ONLY
+
+# Use the same Java runtime to launch Bazel as Bazel uses to run targets.
+# This avoids BazelJavaSemantics adding JVM flags when it shouldn't.
+export JAVA_HOME="$($bazel_bin info java-home)"
+export PATH="${JAVA_HOME}/bin:$PATH"
 exec $bazel_bin --nohome_rc --nosystem_rc --bazelrc=$TEST_TMPDIR/bazelrc "$@"
