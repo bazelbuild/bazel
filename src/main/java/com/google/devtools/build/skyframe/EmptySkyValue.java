@@ -23,5 +23,5 @@ public final class EmptySkyValue implements SkyValue {
 
   @SerializationConstant public static final EmptySkyValue INSTANCE = new EmptySkyValue();
 
-  private EmptySkyValue() {}
+  public EmptySkyValue() {}
 }

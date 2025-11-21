@@ -280,7 +280,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
             // TODO(https://github.com/bazelbuild/bazel/issues/23852): support
             // PackagePieceValue.ForMacro.
-            if (e.isDone() && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
+            if (e.getValueMaybeWithMetadata() != IncrementalInMemoryNodeEntry.CLEARED_SKY_VALUE
+                && e.isDone()
+                && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
               weakInternPackageTargetsLabels((PackageoidValue) e.toValue());
             }
 

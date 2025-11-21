@@ -29,6 +29,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -36,11 +37,14 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
@@ -61,6 +65,7 @@ import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -106,6 +111,52 @@ public final class FrontierSerializer {
     } else {
       selectedKeys = computeFullSelection(graph);
     }
+    // The following block of code exists to reduce peak heap usage during serialization. Some
+    // ActionLookupValues can be cleared as well as most PackageValues. We must do this in two
+    // passes over the graph because we must first find out all the package identifiers of selected
+    // ConfiguredTargetValues.
+    Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
+    graph.parallelForEach(
+        node -> {
+          if (!(node.getKey() instanceof ActionLookupKey key)) {
+            return;
+          }
+          SkyValue value = node.getValue();
+          if (selectedKeys.contains(key)) {
+            // An ActionLookupKey can point to ActionLookupValues or ConfiguredTargetValues.
+            // If the key is selected, we must retain the value. If it's a ConfiguredTargetValue,
+            // we also record its package to prevent clearing the corresponding PackageValue later.
+            if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+              Label label =
+                  (configuredTargetValue.getConfiguredTarget()
+                          instanceof AliasConfiguredTarget alias)
+                      ? alias.getLabel()
+                      : key.getLabel();
+              packageIdentifierSet.add(label.getPackageIdentifier());
+            }
+          } else {
+            // If the ActionLookupKey is NOT selected, its value is not needed for serialization.
+            // We can clear both ActionLookupValues and ConfiguredTargetValues associated with
+            // unselected keys to reduce peak heap usage, except for InputFileConfiguredTargets.
+            boolean isInputConfiguredTarget =
+                (value instanceof ConfiguredTargetValue ctv)
+                    && (ctv.getConfiguredTarget() instanceof InputFileConfiguredTarget);
+            if (!isInputConfiguredTarget) {
+              ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+            }
+          }
+        });
+    // We can clear the values of PackageIdentifier nodes whose package we have not seen in any
+    // selected ConfiguredTargetValues.
+    graph.parallelForEach(
+        node -> {
+          if (node.getKey() instanceof PackageIdentifier key) {
+            if (!packageIdentifierSet.contains(key)) {
+              var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
+              incrementalInMemoryNodeEntry.clearSkyValue();
+            }
+          }
+        });
 
     reporter.handle(
         Event.info(
