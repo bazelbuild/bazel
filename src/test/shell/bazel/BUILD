@@ -295,6 +295,7 @@ sh_test(
 sh_test(
     name = "bazel_java_tools_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_java_tools_test.sh"],
     data = [
         ":test-deps",
