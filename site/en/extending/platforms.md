@@ -22,15 +22,15 @@ build for, which machines should run compile and test actions, and which
 [toolchains](/extending/toolchains) build actions should compile with.
 
 Developers can also use constraints to [select](/docs/configurable-attributes)
-custom properties or dependencies on their build rules. For example: "use
-`src_arm.cc` when the build targets an Arm machine". 
+custom properties or dependencies on their build rules. For example: "*use
+`src_arm.cc` when the build targets an Arm machine*". 
 
 ## Platform types
 Bazel recognizes three roles a platform may play:
 
-*  **Host** - the platform on which Bazel itself runs.
-*  **Execution** - a platform which runs compile actions to produce build outputs.
-*  **Target** - a platform the code being built is intended to run on.
+*  **Host** - The platform on which Bazel itself runs.
+*  **Execution** - A platform which runs compile actions to produce build outputs.
+*  **Target** - A platform the code being built should run on.
 
 Note: Builds only have one host platform, but often have multiple execution and
 target platforms. For example, both remote Linux CI machihes and developer Macs
@@ -53,9 +53,9 @@ Builds generally have three kinds of relationships to platforms:
 
 ## Specifying platforms
 The most common way for developers to use platforms is to specify desired
-target machines with the`--platforms` flag:
+target machines with the `--platforms` flag:
 
-```sh
+```shell
 $ bazel build //:my_linux_app --platforms=//myplatforms:linux_x86
 ```
 
@@ -75,7 +75,7 @@ systems. These are all defined in
 
 Bazel ships with the following special platform definition:
 `@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This auto-detects
-the OS and CPU properties of teh machine Bazel runs on.
+the OS and CPU properties of the machine Bazel runs on.
 
 ## Defining constraints {:#constraints}
 Constraints are modeled with the [`constraint_setting`][constraint_setting] and
