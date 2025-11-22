@@ -5,127 +5,128 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
+## Intro
 Bazel can build and test code on a variety of hardware, operating systems, and
-system configurations, using many different versions of build tools such as
-linkers and compilers. To help manage this complexity, Bazel has a concept of
-*constraints* and *platforms*. A constraint is a dimension in which build or
-production environments may differ, such as CPU architecture, the presence or
-absence of a GPU, or the version of a system-installed compiler. A platform is a
-named collection of choices for these constraints, representing the particular
-resources that are available in some environment.
+system configurations. This can involve different versions of build tools like
+linkers and compilers. To help manage this complexity, Bazel has the concepts
+of *constraints* and *platforms*.
 
-Modeling the environment as a platform helps Bazel to automatically select the
-appropriate
-[toolchains](/extending/toolchains)
-for build actions. Platforms can also be used in combination with the
-[config_setting](/reference/be/general#config_setting)
-rule to write [configurable attributes](/docs/configurable-attributes).
+A *constraint* is a distinguishing property of a build or production machine.
+Common constraints are CPU architecture, presence of absence of a GPU, or
+version of a locally installed compiler. But constraints can be *anything* that
+meaningfully distinguishes machines when orchestrating build work.
 
-Bazel recognizes three roles that a platform may serve:
+A *platform* is a collection of constraints that specifies a complete machine.
+Bazel uses this concept to let developers choose which machines they want to
+build for, which machines should run compile and test actions, and which
+[toolchains](/extending/toolchains) build actions should compile with.
+
+Developers can also use constraints to [select](/docs/configurable-attributes)
+custom properties or dependencies on their build rules. For example: "use
+`src_arm.cc` when the build targets an Arm machine". 
+
+## Platform types
+Bazel recognizes three roles a platform may play:
 
 *  **Host** - the platform on which Bazel itself runs.
-*  **Execution** - a platform on which build tools execute build actions to
-   produce intermediate and final outputs.
-*  **Target** - a platform on which a final output resides and executes.
+*  **Execution** - a platform which runs compile actions to produce build outputs.
+*  **Target** - a platform the code being built is intended to run on.
 
-Bazel supports the following build scenarios regarding platforms:
+Note: Builds only have one host platform, but often have multiple execution and
+target platforms. For example, both remote Linux CI machihes and developer Macs
+may run build actions. And mobile apps have code for multiple phone types and
+hardware extensions.
 
-*  **Single-platform builds** (default) - host, execution, and target platforms
-   are the same. For example, building a Linux executable on Ubuntu running on
-   an Intel x64 CPU.
+Builds generally have three kinds of relationships to platforms:
 
-*  **Cross-compilation builds** - host and execution platforms are the same, but
-   the target platform is different. For example, building an iOS app on macOS
-   running on a MacBook Pro.
+*  **Single-platform builds** - Host, execution, and target platforms are the
+   same. For example, building on a developer machine without remote execution,
+   then running the built binary on the same machine.
 
-*  **Multi-platform builds** - host, execution, and target platforms are all
-   different.
+*  **Cross-compilation builds** - Host and execution platforms are the same,
+   but the target platform is different. For example, building an iOS app on a
+   Macbook Pro without remote execution.
 
-Tip: for detailed instructions on migrating your project to platforms, see
-[Migrating to Platforms](/concepts/platforms).
+*  **Multi-platform builds** - Host, execution, and target platforms are all
+   different. For example, building an iOS app on a Macbook Pro and using remote
+   Linux machines to compile C++ actions that don't need Xcode.
 
-## Defining constraints and platforms {:#constraints-platforms}
+## Specifying platforms
+The most common way for developers to use platforms is to specify desired
+target machines with the`--platforms` flag:
 
-The space of possible choices for platforms is defined by using the
-[`constraint_setting`][constraint_setting] and
-[`constraint_value`][constraint_value] rules within `BUILD` files.
-`constraint_setting` creates a new dimension, while
-`constraint_value` creates a new value for a given dimension; together they
-effectively define an enum and its possible values. For example, the following
-snippet of a `BUILD` file introduces a constraint for the system's glibc version
-with two possible values.
-
-[constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
-[constraint_value]: /reference/be/platforms-and-toolchains#constraint_value
-
-```python
-constraint_setting(name = "glibc_version")
-
-constraint_value(
-    name = "glibc_2_25",
-    constraint_setting = ":glibc_version",
-)
-
-constraint_value(
-    name = "glibc_2_26",
-    constraint_setting = ":glibc_version",
-)
+```sh
+$ bazel build //:my_linux_app --platforms=//myplatforms:linux_x86
 ```
 
-Constraints and their values may be defined across different packages in the
-workspace. They are referenced by label and subject to the usual visibility
-controls. If visibility allows, you can extend an existing constraint setting by
-defining your own value for it.
+Organizations generally maintain their own platform definitions because build
+machine setups vary between organizations.
 
-The [`platform`](/reference/be/platforms-and-toolchains#platform) rule introduces a new platform with
-certain choices of constraint values. The
-following creates a platform named `linux_x86`, and says that it describes any
-environment that runs a Linux operating system on an x86_64 architecture with a
-glibc version of 2.25. (See below for more on Bazel's built-in constraints.)
-
-```python
-platform(
-    name = "linux_x86",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-        ":glibc_2_25",
-    ],
-)
-```
-
-Note: It is an error for a platform to specify more than one value of the
-same constraint setting, such as `@platforms//cpu:x86_64` and
-`@platforms//cpu:arm` for `@platforms//cpu:cpu`.
+When `--platforms` isn't set, it defaults to `@platforms//host`. This is
+specially defined to auto-detect the host machine's OS and CPU properties so
+builds target the same machine Bazel runs on. Build rules can [select](/docs/configurable-attributes) on these properties with the [@platforms/os](https://github.com/bazelbuild/platforms/blob/main/os/BUILD) and [@platforms/cpu](https://github.com/bazelbuild/platforms/blob/main/cpu/BUILD) constraints.
 
 ## Generally useful constraints and platforms {:#useful-constraints-platforms}
 
 To keep the ecosystem consistent, Bazel team maintains a repository with
 constraint definitions for the most popular CPU architectures and operating
-systems. These are all located in
+systems. These are all defined in
 [https://github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms){: .external}.
 
 Bazel ships with the following special platform definition:
-`@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This is the
-autodetected host platform value -
-represents autodetected platform for the system Bazel is running on.
+`@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This auto-detects
+the OS and CPU properties of teh machine Bazel runs on.
 
-## Specifying a platform for a build {:#specifying-build-platform}
+## Defining constraints {:#constraints}
+Constraints are modeled with the [`constraint_setting`][constraint_setting] and
+[`constraint_value`][constraint_value] build rules.
 
-You can specify the host and target platforms for a build using the following
-command-line flags:
+[constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
+[constraint_value]: /reference/be/platforms-and-toolchains#constraint_value
 
-*  `--host_platform` - defaults to `@bazel_tools//tools:host_platform`
-   *  This target is aliased to `@platforms//host`, which is backed by a repo
-      rule that detects the host OS and CPU and writes the platform target.
-   *  There's also `@platforms//host:constraints.bzl`, which exposes
-      an array called `HOST_CONSTRAINTS`, which can be used in other BUILD and
-      Starlark files.
-*  `--platforms` - defaults to the host platform
-   *  This means that when no other flags are set,
-      `@platforms//host` is the target platform.
-   *  If `--host_platform` is set and not `--platforms`, the value of
-      `--host_platform` is both the host and target platform.
+`constraint_setting` declares a tyoe of property. For example:
+
+```python
+constraint_setting(name = "cpu")
+```
+
+`constraint_value` declares a poossible value for that property:
+
+```python
+constraint_value(
+    name = "x86",
+    constraint_setting = ":cpu"
+)
+```
+
+These can be referenced as labels when defining platforms or customizing build rules
+on them. If the above examples are defined in `cpu_defs/BUILD`, you can reference
+the `x86` constraint as `//cpus:x86`.
+
+If visibility allows, you can extend an existing `constraint_setting` by
+defining your own value for it.
+
+## Defining platforms {:#platforms}
+The [`platform`](/reference/be/platforms-and-toolchains#platform) build rule
+defines a platform as a collection of `constraint_value`s:
+
+```python
+platform(
+    name = "linux_x86",
+    constraint_values = [
+        "//oses:linux",
+        "//cpus:x86",
+    ],
+)
+```
+
+This models a machine that must have both the `//oses:linux` and `//cpus:x8t`
+constraints.
+
+Platforms may only have one `constraint_value` for a given `constraint_setting`.
+This means, for example, a platform can't have two CPUs unless you create another
+`constraint_setting` type to model the second value.
+
 
 ## Skipping incompatible targets {:#skipping-incompatible-targets}
 
