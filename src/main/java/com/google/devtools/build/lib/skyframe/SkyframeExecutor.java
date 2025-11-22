@@ -3312,6 +3312,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
+        ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
+        for (String flag : flagAliases.keySet()) {
+            aliasesMap.put(flag, flagAliases.get(flag));
+        }
     // for (var module : bzlmodDepGraph.values()) {
         if (!module.getKey().name().equals("rules_python")) {
             continue;
@@ -3322,12 +3326,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         if (module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) < 0
                 && module.getValue().getVersion().toString().startsWith("1.")) {
             continue;
-        }
-
-        ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-
-        for (String flag : flagAliases.keySet()) {
-            aliasesMap.put(flag, flagAliases.get(flag));
         }
 
         if (ensurePyAliases) {
