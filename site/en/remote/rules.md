@@ -168,7 +168,7 @@ To more easily generate pre-checked artifacts for remote execution, you can use
 execution environment, such as inside each toolchain container, and check the
 outputs of your remote execution build in to your source repo to reference.
 
-For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/gpus/cuda_configure.bzl){: .external}
+For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/xla/third_party/gpus/cuda_configure.bzl){: .external}
 and [`python`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl){: .external},
 the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/third_party/toolchains/cpus/py){: .external}.
 For local execution, files produced by checking the host environment are used.
