@@ -238,7 +238,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
-  def testBifurcatedDynamicDep(self):
+  def testRecordedInputs_differentValues(self):
     platform_file = self.ScratchFile('platform.txt')
 
     self.ScratchFile(
@@ -267,7 +267,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         'def _platform_dependent_repo_impl(rctx):',
         '  rctx.file("BUILD")',
         '  print("DETERMINING PLATFORM")',
-        '  platform = rctx.read(rctx.path("%s"))' % platform_file,
+        '  platform = rctx.read(rctx.path("%s"))' % platform_file.replace('\\', '\\\\'),
         '  rctx.file("data.txt", platform)',
         'platform_dependent_repo = repository_rule(_platform_dependent_repo_impl)',
       ],
