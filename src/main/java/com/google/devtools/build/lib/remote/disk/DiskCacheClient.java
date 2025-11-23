@@ -307,7 +307,8 @@ public class DiskCacheClient {
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
-    if (refresh(path)) {
+    // AC entries can be overwritten as they are not content-addressed.
+    if (refresh(path) && store == Store.CAS) {
       return;
     }
 
