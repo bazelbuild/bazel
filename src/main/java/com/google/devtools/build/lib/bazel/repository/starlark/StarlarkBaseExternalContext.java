@@ -166,12 +166,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
   protected final String identifyingStringForLogging;
+  protected final Label.RepoMappingRecorder repoMappingRecorder;
   private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
   private final ExecutorService executorService;
-  private final Label.RepoMappingRecorder repoMappingRecorder;
 
   private boolean wasSuccessful = false;
 
@@ -247,11 +247,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public Label.RepoMappingRecorder getRepoMappingRecorder() {
-    return repoMappingRecorder;
+  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
+    repoMappingRecorder.storeInThread(thread);
   }
 
-  public void recordInput(RepoRecordedInput input, @Nullable String value) {
+  protected void recordInput(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"

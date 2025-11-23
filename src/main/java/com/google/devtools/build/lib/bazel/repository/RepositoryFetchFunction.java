@@ -621,7 +621,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               "repository " + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
               SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      starlarkRepositoryContext.getRepoMappingRecorder().storeInThread(thread);
+      starlarkRepositoryContext.storeRepoMappingRecorderInThread(thread);
 
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.

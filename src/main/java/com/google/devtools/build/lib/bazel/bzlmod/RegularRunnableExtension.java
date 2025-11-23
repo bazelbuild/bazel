@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -281,7 +280,7 @@ final class RegularRunnableExtension implements RunnableExtension {
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      moduleContext.getRepoMappingRecorder().storeInThread(thread);
+      moduleContext.storeRepoMappingRecorderInThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
@@ -353,25 +352,21 @@ final class RegularRunnableExtension implements RunnableExtension {
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
         rootUsage != null && rootUsage.getHasNonDevUseExtension();
-    var context =
-        new ModuleExtensionContext(
-            workingDirectory,
-            directories,
-            env,
-            repoEnvironmentSupplier.get(),clientEnvironmentSupplier.get(),
-            downloadManager,
-            timeoutScaling,
-            processWrapper,
-            starlarkSemantics,
-            repositoryRemoteExecutor,
-            extensionId,
-            StarlarkList.immutableCopyOf(modules),
-            facts,
-            rootModuleHasNonDevDependency);
-    // Record inputs to the extension that are known prior to evaluation.
-    RepoRecordedInput.EnvVar.wrap(staticEnvVars)
-        .forEach((input, value) -> context.recordInput(input, value.orElse(null)));
-    context.getRepoMappingRecorder().record(staticRepoMappingRecorder.recordedEntries());
-    return context;
+    return new ModuleExtensionContext(
+        workingDirectory,
+        directories,
+        env,
+        repoEnvironmentSupplier.get(),clientEnvironmentSupplier.get(),
+        downloadManager,
+        timeoutScaling,
+        processWrapper,
+        starlarkSemantics,
+        repositoryRemoteExecutor,
+        extensionId,
+        StarlarkList.immutableCopyOf(modules),
+        facts,
+        rootModuleHasNonDevDependency,
+        staticEnvVars,
+        staticRepoMappingRecorder.recordedEntries());
   }
 }
