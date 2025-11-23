@@ -324,12 +324,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return Futures.transformAsync(
         currentInputsFuture,
         currentInputsString -> {
-          var newInputsString =
-              Stream.concat(Stream.of(input.toString()), currentInputsString.lines())
-                  .filter(line -> !line.isEmpty())
-                  .sorted()
-                  .distinct()
-                  .collect(joining("\n"));
+          var newInputString = input.toString();
+          if (currentInputsString.lines().anyMatch(newInputString::equals)) {
+            return immediateFuture(null);
+          }
+          // Add the new input to the top so that the most recently added inputs stay at the top.
+          var newInputsString = newInputString + '\n' + currentInputsString;
           var stdoutBytes = getInternalStringBytes(newInputsString);
           var stdoutDigest = digestUtil.compute(stdoutBytes);
           var actionResult =
