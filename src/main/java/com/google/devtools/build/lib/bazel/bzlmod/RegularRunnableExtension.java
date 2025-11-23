@@ -207,11 +207,6 @@ final class RegularRunnableExtension implements RunnableExtension {
   }
 
   @Override
-  public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
-    return staticEnvVars;
-  }
-
-  @Override
   public byte[] getBzlTransitiveDigest() {
     return BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
   }
@@ -286,14 +281,7 @@ final class RegularRunnableExtension implements RunnableExtension {
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
-      // apparent repo names to canonical repo names. See #20721 for why this is necessary.
-      thread.setThreadLocal(
-          Label.RepoMappingRecorder.class,
-          (fromRepo, apparentRepoName, canonicalRepoName) ->
-              moduleContext.recordInput(
-                  new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
-                  canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null));
+      moduleContext.getRepoMappingRecorder().storeInThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
@@ -381,13 +369,9 @@ final class RegularRunnableExtension implements RunnableExtension {
             facts,
             rootModuleHasNonDevDependency);
     // Record inputs to the extension that are known prior to evaluation.
-    for (var cell : staticRepoMappingRecorder.recordedEntries().cellSet()) {
-      context.recordInput(
-          new RepoRecordedInput.RecordedRepoMapping(cell.getRowKey(), cell.getColumnKey()),
-          cell.getValue().getName());
-    }
-    RepoRecordedInput.EnvVar.wrap(getStaticEnvVars())
+    RepoRecordedInput.EnvVar.wrap(staticEnvVars)
         .forEach((input, value) -> context.recordInput(input, value.orElse(null)));
+    context.getRepoMappingRecorder().record(staticRepoMappingRecorder.recordedEntries());
     return context;
   }
 }

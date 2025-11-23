@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata.Reproducibility;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryContext;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDefinitionLocationEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -620,7 +621,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               "repository " + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
               SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      starlarkRepositoryContext.storeRepoMappingRecorderInThread(thread);
+      starlarkRepositoryContext.getRepoMappingRecorder().storeInThread(thread);
 
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.

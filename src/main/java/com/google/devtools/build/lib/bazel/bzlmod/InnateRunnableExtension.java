@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map.Entry;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -146,11 +145,6 @@ final class InnateRunnableExtension implements RunnableExtension {
   @Override
   public byte[] getBzlTransitiveDigest() {
     return loadedBzl.getTransitiveDigest();
-  }
-
-  @Override
-  public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
-    return ImmutableMap.of();
   }
 
   @Override

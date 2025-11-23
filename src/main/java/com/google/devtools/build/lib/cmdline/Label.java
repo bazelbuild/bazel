@@ -253,6 +253,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         record(cell.getRowKey(), cell.getColumnKey(), cell.getValue());
       }
     }
+
+    default void storeInThread(StarlarkThread thread) {
+      thread.setThreadLocal(RepoMappingRecorder.class, this);
+    }
   }
 
   /**

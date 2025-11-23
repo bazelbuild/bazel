@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -31,16 +30,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  *
  * <p>The general idiom is to "load" such a {@link RunnableExtension} object by getting as much
  * information about it as needed to determine whether it can be reused from the lockfile (hence
- * methods such as {@link #getEvalFactors()}, {@link #getBzlTransitiveDigest()}, {@link
- * #getStaticEnvVars()}). Then the {@link #run} method can be called if it's determined that we
- * can't reuse the cached results in the lockfile and have to re-run this extension.
+ * methods such as {@link #getEvalFactors()} and {@link #getBzlTransitiveDigest()}). Then the {@link
+ * #run} method can be called if it's determined that we can't reuse the cached results in the
+ * lockfile and have to re-run this extension.
  */
 interface RunnableExtension {
   ModuleExtensionEvalFactors getEvalFactors();
 
   byte[] getBzlTransitiveDigest();
-
-  ImmutableMap<String, Optional<String>> getStaticEnvVars();
 
   /** Runs the extension. Returns null if a Skyframe restart is required. */
   @Nullable

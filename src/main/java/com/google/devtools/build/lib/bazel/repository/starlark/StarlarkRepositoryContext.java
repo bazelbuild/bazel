@@ -76,7 +76,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final PathPackageLocator packageLocator;
   private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
-  private final Label.RepoMappingRecorder repoMappingRecorder;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -116,20 +115,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.packageLocator = packageLocator;
     this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
-    this.repoMappingRecorder =
-        (fromRepo, apparentRepoName, canonicalRepoName) ->
-            recordInput(
-                new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
-                canonicalRepoName.getName());
   }
 
   @Override
   protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     return !successful;
-  }
-
-  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
-    thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
   }
 
   @StarlarkMethod(

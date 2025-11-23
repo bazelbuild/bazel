@@ -171,6 +171,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
   private final ExecutorService executorService;
+  private final Label.RepoMappingRecorder repoMappingRecorder;
 
   private boolean wasSuccessful = false;
 
@@ -207,6 +208,13 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             Thread.ofVirtual()
                 .name("downloads[" + identifyingStringForLogging + "]-", 0)
                 .factory());
+    // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
+    // apparent repo names to canonical repo names. See #20721 for why this is necessary.
+    this.repoMappingRecorder =
+        (fromRepo, apparentRepoName, canonicalRepoName) ->
+            recordInput(
+                new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
+                canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
   }
 
   /**
@@ -237,6 +245,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       throw Starlark.errorf(
           "Pending asynchronous work after %s finished execution", identifyingStringForLogging);
     }
+  }
+
+  public Label.RepoMappingRecorder getRepoMappingRecorder() {
+    return repoMappingRecorder;
   }
 
   public void recordInput(RepoRecordedInput input, @Nullable String value) {
