@@ -3313,9 +3313,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
         ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-        for (String flag : flagAliases.keySet()) {
-            aliasesMap.put(flag, flagAliases.get(flag));
-        }
+        aliasesMap.putAll(flagAliases);
 
         if (!module.getKey().name().equals("rules_python")) {
             continue;
@@ -3324,7 +3322,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Don't set flag aliases for old rules_python versions that start with "1.". But support
         // aliases for versions like "0.0.0" which represent unreleased development repos.
         if (module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) < 0
-                && module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases > 1.6) {
+                && module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0) {
             continue;
         }
 
