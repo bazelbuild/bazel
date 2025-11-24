@@ -2291,6 +2291,15 @@ EOF
   bazel clean || fail "Expected clean success"
   bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
   expect_log "17 disk cache hit"
+
+  # Test with two-phase compilation. enable the following tests after rules_cc updated.
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --features=cpp_modules_with_two_phase_compilation --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  # Verify that the build can hit the cache without action cycles.
+  bazel clean || fail "Expected clean success"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --features=cpp_modules_with_two_phase_compilation --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  # 3 module interfaces. 17 + 3 = 20
+  expect_log "20 disk cache hit"
 }
 
 function test_external_repo_lto() {

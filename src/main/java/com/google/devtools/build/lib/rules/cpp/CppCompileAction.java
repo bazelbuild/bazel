@@ -664,11 +664,23 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         // This is necessary because the inputs that can be pruned by .d file parsing must be
         // returned from discoverInputs() and they cannot be in mandatoryInputs. Thus, even with
         // include scanning turned off, we pretend that we "discover" these headers.
-        additionalInputs =
-            NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
-                .addTransitive(additionalPrunableHeaders)
-                .addAll(usedCpp20Modules)
-                .build();
+
+        // Support C++20 Modules with two-phase compilation
+        // For compiling C++20 Modules files to object files (.pcm -> .o) 
+        // headers are not needed as the module interface is already compiled into the pcm file.
+        if (actionName.equals(CppActionNames.CPP20_MODULE_CODEGEN)) {
+          additionalInputs =
+              NestedSetBuilder.<Artifact>stableOrder()
+                  .addAll(usedCpp20Modules)
+                  .build();
+        }
+        else {
+          additionalInputs =
+              NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+                  .addTransitive(additionalPrunableHeaders)
+                  .addAll(usedCpp20Modules)
+                  .build();
+        }
         if (needsIncludeValidation) {
           verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
         }
@@ -1557,6 +1569,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     if (getDotdFile() == null) {
+      if (discoversInputs() && isCpp20ModuleCompilationAction(actionName) && usedCpp20Modules != null) {
+        NestedSet<Artifact> discoveredInputs = NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(usedCpp20Modules)
+            .build();
+        updateActionInputs(discoveredInputs);
+      }
       return ActionResult.create(spawnResults);
     }
 

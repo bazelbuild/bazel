@@ -66,6 +66,8 @@ public enum CompileBuildVariables {
   CPP_MODULE_MODMAP_FILE("cpp_module_modmap_file"),
   /** Variable for the c++20 module output file name. */
   CPP_MODULE_OUTPUT_FILE("cpp_module_output_file"),
+  /** Variable for the c++20 module with 2-phase compilation. */
+  CPP_MODULES_WITH_TWO_PHASE_COMPILATION("cpp_modules_with_two_phase_compilation"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
   /** Variable for the dependent module map file name. */
