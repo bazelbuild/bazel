@@ -637,6 +637,233 @@ def _create_gen_modmap_action(
         toolchain = None,
     )
 
+def _create_compile_module_interface_to_module_file_only_action(
+        *,
+        action_construction_context,
+        cc_compilation_context,
+        label,
+        source_label,
+        source_artifact,
+        output_name,
+        cc_toolchain,
+        feature_configuration,
+        configuration,
+        cpp_configuration,
+        language,
+        conlyopts,
+        copts,
+        cxxopts,
+        copts_filter,
+        common_compile_variables,
+        fdo_build_variables,
+        cpp_module_map,
+        enable_coverage,
+        additional_include_scanning_roots,
+        use_pic,
+        output_file,
+        additional_build_variables = {},
+        action_name = None,
+        additional_outputs = [],
+        module_files = depset(),
+        modmap_file = None,
+        modmap_input_file = None):
+    output_pic_nopic_name = output_name
+    if use_pic:
+        output_pic_nopic_name = _cc_internal.get_artifact_name_for_category(
+            cc_toolchain = cc_toolchain,
+            category = artifact_category.PIC_FILE,
+            output_name = output_name,
+        )
+    dotd_file = _maybe_declare_dotd_file(
+        ctx = action_construction_context,
+        label = label,
+        source_artifact = source_artifact,
+        category = artifact_category.CPP_MODULE,
+        output_name = output_pic_nopic_name,
+        cc_toolchain = cc_toolchain,
+        language = language,
+        configuration = configuration,
+        feature_configuration = feature_configuration,
+    )
+    complete_copts = get_copts(
+        language = language,
+        cpp_configuration = cpp_configuration,
+        source_file = source_artifact,
+        copts = copts,
+        conlyopts = conlyopts,
+        cxxopts = cxxopts,
+        label = source_label,
+        # Treat C++20 module interfaces as C++ source files regardless of their extension.
+        override_extension = extensions.CC_SOURCE[0],
+    )
+    compile_variables = get_specific_compile_build_variables(
+        source_file = source_artifact,
+        output_file = output_file,
+        code_coverage_enabled = enable_coverage,
+        gcno_file = None,
+        dwo_file = None,
+        using_fission = False,
+        lto_indexing_file = None,
+        user_compile_flags = complete_copts,
+        dotd_file = dotd_file,
+        diagnostics_file = None,
+        use_pic = use_pic,
+        cpp_module_map = cpp_module_map,
+        feature_configuration = feature_configuration,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
+        fdo_build_variables = fdo_build_variables,
+        additional_build_variables = additional_build_variables,
+    )
+    module_args = {
+        "additional_outputs": additional_outputs,
+        "module_files": module_files,
+        "modmap_file": modmap_file,
+        "modmap_input_file": modmap_input_file,
+    }
+    _cc_internal.create_cc_compile_action(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        copts_filter = copts_filter,
+        feature_configuration = feature_configuration,
+        additional_include_scanning_roots = additional_include_scanning_roots,
+        source = source_artifact,
+        output_file = output_file,
+        diagnostics_file = None,
+        dotd_file = dotd_file,
+        gcno_file = None,
+        dwo_file = None,
+        use_pic = use_pic,
+        lto_indexing_file = None,
+        action_name = action_name,
+        compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
+            common_compile_variables,
+            compile_variables,
+        ),
+        needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+        toolchain_type = _starlark_cc_semantics.toolchain,
+        **module_args
+    )
+
+def _create_compile_module_interface_action(
+        *,
+        action_construction_context,
+        cc_compilation_context,
+        label,
+        source_label,
+        source_artifact,
+        output_name,
+        outputs,
+        cc_toolchain,
+        feature_configuration,
+        configuration,
+        cpp_configuration,
+        language,
+        conlyopts,
+        copts,
+        cxxopts,
+        copts_filter,
+        common_compile_variables,
+        fdo_build_variables,
+        output_category,
+        cpp_module_map,
+        add_object,
+        enable_coverage,
+        generate_dwo,
+        bitcode_output,
+        fdo_context,
+        auxiliary_fdo_inputs,
+        additional_compilation_inputs,
+        additional_include_scanning_roots,
+        use_pic,
+        module_files,
+        modmap_file,
+        modmap_input_file,
+        module_file):
+    additional_build_variables = {
+        "cpp_module_modmap_file": modmap_file,
+    }
+    additional_outputs = []
+    current_action_name = ACTION_NAMES.cpp20_module_compile
+    action_source_artifact = source_artifact
+    if feature_configuration.is_enabled("cpp_modules_with_two_phase_compilation"):
+        additional_build_variables["cpp_modules_with_two_phase_compilation"] = "1"
+        additional_outputs = [module_file]
+        _create_compile_module_interface_to_module_file_only_action(
+            action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
+            label = label,
+            source_label = source_label,
+            source_artifact = action_source_artifact,
+            output_name = output_name,
+            cc_toolchain = cc_toolchain,
+            feature_configuration = feature_configuration,
+            configuration = configuration,
+            cpp_configuration = cpp_configuration,
+            language = language,
+            conlyopts = conlyopts,
+            copts = copts,
+            cxxopts = cxxopts,
+            copts_filter = copts_filter,
+            common_compile_variables = common_compile_variables,
+            fdo_build_variables = fdo_build_variables,
+            enable_coverage = enable_coverage,
+            cpp_module_map = cpp_module_map,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+            use_pic = use_pic,
+            additional_build_variables = additional_build_variables,
+            action_name = current_action_name,
+            additional_outputs = additional_outputs,
+            module_files = module_files,
+            modmap_file = modmap_file,
+            modmap_input_file = modmap_input_file,
+            output_file = module_file,
+        )
+        current_action_name = ACTION_NAMES.cpp20_module_codegen
+        action_source_artifact = module_file
+        additional_outputs = []
+    else:
+        additional_build_variables["cpp_module_output_file"] = module_file
+        additional_outputs = [module_file]
+    _create_compile_source_action(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        label = label,
+        source_label = source_label,
+        source_artifact = action_source_artifact,
+        output_name = output_name,
+        outputs = outputs,
+        cc_toolchain = cc_toolchain,
+        feature_configuration = feature_configuration,
+        configuration = configuration,
+        cpp_configuration = cpp_configuration,
+        language = language,
+        conlyopts = conlyopts,
+        copts = copts,
+        cxxopts = cxxopts,
+        copts_filter = copts_filter,
+        common_compile_variables = common_compile_variables,
+        fdo_build_variables = fdo_build_variables,
+        output_category = output_category,
+        cpp_module_map = cpp_module_map,
+        add_object = add_object,
+        enable_coverage = enable_coverage,
+        generate_dwo = generate_dwo,
+        bitcode_output = bitcode_output,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        additional_compilation_inputs = additional_compilation_inputs,
+        additional_include_scanning_roots = additional_include_scanning_roots,
+        use_pic = use_pic,
+        additional_build_variables = additional_build_variables,
+        action_name = current_action_name,
+        additional_outputs = additional_outputs,
+        module_files = module_files,
+        modmap_file = modmap_file,
+        modmap_input_file = modmap_input_file,
+    )
+
 def _create_cc_compile_actions_with_cpp20_module_helper(
         *,
         actions,
@@ -813,7 +1040,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         )
         compiled_basenames.add(_basename_without_extension(source_artifact))
 
-        _create_compile_source_action(
+        _create_compile_module_interface_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             label = label,
@@ -843,15 +1070,10 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
             use_pic = use_pic,
-            additional_build_variables = {
-                "cpp_module_output_file": module_file,
-                "cpp_module_modmap_file": modmap_file,
-            },
-            action_name = ACTION_NAMES.cpp20_module_compile,
-            additional_outputs = [module_file],
             module_files = all_other_module_files,
             modmap_file = modmap_file,
             modmap_input_file = modmap_input_file,
+            module_file = module_file,
         )
 
     all_module_files = depset(direct_module_files, transitive = [transitive_module_files])
