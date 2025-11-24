@@ -3316,7 +3316,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         for (String flag : flagAliases.keySet()) {
             aliasesMap.put(flag, flagAliases.get(flag));
         }
-    // for (var module : bzlmodDepGraph.values()) {
+
         if (!module.getKey().name().equals("rules_python")) {
             continue;
         }
