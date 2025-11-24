@@ -190,6 +190,39 @@ public abstract sealed class RepoRecordedInput {
   @Override
   public abstract int hashCode();
 
+  @VisibleForTesting
+  static String escape(String str) {
+    return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
+  }
+
+  @VisibleForTesting
+  @Nullable
+  static String unescape(String str) {
+    if (str.equals("\\0")) {
+      return null; // \0 == null string
+    }
+    StringBuilder result = new StringBuilder();
+    boolean escaped = false;
+    for (int i = 0; i < str.length(); i++) {
+      char c = str.charAt(i);
+      if (escaped) {
+        if (c == 'n') { // n means new line
+          result.append("\n");
+        } else if (c == 's') { // s means space
+          result.append(" ");
+        } else { // Any other escaped characters are just un-escaped
+          result.append(c);
+        }
+        escaped = false;
+      } else if (c == '\\') {
+        escaped = true;
+      } else {
+        result.append(c);
+      }
+    }
+    return result.toString();
+  }
+
   /**
    * Returns the string representation of this recorded input, in the format suitable for parsing
    * back via {@link #parse}.
@@ -227,41 +260,6 @@ public abstract sealed class RepoRecordedInput {
     String unwrap() throws IOException;
   }
 
-  @VisibleForTesting
-  static String escape(String str) {
-    return str == null
-        ? "\\0"
-        : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-  }
-
-  @VisibleForTesting
-  @Nullable
-  static String unescape(String str) {
-    if (str.equals("\\0")) {
-      return null; // \0 == null string
-    }
-    StringBuilder result = new StringBuilder();
-    boolean escaped = false;
-    for (int i = 0; i < str.length(); i++) {
-      char c = str.charAt(i);
-      if (escaped) {
-        if (c == 'n') { // n means new line
-          result.append("\n");
-        } else if (c == 's') { // s means space
-          result.append(" ");
-        } else { // Any other escaped characters are just un-escaped
-          result.append(c);
-        }
-        escaped = false;
-      } else if (c == '\\') {
-        escaped = true;
-      } else {
-        result.append(c);
-      }
-    }
-    return result.toString();
-  }
-
   /**
    * Returns the current value of this input, which may be null, or an empty Optional if the value
    * is known to be invalid.
@@ -289,6 +287,12 @@ public abstract sealed class RepoRecordedInput {
 
   /** Returns the {@link SkyKey} that is necessary to determine {@link #isOutdated}. */
   protected abstract SkyKey getSkyKey(BlazeDirectories directories);
+
+  /**
+   * Returns true if the {@link #getValue} can be requested even if previous recorded inputs have
+   * not been verified to be up to date.
+   */
+  public abstract boolean canBeRequestedUnconditionally();
 
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
 
@@ -455,6 +459,13 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean canBeRequestedUnconditionally() {
+      // Requesting files in external repositories can result in cycles if the external repo now
+      // transitively depends on the requesting repo.
+      return path.repoName().isEmpty();
+    }
+
+    @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
@@ -544,6 +555,13 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean canBeRequestedUnconditionally() {
+      // Requesting directories in external repositories can result in cycles if the external repo
+      // transitively depends on the requesting repo.
+      return path.repoName().isEmpty();
+    }
+
+    @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
@@ -619,6 +637,13 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return DirectoryTreeDigestValue.key(path.getRootedPath(directories));
+    }
+
+    @Override
+    public boolean canBeRequestedUnconditionally() {
+      // Requesting directory trees in external repositories can result in cycles if the external
+      // repo now transitively depends on the requesting repo.
+      return path.repoName().isEmpty();
     }
 
     @Override
@@ -701,6 +726,13 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return ActionEnvironmentFunction.key(name);
+    }
+
+    @Override
+    public boolean canBeRequestedUnconditionally() {
+      // Environment variables are static data injected into Skyframe, so there is no risk of
+      // cycles.
+      return true;
     }
 
     @Override
@@ -793,6 +825,14 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public boolean canBeRequestedUnconditionally() {
+      // Starlark can only request the mapping of the repo it is currently executing from, which
+      // means that the repo has already been fetched (either to execute the code or to verify the
+      // transitive .bzl hash). Further cycles aren't possible.
+      return true;
+    }
+
+    @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var repoMappingValue = (RepositoryMappingValue) env.getValue(getSkyKey(directories));
@@ -850,6 +890,11 @@ public abstract sealed class RepoRecordedInput {
     public SkyKey getSkyKey(BlazeDirectories directories) {
       // Return a random SkyKey to satisfy the contract.
       return PrecomputedValue.STARLARK_SEMANTICS.getKey();
+    }
+
+    @Override
+    public boolean canBeRequestedUnconditionally() {
+      return true;
     }
 
     @Override

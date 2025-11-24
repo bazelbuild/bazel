@@ -23,6 +23,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -33,6 +34,7 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -63,6 +65,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
@@ -149,15 +152,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
     }
-    List<RepoRecordedInput.WithValue> recordedInputs;
+    List<RepoRecordedInput.WithValue> recordedInputValues;
     try {
-      var maybeRecordedInputs =
+      var maybeRecordedInputValues =
           DigestWriter.readMarkerFile(
               FileSystemUtils.readContent(fetchedRepoMarkerFile, ISO_8859_1), predeclaredInputHash);
-      if (maybeRecordedInputs.isEmpty()) {
+      if (maybeRecordedInputValues.isEmpty()) {
         return;
       }
-      recordedInputs = maybeRecordedInputs.get();
+      recordedInputValues = maybeRecordedInputValues.get();
     } catch (IOException e) {
       reporter.handle(
           Event.warn(
@@ -168,7 +171,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     try {
       // TODO: Consider uploading asynchronously.
       var finalHash =
-          uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputs);
+          uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
       var action = buildAction(finalHash);
       var actionKey = new ActionKey(digestUtil.compute(action));
       var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
@@ -291,24 +294,48 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private String uploadIntermediateActionResults(
       RemoteActionExecutionContext context,
       String predeclaredInputHash,
-      List<RepoRecordedInput.WithValue> recordedInputs)
+      List<RepoRecordedInput.WithValue> recordedInputValues)
       throws IOException, InterruptedException {
     // The command is shared by all action results and small enough that FindMissingBlobs is not
     // worthwhile.
     waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
 
     String rollingHash = predeclaredInputHash;
-    var futures = new ArrayList<ListenableFuture<Void>>(1 + recordedInputs.size());
-    for (var inputWithValue : recordedInputs) {
-      futures.add(addToActionResult(context, buildAction(rollingHash), inputWithValue.input()));
-      rollingHash = rollForwardHash(rollingHash, inputWithValue);
+    var batches = splitInBatches(recordedInputValues);
+    var futures = new ArrayList<ListenableFuture<Void>>(batches.size());
+    for (var batch : batches) {
+      futures.add(
+          addToActionResult(
+              context,
+              buildAction(rollingHash),
+              Collections2.transform(batch, RepoRecordedInput.WithValue::input)));
+      for (var recordedInputValue : batch) {
+        rollingHash = rollForwardHash(rollingHash, recordedInputValue);
+      }
     }
     waitForBulkTransfer(futures);
     return rollingHash;
   }
 
+  private ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> splitInBatches(
+      List<RepoRecordedInput.WithValue> recordedInputValues) {
+    var batches = ImmutableList.<ImmutableList<RepoRecordedInput.WithValue>>builder();
+    var currentBatch = new ArrayList<RepoRecordedInput.WithValue>();
+    for (var recordedInputValue : recordedInputValues) {
+      if (!recordedInputValue.input().canBeRequestedUnconditionally() && !currentBatch.isEmpty()) {
+        batches.add(ImmutableList.copyOf(currentBatch));
+        currentBatch.clear();
+      }
+      currentBatch.add(recordedInputValue);
+    }
+    if (!currentBatch.isEmpty()) {
+      batches.add(ImmutableList.copyOf(currentBatch));
+    }
+    return batches.build();
+  }
+
   private ListenableFuture<Void> addToActionResult(
-      RemoteActionExecutionContext context, Action action, RepoRecordedInput input) {
+      RemoteActionExecutionContext context, Action action, Collection<RepoRecordedInput> input) {
     var actionKey = digestUtil.computeActionKey(action);
     var currentInputsFuture =
         Futures.transformAsync(
@@ -325,7 +352,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return Futures.transformAsync(
         currentInputsFuture,
         currentInputsString -> {
-          var newInputString = input.toString();
+          var newInputString =
+              input.stream().map(RepoRecordedInput::toString).sorted().collect(joining(" "));
           if (currentInputsString.lines().anyMatch(newInputString::equals)) {
             return immediateFuture(null);
           }
