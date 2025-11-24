@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
@@ -22,7 +23,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -32,6 +32,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -65,7 +66,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -90,6 +90,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final UUID GUID = UUID.fromString("f4a165a9-5557-45a7-bf25-230b6d42393a");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
+  private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
 
   private static final Command COMMAND =
       Command.newBuilder()
@@ -424,22 +425,38 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     var stdoutFuture = fetchStdout(context, actionResult);
     waitForBulkTransfer(ImmutableList.of(stdoutFuture));
     var nextInputs =
-        stdoutFuture.resultNow().lines().map(RepoRecordedInput::parse).collect(toImmutableSet());
-    RepoRecordedInput.prefetch(env, directories, nextInputs);
+        stdoutFuture
+            .resultNow()
+            .lines()
+            .map(
+                line ->
+                    SPLIT_ON_SPACE
+                        .splitToStream(line)
+                        .map(RepoRecordedInput::parse)
+                        .collect(toImmutableList()))
+            .collect(toImmutableList());
+    var uniqueNextInputs =
+        nextInputs.stream().flatMap(List::stream).distinct().collect(toImmutableSet());
+    RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
     if (env.valuesMissing()) {
       return null;
     }
     var nextHashes = ImmutableList.<String>builder();
-    for (var input : nextInputs) {
-      var value = input.getValue(env, directories);
-      if (env.valuesMissing()) {
-        return null;
+    outer:
+    for (var inputs : nextInputs) {
+      var rollingHash = inputHash;
+      for (var input : inputs) {
+        var value = input.getValue(env, directories);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
+          continue outer;
+        }
+        rollingHash =
+            rollForwardHash(rollingHash, new RepoRecordedInput.WithValue(input, valueString));
       }
-      if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
-        continue;
-      }
-      nextHashes.add(
-          rollForwardHash(inputHash, new RepoRecordedInput.WithValue(input, valueString)));
+      nextHashes.add(rollingHash);
     }
     return new CacheEntry.Intermediate(nextHashes.build());
   }

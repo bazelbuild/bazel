@@ -34,8 +34,8 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
-    String escaped = RepoRecordedInput.WithValue.escape(testCase);
-    assertThat(RepoRecordedInput.WithValue.unescape(escaped)).isEqualTo(testCase);
+    String escaped = RepoRecordedInput.escape(testCase);
+    assertThat(RepoRecordedInput.unescape(escaped)).isEqualTo(testCase);
   }
 
   @Test

@@ -127,42 +127,7 @@ public abstract sealed class RepoRecordedInput {
     /** Converts this {@link WithValue} to a string in a format compatible with @link{#parse}. */
     @Override
     public String toString() {
-      return escape(input.toString()) + " " + escape(value);
-    }
-
-    @VisibleForTesting
-    static String escape(String str) {
-      return str == null
-          ? "\\0"
-          : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-    }
-
-    @VisibleForTesting
-    @Nullable
-    static String unescape(String str) {
-      if (str.equals("\\0")) {
-        return null; // \0 == null string
-      }
-      StringBuilder result = new StringBuilder();
-      boolean escaped = false;
-      for (int i = 0; i < str.length(); i++) {
-        char c = str.charAt(i);
-        if (escaped) {
-          if (c == 'n') { // n means new line
-            result.append("\n");
-          } else if (c == 's') { // s means space
-            result.append(" ");
-          } else { // Any other escaped characters are just un-escaped
-            result.append(c);
-          }
-          escaped = false;
-        } else if (c == '\\') {
-          escaped = true;
-        } else {
-          result.append(c);
-        }
-      }
-      return result.toString();
+      return input.toString() + " " + escape(value);
     }
   }
 
@@ -225,9 +190,15 @@ public abstract sealed class RepoRecordedInput {
   @Override
   public abstract int hashCode();
 
+  /**
+   * Returns the string representation of this recorded input, in the format suitable for parsing
+   * back via {@link #parse}.
+   *
+   * <p>The returned string never contains spaces or newlines; those characters are escaped.
+   */
   @Override
   public final String toString() {
-    return getParser().getPrefix() + ":" + toStringInternal();
+    return getParser().getPrefix() + ":" + escape(toStringInternal());
   }
 
   /**
@@ -254,6 +225,41 @@ public abstract sealed class RepoRecordedInput {
 
     @Nullable
     String unwrap() throws IOException;
+  }
+
+  @VisibleForTesting
+  static String escape(String str) {
+    return str == null
+        ? "\\0"
+        : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
+  }
+
+  @VisibleForTesting
+  @Nullable
+  static String unescape(String str) {
+    if (str.equals("\\0")) {
+      return null; // \0 == null string
+    }
+    StringBuilder result = new StringBuilder();
+    boolean escaped = false;
+    for (int i = 0; i < str.length(); i++) {
+      char c = str.charAt(i);
+      if (escaped) {
+        if (c == 'n') { // n means new line
+          result.append("\n");
+        } else if (c == 's') { // s means space
+          result.append(" ");
+        } else { // Any other escaped characters are just un-escaped
+          result.append(c);
+        }
+        escaped = false;
+      } else if (c == '\\') {
+        escaped = true;
+      } else {
+        result.append(c);
+      }
+    }
+    return result.toString();
   }
 
   /**
