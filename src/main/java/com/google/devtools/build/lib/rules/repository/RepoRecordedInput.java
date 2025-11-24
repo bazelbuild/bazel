@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +124,28 @@ public abstract sealed class RepoRecordedInput {
         }
       }
       return Optional.empty();
+    }
+
+    /**
+     * Splits the given list of recorded input values into batches such that within each batch, all
+     * recorded inputs's {@link SkyKey}s can be requested together.
+     */
+    public static ImmutableList<ImmutableList<WithValue>> splitIntoBatches(
+        List<WithValue> recordedInputValues) {
+      var batches = ImmutableList.<ImmutableList<WithValue>>builder();
+      var currentBatch = new ArrayList<WithValue>();
+      for (var recordedInputValue : recordedInputValues) {
+        if (!recordedInputValue.input().canBeRequestedUnconditionally()
+            && !currentBatch.isEmpty()) {
+          batches.add(ImmutableList.copyOf(currentBatch));
+          currentBatch.clear();
+        }
+        currentBatch.add(recordedInputValue);
+      }
+      if (!currentBatch.isEmpty()) {
+        batches.add(ImmutableList.copyOf(currentBatch));
+      }
+      return batches.build();
     }
 
     /** Converts this {@link WithValue} to a string in a format compatible with @link{#parse}. */
@@ -292,7 +316,7 @@ public abstract sealed class RepoRecordedInput {
    * Returns true if the {@link #getValue} can be requested even if previous recorded inputs have
    * not been verified to be up to date.
    */
-  public abstract boolean canBeRequestedUnconditionally();
+  protected abstract boolean canBeRequestedUnconditionally();
 
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
 
@@ -370,6 +394,11 @@ public abstract sealed class RepoRecordedInput {
                     .getRelative(repoName().get().getName()));
       }
       return RootedPath.toRootedPath(root, path());
+    }
+
+    /** Returns true if the path points into an external repository. */
+    public boolean inExternalRepo() {
+      return repoName().isPresent() && !repoName().get().isMain();
     }
   }
 
@@ -459,10 +488,10 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       // Requesting files in external repositories can result in cycles if the external repo now
       // transitively depends on the requesting repo.
-      return path.repoName().isEmpty();
+      return !path.inExternalRepo();
     }
 
     @Override
@@ -555,10 +584,10 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       // Requesting directories in external repositories can result in cycles if the external repo
       // transitively depends on the requesting repo.
-      return path.repoName().isEmpty();
+      return !path.inExternalRepo();
     }
 
     @Override
@@ -640,10 +669,10 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       // Requesting directory trees in external repositories can result in cycles if the external
       // repo now transitively depends on the requesting repo.
-      return path.repoName().isEmpty();
+      return !path.inExternalRepo();
     }
 
     @Override
@@ -729,7 +758,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       // Environment variables are static data injected into Skyframe, so there is no risk of
       // cycles.
       return true;
@@ -825,7 +854,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       // Starlark can only request the mapping of the repo it is currently executing from, which
       // means that the repo has already been fetched (either to execute the code or to verify the
       // transitive .bzl hash). Further cycles aren't possible.
@@ -893,7 +922,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally() {
       return true;
     }
 

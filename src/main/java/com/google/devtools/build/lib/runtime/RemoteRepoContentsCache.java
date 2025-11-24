@@ -41,6 +41,16 @@ public interface RemoteRepoContentsCache {
       SkyFunction.Environment env,
       RepositoryName repoName,
       Path repoDir,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      State state)
       throws IOException, InterruptedException;
+
+  /**
+   * An opaque type containing state that {@link #lookupCache} needs to persist across SkyFunction
+   * restarts.
+   */
+  interface State {}
+
+  /** Returns a fresh state. */
+  State newState();
 }

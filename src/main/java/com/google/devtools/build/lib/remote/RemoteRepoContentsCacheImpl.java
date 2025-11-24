@@ -66,6 +66,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
@@ -203,7 +204,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       SkyFunction.Environment env,
       RepositoryName repoName,
       Path repoDir,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      State opaqueState)
       throws IOException, InterruptedException {
     if (!(repoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem remoteFs)) {
       return false;
@@ -213,7 +215,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    var finalEntry =
+        fetchFinalCacheEntry(env, context, predeclaredInputHash, (StateImpl) opaqueState);
     if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
@@ -255,6 +258,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
     remoteFs.injectRemoteRepo(repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
     return true;
+  }
+
+  private record StateImpl(
+      HashMap<String, ImmutableList<ImmutableList<RepoRecordedInput>>> fetchedNextInputBatches)
+      implements State {}
+
+  @Override
+  public State newState() {
+    return new StateImpl(new HashMap<>());
   }
 
   private enum CacheOp {
@@ -301,7 +313,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
 
     String rollingHash = predeclaredInputHash;
-    var batches = splitInBatches(recordedInputValues);
+    var batches = RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues);
     var futures = new ArrayList<ListenableFuture<Void>>(batches.size());
     for (var batch : batches) {
       futures.add(
@@ -315,23 +327,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
     waitForBulkTransfer(futures);
     return rollingHash;
-  }
-
-  private ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> splitInBatches(
-      List<RepoRecordedInput.WithValue> recordedInputValues) {
-    var batches = ImmutableList.<ImmutableList<RepoRecordedInput.WithValue>>builder();
-    var currentBatch = new ArrayList<RepoRecordedInput.WithValue>();
-    for (var recordedInputValue : recordedInputValues) {
-      if (!recordedInputValue.input().canBeRequestedUnconditionally() && !currentBatch.isEmpty()) {
-        batches.add(ImmutableList.copyOf(currentBatch));
-        currentBatch.clear();
-      }
-      currentBatch.add(recordedInputValue);
-    }
-    if (!currentBatch.isEmpty()) {
-      batches.add(ImmutableList.copyOf(currentBatch));
-    }
-    return batches.build();
   }
 
   private ListenableFuture<Void> addToActionResult(
@@ -353,7 +348,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         currentInputsFuture,
         currentInputsString -> {
           var newInputString =
-              input.stream().map(RepoRecordedInput::toString).sorted().collect(joining(" "));
+              input.stream().map(RepoRecordedInput::toString).collect(joining(" "));
           if (currentInputsString.lines().anyMatch(newInputString::equals)) {
             return immediateFuture(null);
           }
@@ -386,13 +381,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
-      String predeclaredInputHash)
+      String predeclaredInputHash,
+      StateImpl state)
       throws IOException, InterruptedException {
     var currentHashes = ImmutableList.of(predeclaredInputHash);
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        var entry = fetchCacheEntry(env, context, hash);
+        var entry = fetchCacheEntry(env, context, hash, state);
         if (env.valuesMissing()) {
           // Keep checking hashes to batch missing values in fewer restarts.
           nextHashes.add(hash);
@@ -417,69 +413,77 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      String inputHash,
+      StateImpl state)
       throws IOException, InterruptedException {
-    var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
-    // The marker file is read right after and thus requested to be inlined. If the action result is
-    // an intermediate node, the full result will be contained in the stdout, which should thus also
-    // be inlined.
-    var cachedActionResult =
-        cache.downloadActionResult(
-            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
-    if (cachedActionResult == null) {
-      return new CacheEntry.Intermediate(ImmutableList.of());
-    }
-    var actionResult = cachedActionResult.actionResult();
+    ImmutableList<ImmutableList<RepoRecordedInput>> nextInputBatches =
+        state.fetchedNextInputBatches().get(inputHash);
+    if (nextInputBatches == null) {
+      var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
+      // The marker file is read right after and thus requested to be inlined. If the action result
+      // is an intermediate node, the full result will be contained in the stdout, which should thus
+      // also be inlined.
+      var cachedActionResult =
+          cache.downloadActionResult(
+              context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+      if (cachedActionResult == null) {
+        return new CacheEntry.Intermediate(ImmutableList.of());
+      }
+      var actionResult = cachedActionResult.actionResult();
 
-    if (actionResult.getExitCode() != 0) {
-      return new CacheEntry.Invalid(
-          "Unexpected exit code in action result for cached repo %s:\n%s"
-              .formatted(context.getRequestMetadata().getActionId(), actionResult));
+      if (actionResult.getExitCode() != 0) {
+        return new CacheEntry.Invalid(
+            "Unexpected exit code in action result for cached repo %s:\n%s"
+                .formatted(context.getRequestMetadata().getActionId(), actionResult));
+      }
+      if (actionResult.getOutputFilesCount() == 1
+          && actionResult.getOutputDirectoriesCount() == 1
+          && actionResult.getOutputSymlinksCount() == 0) {
+        return new CacheEntry.Final(
+            actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0));
+      }
+      if (!(actionResult.getOutputFilesCount() == 0
+          && actionResult.getOutputDirectoriesCount() == 0
+          && actionResult.getOutputSymlinksCount() == 0
+          && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
+        return new CacheEntry.Invalid(
+            "Unexpected intermediate action result for cached repo %s:\n%s"
+                .formatted(context.getRequestMetadata().getActionId(), actionResult));
+      }
+      var stdoutFuture = fetchStdout(context, actionResult);
+      waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+      nextInputBatches =
+          stdoutFuture
+              .resultNow()
+              .lines()
+              .map(
+                  line ->
+                      SPLIT_ON_SPACE
+                          .splitToStream(line)
+                          .map(RepoRecordedInput::parse)
+                          .collect(toImmutableList()))
+              .collect(toImmutableList());
+      state.fetchedNextInputBatches().put(inputHash, nextInputBatches);
     }
-    if (actionResult.getOutputFilesCount() == 1
-        && actionResult.getOutputDirectoriesCount() == 1
-        && actionResult.getOutputSymlinksCount() == 0) {
-      return new CacheEntry.Final(
-          actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0));
-    }
-    if (!(actionResult.getOutputFilesCount() == 0
-        && actionResult.getOutputDirectoriesCount() == 0
-        && actionResult.getOutputSymlinksCount() == 0
-        && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
-      return new CacheEntry.Invalid(
-          "Unexpected intermediate action result for cached repo %s:\n%s"
-              .formatted(context.getRequestMetadata().getActionId(), actionResult));
-    }
-    var stdoutFuture = fetchStdout(context, actionResult);
-    waitForBulkTransfer(ImmutableList.of(stdoutFuture));
-    var nextInputs =
-        stdoutFuture
-            .resultNow()
-            .lines()
-            .map(
-                line ->
-                    SPLIT_ON_SPACE
-                        .splitToStream(line)
-                        .map(RepoRecordedInput::parse)
-                        .collect(toImmutableList()))
-            .collect(toImmutableList());
     var uniqueNextInputs =
-        nextInputs.stream().flatMap(List::stream).distinct().collect(toImmutableSet());
+        nextInputBatches.stream().flatMap(List::stream).distinct().collect(toImmutableSet());
     RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
     if (env.valuesMissing()) {
       return null;
     }
     var nextHashes = ImmutableList.<String>builder();
-    outer:
-    for (var inputs : nextInputs) {
+    nextBatch:
+    for (var batch : nextInputBatches) {
       var rollingHash = inputHash;
-      for (var input : inputs) {
+      for (var input : batch) {
         var value = input.getValue(env, directories);
         if (env.valuesMissing()) {
           return null;
         }
         if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
-          continue outer;
+          continue nextBatch;
         }
         rollingHash =
             rollForwardHash(rollingHash, new RepoRecordedInput.WithValue(input, valueString));

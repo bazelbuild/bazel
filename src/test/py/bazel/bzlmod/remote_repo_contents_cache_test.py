@@ -806,6 +806,72 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def testReverseDependencyDirection(self):
+    # Set up two repos that retain their predeclared input hashes across two
+    #  builds but still reverse their dependency direction. Depending on how
+    # repo cache candidates are checked, this could lead to a Skyframe cycle.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(',
+            '  name = "foo",',
+            '  deps_file = "//:foo_deps.txt",',
+            ')',
+            'repo(',
+            '  name = "bar",',
+            '  deps_file = "//:bar_deps.txt",',
+            ')',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  deps = rctx.read(rctx.attr.deps_file).splitlines()',
+            '  output = ""',
+            '  for dep in deps:',
+            '    if dep:',
+            '      output += "{}: {}\\n".format(dep, rctx.read(Label(dep)))',
+            '  rctx.file("output.txt", output)',
+            '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+            '  print("JUST FETCHED: %s" % rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  implementation = _repo_impl,',
+            '  attrs = {',
+            '    "deps_file": attr.label(),  }',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED: bar', stderr)
+    self.assertIn('JUST FETCHED: foo', stderr)
+
+    # After expunging and reversing the dependency direction: not cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', [''])
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED: foo', stderr)
+    self.assertNotIn('JUST FETCHED: bar', stderr)
+
+    # After expunging and reversing the dependency direction: both cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+
 
 if __name__ == '__main__':
   absltest.main()
