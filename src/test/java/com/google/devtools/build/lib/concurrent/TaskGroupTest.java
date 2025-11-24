@@ -403,4 +403,45 @@ public final class TaskGroupTest {
       assertThat(group.getThreads()).hasSize(0);
     }
   }
+
+  @Test
+  public void joinOrThrow_checkedException_throwsIt() throws Exception {
+    try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
+      group.fork(
+          () -> {
+            throw new Exception("test");
+          });
+      var e = assertThrows(Exception.class, () -> group.joinOrThrow(Exception.class));
+      assertThat(e).hasMessageThat().isEqualTo("test");
+    }
+  }
+
+  @Test
+  public void joinOrThrow_runtimeException_throwsIt() throws Exception {
+    try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
+      group.fork(
+          () -> {
+            throw new RuntimeException("test");
+          });
+      var e = assertThrows(RuntimeException.class, () -> group.joinOrThrow(Exception.class));
+      assertThat(e).hasMessageThat().isEqualTo("test");
+    }
+  }
+
+  @Test
+  public void joinOrThrow_unexpectedCheckedException_throwsIllegalStateException()
+      throws Exception {
+    class MyException1 extends Exception {}
+    class MyException2 extends Exception {}
+
+    try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
+      group.fork(
+          () -> {
+            throw new MyException1();
+          });
+      var e =
+          assertThrows(IllegalStateException.class, () -> group.joinOrThrow(MyException2.class));
+      assertThat(e).hasCauseThat().isInstanceOf(MyException1.class);
+    }
+  }
 }
