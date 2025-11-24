@@ -1029,7 +1029,10 @@ sh_test(
     name = "bazel_repository_cache_test",
     size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@local_jdk//:jdk",
+    ],
     shard_count = 6,
     tags = [
         "no_windows",
