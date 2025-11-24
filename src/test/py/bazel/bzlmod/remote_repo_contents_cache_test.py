@@ -314,6 +314,10 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         [
             'def _repo_impl(rctx):',
             '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            # Verify that directories are materialized correctly.
+            '  rctx.file("subdir/file.txt", "hello")',
+            '  rctx.file("subdir/empty_dir/.keep")',
+            '  rctx.delete("subdir/empty_dir/.keep")',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
@@ -345,12 +349,17 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'subdir')))
 
     # Fetch other: my_repo materialized
     _, _, stderr = self.RunBazel(['build', '@other//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'subdir/file.txt')))
+    with open(os.path.join(repo_dir, 'subdir/file.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'subdir/empty_dir')))
 
     # Materialized repo is not refetched after a shutdown
     self.RunBazel(['shutdown'])
