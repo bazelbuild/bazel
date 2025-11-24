@@ -44,21 +44,21 @@ public class RepositoryOptionsTest {
   @Test
   public void testOverrideConverter() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar"));
   }
 
   @Test
   public void testOverridePathWithEqualsSign() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar=/baz");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar=/baz"));
   }
 
   @Test
   public void testOverridePathWithTilde() throws Exception {
     RepositoryOverride actual = converter.convert("foo=~/bar");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path()))
         .isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
   }
