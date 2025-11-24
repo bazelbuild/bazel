@@ -49,6 +49,7 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
     write(
         "tree/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":tree.bzl", "tree")
 
         tree(name = "lib")
@@ -100,6 +101,7 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
     write(
         "tree/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":tree.bzl", "tree")
 
         tree(name = "lib")
@@ -152,7 +154,10 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
             deprecation = "This is a warning",
         )
         """);
-    write("cc/BUILD", "cc_library(name = 'cc', srcs = ['//tree:lib'])");
+    write(
+        "cc/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'cc', srcs = ['//tree:lib'])");
     buildTarget("//cc:cc");
     assertContainsEvent(EventKind.WARNING, "This is a warning");
     getSkyframeExecutor()
