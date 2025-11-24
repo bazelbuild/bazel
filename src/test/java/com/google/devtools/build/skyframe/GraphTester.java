@@ -155,7 +155,7 @@ public class GraphTester {
           return builder.value;
         }
 
-        if (Thread.currentThread().isInterrupted()) {
+        if (Thread.interrupted()) {
           throw new InterruptedException(key.toString());
         }
 

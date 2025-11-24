@@ -630,7 +630,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     // We require passing in the operation and the source Path / Artifact to avoid intermediate
     // String operations. The include scanner is performance critical and this showed up in a
     // profiler.
-    if (Thread.currentThread().isInterrupted()) {
+    if (Thread.interrupted()) {
       throw new InterruptedException(
           "Include scanning interrupted while " + operation + " " + source);
     }
