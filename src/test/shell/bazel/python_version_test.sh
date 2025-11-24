@@ -107,7 +107,7 @@ load("@rules_python//python:py_binary.bzl", "py_binary")
 py_binary(
   name = "main",
   srcs = ["main.py"],
-  deps = ["@bazel_tools//tools/python/runfiles"],
+  deps = ["@rules_python//python/runfiles"],
   data = ["data.txt"],
 )
 EOF
@@ -117,7 +117,7 @@ abcdefg
 EOF
 
   cat > test/main.py << EOF
-from bazel_tools.tools.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 r = runfiles.Create()
 path = r.Rlocation("_main/test/data.txt")

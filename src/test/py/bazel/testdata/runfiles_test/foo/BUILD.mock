@@ -14,7 +14,7 @@ py_binary(
         "//bar:bar-sh",
     ],
     main = "foo.py",
-    deps = ["@bazel_tools//tools/python/runfiles"],
+    deps = ["@rules_python//python/runfiles"],
 )
 
 java_binary(

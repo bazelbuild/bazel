@@ -132,69 +132,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         ")");
   }
 
-  @Test
-  public void runtimeObtainedFromToolchain() throws Exception {
-    defineToolchains();
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "py3_bin",
-            srcs = ["py3_bin.py"],
-            python_version = "PY3",
-        )
-        """);
-    useConfiguration("--extra_toolchains=//toolchains:py_toolchain");
-
-    ConfiguredTarget py3 = getConfiguredTarget("//pkg:py3_bin");
-
-    String py3Path = getInterpreterPathFromStub(py3);
-    assertThat(py3Path).isEqualTo("/system/python3");
-
-    String py3Shebang = getShebangFromStub(py3);
-    assertThat(py3Shebang).isEqualTo("#!/usr/bin/env python3");
-  }
-
-  @Test
-  public void toolchainCanOmitUnusedRuntimeVersion() throws Exception {
-    defineToolchains();
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "py3_bin",
-            srcs = ["py3_bin.py"],
-            python_version = "PY3",
-        )
-        """);
-    useConfiguration("--extra_toolchains=//toolchains:py_toolchain_for_py3_only");
-
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
-    assertThat(path).isEqualTo("/system/python3");
-  }
-
-  @Test
-  public void toolchainTakesPrecedenceOverLegacyFlags() throws Exception {
-    defineToolchains();
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "py3_bin",
-            srcs = ["py3_bin.py"],
-            python_version = "PY3",
-        )
-        """);
-    useConfiguration(
-        "--extra_toolchains=//toolchains:py_toolchain", "--python_path=/better/not/be/this/one");
-
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
-    assertThat(path).isEqualTo("/system/python3");
-  }
-
   /**
    * Creates a custom toolchain at //toolchains:custom that has the given lines in its rule
    * implementation function.

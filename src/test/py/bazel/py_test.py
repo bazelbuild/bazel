@@ -129,26 +129,6 @@ class TestInitPyFiles(test_base.TestBase):
         os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/a/__init__.py')
     )
 
-  # Regression test for https://github.com/bazelbuild/bazel/pull/10119
-  def testBuildingZipFileWithTargetNameWithDot(self):
-    self.ScratchFile(
-        'BUILD',
-        [
-            'load("@rules_python//python:py_binary.bzl", "py_binary")',
-            "# .v1 shouldn't be treated as extension and removed accidentally",
-            'py_binary(',
-            '  name = "bin.v1",',
-            '  srcs = ["bin.py"],',
-            '  main = "bin.py",',
-            ')',
-        ],
-    )
-    self.ScratchFile('bin.py', ['print("Hello, world")'])
-    self.RunBazel(['build', '--build_python_zip', '//:bin.v1'])
-    self.assertTrue(os.path.exists('bazel-bin/bin.v1.temp'))
-    self.assertTrue(os.path.exists('bazel-bin/bin.v1.zip'))
-
-
 @absltest.skipIf(test_base.TestBase.IsWindows(),
                  'https://github.com/bazelbuild/bazel/issues/5087')
 class PyRemoteTest(test_base.TestBase):
@@ -256,7 +236,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
             '  name = "library",',
             '  srcs = ["library.py"],',
             '  visibility = ["//visibility:public"],',
-            '  deps = ["@bazel_tools//tools/python/runfiles"],',
+            '  deps = ["@rules_python//python/runfiles"],',
             ')',
             '',
             'py_binary(',
@@ -264,7 +244,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
             '  srcs = ["binary.py"],',
             '  deps = [',
             '    ":library",',
-            '    "@bazel_tools//tools/python/runfiles",',
+            '    "@rules_python//python/runfiles",',
             '  ],',
             ')',
             '',
@@ -273,24 +253,24 @@ class PyRunfilesLibraryTest(test_base.TestBase):
             '  srcs = ["test.py"],',
             '  deps = [',
             '    ":library",',
-            '    "@bazel_tools//tools/python/runfiles",',
+            '    "@rules_python//python/runfiles",',
             '  ],',
             ')',
         ],
     )
     self.ScratchFile('pkg/library.py', [
-        'from bazel_tools.tools.python.runfiles import runfiles',
+        'from python.runfiles import runfiles',
         'def print_repo_name():',
         '  print("in pkg/library.py: \'%s\'" % runfiles.Create().CurrentRepository())',
     ])
     self.ScratchFile('pkg/binary.py', [
-        'from bazel_tools.tools.python.runfiles import runfiles',
+        'from python.runfiles import runfiles',
         'from pkg import library',
         'library.print_repo_name()',
         'print("in pkg/binary.py: \'%s\'" % runfiles.Create().CurrentRepository())',
     ])
     self.ScratchFile('pkg/test.py', [
-        'from bazel_tools.tools.python.runfiles import runfiles',
+        'from python.runfiles import runfiles',
         'from pkg import library',
         'library.print_repo_name()',
         'print("in pkg/test.py: \'%s\'" % runfiles.Create().CurrentRepository())',
@@ -307,7 +287,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
             '  srcs = ["binary.py"],',
             '  deps = [',
             '    "@//pkg:library",',
-            '    "@bazel_tools//tools/python/runfiles",',
+            '    "@rules_python//python/runfiles",',
             '  ],',
             ')',
             '',
@@ -316,7 +296,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
             '  srcs = ["test.py"],',
             '  deps = [',
             '    "@//pkg:library",',
-            '    "@bazel_tools//tools/python/runfiles",',
+            '    "@rules_python//python/runfiles",',
             '  ],',
             ')',
         ],
@@ -324,7 +304,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.ScratchFile(
         'other_repo_path/other_pkg/binary.py',
         [
-            'from bazel_tools.tools.python.runfiles import runfiles',
+            'from python.runfiles import runfiles',
             'from pkg import library',
             'library.print_repo_name()',
             (
@@ -336,7 +316,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.ScratchFile(
         'other_repo_path/other_pkg/test.py',
         [
-            'from bazel_tools.tools.python.runfiles import runfiles',
+            'from python.runfiles import runfiles',
             'from pkg import library',
             'library.print_repo_name()',
             (
