@@ -273,7 +273,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (!state.hasCollectedInputs()) {
       try {
         state.allInputs = collectInputs(action, env);
-      } catch (AlreadyReportedActionExecutionException e) {
+      } catch (ActionExecutionException e) {
         throw new ActionExecutionFunctionException(e);
       }
       if (state.allInputs == null) {
@@ -542,7 +542,7 @@ public final class ActionExecutionFunction implements SkyFunction {
    */
   @Nullable
   private byte[] computeMandatoryInputsDigest(Action action, Environment env)
-      throws InterruptedException {
+      throws InterruptedException, ActionExecutionException {
     NestedSet<Artifact> mandatoryInputsSet = action.getMandatoryInputs();
     var mandatoryInputsKeysBuilder = ImmutableSet.<SkyKey>builder();
     for (Artifact leaf : mandatoryInputsSet.getLeaves()) {
@@ -552,15 +552,33 @@ public final class ActionExecutionFunction implements SkyFunction {
       mandatoryInputsKeysBuilder.add(ArtifactNestedSetKey.create(nonLeaf));
     }
     var mandatoryInputsKeys = mandatoryInputsKeysBuilder.build();
-    env.getValuesAndExceptions(mandatoryInputsKeys);
+    var lookupResult = env.getValuesAndExceptions(mandatoryInputsKeys);
     if (env.valuesMissing()) {
       return null;
     }
     var mandatoryInputs = mandatoryInputsSet.toList();
     var inputArtifactData = new ActionInputMap(mandatoryInputs.size());
     var inputMap = new HashMap<String, FileArtifactValue>(mandatoryInputs.size());
+    var actionExecutionFunctionExceptionHandler =
+        createActionExecutionFunctionExceptionHandler(
+            action,
+            lookupResult,
+            mandatoryInputsKeys,
+            () -> mandatoryInputs,
+            /* isMandatoryInput= */ Predicates.alwaysTrue());
+    actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
+    if (env.valuesMissing()) {
+      return null;
+    }
     for (var artifact : mandatoryInputs) {
-      SkyValue value = lookupInput(artifact, mandatoryInputsKeys, env);
+      SkyValue value =
+          getAndCheckInputSkyValue(
+              env,
+              action,
+              artifact,
+              mandatoryInputsKeys,
+              /* isMandatoryInput= */ Predicates.alwaysTrue(),
+              actionExecutionFunctionExceptionHandler);
       if (value == null || value instanceof MissingArtifactValue) {
         // This can happen with rewinding or in keep-going builds and is always an indication to
         // halt the current action execution attempt - we do not have to compute a digest.
@@ -572,6 +590,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           artifact.getExecPathString(),
           ActionCacheChecker.getInputMetadataMaybe(inputArtifactData, artifact));
     }
+    actionExecutionFunctionExceptionHandler.maybeThrowException();
     return MetadataDigestUtils.fromMetadata(inputMap);
   }
 
@@ -583,7 +602,7 @@ public final class ActionExecutionFunction implements SkyFunction {
    */
   @Nullable
   private AllInputs collectInputs(Action action, Environment env)
-      throws InterruptedException, AlreadyReportedActionExecutionException {
+      throws InterruptedException, ActionExecutionException {
     byte[] mandatoryInputsDigest = null;
     if (action.discoversInputs()) {
       // When the mandatory inputs of an action have changed, it will certainly have to be
@@ -1031,30 +1050,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       throws ActionExecutionException, InterruptedException, UndoneInputsException {
     Predicate<Artifact> isMandatoryInput = makeMandatoryInputPredicate(action);
 
-    ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler =
-        new ActionExecutionFunctionExceptionHandler(
-            Suppliers.memoize(
-                () -> {
-                  ImmutableSet<Artifact> allInputsSet =
-                      ImmutableSet.<Artifact>builder()
-                          .addAll(allInputs.toList())
-                          .addAll(action.getSchedulingDependencies().toList())
-                          .build();
-                  SetMultimap<SkyKey, Artifact> skyKeyToArtifactSet =
-                      MultimapBuilder.hashKeys().hashSetValues().build();
-                  allInputsSet.forEach(
-                      input -> {
-                        SkyKey key = Artifact.key(input);
-                        if (key != input) {
-                          skyKeyToArtifactSet.put(key, input);
-                        }
-                      });
-                  return skyKeyToArtifactSet;
-                }),
-            inputDepsResult,
-            action,
-            isMandatoryInput,
-            inputDepKeys);
+    Supplier<Iterable<Artifact>> allDeps =
+        () -> Iterables.concat(allInputs.toList(), action.getSchedulingDependencies().toList());
+    var actionExecutionFunctionExceptionHandler =
+        createActionExecutionFunctionExceptionHandler(
+            action, inputDepsResult, inputDepKeys, allDeps, isMandatoryInput);
     boolean hasMissingInputs =
         actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
 
@@ -1134,6 +1134,31 @@ public final class ActionExecutionFunction implements SkyFunction {
     actionExecutionFunctionExceptionHandler.maybeThrowException();
 
     return new CheckInputResults(inputArtifactData);
+  }
+
+  private ActionExecutionFunctionExceptionHandler createActionExecutionFunctionExceptionHandler(
+      Action action,
+      SkyframeLookupResult inputDepsResult,
+      ImmutableSet<SkyKey> inputDepKeys,
+      Supplier<Iterable<Artifact>> allDeps,
+      Predicate<Artifact> isMandatoryInput) {
+    return new ActionExecutionFunctionExceptionHandler(
+        Suppliers.memoize(
+            () -> {
+              SetMultimap<SkyKey, Artifact> skyKeyToArtifactSet =
+                  MultimapBuilder.hashKeys().hashSetValues().build();
+              for (Artifact input : allDeps.get()) {
+                SkyKey key = Artifact.key(input);
+                if (key != input) {
+                  skyKeyToArtifactSet.put(key, input);
+                }
+              }
+              return skyKeyToArtifactSet;
+            }),
+        inputDepsResult,
+        action,
+        isMandatoryInput,
+        inputDepKeys);
   }
 
   @CanIgnoreReturnValue
