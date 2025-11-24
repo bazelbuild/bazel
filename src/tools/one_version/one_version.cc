@@ -48,7 +48,7 @@ void OneVersion::Add(absl::string_view file_name_of_entry, const CDH *jar_entry,
         // databinding v2 (see b/73782031), this will no longer be necessary.
         !absl::EndsWith(file_name_of_entry, "/BR")) {
       duplicate_class_collector_.Add(std::string(file_name_of_entry),
-                                     ABSL_DIE_IF_NULL(jar_entry)->cdh_crc32(),
+                                     ABSL_DIE_IF_NULL(jar_entry)->crc32(),
                                      label);
     }
   }

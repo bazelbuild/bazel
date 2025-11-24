@@ -734,7 +734,7 @@ void OutputJar::WriteEntry(void* buffer) {
   cdh->compression_method(entry->compression_method());
   cdh->last_mod_file_time(entry->last_mod_file_time());
   cdh->last_mod_file_date(entry->last_mod_file_date());
-  cdh->cdh_crc32(entry->lh_crc32());
+  cdh->crc32(entry->crc32());
   cdh->file_name(entry->file_name(), entry->file_name_length());
 
   // Copy any existing extra fields from the local header to provide consistent
@@ -811,7 +811,7 @@ void OutputJar::WriteDirEntry(const std::string& name,
   lh->version(20);  // 2.0
   lh->bit_flag(0);  // TODO(asmundak): should I set UTF8 flag?
   lh->compression_method(Z_NO_COMPRESSION);
-  lh->lh_crc32(0);
+  lh->crc32(0);
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
   lh->file_name(name.c_str(), name.size());
