@@ -348,7 +348,10 @@ public final class SkyframeActionExecutor {
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
-    // actions, which consume their shadowed action's discovered inputs.
+    // actions. Starlark actions shadowing others are not a problem, though, because the issue is
+    // not computing the inputs of the shadowing action / extra action (
+    // getInputFilesForExtraAction() works the same whether input discovery was run or not), but
+    // getExtraActionInfo().
     this.freeDiscoveredInputsAfterExecution =
         !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
