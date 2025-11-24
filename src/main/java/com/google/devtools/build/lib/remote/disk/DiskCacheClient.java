@@ -309,7 +309,7 @@ public class DiskCacheClient {
 
     // CAS entries are content-addressed and thus automatically have the correct content if they
     // exist.
-    if (refresh(path) && store == Store.CAS) {
+    if (store == Store.CAS && refresh(path)) {
       return;
     }
 
