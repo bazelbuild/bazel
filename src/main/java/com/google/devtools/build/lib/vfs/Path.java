@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
@@ -772,69 +770,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public byte[] getDigest() throws IOException {
     return fileSystem.getDigest(asFragment());
-  }
-
-  /**
-   * Return a string representation, as hexadecimal digits, of some hash of the directory.
-   *
-   * <p>The hash itself is computed according to the design document
-   * https://github.com/bazelbuild/proposals/blob/master/designs/2018-07-13-repository-hashing.md
-   * and takes enough information into account, to detect the typical non-reproducibility of
-   * source-like repository rules, while leaving out what will change from invocation to invocation
-   * of a repository rule (in particular file owners) and can reasonably be ignored when considering
-   * if a repository is "the same source tree".
-   *
-   * @return a string representation of the bash of the directory
-   * @throws IOException if the digest could not be computed for any reason
-   */
-  public String getDirectoryDigest(XattrProvider xattrProvider) throws IOException {
-    ImmutableList<String> entries =
-        ImmutableList.sortedCopyOf(fileSystem.getDirectoryEntries(asFragment()));
-    Hasher hasher = fileSystem.getDigestFunction().getHashFunction().newHasher();
-    for (String entry : entries) {
-      Path path = this.getChild(entry);
-      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
-      hasher.putUnencodedChars(entry);
-      if (stat.isFile()) {
-        if (path.isExecutable()) {
-          hasher.putChar('x');
-        } else {
-          hasher.putChar('-');
-        }
-        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider));
-      } else if (stat.isDirectory()) {
-        hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
-      } else if (stat.isSymbolicLink()) {
-        PathFragment link = path.readSymbolicLink();
-        if (link.isAbsolute()) {
-          try {
-            Path resolved = path.resolveSymbolicLinks();
-            if (resolved.isFile()) {
-              if (resolved.isExecutable()) {
-                hasher.putChar('x');
-              } else {
-                hasher.putChar('-');
-              }
-              hasher.putBytes(DigestUtils.getDigestWithManualFallback(resolved, xattrProvider));
-            } else {
-              // link to a non-file: include the link itself in the hash
-              hasher.putChar('l').putUnencodedChars(link.toString());
-            }
-          } catch (IOException e) {
-            // dangling link: include the link itself in the hash
-            hasher.putChar('l').putUnencodedChars(link.toString());
-          }
-        } else {
-          // relative link: include the link itself in the hash
-          hasher.putChar('l').putUnencodedChars(link.toString());
-        }
-      } else {
-        // Neither file, nor directory, nor symlink. So do not include further information
-        // in the hash, asuming it will not be used during the BUILD anyway.
-        hasher.putChar('s');
-      }
-    }
-    return hasher.hash().toString();
   }
 
   /**
