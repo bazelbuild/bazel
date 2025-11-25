@@ -51,21 +51,15 @@ public final class BuildEventServiceProtoUtil {
 
   /** Creates a {@link PublishLifecycleEventRequest} from a {@link LifecycleEvent}. */
   public static PublishLifecycleEventRequest publishLifecycleEventRequest(
-      LifecycleEvent lifecycleEvent) {
+      CommandContext commandContext, LifecycleEvent lifecycleEvent) {
     return switch (lifecycleEvent) {
-      case LifecycleEvent.BuildEnqueued(CommandContext commandContext, Instant eventTime) ->
+      case LifecycleEvent.BuildEnqueued(Instant eventTime) ->
           buildEnqueued(commandContext, eventTime);
-      case LifecycleEvent.InvocationStarted(CommandContext commandContext, Instant eventTime) ->
+      case LifecycleEvent.InvocationStarted(Instant eventTime) ->
           invocationStarted(commandContext, eventTime);
-      case LifecycleEvent.InvocationFinished(
-              CommandContext commandContext,
-              Instant eventTime,
-              InvocationStatus status) ->
+      case LifecycleEvent.InvocationFinished(Instant eventTime, InvocationStatus status) ->
           invocationFinished(commandContext, eventTime, status);
-      case LifecycleEvent.BuildFinished(
-              CommandContext commandContext,
-              Instant eventTime,
-              InvocationStatus status) ->
+      case LifecycleEvent.BuildFinished(Instant eventTime, InvocationStatus status) ->
           buildFinished(commandContext, eventTime, status);
     };
   }
@@ -128,18 +122,11 @@ public final class BuildEventServiceProtoUtil {
 
   /** Creates a {@link PublishBuildToolEventStreamRequest} from a {@link StreamEvent}. */
   public static PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
-      StreamEvent streamEvent) {
+      CommandContext commandContext, StreamEvent streamEvent) {
     return switch (streamEvent) {
-      case StreamEvent.BazelEvent(
-              CommandContext commandContext,
-              Instant eventTime,
-              long sequenceNumber,
-              ByteString payload) ->
+      case StreamEvent.BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload) ->
           bazelEvent(commandContext, eventTime, sequenceNumber, payload);
-      case StreamEvent.StreamFinished(
-              CommandContext commandContext,
-              Instant eventTime,
-              long sequenceNumber) ->
+      case StreamEvent.StreamFinished(Instant eventTime, long sequenceNumber) ->
           streamFinished(commandContext, eventTime, sequenceNumber);
     };
   }
