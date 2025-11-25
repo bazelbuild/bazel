@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
@@ -134,12 +135,12 @@ public class TestLogHelper {
   private static void streamTestLog(Path fromPath, PrintStream out) throws IOException {
     FilterTestHeaderOutputStream filteringOutputStream = getHeaderFilteringOutputStream(out);
     try (InputStream input = fromPath.getInputStream()) {
-      input.transferTo(filteringOutputStream);
+      ByteStreams.copy(input, filteringOutputStream);
     }
 
     if (!filteringOutputStream.foundHeader()) {
       try (InputStream inputAgain = fromPath.getInputStream()) {
-        inputAgain.transferTo(out);
+        ByteStreams.copy(inputAgain, out);
       }
     }
   }

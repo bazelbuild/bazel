@@ -318,7 +318,7 @@ public class HttpStreamTest {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try (InputStream input = new ByteArrayInputStream(bytes);
         OutputStream output = new GZIPOutputStream(baos)) {
-      input.transferTo(output);
+      ByteStreams.copy(input, output);
     }
     return baos.toByteArray();
   }

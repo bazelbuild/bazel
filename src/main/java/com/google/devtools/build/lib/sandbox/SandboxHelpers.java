@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -237,7 +238,7 @@ public final class SandboxHelpers {
   private static void copyFile(Path source, Path target) throws IOException {
     try (InputStream in = source.getInputStream();
         OutputStream out = target.getOutputStream()) {
-      in.transferTo(out);
+      ByteStreams.copy(in, out);
     } catch (FileAccessException e) {
       // Actions may create unreadable output files.
       // Make the source file readable and try again (but only once).
@@ -245,7 +246,7 @@ public final class SandboxHelpers {
       source.chmod(0644);
       try (InputStream in = source.getInputStream();
           OutputStream out = target.getOutputStream()) {
-        in.transferTo(out);
+        ByteStreams.copy(in, out);
       }
     }
   }
