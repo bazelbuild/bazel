@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -35,7 +35,8 @@ public final class DebugPackageProvider {
   public static final Provider PROVIDER = new Provider();
   public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
 
-  public static DebugPackageProvider get(ConfiguredTarget target) throws RuleErrorException {
+  public static DebugPackageProvider get(TransitiveInfoCollection target)
+      throws RuleErrorException {
     DebugPackageProvider debugPackageProvider = target.get(PROVIDER);
     if (debugPackageProvider == null) {
       debugPackageProvider = target.get(RULES_CC_PROVIDER);
@@ -106,7 +107,8 @@ public final class DebugPackageProvider {
     public RulesCcProvider() {
       super(
           keyForBuild(
-              Label.parseCanonicalUnchecked("@rules_cc+//cc/private:debug_package_info.bzl")),
+              Label.parseCanonicalUnchecked(
+                  CppSemantics.RULES_CC_PREFIX + "cc/private:debug_package_info.bzl")),
           "DebugPackageInfo");
     }
 
