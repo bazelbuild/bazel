@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.genquery;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -194,7 +195,7 @@ class GenQueryOutputStream extends OutputStream {
     public ByteString getBytes() throws IOException {
       ByteString.Output out = ByteString.newOutput(size);
       try (GZIPInputStream gzipIn = new GZIPInputStream(compressedData.newInput())) {
-        gzipIn.transferTo(out);
+        ByteStreams.copy(gzipIn, out);
       }
       return out.toByteString();
     }
@@ -207,7 +208,7 @@ class GenQueryOutputStream extends OutputStream {
     @Override
     public void writeTo(OutputStream out) throws IOException {
       try (GZIPInputStream gzipIn = new GZIPInputStream(compressedData.newInput())) {
-        gzipIn.transferTo(out);
+        ByteStreams.copy(gzipIn, out);
       }
     }
 

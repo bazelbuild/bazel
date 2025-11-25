@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -513,7 +514,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
             dest.getParentDirectory().createDirectoryAndParents();
             try (OutputStream os = dest.getOutputStream()) {
-              zip.transferTo(os);
+              ByteStreams.copy(zip, os);
             }
           }
         }

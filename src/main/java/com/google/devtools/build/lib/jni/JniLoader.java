@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.jni;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.util.OS;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -96,7 +97,7 @@ public final class JniLoader {
           throw new UnsatisfiedLinkError("Resource " + resourceName + " not in JAR");
         }
         try (OutputStream diskFile = new FileOutputStream(tempFile.toString())) {
-          resource.transferTo(diskFile);
+          ByteStreams.copy(resource, diskFile);
         }
       }
 

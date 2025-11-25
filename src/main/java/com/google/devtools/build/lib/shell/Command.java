@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.LazyArgs;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.io.File;
@@ -417,7 +418,7 @@ public final class Command implements DescribableExecutionUnit {
   private static void processInput(InputStream stdinInput, Subprocess process) {
     logger.atFiner().log("%s", stdinInput);
     try (OutputStream out = process.getOutputStream()) {
-      stdinInput.transferTo(out);
+      ByteStreams.copy(stdinInput, out);
     } catch (IOException ioe) {
       // Note: this is not an error!  Perhaps the command just isn't hungry for our input and exited
       // with success. Process.waitFor (later) will tell us.

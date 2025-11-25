@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
@@ -61,7 +62,7 @@ public class ArFunction implements Decompressor {
           // We do not have to worry about symlinks in .ar files - it's not supported
           // by the .ar file format.
           try (OutputStream out = filePath.getOutputStream()) {
-            arStream.transferTo(out);
+            ByteStreams.copy(arStream, out);
           }
           filePath.chmod(entry.getMode());
           // entry.getLastModified() appears to be in seconds, so we need to convert

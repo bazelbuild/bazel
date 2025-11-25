@@ -27,6 +27,7 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -388,7 +389,7 @@ public final class RemoteWorker {
     try {
       sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
       try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
-        sandbox.transferTo(fos);
+        ByteStreams.copy(sandbox, fos);
       }
       sandboxPath.setExecutable(true);
     } catch (IOException e) {

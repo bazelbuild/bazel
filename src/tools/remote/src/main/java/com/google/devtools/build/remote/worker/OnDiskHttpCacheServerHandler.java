@@ -14,6 +14,7 @@
 package com.google.devtools.build.remote.worker;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,7 +50,7 @@ public class OnDiskHttpCacheServerHandler extends AbstractHttpCacheServerHandler
 
     try (var out = new ByteArrayOutputStream();
         var in = path.getInputStream()) {
-      in.transferTo(out);
+      ByteStreams.copy(in, out);
       return out.toByteArray();
     } catch (FileNotFoundException e) {
       return null;

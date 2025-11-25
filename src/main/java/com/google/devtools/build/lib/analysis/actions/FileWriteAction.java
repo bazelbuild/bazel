@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -342,7 +343,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
       return out -> {
         try (GZIPInputStream gzipIn =
             new GZIPInputStream(new ByteArrayInputStream(compressedBytes), GZIP_BYTES_BUFFER)) {
-          gzipIn.transferTo(out);
+          ByteStreams.copy(gzipIn, out);
         }
       };
     }

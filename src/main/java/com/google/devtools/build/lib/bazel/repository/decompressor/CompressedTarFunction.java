@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.bazel.repository.decompressor.StripP
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.service.AutoService;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -134,7 +135,7 @@ public abstract class CompressedTarFunction implements Decompressor {
             }
           } else {
             try (OutputStream out = filePath.getOutputStream()) {
-              tarStream.transferTo(out);
+              ByteStreams.copy(tarStream, out);
             }
             filePath.chmod(entry.getMode());
 

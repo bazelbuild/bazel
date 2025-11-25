@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -358,7 +359,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           }
           try (OutputStream out = outFilePath.getOutputStream(true);
               InputStream in = inFilePath.getInputStream()) {
-            in.transferTo(out);
+            ByteStreams.copy(in, out);
           }
         }
       } finally {
