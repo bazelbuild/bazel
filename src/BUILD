@@ -517,7 +517,15 @@ genrule(
         "//third_party/java/proguard:srcs",
     ],
     outs = ["java_tools_dist.zip"],
-    cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
+    cmd = "mkdir -p $@.tmp && " +
+          "OUTPUT=$$(pwd)/$@ && " +
+          "for f in $(SRCS); do " +
+          "  dest=$$(echo $$f | sed 's|^bazel-out/[^/]*/bin/||'); " +
+          "  mkdir -p $@.tmp/$$(dirname $$dest); " +
+          "  cp $$f $@.tmp/$$dest; " +
+          "done && " +
+          "cd $@.tmp && " +
+          "zip -qXr $$OUTPUT .",
     output_to_bindir = 1,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
