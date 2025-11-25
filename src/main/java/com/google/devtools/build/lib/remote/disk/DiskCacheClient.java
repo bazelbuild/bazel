@@ -307,7 +307,9 @@ public class DiskCacheClient {
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
-    if (refresh(path)) {
+    // CAS entries are content-addressed and thus automatically have the correct content if they
+    // exist.
+    if (store == Store.CAS && refresh(path)) {
       return;
     }
 
