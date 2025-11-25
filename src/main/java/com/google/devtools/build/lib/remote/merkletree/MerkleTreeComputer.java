@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -936,11 +937,30 @@ public final class MerkleTreeComputer {
                   MERKLE_TREE_BUILD_POOL);
             });
     if (newlyComputed.get()) {
-      // Clean up the in-flight cache so that it doesn't grow unboundedly.
+      // Clean up the in-flight cache so that it doesn't grow unboundedly - both over time and,
+      // crucially, when retrying due to cancelation below.
       future.addListener(
           () -> inFlightSubTreeCache.remove(inFlightCacheKey, future), directExecutor());
     }
-    return future;
+    // When using dynamic execution, then a canceled branch can propagate to the cached future above
+    // as an interrupt, which results in it being cancelled. Concurrent unrelated subtree builds
+    // may have reused it and would fail if we didn't retry here.
+    // TODO: Instead of retrying, implement reference counting so that a shared future is only
+    // canceled if *all* downstream futures are canceled.
+    return Futures.catchingAsync(
+        future,
+        CancellationException.class,
+        unusedThrowable ->
+            computeIfAbsent(
+                metadata,
+                sortedInputsSupplier,
+                isTool,
+                metadataProvider,
+                artifactPathResolver,
+                remoteActionExecutionContext,
+                remotePathResolver,
+                blobPolicy),
+        directExecutor());
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {
