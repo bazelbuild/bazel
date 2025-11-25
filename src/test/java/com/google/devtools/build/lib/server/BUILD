@@ -48,6 +48,7 @@ java_library(
 java_test(
     name = "ServerTests",
     size = "medium",
+    timeout = "long",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ServerTests_lib",

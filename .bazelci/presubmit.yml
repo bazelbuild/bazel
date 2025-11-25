@@ -1,5 +1,6 @@
 ---
 tasks:
+  # This task actually runs Rocky Linux 8 (OpenJDK 11, gcc 10.2.1)
   centos7_java11_devtoolset10:
     shards: 4
     shell_commands:
@@ -20,6 +21,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -44,6 +46,10 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel:python_version_test"
   ubuntu1804:
     shards: 4
     shell_commands:
@@ -62,6 +68,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -103,13 +110,14 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
-  ubuntu2004:
+  ubuntu2004_java11:
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -127,6 +135,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -147,8 +156,10 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
   macos:
-    xcode_version: "14.2"
+    xcode_version: "16.2.0"
     shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -167,7 +178,8 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
-      - "--sandbox_default_allow_network=false"
+      - "--test_output=errors"
+      - "--sandbox_default_allow_network=true"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
@@ -216,6 +228,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
       - "-//scripts/docs:rewriter_test"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
       
   windows:
     shards: 4
@@ -235,6 +249,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_tag_filters=-no_windows,-slow"
@@ -283,6 +298,8 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel:python_version_test"
   rbe_ubuntu1804:
     platform: ubuntu1804
     name: "RBE"
@@ -303,6 +320,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
+      - "--test_output=errors"
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"

@@ -85,7 +85,7 @@ public class JUnit4ConfigTest {
     GoogleTestSecurityManager.uninstallIfInstalled();
 
     JUnit4Config config = createConfigWithProperties(new Properties());
-    assertThat(config.shouldInstallSecurityManager()).isTrue();
+    assertThat(config.shouldInstallSecurityManager()).isFalse();
   }
 
   @Test

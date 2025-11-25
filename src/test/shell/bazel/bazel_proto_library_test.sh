@@ -59,9 +59,18 @@ new_local_repository(
     workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
 )
 
+# Needed for newer versions of Xcode. @com_github_protocolbuffers_protobuf
+# is how this version of @rules_proto loads protobuf.
+new_local_repository(
+    name = "zlib",
+    path = "$(dirname $(rlocation io_bazel/third_party/zlib/BUILD))",
+    build_file = "@com_github_protocolbuffers_protobuf//:third_party/zlib.BUILD",
+)
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
+  cat $(rlocation io_bazel/src/test/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
   cat >> "$workspace"WORKSPACE << EOF
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 rules_proto_dependencies()
@@ -103,7 +112,7 @@ function write_setup() {
   proto_library_name=$1
   extra_attribute=$2
   include_macro=$3
-  if [ "${include_macro}" -eq "" ]; then
+  if [ -z "${include_macro}" ]; then
     include_macro="load('@rules_proto//proto:defs.bzl', 'proto_library')"
   fi
 
