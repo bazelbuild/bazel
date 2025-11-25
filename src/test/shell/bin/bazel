@@ -23,5 +23,21 @@ bazel_bin=$(rlocation io_bazel/src/bazel)
 unset RUNFILES_DIR
 unset RUNFILES_MANIFEST_FILE
 unset RUNFILES_MANIFEST_ONLY
+
+# Get visibility into the origin of Bazel options.
+args=()
+
+for arg in "$@"; do
+  args+=("$arg")
+
+  case "$arg" in
+  build|test|coverage|query|run)
+    args+=('--announce_rc')
+    ;;
+  *)
+    ;;
+  esac
+done
+
 exec $bazel_bin --nohome_rc --nosystem_rc --bazelrc=$TEST_TMPDIR/bazelrc \
-  --announce_rc "$@"
+  "${args[@]}"
