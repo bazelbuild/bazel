@@ -32,7 +32,6 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.UUID;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -63,9 +62,7 @@ public class BuildEventServiceTransportGrpcTest extends AbstractBuildEventServic
     return new BuildEventServiceGrpcClient(
         ManagedChannelBuilder.forTarget("localhost:" + serverPort).usePlaintext().build(),
         /* callCredentials= */ null,
-        /* interceptor= */ null,
-        "testing/" + UUID.randomUUID(),
-        UUID.randomUUID());
+        /* interceptor= */ null);
   }
 
   @Override
