@@ -209,6 +209,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       starlarkRepositoryFunction,
                       isFetch,
                       ImmutableMap::of,
+                      ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER,
                       repositoryCache.getRepoContentsCache()))

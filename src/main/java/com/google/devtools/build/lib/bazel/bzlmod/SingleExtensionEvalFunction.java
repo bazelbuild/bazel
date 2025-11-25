@@ -63,6 +63,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
+  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   private double timeoutScaling = 1.0;
@@ -71,8 +72,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable private DownloadManager downloadManager = null;
 
   public SingleExtensionEvalFunction(
-      BlazeDirectories directories, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+      BlazeDirectories directories,
+      Supplier<Map<String, String>> repoEnvironmentSupplier,
+      Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.directories = directories;
+    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
@@ -127,6 +131,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 starlarkSemantics,
                 env,
                 directories,
+                repoEnvironmentSupplier,
                 clientEnvironmentSupplier,
                 timeoutScaling,
                 processWrapper,

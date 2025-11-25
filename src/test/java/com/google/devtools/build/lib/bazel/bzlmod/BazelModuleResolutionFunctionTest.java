@@ -165,6 +165,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                         starlarkRepositoryFunction,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
+                        ImmutableMap::of,
                         directories,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
