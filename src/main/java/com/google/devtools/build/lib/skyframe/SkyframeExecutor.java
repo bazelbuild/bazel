@@ -3322,7 +3322,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Don't apply hard-coded aliases for python version < 1.6.100
         // Don't apply hard-coded aliases for python version > 1.6.100 and rules_python uses MODULE.bazel aliases
         boolean isAllowedVersion = module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0;
-        if (!isAllowedVersion || (isAllowedVersion && !module.getValue().getFlagAliases().isEmpty())) {
+        if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty())) {
             continue;
         }
 
