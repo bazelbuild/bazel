@@ -14,36 +14,58 @@
 
 """Rules to create a release archive"""
 
-load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@with_cfg.bzl", "with_cfg")
-
 # The minimum --java_{tool_,}runtime_version supported by prebuilt Java tools.
-_MINIMUM_JAVA_RUNTIME_VERSION = 8
+MINIMUM_JAVA_RUNTIME_VERSION = 8
 
 # The minimum version of a java_toolchain's java_runtime supported by prebuilt Java tools.
-_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 17
+MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 11
 
-minimum_java_runtime_java_binary, _minimum_java_runtime_java_binary = (
-    # Don't warn about targeting very old Java versions.
-    with_cfg(java_binary)
-        .set("java_language_version", str(_MINIMUM_JAVA_RUNTIME_VERSION))
-        .extend("javacopt", ["-Xlint:-options"])
-        .build()
+_java_language_version_transition = transition(
+    implementation = lambda settings, attr: {
+        "//command_line_option:java_language_version": (
+            str(attr.java_language_version)
+        ),
+        # Don't warn about targeting very old Java versions.
+        "//command_line_option:javacopt": (
+            "-Xlint:-options"
+            if attr.java_language_version == str(MINIMUM_JAVA_RUNTIME_VERSION)
+            else []
+        ),
+    },
+    inputs = [],
+    outputs = [
+        "//command_line_option:java_language_version",
+        "//command_line_option:javacopt",
+    ],
 )
 
-minimum_java_runtime_filegroup, _minimum_java_runtime_filegroup = (
-    # Don't warn about targeting very old Java versions.
-    with_cfg(native.filegroup)
-        .set("java_language_version", str(_MINIMUM_JAVA_RUNTIME_VERSION))
-        .extend("javacopt", ["-Xlint:-options"])
-        .build()
+_transitioned_java_version_files = rule(
+    implementation = lambda ctx: [DefaultInfo(files = depset(ctx.files.srcs))],
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            cfg = _java_language_version_transition,
+            mandatory = True,
+        ),
+        "java_language_version": attr.int(mandatory = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
 )
 
-minimum_java_compilation_runtime_filegroup, _minimum_java_compilation_runtime_filegroup = (
-    with_cfg(native.filegroup)
-        .set("java_language_version", str(_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION))
-        .build()
-)
+def transitioned_java_version_filegroup(
+        *,
+        name,
+        java_language_version,
+        srcs,
+        visibility):
+    _transitioned_java_version_files(
+        name = name,
+        java_language_version = java_language_version,
+        srcs = srcs,
+        visibility = visibility,
+    )
 
 def release_archive(name, srcs = [], src_map = {}, package_dir = "-", deps = [], **kwargs):
     """ Creates an zip of the srcs, and renamed label artifacts.

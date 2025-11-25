@@ -41,13 +41,14 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+add_to_bazelrc "build --java_language_version=11"
+add_to_bazelrc "build --java_runtime_version=remotejdk_11"
+add_to_bazelrc "build --tool_java_language_version=11"
+add_to_bazelrc "build --tool_java_runtime_version=remotejdk_11"
+
 function set_up() {
   copy_examples
   create_workspace_with_default_repos "WORKSPACE" "io_bazel"
-  add_to_bazelrc "build --java_language_version=11"
-  add_to_bazelrc "build --java_runtime_version=remotejdk_11"
-  add_to_bazelrc "build --tool_java_language_version=11"
-  add_to_bazelrc "build --tool_java_runtime_version=remotejdk_11"
 }
 
 #
