@@ -3319,10 +3319,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             continue;
         }
 
-        // Don't set flag aliases for old rules_python versions that start with "1.". But support
-        // aliases for versions like "0.0.0" which represent unreleased development repos.
-        if (module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) < 0
-                && module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0) {
+        // Don't apply hard-coded aliases for python version < 1.6.100
+        // Don't apply hard-coded aliases for python version > 1.6.100 and rules_python uses MODULE.bazel aliases
+        boolean rules_python_applies_flag_alias = module.getKey().equals("rules_python") && !module.getValue().getFlagAliases().isEmpty();
+        boolean isAllowedVersion = module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0;
+        if (!isAllowedVersion || (isAllowedVersion && rules_python_applies_flag_alias)) {
             continue;
         }
 
