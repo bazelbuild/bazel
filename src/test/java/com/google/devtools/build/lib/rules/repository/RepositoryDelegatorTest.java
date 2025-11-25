@@ -142,6 +142,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             repositoryHandlers,
             new StarlarkRepositoryFunction(),
             /* isFetch= */ new AtomicBoolean(true),
+            /* repoEnvironmentSupplier= */ ImmutableMap::of,
             /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
@@ -259,7 +260,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
                 .put(
                     SkyFunctions.SINGLE_EXTENSION_EVAL,
-                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+                    new SingleExtensionEvalFunction(
+                        directories, ImmutableMap::of, ImmutableMap::of))
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
