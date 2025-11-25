@@ -158,7 +158,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of, directories, new LocalRepoContentsCache()))
+                        ImmutableMap::of,
+                        ImmutableMap::of,
+                        directories,
+                        new LocalRepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
                 .put(
                     SkyFunctions.REGISTRY,
