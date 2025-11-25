@@ -1,0 +1,5 @@
+The test-tls.* files in this directory were generated with:
+
+openssl genrsa -out test-tls.key 2048
+openssl req -new -key test-tls.key -out test-tls.csr
+openssl x509 -req -days 365 -in test-tls.csr -signkey test-tls.key -out test-tls.crt

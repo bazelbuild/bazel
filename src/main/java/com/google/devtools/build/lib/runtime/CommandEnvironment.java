@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -273,6 +274,9 @@ public class CommandEnvironment {
         checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
+
+    AuthAndTLSOptions authAndTLSOptions = checkNotNull(options.getOptions(AuthAndTLSOptions.class));
+
     Path workingDirectory;
     try {
       workingDirectory = computeWorkingDirectory(commandOptions);
@@ -317,7 +321,8 @@ public class CommandEnvironment {
             commandOptions.httpConnectorAttempts,
             commandOptions.httpConnectorRetryMaxTimeout,
             commandOptions.httpMaxParallelDownloads,
-            httpTimeoutScaling);
+            httpTimeoutScaling,
+            authAndTLSOptions);
     this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
     ClientOptions clientOptions =

@@ -32,6 +32,11 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@rules_java//java/runfiles",
+    ],
+    data = [
+        "testdata/test-tls.crt",
+        "testdata/test-tls.key",
     ],
 )
 
