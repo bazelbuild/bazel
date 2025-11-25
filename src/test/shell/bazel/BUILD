@@ -1182,6 +1182,7 @@ test_suite(
 sh_test(
     name = "bazel_workspaces_test",
     srcs = ["bazel_workspaces_test.sh"],
+    timeout = "long",
     data = [
         ":test-deps",
         "//src/tools/workspacelog:parser",
