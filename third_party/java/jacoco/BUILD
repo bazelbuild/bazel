@@ -1,7 +1,7 @@
 # Description:
 #   JaCoCo is a free code coverage library for Java, created by the EclEmma team.
 #
-# https://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.11/jacoco-0.8.11.zip
+# https://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.14/jacoco-0.8.14.zip
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 load("//src:release_archive.bzl", "release_archive")
@@ -14,7 +14,7 @@ package(default_visibility = ["//visibility:public"])
 
 LASTVERSION = "0.8.11"
 
-VERSIONS = ["0.8.11"]
+VERSIONS = ["0.8.11", "0.8.14"]
 
 filegroup(
     name = "srcs",
