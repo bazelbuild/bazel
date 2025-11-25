@@ -790,6 +790,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "@local_jdk//:jdk",
     ],
     shard_count = 6,
     tags = [
