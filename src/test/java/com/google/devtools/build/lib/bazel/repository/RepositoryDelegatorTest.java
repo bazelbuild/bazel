@@ -121,7 +121,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     RepositoryFetchFunction delegatorFunction =
-        new RepositoryFetchFunction(ImmutableMap::of, directories, new LocalRepoContentsCache());
+        new RepositoryFetchFunction(
+            ImmutableMap::of, ImmutableMap::of, directories, new LocalRepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -207,7 +208,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
                 .put(
                     SkyFunctions.SINGLE_EXTENSION_EVAL,
-                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+                    new SingleExtensionEvalFunction(
+                        directories, ImmutableMap::of, ImmutableMap::of))
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
