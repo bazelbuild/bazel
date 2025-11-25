@@ -191,18 +191,16 @@ public class DiskCacheClientTest {
   }
 
   @Test
-  public void uploadActionResult_whenPresent_updatesMtime() throws Exception {
+  public void uploadActionResult_whenPresent_updatesContent() throws Exception {
     ActionKey actionKey = new ActionKey(getDigest("key"));
-    ActionResult actionResult = ActionResult.newBuilder().setExitCode(42).build();
+    ActionResult actionResult1 = ActionResult.newBuilder().setExitCode(42).build();
 
-    Path path = populateAc(actionKey, actionResult);
+    Path path = populateAc(actionKey, actionResult1);
 
-    // The contents would match under normal operation. This serves to check that we don't
-    // unnecessarily overwrite the file.
-    var unused =
-        getFromFuture(client.uploadActionResult(actionKey, ActionResult.getDefaultInstance()));
+    ActionResult actionResult2 = ActionResult.newBuilder().setExitCode(43).build();
+    var unused = getFromFuture(client.uploadActionResult(actionKey, actionResult2));
 
-    assertThat(FileSystemUtils.readContent(path)).isEqualTo(actionResult.toByteArray());
+    assertThat(FileSystemUtils.readContent(path)).isEqualTo(actionResult2.toByteArray());
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
   }
 
