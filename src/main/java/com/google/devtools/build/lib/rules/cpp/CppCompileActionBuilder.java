@@ -367,7 +367,11 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (ccToolchain.getGrepIncludes() != null) {
       realMandatoryInputsBuilder.add(ccToolchain.getGrepIncludes());
     }
-    if (!getShouldScanIncludes() && dotdFile == null && !shouldParseShowIncludes()) {
+    // Support C++20 Modules with two-phase compilation
+    // For compiling C++20 Modules files to object files (.pcm -> .o) 
+    // headers are not needed as the module interface is already compiled into the pcm file.
+    if (!getShouldScanIncludes() && dotdFile == null && !shouldParseShowIncludes()
+        && !actionName.equals(CppActionNames.CPP20_MODULE_CODEGEN)) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
     }
