@@ -266,6 +266,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var repoPath = externalDirectory.getChild(repo.getName());
     var remoteRepo = externalFs.getPath(repoPath);
     var walkResult = walk(remoteRepo);
+    for (var directory : walkResult.directories()) {
+      nativeFs.getPath(directory.asFragment()).createDirectory();
+    }
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFilesInterruptibly(
@@ -276,11 +279,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
                 ActionInputPrefetcher.Priority.CRITICAL,
                 ActionInputPrefetcher.Reason.INPUTS));
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
+    // target. A symlink may have already been created as an input to an action.
     for (var remoteSymlink : walkResult.symlinks()) {
       var nativeSymlink = nativeFs.getPath(remoteSymlink.asFragment());
-      nativeSymlink.getParentDirectory().createDirectoryAndParents();
-      nativeSymlink.createSymbolicLink(remoteSymlink.readSymbolicLink());
+      FileSystemUtils.ensureSymbolicLink(nativeSymlink, remoteSymlink.readSymbolicLink());
     }
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
@@ -293,10 +295,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     markerFileSibling.renameTo(markerFile);
   }
 
-  private record WalkResult(List<Path> files, List<Path> symlinks) {}
+  private record WalkResult(List<Path> files, List<Path> symlinks, List<Path> directories) {}
 
   private static WalkResult walk(Path root) throws IOException {
-    var result = new WalkResult(new ArrayList<>(), new ArrayList<>());
+    var result = new WalkResult(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     walk(root, result);
     return result;
   }
@@ -307,7 +309,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       switch (dirent.getType()) {
         case FILE -> result.files.add(fromChild);
         case SYMLINK -> result.symlinks.add(fromChild);
-        case DIRECTORY -> walk(fromChild, result);
+        case DIRECTORY -> {
+          result.directories.add(fromChild);
+          walk(fromChild, result);
+        }
         default -> throw new IOException("Unsupported file type: " + dirent);
       }
     }
