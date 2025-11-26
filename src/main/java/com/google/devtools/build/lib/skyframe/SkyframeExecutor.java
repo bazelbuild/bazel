@@ -3319,10 +3319,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
       if (ensureBazelPyAliases) {
-          // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-          BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-                  .filter(e -> !flagAliases.containsKey(e.getKey()))
-                  .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+            .filter(e -> !flagAliases.containsKey(e.getKey()))
+            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
     }
     return ImmutableMap.copyOf(aliasesMap);
