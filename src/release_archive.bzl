@@ -14,11 +14,17 @@
 
 """Rules to create a release archive"""
 
-# The minimum --java_{tool_,}runtime_version supported by prebuilt Java tools.
-MINIMUM_JAVA_RUNTIME_VERSION = 8
+load(
+    "//tools:build_defs.bzl",
+    _MINIMUM_JAVA_RUNTIME_VERSION = "MINIMUM_JAVA_RUNTIME_VERSION",
+    _MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = \
+        "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION",
+)
 
-# The minimum version of a java_toolchain's java_runtime supported by prebuilt Java tools.
-MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 11
+MINIMUM_JAVA_RUNTIME_VERSION = _MINIMUM_JAVA_RUNTIME_VERSION
+MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = (
+    _MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION
+)
 
 _java_language_version_transition = transition(
     implementation = lambda settings, attr: {

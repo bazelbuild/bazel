@@ -1,4 +1,4 @@
-load("//src:release_archive.bzl", "MINIMUM_JAVA_RUNTIME_VERSION")
+load("//tools:build_defs.bzl", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(

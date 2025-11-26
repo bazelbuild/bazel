@@ -2,14 +2,14 @@
 
 load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
-load(":rule_size_test.bzl", "rule_size_test")
 load(
-    "//src:release_archive.bzl",
+    ":release_archive.bzl",
     "MINIMUM_JAVA_RUNTIME_VERSION",
     "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION",
     "release_archive",
     "transitioned_java_version_filegroup",
 )
+load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
