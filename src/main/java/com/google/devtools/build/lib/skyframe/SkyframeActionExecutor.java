@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -834,8 +833,6 @@ public final class SkyframeActionExecutor {
                   action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
         }
       }
-    } catch (UserExecException e) {
-      throw ActionExecutionException.fromExecException(e, action);
     } finally {
       if (cacheHitSemaphore != null) {
         cacheHitSemaphore.release();
@@ -854,16 +851,12 @@ public final class SkyframeActionExecutor {
     if (!actionCacheChecker.enabled()) {
       return;
     }
-    ImmutableSortedMap<String, String> remoteDefaultProperties;
-    try {
-      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-      remoteDefaultProperties =
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableSortedMap.of();
-    } catch (UserExecException e) {
-      throw ActionExecutionException.fromExecException(e, action);
-    }
+
+    RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+    ImmutableSortedMap<String, String> remoteDefaultProperties =
+        remoteOptions != null
+            ? remoteOptions.getRemoteDefaultExecProperties()
+            : ImmutableSortedMap.of();
 
     try {
       actionCacheChecker.updateActionCache(

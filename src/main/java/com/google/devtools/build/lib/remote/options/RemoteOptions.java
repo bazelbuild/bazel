@@ -14,18 +14,9 @@
 
 package com.google.devtools.build.lib.remote.options;
 
-import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
-
-import build.bazel.remote.execution.v2.Platform;
-import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.Scrubber;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
@@ -41,8 +32,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -572,20 +561,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public int remoteExecutionPriority;
 
   @Option(
-      name = "remote_default_platform_properties",
-      oldName = "host_platform_remote_properties_override",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      deprecationWarning =
-          "--remote_default_platform_properties has been deprecated in favor of"
-              + " --remote_default_exec_properties.",
-      help =
-          "Set the default exec properties to be used as the remote execution platform "
-              + "if an execution platform does not already set exec_properties.")
-  public String remoteDefaultPlatformProperties;
-
-  @Option(
       name = "remote_default_exec_properties",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -814,55 +789,12 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   /**
    * Returns the default exec properties specified by the user or an empty map if nothing was
-   * specified. Use this method instead of directly accessing the fields.
+   * specified. Use this method instead of directly accessing the field.
    */
-  public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties()
-      throws UserExecException {
-    boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
-    boolean hasPlatformProperties = !remoteDefaultPlatformProperties.isEmpty();
-
-    if (hasExecProperties && hasPlatformProperties) {
-      throw new UserExecException(
-          createFailureDetail(
-              "Setting both --remote_default_platform_properties and "
-                  + "--remote_default_exec_properties is not allowed. Prefer setting "
-                  + "--remote_default_exec_properties.",
-              Code.INVALID_EXEC_AND_PLATFORM_PROPERTIES));
-    }
-
-    if (hasExecProperties) {
-      return ImmutableSortedMap.copyOf(remoteDefaultExecProperties);
-    }
-    if (hasPlatformProperties) {
-      // Try and use the provided default value.
-      final Platform platform;
-      try {
-        Platform.Builder builder = Platform.newBuilder();
-        TextFormat.getParser().merge(internalToUnicode(remoteDefaultPlatformProperties), builder);
-        platform = builder.build();
-      } catch (ParseException e) {
-        String message =
-            "Failed to parse --remote_default_platform_properties "
-                + remoteDefaultPlatformProperties;
-        throw new UserExecException(
-            e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
-      }
-
-      ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
-      for (Property property : platform.getPropertiesList()) {
-        builder.put(unicodeToInternal(property.getName()), unicodeToInternal(property.getValue()));
-      }
-      return builder.buildOrThrow();
-    }
-
-    return ImmutableSortedMap.of();
-  }
-
-  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
-    return FailureDetail.newBuilder()
-        .setMessage(message)
-        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
-        .build();
+  public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties() {
+    return remoteDefaultExecProperties != null
+        ? ImmutableSortedMap.copyOf(remoteDefaultExecProperties)
+        : ImmutableSortedMap.of();
   }
 
   /** An enum for specifying different modes for printing remote execution messages. */
