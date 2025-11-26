@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -704,7 +703,7 @@ public class HttpDownloaderTest {
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
                   try (OutputStream outputStream = output.getOutputStream()) {
-                    new ByteArrayInputStream(data).transferTo(outputStream);
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
                   }
 
                   return null;
@@ -751,9 +750,8 @@ public class HttpDownloaderTest {
                     throw e;
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
-                  try (InputStream in = new ByteArrayInputStream(data);
-                      OutputStream out = output.getOutputStream()) {
-                    in.transferTo(out);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
                   }
 
                   return null;
@@ -798,7 +796,7 @@ public class HttpDownloaderTest {
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
                   try (OutputStream outputStream = output.getOutputStream()) {
-                    new ByteArrayInputStream(data).transferTo(outputStream);
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
                   }
 
                   return null;
@@ -845,9 +843,8 @@ public class HttpDownloaderTest {
                     throw e;
                   }
                   Path output = invocationOnMock.getArgument(5, Path.class);
-                  try (InputStream in = new ByteArrayInputStream(data);
-                      OutputStream out = output.getOutputStream()) {
-                    in.transferTo(out);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
                   }
 
                   return null;

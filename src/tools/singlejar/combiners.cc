@@ -80,7 +80,7 @@ void* Concatenator::OutputEntry(bool compress) {
   lh->bit_flag(0x0);
   lh->last_mod_file_time(1);                     // 00:00:01
   lh->last_mod_file_date(30 << 9 | 1 << 5 | 1);  // 2010-01-01
-  lh->lh_crc32(0x12345678);
+  lh->crc32(0x12345678);
   lh->compressed_file_size32(0);
   lh->file_name(filename_.c_str(), filename_.size());
 
@@ -108,7 +108,7 @@ void* Concatenator::OutputEntry(bool compress) {
     method = Z_NO_COMPRESSION;
     compressed_size = buffer_->data_size();
   }
-  lh->lh_crc32(checksum);
+  lh->crc32(checksum);
   lh->compression_method(method);
   if (huge_buffer) {
     lh->compressed_file_size32(ziph::zfield_needs_ext64(compressed_size)

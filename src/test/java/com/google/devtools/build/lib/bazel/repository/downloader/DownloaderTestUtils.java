@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
+import com.google.common.io.ByteStreams;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
@@ -36,10 +36,9 @@ final class DownloaderTestUtils {
   }
 
   static void sendLines(@WillNotClose Socket socket, String... data) throws IOException {
-    try (InputStream in =
-        new ByteArrayInputStream(Joiner.on("\r\n").join(data).getBytes(ISO_8859_1))) {
-      in.transferTo(socket.getOutputStream());
-    }
+    ByteStreams.copy(
+        new ByteArrayInputStream(Joiner.on("\r\n").join(data).getBytes(ISO_8859_1)),
+        socket.getOutputStream());
   }
 
   private DownloaderTestUtils() {}

@@ -18,6 +18,7 @@ import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
@@ -98,7 +99,7 @@ public class HttpDownloader implements Downloader {
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
           OutputStream out = destination.getOutputStream()) {
         try {
-          payload.transferTo(out);
+          ByteStreams.copy(payload, out);
         } catch (SocketTimeoutException e) {
           // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
           // an external interruption, but simply a failed download due to some server timing
@@ -156,7 +157,7 @@ public class HttpDownloader implements Downloader {
     semaphore.acquire();
     try (HttpStream payload =
         multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
-      payload.transferTo(out);
+      ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
       // an external interruption, but simply a failed download due to some server timing

@@ -80,27 +80,21 @@ public interface BuildEventServiceClient {
 
   /** A lifecycle event. */
   sealed interface LifecycleEvent {
-    /** The command context for the event. */
-    CommandContext commandContext();
-
     /** The time at which the event occurred. */
     Instant eventTime();
 
     /** The lifecycle event signalling that the build was enqueued. */
-    record BuildEnqueued(CommandContext commandContext, Instant eventTime)
-        implements LifecycleEvent {}
+    record BuildEnqueued(Instant eventTime) implements LifecycleEvent {}
 
     /** The lifecycle event signalling that the invocation was started. */
-    record InvocationStarted(CommandContext commandContext, Instant eventTime)
-        implements LifecycleEvent {}
+    record InvocationStarted(Instant eventTime) implements LifecycleEvent {}
 
     /**
      * The lifecycle event signalling that the invocation was finished.
      *
      * @param status the invocation status
      */
-    record InvocationFinished(
-        CommandContext commandContext, Instant eventTime, InvocationStatus status)
+    record InvocationFinished(Instant eventTime, InvocationStatus status)
         implements LifecycleEvent {}
 
     /**
@@ -108,15 +102,11 @@ public interface BuildEventServiceClient {
      *
      * @param status the invocation status
      */
-    record BuildFinished(CommandContext commandContext, Instant eventTime, InvocationStatus status)
-        implements LifecycleEvent {}
+    record BuildFinished(Instant eventTime, InvocationStatus status) implements LifecycleEvent {}
   }
 
   /** An event sent over a {@link StreamContext}. */
   sealed interface StreamEvent {
-    /** The command context for the event. */
-    CommandContext commandContext();
-
     /** The time at which the event occurred. */
     Instant eventTime();
 
@@ -128,13 +118,11 @@ public interface BuildEventServiceClient {
      *
      * @param payload the {@link BuildEventStreamProtos.BuildEvent} in wire format
      */
-    record BazelEvent(
-        CommandContext commandContext, Instant eventTime, long sequenceNumber, ByteString payload)
+    record BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload)
         implements StreamEvent {}
 
     /** An event signalling the end of the stream. */
-    record StreamFinished(CommandContext commandContext, Instant eventTime, long sequenceNumber)
-        implements StreamEvent {}
+    record StreamFinished(Instant eventTime, long sequenceNumber) implements StreamEvent {}
   }
 
   /** Callback for ACKed build events. */
@@ -181,14 +169,16 @@ public interface BuildEventServiceClient {
   }
 
   /** Makes a blocking RPC call that publishes a {@link LifecycleEvent}. */
-  void publish(LifecycleEvent lifecycleEvent) throws StatusException, InterruptedException;
+  void publish(CommandContext commandContext, LifecycleEvent lifecycleEvent)
+      throws StatusException, InterruptedException;
 
   /**
-   * Starts a new stream with the given {@code ackCallback}. Callers must wait on the returned
-   * future contained in the {@link StreamContext} in order to guarantee that all callback calls
-   * have been received.
+   * Starts a new stream with the given {@link CommandContext} and {@link AckCallback}. Callers must
+   * wait on the returned future contained in the {@link StreamContext} in order to guarantee that
+   * all callback calls have been received.
    */
-  StreamContext openStream(AckCallback callback) throws InterruptedException;
+  StreamContext openStream(CommandContext commandContext, AckCallback callback)
+      throws InterruptedException;
 
   /**
    * Called once to dispose resources that this client might be holding (such as thread pools). This

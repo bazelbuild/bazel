@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
@@ -132,6 +133,8 @@ public class BazelRepositoryModule extends BlazeModule {
       ImmutableMap.of();
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
+  private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
+      new MutableSupplier<>();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private boolean fetchDisabled = false;
@@ -213,9 +216,13 @@ public class BazelRepositoryModule extends BlazeModule {
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
-            clientEnvironmentSupplier, directories, repositoryCache.getRepoContentsCache());
+            repoEnvironmentSupplier,
+            clientEnvironmentSupplier,
+            directories,
+            repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
+        new SingleExtensionEvalFunction(
+            directories, repoEnvironmentSupplier, clientEnvironmentSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules();
@@ -278,6 +285,12 @@ public class BazelRepositoryModule extends BlazeModule {
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
+    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    if (commandOptions.useStrictRepoEnv) {
+      repoEnvironmentSupplier.set(env.getRepoEnvFromOptions());
+    } else {
+      repoEnvironmentSupplier.set(env.getRepoEnv());
+    }
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     fetchDisabled = pkgOptions != null && !pkgOptions.fetch;

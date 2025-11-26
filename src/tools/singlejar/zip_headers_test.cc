@@ -38,8 +38,8 @@ TEST(ZipHeadersTest, LocalHeader) {
   EXPECT_EQ(0xBACD, lh->last_mod_file_time());
   lh->last_mod_file_date(0xCDEF);
   EXPECT_EQ(0xCDEF, lh->last_mod_file_date());
-  lh->lh_crc32(0xEF015423);
-  EXPECT_EQ(0xEF015423, lh->lh_crc32());
+  lh->crc32(0xEF015423);
+  EXPECT_EQ(0xEF015423, lh->crc32());
   lh->compressed_file_size32(1234);
   EXPECT_EQ(1234UL, lh->compressed_file_size32());
   EXPECT_EQ(1234UL, lh->compressed_file_size());
@@ -121,8 +121,8 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   EXPECT_EQ(0xBACD, cdh->last_mod_file_time());
   cdh->last_mod_file_date(0xCDEF);
   EXPECT_EQ(0xCDEF, cdh->last_mod_file_date());
-  cdh->cdh_crc32(0xEF015423);
-  EXPECT_EQ(0xEF015423, cdh->cdh_crc32());
+  cdh->crc32(0xEF015423);
+  EXPECT_EQ(0xEF015423, cdh->crc32());
   cdh->compressed_file_size32(1234);
   EXPECT_EQ(1234U, cdh->compressed_file_size32());
   EXPECT_EQ(1234UL, cdh->compressed_file_size());

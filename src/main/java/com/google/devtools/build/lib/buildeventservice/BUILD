@@ -12,7 +12,7 @@ filegroup(
 )
 
 java_library(
-    name = "BuildEventServiceAvailabilityEvent",
+    name = "build_event_service_availability_event",
     srcs = ["BuildEventServiceAvailabilityEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -22,7 +22,7 @@ java_library(
 )
 
 java_library(
-    name = "buildeventservice-options",
+    name = "build_event_service_options",
     srcs = ["BuildEventServiceOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
@@ -33,10 +33,14 @@ java_library(
     name = "buildeventservice",
     srcs = glob(
         ["*.java"],
-        exclude = ["BuildEventServiceOptions.java"],
+        exclude = [
+            "BuildEventServiceOptions.java",
+            "BuildEventServiceAvailabilityEvent.java",
+        ],
     ),
     deps = [
-        ":buildeventservice-options",
+        ":build_event_service_availability_event",
+        ":build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
@@ -44,7 +48,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream:build_event_service_upload_complete_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream:large-buildevent-serialized-event",

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.buildeventservice.client;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,7 +37,6 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
@@ -51,22 +49,15 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
 
-  private final String buildRequestId;
-  private final UUID commandId;
-
   public BuildEventServiceGrpcClient(
       ManagedChannel channel,
       @Nullable CallCredentials callCredentials,
-      ClientInterceptor interceptor,
-      String buildRequestId,
-      UUID commandId) {
+      ClientInterceptor interceptor) {
     this.besAsync =
         configureStub(PublishBuildEventGrpc.newStub(channel), callCredentials, interceptor);
     this.besBlocking =
         configureStub(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials, interceptor);
     this.channel = channel;
-    this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
-    this.commandId = Preconditions.checkNotNull(commandId);
   }
 
   @VisibleForTesting
@@ -77,8 +68,6 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     this.besAsync = besAsync;
     this.besBlocking = besBlocking;
     this.channel = channel;
-    this.buildRequestId = "testing/" + UUID.randomUUID();
-    this.commandId = UUID.randomUUID();
   }
 
   private static <T extends AbstractStub<T>> T configureStub(
@@ -89,9 +78,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   }
 
   @Override
-  public void publish(LifecycleEvent lifecycleEvent) throws StatusException, InterruptedException {
+  public void publish(CommandContext commandContext, LifecycleEvent lifecycleEvent)
+      throws StatusException, InterruptedException {
     PublishLifecycleEventRequest request =
-        BuildEventServiceProtoUtil.publishLifecycleEventRequest(lifecycleEvent);
+        BuildEventServiceProtoUtil.publishLifecycleEventRequest(commandContext, lifecycleEvent);
     throwIfInterrupted();
     try {
       besBlocking
@@ -99,8 +89,8 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(
                   TracingMetadataUtils.buildMetadata(
-                      buildRequestId,
-                      commandId.toString(),
+                      commandContext.buildId(),
+                      commandContext.invocationId(),
                       "publish_lifecycle_event",
                       /* actionMetadata= */ null)))
           .publishLifecycleEvent(request);
@@ -113,20 +103,19 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private static class BESGrpcStreamContext implements StreamContext {
     private final StreamObserver<PublishBuildToolEventStreamRequest> stream;
     private final SettableFuture<Status> streamStatus;
+    private final CommandContext commandContext;
 
     public BESGrpcStreamContext(
-        PublishBuildEventStub besAsync,
-        AckCallback ackCallback,
-        String buildRequestId,
-        UUID commandId) {
+        PublishBuildEventStub besAsync, CommandContext commandContext, AckCallback ackCallback) {
+      this.commandContext = commandContext;
       this.streamStatus = SettableFuture.create();
       this.stream =
           besAsync
               .withInterceptors(
                   TracingMetadataUtils.attachMetadataInterceptor(
                       TracingMetadataUtils.buildMetadata(
-                          buildRequestId,
-                          commandId.toString(),
+                          commandContext.buildId(),
+                          commandContext.invocationId(),
                           "publish_build_tool_event_stream",
                           /* actionMetadata= */ null)))
               .publishBuildToolEventStream(
@@ -162,7 +151,8 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     @Override
     public void sendOverStream(StreamEvent streamEvent) throws InterruptedException {
       PublishBuildToolEventStreamRequest request =
-          BuildEventServiceProtoUtil.publishBuildToolEventStreamRequest(streamEvent);
+          BuildEventServiceProtoUtil.publishBuildToolEventStreamRequest(
+              commandContext, streamEvent);
       throwIfInterrupted();
       try {
         stream.onNext(request);
@@ -189,9 +179,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   }
 
   @Override
-  public StreamContext openStream(AckCallback ackCallback) throws InterruptedException {
+  public StreamContext openStream(CommandContext commandContext, AckCallback ackCallback)
+      throws InterruptedException {
     try {
-      return new BESGrpcStreamContext(besAsync, ackCallback, buildRequestId, commandId);
+      return new BESGrpcStreamContext(besAsync, commandContext, ackCallback);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
       ListenableFuture<Status> status = Futures.immediateFuture(Status.fromThrowable(e));

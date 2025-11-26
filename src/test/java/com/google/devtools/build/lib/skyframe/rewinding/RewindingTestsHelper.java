@@ -2768,6 +2768,7 @@ public class RewindingTestsHelper {
     testCase.write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = [
             "header_modules",
             "use_header_modules",

@@ -158,7 +158,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final Path workingDirectory;
   protected final BlazeDirectories directories;
   protected final Environment env;
-  protected final ImmutableMap<String, String> envVariables;
+  protected final ImmutableMap<String, String> repoEnvVariables;
+  protected final ImmutableMap<String, String> clientEnvVariables;
   private final StarlarkOS osObject;
   protected final DownloadManager downloadManager;
   protected final double timeoutScaling;
@@ -180,7 +181,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> envVariables,
+      Map<String, String> repoEnvVariables,
+      Map<String, String> clientEnvVariables,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -191,8 +193,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.workingDirectory = workingDirectory;
     this.directories = directories;
     this.env = env;
-    this.envVariables = ImmutableMap.copyOf(envVariables);
-    this.osObject = new StarlarkOS(this.envVariables);
+    this.repoEnvVariables = ImmutableMap.copyOf(repoEnvVariables);
+    this.clientEnvVariables = ImmutableMap.copyOf(clientEnvVariables);
+    this.osObject = new StarlarkOS(this.repoEnvVariables);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
@@ -823,7 +826,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              envVariables,
+              clientEnvVariables,
               identifyingStringForLogging,
               downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
@@ -1063,7 +1066,7 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              envVariables,
+              clientEnvVariables,
               identifyingStringForLogging,
               downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe
@@ -1430,15 +1433,15 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via AEF, rather than solely copy from `this.envVariables`, in order to
+    // Must look up via AEF, rather than solely copy from `this.repoEnvVariables`, in order to
     // establish a SkyKey dependency relationship.
     if (env.getValue(ActionEnvironmentFunction.key(name)) == null) {
       throw new NeedsSkyframeRestartException();
     }
 
-    // However, to account for --repo_env we take the value from `this.envVariables`.
+    // However, to account for --repo_env we take the value from `this.repoEnvVariables`.
     // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
-    String envVarValue = envVariables.get(name);
+    String envVarValue = repoEnvVariables.get(name);
     accumulatedEnvKeys.add(name);
     return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
@@ -1911,17 +1914,17 @@ the same path on case-insensitive filesystems.
     validateExecuteArguments(arguments);
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
-    Map<String, Object> forceEnvVariablesRaw =
+    Map<String, Object> forceRepoEnvVariablesRaw =
         Dict.cast(uncheckedEnvironment, String.class, Object.class, "environment");
-    Map<String, String> forceEnvVariables = new LinkedHashMap<>();
-    Set<String> removeEnvVariables = new LinkedHashSet<>();
-    for (Map.Entry<String, Object> entry : forceEnvVariablesRaw.entrySet()) {
+    Map<String, String> forceRepoEnvVariables = new LinkedHashMap<>();
+    Set<String> removeRepoEnvVariables = new LinkedHashSet<>();
+    for (Map.Entry<String, Object> entry : forceRepoEnvVariablesRaw.entrySet()) {
       String key = entry.getKey();
       Object value = entry.getValue();
       if (value == Starlark.NONE) {
-        removeEnvVariables.add(key);
+        removeRepoEnvVariables.add(key);
       } else if (value instanceof String s) {
-        forceEnvVariables.put(key, s);
+        forceRepoEnvVariables.put(key, s);
       } else {
         throw Starlark.errorf("environment values must be strings or None, got %s", value);
       }
@@ -1930,7 +1933,8 @@ the same path on case-insensitive filesystems.
     if (canExecuteRemote()) {
       // Remote execution only sees the explicitly set environment variables, so removing env vars
       // isn't necessary.
-      return executeRemote(arguments, timeout, forceEnvVariables, quiet, overrideWorkingDirectory);
+      return executeRemote(
+          arguments, timeout, forceRepoEnvVariables, quiet, overrideWorkingDirectory);
     }
 
     // Execute on the local/host machine
@@ -1949,8 +1953,8 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            Maps.filterKeys(envVariables, k -> !removeEnvVariables.contains(k)),
-            forceEnvVariables,
+            Maps.filterKeys(repoEnvVariables, k -> !removeRepoEnvVariables.contains(k)),
+            forceRepoEnvVariables,
             workingDirectory.getPathString(),
             quiet,
             identifyingStringForLogging,
@@ -1982,8 +1986,8 @@ the same path on case-insensitive filesystems.
       return StarlarkExecutionResult.builder(osObject.getEnvironmentVariables())
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())
-          .addEnvironmentVariables(forceEnvVariables)
-          .removeEnvironmentVariables(removeEnvVariables)
+          .addEnvironmentVariables(forceRepoEnvVariables)
+          .removeEnvironmentVariables(removeRepoEnvVariables)
           .setTimeout(timeoutMillis)
           .setQuiet(quiet)
           .execute();
@@ -2247,7 +2251,7 @@ func(
 
   @Nullable
   private StarlarkPath findCommandOnPath(String program) throws IOException {
-    String pathEnvVariable = envVariables.get("PATH");
+    String pathEnvVariable = repoEnvVariables.get("PATH");
     if (pathEnvVariable == null) {
       return null;
     }

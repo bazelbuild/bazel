@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -928,15 +927,14 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   protected abstract AbstractBuildEventRecorder createBesServer();
 
-  protected abstract BuildEventServiceClient createBesClient() throws OptionsParsingException;
+  protected abstract BuildEventServiceClient createBesClient() throws IOException;
 
-  protected abstract BuildEventServiceClient createBesClient(int serverPort)
-      throws OptionsParsingException;
+  protected abstract BuildEventServiceClient createBesClient(int serverPort) throws IOException;
 
   protected abstract DigestHashFunction makeVfsHashFunction();
 
   private BuildEventServiceTransport newBuildEventServiceTransport(boolean publishLifecycleEvents)
-      throws OptionsParsingException {
+      throws IOException {
     return newBuildEventServiceTransport(
         createBesClient(), publishLifecycleEvents, Duration.ZERO, new LocalFilesArtifactUploader());
   }

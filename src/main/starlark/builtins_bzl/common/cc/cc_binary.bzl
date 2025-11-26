@@ -620,7 +620,9 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
-        linker_inputs_extra, runtime_libraries_extra = cc_common.build_extra_link_time_libraries(extra_libraries = extra_link_time_libraries, ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        extra_library_info = cc_common.build_extra_link_time_libraries(extra_libraries = extra_link_time_libraries, ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        linker_inputs_extra = extra_library_info.transitive_linker_inputs
+        runtime_libraries_extra = extra_library_info.transitive_runtime_libraries
 
     use_postmark = postmark.get_use_postmark(ctx)
     output_binary_for_linking = binary

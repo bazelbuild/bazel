@@ -59,6 +59,7 @@ function test_output_filter_cc() {
 
   mkdir -p $pkg/cc/main
   cat > $pkg/cc/main/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cc",
     srcs = ["main.c"],

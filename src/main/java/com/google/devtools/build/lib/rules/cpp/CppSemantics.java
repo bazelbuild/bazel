@@ -28,6 +28,10 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
+
+  // Transformed by Copybara on export
+  String RULES_CC_PREFIX = "@rules_cc+//";
+
   /** No-op in Bazel */
   @StarlarkMethod(
       name = "validate_layering_check_features",

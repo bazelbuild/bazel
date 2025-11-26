@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -348,7 +347,10 @@ public final class SkyframeActionExecutor {
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
-    // actions, which consume their shadowed action's discovered inputs.
+    // actions. Starlark actions shadowing others are not a problem, though, because the issue is
+    // not computing the inputs of the shadowing action / extra action (
+    // getInputFilesForExtraAction() works the same whether input discovery was run or not), but
+    // getExtraActionInfo().
     this.freeDiscoveredInputsAfterExecution =
         !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
@@ -831,8 +833,6 @@ public final class SkyframeActionExecutor {
                   action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
         }
       }
-    } catch (UserExecException e) {
-      throw ActionExecutionException.fromExecException(e, action);
     } finally {
       if (cacheHitSemaphore != null) {
         cacheHitSemaphore.release();
@@ -851,16 +851,12 @@ public final class SkyframeActionExecutor {
     if (!actionCacheChecker.enabled()) {
       return;
     }
-    ImmutableSortedMap<String, String> remoteDefaultProperties;
-    try {
-      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-      remoteDefaultProperties =
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableSortedMap.of();
-    } catch (UserExecException e) {
-      throw ActionExecutionException.fromExecException(e, action);
-    }
+
+    RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+    ImmutableSortedMap<String, String> remoteDefaultProperties =
+        remoteOptions != null
+            ? remoteOptions.getRemoteDefaultExecProperties()
+            : ImmutableSortedMap.of();
 
     try {
       actionCacheChecker.updateActionCache(

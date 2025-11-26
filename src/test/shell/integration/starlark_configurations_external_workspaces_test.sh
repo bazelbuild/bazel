@@ -258,13 +258,12 @@ EOF
   config_hash=$(cat cquery_output  | grep -o '([a-zA-Z0-9]\+)' | tr -d '()')
   # Get the configuration.
   bazel config $config_hash > "$TEST_log" 2>&1 || fail "Expected success"
-
   expect_log "//:my_flag: opt" "Expected Starlark flag to have user value"
   expect_log "compilation_mode: fastbuild" \
       "Expected native flag to have default value"
   # This is important because select() and transitions read --flag_alias to
   # correctly map aliases.
-  expect_log 'flag_alias: \[compilation_mode=@@//:my_flag, user_set=//:fake_flag\]' \
+  expect_log 'flag_alias: \[compilation_mode=@//:my_flag, user_set=//:fake_flag\]' \
       "Expected alias to be in --flag_alias option value list"
 }
 

@@ -227,8 +227,8 @@ class LH {
   uint16_t last_mod_file_date() const { return le16toh(last_mod_file_date_); }
   void last_mod_file_date(uint16_t v) { last_mod_file_date_ = htole16(v); }
 
-  uint32_t lh_crc32() const { return le32toh(crc32_); }
-  void lh_crc32(uint32_t v) { crc32_ = htole32(v); }
+  uint32_t crc32() const { return le32toh(crc32_); }
+  void crc32(uint32_t v) { crc32_ = htole32(v); }
 
   size_t compressed_file_size() const {
     size_t size32 = compressed_file_size32();
@@ -393,8 +393,8 @@ class CDH {
   uint16_t last_mod_file_date() const { return le16toh(last_mod_file_date_); }
   void last_mod_file_date(uint16_t v) { last_mod_file_date_ = htole16(v); }
 
-  void cdh_crc32(uint32_t v) { crc32_ = htole32(v); }
-  uint32_t cdh_crc32() const { return le32toh(crc32_); }
+  void crc32(uint32_t v) { crc32_ = htole32(v); }
+  uint32_t crc32() const { return le32toh(crc32_); }
 
   size_t compressed_file_size() const {
     size_t size32 = compressed_file_size32();

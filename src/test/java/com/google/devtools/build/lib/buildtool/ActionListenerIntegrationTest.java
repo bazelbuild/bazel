@@ -564,6 +564,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":defs.bzl", "shared_header")
 
         shared_header(name = "shared1")

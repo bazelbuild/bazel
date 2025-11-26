@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -148,7 +149,7 @@ public class DiskCacheClient {
             throw new CacheNotFoundException(digest);
           }
           try (InputStream in = path.getInputStream()) {
-            in.transferTo(out);
+            ByteStreams.copy(in, out);
           }
           return null;
         });
@@ -307,7 +308,9 @@ public class DiskCacheClient {
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
-    if (refresh(path)) {
+    // CAS entries are content-addressed and thus automatically have the correct content if they
+    // exist.
+    if (store == Store.CAS && refresh(path)) {
       return;
     }
 
@@ -316,7 +319,7 @@ public class DiskCacheClient {
 
     try {
       try (OutputStream out = temp.getOutputStream()) {
-        in.transferTo(out);
+        ByteStreams.copy(in, out);
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
         if (out instanceof FileOutputStream fos) {

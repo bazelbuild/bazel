@@ -120,7 +120,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryFetchFunction(ImmutableMap::of, directories, new LocalRepoContentsCache()));
+        new RepositoryFetchFunction(
+            ImmutableMap::of, ImmutableMap::of, directories, new LocalRepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {

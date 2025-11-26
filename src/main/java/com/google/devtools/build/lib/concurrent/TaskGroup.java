@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -184,6 +186,63 @@ public class TaskGroup<T, R> implements AutoCloseable {
       return joiner.result();
     } catch (Throwable e) {
       throw new ExecutionException(e);
+    }
+  }
+
+  /**
+   * Similar to {@link #join}, but throws the checked exception from the subtasks instead of
+   * wrapping them in an {@link ExecutionException}. If a subtask throws an exception that doesn't
+   * match the given class, an {@link IllegalStateException} is thrown with the cause set to the
+   * actual exception.
+   */
+  public <E extends Exception> R joinOrThrow(Class<E> exceptionClass)
+      throws E, InterruptedException {
+    return joinOrThrowInternal(exceptionClass, null, null);
+  }
+
+  /**
+   * Similar to {@link #join}, but throws the checked exception from the subtasks instead of
+   * wrapping them in an {@link ExecutionException}. If a subtask throws an exception that doesn't
+   * match the given class, an {@link IllegalStateException} is thrown with the cause set to the
+   * actual exception.
+   */
+  public <E1 extends Exception, E2 extends Exception> R joinOrThrow(
+      Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2, InterruptedException {
+    return joinOrThrowInternal(exceptionClass1, exceptionClass2, null);
+  }
+
+  /**
+   * Similar to {@link #join}, but throws the checked exception from the subtasks instead of
+   * wrapping them in an {@link ExecutionException}. If a subtask throws an exception that doesn't
+   * match the given class, an {@link IllegalStateException} is thrown with the cause set to the
+   * actual exception.
+   */
+  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> R joinOrThrow(
+      Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3)
+      throws E1, E2, E3, InterruptedException {
+    return joinOrThrowInternal(exceptionClass1, exceptionClass2, exceptionClass3);
+  }
+
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception> R joinOrThrowInternal(
+      @Nullable Class<E1> exceptionClass1,
+      @Nullable Class<E2> exceptionClass2,
+      @Nullable Class<E3> exceptionClass3)
+      throws E1, E2, E3, InterruptedException {
+    try {
+      return join();
+    } catch (ExecutionException e) {
+      var cause = e.getCause();
+      if (exceptionClass1 != null) {
+        throwIfInstanceOf(cause, exceptionClass1);
+      }
+      if (exceptionClass2 != null) {
+        throwIfInstanceOf(cause, exceptionClass2);
+      }
+      if (exceptionClass3 != null) {
+        throwIfInstanceOf(cause, exceptionClass3);
+      }
+      throwIfUnchecked(cause);
+      throw new IllegalStateException(cause);
     }
   }
 
