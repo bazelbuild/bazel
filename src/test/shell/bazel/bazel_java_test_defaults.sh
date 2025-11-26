@@ -164,7 +164,7 @@ function test_default_java_toolchain_manualConfiguration() {
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
   name = "vanilla",
-  javabuilder = ["//:VanillaJavaBuilder"],
+  javabuilder = "//:VanillaJavaBuilder",
   jvm_opts = [],
 )
 EOF
