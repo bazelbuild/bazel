@@ -84,33 +84,33 @@ public final class CqueryCommand implements BlazeCommand {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
             "Option required by setting the --transitions flag",
-            ImmutableList.of("--output=transitions"));
+            ImmutableList.of("--output=transitions"), false);
       }
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Options required by cquery",
-          ImmutableList.of("--nobuild"));
+          ImmutableList.of("--nobuild"), false);
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "cquery should include 'tags = [\"manual\"]' targets by default",
-          ImmutableList.of("--build_manual_tests"));
+          ImmutableList.of("--build_manual_tests"), false);
       optionsParser.parse(
           PriorityCategory.SOFTWARE_REQUIREMENT,
           // https://github.com/bazelbuild/bazel/issues/11078
           "cquery should not exclude test_suite rules",
-          ImmutableList.of("--noexpand_test_suites"));
+          ImmutableList.of("--noexpand_test_suites"), false);
       if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
             "Options required by cquery's --show_config_fragments flag",
             ImmutableList.of(
                 "--include_config_fragments_provider="
-                    + cqueryOptions.showRequiredConfigFragments));
+                    + cqueryOptions.showRequiredConfigFragments), false);
       }
       optionsParser.parse(
           PriorityCategory.SOFTWARE_REQUIREMENT,
           "cquery should not exclude tests",
-          ImmutableList.of("--nobuild_tests_only"));
+          ImmutableList.of("--nobuild_tests_only"), false);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Cquery's known options failed to parse", e);
     }

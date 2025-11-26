@@ -71,7 +71,7 @@ public final class AqueryCommand implements BlazeCommand {
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Option required by aquery",
-          ImmutableList.of("--nobuild"));
+          ImmutableList.of("--nobuild"), false);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Aquery's known options failed to parse", e);
     }

@@ -87,7 +87,7 @@ public class TestCommand implements BlazeCommand {
         optionsParser.parse(
             PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
-            ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
+            ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"), false);
       }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Known options failed to parse", e);
