@@ -409,7 +409,6 @@ function run_bazel_jar() {
       ${BAZEL_DIR_STARTUP_OPTIONS} \
       ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
       $command \
-      --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
       --build_python_zip \

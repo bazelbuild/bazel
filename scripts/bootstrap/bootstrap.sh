@@ -35,7 +35,7 @@ fi
 #  mirrored. See https://github.com/bazelbuild/bazel/pull/19549 for more context.
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
-      --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
+      --strategy=Javac=worker --worker_quit_after_build \
       --experimental_java_classpath=off \
       --compilation_mode=opt \
       --repository_cache=derived/repository_cache \
