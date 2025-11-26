@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -157,8 +156,7 @@ public abstract class InterimModule extends ModuleBase {
     @CanIgnoreReturnValue
     public final Builder addFlagAlias(String nativeName, String starlarkLabel)
         throws LabelSyntaxException {
-      flagAliasesBuilder()
-          .put(nativeName, Label.parseCanonical(starlarkLabel).getUnambiguousCanonicalForm());
+      flagAliasesBuilder().put(nativeName, starlarkLabel);
       return this;
     }
 

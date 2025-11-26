@@ -120,7 +120,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -3293,12 +3292,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
-    ImmutableMap<String, String> flagAliases = bzlmodDepGraph.get(ModuleKey.ROOT).getFlagAliases();
-    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    if (flagAliases != null) {
-      aliasesMap.putAll(flagAliases);
-    }
+
     // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
     // alias definitions straight fromrules_python's MODULE.bazel.
     com.google.devtools.build.lib.bazel.bzlmod.Version minBazelVersionForPythonAliases = null;
@@ -3312,16 +3306,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     } catch (ParseException e) {
       throw new IllegalStateException("Hard-coded rules_python version should always parse.", e);
     }
+
+    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
+      ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
+      aliasesMap.putAll(flagAliases);
+
       if (!module.getKey().name().equals("rules_python")) {
         continue;
       }
-      // Don't set flag aliases for old rules_python versions that start with "1.". But support
-      // aliases for versions like "0.0.0" which represent unreleased development repos.
-      if (module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) < 0
-          && module.getValue().getVersion().toString().startsWith("1.")) {
+
+      // Don't apply hard-coded aliases for python version < 1.6.100
+      // Don't apply hard-coded aliases for python version > 1.6.100 and rules_python uses
+      // MODULE.bazel aliases
+      boolean isAllowedVersion =
+          module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0
+              || !module.getValue().getVersion().toString().startsWith("1.");
+      if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty()) {
         continue;
       }
+
       if (ensurePyAliases) {
         // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
         PY_FLAG_ALIASES.entrySet().stream()
@@ -3334,7 +3339,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .filter(e -> !flagAliases.containsKey(e.getKey()))
             .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
+
+      return ImmutableMap.copyOf(aliasesMap);
     }
+
     return ImmutableMap.copyOf(aliasesMap);
   }
 

@@ -233,8 +233,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
-                .addFlagAlias("native_flag1", "//my:starlark_label1")
-                .addFlagAlias("native_flag2", "//my:starlark_label2")
+                .addFlagAlias("native_flag1", "@aaa//my:starlark_label1")
+                .addFlagAlias("native_flag2", "@aaa//my:starlark_label2")
                 .addNodepDep(createModuleKey("ddd", "3.0"))
                 .build());
     assertThat(rootModuleFileValue.overrides())
