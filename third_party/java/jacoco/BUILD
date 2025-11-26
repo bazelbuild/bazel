@@ -77,8 +77,8 @@ distrib_java_import(
     distrib_java_import(
         name = "core-%s" % VERSION,
         enable_distributions = ["debian"],
-        jars = ["org.jacoco.core-%s.jar" % LASTVERSION],
-        srcjar = "org.jacoco.core-%s-sources.jar" % LASTVERSION,
+        jars = ["org.jacoco.core-%s.jar" % VERSION],
+        srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
         exports = [
             "//third_party:asm",
             "//third_party:asm-commons",
