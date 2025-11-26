@@ -90,8 +90,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
       String commandLineOptions, String bazelrcOptions) throws Exception {
     List<String> commandLineOptionsList = Arrays.asList(commandLineOptions.split(" "));
     List<String> bazelrcOptionsList = Arrays.asList(bazelrcOptions.split(" "));
-    optionsParser.parse(PriorityCategory.COMMAND_LINE, /* source= */ null, commandLineOptionsList);
-    optionsParser.parse(PriorityCategory.RC_FILE, "fake.bazelrc", bazelrcOptionsList);
+    optionsParser.parse(PriorityCategory.COMMAND_LINE, /* source= */ null, commandLineOptionsList, false);
+    optionsParser.parse(PriorityCategory.RC_FILE, "fake.bazelrc", bazelrcOptionsList, false);
     assertThat(
             starlarkOptionsParser.parseGivenArgs(
                 ImmutableList.<String>builder()
