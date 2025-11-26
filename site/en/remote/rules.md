@@ -168,14 +168,14 @@ To more easily generate pre-checked artifacts for remote execution, you can use
 execution environment, such as inside each toolchain container, and check the
 outputs of your remote execution build in to your source repo to reference.
 
-For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/master/third_party/xla/third_party/gpus/cuda_configure.bzl){: .external}
-and [`python`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl){: .external},
-the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/third_party/toolchains/cpus/py){: .external}.
+For example, for Tensorflow's rules for [`cuda`](https://github.com/tensorflow/tensorflow/blob/d1ba01f81d8fa1d0171ba9ce871599063d5c7eb9/third_party/gpus/cuda_configure.bzl){: .external}
+and [`python`](https://github.com/tensorflow/tensorflow/blob/baa794b4c02db5a5d4c115383564a271dd8f875d/third_party/py/python_configure.bzl){: .external},
+the `WORKSPACE` rules produce the following [`BUILD files`](https://github.com/tensorflow/tensorflow/blob/v2.20.0/tensorflow/tools/toolchains/cpus/py/BUILD){: .external}.
 For local execution, files produced by checking the host environment are used.
-For remote execution, a [conditional statement](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L304){: .external}
+For remote execution, a [conditional statement](https://github.com/tensorflow/tensorflow/blob/baa794b4c02db5a5d4c115383564a271dd8f875d/third_party/py/python_configure.bzl#L304){: .external}
 on an environment variable allows the rule to use files that are checked into
 the repo.
 
-The `BUILD` files declare [`genrules`](https://github.com/tensorflow/tensorflow/blob/master/third_party/py/python_configure.bzl#L84){: .external}
+The `BUILD` files declare [`genrules`](https://github.com/tensorflow/tensorflow/blob/baa794b4c02db5a5d4c115383564a271dd8f875d/third_party/py/python_configure.bzl#L84){: .external}
 that can run both locally and remotely, and perform the necessary processing
 that was previously done via `repository_ctx.symlink` as shown [here](https://github.com/tensorflow/tensorflow/blob/d1ba01f81d8fa1d0171ba9ce871599063d5c7eb9/third_party/gpus/cuda_configure.bzl#L730){: .external}.
