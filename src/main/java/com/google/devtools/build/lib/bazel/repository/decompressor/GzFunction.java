@@ -10,6 +10,9 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.compress.compressors.gzip.GzipUtils;
 
+/**
+ * Decompresses a gzip compressed file.
+ */
 public class GzFunction extends CompressedFunction {
   public static final Decompressor INSTANCE = new GzFunction();
 

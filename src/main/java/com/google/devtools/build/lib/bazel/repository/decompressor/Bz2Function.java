@@ -7,6 +7,9 @@ import java.io.InputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2Utils;
 
+/**
+ * Decompresses a bzip2 compressed file.
+ */
 public class Bz2Function extends CompressedFunction {
   public static final Decompressor INSTANCE = new Bz2Function();
 
