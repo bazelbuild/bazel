@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -101,8 +100,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends AbstractFileSystem
-    implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
@@ -901,7 +899,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   @Override
   public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    // Only called by the AbstractFileSystem#createHardLink base implementation, overridden below.
+    // Only called by the FileSystem#createHardLink base implementation, overridden below.
     throw new UnsupportedOperationException();
   }
 
