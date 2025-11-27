@@ -1,7 +1,7 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue;
-import org.apache.commons.lang.WordUtils;
+import org.apache.commons.lang3.text.WordUtils;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
