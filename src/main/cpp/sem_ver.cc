@@ -1,24 +1,29 @@
 #include "src/main/cpp/sem_ver.h"
 
+#include <optional>
+#include <string>
+
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
-#include <optional>
-#include <regex>
-#include <string>
+#include "re2/re2.h"
 
 namespace blaze {
 namespace {
 // Semantic version regex copied verbatim from
 // https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-const std::regex kSemverRe(
+const RE2 kSemverRe(
     R"(^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$)");
 } // namespace
 
 /*static*/ std::optional<SemVer> SemVer::Parse(const std::string &v) {
-  if (std::smatch m; std::regex_match(v, m, kSemverRe)) {
-    return SemVer(std::stoi(m[1]), std::stoi(m[2]), std::stoi(m[3]), m[4],
-                  m[5]);
+  int major;
+  int minor;
+  int patch;
+  std::string prerelease;
+  std::string buildmetadata;
+  if (RE2::FullMatch(v, kSemverRe, &major, &minor, &patch, &prerelease, &buildmetadata)) {
+    return SemVer(major, minor, patch, prerelease, buildmetadata);
   }
   return std::nullopt;
 }
