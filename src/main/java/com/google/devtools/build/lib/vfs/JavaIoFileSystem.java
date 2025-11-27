@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * system call - they all are associated with the VFS_STAT task.
  */
 @ThreadSafe
-public class JavaIoFileSystem extends AbstractFileSystem {
+public class JavaIoFileSystem extends DiskBackedFileSystem {
   private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
   // This isn't generally safe; we rely on the file system APIs not modifying the array.
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
