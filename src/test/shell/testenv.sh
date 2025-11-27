@@ -837,44 +837,6 @@ EOF
   fi
 }
 
-function mock_rules_java_to_avoid_downloading() {
-  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
-  mkdir -p "${rules_java_workspace}/java"
-  mkdir -p "${rules_java_workspace}/toolchains"
-  touch "${rules_java_workspace}/WORKSPACE"
-  touch "${rules_java_workspace}/toolchains/BUILD"
-  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
-def local_java_repository(**attrs):
-    pass
-EOF
-  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
-JDK_BUILD_TEMPLATE = ''
-EOF
-  touch "${rules_java_workspace}/java/BUILD"
-  cat > "${rules_java_workspace}/java/rules_java_deps.bzl" <<EOF
-def rules_java_dependencies():
-    pass
-EOF
-  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
-def rules_java_toolchains():
-    pass
-EOF
-  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
-def java_binary(**attrs):
-    native.java_binary(**attrs)
-def java_library(**attrs):
-    native.java_library(**attrs)
-def java_import(**attrs):
-    native.java_import(**attrs)
-def java_test(**attrs):
-    native.java_test(**attrs)
-EOF
-  # Disable autoloads, because the Java mock isn't complete enough to support it
-  add_to_bazelrc "common --incompatible_autoload_externally="
-  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
-  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
-}
-
 # overrides remote_java_tools repositories if not using "released"
 function override_java_tools() {
   RULES_JAVA_REPO_NAME="$1"; shift

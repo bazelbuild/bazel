@@ -221,7 +221,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             differencer);
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/REPO.bazel");
-    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
@@ -246,9 +246,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   @Test
   public void testOverride() throws Exception {
-    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(
-        differencer,
-        ImmutableMap.of(RepositoryName.createUnvalidated("foo"), overrideDirectory.asFragment()));
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(
+        differencer, ImmutableMap.of("foo", overrideDirectory.asFragment()));
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("foo"));

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -30,7 +31,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -38,8 +38,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
-  public static final PrecomputedValue.Precomputed<Map<RepositoryName, PathFragment>>
-      REPOSITORY_OVERRIDES = new PrecomputedValue.Precomputed<>("repository_overrides");
   private final RuleClassProvider ruleClassProvider;
 
   public RepositoryMappingFunction(RuleClassProvider ruleClassProvider) {
@@ -56,7 +54,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       return null;
     }
     if (repositoryMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
-        && REPOSITORY_OVERRIDES.get(env).containsKey(key.repoName())) {
+        && RepoDefinitionFunction.REPOSITORY_OVERRIDES.get(env).containsKey(key.repoName().getName())) {
       throw new RepositoryMappingFunctionException(
           // Use this rather than NoSuchThingException so that the error mentions the requested
           // target.
