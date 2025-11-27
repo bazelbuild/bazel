@@ -7,6 +7,9 @@ import java.io.InputStream;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.apache.commons.compress.compressors.xz.XZUtils;
 
+/**
+ * Decompresses an xz (LZMA) compressed file.
+ */
 public class XzFunction extends CompressedFunction {
   public static final Decompressor INSTANCE = new XzFunction();
 

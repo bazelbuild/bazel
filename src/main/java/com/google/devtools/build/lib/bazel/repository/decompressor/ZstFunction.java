@@ -8,6 +8,9 @@ import java.io.InputStream;
 import org.apache.commons.compress.compressors.FileNameUtil;
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
 
+/**
+ * Decompresses a Zstandard compressed file.
+ */
 public class ZstFunction extends CompressedFunction {
   public static final Decompressor INSTANCE = new ZstFunction();
   // Apache Commons Compress does not provide a readily available mapping of compressed ->
