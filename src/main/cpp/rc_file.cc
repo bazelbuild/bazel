@@ -16,7 +16,6 @@
 
 #include <memory>
 #include <optional>
-#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,6 +35,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "re2/re2.h"
 
 namespace blaze {
 
@@ -44,7 +44,7 @@ static constexpr absl::string_view kCommandTryImport = "try-import";
 static constexpr absl::string_view kCommandTryImportIfBazelVersion = "try-import-if-bazel-version";
 
 // The valid operators to compare against bazel version for
-// kCommandTryImportIfBazelVersion
+// kCommandTryImportIfBazelVersion. These should match the below regex .
 static constexpr absl::string_view kBazelVersionLt = "<";
 static constexpr absl::string_view kBazelVersionLte = "<=";
 static constexpr absl::string_view kBazelVersionGt = ">";
@@ -55,7 +55,7 @@ static constexpr absl::string_view kBazelVersionTilde = "~";
 
 // Regex to match the comparison operator in kCommandTryImportIfBazelVersion
 // statements. Eg. '>=9.0.0'
-const std::regex kBazelVersionCmpOp(R"((<=?|>=?|==|!=|~)(\S+))");
+const RE2 kBazelVersionCmpOp(R"((<=?|>=?|==|!=|~)(\S+))");
 
 /*static*/ std::unique_ptr<RcFile> RcFile::Parse(
     const std::string& filename, const WorkspaceLayout* workspace_layout,
@@ -146,9 +146,9 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
       const auto& conditional = words[1];
       import_filename = words[2];
 
-      if (std::smatch m; std::regex_match(conditional, m, kBazelVersionCmpOp)) {
-        const std::string& op = m[1];
-        const std::string& version = m[2];
+      absl::string_view op;
+      std::string version;
+      if (RE2::FullMatch(conditional, kBazelVersionCmpOp, &op, &version)) {
         std::optional<bool> match = BazelVersionMatchesCondition(
             sem_ver.value(), op, version, error_text);
         if (!match.has_value()) {

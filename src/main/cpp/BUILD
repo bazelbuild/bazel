@@ -279,6 +279,7 @@ cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/types:span",
+        "@re2",
     ],
 )
 
@@ -293,6 +294,7 @@ cc_library(
     deps = [
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:string_view",
+        "@re2",
     ],
 )
 
