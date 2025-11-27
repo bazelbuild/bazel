@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 /** File system implementation for Windows. */
 @ThreadSafe
 public class WindowsFileSystem extends JavaIoFileSystem {
+  private static final Profiler profiler = Profiler.instance();
 
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
