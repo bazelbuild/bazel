@@ -699,24 +699,18 @@ public abstract class FileSystem {
   }
 
   /**
-   * Creates an InputStream accessing the file denoted by the path.
+   * Creates an {@link InputStream}.
    *
+   * @param path the path to open
    * @throws FileNotFoundException if the file does not exist
    * @throws IOException if there was an error opening the file for reading
    */
   public abstract InputStream getInputStream(PathFragment path) throws IOException;
 
   /**
-   * Returns a {@link SeekableByteChannel} for writing to a file at provided path.
+   * Creates an {@link OutputStream}.
    *
-   * <p>Truncates the target file, therefore it cannot be used to read already existing files.
-   */
-  public abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
-      throws IOException;
-
-  /**
-   * Creates an OutputStream accessing the file denoted by path.
-   *
+   * @param path the path to open
    * @throws IOException if there was an error opening the file for writing
    */
   protected final OutputStream getOutputStream(PathFragment path) throws IOException {
@@ -724,9 +718,10 @@ public abstract class FileSystem {
   }
 
   /**
-   * Creates an OutputStream accessing the file denoted by path.
+   * Creates an {@link OutputStream}.
    *
-   * @param append whether to open the output stream in append mode
+   * @param path the path to open
+   * @param append whether to open the file in append mode
    * @throws IOException if there was an error opening the file for writing
    */
   protected final OutputStream getOutputStream(PathFragment path, boolean append)
@@ -735,13 +730,23 @@ public abstract class FileSystem {
   }
 
   /**
-   * Creates an OutputStream accessing the file denoted by path.
+   * Creates an {@link OutputStream}.
    *
-   * @param append whether to open the output stream in append mode
-   * @param internal whether the file is a Bazel internal file
+   * @param path the path to open
+   * @param append whether to open the file in append mode
+   * @param internal whether the file is an internal file whose I/O should not be profiled
    * @throws IOException if there was an error opening the file for writing
    */
   public abstract OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException;
+
+  /**
+   * Creates a {@link SeekableByteChannel}, truncating the file if it already exists.
+   *
+   * @param path the path to open
+   * @throws IOException if there was an error opening the file for reading
+   */
+  public abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException;
 
   /**
