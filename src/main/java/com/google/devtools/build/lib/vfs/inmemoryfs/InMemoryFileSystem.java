@@ -22,11 +22,11 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
@@ -59,7 +59,7 @@ import javax.annotation.Nullable;
  * bits are considered for the purpose of determining whether a file is accessible.
  */
 @ThreadSafe
-public class InMemoryFileSystem extends AbstractFileSystem {
+public class InMemoryFileSystem extends FileSystem {
 
   protected final Clock clock;
 
