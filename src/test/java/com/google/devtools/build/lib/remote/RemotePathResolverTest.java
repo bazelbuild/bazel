@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.util.SortedMap;
 import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +49,7 @@ public class RemotePathResolverTest {
 
     input = ActionInputHelper.fromPath("foo");
     spawnExecutionContext = mock(SpawnExecutionContext.class);
-    when(spawnExecutionContext.getInputMapping(any(), anyBoolean()))
+    when(spawnExecutionContext.getInputMapping(any()))
         .thenAnswer(
             invocationOnMock -> {
               PathFragment baseDirectory = invocationOnMock.getArgument(0);
@@ -77,26 +75,6 @@ public class RemotePathResolverTest {
     String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
 
     assertThat(workingDirectory).isEqualTo("main");
-  }
-
-  @Test
-  public void getInputMapping_default_inputsRelativeToExecRoot() throws Exception {
-    RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
-
-    SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext, false);
-
-    assertThat(inputs).containsExactly(PathFragment.create("foo"), input);
-  }
-
-  @Test
-  public void getInputMapping_sibling_inputsRelativeToInputRoot() throws Exception {
-    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-
-    SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext, false);
-
-    assertThat(inputs).containsExactly(PathFragment.create("main/foo"), input);
   }
 
   @Test
