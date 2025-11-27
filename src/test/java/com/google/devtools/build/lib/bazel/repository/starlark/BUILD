@@ -52,7 +52,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
-        "@maven//:commons_lang_commons_lang_2_6",
+        "@maven//:org_apache_commons_commons_lang3",
     ],
 )
 
