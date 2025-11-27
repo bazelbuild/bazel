@@ -398,9 +398,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
-          case CacheEntry.Intermediate intermediateEntry ->
-              nextHashes.addAll(intermediateEntry.nextInputHashes());
-          case null, default -> {}
+          case CacheEntry.Intermediate(ImmutableList<String> nextInputHashes) ->
+              nextHashes.addAll(nextInputHashes);
+          case CacheEntry.Invalid(String reason) -> env.getListener().handle(Event.warn(reason));
         }
       }
       currentHashes = nextHashes.build();
