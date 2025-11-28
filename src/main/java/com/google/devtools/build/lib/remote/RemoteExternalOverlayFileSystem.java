@@ -542,7 +542,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   @Override
   public Path resolveSymbolicLinks(PathFragment path) throws IOException {
-    return fsForPath(path).resolveSymbolicLinks(path);
+    // Ensure that the return value doesn't leave the overlay file system.
+    return getPath(fsForPath(path).resolveSymbolicLinks(path).asFragment());
   }
 
   @Nullable
