@@ -38,37 +38,45 @@ public class DecompressorValueTest {
   @Test
   public void testKnownFileExtensionsDoNotThrow() throws Exception {
     Path path = fs.getPath("/foo/.external-repositories/some-repo/bar.zip");
-    Decompressor unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZipDecompressor.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.jar");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZipDecompressor.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.zip");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZipDecompressor.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.nupkg");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZipDecompressor.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.whl");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZipDecompressor.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.gz");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarGzFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tgz");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarGzFunction.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.gz");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(GzFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.xz");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarXzFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.txz");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarXzFunction.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.xz");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(XzFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.zst");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarZstFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tzst");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarZstFunction.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.zst");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ZstFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.bz2");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarBz2Function.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tbz");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarBz2Function.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.bz2");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(Bz2Function.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.ar");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ArFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.deb");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ArFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.7z");
-    unused = DecompressorValue.getDecompressor(path);
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(SevenZDecompressor.class);
   }
 
   @Test
