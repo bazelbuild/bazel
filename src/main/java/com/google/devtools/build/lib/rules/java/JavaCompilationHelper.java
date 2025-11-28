@@ -446,13 +446,6 @@ public final class JavaCompilationHelper {
     builder.setHeaderCompilationOutputJar(headerCompilationOutputJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
-    if (plugins
-        .processorClasses()
-        .toList()
-        .contains("dagger.internal.codegen.ComponentProcessor")) {
-      // See b/31371210 and b/142059842.
-      builder.addTurbineHjarJavacOpt();
-    }
     builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
   }

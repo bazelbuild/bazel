@@ -199,7 +199,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private ImmutableList<String> javacOpts = ImmutableList.of();
-    private boolean addTurbineHjarJavacOpt = false;
     private JavaPluginData plugins = JavaPluginData.empty();
 
     private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
@@ -269,16 +268,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     @CanIgnoreReturnValue
     public Builder setJavacOpts(ImmutableList<String> javacOpts) {
       this.javacOpts = checkNotNull(javacOpts);
-      return this;
-    }
-
-    /**
-     * Adds {@code -Aexperimental_turbine_hjar} to Java compiler flags without creating an entirely
-     * new list.
-     */
-    @CanIgnoreReturnValue
-    public Builder addTurbineHjarJavacOpt() {
-      this.addTurbineHjarJavacOpt = true;
       return this;
     }
 
@@ -505,17 +494,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .addExecPaths("--source_jars", sourceJars)
               .add("--injecting_rule_kind", injectingRuleKind);
 
-      if (!javacOpts.isEmpty() || addTurbineHjarJavacOpt) {
-        commandLine.add("--javacopts");
-        if (!javacOpts.isEmpty()) {
-          commandLine.addObject(javacOpts);
-        }
-        if (addTurbineHjarJavacOpt) {
-          commandLine.add("-Aexperimental_turbine_hjar");
-        }
-        // terminate --javacopts with `--` to support javac flags that start with `--`
-        commandLine.add("--");
+      commandLine.add("--javacopts");
+      if (!javacOpts.isEmpty()) {
+        commandLine.addObject(javacOpts);
       }
+      // See b/31371210, b/142059842, and b/464431616.
+      commandLine.add("-Aexperimental_turbine_hjar");
+      // terminate --javacopts with `--` to support javac flags that start with `--`
+      commandLine.add("--");
 
       if (targetLabel != null) {
         commandLine.add("--target_label");
