@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 
 /**
@@ -309,9 +310,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
         List<WriteStatus> childWriteStatuses,
         byte[] childBytes,
         Collection<FuturePut> childFuturePuts) {
-      // TODO: b/440049699 - the compression operation is expensive. Consider if it should be moved
-      // off of a completion notification thread.
-      super(childWriteStatuses, childBytes, childFuturePuts, directExecutor());
+      super(childWriteStatuses, childBytes, childFuturePuts, ForkJoinPool.commonPool());
       this.fingerprintValueService = fingerprintValueService;
       signalSubclassReady();
     }
