@@ -504,6 +504,173 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
 
+  def testShowModuleAndExtensionReposFromBaseModuleJson(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_repo',
+            '--base_module=foo@2.0',
+            '--output=streamed_jsonproto',
+            '@bar_from_foo2',
+            'ext@1.0',
+            '@my_repo3',
+            'bar',
+        ],
+        rstrip=True,
+    )
+    repos = [json.loads(line) for line in stdout]
+
+    ignored_attrs = {
+        'integrity', 'path', 'remote_module_file_urls',
+        'remote_module_file_integrity', 'urls',
+    }
+    for repo in repos:
+      attrs = repo.get('rule', {}).get('attribute')
+      if attrs:
+        repo['rule']['attribute'] = [
+            attr
+            for attr in attrs
+            if attr.get('explicitlySpecified', False) and attr['name'] not in ignored_attrs
+        ]
+
+    self.assertListEqual(
+        repos,
+        [
+            {
+                'type': 'RULE',
+                'rule': {
+                    'name': 'bar+',
+                    'ruleClass': 'http_archive',
+                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                    'attribute': [
+                        {
+                            'name': '$apparent_repo_name',
+                            'type': 'STRING',
+                            'stringValue': '@bar_from_foo2',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'strip_prefix',
+                            'type': 'STRING',
+                            'stringValue': '',
+                            'explicitlySpecified': True,
+                            'nodep': False,
+                        },
+                        {
+                            'name': 'remote_file_urls',
+                            'type': 'STRING_LIST_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_file_integrity',
+                            'type': 'STRING_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_patches',
+                            'type': 'STRING_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_patch_strip',
+                            'type': 'INTEGER',
+                            'intValue': 0,
+                            'explicitlySpecified': True,
+                        },
+                    ],
+                },
+            },
+            {
+                'type': 'RULE',
+                'rule': {
+                    'name': 'ext+',
+                    'ruleClass': 'local_repository',
+                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:local.bzl%local_repository',
+                    'attribute': [{
+                        'name': '$module_key',
+                        'type': 'STRING',
+                        'stringValue': 'ext@1.0',
+                        'explicitlySpecified': True,
+                    }],
+                },
+            },
+            {
+                'type': 'RULE',
+                'rule': {
+                    'name': 'ext++ext+repo3',
+                    'ruleClass': 'data_repo',
+                    'ruleClassKey': '@@ext+//:ext.bzl%data_repo',
+                    'attribute': [
+                        {
+                            'name': '$apparent_repo_name',
+                            'type': 'STRING',
+                            'stringValue': '@my_repo3',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': '$original_name',
+                            'type': 'STRING',
+                            'stringValue': 'repo3',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'data',
+                            'type': 'STRING',
+                            'stringValue': 'requested repo',
+                            'nodep': False,
+                            'explicitlySpecified': True,
+                        },
+                    ],
+                },
+            },
+            {
+                'type': 'RULE',
+                'rule': {
+                    'name': 'bar+',
+                    'ruleClass': 'http_archive',
+                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                    'attribute': [
+                        {
+                            'name': '$module_key',
+                            'type': 'STRING',
+                            'stringValue': 'bar@2.0',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'strip_prefix',
+                            'type': 'STRING',
+                            'stringValue': '',
+                            'explicitlySpecified': True,
+                            'nodep': False,
+                        },
+                        {
+                            'name': 'remote_file_urls',
+                            'type': 'STRING_LIST_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_file_integrity',
+                            'type': 'STRING_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_patches',
+                            'type': 'STRING_DICT',
+                            'explicitlySpecified': True,
+                        },
+                        {
+                            'name': 'remote_patch_strip',
+                            'type': 'INTEGER',
+                            'intValue': 0,
+                            'explicitlySpecified': True,
+                        },
+                    ],
+                },
+            },
+        ],
+        'wrong output in the show query for module and extension-generated repos',
+    )
+
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -526,11 +693,11 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
     self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
-    self.assertRegex(stdout.pop(35), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(35), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(39), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(37), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(37), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(41), r'^  remote_module_file_urls = \[".*"\],$')
     self.assertRegex(
-        stdout.pop(39), r'^  remote_module_file_integrity = ".*",$'
+        stdout.pop(41), r'^  remote_module_file_integrity = ".*",$'
     )
     self.assertListEqual(
         stdout,
@@ -567,6 +734,7 @@ class ModCommandTest(test_base.TestBase):
             'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo3",',
+            '  _original_name = "repo3",',
             '  data = "requested repo",',
             ')',
             '',
@@ -574,6 +742,7 @@ class ModCommandTest(test_base.TestBase):
             'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo4",',
+            '  _original_name = "repo4",',
             '  data = "requested repo",',
             ')',
             '',
@@ -584,14 +753,14 @@ class ModCommandTest(test_base.TestBase):
             ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(35) -- urls=[...]
-            # pop(35) -- integrity=...
+            # pop(37) -- urls=[...]
+            # pop(37) -- integrity=...
             '  strip_prefix = "",',
             '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            # pop(39) -- remote_module_file_urls=[...]
-            # pop(39) -- remote_module_file_integrity=...
+            # pop(41) -- remote_module_file_urls=[...]
+            # pop(41) -- remote_module_file_integrity=...
             '  remote_patch_strip = 0,',
             ')',
             '',
@@ -791,6 +960,16 @@ class ModCommandTest(test_base.TestBase):
     self.assertIn('## @bazel_tools:', stdout)
     self.assertIn('Builtin or overridden repo located at: ', stdout)
     self.assertIn('/embedded_tools', stdout)
+
+  def testShowRepoBazelToolsJson(self):
+    # @bazel_tools should be omitted from proto outputs
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stdout = '\n'.join(stdout)
+    self.assertEqual('', stdout)
 
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
