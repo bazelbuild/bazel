@@ -319,8 +319,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   @Override
-  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
-    return getPath(pathCanonicalizer.resolveSymbolicLinks(path));
+  public PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
+    return pathCanonicalizer.resolveSymbolicLinks(path);
   }
 
   @Override
@@ -344,7 +344,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
     PathFragment parentPath = path.getParentDirectory();
     if (parentPath != null) {
-      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+      return resolveSymbolicLinks(parentPath).getChild(path.getBaseName());
     }
     return path;
   }
@@ -422,7 +422,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
 
     FileNotFoundException remoteException = null;
     try {
@@ -458,7 +458,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   @Override
   @Nullable
   public byte[] getFastDigest(PathFragment path) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
@@ -471,7 +471,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
@@ -484,7 +484,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public boolean isReadable(PathFragment path) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       return localFs.getPath(path).isReadable();
     } catch (FileNotFoundException e) {
@@ -495,7 +495,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public boolean isWritable(PathFragment path) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       return localFs.getPath(path).isWritable();
     } catch (FileNotFoundException e) {
@@ -506,7 +506,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public boolean isExecutable(PathFragment path) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       return localFs.getPath(path).isExecutable();
     } catch (FileNotFoundException e) {
@@ -517,7 +517,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void setReadable(PathFragment path, boolean readable) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       localFs.getPath(path).setReadable(readable);
     } catch (FileNotFoundException e) {
@@ -527,7 +527,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       localFs.getPath(path).setWritable(writable);
     } catch (FileNotFoundException e) {
@@ -537,7 +537,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void setExecutable(PathFragment path, boolean executable) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       localFs.getPath(path).setExecutable(executable);
     } catch (FileNotFoundException e) {
@@ -547,7 +547,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void chmod(PathFragment path, int mode) throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
     try {
       localFs.getPath(path).chmod(mode);
     } catch (FileNotFoundException e) {
@@ -666,11 +666,11 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     // Canonicalize the path.
     try {
       if (followMode == FollowMode.FOLLOW_ALL) {
-        path = resolveSymbolicLinks(path).asFragment();
+        path = resolveSymbolicLinks(path);
       } else if (followMode == FollowMode.FOLLOW_PARENT) {
         PathFragment parent = path.getParentDirectory();
         if (parent != null) {
-          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+          path = resolveSymbolicLinks(parent).getChild(path.getBaseName());
         }
       }
     } catch (FileNotFoundException e) {
@@ -832,7 +832,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   private <T extends Comparable<T>> ImmutableSortedSet<T> getDirectoryContents(
       PathFragment path, boolean followSymlinks, Function<Dirent, T> transformer)
       throws IOException {
-    path = resolveSymbolicLinks(path).asFragment();
+    path = resolveSymbolicLinks(path);
 
     HashMap<String, Dirent> entries = new HashMap<>();
     boolean exists = false;

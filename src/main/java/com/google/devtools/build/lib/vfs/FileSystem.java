@@ -188,7 +188,7 @@ public abstract class FileSystem {
     String fileSystem = "unknown";
     int bestMountPointSegmentCount = -1;
     try {
-      Path canonicalPath = resolveSymbolicLinks(path);
+      PathFragment canonicalPath = resolveSymbolicLinks(path);
       PathFragment mountTable = PathFragment.createAlreadyNormalized("/proc/mounts");
       try (InputStreamReader reader =
           new InputStreamReader(getInputStream(mountTable), ISO_8859_1)) {
@@ -453,14 +453,12 @@ public abstract class FileSystem {
    * Returns the canonical path for the given path, which must be absolute. See {@link
    * Path#resolveSymbolicLinks} for specification.
    */
-  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
+  public PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
     checkArgument(path.isAbsolute());
     PathFragment parentNode = path.getParentDirectory();
     return parentNode == null
-        ? getPath(path) // (root)
-        : getPath(
-            appendSegment(
-                resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), MAX_SYMLINKS));
+        ? path // (root)
+        : appendSegment(resolveSymbolicLinks(parentNode), path.getBaseName(), MAX_SYMLINKS);
   }
 
   /** Returns the status of a file. See {@link Path#stat(Symlinks)} for specification. */

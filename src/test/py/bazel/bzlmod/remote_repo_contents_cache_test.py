@@ -482,7 +482,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
 
-  def testUseRepoFileInBuildRule_actionDoesNotUseCache(self):
+  def do_testUseRepoFileInBuildRule_actionDoesNotUseCache(self, extra_flags=[]):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -518,7 +518,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     repo_dir = self.RepoDir('my_repo')
 
     # First fetch: not cached
-    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'] + extra_flags)
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
@@ -528,13 +528,20 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     # After expunging: repo and build action cached
     self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '//main:use_data'])
+    _, _, stderr = self.RunBazel(['build', '//main:use_data'] + extra_flags)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
     self.assertTrue(os.path.exists(self.Path('bazel-bin/main/out.txt')))
     with open(self.Path('bazel-bin/main/out.txt')) as f:
       self.assertEqual(f.read(), 'hello')
+
+  def testUseRepoFileInBuildRule_actionDoesNotUseCache(self):
+    self.do_testUseRepoFileInBuildRule_actionDoesNotUseCache()
+
+  def testUseRepoFileInBuildRule_actionDoesNotUseCache_withExplicitSandboxBase(self):
+    tmpdir = self.ScratchDir('sandbox_base')
+    self.do_testUseRepoFileInBuildRule_actionDoesNotUseCache(extra_flags=['--sandbox_base='+tmpdir])
 
   def testLostRemoteFile_build(self):
     # Create a repo with two BUILD files (one in a subpackage), build a target

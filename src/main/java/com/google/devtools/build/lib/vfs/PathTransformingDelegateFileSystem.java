@@ -261,9 +261,8 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
-    return getPath(
-        fromDelegatePath(delegateFs.resolveSymbolicLinks(toDelegatePath(path)).asFragment()));
+  public PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
+    return fromDelegatePath(delegateFs.resolveSymbolicLinks(toDelegatePath(path)));
   }
 
   @Override
