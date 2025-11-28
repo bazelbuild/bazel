@@ -284,6 +284,16 @@ public abstract class ConstraintCollection
     constraints().values().forEach(constraintValue -> constraintValue.addTo(fp));
   }
 
+  /**
+   * Validates that the given constraints do not contain conflicting values.
+   *
+   * <p>Checks that no {@link ConstraintSettingInfo} has multiple different {@link
+   * ConstraintValueInfo} values. Multiple instances of the same constraint value are allowed.
+   *
+   * @param constraintValues the constraints to validate
+   * @throws DuplicateConstraintException if multiple different constraint values exist for the same
+   *     constraint setting
+   */
   public static void validateConstraints(Iterable<ConstraintValueInfo> constraintValues)
       throws DuplicateConstraintException {
     // Collect the constraints by the settings.
@@ -292,12 +302,14 @@ public abstract class ConstraintCollection
             .collect(
                 toImmutableListMultimap(ConstraintValueInfo::constraint, Functions.identity()));
 
-    // Find settings with duplicate values.
+    // Find different constraint values targeting the same constraint setting.
+    // Ignore multiple instances of the same constraint value.
     ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicates =
         constraints.asMap().entrySet().stream()
-            .filter(e -> e.getValue().size() > 1)
+            .filter(e -> e.getValue().stream().distinct().count() > 1)
             .collect(
-                flatteningToImmutableListMultimap(Map.Entry::getKey, e -> e.getValue().stream()));
+                flatteningToImmutableListMultimap(
+                    Map.Entry::getKey, e -> e.getValue().stream().distinct()));
 
     if (!duplicates.isEmpty()) {
       throw new DuplicateConstraintException(duplicates);
