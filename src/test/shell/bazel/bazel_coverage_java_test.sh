@@ -232,6 +232,12 @@ LF:6
 end_of_record"
 
   assert_coverage_result "$expected_result" "./bazel-out/_coverage/_coverage_report.dat"
+  if ! is_windows; then
+    # Verify that genhtml can process the file.
+    "$(rlocation $GENHTML)" bazel-out/_coverage/_coverage_report.dat \
+      --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/coverage" &> $TEST_log \
+      || fail "genhtml failed on the coverage report but should have succeeded."
+  fi
 }
 
 function test_java_test_java_import_coverage() {
