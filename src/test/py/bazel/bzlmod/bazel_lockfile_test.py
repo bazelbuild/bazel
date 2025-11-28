@@ -726,9 +726,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
-            "implementation of the extension '@@//:extension.bzl%lockfile_ext' "
-            'or one of its transitive .bzl files has changed. Please run'
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because the'
+            " implementation of the extension '@@//:extension.bzl%lockfile_ext'"
+            ' or one of its transitive .bzl files has changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
@@ -914,11 +914,11 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
-            ' environment variables the extension'
-            " '@@//:extension.bzl%lockfile_ext' depends"
-            ' on (or their values) have changed. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because an input'
+            " to the extension '@@//:extension.bzl%lockfile_ext' changed:"
+            " environment variable SET_ME changed: 'High in sky' -> 'Down to"
+            " earth'. Please run `bazel mod deps --lockfile_mode=update` to"
+            ' update your lockfile.'
         ),
         stderr,
     )
@@ -2175,9 +2175,9 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       self.assertIn('//:ext.bzl%ext', lockfile['moduleExtensions'])
       extension = lockfile['moduleExtensions']['//:ext.bzl%ext']['general']
-      self.assertIn('recordedRepoMappingEntries', extension)
-      extension['recordedRepoMappingEntries'].append(
-          ['_unknown_source_repo', 'other_name', 'bar+']
+      self.assertIn('recordedInputs', extension)
+      extension['recordedInputs'].append(
+          'REPO_MAPPING:_unknown_source_repo,other_name bar+'
       )
 
     with open(self.Path('MODULE.bazel.lock'), 'w') as f:
@@ -2979,7 +2979,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=drw', stderr)
     self.assertIn(
-        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
+        'ERROR: MODULE.bazel.lock is no longer up-to-date because the'
         " extension '@@//:extension.bzl%lockfile_ext' has changed its facts:"
         ' {"hello": {"hash": "olh"}, "world": {"hash": "drw"}} != {"hello":'
         ' {"hash": "olleh"}, "world": {"hash": "dlrow"}}',

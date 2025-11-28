@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
@@ -47,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.InvalidPathException;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -78,7 +76,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final PathPackageLocator packageLocator;
   private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
-  private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -123,10 +120,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @Override
   protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     return !successful;
-  }
-
-  public ImmutableSortedMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
-    return ImmutableSortedMap.copyOf(recordedDirTreeInputs);
   }
 
   @StarlarkMethod(
@@ -581,7 +574,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         throw new NeedsSkyframeRestartException();
       }
 
-      recordedDirTreeInputs.put(recordedInput, digestValue.hexDigest());
+      recordInput(recordedInput, digestValue.hexDigest());
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
