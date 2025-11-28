@@ -3093,6 +3093,65 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=drw', stderr)
 
+  def testMultipleExtensionsWithFacts(self):
+    """Test that multiple extensions with facts don't cause ClassCastException.
+
+    Regression test for the bug where ImmutableSortedMap.copyOf() was called
+    without a comparator on ModuleExtensionId keys. This would cause a
+    ClassCastException when there were multiple extensions with facts, as
+    ModuleExtensionId does not implement Comparable.
+    """
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext_a = use_extension("extension_a.bzl", "ext_a")',
+            'use_repo(ext_a, "repo_a")',
+            'ext_b = use_extension("extension_b.bzl", "ext_b")',
+            'use_repo(ext_b, "repo_b")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension_a.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _ext_a_impl(ctx):',
+            '    repo_rule(name = "repo_a")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"ext_a_fact": "value_a"},',
+            '    )',
+            'ext_a = module_extension(implementation = _ext_a_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'extension_b.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _ext_b_impl(ctx):',
+            '    repo_rule(name = "repo_b")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"ext_b_fact": "value_b"},',
+            '    )',
+            'ext_b = module_extension(implementation = _ext_b_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo_a//:all', '@repo_b//:all'])
+    stderr = ''.join(stderr)
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+
+    self.assertIn('facts', lockfile)
+    facts = lockfile['facts']
+    self.assertEqual(len(facts), 2)
+
 
 if __name__ == '__main__':
   absltest.main()

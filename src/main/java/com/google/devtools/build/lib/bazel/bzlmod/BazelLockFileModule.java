@@ -138,7 +138,8 @@ public class BazelLockFileModule extends BlazeModule {
                 combinedFacts,
                 entry ->
                     depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
-                        && !entry.getValue().equals(Facts.EMPTY)));
+                        && !entry.getValue().equals(Facts.EMPTY)),
+            ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
 
     Thread updateLockfile =
         Thread.startVirtualThread(
