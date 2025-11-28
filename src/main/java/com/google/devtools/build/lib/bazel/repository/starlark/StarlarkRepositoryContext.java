@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,7 +45,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.InvalidPathException;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -78,7 +75,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final PathPackageLocator packageLocator;
   private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
-  private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
+  private final Label.RepoMappingRecorder repoMappingRecorder;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -118,6 +115,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.packageLocator = packageLocator;
     this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
+    this.repoMappingRecorder =
+        (fromRepo, apparentRepoName, canonicalRepoName) ->
+            manuallyRecordInput(
+                new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
+                canonicalRepoName.getName());
   }
 
   @Override
@@ -125,8 +127,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     return !successful;
   }
 
-  public ImmutableSortedMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
-    return ImmutableSortedMap.copyOf(recordedDirTreeInputs);
+  public void storeRepoMappingRecorderInThread(StarlarkThread thread) {
+    thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
   }
 
   @StarlarkMethod(
@@ -573,15 +575,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       return;
     }
     try {
-      var recordedInput = new RepoRecordedInput.DirTree(repoCacheFriendlyPath);
-      DirectoryTreeDigestValue digestValue =
-          (DirectoryTreeDigestValue)
-              env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
-      if (digestValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordedDirTreeInputs.put(recordedInput, digestValue.hexDigest());
+      recordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
