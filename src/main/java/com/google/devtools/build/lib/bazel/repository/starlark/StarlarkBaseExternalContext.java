@@ -2063,7 +2063,7 @@ the same path on case-insensitive filesystems.
 
     try {
       byte[] moduleContent = FileSystemUtils.readContent(p.getPath());
-      return new StarlarkWasmModule(p, path, moduleContent, allocateFn);
+      return new StarlarkWasmModule(p, path, moduleContent, allocateFn, directories.getOutputBase().getRelative("wasm_cache"));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -2199,7 +2199,7 @@ func(
       if (wasmModule == null) {
         maybeWatch(path, ShouldWatch.fromString(watch));
         byte[] moduleContent = FileSystemUtils.readContent(path.getPath());
-        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, "allocate");
+        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, "allocate", directories.getOutputBase().getRelative("wasm_cache"));
       }
       return wasmModule.execute(function, inputBytes, timeout, memLimit);
     } catch (IOException e) {
