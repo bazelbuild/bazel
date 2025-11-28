@@ -136,9 +136,6 @@ public class SevenZDecompressor implements Decompressor {
           throw new InterruptedException();
         }
       }
-      if (entry.getHasLastModifiedDate()) {
-        outputPath.setLastModifiedTime(entry.getLastModifiedTime().toMillis());
-      }
     }
   }
 }
