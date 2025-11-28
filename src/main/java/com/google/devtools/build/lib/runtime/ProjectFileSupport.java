@@ -87,7 +87,7 @@ public final class ProjectFileSupport {
       optionsParser.parse(
           PriorityCategory.RC_FILE,
           projectFile.getName(),
-          projectFile.getCommandLineFor(command, eventHandler));
+          projectFile.getCommandLineFor(command, eventHandler), false);
       eventHandler.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }

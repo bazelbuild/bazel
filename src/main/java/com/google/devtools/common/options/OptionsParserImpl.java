@@ -426,7 +426,7 @@ class OptionsParserImpl {
               o -> source,
               implicitDependent,
               expandedFrom,
-              /* fallbackData= */ null)
+              /* fallbackData= */ null, false)
           .parsedOptionDescription
           .ifPresent(builder::add);
       nextOptionPriority = OptionPriority.nextOptionPriority(nextOptionPriority);
@@ -461,10 +461,10 @@ class OptionsParserImpl {
   OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
-      List<ArgAndFallbackData> args)
+      List<ArgAndFallbackData> args, boolean isFirstParsing)
       throws OptionsParsingException {
     OptionsParserImplResult optionsParserImplResult =
-        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args, isFirstParsing);
     nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
     return optionsParserImplResult;
   }
@@ -482,7 +482,7 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      List<ArgAndFallbackData> args)
+      List<ArgAndFallbackData> args, boolean isFirstParsing)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
@@ -547,12 +547,12 @@ class OptionsParserImpl {
                 sourceFunction,
                 implicitDependent,
                 expandedFrom,
-                fallbackData);
+                fallbackData, isFirstParsing);
         result.ignoredArgs.ifPresent(ignoredArgs::add);
         parsedOption = result.parsedOptionDescription;
       }
       if (parsedOption.isPresent()) {
-        handleNewParsedOption(parsedOption.get(), fallbackData);
+        handleNewParsedOption(parsedOption.get(), fallbackData, isFirstParsing);
       }
       priority = OptionPriority.nextOptionPriority(priority);
     }
@@ -609,7 +609,7 @@ class OptionsParserImpl {
         sourceFunction,
         null,
         optionToExpand,
-        args);
+        args, false);
   }
 
   /**
@@ -651,7 +651,7 @@ class OptionsParserImpl {
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
   private void handleNewParsedOption(
-      ParsedOptionDescription parsedOption, @Nullable OptionsData fallbackData)
+      ParsedOptionDescription parsedOption, @Nullable OptionsData fallbackData, boolean isFirstParsing)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     ExpansionBundle expansionBundle = setOptionValue(parsedOption);
@@ -664,7 +664,7 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              ArgAndFallbackData.wrapWithFallbackData(expansionBundle.expansionArgs, fallbackData));
+              ArgAndFallbackData.wrapWithFallbackData(expansionBundle.expansionArgs, fallbackData), isFirstParsing);
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this
@@ -742,7 +742,7 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      @Nullable OptionsData fallbackData)
+      @Nullable OptionsData fallbackData, boolean isFirstParsing)
       throws OptionsParsingException {
 
     // Store the way this option was parsed on the command line.
@@ -794,7 +794,7 @@ class OptionsParserImpl {
       }
       parsedOptionName = name;
     } else {
-      throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
+        throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
     // Do not recognize internal options, which are treated as if they did not exist.
@@ -806,7 +806,13 @@ class OptionsParserImpl {
       } else {
         suggestion = "";
       }
-      throw new OptionsParsingException("Unrecognized option: " + arg + suggestion, arg);
+
+      if (!isFirstParsing) {
+          throw new OptionsParsingException("Unrecognized option: " + arg + suggestion, arg);
+      } else {
+          swapShorthandAlias(arg);
+          return new ParsedOptionDescriptionOrIgnoredArgs(Optional.empty(), Optional.of(arg));
+      }
     }
 
     if (unconvertedValue == null) {

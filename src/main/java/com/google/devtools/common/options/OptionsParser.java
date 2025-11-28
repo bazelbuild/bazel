@@ -371,7 +371,8 @@ public class OptionsParser implements OptionsParsingResult {
       }
     }
     try {
-      parse(priority, source, Arrays.asList(args));
+        //not sure if its reight to just add false here
+      parse(priority, source, Arrays.asList(args), false);
     } catch (OptionsParsingException e) {
       System.err.println("Error parsing command line: " + e.getMessage());
       System.err.println("Try --help.");
@@ -619,14 +620,14 @@ public class OptionsParser implements OptionsParsingResult {
    * Arrays.asList(args))}.
    */
   public void parse(String... args) throws OptionsParsingException {
-    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args));
+    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, Arrays.asList(args), false);
   }
 
   /**
    * A convenience method, equivalent to {@code parse(PriorityCategory.COMMAND_LINE, null, args)}.
    */
   public void parse(List<String> args) throws OptionsParsingException {
-    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, args);
+    parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, args, false);
   }
 
   /**
@@ -645,9 +646,9 @@ public class OptionsParser implements OptionsParsingResult {
    * @param args the arg list to parse. Each element might be an option, a value linked to an
    *     option, or residue.
    */
-  public void parse(OptionPriority.PriorityCategory priority, String source, List<String> args)
+  public void parse(OptionPriority.PriorityCategory priority, String source, List<String> args, boolean isFirstParsing)
       throws OptionsParsingException {
-    parseWithSourceFunction(priority, o -> source, args, /* fallbackData= */ null);
+    parseWithSourceFunction(priority, o -> source, args, /* fallbackData= */ null, isFirstParsing);
   }
 
   /**
@@ -673,13 +674,13 @@ public class OptionsParser implements OptionsParsingResult {
       OptionPriority.PriorityCategory priority,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args,
-      @Nullable OpaqueOptionsData fallbackData)
+      @Nullable OpaqueOptionsData fallbackData, boolean isFirstParsing)
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     OptionsParserImplResult optionsParserImplResult =
         impl.parse(
-            priority, sourceFunction, ArgAndFallbackData.wrapWithFallbackData(args, fallbackData));
+            priority, sourceFunction, ArgAndFallbackData.wrapWithFallbackData(args, fallbackData), isFirstParsing);
     addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
     return optionsParserImplResult.ignoredArgs;

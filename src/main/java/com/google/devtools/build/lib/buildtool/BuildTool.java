@@ -356,7 +356,7 @@ public class BuildTool {
             projectEvaluationResult.projectFile().get().toString(),
             projectEvaluationResult.buildOptions().stream()
                 .filter(o -> STARLARK_SKIPPED_PREFIXES.stream().noneMatch(o::startsWith))
-                .collect(toImmutableList()));
+                .collect(toImmutableList()), false);
         // Then parse the starlark options from the project file.
         BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
         StarlarkOptionsParser starlarkOptionsParser =

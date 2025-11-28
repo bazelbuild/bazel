@@ -382,7 +382,7 @@ public class MobileInstallCommand implements BlazeCommand {
           ImmutableList.of(
               "--aspects=" + options.mobileInstallAspect + "%MIASPECT",
               "--output_groups=mobile_install" + INTERNAL_SUFFIX,
-              "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
+              "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX), false);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
