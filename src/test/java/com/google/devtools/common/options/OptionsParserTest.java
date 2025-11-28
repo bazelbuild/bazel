@@ -1283,6 +1283,7 @@ public final class OptionsParserTest {
       name = "first",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       defaultValue = "null"
     )
     public Void first;
@@ -1293,6 +1294,7 @@ public final class OptionsParserTest {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       defaultValue = "null"
     )
     public List<String> second;
@@ -1304,6 +1306,7 @@ public final class OptionsParserTest {
       abbrev = 't',
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       defaultValue = "null"
     )
     public Void third;
