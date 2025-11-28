@@ -87,9 +87,6 @@ def _get_coverage_attrs():
         ),
     }
 
-def _get_coverage_env(ctx):
-    return ctx.runfiles(), {}
-
 def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
@@ -199,7 +196,6 @@ semantics = struct(
     get_cc_runtimes = _get_cc_runtimes,
     get_cc_runtimes_copts = _get_cc_runtimes_copts,
     get_coverage_attrs = _get_coverage_attrs,
-    get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
