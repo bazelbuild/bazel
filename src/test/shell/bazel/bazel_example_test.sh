@@ -88,7 +88,10 @@ function test_java_test() {
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  assert_test_ok "${java_native_tests}:hello"
+  echo "BEGIN BAZEL INFO"
+  bazel info
+  echo "END BAZEL INFO"
+  assert_test_ok "${java_native_tests}:hello" --test_arg=--print_runtime_info
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
   assert_test_fails "${java_native_tests}:resource-fail"

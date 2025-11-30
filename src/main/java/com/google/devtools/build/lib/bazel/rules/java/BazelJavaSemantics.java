@@ -280,6 +280,17 @@ public class BazelJavaSemantics implements JavaSemantics {
     final boolean isRunfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
     arguments.add(Substitution.of("%runfiles_manifest_only%", isRunfilesEnabled ? "" : "1"));
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
+
+    arguments.add(
+      Substitution.of(
+        "%runtime_version%",
+        String.valueOf(JavaRuntimeInfo.from(ruleContext).version())));
+    arguments.add(
+      Substitution.of(
+        "%rule_label%",
+        ruleContext.getRule().getLabel().toString()));
+    arguments.add(Substitution.of("%java_executable%", javaExecutable));
+
     arguments.add(
         Substitution.of(
             "%javabin%",
