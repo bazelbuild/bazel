@@ -30,5 +30,6 @@ objc_library(
     srcs = [
         "objc_dummy.mm",
     ],
+    target_compatible_with = ["@platforms//os:macos"],
     alwayslink = False,
 )

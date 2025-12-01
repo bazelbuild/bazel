@@ -19,10 +19,18 @@ package(default_visibility = ["//visibility:public"])
 
 bazel_cc_build_info(
     name = "cc_build_info",
+    tags = ["manual"],
 )
 
 bazel_java_build_info(
     name = "java_build_info",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 filegroup(
