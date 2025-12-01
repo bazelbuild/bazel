@@ -526,7 +526,11 @@ sh_test(
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
+        "@lcov//:genhtml",
     ],
+    env = {
+        "GENHTML": "$(rlocationpath @lcov//:genhtml)",
+    },
     tags = [
         "no_windows",
     ],
@@ -550,7 +554,11 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
+            "@lcov//:genhtml",
         ],
+        env = {
+            "GENHTML": "$(rlocationpath @lcov//:genhtml)",
+        },
         tags = [
             "no_windows",
         ],
@@ -580,7 +588,11 @@ sh_test(
             "//src:java_tools_zip",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+            "@lcov//:genhtml",
         ],
+        env = {
+            "GENHTML": "$(rlocationpath @lcov//:genhtml)",
+        },
         tags = ["no_windows"],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
@@ -618,7 +630,13 @@ sh_test(
     name = "bazel_coverage_starlark_test",
     srcs = ["bazel_coverage_starlark_test.sh"],
     args = ["released"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@lcov//:genhtml",
+    ],
+    env = {
+        "GENHTML": "$(rlocationpath @lcov//:genhtml)",
+    },
     tags = [
         # TODO: Drop after the next coverage tools release.
         "no_windows",
@@ -636,7 +654,11 @@ sh_test(
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
+        "@lcov//:genhtml",
     ],
+    env = {
+        "GENHTML": "$(rlocationpath @lcov//:genhtml)",
+    },
 )
 
 sh_test(
