@@ -1,3 +1,36 @@
+## Release 10.0.0-pre.20251116.2 (2025-12-01)
+
+```
+Baseline: 7c096ba03fed206d9e6fe3afccbfe5c91a71ec46
+
+Cherry picks:
+
+   + 9c45849986b61f8f3eb3c585a1b2264fdd30d018:
+     Automated rollback of commit
+     c82313b4ca4749c0f1c8f304b4c12328e8beb4ea.
+```
+
+New features:
+
+  - The new `attr.label_list_dict` type accepts a dict in which keys
+    are strings and values are lists of labels.
+  - bazel query/cquery/aquery now supports an `executables()`
+    function to find only the executable targets in a given expression
+
+Important changes:
+
+  - The new `--remote_max_concurrency_per_connection` can be used to
+    specify the maximum number of concurrent gRPC requests Bazel will
+    issue on a single connection to the server. The default value of
+    100 matches the previous behavior.
+  - In environment variable values set via `--repo_env`, the
+    substring `%bazel_workspace%` is now replaced with the absolute
+    path of the current Bazel workspace. This can, for example, be
+    used to make tools checked into the repository available on the
+    `PATH` for repository rules.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Alex Eagle, Benjamin Peterson, dependabot[bot], Ed Schouten, Fabian Meumertzheim, Keith Smiley, Markus Hofbauer.
+
 ## Release 10.0.0-pre.20251105.2 (2025-11-18)
 
 ```
