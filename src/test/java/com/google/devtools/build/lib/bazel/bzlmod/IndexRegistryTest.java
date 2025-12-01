@@ -256,6 +256,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"foo\", version = \"1.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
+                .setPurlFragments(ImmutableMap.of("name", "foo", "version", "1.0"))
                 .setRemotePatchStrip(0)
                 .build());
     assertThat(
@@ -283,6 +284,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"bar\", version = \"2.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel")))
+                .setPurlFragments(ImmutableMap.of("name", "bar", "version", "2.0"))
                 .build());
     assertThat(
             registry.getRepoSpec(
@@ -312,6 +314,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         ImmutableList.of(server.getUrl() + "/modules/baz/3.0/MODULE.bazel")))
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
+                .setPurlFragments(ImmutableMap.of("name", "baz", "version", "3.0"))
                 .build());
   }
 
@@ -365,6 +368,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"foo\", version = \"1.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
+                .setPurlFragments(ImmutableMap.of("name", "foo", "version", "1.0"))
                 .build());
   }
 
@@ -435,6 +439,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
                 .setRemotePatchStrip(0)
+                .setPurlFragments(ImmutableMap.of("name", "foo", "version", "1.0"))
                 .build());
   }
 
@@ -556,6 +561,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                             .toSubresourceIntegrity(),
                         ImmutableList.of(
                             server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel")))
+                .setPurlFragments(ImmutableMap.of("name", "archive_type", "version", "1.0"))
                 .build());
   }
 

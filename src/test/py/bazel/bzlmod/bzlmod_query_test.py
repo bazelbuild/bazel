@@ -63,7 +63,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
     _, stdout, _ = self.RunBazel(['query', '@my_repo//...'])
-    self.assertListEqual(['@my_repo//:lib_aaa'], stdout)
+    self.assertListEqual(['@my_repo//:lib_aaa', '@my_repo//.bazel_package_metadata:package_metadata'], stdout)
 
   def testQueryModuleRepoTransitiveDeps(self):
     self.ScratchFile('MODULE.bazel', [
@@ -263,7 +263,10 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
     _, stdout, _ = self.RunBazel(['cquery', '@my_repo//...'])
-    self.assertRegex(stdout[0], r'@my_repo//:lib_aaa \([\w\d]+\)')
+    stdout = sorted(stdout)
+    self.assertRegex(stdout[0], r'@my_repo//.bazel_package_metadata:package_metadata \([\w\d]+\)')
+    self.assertRegex(stdout[1], r'@my_repo//.bazel_package_metadata:package_metadata \([\w\d]+\)')
+    self.assertRegex(stdout[2], r'@my_repo//:lib_aaa \([\w\d]+\)')
 
   def testCqueryModuleRepoTransitiveDeps(self):
     self.ScratchFile('MODULE.bazel', [

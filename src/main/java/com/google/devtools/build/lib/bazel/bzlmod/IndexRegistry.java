@@ -131,6 +131,10 @@ public class IndexRegistry implements Registry {
     return uri.toString();
   }
 
+  private boolean isLocal() {
+    return uri.getScheme().equals("file");
+  }
+
   private String constructUrl(String base, String... segments) {
     StringBuilder url = new StringBuilder(base);
     for (String segment : segments) {
@@ -380,7 +384,7 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
@@ -521,34 +525,52 @@ public class IndexRegistry implements Registry {
                                     "overlay",
                                     entry.getKey())))));
 
-    return new ArchiveRepoSpecBuilder()
-        .setUrls(urls.build())
-        .setIntegrity(sourceJson.integrity)
-        .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
-        .setRemotePatches(remotePatches.buildOrThrow())
-        .setOverlay(overlay)
-        .setRemoteModuleFile(
-            new RemoteFile(
-                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
-        .setRemotePatchStrip(sourceJson.patchStrip)
-        .setArchiveType(sourceJson.archiveType)
-        .build();
+    var builder =
+        new ArchiveRepoSpecBuilder()
+            .setUrls(urls.build())
+            .setIntegrity(sourceJson.integrity)
+            .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
+            .setRemotePatches(remotePatches.buildOrThrow())
+            .setOverlay(overlay)
+            .setRemoteModuleFile(
+                new RemoteFile(
+                    moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
+            .setRemotePatchStrip(sourceJson.patchStrip)
+            .setArchiveType(sourceJson.archiveType);
+    if (!isLocal()) {
+      builder.setPurlFragments(getPurlFragments(key));
+    }
+    return builder.build();
   }
 
   private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
-    return new GitRepoSpecBuilder()
-        .setRemote(sourceJson.remote)
-        .setCommit(sourceJson.commit)
-        .setShallowSince(sourceJson.shallowSince)
-        .setTag(sourceJson.tag)
-        .setInitSubmodules(sourceJson.initSubmodules)
-        .setVerbose(sourceJson.verbose)
-        .setStripPrefix(sourceJson.stripPrefix)
-        .setRemoteModuleFile(
-            new RemoteFile(
-                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
-        .build();
+      GitRepoSourceJson sourceJson,
+      String moduleFileUrl,
+      Checksum moduleFileChecksum,
+      ModuleKey key) {
+    var builder =
+        new GitRepoSpecBuilder()
+            .setRemote(sourceJson.remote)
+            .setCommit(sourceJson.commit)
+            .setShallowSince(sourceJson.shallowSince)
+            .setTag(sourceJson.tag)
+            .setInitSubmodules(sourceJson.initSubmodules)
+            .setVerbose(sourceJson.verbose)
+            .setStripPrefix(sourceJson.stripPrefix)
+            .setRemoteModuleFile(
+                new RemoteFile(
+                    moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)));
+    if (!isLocal()) {
+      builder.setPurlFragments(getPurlFragments(key));
+    }
+    return builder.build();
+  }
+
+  private ImmutableMap<String, String> getPurlFragments(ModuleKey moduleKey) {
+    // TODO: Pass in the registry URI once supported by package_metadata's purl function.
+    return ImmutableMap.of(
+        "name", moduleKey.name(),
+        "version", moduleKey.version().toString());
   }
 
   @Override

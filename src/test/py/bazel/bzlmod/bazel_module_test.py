@@ -14,6 +14,7 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import json
 import os
 import pathlib
 import shutil
@@ -51,18 +52,18 @@ class BazelModuleTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --incompatible_disable_native_repo_rules',
-            'build --registry=' + self.main_registry.getURL(),
+            'common --incompatible_disable_native_repo_rules',
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'build --registry=https://bcr.bazel.build',
-            'build --verbose_failures',
+            'common --registry=https://bcr.bazel.build',
+            'common --verbose_failures',
             # Set an explicit Java language version
-            'build --java_language_version=8',
-            'build --tool_java_language_version=8',
-            'build --lockfile_mode=update',
+            'common --java_language_version=8',
+            'common --tool_java_language_version=8',
+            'common --lockfile_mode=update',
             (  # fmt: skip pylint: disable=line-too-long
-                'build'
+                'common'
                 ' --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'
             ),
         ],
@@ -113,6 +114,13 @@ class BazelModuleTest(test_base.TestBase):
         executable=True,
     )
 
+  def getTargetAttr(self, target, attr_name):
+    _, stdout, _ = self.RunBazel(['query', '--output=streamed_jsonproto', target])
+    query_json = json.loads('\n'.join(stdout))
+    attrs = [attr for attr in query_json["rule"]["attribute"] if attr["name"] == attr_name]
+    self.assertEqual(len(attrs), 1)
+    return attrs[0]
+
   def testSimple(self):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0")',
@@ -140,6 +148,13 @@ class BazelModuleTest(test_base.TestBase):
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
+
+    # Verify the default package metadata.
+    package_metadata = self.getTargetAttr('@aaa//:lib_aaa', 'package_metadata')['stringListValue']
+    self.assertEqual(len(package_metadata), 1)
+    package_metadata_target = package_metadata[0]
+    purl = self.getTargetAttr(package_metadata_target, 'purl')['stringValue']
+    self.assertEqual(purl, 'pkg:bazel/aaa@1.0')
 
   def testSimpleTransitive(self):
     self.ScratchFile('MODULE.bazel', [

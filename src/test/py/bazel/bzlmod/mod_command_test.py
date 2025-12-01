@@ -525,12 +525,12 @@ class ModCommandTest(test_base.TestBase):
         r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
     )
     self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
-    self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
-    self.assertRegex(stdout.pop(35), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(35), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(39), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(16), r'^  path = ".*",$')
+    self.assertRegex(stdout.pop(36), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(36), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(40), r'^  remote_module_file_urls = \[".*"\],$')
     self.assertRegex(
-        stdout.pop(39), r'^  remote_module_file_integrity = ".*",$'
+        stdout.pop(40), r'^  remote_module_file_integrity = ".*",$'
     )
     self.assertListEqual(
         stdout,
@@ -551,6 +551,7 @@ class ModCommandTest(test_base.TestBase):
             # pop(8) -- remote_module_file_urls
             # pop(8) -- remote_module_file_integrity
             '  remote_patch_strip = 0,',
+            '  purl_fragments = {"name": "bar", "version": "2.0"},',
             ')',
             '',
             '## ext@1.0:',
@@ -560,7 +561,7 @@ class ModCommandTest(test_base.TestBase):
             ),
             'local_repository(',
             '  name = "ext+",',
-            # pop(15) -- path=...
+            # pop(16) -- path=...
             ')',
             '',
             '## @my_repo3:',
@@ -584,15 +585,16 @@ class ModCommandTest(test_base.TestBase):
             ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(35) -- urls=[...]
-            # pop(35) -- integrity=...
+            # pop(36) -- urls=[...]
+            # pop(36) -- integrity=...
             '  strip_prefix = "",',
             '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            # pop(39) -- remote_module_file_urls=[...]
-            # pop(39) -- remote_module_file_integrity=...
+            # pop(40) -- remote_module_file_urls=[...]
+            # pop(40) -- remote_module_file_integrity=...
             '  remote_patch_strip = 0,',
+            '  purl_fragments = {"name": "bar", "version": "2.0"},',
             ')',
             '',
         ],
