@@ -250,6 +250,9 @@ elif [[ "$PRINT_RUNTIME_INFO" == 1 ||
   printf '%s\n' \
     "JavaRuntimeInfo for: %rule_label%" \
     "    runtime version: %runtime_version%" \
+    "     toolchain type: %runtime_toolchain_type%" \
+    "  runtime JAVA_HOME: %runtime_java_home%" \
+    "runtime java binary: %runtime_java_binary%" \
     "           jvmFlags: %jvm_flags%" \
     "     javaExecutable: %java_executable%" \
     "            JAVABIN: ${JAVABIN}"

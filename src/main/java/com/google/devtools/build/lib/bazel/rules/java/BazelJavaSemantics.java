@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubst
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -281,10 +283,27 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%runfiles_manifest_only%", isRunfilesEnabled ? "" : "1"));
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
 
+    Label runtimeToolchainType = ruleContext
+      .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+      .getLabel();
+    JavaRuntimeInfo runtimeInfo = JavaRuntimeInfo.from(ruleContext);
+
     arguments.add(
       Substitution.of(
         "%runtime_version%",
-        String.valueOf(JavaRuntimeInfo.from(ruleContext).version())));
+        String.valueOf(runtimeInfo.version())));
+    arguments.add(
+      Substitution.of(
+        "%runtime_toolchain_type%",
+        runtimeToolchainType.toString()));
+    arguments.add(
+      Substitution.of(
+        "%runtime_java_home%",
+        runtimeInfo.javaHome()));
+    arguments.add(
+      Substitution.of(
+        "%runtime_java_binary%",
+        runtimeInfo.javaBinaryExecPath()));
     arguments.add(
       Substitution.of(
         "%rule_label%",
