@@ -220,37 +220,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void explicitInitPy_CanBeSelectivelyDisabled() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        join(
-            "py_binary(", //
-            "    name = 'foo',",
-            "    srcs = ['foo.py'],",
-            "    legacy_create_init = True,",
-            ")"));
-    useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
-        .containsExactly(PathFragment.create("pkg/__init__.py"));
-  }
-
-  @Test
-  public void explicitInitPy_CanBeGloballyDisabled() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        join(
-            "py_binary(", //
-            "    name = 'foo',",
-            "    srcs = ['foo.py'],",
-            ")"));
-    useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
-        .containsExactly(PathFragment.create("pkg/__init__.py"));
-  }
-
-  @Test
   public void explicitInitPy_CanBeSelectivelyEnabled() throws Exception {
     scratch.file(
         "pkg/BUILD",
