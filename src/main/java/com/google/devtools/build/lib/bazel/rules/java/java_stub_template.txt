@@ -247,13 +247,16 @@ if [[ "$PRINT_JAVABIN" == 1 || "%java_start_class%" == "--print_javabin" ]]; the
   exit 0
 elif [[ "$PRINT_RUNTIME_INFO" == 1 ||
         "%java_start_class%" == '--print_runtime_info' ]]; then
+  RUNTIME_JVM_FLAGS=(
+    %jvm_flags%
+  )
   printf '%s\n' \
     "JavaRuntimeInfo for: %rule_label%" \
     "    runtime version: %runtime_version%" \
     "     toolchain type: %runtime_toolchain_type%" \
     "  runtime JAVA_HOME: %runtime_java_home%" \
     "runtime java binary: %runtime_java_binary%" \
-    "           jvmFlags: %jvm_flags%" \
+    "           jvmFlags: ${RUNTIME_JVM_FLAGS[*]}" \
     "     javaExecutable: %java_executable%" \
     "            JAVABIN: ${JAVABIN}"
   exit 1
