@@ -21,8 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map.Entry;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -151,11 +148,6 @@ final class InnateRunnableExtension implements RunnableExtension {
   }
 
   @Override
-  public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
-    return ImmutableMap.of();
-  }
-
-  @Override
   public RunModuleExtensionResult run(
       Environment env,
       SingleExtensionUsagesValue usagesValue,
@@ -211,11 +203,8 @@ final class InnateRunnableExtension implements RunnableExtension {
               "to the %s".formatted(moduleKey.toDisplayString())));
     }
     return new RunModuleExtensionResult(
-        ImmutableSortedMap.of(),
-        ImmutableSortedMap.of(),
-        ImmutableSortedMap.of(),
+        ImmutableList.of(),
         generatedRepoSpecs.buildOrThrow(),
-        ModuleExtensionMetadata.REPRODUCIBLE,
-        ImmutableTable.of());
+        ModuleExtensionMetadata.REPRODUCIBLE);
   }
 }
