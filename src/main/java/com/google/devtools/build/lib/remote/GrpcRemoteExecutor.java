@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
@@ -65,15 +64,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
   }
 
   private ExecutionBlockingStub execBlockingStub(RequestMetadata metadata, Channel channel) {
-    var stub =
-        ExecutionGrpc.newBlockingStub(channel)
-            .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
-            .withCallCredentials(callCredentialsProvider.getCallCredentials());
-    if (remoteOptions.remoteExecutionKeepalive) {
-      stub = stub.withDeadlineAfter(remoteOptions.remoteTimeout.toSeconds(), SECONDS);
-    }
-
-    return stub;
+    return ExecutionGrpc.newBlockingStub(channel)
+        .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
+        .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
   private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
