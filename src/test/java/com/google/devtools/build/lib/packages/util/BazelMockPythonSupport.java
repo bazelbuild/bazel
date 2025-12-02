@@ -104,7 +104,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
-        "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag')",
+        "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag', 'bool_flag')",
         "load('@rules_python//python/private:flags.bzl', rp_string_flag = 'string_flag')",
         "string_flag(name = 'python_version', build_setting_default = '3.11')",
         "string_flag(name = 'precompile', build_setting_default = 'auto')",
@@ -115,10 +115,29 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "rp_string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python', ",
         "    values = ['system_python'])",
         "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
-        "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
+        "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')",
+        "string_flag(name = 'exec_tools_toolchain', build_setting_default = 'yes')",
+        "label_flag(name = 'pip_env_marker_config', build_setting_default ="
+            + " ':_pip_env_marker_default_config')",
+        "string_flag(name = 'pip_whl', build_setting_default = 'auto')",
+        "string_flag(name = 'pip_whl_glibc_version', build_setting_default = '')",
+        "string_flag(name = 'pip_whl_muslc_version', build_setting_default = '')",
+        "string_flag(name = 'pip_whl_osx_arch', build_setting_default = '')",
+        "string_flag(name = 'pip_whl_osx_version', build_setting_default = '')",
+        "string_flag(name = 'py_linux_libc', build_setting_default = '')",
+        "string_flag(name = 'venvs_site_packages', build_setting_default = 'no')",
+        "bool_flag(name = 'experimental_python_import_all_repositories', build_setting_default ="
+            + " True)",
+        "bool_flag(name = 'build_python_zip', build_setting_default = False)",
+        "bool_flag(name = 'incompatible_default_to_explicit_init_py', build_setting_default ="
+            + " True)",
+        "string_flag(name = 'python_path', build_setting_default = 'python')");
     config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");
     config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
     config.overwrite("rules_python_workspace/tools/launcher/BUILD", "filegroup(name = 'launcher')");
+    config.overwrite(
+        "rules_python_workspace/python/bin/BUILD",
+        "label_flag(name = 'python_src', build_setting_default = '//python:none')");
 
     config.create(
         "rules_python_internal_workspace/MODULE.bazel", "module(name = 'rules_python_internal')");
@@ -132,6 +151,9 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "load('@rules_python//tools/build_defs/python/private:py_internal_renamed.bzl',"
             + " 'py_internal_renamed')",
         "py_internal_impl = py_internal_renamed");
+    config.create(
+        "rules_python_internal_workspace/extra_transition_settings.bzl",
+        "EXTRA_TRANSITION_SETTINGS = []");
   }
 
   @Override

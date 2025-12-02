@@ -263,8 +263,16 @@ EOF
       "Expected native flag to have default value"
   # This is important because select() and transitions read --flag_alias to
   # correctly map aliases.
-  expect_log 'flag_alias: \[compilation_mode=@//:my_flag, user_set=//:fake_flag\]' \
-      "Expected alias to be in --flag_alias option value list"
+  # This regex checks that the line starts with "flag_alias:" and contains
+  # both "compilation_mode=@//:my_flag" and "user_set=//:fake_flag" in any order.
+  local flag_alias_regex="flag_alias:.*\\("
+  flag_alias_regex+="compilation_mode=@//:my_flag.*user_set=//:fake_flag"
+  flag_alias_regex+="\\|"
+  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=@//:my_flag"
+  flag_alias_regex+="\\)"
+
+  expect_log "$flag_alias_regex" \
+      "Expected both aliases to be in --flag_alias option value list"
 }
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

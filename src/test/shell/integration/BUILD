@@ -976,6 +976,8 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
+    # See discussion in https://github.com/bazelbuild/bazel/pull/27498#issuecomment-3487656941
+    tags = ["manual"],
 )
 
 sh_test(
