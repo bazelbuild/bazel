@@ -19,8 +19,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//third_party:guava",
-        "@maven//:com_fasterxml_jackson_core_jackson_core",
-        "@maven//:com_fasterxml_jackson_dataformat_jackson_dataformat_toml",
+        "@maven//:org_tomlj_tomlj",
     ],
 )
