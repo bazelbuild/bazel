@@ -537,9 +537,14 @@ public final class StarlarkFunction implements StarlarkCallable {
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
 
-      // Runtime type check
-      StarlarkType type = owner.getStarlarkType();
-      if (type instanceof Types.CallableType functionType) {
+      Types.CallableType functionType =
+          thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING)
+                  && owner.getStarlarkType() instanceof Types.CallableType
+              ? (Types.CallableType) owner.getStarlarkType()
+              : null;
+
+      // Argument value dynamic type check, if enabled.
+      if (functionType != null) {
         for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
           if (locals[i] == null) {
             continue; // the default value is already type checked
@@ -572,8 +577,8 @@ public final class StarlarkFunction implements StarlarkCallable {
       fr.locals = locals;
       Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
 
-      // Return value check
-      if (type instanceof Types.CallableType functionType) {
+      // Return value dynamic type check, if enabled.
+      if (functionType != null) {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",

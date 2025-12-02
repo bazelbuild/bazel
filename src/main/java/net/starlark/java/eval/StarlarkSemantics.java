@@ -267,6 +267,11 @@ public class StarlarkSemantics {
   public static final String INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS =
       "-internal_bazel_only_utf_8_byte_strings";
 
+  /** Whether (static and/or dynamic) type checking should be performed. */
+  // TODO: #27370 - Consider splitting this into separate options for static vs dynamic.
+  public static final String EXPERIMENTAL_STARLARK_TYPE_CHECKING =
+      "-experimental_starlark_type_checking";
+
   /** Globally Override fail(stack_trace=) to true. Flag default is false. */
   public static final String FORCE_STARLARK_STACK_TRACE = "-force_starlark_stack_trace";
 }
