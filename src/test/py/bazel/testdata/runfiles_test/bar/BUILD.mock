@@ -10,7 +10,7 @@ py_binary(
     srcs = ["bar.py"],
     data = ["bar-py-data.txt"],
     main = "bar.py",
-    deps = ["@bazel_tools//tools/python/runfiles"],
+    deps = ["@rules_python//python/runfiles"],
 )
 
 java_binary(
