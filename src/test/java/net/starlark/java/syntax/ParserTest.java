@@ -570,7 +570,7 @@ public final class ParserTest {
   @Test
   public void testVarAnnotation_illegalTypeExpression_allowedWithFlag() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
     assertThat(((VarStatement) parseStatement("x : (lambda x: x)")).getType())
         .isInstanceOf(LambdaExpression.class);
     assertThat(((AssignmentStatement) parseStatement("x : (lambda x: x) = 123")).getType())
@@ -581,7 +581,7 @@ public final class ParserTest {
   public void testAssignWithAnnotation_illegalTypeExpression_disallowedWithoutFlag()
       throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(false).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(false).build());
     assertThat(parseStatementError("x : (lambda x: x)"))
         .contains(":1:5: syntax error at '(': expected a type");
     assertThat(parseStatementError("x : (lambda x: x) = 123"))
@@ -1170,7 +1170,7 @@ public final class ParserTest {
   @Test
   public void testIllegalTypeExpression_allowedWithFlag() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
 
     parseStatement("def f(a : (lambda x: x)): pass");
     assertThat(parseTypeExpression("lambda x: x")).isInstanceOf(LambdaExpression.class);
@@ -1322,7 +1322,7 @@ public final class ParserTest {
   @Test
   public void testTypeAliasStatement_allowsIllegalDefinition_withFlag() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
     TypeAliasStatement stmt = (TypeAliasStatement) parseStatement("type X = lambda x: x");
     assertThat(stmt.getDefinition()).isInstanceOf(LambdaExpression.class);
   }
@@ -1409,7 +1409,7 @@ public final class ParserTest {
   @Test
   public void testEllipsisAllowedInTypeExpressions() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
     parseStatement("x : Tuple[int, ...]");
   }
 

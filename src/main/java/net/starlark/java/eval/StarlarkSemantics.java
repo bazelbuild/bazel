@@ -266,4 +266,9 @@ public class StarlarkSemantics {
   /** Whether the Starlark interpreter uses UTF-8 byte strings instead of UTF-16 strings. */
   public static final String INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS =
       "-internal_bazel_only_utf_8_byte_strings";
+
+  /** Whether (static and/or dynamic) type checking should be performed. */
+  // TODO: #27370 - Consider splitting this into separate options for static vs dynamic.
+  public static final String EXPERIMENTAL_STARLARK_TYPE_CHECKING =
+      "-experimental_starlark_type_checking";
 }
