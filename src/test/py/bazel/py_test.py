@@ -129,6 +129,7 @@ class TestInitPyFiles(test_base.TestBase):
         os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/a/__init__.py')
     )
 
+
 @absltest.skipIf(test_base.TestBase.IsWindows(),
                  'https://github.com/bazelbuild/bazel/issues/5087')
 class PyRemoteTest(test_base.TestBase):
