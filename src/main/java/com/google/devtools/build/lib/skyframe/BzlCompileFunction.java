@@ -212,8 +212,8 @@ public class BzlCompileFunction implements SkyFunction {
             .allowTypeSyntax(
                 semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
                     && typeSyntaxAllowlistMatchesPath)
-            .allowArbitraryTypeExpressions(
-                !semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_CHECKING))
+            .tolerateInvalidTypeExpressions(
+                !semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

@@ -28,9 +28,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark types. */
+/** Tests for Starlark type checking at evaluation time. */
 @RunWith(JUnit4.class)
-public class TypeCheckTest {
+public class DynamicTypeCheckTest {
 
   private EvaluationTestCase ev;
 
@@ -38,6 +38,20 @@ public class TypeCheckTest {
   public void setup() {
     ev = new EvaluationTestCase();
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.setSemantics(
+        StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, true)
+            .build());
+  }
+
+  @Test
+  public void typechecking_disabledByFlag() throws Exception {
+    ev.setSemantics(
+        StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, false)
+            .build());
+
+    ev.exec("def f(a : int): pass", "f('abc')");
   }
 
   @Test

@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "EvalTests",
     srcs = [
+        "DynamicTypeCheckTest.java",
         "EvalTests.java",  # (suite)
         "EvalUtilsTest.java",
         "EvaluationTest.java",
@@ -32,7 +33,6 @@ java_test(
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
         "SymbolGeneratorTest.java",
-        "TypeCheckTest.java",
     ],
     jvm_flags = [
         "-Dfile.encoding=UTF8",

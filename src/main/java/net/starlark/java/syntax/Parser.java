@@ -1089,7 +1089,7 @@ final class Parser {
   private Expression parseTypeExprWithFallback() {
     Expression result;
     this.insideTypeExpr = true;
-    if (options.allowArbitraryTypeExpressions()) {
+    if (options.tolerateInvalidTypeExpressions()) {
       // parseTest, because allowing unparenthesized tuples here would consume subsequent params in
       // function signatures.
       result = parseTest();

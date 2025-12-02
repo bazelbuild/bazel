@@ -700,7 +700,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Enables type checking in files and functions that contain type annotations or related "
-              + "syntax.")
+              + "syntax. (When this flag is disabled, Bazel is more forgiving of invalid types in "
+              + "type annotations.)")
   public boolean experimentalStarlarkTypeChecking;
 
   // TODO: b/350661266 - Delete this flag.
@@ -939,7 +940,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
             .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, experimentalStarlarkTypeSyntax)
-            .setBool(EXPERIMENTAL_STARLARK_TYPE_CHECKING, experimentalStarlarkTypeChecking)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+                experimentalStarlarkTypeChecking)
             .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
@@ -1114,8 +1117,6 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
       FlagConstants.EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME;
-  public static final String EXPERIMENTAL_STARLARK_TYPE_CHECKING =
-      "-experimental_starlark_type_checking";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

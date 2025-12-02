@@ -19,6 +19,7 @@ import org.junit.runners.Suite;
 /** EvalTests tests the Starlark evaluator. */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
+  DynamicTypeCheckTest.class,
   EvaluationTest.class,
   EvalUtilsTest.class,
   FunctionTest.class,
@@ -34,6 +35,5 @@ import org.junit.runners.Suite;
   StarlarkMutableTest.class,
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
-  TypeCheckTest.class
 })
 public class EvalTests {}
