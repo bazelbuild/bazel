@@ -2137,7 +2137,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJsonFileEncoding() throws Exception {
+  public void testFileEncoding() throws Exception {
     // Test that File objects can be encoded as JSON
     scratch.file(
         "test/BUILD",
@@ -2168,6 +2168,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             if decoded != expected_output:
                 fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
 
+            encoded = toml.encode(input)
+            decoded = toml.decode(encoded)
+
+            if decoded != expected_output:
+                fail("TOML encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
+
             return []
 
         test_rule = rule(
@@ -2179,7 +2185,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file("test/test.txt", "test content");
 
     var unused = createRuleContext("//test:test");
-    // The rule implementation tests the JSON encoding internally
+    // The rule implementation tests the encoding internally
   }
 
   @Test
