@@ -2234,6 +2234,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             if proto_encoded != proto_expected_encoded:
                 fail("Proto encoding of File failed. Expected: {}, actual: {}".format(repr(proto_expected_encoded), repr(proto_encoded)))
 
+            encoded = toml.encode(input)
+            decoded = toml.decode(encoded)
+
+            if decoded != expected_output:
+                fail("TOML encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
+
             return []
 
         test_rule = rule(
@@ -2245,7 +2251,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file("test/test.txt", "test content");
 
     var unused = createRuleContext("//test:test");
-    // The rule implementation tests the JSON encoding internally
+    // The rule implementation tests the encoding internally
   }
 
   @Test
