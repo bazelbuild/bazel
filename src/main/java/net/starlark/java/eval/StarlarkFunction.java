@@ -26,7 +26,7 @@ import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types.CallableType;
+import net.starlark.java.types.Types;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -536,9 +536,14 @@ public final class StarlarkFunction implements StarlarkCallable {
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
 
-      // Runtime type check
-      StarlarkType type = owner.getStarlarkType();
-      if (type instanceof CallableType functionType) {
+      Types.CallableType functionType =
+          thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING)
+                  && owner.getStarlarkType() instanceof Types.CallableType
+              ? (Types.CallableType) owner.getStarlarkType()
+              : null;
+
+      // Argument value dynamic type check, if enabled.
+      if (functionType != null) {
         for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
           if (locals[i] == null) {
             continue; // the default value is already type checked
@@ -571,8 +576,8 @@ public final class StarlarkFunction implements StarlarkCallable {
       fr.locals = locals;
       Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
 
-      // Return value check
-      if (type instanceof CallableType functionType) {
+      // Return value dynamic type check, if enabled.
+      if (functionType != null) {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",

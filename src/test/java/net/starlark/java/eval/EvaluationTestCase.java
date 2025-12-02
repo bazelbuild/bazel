@@ -42,7 +42,7 @@ class EvaluationTestCase {
    * Updates the semantics used to filter predeclared bindings, and carried by subsequently created
    * threads. Causes a new StarlarkThread and Module to be created when next needed.
    */
-  private final void setSemantics(StarlarkSemantics semantics) {
+  public final void setSemantics(StarlarkSemantics semantics) {
     this.semantics = semantics;
 
     // Re-initialize the thread and module with the new semantics when needed.

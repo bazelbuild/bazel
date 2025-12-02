@@ -170,6 +170,8 @@ final class Eval {
     int nparams =
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
     CallableType functionType = rfn.getFunctionType();
+    boolean dynamicTypeCheckingEnabled =
+        fr.thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
     for (int i = 0; i < nparams; i++) {
       Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {
@@ -181,15 +183,17 @@ final class Eval {
       Object defaultValue = expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
       defaults[i - (nparams - defaults.length)] = defaultValue;
 
-      // Typecheck the default value
-      StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-      if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
-        throw Starlark.errorf(
-            "%s(): parameter '%s' has default value of type '%s', declares '%s'",
-            rfn.getName(),
-            rfn.getParameterNames().get(i),
-            TypeChecker.type(defaultValue),
-            parameterType);
+      if (dynamicTypeCheckingEnabled && functionType != null) {
+        // Typecheck the default value
+        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+          throw Starlark.errorf(
+              "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+              rfn.getName(),
+              rfn.getParameterNames().get(i),
+              TypeChecker.type(defaultValue),
+              parameterType);
+        }
       }
     }
     if (defaults == null) {

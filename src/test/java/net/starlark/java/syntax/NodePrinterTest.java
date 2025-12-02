@@ -394,7 +394,7 @@ public final class NodePrinterTest {
   @Test
   public void ellipsisExpression() throws SyntaxError.Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
     // Use `def` rather than `type` to wrap the type expression, because `type`'s toString()
     // introduces its own metasyntactic "..." placeholder.
     assertStmtTostringMatches(
