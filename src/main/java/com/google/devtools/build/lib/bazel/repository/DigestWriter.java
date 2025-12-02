@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -32,21 +32,22 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
-class DigestWriter {
+public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
   // Input value map to force repo invalidation upon an invalid marker file.
-  private static final ImmutableMap<RepoRecordedInput, String> PARSE_FAILURE =
-      ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
+  private static final ImmutableList<RepoRecordedInput.WithValue> PARSE_FAILURE =
+      ImmutableList.of(
+          new RepoRecordedInput.WithValue(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, ""));
 
   private final BlazeDirectories directories;
   final String predeclaredInputHash;
@@ -111,15 +112,12 @@ class DigestWriter {
     return result.toString();
   }
 
-  void writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
+  void writeMarkerFile(List<RepoRecordedInput.WithValue> recordedInputValues)
       throws RepositoryFunctionException {
     StringBuilder builder = new StringBuilder();
-    builder.append(predeclaredInputHash).append("\n");
-    for (Map.Entry<RepoRecordedInput, String> recordedInput :
-        new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
-      String key = recordedInput.getKey().toString();
-      String value = recordedInput.getValue();
-      builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
+    builder.append(predeclaredInputHash).append('\n');
+    for (var recordedInputValue : recordedInputValues) {
+      builder.append(recordedInputValue).append('\n');
     }
     String content = builder.toString();
     try {
@@ -159,10 +157,14 @@ class DigestWriter {
 
     try {
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-      Map<RepoRecordedInput, String> recordedInputValues =
+      var recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+      if (recordedInputValues.isEmpty()) {
+        return new RepoDirectoryState.OutOfDate(
+            "Bazel version, flags, repo rule definition or attributes changed");
+      }
       Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
+          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues.get());
       if (env.valuesMissing()) {
         return null;
       }
@@ -175,11 +177,11 @@ class DigestWriter {
     }
   }
 
-  private static Map<RepoRecordedInput, String> readMarkerFile(
+  public static Optional<List<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
-    @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
+    @Nullable List<RepoRecordedInput.WithValue> recordedInputValues = null;
     boolean firstLineVerified = false;
     for (String line : lines) {
       if (line.isEmpty()) {
@@ -189,30 +191,23 @@ class DigestWriter {
         if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
-          return ImmutableMap.of(
-              new NeverUpToDateRepoRecordedInput(
-                  "Bazel version, flags, repo rule definition or attributes changed"),
-              "");
+          return Optional.empty();
         }
         firstLineVerified = true;
-        recordedInputValues = new TreeMap<>();
+        recordedInputValues = new ArrayList<>();
       } else {
-        int sChar = line.indexOf(' ');
-        if (sChar > 0) {
-          RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-          if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
-            recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
-            continue;
-          }
+        var inputAndValue = RepoRecordedInput.WithValue.parse(line);
+        if (inputAndValue.isEmpty()) {
+          // On parse failure, just forget everything else and mark the whole input out of date.
+          return Optional.empty();
         }
-        // On parse failure, just forget everything else and mark the whole input out of date.
-        return PARSE_FAILURE;
+        recordedInputValues.add(inputAndValue.get());
       }
     }
     if (!firstLineVerified) {
-      return PARSE_FAILURE;
+      return Optional.empty();
     }
-    return Preconditions.checkNotNull(recordedInputValues);
+    return Optional.of(Preconditions.checkNotNull(recordedInputValues));
   }
 
   @Nullable
@@ -234,10 +229,21 @@ class DigestWriter {
             .addString(repoDefinition.name())
             .addString(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
-                    repoDefinition.attrValues()))
-            .addInt(environ.size());
+                    repoDefinition.attrValues()));
+    fp.addInt(environ.size());
     environ.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
+    fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
+    repoDefinition
+        .repoRule()
+        .recordedRepoMappingEntries()
+        .cellSet()
+        .forEach(
+            entry -> {
+              fp.addString(entry.getRowKey().getName());
+              fp.addString(entry.getColumnKey());
+              fp.addString(entry.getValue().getName());
+            });
     return fp.hexDigestAndReset();
   }
 

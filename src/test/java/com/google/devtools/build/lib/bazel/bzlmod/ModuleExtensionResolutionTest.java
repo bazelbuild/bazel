@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
@@ -673,8 +674,11 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
                 .lockFileInfo()
                 .get()
                 .moduleExtension()
-                .getRecordedRepoMappingEntries())
-        .containsCell(RepositoryName.create("foo+"), "bar", RepositoryName.create("bar+"));
+                .getRecordedInputs())
+        .contains(
+            new RepoRecordedInput.WithValue(
+                new RepoRecordedInput.RecordedRepoMapping(RepositoryName.create("foo+"), "bar"),
+                "bar+"));
   }
 
   @Test

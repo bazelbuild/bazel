@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 
 /** A remote cache for the contents of external repositories. */
@@ -37,9 +38,19 @@ public interface RemoteRepoContentsCache {
    *     directory.
    */
   boolean lookupCache(
+      SkyFunction.Environment env,
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
-      ExtendedEventHandler reporter)
+      State state)
       throws IOException, InterruptedException;
+
+  /**
+   * An opaque type containing state that {@link #lookupCache} needs to persist across SkyFunction
+   * restarts.
+   */
+  interface State {}
+
+  /** Returns a fresh state. */
+  State newState();
 }
