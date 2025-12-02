@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -63,6 +64,8 @@ public final class TomlParser implements StarlarkValue {
 
   private TomlParser() {}
 
+  private static final Pattern BARE_KEY = Pattern.compile("[A-Za-z0-9_-]+");
+
   /**
    * The module instance. You may wish to add this to your predeclared environment under the name
    * "toml".
@@ -99,7 +102,7 @@ public final class TomlParser implements StarlarkValue {
       // TOML requires the root to be a map/table structure
       if (javaValue instanceof Map) {
         StringBuilder sb = new StringBuilder();
-        encodeTable(sb, (Map<String, Object>)javaValue, "");
+        encodeTable(sb, (Map<String, Object>)javaValue, new ArrayList<>());
         return sb.toString();
       } else {
         throw Starlark.errorf("TOML encode requires a dict at the top level, got %s", Starlark.type(x));
@@ -340,7 +343,7 @@ public final class TomlParser implements StarlarkValue {
    * Encodes a table (map) to TOML. In TOML, scalar values must come before nested tables
    * to avoid them being associated with the wrong table header.
    */
-  private static void encodeTable(StringBuilder sb, Map<String, Object> map, String tablePath) throws EvalException {
+  private static void encodeTable(StringBuilder sb, Map<String, Object> map, List<String> pathSegments) throws EvalException {
     boolean needsBlankLine = false;
 
     // First pass: output all scalar values and non-table arrays
@@ -352,7 +355,8 @@ public final class TomlParser implements StarlarkValue {
       if (value instanceof List && isArrayOfTables((List<?>) value)) {
         continue; // Handle array of tables in third pass
       }
-      sb.append(e.getKey()).append(" = ");
+      encodeKey(sb, e.getKey());
+      sb.append(" = ");
       encodeValue(sb, value, 0);
       sb.append("\n");
       needsBlankLine = true;
@@ -362,11 +366,14 @@ public final class TomlParser implements StarlarkValue {
     for (Map.Entry<String, Object> e : map.entrySet()) {
       Object value = e.getValue();
       if (value instanceof Map) {
-        String nestedPath = tablePath.isEmpty() ? e.getKey() : tablePath + "." + e.getKey();
+        List<String> nestedPath = new ArrayList<>(pathSegments);
+        nestedPath.add(e.getKey());
         if (needsBlankLine) {
           sb.append("\n");
         }
-        sb.append("[").append(nestedPath).append("]\n");
+        sb.append("[");
+        encodeTablePath(sb, nestedPath);
+        sb.append("]\n");
         encodeTable(sb, (Map<String, Object>) value, nestedPath);
         needsBlankLine = true;
       }
@@ -376,12 +383,15 @@ public final class TomlParser implements StarlarkValue {
     for (Map.Entry<String, Object> e : map.entrySet()) {
       Object value = e.getValue();
       if (value instanceof List && isArrayOfTables((List<?>) value)) {
-        String arrayPath = tablePath.isEmpty() ? e.getKey() : tablePath + "." + e.getKey();
+        List<String> arrayPath = new ArrayList<>(pathSegments);
+        arrayPath.add(e.getKey());
         for (Object item : (List<?>) value) {
           if (needsBlankLine) {
             sb.append("\n");
           }
-          sb.append("[[").append(arrayPath).append("]]\n");
+          sb.append("[[");
+          encodeTablePath(sb, arrayPath);
+          sb.append("]]\n");
           encodeTable(sb, (Map<String, Object>) item, arrayPath);
           needsBlankLine = true;
         }
@@ -433,7 +443,8 @@ public final class TomlParser implements StarlarkValue {
     for (Map.Entry<String, Object> e : map.entrySet()) {
       if (!first) sb.append(", ");
       first = false;
-      sb.append(e.getKey()).append(" = ");
+      encodeKey(sb, e.getKey());
+      sb.append(" = ");
       encodeValue(sb, e.getValue(), indent);
     }
     sb.append(" }");
@@ -452,6 +463,23 @@ public final class TomlParser implements StarlarkValue {
       encodeInlineTable(sb, (Map<String, Object>) value, indent);
     } else {
       throw Starlark.errorf("cannot encode %s as TOML", value.getClass());
+    }
+  }
+
+  private static void encodeKey(StringBuilder sb, String key) {
+    if (BARE_KEY.matcher(key).matches()) {
+      sb.append(key);
+    } else {
+      encodeString(sb, key);
+    }
+  }
+
+  private static void encodeTablePath(StringBuilder sb, List<String> pathSegments) {
+    for (int i = 0; i < pathSegments.size(); i++) {
+      if (i > 0) {
+        sb.append(".");
+      }
+      encodeKey(sb, pathSegments.get(i));
     }
   }
 
