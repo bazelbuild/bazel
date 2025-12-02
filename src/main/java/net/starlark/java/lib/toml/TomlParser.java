@@ -14,11 +14,8 @@
 
 package net.starlark.java.lib.toml;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.dataformat.toml.TomlMapper;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
@@ -28,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -46,6 +44,11 @@ import net.starlark.java.eval.StarlarkSet;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.json.Json;
+import org.tomlj.Toml;
+import org.tomlj.TomlArray;
+import org.tomlj.TomlParseResult;
+import org.tomlj.TomlTable;
 
 // Tests at //src/test/java/net/starlark/java/eval:testdata/toml.star
 
@@ -94,19 +97,13 @@ public final class TomlParser implements StarlarkValue {
       Object javaValue = convertToJava(x, thread.getSemantics());
 
       // TOML requires the root to be a map/table structure
-      if (!(javaValue instanceof Map)) {
+      if (javaValue instanceof Map) {
+        StringBuilder sb = new StringBuilder();
+        encodeTable(sb, (Map<String, Object>)javaValue, "");
+        return sb.toString();
+      } else {
         throw Starlark.errorf("TOML encode requires a dict at the top level, got %s", Starlark.type(x));
       }
-
-      // Empty map produces empty TOML document
-      if (((Map<?, ?>) javaValue).isEmpty()) {
-        return "";
-      }
-
-      TomlMapper mapper = new TomlMapper();
-      return mapper.writeValueAsString(javaValue);
-    } catch (JsonProcessingException e) {
-      throw Starlark.errorf("TOML encode error: %s", e.getMessage());
     } catch (StackOverflowError unused) {
       throw Starlark.errorf("nesting depth limit exceeded");
     }
@@ -137,25 +134,28 @@ public final class TomlParser implements StarlarkValue {
       },
       useStarlarkThread = true)
   public Object decode(String x, Object defaultValue, StarlarkThread thread) throws EvalException {
-    TomlMapper mapper = new TomlMapper();
-    try {
-      Object result = mapper.readValue(x, Object.class);
-      return convertToStarlark(result, null);
-    } catch (JsonProcessingException e) {
+    TomlParseResult result = Toml.parse(x);
+    if (result.hasErrors()) {
       if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
       }
-      throw Starlark.errorf("TOML decode error: %s", e.getMessage());
+
+      String errorMsg = result.errors().stream()
+          .map(Object::toString)
+          .collect(Collectors.joining("; "));
+      throw Starlark.errorf("TOML decode error: %s", errorMsg);
     }
+
+    return convertToStarlark(result);
   }
 
-  private static Object convertToStarlark(Object x, @Nullable Mutability mutability) throws EvalException {
+  private static Object convertToStarlark(Object x) throws EvalException {
     if (x == null) {
       return Starlark.NONE;
     } else if (Starlark.valid(x)) {
       return x;
     } else if (x instanceof TemporalAccessor) {
-      // Jackson returns various java.time types for TOML dates
+      // tomlj returns various java.time types for TOML dates
       return x.toString();
     } else if (x instanceof Number) {
       if (x instanceof Integer) {
@@ -168,32 +168,34 @@ public final class TomlParser implements StarlarkValue {
         return StarlarkFloat.of((double) x);
       } else if (x instanceof Float) {
         return StarlarkFloat.of(((Float) x).doubleValue());
-      } else if (x instanceof BigDecimal) {
-        return StarlarkFloat.of(((BigDecimal) x).doubleValue());
       }
+    } else if (x instanceof TomlArray) {
+      return convertToStarlark(((TomlArray)x).toList());
+    } else if (x instanceof TomlTable) {
+      return convertToStarlark(((TomlTable)x).toMap());
     } else if (x instanceof List) {
       List<?> list = (List<?>) x;
       List<Object> converted = new ArrayList<>(list.size());
       for (Object elem : list) {
-        converted.add(convertToStarlark(elem, mutability));
+        converted.add(convertToStarlark(elem));
       }
-      return StarlarkList.copyOf(mutability, converted);
+      return StarlarkList.copyOf(null, converted);
     } else if (x instanceof Map) {
       Map<?, ?> map = (Map<?, ?>) x;
       Map<Object, Object> converted = new LinkedHashMap<>(map.size());
       for (Map.Entry<?, ?> entry : map.entrySet()) {
         converted.put(
-            convertToStarlark(entry.getKey(), mutability),
-            convertToStarlark(entry.getValue(), mutability));
+            convertToStarlark(entry.getKey()),
+            convertToStarlark(entry.getValue()));
       }
-      return Dict.copyOf(mutability, converted);
+      return Dict.copyOf(null, converted);
     } else if (x instanceof Set) {
       Set<?> set = (Set<?>) x;
       Set<Object> converted = new LinkedHashSet<>(set.size());
       for (Object elem : set) {
-        converted.add(convertToStarlark(elem, mutability));
+        converted.add(convertToStarlark(elem));
       }
-      return StarlarkSet.copyOf(mutability, converted);
+      return StarlarkSet.copyOf(null, converted);
     }
     throw Starlark.errorf("invalid Starlark value: %s",
                           x.getClass() == null ? "null" : x.getClass());
@@ -201,10 +203,16 @@ public final class TomlParser implements StarlarkValue {
 
   /**
    * Converts a Starlark value to a Java object suitable for TOML encoding.
+   * Returns null for None values, which should be omitted from output.
    */
+  @Nullable
   private static Object convertToJava(Object x, StarlarkSemantics semantics) throws EvalException, InterruptedException {
+    if (x instanceof Json.Encodable) {
+      x = ((Json.Encodable) x).objectForEncoding(semantics);
+    }
+
     if (x == Starlark.NONE) {
-      throw Starlark.errorf("cannot encode None as TOML");
+      return null;
     }
 
     if (x instanceof Boolean || x instanceof String) {
@@ -238,7 +246,10 @@ public final class TomlParser implements StarlarkValue {
       Map<String, Object> result = new LinkedHashMap<>();
       for (Object key : keys) {
         try {
-          result.put((String) key, convertToJava(m.get(key), semantics));
+          Object value = convertToJava(m.get(key), semantics);
+          if (value != null) {
+            result.put((String) key, value);
+          }
         } catch (EvalException ex) {
           throw Starlark.errorf(
               "in %s key %s: %s", Starlark.type(x), Starlark.repr(key), ex.getMessage());
@@ -261,7 +272,10 @@ public final class TomlParser implements StarlarkValue {
       int i = 0;
       for (Object elem : sorted) {
         try {
-          result.add(convertToJava(elem, semantics));
+          Object value = convertToJava(elem, semantics);
+          if (value != null) {
+            result.add(value);
+          }
         } catch (EvalException ex) {
           throw Starlark.errorf("at %s index %d: %s", Starlark.type(x), i, ex.getMessage());
         }
@@ -276,7 +290,10 @@ public final class TomlParser implements StarlarkValue {
       int i = 0;
       for (Object elem : it) {
         try {
-          result.add(convertToJava(elem, semantics));
+          Object value = convertToJava(elem, semantics);
+          if (value != null) {
+            result.add(value);
+          }
         } catch (EvalException ex) {
           throw Starlark.errorf("at %s index %d: %s", Starlark.type(x), i, ex.getMessage());
         }
@@ -305,7 +322,10 @@ public final class TomlParser implements StarlarkValue {
           if (x instanceof NativeInfo && v instanceof StarlarkCallable) {
             continue;
           }
-          result.put(field, convertToJava(v, semantics));
+          Object value = convertToJava(v, semantics);
+          if (value != null) {
+            result.put(field, value);
+          }
         } catch (EvalException ex) {
           throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());
         }
@@ -314,5 +334,178 @@ public final class TomlParser implements StarlarkValue {
     }
 
     throw Starlark.errorf("cannot encode %s as TOML", Starlark.type(x));
+  }
+
+  /**
+   * Encodes a table (map) to TOML. In TOML, scalar values must come before nested tables
+   * to avoid them being associated with the wrong table header.
+   */
+  private static void encodeTable(StringBuilder sb, Map<String, Object> map, String tablePath) throws EvalException {
+    boolean needsBlankLine = false;
+
+    // First pass: output all scalar values and non-table arrays
+    for (Map.Entry<String, Object> e : map.entrySet()) {
+      Object value = e.getValue();
+      if (value instanceof Map) {
+        continue; // Handle tables in second pass
+      }
+      if (value instanceof List && isArrayOfTables((List<?>) value)) {
+        continue; // Handle array of tables in third pass
+      }
+      sb.append(e.getKey()).append(" = ");
+      encodeValue(sb, value, 0);
+      sb.append("\n");
+      needsBlankLine = true;
+    }
+
+    // Second pass: output nested tables
+    for (Map.Entry<String, Object> e : map.entrySet()) {
+      Object value = e.getValue();
+      if (value instanceof Map) {
+        String nestedPath = tablePath.isEmpty() ? e.getKey() : tablePath + "." + e.getKey();
+        if (needsBlankLine) {
+          sb.append("\n");
+        }
+        sb.append("[").append(nestedPath).append("]\n");
+        encodeTable(sb, (Map<String, Object>) value, nestedPath);
+        needsBlankLine = true;
+      }
+    }
+
+    // Third pass: output arrays of tables using [[array]] syntax
+    for (Map.Entry<String, Object> e : map.entrySet()) {
+      Object value = e.getValue();
+      if (value instanceof List && isArrayOfTables((List<?>) value)) {
+        String arrayPath = tablePath.isEmpty() ? e.getKey() : tablePath + "." + e.getKey();
+        for (Object item : (List<?>) value) {
+          if (needsBlankLine) {
+            sb.append("\n");
+          }
+          sb.append("[[").append(arrayPath).append("]]\n");
+          encodeTable(sb, (Map<String, Object>) item, arrayPath);
+          needsBlankLine = true;
+        }
+      }
+    }
+  }
+
+  private static boolean isArrayOfTables(List<?> list) {
+    if (list.isEmpty()) {
+      return false;
+    }
+    // Check if all elements are maps
+    for (Object item : list) {
+      if (!(item instanceof Map)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Encodes a list as an inline TOML array. Used for arrays of primitives.
+   */
+  private static void encodeList(StringBuilder sb, List<?> list, int indent) throws EvalException {
+    if (list.isEmpty()) {
+      sb.append("[]");
+      return;
+    }
+
+    String closeIndent = "  ".repeat(indent);
+    String itemIndent = "  ".repeat(indent + 1);
+
+    sb.append("[\n");
+    for (int i = 0; i < list.size(); i++) {
+      sb.append(itemIndent);
+      encodeValue(sb, list.get(i), indent + 1);
+      sb.append(",\n");
+    }
+    sb.append(closeIndent).append("]");
+  }
+
+  private static void encodeInlineTable(StringBuilder sb, Map<String, Object> map, int indent) throws EvalException {
+    if (map.isEmpty()) {
+      sb.append("{}");
+      return;
+    }
+    sb.append("{ ");
+    boolean first = true;
+    for (Map.Entry<String, Object> e : map.entrySet()) {
+      if (!first) sb.append(", ");
+      first = false;
+      sb.append(e.getKey()).append(" = ");
+      encodeValue(sb, e.getValue(), indent);
+    }
+    sb.append(" }");
+  }
+
+  private static void encodeValue(StringBuilder sb, Object value, int indent) throws EvalException {
+    if (value instanceof String) {
+      encodeString(sb, (String) value);
+    } else if (value instanceof Boolean) {
+      sb.append(value.toString());
+    } else if (value instanceof Number) {
+      sb.append(value.toString());
+    } else if (value instanceof List) {
+      encodeList(sb, (List<?>) value, indent);
+    } else if (value instanceof Map) {
+      encodeInlineTable(sb, (Map<String, Object>) value, indent);
+    } else {
+      throw Starlark.errorf("cannot encode %s as TOML", value.getClass());
+    }
+  }
+
+  private static void encodeString(StringBuilder sb, String s) {
+    boolean hasSingleQuote = s.contains("'");
+    boolean hasControlChars = containsControlChars(s);
+
+    if (!hasSingleQuote && !hasControlChars) {
+      sb.append("'").append(s).append("'");
+    } else {
+      sb.append('"');
+      for (int i = 0; i < s.length(); i++) {
+        char c = s.charAt(i);
+        switch (c) {
+          case '\\':
+            sb.append("\\\\");
+            break;
+          case '"':
+            sb.append("\\\"");
+            break;
+          case '\b':
+            sb.append("\\b");
+            break;
+          case '\t':
+            sb.append("\\t");
+            break;
+          case '\n':
+            sb.append("\\n");
+            break;
+          case '\f':
+            sb.append("\\f");
+            break;
+          case '\r':
+            sb.append("\\r");
+            break;
+          default:
+            if (c < 0x20) {
+              sb.append(String.format("\\u%04X", (int) c));
+            } else {
+              sb.append(c);
+            }
+        }
+      }
+      sb.append('"');
+    }
+  }
+
+  private static boolean containsControlChars(String s) {
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c < 0x20 || c == '\\') {
+        return true;
+      }
+    }
+    return false;
   }
 }
