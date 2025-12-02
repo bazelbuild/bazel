@@ -2910,6 +2910,20 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       self.assertEqual(lockfile_contents, f.read())
 
+    # Verify that the facts remain after a bazel shutdown followed by a build
+    # that doesn't trigger the extension evaluation.
+    # Regression test for https://github.com/bazelbuild/bazel/issues/27730
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['info'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('Hello from this side!', stderr)
+    self.assertNotIn('Fetching metadata for hello...', stderr)
+    self.assertNotIn('hello: hash=olleh', stderr)
+    self.assertNotIn('Fetching metadata for world...', stderr)
+    self.assertNotIn('world: hash=dlrow', stderr)
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertEqual(lockfile_contents, f.read())
+
     # Clean out the hidden lockfile to ensure that the extension is
     # evaluated again and verify that the reevaluation reuses the facts.
     _, _, stderr = self.RunBazel(['clean', '--expunge'])
