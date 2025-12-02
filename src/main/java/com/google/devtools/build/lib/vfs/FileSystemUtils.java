@@ -384,13 +384,34 @@ public class FileSystemUtils {
    */
   @ThreadSafe // but not atomic
   public static void copyFile(Path from, Path to) throws IOException {
-    copyFile(from, to, from.stat());
-  }
-
-  private static void copyFile(Path from, Path to, FileStatus stat) throws IOException {
+    FileStatus stat = from.stat();
     if (!stat.isFile()) {
       throw new IOException("don't know how to copy " + from);
     }
+    copyRegularFile(from, to, stat);
+  }
+
+  /**
+   * Copies a file known to be a regular file after following symlinks, potentially overwriting the
+   * destination. Preserves the modification time and permissions.
+   *
+   * <p>If the source is a symbolic link, it will be followed. If the destination is a symbolic
+   * link, it will be replaced.
+   *
+   * <p>Copying directories is not supported.
+   *
+   * @param from the source path
+   * @param to the destination path
+   * @throws FileNotFoundException if the parent directory of the destination does not exist
+   * @throws IOException if the copy fails for any other reason
+   */
+  @ThreadSafe // but not atomic
+  public static void copyRegularFile(Path from, Path to) throws IOException {
+    copyRegularFile(from, to, /* stat= */ null);
+  }
+
+  private static void copyRegularFile(Path from, Path to, @Nullable FileStatus stat)
+      throws IOException {
     var fromNio = from.getFileSystem().getNioPath(from.asFragment());
     var toNio = to.getFileSystem().getNioPath(to.asFragment());
     if (fromNio != null && toNio != null) {
@@ -411,6 +432,9 @@ public class FileSystemUtils {
       // This may use a faster copy method (such as via an in-kernel buffer) if both streams are
       // backed by files.
       in.transferTo(out);
+    }
+    if (stat == null) {
+      stat = from.stat();
     }
     to.setLastModifiedTime(stat.getLastModifiedTime());
     int perms = stat.getPermissions();
@@ -459,7 +483,7 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        copyFile(from, to, stat);
+        copyRegularFile(from, to, stat);
       } else if (stat.isSymbolicLink()) {
         PathFragment targetPath = from.readSymbolicLink();
         try {
@@ -547,7 +571,7 @@ public class FileSystemUtils {
       Path toChild = to.getChild(dirent.getName());
       switch (dirent.getType()) {
         case FILE:
-          copyFile(fromChild, toChild);
+          copyRegularFile(fromChild, toChild);
           break;
         case SYMLINK:
           FileSystemUtils.ensureSymbolicLink(toChild, fromChild.readSymbolicLink());
