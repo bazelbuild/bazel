@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -106,6 +107,8 @@ public class IncompatibleTargetChecker {
 
     private final StateMachine runAfter;
 
+    private final ImmutableList.Builder<ConstraintValueInfo> allConstraintValuesBuilder =
+        new ImmutableList.Builder<>();
     private final ImmutableList.Builder<ConstraintValueInfo> invalidConstraintValuesBuilder =
         new ImmutableList.Builder<>();
 
@@ -170,13 +173,26 @@ public class IncompatibleTargetChecker {
     public void accept(SkyValue value) {
       var configuredTarget = ((ConfiguredTargetValue) value).getConfiguredTarget();
       @Nullable ConstraintValueInfo info = PlatformProviderUtils.constraintValue(configuredTarget);
-      if (info == null || platformInfo.constraints().hasConstraintValue(info)) {
+      if (info == null) {
         return;
       }
-      invalidConstraintValuesBuilder.add(info);
+      allConstraintValuesBuilder.add(info);
+      if (!platformInfo.constraints().hasConstraintValue(info)) {
+        invalidConstraintValuesBuilder.add(info);
+      }
     }
 
     private StateMachine processResult(Tasks tasks) {
+      var allConstraintValues = allConstraintValuesBuilder.build();
+
+      // Validate that there are no duplicate constraint values from the same constraint setting
+      try {
+        ConstraintCollection.validateConstraints(allConstraintValues);
+      } catch (ConstraintCollection.DuplicateConstraintException e) {
+        sink.acceptValidationException(new ValidationException(e.getMessage()));
+        return runAfter;
+      }
+
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
       if (!invalidConstraintValues.isEmpty()) {
         sink.acceptIncompatibleTarget(
