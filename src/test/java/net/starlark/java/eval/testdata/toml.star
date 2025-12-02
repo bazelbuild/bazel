@@ -401,3 +401,73 @@ name = 'bar'
 id = 2
 name = 'baz'
 """)
+
+## Keys with special characters need quoting
+
+# Keys with spaces
+assert_eq(toml.encode({"my key": "value"}), """\
+'my key' = 'value'
+""")
+
+# Keys with dots (would be confused with nested tables)
+assert_eq(toml.encode({"my.key": "value"}), """\
+'my.key' = 'value'
+""")
+
+# Keys with special characters
+assert_eq(toml.encode({"key@domain": "value"}), """\
+'key@domain' = 'value'
+""")
+
+# Keys with quotes need escaping
+assert_eq(toml.encode({"it's a key": "value"}), """\
+"it's a key" = 'value'
+""")
+
+# Empty key
+assert_eq(toml.encode({"": "value"}), """\
+'' = 'value'
+""")
+
+# Bare keys with allowed characters (underscore and dash)
+assert_eq(toml.encode({"MY_key-name": "value"}), """\
+MY_key-name = 'value'
+""")
+
+# Nested table with special key
+assert_eq(toml.encode({"my table": {"x": 1}}), """\
+['my table']
+x = 1
+""")
+
+# Deeply nested with special keys
+assert_eq(toml.encode({"a.b": {"c d": {"e": 1}}}), """\
+['a.b']
+['a.b'.'c d']
+e = 1
+""")
+
+# Array of tables with special key
+assert_eq(toml.encode({"my items": [{"x": 1}, {"x": 2}]}), """\
+[['my items']]
+x = 1
+
+[['my items']]
+x = 2
+""")
+
+# Inline table with special keys
+assert_eq(toml.encode({"items": [{"my key": 1, "other key": 2}]}), """\
+[[items]]
+'my key' = 1
+'other key' = 2
+""")
+
+# Round-trip with special keys
+special_keys_original = {
+    "my key": "value1",
+    "key.with.dots": "value2",
+}
+special_keys_encoded = toml.encode(special_keys_original)
+special_keys_decoded = toml.decode(special_keys_encoded)
+assert_eq(special_keys_decoded, special_keys_original)
