@@ -498,8 +498,7 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile('BUILD')
 
     # Vendor, assert and build with no problems
-    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@@rules_python+'])
-    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@@bazel_skylib+'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '@@rules_python+//python/config_settings:python_path'])
     self.RunBazel(['vendor', '--vendor_dir=vendor', '@venRepo//:all'])
     self.assertIn('+ext+venRepo', os.listdir(self._test_cwd + '/vendor'))
 
