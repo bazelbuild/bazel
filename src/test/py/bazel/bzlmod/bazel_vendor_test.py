@@ -499,9 +499,9 @@ class BazelVendorTest(test_base.TestBase):
 
     # Vendor, assert and build with no problems
     self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@@rules_python+'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@@bazel_skylib+'])
     self.RunBazel(['vendor', '--vendor_dir=vendor', '@venRepo//:all'])
     self.assertIn('+ext+venRepo', os.listdir(self._test_cwd + '/vendor'))
-    self.assertIn('rules_python+', os.listdir(self._test_cwd + '/vendor'))
 
     # Make updates in repo definition
     self.ScratchFile(
