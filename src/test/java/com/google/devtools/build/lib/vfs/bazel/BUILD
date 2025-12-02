@@ -25,6 +25,7 @@ java_library(
         ],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
