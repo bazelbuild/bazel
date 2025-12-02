@@ -1612,7 +1612,7 @@ public class RemoteExecutionService {
           } else if (outputArtifact.isSymlink()) {
             FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
           } else {
-            FileSystemUtils.copyFile(sourcePath, tmpPath);
+            FileSystemUtils.copyRegularFile(sourcePath, tmpPath);
           }
           realToTmpPath.put(targetPath, tmpPath);
         } catch (FileNotFoundException e) {

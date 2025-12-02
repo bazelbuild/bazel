@@ -89,7 +89,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            execRoot,
+            context.getInputMetadataProvider());
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     return new SymlinkedSandboxedSpawn(

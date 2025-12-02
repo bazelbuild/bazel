@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -185,7 +187,11 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(inputs, virtualInputs, symlinks);
+    return new SandboxInputs(
+        ImmutableSortedMap.copyOf(inputs),
+        ImmutableSortedMap.of(),
+        ImmutableSortedMap.copyOf(symlinks),
+        ImmutableMap.copyOf(virtualInputs));
   }
 
   public SandboxOutputs getSandboxOutputs() {

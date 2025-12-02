@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyRegularFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.removeExtension;
@@ -355,6 +356,19 @@ public class FileSystemUtilsTest {
     }
   }
 
+  // The FileSystemUtils method to test.
+  enum CopyMethod {
+    COPY_FILE,
+    COPY_REGULAR_FILE;
+
+    void call(Path source, Path target) throws IOException {
+      switch (this) {
+        case COPY_FILE -> copyFile(source, target);
+        case COPY_REGULAR_FILE -> copyRegularFile(source, target);
+      }
+    }
+  }
+
   // The state of the source path for a copy or move operation.
   enum SourceState {
     // The source path is a regular file.
@@ -407,6 +421,7 @@ public class FileSystemUtilsTest {
 
   @Test
   public void testCopyFile(
+      @TestParameter CopyMethod method,
       @TestParameter CopyFileSystem fs,
       @TestParameter SourceState sourceState,
       @TestParameter TargetState targetState)
@@ -419,7 +434,7 @@ public class FileSystemUtilsTest {
 
     targetState.create(target, "bad contents");
 
-    copyFile(source, target);
+    method.call(source, target);
 
     assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello world");
@@ -442,8 +457,8 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCopyFileIntoUnwritableDirectoryFails(@TestParameter CopyFileSystem fs)
-      throws Exception {
+  public void testCopyFileIntoUnwritableDirectoryFails(
+      @TestParameter CopyMethod method, @TestParameter CopyFileSystem fs) throws Exception {
     // Windows has no concept of read-only directories.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
@@ -456,12 +471,12 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(target);
     target.getParentDirectory().setWritable(false);
 
-    assertThrows(FileAccessException.class, () -> copyFile(source, target));
+    assertThrows(FileAccessException.class, () -> method.call(source, target));
   }
 
   @Test
-  public void testCopyFileOntoNonEmptyDirectoryFails(@TestParameter CopyFileSystem fs)
-      throws Exception {
+  public void testCopyFileOntoNonEmptyDirectoryFails(
+      @TestParameter CopyMethod method, @TestParameter CopyFileSystem fs) throws Exception {
     Path root = fs.root();
     Path source = root.getRelative("source");
     Path target = root.getRelative("target");
@@ -470,7 +485,7 @@ public class FileSystemUtilsTest {
     target.createDirectory();
     FileSystemUtils.createEmptyFile(target.getChild("foo"));
 
-    IOException e = assertThrows(IOException.class, () -> copyFile(source, target));
+    IOException e = assertThrows(IOException.class, () -> method.call(source, target));
     assertThat(e).hasMessageThat().contains("(Directory not empty)");
   }
 
@@ -497,15 +512,15 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testCopyFileWithNonExistingTargetParentFails(@TestParameter CopyFileSystem fs)
-      throws Exception {
+  public void testCopyFileWithNonExistingTargetParentFails(
+      @TestParameter CopyMethod method, @TestParameter CopyFileSystem fs) throws Exception {
     Path root = fs.root();
     Path source = root.getRelative("source");
     Path target = root.getRelative("subdir/target");
 
     FileSystemUtils.createEmptyFile(source);
 
-    assertThrows(FileNotFoundException.class, () -> copyFile(source, target));
+    assertThrows(FileNotFoundException.class, () -> method.call(source, target));
   }
 
   @Test

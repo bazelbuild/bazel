@@ -123,9 +123,9 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
 
-    assertThat(inputs.getFiles())
+    assertThat(inputs.files())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
-    assertThat(inputs.getSymlinks()).isEmpty();
+    assertThat(inputs.symlinks()).isEmpty();
     assertThat(FileSystemUtils.readLines(execRoot.getChild("paramFile"), UTF_8))
         .containsExactly("-a", "-b")
         .inOrder();
@@ -141,10 +141,10 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
 
-    assertThat(inputs.getFiles())
+    assertThat(inputs.files())
         .containsExactly(
             PathFragment.create("_bin/say_hello"), execRoot.getRelative("_bin/say_hello"));
-    assertThat(inputs.getSymlinks()).isEmpty();
+    assertThat(inputs.symlinks()).isEmpty();
     assertThat(FileSystemUtils.readLines(execRoot.getRelative("_bin/say_hello"), UTF_8))
         .containsExactly("#!/bin/bash", "echo hello")
         .inOrder();
@@ -248,6 +248,7 @@ public class SandboxHelpersTest {
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt),
             ImmutableMap.of(),
+            ImmutableMap.of(),
             ImmutableMap.of());
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
@@ -255,8 +256,7 @@ public class SandboxHelpersTest {
         ImmutableSet.of(),
         inputsToCreate,
         dirsToCreate,
-        Iterables.concat(
-            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        Iterables.concat(ImmutableSet.of(), inputs.files().keySet(), inputs.symlinks().keySet()),
         SandboxOutputs.create(
             ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of()));
 
@@ -288,6 +288,7 @@ public class SandboxHelpersTest {
     SandboxInputs inputs2 =
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt, input4, inputTxt),
+            ImmutableMap.of(),
             ImmutableMap.of(),
             ImmutableMap.of());
     SandboxHelpers.cleanExisting(

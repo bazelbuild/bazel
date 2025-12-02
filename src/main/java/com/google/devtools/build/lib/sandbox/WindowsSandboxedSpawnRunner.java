@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +29,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.stream.Stream;
+import java.util.Objects;
 
 /** Spawn runner that uses BuildXL Sandbox APIs to execute a local subprocess. */
 final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -65,7 +69,8 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs readablePaths =
         SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            execRoot,
+            context.getInputMetadataProvider());
 
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.addAll(getWritableDirs(execRoot, environment));
@@ -75,17 +80,22 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Duration timeout = context.getTimeout();
 
-    if (!readablePaths.getSymlinks().isEmpty()) {
+    if (!readablePaths.symlinks().isEmpty()) {
       throw new IOException(
           "Windows sandbox does not support unresolved symlinks yet ("
-              + Joiner.on(", ").join(readablePaths.getSymlinks().keySet())
+              + Joiner.on(", ").join(readablePaths.symlinks().keySet())
               + ")");
     }
 
     WindowsSandboxUtil.CommandLineBuilder commandLineBuilder =
         WindowsSandboxUtil.commandLineBuilder(windowsSandbox, spawn.getArguments())
             .setWritableFilesAndDirectories(writablePaths.build())
-            .setReadableFilesAndDirectories(readablePaths.getFiles())
+            .setReadableFilesAndDirectories(
+                Stream.concat(
+                        readablePaths.files().values().stream(),
+                        readablePaths.directories().values().stream())
+                    .filter(Objects::nonNull)
+                    .collect(toImmutableSet()))
             .setInaccessiblePaths(getInaccessiblePaths())
             .setUseDebugMode(getSandboxOptions().sandboxDebug)
             .setKillDelay(timeoutKillDelay);

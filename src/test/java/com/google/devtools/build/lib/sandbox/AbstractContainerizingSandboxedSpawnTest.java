@@ -189,9 +189,10 @@ public class AbstractContainerizingSandboxedSpawnTest {
   @Test
   public void createFileSystem_createsDirectoriesForAndInputFiles() throws Exception {
     SandboxInputs sandboxInputs =
-        createSandboxInputs(/*files=*/ ImmutableList.of("a/b"), /*symlinks=*/ ImmutableList.of());
+        createSandboxInputs(
+            /* files= */ ImmutableList.of("a/b"), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
-        SandboxOutputs.create(/*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of());
+        SandboxOutputs.create(/* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -203,9 +204,10 @@ public class AbstractContainerizingSandboxedSpawnTest {
   @Test
   public void createFileSystem_createsDirectoriesForAndInputSymlinks() throws Exception {
     SandboxInputs sandboxInputs =
-        createSandboxInputs(/*files=*/ ImmutableList.of(), /*symlinks=*/ ImmutableList.of("a/b/c"));
+        createSandboxInputs(
+            /* files= */ ImmutableList.of(), /* symlinks= */ ImmutableList.of("a/b/c"));
     SandboxOutputs sandboxOutputs =
-        SandboxOutputs.create(/*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of());
+        SandboxOutputs.create(/* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -219,9 +221,9 @@ public class AbstractContainerizingSandboxedSpawnTest {
   public void createFileSystem_uplevelReference_createsSiblingDirectory() throws Exception {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
-            /*files=*/ ImmutableList.of("../a/b"), /*symlinks=*/ ImmutableList.of());
+            /* files= */ ImmutableList.of("../a/b"), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
-        SandboxOutputs.create(/*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of());
+        SandboxOutputs.create(/* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -234,11 +236,11 @@ public class AbstractContainerizingSandboxedSpawnTest {
   @Test
   public void createFileSystem_createsDirectoriesForOutputFiles() throws Exception {
     SandboxInputs sandboxInputs =
-        createSandboxInputs(/*files=*/ ImmutableList.of(), /*symlinks=*/ ImmutableList.of());
+        createSandboxInputs(/* files= */ ImmutableList.of(), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
         SandboxOutputs.create(
-            /*files=*/ ImmutableSet.of(PathFragment.create("a/b"), PathFragment.create("c/d/e")),
-            /*dirs=*/ ImmutableSet.of());
+            /* files= */ ImmutableSet.of(PathFragment.create("a/b"), PathFragment.create("c/d/e")),
+            /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -251,11 +253,11 @@ public class AbstractContainerizingSandboxedSpawnTest {
   @Test
   public void createFileSystem_createsOutputDirectories() throws Exception {
     SandboxInputs sandboxInputs =
-        createSandboxInputs(/*files=*/ ImmutableList.of(), /*symlinks=*/ ImmutableList.of());
+        createSandboxInputs(/* files= */ ImmutableList.of(), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
         SandboxOutputs.create(
-            /*files=*/ ImmutableSet.of(),
-            /*dirs=*/ ImmutableSet.of(PathFragment.create("a/b"), PathFragment.create("c/d/e")));
+            /* files= */ ImmutableSet.of(),
+            /* dirs= */ ImmutableSet.of(PathFragment.create("a/b"), PathFragment.create("c/d/e")));
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -270,10 +272,10 @@ public class AbstractContainerizingSandboxedSpawnTest {
   public void createFileSystem_nestedFileAndDirectory_createsDirectoriesAndFile() throws Exception {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
-            /*files=*/ ImmutableList.of("a/b/file"), /*symlinks=*/ ImmutableList.of());
+            /* files= */ ImmutableList.of("a/b/file"), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
         SandboxOutputs.create(
-            /*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of(PathFragment.create("a")));
+            /* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of(PathFragment.create("a")));
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -287,12 +289,12 @@ public class AbstractContainerizingSandboxedSpawnTest {
   public void createFileSystem_overlappingPaths_createsAllDirectories() throws Exception {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
-            /*files=*/ ImmutableList.of("1/2/file1"),
-            /*symlinks=*/ ImmutableList.of("1/2/3/symlink"));
+            /* files= */ ImmutableList.of("1/2/file1"),
+            /* symlinks= */ ImmutableList.of("1/2/3/symlink"));
     SandboxOutputs sandboxOutputs =
         SandboxOutputs.create(
-            /*files=*/ ImmutableSet.of(PathFragment.create("1/2/file2")),
-            /*dirs=*/ ImmutableSet.of(PathFragment.create("1"), PathFragment.create("2/3/4")));
+            /* files= */ ImmutableSet.of(PathFragment.create("1/2/file2")),
+            /* dirs= */ ImmutableSet.of(PathFragment.create("1"), PathFragment.create("2/3/4")));
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -314,9 +316,9 @@ public class AbstractContainerizingSandboxedSpawnTest {
   public void createFileSystem_fileInUpUpLevelReference_fails() {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
-            /*files=*/ ImmutableList.of("../../file"), /*symlinks=*/ ImmutableList.of());
+            /* files= */ ImmutableList.of("../../file"), /* symlinks= */ ImmutableList.of());
     SandboxOutputs sandboxOutputs =
-        SandboxOutputs.create(/*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of());
+        SandboxOutputs.create(/* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -328,10 +330,10 @@ public class AbstractContainerizingSandboxedSpawnTest {
       throws Exception {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
-            /*files=*/ ImmutableList.of("1/2/3/file", "1/4/file"),
-            /*symlinks=*/ ImmutableMap.of("1/2", "4"));
+            /* files= */ ImmutableList.of("1/2/3/file", "1/4/file"),
+            /* symlinks= */ ImmutableMap.of("1/2", "4"));
     SandboxOutputs sandboxOutputs =
-        SandboxOutputs.create(/*files=*/ ImmutableSet.of(), /*dirs=*/ ImmutableSet.of());
+        SandboxOutputs.create(/* files= */ ImmutableSet.of(), /* dirs= */ ImmutableSet.of());
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
@@ -359,7 +361,12 @@ public class AbstractContainerizingSandboxedSpawnTest {
         "Mnemonic") {
 
       @Override
-      protected void copyFile(Path source, Path target) {
+      protected void materializeRegularFile(Path source, Path target) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      protected void materializeDirectory(Path source, Path target) {
         throw new UnsupportedOperationException();
       }
     };
