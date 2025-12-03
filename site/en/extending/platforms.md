@@ -12,7 +12,7 @@ linkers and compilers. To help manage this complexity, Bazel has the concepts
 of *constraints* and *platforms*.
 
 A *constraint* is a distinguishing property of a build or production machine.
-Common constraints are CPU architecture, presence of absence of a GPU, or
+Common constraints are CPU architecture, presence or absence of a GPU, or
 version of a locally installed compiler. But constraints can be *anything* that
 meaningfully distinguishes machines when orchestrating build work.
 
