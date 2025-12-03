@@ -104,12 +104,20 @@ public class DecompressorValue implements SkyValue {
       return TarFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
       return TarGzFunction.INSTANCE;
+    } else if (baseName.endsWith(".gz")) { // Must be after .tar.gz.
+      return GzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.xz") || baseName.endsWith(".txz")) {
       return TarXzFunction.INSTANCE;
+    } else if (baseName.endsWith(".xz")) { // Must be after .tar.xz.
+      return XzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
       return TarZstFunction.INSTANCE;
+    } else if (baseName.endsWith(".zst")) { // Must be after .tar.zst.
+      return ZstFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.bz2") || baseName.endsWith(".tbz")) {
       return TarBz2Function.INSTANCE;
+    } else if (baseName.endsWith(".bz2")) { // Must be after .tar.bz2.
+      return Bz2Function.INSTANCE;
     } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
       return ArFunction.INSTANCE;
     } else if (baseName.endsWith(".7z")) {
@@ -118,7 +126,8 @@ public class DecompressorValue implements SkyValue {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .whl, .tar, .tar.gz, .tgz,"
-                  + " .tar.xz, , .tar.zst, .tzst, .tar.bz2, .tbz, .ar, .deb or .7z suffix (got %s)",
+                  + " .gz, .tar.xz, .txz, .xz, .tar.zst, .tzst, .zst, .tar.bz2, .tbz, .bz2, .ar,"
+                  + " .deb or .7z suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
