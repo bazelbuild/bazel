@@ -47,7 +47,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "label", doc = "The toolchain label.", structField = true)
   Label getToolchainLabel();
 
-  @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
+  @StarlarkMethod(name = "single_jar", doc = "The SingleJar executable.", structField = true)
   FilesToRunProviderApi<? extends FileApi> getSingleJar();
 
   @StarlarkMethod(
