@@ -170,23 +170,27 @@ def build_libraries(extra_libraries, ctx, static_mode, for_dynamic_library):
     check_private_api()
     transitive_linker_inputs = []
     transitive_runtime_libraries = []
+    additional_stamp_infos = []
     for library in extra_libraries:
         kwargs = {}
         for key in dir(library):
             if key not in ["build_library_func", "_key"]:
                 kwargs[key] = getattr(library, key)
-        (linker_input, runtime_library) = library.build_library_func(
+        ret = library.build_library_func(
             ctx,
             static_mode,
             for_dynamic_library,
             **kwargs
         )
-        transitive_linker_inputs.append(linker_input)
-        transitive_runtime_libraries.append(runtime_library)
+        transitive_linker_inputs.append(ret.linker_input)
+        transitive_runtime_libraries.append(ret.runtime_library)
+        if hasattr(ret, "additional_stamp_info"):
+            additional_stamp_infos.append(ret.additional_stamp_info)
 
     return ExtraLibraryInfo(
         transitive_linker_inputs = depset(transitive = transitive_linker_inputs),
         transitive_runtime_libraries = depset(transitive = transitive_runtime_libraries),
+        additional_stamp_infos = additional_stamp_infos,
     )
 
 # LINT.ThenChange(@rules_cc//cc/private/link/create_extra_link_time_library.bzl:forked_exports)
