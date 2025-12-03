@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -379,6 +381,7 @@ public final class CommandInterruptionTest {
   @Before
   public void setUp() throws Exception {
     executor = Executors.newSingleThreadExecutor();
+    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
     Scratch scratch = new Scratch();
     isTestShuttingDown = new AtomicBoolean(false);
     String productName = TestConstants.PRODUCT_NAME;
