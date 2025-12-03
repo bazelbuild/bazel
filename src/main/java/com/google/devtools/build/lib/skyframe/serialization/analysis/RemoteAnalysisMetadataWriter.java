@@ -23,6 +23,7 @@ public interface RemoteAnalysisMetadataWriter {
       String invocationId,
       long evaluatingVersion,
       String configurationHash,
+      boolean useFakeStampData,
       String blazeVersion,
       Collection<String> targets,
       Collection<String> configFlags)

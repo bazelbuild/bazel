@@ -43,6 +43,7 @@ public interface RemoteAnalysisCacheClient {
   void lookupTopLevelTargets(
       long evaluatingVersion,
       String configurationHash,
+      boolean useFakeStampData,
       String bazelVersion,
       EventHandler eventHandler,
       Runnable bailOutCallback)

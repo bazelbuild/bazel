@@ -1077,13 +1077,6 @@ public class BuildTool {
             .analysisCacheEnableMetadataQueries) {
       return;
     }
-    if (!skycacheMetadataParams.getUseFakeStampData()) {
-      // TODO: b/425247333 - Once Skycache handles stamp data well we can remove this check.
-      env.getReporter()
-          .handle(
-              Event.warn("Skycache: Not writing metadata because use_fake_stamp_data is false"));
-      return;
-    }
     try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {
       // This is a blocking call. We cannot finish the build until the metadata has been written
       // and at this point there is nothing else to do in the build that could be done in
@@ -1097,6 +1090,7 @@ public class BuildTool {
                 env.getCommandId().toString(),
                 skycacheMetadataParams.getEvaluatingVersion(),
                 skycacheMetadataParams.getConfigurationHash(),
+                skycacheMetadataParams.getUseFakeStampData(),
                 skycacheMetadataParams.getBazelVersion(),
                 skycacheMetadataParams.getTargets(),
                 skycacheMetadataParams.getConfigFlags());
@@ -1709,24 +1703,19 @@ public class BuildTool {
       if (!areMetadataQueriesEnabled) {
         return;
       }
-      if (skycacheMetadataParams.getUseFakeStampData()) {
-        if (skycacheMetadataParams.getTargets().isEmpty()) {
-          eventHandler.handle(
-              Event.warn(
-                  "Skycache: Not querying Skycache metadata because invocation has no"
-                      + " targets"));
-        } else {
-          getAnalysisCacheClient()
-              .lookupTopLevelTargets(
-                  skycacheMetadataParams.getEvaluatingVersion(),
-                  skycacheMetadataParams.getConfigurationHash(),
-                  skycacheMetadataParams.getBazelVersion(),
-                  eventHandler,
-                  () -> bailedOut = true);
-          }
-      } else {
+      if (skycacheMetadataParams.getTargets().isEmpty()) {
         eventHandler.handle(
-            Event.warn("Skycache: Not querying metadata because use_fake_stamp_data is false"));
+            Event.warn(
+                "Skycache: Not querying Skycache metadata because invocation has no" + " targets"));
+      } else {
+        getAnalysisCacheClient()
+            .lookupTopLevelTargets(
+                skycacheMetadataParams.getEvaluatingVersion(),
+                skycacheMetadataParams.getConfigurationHash(),
+                skycacheMetadataParams.getUseFakeStampData(),
+                skycacheMetadataParams.getBazelVersion(),
+                eventHandler,
+                () -> bailedOut = true);
         }
     }
 
