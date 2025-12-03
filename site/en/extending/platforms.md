@@ -33,7 +33,7 @@ Bazel recognizes three roles a platform may play:
 *  **Target** - A platform the code being built should run on.
 
 Note: Builds only have one host platform, but often have multiple execution and
-target platforms. For example, both remote Linux CI machihes and developer Macs
+target platforms. For example, both remote Linux CI machines and developer Macs
 may run build actions. And mobile apps have code for multiple phone types and
 hardware extensions.
 
