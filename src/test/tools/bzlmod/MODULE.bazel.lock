@@ -283,7 +283,7 @@
     },
     "@@rules_python+//python/extensions:config.bzl%config": {
       "general": {
-        "bzlTransitiveDigest": "LfEiMY257jcYL6jH7g6yxy92c+UZy7LDMfnddpUQhO4=",
+        "bzlTransitiveDigest": "Oe4EN5Q3q5Hzmk9/XHC7bjgVyWnJejhbERV8OTlYgyM=",
         "usagesDigest": "ZVSXMAGpD+xzVNPuvF1IoLBkty7TROO0+akMapt1pAg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
