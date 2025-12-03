@@ -3246,19 +3246,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
 
-  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
-  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
-  // rules_python's MODULE.bazel.
-  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
-      ImmutableMap.of(
-          // LINT.IfChange
-          "python_path",
-          "@@rules_python+//python/config_settings:python_path",
-          "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
-
-  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPythonConfiguration.java)
-
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
    *
@@ -3268,62 +3255,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @param eventHandler handler for Skyframe events
    * @param ensurePyAliases If true, add Python-specific flag aliases even if they're not defined in
    *     {@code rules_python}'s {@code MODULE.bazel}
-   * @param ensureBazelPyAliases if true, add Bazel Python-specific flag aliases even if they're not
-   *     defined in {@code rules_python}'s {@code MODULE.bazel}
    */
   public Map<String, String> getFlagAliases(
-      ExtendedEventHandler eventHandler, boolean ensurePyAliases, boolean ensureBazelPyAliases)
+      ExtendedEventHandler eventHandler, boolean ensurePyAliases)
       throws InterruptedException {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-
-    // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
-    // alias definitions straight fromrules_python's MODULE.bazel.
-    com.google.devtools.build.lib.bazel.bzlmod.Version minBazelVersionForPythonAliases = null;
-    try {
-      // rules_python at this version or older disables Python flag aliases. These versions don't
-      // support Starlark flags. As of this comment the latest rules_python release is 1.6.3.
-      // 1.6.100 isn't a real version but provides a convenient threshold below 1.7.0. We don't make
-      // 1.7.0 the baseline to permit 1.7.0-rc1 or other prereleases.
-      minBazelVersionForPythonAliases =
-          com.google.devtools.build.lib.bazel.bzlmod.Version.parse("1.6.100");
-    } catch (ParseException e) {
-      throw new IllegalStateException("Hard-coded rules_python version should always parse.", e);
-    }
-
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
       aliasesMap.putAll(flagAliases);
-
       if (!module.getKey().name().equals("rules_python")) {
         continue;
       }
-
-      // Don't apply hard-coded aliases for python version < 1.6.100
-      // Don't apply hard-coded aliases for python version > 1.6.100 and rules_python uses
-      // MODULE.bazel aliases
-      boolean isAllowedVersion =
-          module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0
-              || !module.getValue().getVersion().toString().startsWith("1.");
-      if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty()) {
+      // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
+      if (!module.getValue().getFlagAliases().isEmpty()) {
         continue;
       }
-
       if (ensurePyAliases) {
         // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
         PY_FLAG_ALIASES.entrySet().stream()
             .filter(e -> !flagAliases.containsKey(e.getKey()))
             .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
-      if (ensureBazelPyAliases) {
-        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
+      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
 
       return ImmutableMap.copyOf(aliasesMap);
     }
