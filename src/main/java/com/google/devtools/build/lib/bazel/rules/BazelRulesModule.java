@@ -366,7 +366,7 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Option(
         name = "experimental_python_import_all_repositories",
-        defaultValue = "",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated. No-op.")
