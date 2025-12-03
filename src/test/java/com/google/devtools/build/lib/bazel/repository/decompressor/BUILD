@@ -40,6 +40,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "@rules_java//java/runfiles",
+        "@zstd-jni",
     ],
 )
 

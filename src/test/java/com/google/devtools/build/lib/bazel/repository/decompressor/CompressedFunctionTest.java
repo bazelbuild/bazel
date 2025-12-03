@@ -3,6 +3,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -19,11 +20,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorOutputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.xz.XZCompressorOutputStream;
-import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -73,20 +72,20 @@ public class CompressedFunctionTest {
     OutputStream out =
         Files.newOutputStream(
             java.nio.file.Paths.get(archiveDir.getPath()).resolve(compressedFileName));
-    CompressorOutputStream cos;
+    OutputStream os;
     if (clazz == Bz2Function.class) {
-      cos = new BZip2CompressorOutputStream(out);
+      os = new BZip2CompressorOutputStream(out);
     } else if (clazz == GzFunction.class) {
-      cos = new GzipCompressorOutputStream(out);
+      os = new GzipCompressorOutputStream(out);
     } else if (clazz == XzFunction.class) {
-      cos = new XZCompressorOutputStream(out);
+      os = new XZCompressorOutputStream(out);
     } else if (clazz == ZstFunction.class) {
-      cos = new ZstdCompressorOutputStream(out);
+      os = new ZstdOutputStream(out);
     } else {
       throw new IllegalArgumentException("Unknown compressor class passed: " + clazz.toString());
     }
-    cos.write(("test compressed " + compressedFileName + " file contents\n").getBytes());
-    cos.close();
+    os.write(("test compressed " + compressedFileName + " file contents\n").getBytes());
+    os.close();
 
     testFS = TestArchiveDescriptor.getFileSystem();
   }

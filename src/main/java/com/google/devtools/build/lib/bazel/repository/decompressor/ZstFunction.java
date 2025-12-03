@@ -6,7 +6,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import org.apache.commons.compress.compressors.FileNameUtil;
-import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 
 /**
  * Decompresses a Zstandard compressed file.
@@ -20,7 +20,7 @@ public class ZstFunction extends CompressedFunction {
   @Override
   protected InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
       throws IOException {
-    return new ZstdCompressorInputStream(compressedInputStream);
+    return new ZstdInputStreamNoFinalizer(compressedInputStream);
   }
 
   @Override
