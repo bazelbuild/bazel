@@ -55,7 +55,7 @@ public class BazelPythonConfiguration extends Fragment {
     public String pythonPath;
 
     @Option(
-        name = "DISABLED_experimental_python_import_all_repositories",
+        name = "DISABLED_python_import_all_repositories",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
