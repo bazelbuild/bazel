@@ -90,7 +90,7 @@ Constraints are modeled with the [`constraint_setting`][constraint_setting] and
 constraint_setting(name = "cpu")
 ```
 
-`constraint_value` declares a poossible value for that property:
+`constraint_value` declares a possible value for that property:
 
 ```python
 constraint_value(
