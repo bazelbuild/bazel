@@ -12,9 +12,9 @@ exports_files(["LICENSE"])
 
 package(default_visibility = ["//visibility:public"])
 
-LASTVERSION = "0.8.11"
+LASTVERSION = "0.8.14"
 
-VERSIONS = ["0.8.11", "0.8.14"]
+VERSIONS = ["0.8.14"]
 
 filegroup(
     name = "srcs",
