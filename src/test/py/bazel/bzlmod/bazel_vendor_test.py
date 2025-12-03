@@ -498,6 +498,13 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile('BUILD')
 
     # Vendor, assert and build with no problems
+    # TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias
+    # definitions straight from rules_python's MODULE.bazel.
+    self.RunBazel([
+        'vendor',
+        '--vendor_dir=vendor',
+        '@@rules_python+//python/config_settings:python_path',
+    ])
     self.RunBazel(['vendor', '--vendor_dir=vendor', '@venRepo//:all'])
     self.assertIn('+ext+venRepo', os.listdir(self._test_cwd + '/vendor'))
 
