@@ -84,7 +84,7 @@ Constraints are modeled with the [`constraint_setting`][constraint_setting] and
 [constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
 [constraint_value]: /reference/be/platforms-and-toolchains#constraint_value
 
-`constraint_setting` declares a tyoe of property. For example:
+`constraint_setting` declares a type of property. For example:
 
 ```python
 constraint_setting(name = "cpu")
