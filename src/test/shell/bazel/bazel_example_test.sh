@@ -98,7 +98,8 @@ function test_java_test() {
     fi
   done < <(bazel info)
   echo "END BAZEL INFO"
-  assert_test_ok "${java_native_tests}:hello" --test_arg=--print_runtime_info
+  assert_test_ok "${java_native_tests}:hello" --test_arg=--print_runtime_info \
+    --toolchain_resolution_debug=@bazel_tools//tools/jdk:runtime_toolchain_type
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
   assert_test_fails "${java_native_tests}:resource-fail"
