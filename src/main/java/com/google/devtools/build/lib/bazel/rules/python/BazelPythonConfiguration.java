@@ -59,7 +59,6 @@ public class BazelPythonConfiguration extends Fragment {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             """
             If true, the roots of repositories in the runfiles tree are added to `PYTHONPATH`, so
