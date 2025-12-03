@@ -20,7 +20,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorOutputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.compress.compressors.xz.XZCompressorOutputStream;
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,16 +36,14 @@ public class CompressedFunctionTest {
   @Rule public TestName name = new TestName();
 
   private final String compressedFileName;
-  private final String compressionType;
   private final Class<?> clazz;
 
   private File archiveDir;
   private File extractionDir;
   private FileSystem testFS;
 
-  public CompressedFunctionTest(Class<?> clazz, String compressionType, String compressedFileName) {
+  public CompressedFunctionTest(Class<?> clazz, String compressedFileName) {
     this.clazz = clazz;
-    this.compressionType = compressionType;
     this.compressedFileName = compressedFileName;
   }
 
@@ -52,10 +53,10 @@ public class CompressedFunctionTest {
   public static Collection<Object[]> data() {
     return Arrays.asList(
         new Object[][] {
-          {Bz2Function.class, CompressorStreamFactory.BZIP2, EXTRACTED_FILE_NAME + ".bz2"},
-          {GzFunction.class, CompressorStreamFactory.GZIP, EXTRACTED_FILE_NAME + ".gz"},
-          {XzFunction.class, CompressorStreamFactory.XZ, EXTRACTED_FILE_NAME + ".xz"},
-          {ZstFunction.class, CompressorStreamFactory.ZSTANDARD, EXTRACTED_FILE_NAME + ".zst"},
+          {Bz2Function.class, EXTRACTED_FILE_NAME + ".bz2"},
+          {GzFunction.class, EXTRACTED_FILE_NAME + ".gz"},
+          {XzFunction.class, EXTRACTED_FILE_NAME + ".xz"},
+          {ZstFunction.class, EXTRACTED_FILE_NAME + ".zst"},
         });
   }
 
@@ -72,9 +73,19 @@ public class CompressedFunctionTest {
     OutputStream out =
         Files.newOutputStream(
             java.nio.file.Paths.get(archiveDir.getPath()).resolve(compressedFileName));
-    CompressorOutputStream cos =
-        new CompressorStreamFactory().createCompressorOutputStream(compressionType, out);
-    cos.write(("test compressed " + compressionType + " file contents\n").getBytes());
+    CompressorOutputStream cos;
+    if (clazz == Bz2Function.class) {
+      cos = new BZip2CompressorOutputStream(out);
+    } else if (clazz == GzFunction.class) {
+      cos = new GzipCompressorOutputStream(out);
+    } else if (clazz == XzFunction.class) {
+      cos = new XZCompressorOutputStream(out);
+    } else if (clazz == ZstFunction.class) {
+      cos = new ZstdCompressorOutputStream(out);
+    } else {
+      throw new IllegalArgumentException("Unknown compressor class passed: " + clazz.toString());
+    }
+    cos.write(("test compressed " + compressedFileName + " file contents\n").getBytes());
     cos.close();
 
     testFS = TestArchiveDescriptor.getFileSystem();
@@ -96,7 +107,7 @@ public class CompressedFunctionTest {
     assertThat(files).containsExactly(EXTRACTED_FILE_NAME);
     File pathFile = fileDir.getRelative(EXTRACTED_FILE_NAME).getPathFile();
     assertThat(Files.readString(pathFile.toPath()))
-        .contains("test compressed " + compressionType + " file contents\n");
+        .contains("test compressed " + compressedFileName + " file contents\n");
   }
 
   /**
@@ -119,7 +130,7 @@ public class CompressedFunctionTest {
     assertThat(files).containsExactly(EXTRACTED_FILE_NAME);
     File pathFile = fileDir.getRelative(EXTRACTED_FILE_NAME).getPathFile();
     assertThat(Files.readString(pathFile.toPath()))
-        .contains("test compressed " + compressionType + " file contents\n");
+        .contains("test compressed " + compressedFileName + " file contents\n");
   }
 
   /** Test renaming the single compressed file. */
@@ -142,7 +153,7 @@ public class CompressedFunctionTest {
     assertThat(files).containsExactly("renamedFile");
     File pathFile = fileDir.getRelative("renamedFile").getPathFile();
     assertThat(Files.readString(pathFile.toPath()))
-        .contains("test compressed " + compressionType + " file contents\n");
+        .contains("test compressed " + compressedFileName + " file contents\n");
   }
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {

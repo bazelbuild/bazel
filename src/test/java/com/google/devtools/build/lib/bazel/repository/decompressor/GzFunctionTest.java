@@ -51,11 +51,11 @@ public class GzFunctionTest {
     Path compressedFile = Paths.get(tmpDir, fileName);
     OutputStream outputStream = Files.newOutputStream(compressedFile);
 
-    GzipCompressorOutputStream compressedOutputStream =
-        new GzipCompressorOutputStream(outputStream, parameters);
-    compressedOutputStream.write("test file contents\n".getBytes());
-    compressedOutputStream.close();
-    compressedOutputStream.finish();
+    try (GzipCompressorOutputStream compressedOutputStream =
+        new GzipCompressorOutputStream(outputStream, parameters)) {
+      compressedOutputStream.write("test file contents\n".getBytes());
+      compressedOutputStream.finish();
+    }
     return compressedFile;
   }
 
