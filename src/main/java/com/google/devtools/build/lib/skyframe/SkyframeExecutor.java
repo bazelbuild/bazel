@@ -3260,7 +3260,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPythonConfiguration.java)
 
   /**
-   * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
+   * Returns  flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
    *
    * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
    * command line flags to canonical Starlark flags.
