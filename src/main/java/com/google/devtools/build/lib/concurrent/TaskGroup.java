@@ -99,6 +99,12 @@ public class TaskGroup<T, R> implements AutoCloseable {
     return Thread.ofVirtual().factory();
   }
 
+  /** Similar to {@link #open(ThreadFactory, Policy, Joiner)}, but uses a default thread factory. */
+  public static <T, R> TaskGroup<T, R> open(
+      Policy<? super T> policy, Joiner<? super T, ? extends R> joiner) {
+    return new TaskGroup<>(defaultThreadFactory(), policy, joiner);
+  }
+
   /**
    * Opens a new task group with the given policy and joiner. It should be used with
    * try-with-resources statement like:
@@ -111,10 +117,15 @@ public class TaskGroup<T, R> implements AutoCloseable {
    *
    * <p>The calling thread becomes the task group's owner and is the only thread allowed to call
    * {@link #fork}, {@link #join} or {@link #close} on it.
+   *
+   * <p>A new thread is created using the given {@code threadFactory} for each subtask. If the
+   * factory returns {@code null}, a {@link RejectedExecutionException} is thrown.
    */
   public static <T, R> TaskGroup<T, R> open(
-      Policy<? super T> policy, Joiner<? super T, ? extends R> joiner) {
-    return new TaskGroup<>(defaultThreadFactory(), policy, joiner);
+      ThreadFactory threadFactory,
+      Policy<? super T> policy,
+      Joiner<? super T, ? extends R> joiner) {
+    return new TaskGroup<>(threadFactory, policy, joiner);
   }
 
   /**
