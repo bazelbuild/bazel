@@ -33,7 +33,7 @@ import com.google.devtools.common.options.TriState;
 public class PythonOptions extends FragmentOptions {
 
   @Option(
-      name = "DISABLED_build_python_zip",
+      name = "build_python_zip",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -55,7 +55,7 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatibleDefaultToExplicitInitPy;
 
   @Option(
-      name = "DISABLED_python_native_rules_allowlist",
+      name = "python_native_rules_allowlist",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       defaultValue = "null",

@@ -43,7 +43,7 @@ public class BazelPythonConfiguration extends Fragment {
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
     @Option(
-        name = "python_path",
+        name = "DISABLED_python_path",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -55,7 +55,7 @@ public class BazelPythonConfiguration extends Fragment {
     public String pythonPath;
 
     @Option(
-        name = "experimental_python_import_all_repositories",
+        name = "DISABLED_experimental_python_import_all_repositories",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
