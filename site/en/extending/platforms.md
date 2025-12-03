@@ -120,7 +120,7 @@ platform(
 )
 ```
 
-This models a machine that must have both the `//oses:linux` and `//cpus:x8t`
+This models a machine that must have both the `//oses:linux` and `//cpus:x86`
 constraints.
 
 Platforms may only have one `constraint_value` for a given `constraint_setting`.
