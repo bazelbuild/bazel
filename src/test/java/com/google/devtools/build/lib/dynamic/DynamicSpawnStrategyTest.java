@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
@@ -737,6 +738,35 @@ public class DynamicSpawnStrategyTest {
     assertThat(localStrategy.succeeded()).isFalse();
     assertThat(remoteStrategy.getExecutedSpawn()).isNull();
     assertThat(remoteStrategy.succeeded()).isFalse();
+  }
+
+  @Test
+  public void archivedTreePostProcessingRequirementAllowsLocalExecution() throws Exception {
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy("MockLocalSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy("MockRemoteSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    // Without the requirement, spawn cannot execute because neither local nor remote can exec.
+    ImmutableMap<String, String> baseRequirements =
+        ImmutableMap.of(ExecutionRequirements.NO_REMOTE, "1");
+    Spawn spawn = newCustomSpawn("Null", baseRequirements);
+    assertThat(strategyAndContext.strategy().canExec(spawn, strategyAndContext.context()))
+        .isFalse();
+
+    // With the requirement, spawn *can* execute because the check is bypassed for local.
+    ImmutableMap<String, String> postProcessingRequirements =
+        ImmutableMap.<String, String>builder()
+            .putAll(baseRequirements)
+            .put(ExecutionRequirements.IS_ARCHIVED_TREE_POST_PROCESSING, "1")
+            .buildOrThrow();
+    Spawn postProcessingSpawn = newCustomSpawn("Null", postProcessingRequirements);
+    assertThat(
+            strategyAndContext
+                .strategy()
+                .canExec(postProcessingSpawn, strategyAndContext.context()))
+        .isTrue();
   }
 
   @Test

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -154,6 +155,12 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       ExecutionPolicy executionPolicy,
       ActionContext.ActionContextRegistry acr,
       DynamicStrategyRegistry dsr) {
+    if (spawn.getExecutionInfo() != null
+        && spawn
+            .getExecutionInfo()
+            .containsKey(ExecutionRequirements.IS_ARCHIVED_TREE_POST_PROCESSING)) {
+      return executionPolicy.canRunLocally();
+    }
     return getLocalStrategy(spawn, executionPolicy, acr, dsr) != null;
   }
 

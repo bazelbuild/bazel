@@ -308,4 +308,11 @@ public class ExecutionRequirements {
    * segment from the paths of all inputs and outputs.
    */
   public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
+
+  /**
+   * Google internal use only. If specified, this spawn is a post-processing step for archived tree
+   * artifacts and should bypass dynamic strategy checks. See b/462023192.
+   */
+  public static final String IS_ARCHIVED_TREE_POST_PROCESSING =
+      "internal-is-archived-tree-post-processing";
 }
