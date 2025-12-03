@@ -66,14 +66,14 @@ filegroup(
 
 java_import(
     name = "jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.14-sources.jar",
 )
 
 java_import(
     name = "jacoco-core",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14-sources.jar",
     exports = [
         ":asm",
         ":asm-commons",
@@ -83,13 +83,13 @@ java_import(
 
 filegroup(
     name = "jacoco-core-jars",
-    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14.jar"],
 )
 
 java_import(
     name = "jacoco-report",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.14-sources.jar",
     exports = [
         ":asm",
         ":jacoco-core",
@@ -98,12 +98,12 @@ java_import(
 
 java_import(
     name = "bazel-jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.14.jar"],
 )
 
 java_import(
     name = "bazel-jacoco-agent-neverlink",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.14.jar"],
     neverlink = 1,
 )
 

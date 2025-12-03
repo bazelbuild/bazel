@@ -68,6 +68,11 @@ public class BranchExp implements CovExp {
     hasValue = false;
   }
 
+  /** Returns the expression at a given index for this branch. */
+  public CovExp getBranchAtIndex(int index) {
+    return branches.get(index);
+  }
+
   /** Expands the current branch set to the new size */
   private void extendBranches(int size) {
     if (branches.size() < size) {

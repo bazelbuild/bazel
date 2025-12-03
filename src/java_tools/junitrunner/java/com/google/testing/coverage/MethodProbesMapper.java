@@ -14,18 +14,20 @@
 
 package com.google.testing.coverage;
 
-import static java.util.Comparator.comparing;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import org.jacoco.core.internal.analysis.filter.IFilter;
 import org.jacoco.core.internal.analysis.filter.IFilterContext;
 import org.jacoco.core.internal.analysis.filter.IFilterOutput;
+import org.jacoco.core.internal.analysis.filter.Replacements;
+import org.jacoco.core.internal.analysis.filter.Replacements.InstructionBranch;
 import org.jacoco.core.internal.flow.IFrame;
 import org.jacoco.core.internal.flow.LabelInfo;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
@@ -68,15 +70,13 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   private List<Label> currentLabels = new ArrayList<>();
   private AbstractInsnNode currentInstructionNode = null;
   private final Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
-  private int instructionNodeIndex = 0;
-  private final Map<AbstractInsnNode, Integer> instructionNodeIndexMap = new HashMap<>();
 
   // Filtering
   private final IFilter filter;
   private final IFilterContext filterContext;
   private final HashSet<AbstractInsnNode> ignored = new HashSet<>();
   private final Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
-  private final Map<AbstractInsnNode, Set<AbstractInsnNode>> branchReplacements = new HashMap<>();
+  private final Map<AbstractInsnNode, Replacements> branchReplacements = new HashMap<>();
 
   // Result
   private Map<Integer, BranchExp> lineToBranchExp = new TreeMap<>();
@@ -89,7 +89,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   //
   // These values are built up during the visitor methods. They will be used to compute
   // the final results.
-  private final List<Instruction> instructions = new ArrayList<>();
+  private final InstructionSet instructions = new InstructionSet();
   private final List<Jump> jumps = new ArrayList<>();
   private final List<Instruction> probedInstructions = new ArrayList<>();
   private final Map<Label, Instruction> labelToInsn = new HashMap<>();
@@ -106,7 +106,9 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       currentInstructionNode = i;
       i.accept(methodVisitor);
     }
-    filter.filter(methodNode, filterContext, this);
+    if (filter != null) {
+      filter.filter(methodNode, filterContext, this);
+    }
     methodVisitor.visitEnd();
   }
 
@@ -124,8 +126,6 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     currentLabels.clear(); // Update states
     lastInstruction = instruction;
     instructionMap.put(currentInstructionNode, instruction);
-    instructionNodeIndexMap.put(currentInstructionNode, instructionNodeIndex);
-    instructionNodeIndex++;
   }
 
   // Plain visitors: called from adapter when no probe is needed
@@ -325,17 +325,26 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     }
 
     // Handle branch replacements
-    for (Map.Entry<AbstractInsnNode, Set<AbstractInsnNode>> entry : branchReplacements.entrySet()) {
-      // The replacement set is not ordered deterministically and we require it to be so to be able
-      // to merge multiple coverage reports later on. We use the order in which we encountered
-      // nodes to determine the order of branches for the new BranchExp.
-      ArrayList<AbstractInsnNode> replacements = new ArrayList<>(entry.getValue());
-      replacements.sort(comparing(instructionNodeIndexMap::get));
-      BranchExp newBranch = new BranchExp(new ArrayList<>());
-      for (AbstractInsnNode replacement : replacements) {
-        newBranch.add(instructionMap.get(replacement).branchExp);
+    for (Map.Entry<AbstractInsnNode, Replacements> entry : branchReplacements.entrySet()) {
+      BranchExp newBranchExp = BranchExp.initializeEmptyBranches();
+      int branchIndex = 0;
+      for (Collection<InstructionBranch> replacements : entry.getValue().values()) {
+        BranchExp subExp = BranchExp.initializeEmptyBranches();
+        int subBranchIndex = 0;
+        for (InstructionBranch replacement : replacements) {
+          BranchExp branchExp = instructionMap.get(replacement.instruction).branchExp;
+          subExp.setBranchAtIndex(subBranchIndex, branchExp.getBranchAtIndex(replacement.branch));
+          subBranchIndex++;
+        }
+        newBranchExp.setBranchAtIndex(branchIndex, subExp);
+        branchIndex++;
       }
-      instructionMap.get(entry.getKey()).branchExp = newBranch;
+      Instruction oldInsn = instructionMap.get(entry.getKey());
+      Instruction newInsn = new Instruction(oldInsn.line);
+      newInsn.logicalBranches = branchIndex;
+      newInsn.branchExp = newBranchExp;
+      instructionMap.put(entry.getKey(), newInsn);
+      instructions.replace(oldInsn, newInsn);
     }
 
     HashSet<Instruction> ignoredInstructions = new HashSet<>();
@@ -390,8 +399,8 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   }
 
   @Override
-  public void replaceBranches(AbstractInsnNode source, Set<AbstractInsnNode> newTargets) {
-    branchReplacements.put(source, newTargets);
+  public void replaceBranches(AbstractInsnNode source, Replacements replacements) {
+    branchReplacements.put(source, replacements);
   }
 
   private AbstractInsnNode findRepresentative(AbstractInsnNode node) {
@@ -469,6 +478,35 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
         current = predecessor;
         predecessor = current.predecessor;
       }
+    }
+  }
+
+  /**
+   * Permit efficient replacement of one instruction with another while preserving original
+   * insertion order. A replacement instruction takes the place of the old instruction for iteration
+   * order.
+   */
+  private static class InstructionSet implements Iterable<Instruction> {
+
+    private final List<Instruction> instructions = new ArrayList<>();
+
+    private final Map<Instruction, Integer> instructionIndex = new HashMap<>();
+
+    void add(Instruction instruction) {
+      instructionIndex.put(instruction, instructions.size());
+      instructions.add(instruction);
+    }
+
+    void replace(Instruction oldInstruction, Instruction newInstruction) {
+      int index = instructionIndex.get(oldInstruction);
+      instructions.set(index, newInstruction);
+      instructionIndex.put(newInstruction, index);
+      instructionIndex.remove(oldInstruction);
+    }
+
+    @Override
+    public Iterator<Instruction> iterator() {
+      return instructions.iterator();
     }
   }
 }
