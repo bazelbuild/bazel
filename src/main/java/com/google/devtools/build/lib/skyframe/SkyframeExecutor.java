@@ -3246,6 +3246,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
 
+  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
+  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
+  // rules_python's MODULE.bazel.
+  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
+      ImmutableMap.of(
+          "python_path",
+          "@@rules_python+//python/config_settings:python_path",
+          "experimental_python_import_all_repositories",
+          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
    *
