@@ -127,6 +127,44 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " set.")
   public boolean remoteCacheAsync;
 
+  /** Determines the mode for uploading outputs to the remote cache. */
+  public enum RemoteUploadMode {
+    /** Block at the end of the build waiting for all uploads to complete (current behavior). */
+    WAIT_FOR_UPLOAD_COMPLETE,
+    /** Block at the beginning of the next build waiting for upload completion. */
+    NOWAIT_FOR_UPLOAD_COMPLETE,
+    /**
+     * Block at the beginning of the next build waiting for client-side upload completion, but don't
+     * wait for server acknowledgement. Data may be lost on transient failures.
+     */
+    FULLY_ASYNC,
+  }
+
+  /** Converter for {@link RemoteUploadMode}. */
+  public static class RemoteUploadModeConverter extends EnumConverter<RemoteUploadMode> {
+    public RemoteUploadModeConverter() {
+      super(RemoteUploadMode.class, "remote upload mode");
+    }
+  }
+
+  @Option(
+      name = "experimental_remote_upload_mode",
+      defaultValue = "wait_for_upload_complete",
+      converter = RemoteUploadModeConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Specifies whether remote cache uploads should block the build completion or should "
+              + "end the invocation immediately and finish the upload in the background. "
+              + "'wait_for_upload_complete' (default): blocks at the end of the current invocation "
+              + "until all uploads complete. "
+              + "'nowait_for_upload_complete': blocks at the beginning of the next invocation "
+              + "until all uploads from the previous invocation complete. "
+              + "'fully_async': blocks at the beginning of the next invocation until all "
+              + "uploads are sent, but does not wait for server acknowledgement.")
+  public RemoteUploadMode experimentalRemoteUploadMode;
+
   @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
