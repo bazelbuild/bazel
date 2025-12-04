@@ -537,6 +537,10 @@ bool ExportTmpPath(const Path& cwd, Path* result) {
     LogError(__LINE__, "Failed to export TEST_TMPDIR");
     return false;
   }
+  if (!SetPathEnv(L"TMPDIR", *result)) {
+    LogError(__LINE__, "Failed to set TMPDIR");
+    return false;
+  }
   // Create the test temp directory, which may not exist on the remote host when
   // doing a remote build.
   return CreateDirectories(*result);
