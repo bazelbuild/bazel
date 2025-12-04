@@ -81,7 +81,7 @@ landing_page:
     - image_path: /community/images/jetbrains.svg
       heading: JetBrains
       description: >
-        JetBrains is a leading provider of IDEs and developer tools. Since 2022, we’ve been active in the Bazel community, delivering robust polyglot support through plugins for CLion, GoLang, PyCharm, and IntelliJ IDEA. These plugins provide deep Bazel integration for large projects, enabling editing, navigation, testing, and debugging across multiple languages, including C++, Go, Python, Java, Kotlin, Scala, as well as Starlark and other configuration files.
+        JetBrains is a leading provider of IDEs and developer tools. Since 2022, we’ve been active in the Bazel community, delivering robust polyglot support through plugins for CLion, GoLand, PyCharm, and IntelliJ IDEA. These plugins provide deep Bazel integration for large projects, enabling editing, navigation, testing, and debugging across multiple languages, including C++, Go, Python, Java, Kotlin, Scala, as well as Starlark and other configuration files.
       buttons:
         - label: Learn more
           path: https://www.jetbrains.com/help/idea/bazel.html
