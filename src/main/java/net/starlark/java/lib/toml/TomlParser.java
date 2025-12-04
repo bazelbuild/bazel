@@ -121,7 +121,9 @@ public final class TomlParser implements StarlarkValue {
               + "<code>\"true\"</code> and <code>\"false\"</code>"
               + " are parsed as <code>True</code>, and <code>False</code>.\n"
               + "<li>Numbers are parsed as int, or as a float if they contain a decimal point or an"
-              + " exponent. TOML date values are decoded as strings. "
+              + " exponent. TOML date values are silently dropped by default since Starlark has no"
+              + " native date type. Set <code>parse_dates_as_strings = True</code> to convert date"
+              + " values to strings instead of dropping them.\n"
               + "If <code>x</code> is not a valid TOML encoding and the optional"
               + " <code>default</code> parameter is specified (including specified as"
               + " <code>None</code>), this function returns the <code>default</code> value.\n"
@@ -133,10 +135,21 @@ public final class TomlParser implements StarlarkValue {
             name = "default",
             named = true,
             doc = "If specified, the value to return when <code>x</code> cannot be decoded.",
-            defaultValue = "unbound")
+            defaultValue = "unbound"),
+        @Param(
+            name = "parse_dates_as_strings",
+            named = true,
+            positional = false,
+            doc =
+                "If true, converts TOML date values to strings. If false (the default), date"
+                    + " values are silently dropped. If you re-encode the result, dates"
+                    + " will be encoded as strings.",
+            defaultValue = "False")
       },
       useStarlarkThread = true)
-  public Object decode(String x, Object defaultValue, StarlarkThread thread) throws EvalException {
+  public Object decode(
+      String x, Object defaultValue, boolean parseDatesAsStrings, StarlarkThread thread)
+      throws EvalException {
     TomlParseResult result = Toml.parse(x);
     if (result.hasErrors()) {
       if (defaultValue != Starlark.UNBOUND) {
@@ -149,17 +162,25 @@ public final class TomlParser implements StarlarkValue {
       throw Starlark.errorf("TOML decode error: %s", errorMsg);
     }
 
-    return convertToStarlark(result);
+    return convertToStarlark(result, parseDatesAsStrings);
   }
 
-  private static Object convertToStarlark(Object x) throws EvalException {
+  /**
+   * Converts a value to Starlark, returning null if the value should be dropped
+   */
+  @Nullable
+  private static Object convertToStarlark(Object x, boolean parseDatesAsStrings)
+      throws EvalException {
     if (x == null) {
       return Starlark.NONE;
     } else if (Starlark.valid(x)) {
       return x;
     } else if (x instanceof TemporalAccessor) {
       // tomlj returns various java.time types for TOML dates
-      return x.toString();
+      if (parseDatesAsStrings) {
+        return x.toString();
+      }
+      return null;
     } else if (x instanceof Number) {
       if (x instanceof Integer) {
         return StarlarkInt.of((Integer) x);
@@ -173,35 +194,42 @@ public final class TomlParser implements StarlarkValue {
         return StarlarkFloat.of(((Float) x).doubleValue());
       }
     } else if (x instanceof TomlArray) {
-      return convertToStarlark(((TomlArray)x).toList());
+      return convertToStarlark(((TomlArray) x).toList(), parseDatesAsStrings);
     } else if (x instanceof TomlTable) {
-      return convertToStarlark(((TomlTable)x).toMap());
+      return convertToStarlark(((TomlTable) x).toMap(), parseDatesAsStrings);
     } else if (x instanceof List) {
       List<?> list = (List<?>) x;
       List<Object> converted = new ArrayList<>(list.size());
       for (Object elem : list) {
-        converted.add(convertToStarlark(elem));
+        Object value = convertToStarlark(elem, parseDatesAsStrings);
+        if (value != null) {
+          converted.add(value);
+        }
       }
       return StarlarkList.copyOf(null, converted);
     } else if (x instanceof Map) {
       Map<?, ?> map = (Map<?, ?>) x;
       Map<Object, Object> converted = new LinkedHashMap<>(map.size());
       for (Map.Entry<?, ?> entry : map.entrySet()) {
-        converted.put(
-            convertToStarlark(entry.getKey()),
-            convertToStarlark(entry.getValue()));
+        Object value = convertToStarlark(entry.getValue(), parseDatesAsStrings);
+        if (value != null) {
+          converted.put(convertToStarlark(entry.getKey(), parseDatesAsStrings), value);
+        }
       }
       return Dict.copyOf(null, converted);
     } else if (x instanceof Set) {
       Set<?> set = (Set<?>) x;
       Set<Object> converted = new LinkedHashSet<>(set.size());
       for (Object elem : set) {
-        converted.add(convertToStarlark(elem));
+        Object value = convertToStarlark(elem, parseDatesAsStrings);
+        if (value != null) {
+          converted.add(value);
+        }
       }
       return StarlarkSet.copyOf(null, converted);
     }
-    throw Starlark.errorf("invalid Starlark value: %s",
-                          x.getClass() == null ? "null" : x.getClass());
+    throw Starlark.errorf(
+        "invalid Starlark value: %s", x.getClass() == null ? "null" : x.getClass());
   }
 
   /**
