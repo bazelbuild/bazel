@@ -359,8 +359,8 @@ public final class RemoteModule extends BlazeModule {
 
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      // Wait up to 10 seconds for uploads from previous invocation to complete
-      Uninterruptibles.getUninterruptibly(future, 10, SECONDS);
+      // Wait up to 30 seconds for uploads from previous invocation to complete
+      Uninterruptibles.getUninterruptibly(future, 30, SECONDS);
       long elapsed = stopwatch.elapsed().toMillis();
       if (elapsed > 1000) {
         reporter.handle(
