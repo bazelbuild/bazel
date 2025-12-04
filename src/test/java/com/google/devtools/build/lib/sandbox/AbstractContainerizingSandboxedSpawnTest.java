@@ -387,11 +387,12 @@ public class AbstractContainerizingSandboxedSpawnTest {
     }
     return new SandboxInputs(
         filesMap,
-        /* virtualInputs= */ ImmutableMap.of(),
+        /* directories= */ ImmutableMap.of(),
         symlinks.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))));
+                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))),
+        /* virtualInputs= */ ImmutableMap.of());
   }
 
   /** Return a list of all entries under the provided directory recursively. */

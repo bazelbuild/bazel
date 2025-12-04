@@ -24,8 +24,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -33,6 +36,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -48,6 +52,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -121,7 +126,9 @@ public class SandboxHelpersTest {
             ImmutableList.of("-a", "-b"),
             ParameterFileType.UNQUOTED);
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(paramFile), execRoot, inputMetadataProvider(paramFile));
 
     assertThat(inputs.files())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -139,7 +146,8 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(inputMap(tool), execRoot, inputMetadataProvider(tool));
 
     assertThat(inputs.files())
         .containsExactly(
@@ -183,13 +191,14 @@ public class SandboxHelpersTest {
         executorToCleanup.submit(
             () -> {
               try {
-                SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                SandboxHelpers.processInputFiles(
+                    inputMap(input), customExecRoot, inputMetadataProvider(input));
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot, inputMetadataProvider(input));
     finishProcessingSemaphore.release();
     future.get();
 
@@ -203,6 +212,26 @@ public class SandboxHelpersTest {
   private static ImmutableMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
     return Arrays.stream(inputs)
         .collect(toImmutableMap(ActionInput::getExecPath, Function.identity()));
+  }
+
+  private InputMetadataProvider inputMetadataProvider(ActionInput... inputs) throws IOException {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    for (var input : inputs) {
+      switch (input) {
+        case VirtualActionInput virtualActionInput -> {
+          var out = new ByteArrayOutputStream();
+          virtualActionInput.writeTo(out);
+          inputMetadataProvider.put(
+              virtualActionInput,
+              FileArtifactValue.createForInlineFile(
+                  out.toByteArray(), fs.getDigestFunction().getHashFunction()));
+        }
+        case Artifact artifact ->
+            inputMetadataProvider.put(artifact, FileArtifactValue.createForTesting(artifact));
+        default -> throw new IllegalArgumentException("Unsupported input type: " + input);
+      }
+    }
+    return inputMetadataProvider;
   }
 
   @Test
