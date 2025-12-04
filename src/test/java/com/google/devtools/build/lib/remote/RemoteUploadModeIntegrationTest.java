@@ -79,7 +79,8 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
 
   @Override
   protected void enableActionRewinding() {
-    addOptions("--rewind_lost_inputs", "--experimental_remote_cache_eviction_retries=0", "--jobs=1");
+    addOptions(
+        "--rewind_lost_inputs", "--experimental_remote_cache_eviction_retries=0", "--jobs=1");
   }
 
   @Override
@@ -169,7 +170,8 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
   }
 
   @Test
-  public void nowaitForUploadComplete_crossInvocationState_survivesAcrossCommands() throws Exception {
+  public void nowaitForUploadComplete_crossInvocationState_survivesAcrossCommands()
+      throws Exception {
     // Test that pending uploads survive across command invocations within the same server.
     write(
         "BUILD",

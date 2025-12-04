@@ -2044,10 +2044,11 @@ public class RemoteExecutionService {
       return Futures.immediateFuture(null);
     } else {
       // Async mode - return future, cleanup in listener
-      ListenableFuture<Void> uploadsFuture = Futures.transform(
-          Futures.allAsList(ImmutableList.copyOf(pendingUploads)),
-          unused -> null,
-          directExecutor());
+      ListenableFuture<Void> uploadsFuture =
+          Futures.transform(
+              Futures.allAsList(ImmutableList.copyOf(pendingUploads)),
+              unused -> null,
+              directExecutor());
 
       uploadsFuture.addListener(
           () -> {

@@ -23,17 +23,17 @@ import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -1063,17 +1063,19 @@ public final class RemoteModule extends BlazeModule {
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
-    RemoteUploadMode uploadModeRef = remoteOptions != null
-        ? remoteOptions.experimentalRemoteUploadMode
-        : RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
+    RemoteUploadMode uploadModeRef =
+        remoteOptions != null
+            ? remoteOptions.experimentalRemoteUploadMode
+            : RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(
-              actionContextProviderRef,
-              tempPathGeneratorRef,
-              rpcLogFileRef,
-              uploadModeRef,
-              future -> pendingUploadsFuture = future));
+          () ->
+              afterCommandTask(
+                  actionContextProviderRef,
+                  tempPathGeneratorRef,
+                  rpcLogFileRef,
+                  uploadModeRef,
+                  future -> pendingUploadsFuture = future));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
