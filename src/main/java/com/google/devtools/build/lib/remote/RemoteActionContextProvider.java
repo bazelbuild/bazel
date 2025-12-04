@@ -17,6 +17,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteUploadMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -240,13 +243,22 @@ final class RemoteActionContextProvider {
     this.tempPathGenerator = tempPathGenerator;
   }
 
-  public void afterCommand() {
+  /**
+   * Called after a command completes.
+   *
+   * @param uploadMode determines whether to wait for uploads to complete
+   * @return future that completes when uploads are done (immediate for sync mode)
+   */
+  public ListenableFuture<Void> afterCommand(RemoteUploadMode uploadMode) {
     // actionInputFetcher uses combinedCache to prefetch inputs, so it must be shut down first.
     if (actionInputFetcher != null) {
       actionInputFetcher.shutdown();
     }
+
+    ListenableFuture<Void> uploadsFuture = Futures.immediateFuture(null);
+
     if (remoteExecutionService != null) {
-      remoteExecutionService.shutdown();
+      uploadsFuture = remoteExecutionService.shutdown(uploadMode);
     } else {
       if (combinedCache != null) {
         combinedCache.release();
@@ -259,5 +271,7 @@ final class RemoteActionContextProvider {
     if (outputService instanceof BazelOutputService bazelOutputService) {
       bazelOutputService.shutdown();
     }
+
+    return uploadsFuture;
   }
 }
