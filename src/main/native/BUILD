@@ -90,7 +90,6 @@ cc_library(
 cc_binary(
     name = "libunix_jni.so",
     srcs = [
-        "macros.h",
         "process.cc",
         "unix_jni.cc",
         "unix_jni.h",
