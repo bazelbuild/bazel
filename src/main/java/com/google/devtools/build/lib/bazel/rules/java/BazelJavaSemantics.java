@@ -274,6 +274,10 @@ public class BazelJavaSemantics implements JavaSemantics {
     Preconditions.checkNotNull(javaStartClass);
     Preconditions.checkNotNull(javaExecutable);
 
+    System.out.println(
+      "STUB FOR: " + ruleContext.getLabel().toString() +
+      " JDK VERSION: " + JavaRuntimeInfo.from(ruleContext).version());
+
     List<Substitution> arguments = new ArrayList<>();
     String workspaceName = ruleContext.getWorkspaceName();
     final String workspacePrefix = workspaceName + (workspaceName.isEmpty() ? "" : "/");
