@@ -6,6 +6,7 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 ## Intro
+
 Bazel can build and test code on a variety of hardware, operating systems, and
 system configurations. This can involve different versions of build tools like
 linkers and compilers. To help manage this complexity, Bazel has the concepts
@@ -26,6 +27,7 @@ custom properties or dependencies on their build rules. For example: "*use
 `src_arm.cc` when the build targets an Arm machine*". 
 
 ## Platform types
+
 Bazel recognizes three roles a platform may play:
 
 *  **Host** - The platform on which Bazel itself runs.
@@ -100,7 +102,7 @@ constraint_value(
 ```
 
 These can be referenced as labels when defining platforms or customizing build rules
-on them. If the above examples are defined in `cpu_defs/BUILD`, you can reference
+on them. If the above examples are defined in `cpus/BUILD`, you can reference
 the `x86` constraint as `//cpus:x86`.
 
 If visibility allows, you can extend an existing `constraint_setting` by
