@@ -133,11 +133,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
     WAIT_FOR_UPLOAD_COMPLETE,
     /** Block at the beginning of the next build waiting for upload completion. */
     NOWAIT_FOR_UPLOAD_COMPLETE,
-    /**
-     * Block at the beginning of the next build waiting for client-side upload completion, but don't
-     * wait for server acknowledgement. Data may be lost on transient failures.
-     */
-    FULLY_ASYNC,
   }
 
   /** Converter for {@link RemoteUploadMode}. */
