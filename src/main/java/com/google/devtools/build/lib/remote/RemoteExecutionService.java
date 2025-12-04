@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteUploadMode;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -151,6 +152,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -198,6 +200,10 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
+
+  // Track pending upload futures for async upload modes. Only populated when
+  // experimentalRemoteUploadMode != WAIT_FOR_UPLOAD_COMPLETE.
+  private final Set<ListenableFuture<Void>> pendingUploads = ConcurrentHashMap.newKeySet();
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
   private final OutputService outputService;
@@ -1756,14 +1762,34 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
+      // Only track futures for async upload modes
+      final boolean trackUpload =
+          remoteOptions.experimentalRemoteUploadMode != RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
+      final SettableFuture<Void> uploadFuture = trackUpload ? SettableFuture.create() : null;
+      if (uploadFuture != null) {
+        pendingUploads.add(uploadFuture);
+      }
       backgroundTaskExecutor.execute(
           () -> {
             try {
               doUploadOutputs(action, spawnResult, onUploadComplete);
+              if (uploadFuture != null) {
+                uploadFuture.set(null);
+              }
             } catch (ExecException e) {
               reportUploadError(e);
-            } catch (InterruptedException ignored) {
+              if (uploadFuture != null) {
+                uploadFuture.setException(e);
+              }
+            } catch (InterruptedException e) {
               // ThreadPerTaskExecutor does not care about interrupt status.
+              if (uploadFuture != null) {
+                uploadFuture.setException(e);
+              }
+            } finally {
+              if (uploadFuture != null) {
+                pendingUploads.remove(uploadFuture);
+              }
             }
           });
     } else {
