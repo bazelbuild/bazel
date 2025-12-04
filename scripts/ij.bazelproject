@@ -26,3 +26,6 @@ targets:
 java_language_level: 21
 
 workspace_type: java
+
+# Import targets at arbitrary depths beneath //src:bazel.
+import_depth: -1
