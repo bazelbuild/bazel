@@ -2386,9 +2386,15 @@ public class RemoteExecutionService {
   }
 
   /** Shuts the service down. */
-  public void shutdown() {
+  /**
+   * Shuts the service down.
+   *
+   * @param uploadMode determines whether to wait for uploads to complete
+   * @return future that completes when uploads are done (immediate for sync mode)
+   */
+  public ListenableFuture<Void> shutdown(RemoteUploadMode uploadMode) {
     if (!shutdown.compareAndSet(false, true)) {
-      return;
+      return Futures.immediateFuture(null);
     }
 
     if (buildInterrupted.get()) {
@@ -2397,18 +2403,41 @@ public class RemoteExecutionService {
         combinedCache.shutdownNow();
       }
       Thread.currentThread().interrupt();
+      return Futures.immediateFuture(null);
     }
 
-    // Waits for all background tasks to finish and interrupts them if there is another interrupt.
-    backgroundTaskExecutor.close();
+    if (uploadMode == RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE) {
+      // Existing behavior - block until done
+      backgroundTaskExecutor.close();
+      if (combinedCache != null) {
+        combinedCache.release();
+      }
+      if (remoteExecutor != null) {
+        remoteExecutor.close();
+      }
+      return Futures.immediateFuture(null);
+    } else {
+      // Async mode - return future, cleanup in listener
+      ListenableFuture<Void> uploadsFuture = Futures.transform(
+        Futures.allAsList(ImmutableList.copyOf(pendingUploads)),
+        unused -> null,
+        directExecutor()
+      );
 
-    // Release the cache only after background tasks are done as they might be using it.
-    if (combinedCache != null) {
-      combinedCache.release();
-    }
+      uploadsFuture.addListener(
+        () -> {
+          backgroundTaskExecutor.close();
+          if (combinedCache != null) {
+            combinedCache.release();
+          }
+          if (remoteExecutor != null) {
+            remoteExecutor.close();
+          }
+        },
+        directExecutor()
+      );
 
-    if (remoteExecutor != null) {
-      remoteExecutor.close();
+      return uploadsFuture;
     }
   }
 
