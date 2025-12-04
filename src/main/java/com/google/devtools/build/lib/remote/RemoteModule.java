@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -135,6 +136,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -1061,9 +1063,17 @@ public final class RemoteModule extends BlazeModule {
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
+    RemoteUploadMode uploadModeRef = remoteOptions != null
+        ? remoteOptions.experimentalRemoteUploadMode
+        : RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+          () -> afterCommandTask(
+              actionContextProviderRef,
+              tempPathGeneratorRef,
+              rpcLogFileRef,
+              uploadModeRef,
+              future -> pendingUploadsFuture = future));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
@@ -1089,10 +1099,41 @@ public final class RemoteModule extends BlazeModule {
   private static void afterCommandTask(
       @Nullable RemoteActionContextProvider actionContextProvider,
       @Nullable TempPathGenerator tempPathGenerator,
-      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
+      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile,
+      RemoteUploadMode uploadMode,
+      Consumer<ListenableFuture<Void>> pendingUploadsSetter)
       throws AbruptExitException {
+    ListenableFuture<Void> uploadsFuture = null;
+
     if (actionContextProvider != null) {
-      actionContextProvider.afterCommand();
+      uploadsFuture = actionContextProvider.afterCommand(uploadMode);
+    }
+
+    // For async modes, store the future for next invocation and defer cleanup
+    if (uploadMode != RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE && uploadsFuture != null) {
+      // Add listener to clean up resources when uploads complete
+      Path tempDir = tempPathGenerator != null ? tempPathGenerator.getTempDir() : null;
+      AsynchronousMessageOutputStream<LogEntry> logFile = rpcLogFile;
+      uploadsFuture.addListener(
+          () -> {
+            if (tempDir != null) {
+              try {
+                tempDir.deleteTree();
+              } catch (IOException ignored) {
+                // Intentionally ignored.
+              }
+            }
+            if (logFile != null) {
+              try {
+                logFile.close();
+              } catch (IOException ignored) {
+                // Intentionally ignored - can't throw from listener.
+              }
+            }
+          },
+          MoreExecutors.directExecutor());
+      pendingUploadsSetter.accept(uploadsFuture);
+      return;
     }
 
     if (tempPathGenerator != null) {
