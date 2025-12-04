@@ -143,7 +143,6 @@ def _local_java_repository_impl(repository_ctx):
 
     # Detect version
     version = repository_ctx.attr.version if repository_ctx.attr.version != "" else _detect_java_version(repository_ctx, java_bin)
-    print("LOCAL JAVA REPO:", repository_ctx.name, "VERSION:", version)
 
     # Prepare BUILD file using "local_java_runtime" macro
     if repository_ctx.attr.build_file_content and repository_ctx.attr.build_file:

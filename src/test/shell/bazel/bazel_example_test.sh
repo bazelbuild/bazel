@@ -87,19 +87,8 @@ function test_java_test() {
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
-  assert_build \
-    --toolchain_resolution_debug=@bazel_tools//tools/jdk:runtime_toolchain_type \
-    "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-
-  echo "BEGIN BAZEL INFO"
-  while IFS= read -r line; do
-    if [[ "$line" =~ ^java- ]]; then
-      echo "$line"
-    fi
-  done < <(bazel info)
-  echo "END BAZEL INFO"
-  assert_test_ok "${java_native_tests}:hello" --test_arg=--print_runtime_info \
-    --toolchain_resolution_debug=@bazel_tools//tools/jdk:runtime_toolchain_type
+  assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
+  assert_test_ok "${java_native_tests}:hello"
   assert_test_ok "${java_native_tests}:custom"
   assert_test_fails "${java_native_tests}:fail"
   assert_test_fails "${java_native_tests}:resource-fail"

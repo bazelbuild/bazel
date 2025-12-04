@@ -69,16 +69,6 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         if (toolchainType != null) {
           if (toolchainInfo != null) {
             toolchainsBuilder.put(toolchainType, toolchainInfo);
-
-            String toolchainTypeString = toolchainType.typeLabel().toString();
-
-            if (toolchainTypeString.endsWith(":runtime_toolchain_type")) {
-              System.out.println("TOOLCHAIN:            " +
-                discoveredLabel.toString());
-              System.out.println("TOOLCHAIN TYPE:       " +
-                toolchainTypeString);
-            }
-
           } else {
             throw new TargetNotToolchainException(toolchainType, discoveredLabel);
           }

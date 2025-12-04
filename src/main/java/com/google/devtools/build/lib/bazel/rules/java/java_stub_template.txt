@@ -68,7 +68,6 @@ function process_wrapper_argument() {
     --jvm_flags=*) JVM_FLAGS_CMDLINE+=( ${1#--jvm_flags=} ) ;;
     --singlejar) SINGLEJAR=1 ;;
     --print_javabin) PRINT_JAVABIN=1 ;;
-    --print_runtime_info) PRINT_RUNTIME_INFO=1 ;;
     --classpath_limit=*)
         CLASSPATH_LIMIT="${1#--classpath_limit=}"
         echo "$CLASSPATH_LIMIT" | grep -q '^[0-9]\+$' || \
@@ -245,21 +244,6 @@ fi
 if [[ "$PRINT_JAVABIN" == 1 || "%java_start_class%" == "--print_javabin" ]]; then
   echo -n "$JAVABIN"
   exit 0
-elif [[ "$PRINT_RUNTIME_INFO" == 1 ||
-        "%java_start_class%" == '--print_runtime_info' ]]; then
-  RUNTIME_JVM_FLAGS=(
-    %jvm_flags%
-  )
-  printf '%s\n' \
-    "JavaRuntimeInfo for: %rule_label%" \
-    "    runtime version: %runtime_version%" \
-    "     toolchain type: %runtime_toolchain_type%" \
-    "  runtime JAVA_HOME: %runtime_java_home%" \
-    "runtime java binary: %runtime_java_binary%" \
-    "           jvmFlags: ${RUNTIME_JVM_FLAGS[*]}" \
-    "     javaExecutable: %java_executable%" \
-    "            JAVABIN: ${JAVABIN}"
-  exit 1
 fi
 
 if [[ "$SINGLEJAR" == 1 ]]; then
