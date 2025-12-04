@@ -135,6 +135,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -1292,6 +1293,9 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
+    RemoteUploadMode uploadModeRef = remoteOptions != null
+      ? remoteOptions.experimentalRemoteUploadMode
+      : RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     if (
       actionContextProviderRef != null ||
       tempPathGeneratorRef != null ||
@@ -1301,7 +1305,9 @@ public final class RemoteModule extends BlazeModule {
         afterCommandTask(
           actionContextProviderRef,
           tempPathGeneratorRef,
-          rpcLogFileRef
+          rpcLogFileRef,
+          uploadModeRef,
+          future -> pendingUploadsFuture = future
         )
       );
     }
@@ -1331,13 +1337,24 @@ public final class RemoteModule extends BlazeModule {
   private static void afterCommandTask(
     @Nullable RemoteActionContextProvider actionContextProvider,
     @Nullable TempPathGenerator tempPathGenerator,
-    @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile
+    @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile,
+    RemoteUploadMode uploadMode,
+    Consumer<ListenableFuture<Void>> pendingUploadsSetter
   ) throws AbruptExitException {
+    ListenableFuture<Void> uploadsFuture = null;
+
     if (actionContextProvider != null) {
-      // TODO: Pass actual mode and handle returned future in Phase 5
-      actionContextProvider.afterCommand(
-        RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE
-      );
+      uploadsFuture = actionContextProvider.afterCommand(uploadMode);
+    }
+
+    // For async modes, store the future for next invocation
+    if (
+      uploadMode != RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE &&
+      uploadsFuture != null
+    ) {
+      pendingUploadsSetter.accept(uploadsFuture);
+      // Don't clean up temp files yet - they may be needed for uploads
+      return;
     }
 
     if (tempPathGenerator != null) {
