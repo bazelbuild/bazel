@@ -23,6 +23,7 @@ import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -416,7 +417,7 @@ public final class RemoteModule extends BlazeModule {
    * Waits for any pending uploads from a previous invocation to complete.
    * Called at the start of each command when using async upload modes.
    */
-  private void waitForPreviousInvocation() {
+  private void waitForPreviousInvocation(Reporter reporter) {
     if (pendingUploadsFuture == null) {
       return;
     }
@@ -424,37 +425,44 @@ public final class RemoteModule extends BlazeModule {
     ListenableFuture<Void> future = pendingUploadsFuture;
     pendingUploadsFuture = null;
 
+    // Note: We can only report after waiting, not before, because the UI event handler
+    // infrastructure is not yet set up at this point in the command lifecycle.
+    // See b/234994611 for context.
+    Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      Uninterruptibles.getUninterruptibly(future, 5, SECONDS);
-      if (env != null) {
-        env
-          .getReporter()
-          .handle(
-            Event.info("Previous remote cache uploads completed successfully")
-          );
+      Uninterruptibles.getUninterruptibly(future, 30, SECONDS);
+      long waitedMillis = stopwatch.elapsed().toMillis();
+      if (waitedMillis > 100) {
+        reporter.handle(
+          Event.info(
+            String.format(
+              "Waited for remote cache uploads from previous build for %d.%03d seconds.",
+              waitedMillis / 1000,
+              waitedMillis % 1000
+            )
+          )
+        );
       }
     } catch (TimeoutException e) {
-      if (env != null) {
-        env
-          .getReporter()
-          .handle(
-            Event.warn(
-              "Timed out waiting for previous remote cache uploads, cancelling"
-            )
-          );
-      }
+      long waitedMillis = stopwatch.elapsed().toMillis();
+      reporter.handle(
+        Event.warn(
+          String.format(
+            "Remote cache uploads from previous build failed to complete in %d.%03d seconds." +
+              " Cancelling and starting a new invocation...",
+            waitedMillis / 1000,
+            waitedMillis % 1000
+          )
+        )
+      );
       future.cancel(true);
     } catch (ExecutionException e) {
-      if (env != null) {
-        env
-          .getReporter()
-          .handle(
-            Event.warn(
-              "Previous remote cache uploads failed: " +
-                e.getCause().getMessage()
-            )
-          );
-      }
+      reporter.handle(
+        Event.warn(
+          "Remote cache uploads from previous build failed: " +
+            e.getCause().getMessage()
+        )
+      );
     }
   }
 
@@ -487,7 +495,7 @@ public final class RemoteModule extends BlazeModule {
     );
 
     // Wait for any pending uploads from a previous command (async upload modes only)
-    waitForPreviousInvocation();
+    waitForPreviousInvocation(env.getReporter());
 
     if ("clean".equals(env.getCommandName())) {
       knownMissingCasDigests.clear();
