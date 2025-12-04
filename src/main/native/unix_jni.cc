@@ -39,7 +39,6 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/native/latin1_jni_path.h"
-#include "src/main/native/macros.h"
 
 #if defined(O_DIRECTORY)
 #define PORTABLE_O_DIRECTORY O_DIRECTORY
