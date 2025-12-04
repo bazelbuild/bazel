@@ -1158,6 +1158,25 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
+  public void blazeShutdown() {
+    if (pendingUploadsFuture == null) {
+      return;
+    }
+
+    // Wait for pending uploads to complete before server shutdown.
+    // Use a longer timeout than waitForPreviousInvocation() since this is the final chance.
+    try {
+      Uninterruptibles.getUninterruptibly(pendingUploadsFuture, 30, SECONDS);
+    } catch (TimeoutException e) {
+      pendingUploadsFuture.cancel(true);
+    } catch (ExecutionException e) {
+      // Upload failed, nothing more we can do.
+    } finally {
+      pendingUploadsFuture = null;
+    }
+  }
+
+  @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     if (actionContextProvider == null) {
