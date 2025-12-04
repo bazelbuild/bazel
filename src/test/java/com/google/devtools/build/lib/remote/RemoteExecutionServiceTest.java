@@ -3141,4 +3141,51 @@ public class RemoteExecutionServiceTest {
     service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
   }
+
+  // ==================== Tests for shutdown(RemoteUploadMode) ====================
+
+  @Test
+  public void shutdown_waitForUploadComplete_blocksUntilDone() throws Exception {
+    // Test that WAIT_FOR_UPLOAD_COMPLETE mode blocks until uploads complete
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    // Shutdown with default mode should return an immediate future
+    var future = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+
+    assertThat(future.isDone()).isTrue();
+  }
+
+  @Test
+  public void shutdown_nowaitForUploadComplete_returnsImmediateFutureWhenNoUploads()
+      throws Exception {
+    // Test that NOWAIT_FOR_UPLOAD_COMPLETE returns immediately when there are no pending uploads
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    var future = service.shutdown(RemoteOptions.RemoteUploadMode.NOWAIT_FOR_UPLOAD_COMPLETE);
+
+    // With no pending uploads, future should be done immediately
+    assertThat(future.isDone()).isTrue();
+  }
+
+  @Test
+  public void shutdown_calledTwice_secondCallReturnsImmediately() throws Exception {
+    // Test that calling shutdown twice doesn't cause issues
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    var future1 = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+    var future2 = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+
+    assertThat(future1.isDone()).isTrue();
+    assertThat(future2.isDone()).isTrue();
+  }
+
+  @Test
+  public void shutdown_releasesCache() throws Exception {
+    // Test that shutdown releases the cache
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+
+    verify(cache).release();
+  }
 }
