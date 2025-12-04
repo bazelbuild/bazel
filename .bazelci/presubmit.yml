@@ -45,6 +45,7 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
       # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
       - "-//src/test/shell/bazel:python_version_test"
   ubuntu1804:
@@ -83,6 +84,9 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
@@ -146,6 +150,7 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
   macos:
     xcode_version: "16.2.0"
     shards: 5
@@ -215,6 +220,7 @@ tasks:
       - "-//scripts/docs:rewriter_test"
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
       
   windows:
     shards: 4
@@ -284,6 +290,10 @@ tasks:
       - "-//tools/python:pywrapper_test"
       # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
       - "-//src/test/shell/bazel:python_version_test"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
+
   rbe_ubuntu1804:
     platform: ubuntu1804
     name: "RBE"
@@ -335,6 +345,10 @@ tasks:
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/shell/bazel:verify_workspace"
+      # The CI infrastructure no longer supports these tests.
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/..."
+
   kythe_ubuntu2004:
     index_flags:
     - "--define=kythe_corpus=github.com/bazelbuild/bazel"
