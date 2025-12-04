@@ -26,6 +26,7 @@ from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import integrity
+from src.test.py.bazel.bzlmod.test_utils import queryTargetAttr
 from src.test.py.bazel.bzlmod.test_utils import read
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
 
@@ -114,13 +115,6 @@ class BazelModuleTest(test_base.TestBase):
         executable=True,
     )
 
-  def getTargetAttr(self, target, attr_name):
-    _, stdout, _ = self.RunBazel(['query', '--output=streamed_jsonproto', target])
-    query_json = json.loads('\n'.join(stdout))
-    attrs = [attr for attr in query_json["rule"]["attribute"] if attr["name"] == attr_name]
-    self.assertEqual(len(attrs), 1)
-    return attrs[0]
-
   def testSimple(self):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0")',
@@ -150,10 +144,12 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('main function => aaa@1.0', stdout)
 
     # Verify the default package metadata.
-    package_metadata = self.getTargetAttr('@aaa//:lib_aaa', 'package_metadata')['stringListValue']
+    package_metadata = queryTargetAttr(
+        self, '@aaa//:lib_aaa', 'package_metadata'
+    )['stringListValue']
     self.assertEqual(len(package_metadata), 1)
     package_metadata_target = package_metadata[0]
-    purl = self.getTargetAttr(package_metadata_target, 'purl')['stringValue']
+    purl = queryTargetAttr(self, package_metadata_target, 'purl')['stringValue']
     self.assertEqual(purl, 'pkg:bazel/aaa@1.0')
 
   def testSimpleTransitive(self):

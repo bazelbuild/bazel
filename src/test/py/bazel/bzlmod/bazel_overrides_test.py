@@ -21,6 +21,7 @@ import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import queryTargetAttr
 
 
 class BazelOverridesTest(test_base.TestBase):
@@ -46,15 +47,15 @@ class BazelOverridesTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --registry=' + self.main_registry.getURL(),
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'build --registry=https://bcr.bazel.build',
-            'build --verbose_failures',
+            'common --registry=https://bcr.bazel.build',
+            'common --verbose_failures',
             # Set an explicit Java language version
-            'build --java_language_version=8',
-            'build --tool_java_language_version=8',
-            'build --lockfile_mode=update',
+            'common --java_language_version=8',
+            'common --tool_java_language_version=8',
+            'common --lockfile_mode=update',
         ],
     )
 
@@ -125,6 +126,15 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
 
+    # Verify the default package metadata.
+    package_metadata = queryTargetAttr(
+        self, '@aaa//:lib_aaa', 'package_metadata'
+    )['stringListValue']
+    self.assertEqual(len(package_metadata), 1)
+    package_metadata_target = package_metadata[0]
+    purl = queryTargetAttr(self, package_metadata_target, 'purl')['stringValue']
+    self.assertEqual(purl, 'pkg:bazel/aaa@1.0.patched.2e17a4fe')
+
   def testSingleVersionOverrideWithPatchCmds(self):
     self.writeMainProjectFiles()
     self.ScratchFile(
@@ -152,6 +162,15 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn(
         'bbb@1.1 => aaa@1.0 (locally patched with patch_cmds)', stdout
     )
+
+    # Verify the default package metadata.
+    package_metadata = queryTargetAttr(
+        self, '@aaa//:lib_aaa', 'package_metadata'
+    )['stringListValue']
+    self.assertEqual(len(package_metadata), 1)
+    package_metadata_target = package_metadata[0]
+    purl = queryTargetAttr(self, package_metadata_target, 'purl')['stringValue']
+    self.assertEqual(purl, 'pkg:bazel/aaa@1.0.patched.1a1372d')
 
   def testSingleVersionOverrideWithPatchAndPatchCmds(self):
     self.writeMainProjectFiles()
@@ -185,6 +204,15 @@ class BazelOverridesTest(test_base.TestBase):
         'bbb@1.1 => aaa@1.0 (locally patched with patches and patch_cmds)',
         stdout,
     )
+
+    # Verify the default package metadata.
+    package_metadata = queryTargetAttr(
+        self, '@aaa//:lib_aaa', 'package_metadata'
+    )['stringListValue']
+    self.assertEqual(len(package_metadata), 1)
+    package_metadata_target = package_metadata[0]
+    purl = queryTargetAttr(self, package_metadata_target, 'purl')['stringValue']
+    self.assertEqual(purl, 'pkg:bazel/aaa@1.0.patched.1efd6af1')
 
   def testSingleVersionOverrideVersionTooLow(self):
     self.writeMainProjectFiles()

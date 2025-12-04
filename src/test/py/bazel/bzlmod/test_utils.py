@@ -56,6 +56,22 @@ def scratchFile(path, lines=None):
         f.write('\n')
 
 
+def queryTargetAttr(test_base, target, attr_name):
+  """Returns the attribute info returned by a query for a particular target and attribute."""
+  _, stdout, _ = test_base.RunBazel(
+      ['query', '--output=streamed_jsonproto', target]
+  )
+  test_base.assertEqual(len(stdout), 1)
+  query_json = json.loads(stdout[0])
+  attrs = [
+      attr
+      for attr in query_json['rule']['attribute']
+      if attr['name'] == attr_name
+  ]
+  test_base.assertEqual(len(attrs), 1)
+  return attrs[0]
+
+
 class Module:
   """A class to represent information of a Bazel module."""
 

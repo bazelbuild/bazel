@@ -43,14 +43,14 @@ class ModCommandTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'mod --registry=' + self.main_registry.getURL(),
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'mod --registry=https://bcr.bazel.build',
+            'common --registry=https://bcr.bazel.build',
             # Disable yanked version check so we are not affected BCR changes.
-            'mod --allow_yanked_versions=all',
+            'common --allow_yanked_versions=all',
             # Make sure Bazel CI tests pass in all environments
-            'mod --charset=ascii',
+            'common --charset=ascii',
         ],
     )
 
