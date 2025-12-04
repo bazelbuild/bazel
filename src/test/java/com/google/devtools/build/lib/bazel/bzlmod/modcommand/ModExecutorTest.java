@@ -1015,4 +1015,66 @@ public class ModExecutorTest {
             "<root> (main@1.0)", "└───A@1.0 ", "    └───B@1.0 ", "        └───A@1.0 (cycle) ", "")
         .inOrder();
   }
+
+  @Test
+  public void testGraphWithExtensionFilterOnRoot() throws Exception {
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModuleExtensionId mavenId = createExtensionId("extensions", "maven");
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages =
+        new ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>()
+            .put(
+                mavenId,
+                ModuleKey.ROOT,
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("maven")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .buildOrThrow();
+
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
+        new ImmutableSetMultimap.Builder<ModuleExtensionId, String>()
+            .putAll(mavenId, ImmutableSet.of("repo1"))
+            .build();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+    options.extensionInfo = ExtensionShow.ALL;
+
+    File file = File.createTempFile("output_text_repro", "txt");
+    file.deleteOnExit();
+    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
+
+    ModExecutor executor =
+        new ModExecutor(
+            depGraph,
+            extensionUsages,
+            extensionRepos,
+            Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
+            options,
+            writer);
+
+    // This should not throw NPE
+    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    writer.close();
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)", "└───$@@//extensions:extensions%maven ", "    └───repo1", "")
+        .inOrder();
+  }
 }

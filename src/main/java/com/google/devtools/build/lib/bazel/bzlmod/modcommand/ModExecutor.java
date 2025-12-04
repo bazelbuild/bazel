@@ -273,6 +273,17 @@ public class ModExecutor {
       }
 
       ModuleKey currentModuleKey = queue.pop();
+
+      if (targets.contains(currentModuleKey)
+          && !(findSinglePath && foundTargets.contains(currentModuleKey))) {
+        addPathToResultGraph(
+            resultGraph, bfsParentMap, bfsParentMap.get(currentModuleKey), currentModuleKey);
+        foundTargets.add(currentModuleKey);
+        if (findSinglePath && foundTargets.containsAll(targets)) {
+          break;
+        }
+      }
+
       AugmentedModule module = depGraph.get(currentModuleKey);
       ImmutableSortedSet<ModuleKey> dependencies =
           module.getAllDeps(options.includeUnused).keySet().stream()
