@@ -28,9 +28,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -126,11 +128,13 @@ import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -182,6 +186,10 @@ public final class RemoteModule extends BlazeModule {
 
   @Nullable
   private String lastBuildId;
+
+  // Survives across command invocations within the same server for async upload modes
+  @Nullable
+  private ListenableFuture<Void> pendingUploadsFuture = null;
 
   private ChannelFactory channelFactory = new ChannelFactory() {
     @Override
@@ -403,6 +411,52 @@ public final class RemoteModule extends BlazeModule {
     );
   }
 
+  /**
+   * Waits for any pending uploads from a previous invocation to complete.
+   * Called at the start of each command when using async upload modes.
+   */
+  private void waitForPreviousInvocation() {
+    if (pendingUploadsFuture == null) {
+      return;
+    }
+
+    ListenableFuture<Void> future = pendingUploadsFuture;
+    pendingUploadsFuture = null;
+
+    try {
+      Uninterruptibles.getUninterruptibly(future, 5, SECONDS);
+      if (env != null) {
+        env
+          .getReporter()
+          .handle(
+            Event.info("Previous remote cache uploads completed successfully")
+          );
+      }
+    } catch (TimeoutException e) {
+      if (env != null) {
+        env
+          .getReporter()
+          .handle(
+            Event.warn(
+              "Timed out waiting for previous remote cache uploads, cancelling"
+            )
+          );
+      }
+      future.cancel(true);
+    } catch (ExecutionException e) {
+      if (env != null) {
+        env
+          .getReporter()
+          .handle(
+            Event.warn(
+              "Previous remote cache uploads failed: " +
+                e.getCause().getMessage()
+            )
+          );
+      }
+    }
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(
@@ -430,6 +484,9 @@ public final class RemoteModule extends BlazeModule {
       outputService == null,
       "remoteOutputService must be null"
     );
+
+    // Wait for any pending uploads from a previous command (async upload modes only)
+    waitForPreviousInvocation();
 
     if ("clean".equals(env.getCommandName())) {
       knownMissingCasDigests.clear();
