@@ -139,6 +139,8 @@ public class DownloadManager {
             // Not in download phase, must already have been cancelled.
             throw new InterruptedException();
           }
+          // TODO we can do better with this span - dedicated ProfilerTask.___,
+          // more metadata, etc.
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -330,6 +332,7 @@ public class DownloadManager {
 
     for (int attempt = 0; ; ++attempt) {
       try {
+        // real data is known here, does this create a profile span?
         downloader.download(
             rewrittenUrls,
             headers,
