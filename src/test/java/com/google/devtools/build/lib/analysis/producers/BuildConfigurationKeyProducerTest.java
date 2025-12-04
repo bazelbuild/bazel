@@ -552,9 +552,9 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
         ImmutableMap.of(
             Label.parseCanonicalUnchecked("//flag:foo"),
-            Scope.ScopeType.PROJECT,
+            new Scope.ScopeType(Scope.ScopeType.PROJECT),
             Label.parseCanonicalUnchecked("//flag:bar"),
-            Scope.ScopeType.UNIVERSAL);
+            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
     assertThat(result.getOptions().getScopeTypeMap())
         .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
@@ -660,11 +660,11 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
         ImmutableMap.of(
             Label.parseCanonicalUnchecked("//flag:foo"),
-            Scope.ScopeType.PROJECT,
+            new Scope.ScopeType(Scope.ScopeType.PROJECT),
             Label.parseCanonicalUnchecked("//flag:bar"),
-            Scope.ScopeType.UNIVERSAL,
+            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
             Label.parseCanonicalUnchecked("//out_of_scope_flag:baz"),
-            Scope.ScopeType.PROJECT);
+            new Scope.ScopeType(Scope.ScopeType.PROJECT));
     assertThat(result.getOptions().getScopeTypeMap())
         .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
@@ -698,9 +698,9 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
         ImmutableMap.of(
             Label.parseCanonicalUnchecked("//flag:foo"),
-            Scope.ScopeType.UNIVERSAL,
+            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
             Label.parseCanonicalUnchecked("//flag:bar"),
-            Scope.ScopeType.UNIVERSAL);
+            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
     assertThat(result.getOptions().getScopeTypeMap())
         .containsExactlyEntriesIn(expectedScopeTypeMap);
   }

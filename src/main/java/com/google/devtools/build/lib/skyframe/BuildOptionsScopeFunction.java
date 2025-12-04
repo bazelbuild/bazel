@@ -134,7 +134,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     Map<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys = new HashMap<>();
     for (Label starlarkOption : scopes.keySet()) {
-      if (scopes.get(starlarkOption).getScopeType() == Scope.ScopeType.PROJECT) {
+      if (scopes.get(starlarkOption).getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         targetsToSkyKeys.put(
             starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
       }
@@ -184,9 +184,9 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
         // value when --incompatible_exclude_starlark_flags_from_exec_config is stably enabled
         // and existing rules like skylib's have updated to TARGET.
         || !attrs.isAttributeValueExplicitlySpecified("scope")) {
-      return Scope.ScopeType.DEFAULT;
+      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
-    return Scope.ScopeType.valueOfIgnoreCase(attrs.get("scope", Type.STRING));
+    return new Scope.ScopeType(attrs.get("scope", Type.STRING));
   }
 
   /**

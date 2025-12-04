@@ -236,9 +236,11 @@ public final class FunctionTransitionUtil {
       // setting "scope = 'target'".
       return starlarkOptions.entrySet().stream()
           .filter(
-              entry ->
-                  options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.UNIVERSAL
-                      || options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.DEFAULT)
+              entry -> {
+                String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
+                return scopeType.equals(Scope.ScopeType.UNIVERSAL)
+                    || scopeType.equals(Scope.ScopeType.DEFAULT);
+              })
           .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
@@ -256,9 +258,10 @@ public final class FunctionTransitionUtil {
 
     ImmutableMap.Builder<Label, Object> ans = ImmutableMap.builder();
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
-      if (options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.UNIVERSAL) {
+      String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
+      if (scopeType.equals(Scope.ScopeType.UNIVERSAL)) {
         ans.put(entry);
-      } else if (options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.TARGET) {
+      } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
         // Don't propagate this flag.
       } else if (customPropagatingFlags.contains(entry.getKey().getUnambiguousCanonicalForm())) {
         ans.put(entry);

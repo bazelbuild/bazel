@@ -183,7 +183,7 @@ public final class BuildConfigurationKeyProducer<C>
           this.postPlatformProcessedOptions.getScopeTypeMap().get(entry.getKey());
       // scope is null is applicable for cases where a transition applies starlark flags that are
       // not already part of the baseline configuration.
-      if (scopeType == null || scopeType == Scope.ScopeType.PROJECT) {
+      if (scopeType == null || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
         flagsWithIncompleteScopeInfo.add(entry.getKey());
       }
     }
@@ -275,7 +275,7 @@ public final class BuildConfigurationKeyProducer<C>
 
     boolean shouldApplyScopes =
         buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
-            .anyMatch(scope -> scope.getScopeType() == Scope.ScopeType.PROJECT);
+            .anyMatch(scope -> scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT));
 
     if (!shouldApplyScopes) {
       return finishConfigurationKeyProcessing(
@@ -342,9 +342,12 @@ public final class BuildConfigurationKeyProducer<C>
       Scope scope = buildOptionsScopeValue.getFullyResolvedScopes().get(flagLabel);
       if (scope == null) {
         Verify.verify(
-            transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel)
-                != Scope.ScopeType.PROJECT);
-      } else if (scope.getScopeType() == Scope.ScopeType.PROJECT) {
+            !transitionedOptionsWithScopeType
+                .getScopeTypeMap()
+                .get(flagLabel)
+                .scopeType()
+                .equals(Scope.ScopeType.PROJECT));
+      } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
         if (flagValue != baselineValue && !isInScope(label, scope.getScopeDefinition())) {

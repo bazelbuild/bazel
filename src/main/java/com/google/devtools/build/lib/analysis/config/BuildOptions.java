@@ -90,7 +90,7 @@ public final class BuildOptions implements Cloneable {
         .collect(
             toImmutableMap(
                 e -> Label.parseCanonicalUnchecked(e.getKey()),
-                e -> Scope.ScopeType.valueOfIgnoreCase(e.getValue())));
+                e -> new Scope.ScopeType(e.getValue())));
   }
 
   public static BuildOptions getDefaultBuildOptionsForFragments(

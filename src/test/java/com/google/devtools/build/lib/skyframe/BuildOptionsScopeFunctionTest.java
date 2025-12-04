@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
-import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -170,19 +169,19 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                     ImmutableMap.of(
                         Label.parseCanonical("//test_flags:foo"),
                         new Scope(
-                            Scope.ScopeType.PROJECT,
+                            new Scope.ScopeType(Scope.ScopeType.PROJECT),
                             new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
                         Label.parseCanonical("//test_flags:bar"),
-                        new Scope(ScopeType.UNIVERSAL, null))));
+                        new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
 
     // verify that the BuildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes() has the
     // correct ScopeType map for all flags.
     assertThat(buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes().getScopeTypeMap())
         .containsExactly(
             Label.parseCanonical("//test_flags:foo"),
-            Scope.ScopeType.PROJECT,
+            new Scope.ScopeType(Scope.ScopeType.PROJECT),
             Label.parseCanonical("//test_flags:bar"),
-            Scope.ScopeType.UNIVERSAL);
+            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
   }
 
   @Test
@@ -223,7 +222,7 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                 .equals(
                     ImmutableMap.of(
                         Label.parseCanonical("//test_flags:foo"),
-                        new Scope(Scope.ScopeType.PROJECT, null))));
+                        new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))));
   }
 
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {

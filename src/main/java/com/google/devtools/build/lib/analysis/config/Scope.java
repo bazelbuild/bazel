@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Arrays.stream;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.util.Locale;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
@@ -28,27 +25,34 @@ import javax.annotation.Nullable;
  */
 public class Scope {
   /** Type of supported scopes. */
-  public enum ScopeType {
-    /** The flag's value never changes except explicitly by a configuraiton transition. * */
-    UNIVERSAL,
-    /** The flag's value resets on exec transitions. * */
-    TARGET,
-    /** The flag resets on targets outside the flag's project. See PROJECT.scl. * */
-    PROJECT,
-    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. * */
-    DEFAULT;
+  @AutoCodec
+  public record ScopeType(String scopeType) {
+    /** The flag's value never changes except explicitly by a configuration transition. */
+    public static final String UNIVERSAL = "universal";
 
-    /** Returns the enum of a {@code scope = "<string>"} value. */
-    public static ScopeType valueOfIgnoreCase(String scopeType) throws IllegalArgumentException {
-      return ScopeType.valueOf(scopeType.toUpperCase(Locale.ROOT));
+    /** The flag's value resets on exec transitions. */
+    public static final String TARGET = "target";
+
+    /** The flag resets on targets outside the flag's project. See PROJECT.scl. */
+    public static final String PROJECT = "project";
+
+    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. */
+    public static final String DEFAULT = "default";
+
+    public ScopeType {
+      if (!(scopeType.equals(DEFAULT)
+          || scopeType.equals(UNIVERSAL)
+          || scopeType.equals(TARGET)
+          || scopeType.equals(PROJECT)
+          || scopeType.startsWith("exec:"))) {
+        // TODO: don't let blaze crash for an invalid scope type.
+        throw new IllegalArgumentException("Invalid scope type: " + scopeType);
+      }
     }
 
     /** Which values can a rule's {@code scope} attribute have? */
     public static ImmutableList<String> allowedAttributeValues() {
-      return stream(ScopeType.values())
-          .map(e -> e.name().toLowerCase(Locale.ROOT))
-          .filter(e -> !e.equals("default")) // "default" is an internal value for unset attributes.
-          .collect(toImmutableList());
+      return ImmutableList.of(UNIVERSAL, TARGET, PROJECT);
     }
   }
 
