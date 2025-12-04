@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -218,13 +217,9 @@ public class SandboxHelpersTest {
     var inputMetadataProvider = new FakeActionInputFileCache();
     for (var input : inputs) {
       switch (input) {
-        case VirtualActionInput virtualActionInput -> {
-          var out = new ByteArrayOutputStream();
-          virtualActionInput.writeTo(out);
-          inputMetadataProvider.put(
-              virtualActionInput,
-              FileArtifactValue.createForInlineFile(
-                  out.toByteArray(), fs.getDigestFunction().getHashFunction()));
+        case VirtualActionInput ignored -> {
+          // Intentionally left blank as virtual inputs are not recorded in the
+          // InputMetadataProvider.
         }
         case Artifact artifact ->
             inputMetadataProvider.put(artifact, FileArtifactValue.createForTesting(artifact));
