@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.Root;
@@ -160,7 +161,8 @@ public final class SerializationRegistrySetupHelpers {
             RunfilesArtifactValue.class,
             AliasConfiguredTarget.class,
             BuildConfigurationValue.class,
-            InlineFileArtifactValue.class);
+            InlineFileArtifactValue.class,
+            AspectKeyCreator.AspectKey.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
