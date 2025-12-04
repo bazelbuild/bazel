@@ -1347,13 +1347,36 @@ public final class RemoteModule extends BlazeModule {
       uploadsFuture = actionContextProvider.afterCommand(uploadMode);
     }
 
-    // For async modes, store the future for next invocation
+    // For async modes, store the future for next invocation and defer cleanup
     if (
       uploadMode != RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE &&
       uploadsFuture != null
     ) {
+      // Add listener to clean up resources when uploads complete
+      Path tempDir = tempPathGenerator != null
+        ? tempPathGenerator.getTempDir()
+        : null;
+      AsynchronousMessageOutputStream<LogEntry> logFile = rpcLogFile;
+      uploadsFuture.addListener(
+        () -> {
+          if (tempDir != null) {
+            try {
+              tempDir.deleteTree();
+            } catch (IOException ignored) {
+              // Intentionally ignored.
+            }
+          }
+          if (logFile != null) {
+            try {
+              logFile.close();
+            } catch (IOException ignored) {
+              // Intentionally ignored - can't throw from listener.
+            }
+          }
+        },
+        MoreExecutors.directExecutor()
+      );
       pendingUploadsSetter.accept(uploadsFuture);
-      // Don't clean up temp files yet - they may be needed for uploads
       return;
     }
 
@@ -1376,6 +1399,25 @@ public final class RemoteModule extends BlazeModule {
           Code.RPC_LOG_FAILURE
         );
       }
+    }
+  }
+
+  @Override
+  public void blazeShutdown() {
+    if (pendingUploadsFuture == null) {
+      return;
+    }
+
+    // Wait for pending uploads to complete before server shutdown.
+    // Use a longer timeout than waitForPreviousInvocation() since this is the final chance.
+    try {
+      Uninterruptibles.getUninterruptibly(pendingUploadsFuture, 30, SECONDS);
+    } catch (TimeoutException e) {
+      pendingUploadsFuture.cancel(true);
+    } catch (ExecutionException e) {
+      // Upload failed, nothing more we can do.
+    } finally {
+      pendingUploadsFuture = null;
     }
   }
 
