@@ -658,26 +658,29 @@ public final class SandboxHelpers {
       }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
-      if (actionInput instanceof VirtualActionInput input) {
-        byte[] digest = input.atomicallyWriteRelativeTo(execRoot);
-        virtualInputs.put(input, digest);
-      }
-
-      if (actionInput instanceof EmptyActionInput) {
-        inputFiles.put(pathFragment, null);
-      } else {
-        FileArtifactValue metadata =
-            checkNotNull(
-                inputMetadataProvider.getInputMetadata(actionInput),
-                "missing metadata: %s",
-                actionInput);
-        switch (metadata.getType()) {
-          case DIRECTORY ->
-              inputDirectories.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
-          case SYMLINK ->
-              inputSymlinks.put(
-                  pathFragment, execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
-          default -> inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+      switch (actionInput) {
+        case EmptyActionInput ignored -> inputFiles.put(pathFragment, null);
+        case VirtualActionInput input -> {
+          byte[] digest = input.atomicallyWriteRelativeTo(execRoot);
+          virtualInputs.put(input, digest);
+          inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+        }
+        default -> {
+          FileArtifactValue metadata =
+              checkNotNull(
+                  inputMetadataProvider.getInputMetadata(actionInput),
+                  "missing metadata: %s",
+                  actionInput);
+          switch (metadata.getType()) {
+            case DIRECTORY ->
+                inputDirectories.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+            case SYMLINK ->
+                inputSymlinks.put(
+                    pathFragment,
+                    execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
+            default ->
+                inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+          }
         }
       }
     }
