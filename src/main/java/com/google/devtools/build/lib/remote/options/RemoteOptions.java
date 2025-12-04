@@ -100,9 +100,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "experimental_remote_execution_keepalive",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to use keepalive for remote execution calls.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean remoteExecutionKeepalive;
 
   @Option(

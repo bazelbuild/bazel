@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
@@ -81,7 +82,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       handleStatus(op.getError(), null);
     }
     if (op.getDone()) {
-      Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
+      Preconditions.checkState(
+          op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET,
+          "Unexpected result of remote execution: result not set");
       ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
       if (resp.hasStatus()) {
         handleStatus(resp.getStatus(), resp);
