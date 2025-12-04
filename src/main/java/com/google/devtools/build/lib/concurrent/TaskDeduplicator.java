@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -28,6 +27,10 @@ import javax.annotation.Nullable;
 /**
  * Deduplicates concurrent tasks identified by unique keys. For any given key, only one task is
  * actively executed at a time.
+ *
+ * <p>Any futures returned by this class can be individually canceled without affecting other
+ * callers. The shared task is only canceled if all callers have canceled their futures and the task
+ * is interrupted if and only if all callers requested interruption.
  */
 public final class TaskDeduplicator<K, V> {
   private final ConcurrentMap<K, RefcountedFuture<V>> inFlightTasks = new ConcurrentHashMap<>();
@@ -58,6 +61,8 @@ public final class TaskDeduplicator<K, V> {
         // The shared future may have been canceled between the lookup and the call to retain(). In
         // that unlikely case, just look it up again - the listener above will remove it.
         if (!future.retain()) {
+          // Avoid spinning to increase the chance that the listener gets to run and removes the
+          // canceled future.
           Thread.yield();
           continue;
         }
@@ -108,7 +113,7 @@ public final class TaskDeduplicator<K, V> {
     private final ListenableFuture<V> delegate;
     // Initialized to 1 in the constructor and incremented via retain(). Once it drops to 0, it
     // can never return to 1 or higher (0 is a sticky state).
-    private final AtomicInteger refcount;
+    private final AtomicInteger refcount = new AtomicInteger(1);
     private volatile boolean mayInterruptIfRunning = true;
 
     static <V> RefcountedFuture<V> wrap(ListenableFuture<V> delegate) {
@@ -119,7 +124,6 @@ public final class TaskDeduplicator<K, V> {
 
     RefcountedFuture(ListenableFuture<V> delegate) {
       this.delegate = delegate;
-      this.refcount = new AtomicInteger(1);
     }
 
     @Override
@@ -152,15 +156,15 @@ public final class TaskDeduplicator<K, V> {
    */
   private static final class IndividuallyCancelableFuture<V> extends AbstractFuture<V>
       implements Runnable {
-    private final ListenableFuture<V> delegate;
+    private final RefcountedFuture<V> delegate;
 
-    static <V> ListenableFuture<V> wrap(ListenableFuture<V> delegate) {
+    static <V> ListenableFuture<V> wrap(RefcountedFuture<V> delegate) {
       var wrappedFuture = new IndividuallyCancelableFuture<>(delegate);
       delegate.addListener(wrappedFuture, directExecutor());
       return wrappedFuture;
     }
 
-    IndividuallyCancelableFuture(ListenableFuture<V> delegate) {
+    IndividuallyCancelableFuture(RefcountedFuture<V> delegate) {
       this.delegate = delegate;
     }
 
