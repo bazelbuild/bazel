@@ -77,7 +77,16 @@ landing_page:
       - label: Learn more
         path: https://gradle.com/gradle-enterprise-solutions/bazel-build-system/
         classname: button
-    # Item 6
+      # Item 6
+    - image_path: /community/images/jetbrains.svg
+      heading: JetBrains
+      description: >
+        JetBrains is a leading provider of IDEs and developer tools. Since 2022, we’ve been active in the Bazel community, delivering robust polyglot support through plugins for IntelliJ IDEA, GoLand, PyCharm, and CLion. These plugins provide deep Bazel integration for large projects, enabling editing, navigation, testing, and debugging across multiple languages, including Java, Kotlin, Scala, Go, and C++, as well as Starlark and other configuration files.
+      buttons:
+        - label: Learn more
+          path: https://www.jetbrains.com/help/idea/bazel.html
+          classname: button
+      # Item 7
     - image_path: /community/images/tweag-logo.png
       heading: Tweag
       description: >
@@ -86,7 +95,7 @@ landing_page:
       - label: Learn more
         path:  https://www.tweag.io/group/scalable-builds/
         classname: button
-    # Item 7
+    # Item 8
     - image_path: /community/images/nativelink.svg
       heading: Nativelink
       description: >
@@ -95,7 +104,7 @@ landing_page:
       - label: Learn more
         path:  https://www.nativelink.com/
         classname: button
-    # Item 8
+    # Item 9
     - image_path: /community/images/virtuslab.svg
       heading: VirtusLab
       description: >
@@ -104,7 +113,7 @@ landing_page:
       - label: Learn more
         path:  https://virtuslab.com/expertise/monorepo-expertise-with-bazel/
         classname: button
-    # Item 9
+    # Item 10
     - image_path: /community/images/buildkite.svg
       heading: Buildkite
       description: >
