@@ -374,7 +374,7 @@ public class HttpConnectorTest {
           ImmutableList<Throwable> suppressed = ImmutableList.copyOf(expected.getSuppressed());
           Optional<Throwable> ste =
               suppressed.stream().filter(t -> t instanceof SocketTimeoutException).findFirst();
-          assertThat(ste).isPresent();
+          assertThat(ste.isPresent()).isTrue();
           assertThat(ste.get()).isInstanceOf(SocketTimeoutException.class);
           assertThat(ste.get()).hasMessageThat().ignoringCase().contains("timed out");
         }
