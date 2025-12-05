@@ -395,7 +395,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 No matching toolchains found for types:
   //toolchain:test_toolchain
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro\
 """);
   }
 
