@@ -117,6 +117,16 @@ class OptionProcessor {
   // the failure. Otherwise, the server will handle any required logging.
   void PrintStartupOptionsProvenanceMessage() const;
 
+  // Sets the build label.
+  void SetBuildLabel(const std::string& build_label) {
+    build_label_ = build_label;
+  }
+
+  // Parse the files in `blazercs` and return all options that need to be passed
+  // to the server. The options are returned in the order they should be appear
+  // on the command line (later options have precedence over earlier ones).
+  static std::vector<BlazercOption> GetBlazercOptions(
+      const std::string& cwd, const std::vector<RcFile*>& blazercs);
   // Constructs all synthetic command args that should be passed to the
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
@@ -159,9 +169,20 @@ class OptionProcessor {
   // Path to the system-wide bazelrc configuration file.
   // This is configurable for testing purposes only.
   const std::string system_bazelrc_path_;
+
+  // Build label for Bazel.
+  std::string build_label_;
 };
 
 // Parses and returns the contents of the rc file.
+blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
+                                      const std::string& workspace,
+                                      const std::string& rc_file_path,
+                                      const std::string& build_label,
+                                      const std::optional<SemVer>& sem_ver,
+                                      std::unique_ptr<RcFile>* result_rc_file,
+                                      std::string* error);
+
 blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
