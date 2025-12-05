@@ -203,7 +203,7 @@ not themselves have any visibility protection.</p>
         <li>As above, but with a trailing <code>/...</code>. For example, <code>
         //foo/...</code> specifies the set of <code>//foo</code> and all its
         subpackages. <code>//...</code> specifies all packages in the current
-        repository.
+        repository. <code>//</code> is used to denote the root package.
 
         <li>The strings <code>public</code> or <code>private</code>, which
         respectively specify every package or no package. (This form requires
