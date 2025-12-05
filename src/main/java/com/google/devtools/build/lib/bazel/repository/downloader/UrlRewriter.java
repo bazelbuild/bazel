@@ -68,13 +68,6 @@ public class UrlRewriter {
   private static final ImmutableSet<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
 
   private final UrlRewriterConfig config;
-  private final Function<URL, List<RewrittenURL>> rewriter;
-
-  @VisibleForTesting
-  UrlRewriter(String filePathForErrorReporting, Reader reader)
-      throws UrlRewriterParseException {
-    this(ImmutableList.of(filePathForErrorReporting), ImmutableList.of(reader));
-  }
 
   @VisibleForTesting
   UrlRewriter(List<String> filePathsForErrorReporting, List<Reader> readers)
@@ -84,7 +77,6 @@ public class UrlRewriter {
     Preconditions.checkArgument(filePathsForErrorReporting.size() == readers.size(), "filePath and readers size must be equal");
 
     this.config = new UrlRewriterConfig(filePathsForErrorReporting, readers);
-    this.rewriter = this::rewrite;
   }
 
   /**
@@ -97,7 +89,7 @@ public class UrlRewriter {
       throws UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
     if (configPaths == null || configPaths.isEmpty() || configPaths.stream().anyMatch(PathFragment::isEmpty)) {
-      return new UrlRewriter( "", new StringReader(""));
+      return new UrlRewriter(ImmutableList.of(""), ImmutableList.of(new StringReader("")));
     }
 
     // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
@@ -150,7 +142,7 @@ public class UrlRewriter {
   public ImmutableList<RewrittenURL> amend(List<URL> urls) {
     Objects.requireNonNull(urls, "URLS to check must be set but may be empty");
 
-    return urls.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
+    return urls.stream().map(this::rewrite).flatMap(Collection::stream).collect(toImmutableList());
   }
 
   /**
