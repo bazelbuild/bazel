@@ -15,9 +15,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
-      - "//src/tools/diskcache/..."
-      - "//src/tools/execlog/..."
+      - "//..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
@@ -56,9 +54,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
-      - "//src/tools/diskcache/..."
-      - "//src/tools/execlog/..."
+      - "//..."
     include_json_profile:
       - build
   fedora39:
@@ -85,7 +81,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
+      - "//..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
@@ -120,7 +116,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
+      - "//..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
@@ -139,7 +135,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
+      - "//..."
     test_flags:
       - "--config=ci-linux"
     test_targets:
@@ -214,6 +210,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//..."
     test_flags:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
@@ -315,7 +312,7 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src/main/java/..."
+      - "//..."
     test_flags:
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"

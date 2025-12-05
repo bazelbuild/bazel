@@ -31,6 +31,8 @@ java_library(
 java_library(
     name = "hello-error-prone",
     srcs = ["HelloErrorProne.java"],
+    # This target intentionally fails to compile.
+    tags = ["manual"],
 )
 
 filegroup(

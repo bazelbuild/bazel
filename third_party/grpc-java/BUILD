@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_license//rules:license.bzl", "license")
-load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup")
 load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_license//rules:license.bzl", "license")
 
 package(
     default_applicable_licenses = [":license"],
@@ -63,16 +62,4 @@ java_library(
 filegroup(
     name = "grpc_jars",
     srcs = GRPC_JARS,
-)
-
-distrib_cc_binary(
-    name = "grpc-java-plugin",
-    srcs = [
-        "compiler/src/java_plugin/cpp/java_generator.cpp",
-        "compiler/src/java_plugin/cpp/java_generator.h",
-        "compiler/src/java_plugin/cpp/java_plugin.cpp",
-    ],
-    copts = ["-w"],
-    enable_distributions = ["debian"],
-    deps = ["//third_party/protobuf:protoc_lib"],
 )

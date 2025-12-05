@@ -71,7 +71,7 @@ genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
-        "//third_party/remoteapis:MODULE.bazel",
+        "//third_party:remoteapis/MODULE.bazel",
         "//third_party:BUILD",
         "//third_party:patches",
     ],

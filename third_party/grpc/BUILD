@@ -62,11 +62,3 @@ alias(
         "//conditions:default": "@com_github_grpc_grpc//:grpc++_unsecure",
     }),
 )
-
-filegroup(
-    name = "embedded_tools_srcs",
-    srcs = [
-        "BUILD.tools",
-        "build_defs.bzl",
-    ],
-)

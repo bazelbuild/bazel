@@ -277,6 +277,8 @@
     "https://bcr.bazel.build/modules/rules_java/8.5.1/MODULE.bazel": "d8a9e38cc5228881f7055a6079f6f7821a073df3744d441978e7a43e20226939",
     "https://bcr.bazel.build/modules/rules_java/8.6.0/MODULE.bazel": "9c064c434606d75a086f15ade5edb514308cccd1544c2b2a89bbac4310e41c71",
     "https://bcr.bazel.build/modules/rules_java/8.6.1/MODULE.bazel": "f4808e2ab5b0197f094cabce9f4b006a27766beb6a9975931da07099560ca9c2",
+    "https://bcr.bazel.build/modules/rules_java/9.0.3/MODULE.bazel": "1f98ed015f7e744a745e0df6e898a7c5e83562d6b759dfd475c76456dda5ccea",
+    "https://bcr.bazel.build/modules/rules_java/9.0.3/source.json": "b038c0c07e12e658135bbc32cc1a2ded6e33785105c9d41958014c592de4593e",
     "https://bcr.bazel.build/modules/rules_java/9.1.0/MODULE.bazel": "ee63f27e36a3fada80342869361182f120a9819c74320e8e65b1e04ba0cd7a9d",
     "https://bcr.bazel.build/modules/rules_java/9.1.0/source.json": "da589573c1dee2c9ac4a568b301269a2e8191110ff0345c1a959fa7ea6c4dfd6",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.6/MODULE.bazel": "153042249c7060536dc95b6bb9f9bb8063b8a0b0cb7acdb381bddbc2374aed55",

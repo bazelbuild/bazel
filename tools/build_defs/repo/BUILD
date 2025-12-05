@@ -13,6 +13,12 @@ filegroup(
 )
 
 filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools/build_defs:__pkg__"],
+)
+
+filegroup(
     name = "mock_srcs",
     srcs = [
         "cache.bzl",

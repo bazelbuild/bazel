@@ -51,8 +51,10 @@ def launcher_maker_test(name):
             "//src/tools/launcher/util:data_parser",
             "@com_google_googletest//:gtest_main",
         ],
+        target_compatible_with = ["@platforms//os:windows"],
     )
     _launcher_maker_test(
         name = name,
         launcher = ":" + launcher_exe,
+        target_compatible_with = ["@platforms//os:windows"],
     )
