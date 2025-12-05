@@ -121,7 +121,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+            new SandboxInputs(
+                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -162,8 +163,7 @@ public class WorkerSpawnRunnerTest {
     sandboxHelper.addAndCreateVirtualInput("input", "content");
 
     VirtualActionInput virtualActionInput =
-        Iterables.getOnlyElement(
-            sandboxHelper.getSandboxInputs().getVirtualInputDigests().keySet());
+        Iterables.getOnlyElement(sandboxHelper.getSandboxInputs().virtualInputs().keySet());
 
     when(worker.getResponse(0))
         .thenReturn(WorkResponse.newBuilder().setExitCode(0).setOutput("out").build());
@@ -210,7 +210,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -252,7 +253,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -293,7 +295,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -325,7 +328,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+            new SandboxInputs(
+                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -362,7 +366,8 @@ public class WorkerSpawnRunnerTest {
                     spawn,
                     key,
                     context,
-                    new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                    new SandboxInputs(
+                        ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                     SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                     ImmutableList.of(),
                     inputFileCache,
@@ -411,6 +416,7 @@ public class WorkerSpawnRunnerTest {
                 PathFragment.create("file2"),
                 fs.getPath("/file2")),
             ImmutableMap.of(),
+            ImmutableMap.of(),
             ImmutableMap.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
@@ -425,6 +431,7 @@ public class WorkerSpawnRunnerTest {
         new SandboxInputs(
             ImmutableMap.of(PathFragment.create("file"), fs.getPath("/file")),
             ImmutableMap.of(),
+            ImmutableMap.of(),
             ImmutableMap.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
@@ -437,6 +444,7 @@ public class WorkerSpawnRunnerTest {
     SandboxInputs inputs =
         new SandboxInputs(
             ImmutableMap.of(PathFragment.create("file"), fs.getPath("/dir/file")),
+            ImmutableMap.of(),
             ImmutableMap.of(),
             ImmutableMap.of());
     IOException e =
@@ -551,7 +559,8 @@ public class WorkerSpawnRunnerTest {
   public void testExpandArgument_failsOnUndeclaredInput() {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     SandboxInputs inputs =
-        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        new SandboxInputs(
+            ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
     IOException e =
         assertThrows(
             IOException.class,
