@@ -9,8 +9,14 @@ import build.stack.devtools.build.constellate.fakebuildapi.FakeStarlarkRuleFunct
 import build.stack.devtools.build.constellate.fakebuildapi.PostAssignHookAssignableIdentifier;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionTagClassInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
+import build.stack.devtools.build.constellate.rendering.ModuleExtensionInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.RepositoryRuleInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.RuleInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.TagClassInfoWrapper;
 import java.util.List;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
@@ -42,9 +48,24 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       "");
 
   private final List<RuleInfoWrapper> ruleInfoList;
+  private final List<RepositoryRuleInfoWrapper> repositoryRuleInfoList;
+  private final List<ModuleExtensionInfoWrapper> moduleExtensionInfoList;
 
   public FakeRepositoryModule(List<RuleInfoWrapper> ruleInfoList) {
+    this(ruleInfoList, null, null);
+  }
+
+  public FakeRepositoryModule(List<RuleInfoWrapper> ruleInfoList,
+      List<RepositoryRuleInfoWrapper> repositoryRuleInfoList) {
+    this(ruleInfoList, repositoryRuleInfoList, null);
+  }
+
+  public FakeRepositoryModule(List<RuleInfoWrapper> ruleInfoList,
+      List<RepositoryRuleInfoWrapper> repositoryRuleInfoList,
+      List<ModuleExtensionInfoWrapper> moduleExtensionInfoList) {
     this.ruleInfoList = ruleInfoList;
+    this.repositoryRuleInfoList = repositoryRuleInfoList;
+    this.moduleExtensionInfoList = moduleExtensionInfoList;
   }
 
   @Override
@@ -75,12 +96,20 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     RepositoryRuleDefinitionIdentifier functionIdentifier = new RepositoryRuleDefinitionIdentifier();
 
-    // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet
-    // available.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(docString).addAllAttribute(attrInfos);
-
     Location loc = thread.getCallerLocation();
-    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
+
+    // If repositoryRuleInfoList is provided, use RepositoryRuleInfo proto
+    if (repositoryRuleInfoList != null) {
+      RepositoryRuleInfo.Builder repositoryRuleInfo = RepositoryRuleInfo.newBuilder()
+          .setDocString(docString)
+          .addAllAttribute(attrInfos);
+      repositoryRuleInfoList.add(new RepositoryRuleInfoWrapper(functionIdentifier, loc, repositoryRuleInfo));
+    } else {
+      // Fallback: store as RuleInfo for backwards compatibility
+      RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(docString).addAllAttribute(attrInfos);
+      ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
+    }
+
     return functionIdentifier;
   }
 
@@ -126,12 +155,39 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
   @Override
   public TagClassApi tagClass(Dict<?, ?> attrs, Object doc) throws EvalException {
-    // Stub implementation - return a fake tag class
-    return new FakeTagClass();
+    String docString = doc instanceof String ? (String) doc : "";
+
+    ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
+    if (attrs != null && !Starlark.isNullOrNone(attrs)) {
+      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
+    }
+
+    List<AttributeInfo> attrInfos = attrsMapBuilder.build().entrySet().stream()
+        .filter(entry -> !entry.getKey().startsWith("_"))
+        .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
+        .collect(Collectors.toList());
+    attrInfos.sort(new AttributeNameComparator());
+
+    // Return a FakeTagClass that stores the tag class info
+    return new FakeTagClass(docString, attrInfos);
   }
 
   private static class FakeTagClass implements TagClassApi {
-    // Stub implementation
+    private final String docString;
+    private final List<AttributeInfo> attributes;
+
+    FakeTagClass(String docString, List<AttributeInfo> attributes) {
+      this.docString = docString;
+      this.attributes = attributes;
+    }
+
+    public String getDocString() {
+      return docString;
+    }
+
+    public List<AttributeInfo> getAttributes() {
+      return attributes;
+    }
   }
 
   @Override
@@ -144,7 +200,64 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       boolean archDependent,
       StarlarkThread thread)
       throws EvalException {
-    // Stub implementation
-    return new Object();
+
+    if (moduleExtensionInfoList == null) {
+      // If no list provided, return stub
+      return new Object();
+    }
+
+    String docString = doc instanceof String ? (String) doc : "";
+
+    ModuleExtensionInfo.Builder moduleExtensionInfo = ModuleExtensionInfo.newBuilder()
+        .setDocString(docString);
+
+    // Process tag classes
+    if (tagClasses != null && !Starlark.isNullOrNone(tagClasses)) {
+      Dict<String, TagClassApi> tagClassDict = Dict.cast(tagClasses, String.class, TagClassApi.class, "tag_classes");
+      for (var entry : tagClassDict.entrySet()) {
+        String tagName = entry.getKey();
+        TagClassApi tagClassApi = entry.getValue();
+
+        if (tagClassApi instanceof FakeTagClass) {
+          FakeTagClass fakeTagClass = (FakeTagClass) tagClassApi;
+          ModuleExtensionTagClassInfo tagClassInfo = ModuleExtensionTagClassInfo.newBuilder()
+              .setTagName(tagName)
+              .setDocString(fakeTagClass.getDocString())
+              .addAllAttribute(fakeTagClass.getAttributes())
+              .build();
+          moduleExtensionInfo.addTagClass(tagClassInfo);
+        }
+      }
+    }
+
+    ModuleExtensionDefinitionIdentifier identifier = new ModuleExtensionDefinitionIdentifier();
+    Location loc = thread.getCallerLocation();
+
+    moduleExtensionInfoList.add(new ModuleExtensionInfoWrapper(identifier, loc, moduleExtensionInfo));
+
+    return identifier;
+  }
+
+  /**
+   * A fake identifier for module extension definitions.
+   */
+  private static class ModuleExtensionDefinitionIdentifier implements PostAssignHookAssignableIdentifier {
+    private static int idCounter = 0;
+    private final String name = "ModuleExtensionDefinitionIdentifier" + idCounter++;
+    private String assignedName = "<unassigned>";
+
+    @Override
+    public void setAssignedName(String assignedName) {
+      this.assignedName = assignedName;
+    }
+
+    @Override
+    public String getAssignedName() {
+      return assignedName;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 }

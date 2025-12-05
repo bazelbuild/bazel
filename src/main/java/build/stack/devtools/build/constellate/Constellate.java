@@ -26,14 +26,20 @@ import build.stack.devtools.build.constellate.fakebuildapi.FakeStructApi;
 import build.stack.devtools.build.constellate.rendering.AspectInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.DocstringParseException;
 import build.stack.devtools.build.constellate.rendering.FunctionUtil;
+import build.stack.devtools.build.constellate.rendering.MacroInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.ModuleExtensionInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.ProviderInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.RepositoryRuleInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.RuleInfoWrapper;
 
 import build.stack.starlark.v1beta1.StarlarkProtos;
 // import build.stack.starlark.v1beta1.StarlarkProtos.Binding;
 
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 
@@ -233,7 +239,13 @@ public class Constellate {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    Module module = recursiveEval(input, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
+    List<MacroInfoWrapper> macroInfoList = new ArrayList<>();
+
+    List<RepositoryRuleInfoWrapper> repositoryRuleInfoList = new ArrayList<>();
+
+    List<ModuleExtensionInfoWrapper> moduleExtensionInfoList = new ArrayList<>();
+
+    Module module = recursiveEval(input, label, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
 
     logger.atFine().log("\n\nresolving module globals: %s", label);
 
@@ -247,6 +259,9 @@ public class Constellate {
         ruleInfoList,
         providerInfoList,
         aspectInfoList,
+        macroInfoList,
+        repositoryRuleInfoList,
+        moduleExtensionInfoList,
         starlarkModule);
 
     logger.atFine().log("post-eval rules: %s", ruleInfoMap.build().keySet());
@@ -263,6 +278,9 @@ public class Constellate {
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList,
+      List<MacroInfoWrapper> macroInfoList,
+      List<RepositoryRuleInfoWrapper> repositoryRuleInfoList,
+      List<ModuleExtensionInfoWrapper> moduleExtensionInfoList,
       StarlarkProtos.Module.Builder starlarkModule)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException, StarlarkEvaluationException {
 
@@ -274,6 +292,15 @@ public class Constellate {
 
     Map<StarlarkCallable, AspectInfoWrapper> aspectFunctions = aspectInfoList.stream()
         .collect(Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
+
+    Map<StarlarkCallable, MacroInfoWrapper> macroFunctions = macroInfoList.stream()
+        .collect(Collectors.toMap(MacroInfoWrapper::getIdentifierFunction, Functions.identity()));
+
+    Map<StarlarkCallable, RepositoryRuleInfoWrapper> repositoryRuleFunctions = repositoryRuleInfoList.stream()
+        .collect(Collectors.toMap(RepositoryRuleInfoWrapper::getIdentifierFunction, Functions.identity()));
+
+    Map<Object, ModuleExtensionInfoWrapper> moduleExtensionObjects = moduleExtensionInfoList.stream()
+        .collect(Collectors.toMap(ModuleExtensionInfoWrapper::getIdentifierObject, Functions.identity()));
 
     // Sort the globals bindings by name.
     TreeMap<String, Object> sortedBindings = new TreeMap<>(module.getGlobals());
@@ -300,9 +327,10 @@ public class Constellate {
 
     // logger.atFine().log("top-level global objects of %s: %s", label,
     // sortedBindings.size());
-    logger.atFine().log("resolving module %s: rules: %s, providers: %s, aspects: %s", module.getClientData(),
+    logger.atFine().log("resolving module %s: rules: %s, providers: %s, aspects: %s, macros: %s, repository_rules: %s, module_extensions: %s",
+        module.getClientData(),
         ruleInfoList.size(), providerInfoList.size(),
-        aspectInfoList.size());
+        aspectInfoList.size(), macroInfoList.size(), repositoryRuleInfoList.size(), moduleExtensionInfoList.size());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       logger.atFine().log("global object %s %s", envEntry.getKey(), envEntry.getValue().getClass().getName());
@@ -372,6 +400,36 @@ public class Constellate {
         AspectInfo aspectInfo = aspectInfoBuild.setAspectName(envEntry.getKey()).build();
         logger.atFine().log("global aspect %s", envEntry.getKey());
         aspectInfoMap.put(envEntry.getKey(), aspectInfo);
+      }
+
+      // +++ MACROS
+      if (macroFunctions.containsKey(envEntry.getValue())) {
+        MacroInfoWrapper wrapper = macroFunctions.get(envEntry.getValue());
+        MacroInfo macroInfo = wrapper.getMacroInfo().setMacroName(envEntry.getKey()).build();
+        logger.atFine().log("global macro %s", envEntry.getKey());
+        // Note: We'll need to add a macroInfoMap parameter in the future when we have
+        // a ModuleInfo proto that includes MacroInfo. For now, we just log it.
+        // macroInfoMap.put(envEntry.getKey(), macroInfo);
+      }
+
+      // +++ REPOSITORY RULES
+      if (repositoryRuleFunctions.containsKey(envEntry.getValue())) {
+        RepositoryRuleInfoWrapper wrapper = repositoryRuleFunctions.get(envEntry.getValue());
+        RepositoryRuleInfo repositoryRuleInfo = wrapper.getRepositoryRuleInfo().setRuleName(envEntry.getKey()).build();
+        logger.atFine().log("global repository_rule %s", envEntry.getKey());
+        // Note: We'll need to add a repositoryRuleInfoMap parameter in the future when we have
+        // a ModuleInfo proto that includes RepositoryRuleInfo. For now, we just log it.
+        // repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
+      }
+
+      // +++ MODULE EXTENSIONS
+      if (moduleExtensionObjects.containsKey(envEntry.getValue())) {
+        ModuleExtensionInfoWrapper wrapper = moduleExtensionObjects.get(envEntry.getValue());
+        ModuleExtensionInfo moduleExtensionInfo = wrapper.getModuleExtensionInfo().setExtensionName(envEntry.getKey()).build();
+        logger.atFine().log("global module_extension %s", envEntry.getKey());
+        // Note: We'll need to add a moduleExtensionInfoMap parameter in the future when we have
+        // a ModuleInfo proto that includes ModuleExtensionInfo. For now, we just log it.
+        // moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
       }
     }
 
@@ -701,6 +759,8 @@ public class Constellate {
    */
   private Module recursiveEval(ParserInput input, Label label, List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList, List<AspectInfoWrapper> aspectInfoList,
+      List<MacroInfoWrapper> macroInfoList, List<RepositoryRuleInfoWrapper> repositoryRuleInfoList,
+      List<ModuleExtensionInfoWrapper> moduleExtensionInfoList,
       ImmutableMap.Builder<Label, String> moduleDocMap)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException, EvalException {
 
@@ -719,7 +779,7 @@ public class Constellate {
     // the fake build
     // API but used by the program; these become FakeDeepStructures.
     ImmutableMap.Builder<String, Object> initialEnvBuilder = ImmutableMap.builder();
-    FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList);
+    FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList);
     addMorePredeclared(initialEnvBuilder);
 
     ImmutableMap<String, Object> initialEnv = initialEnvBuilder.build();
@@ -776,7 +836,7 @@ public class Constellate {
       try {
         ParserInput loadInput = getInputSource(path.toString());
         Module loadedModule = recursiveEval(loadInput, from, ruleInfoList, providerInfoList, aspectInfoList,
-            moduleDocMap);
+            macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
         imports.put(load, loadedModule);
         moduleGraph.addEdge(module, loadedModule);
       } catch (NoSuchFileException noSuchFileException) {

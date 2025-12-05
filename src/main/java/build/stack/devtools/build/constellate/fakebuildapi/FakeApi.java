@@ -22,7 +22,10 @@ import build.stack.devtools.build.constellate.fakebuildapi.config.FakeConfigGlob
 import build.stack.devtools.build.constellate.fakebuildapi.config.FakeConfigStarlarkCommon;
 import build.stack.devtools.build.constellate.fakebuildapi.repository.FakeRepositoryModule;
 import build.stack.devtools.build.constellate.rendering.AspectInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.MacroInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.ModuleExtensionInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.ProviderInfoWrapper;
+import build.stack.devtools.build.constellate.rendering.RepositoryRuleInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.RuleInfoWrapper;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
@@ -39,13 +42,21 @@ public final class FakeApi {
   /**
    * Adds the predeclared environment containing the fake build API.
    *
-   * @param rules     the list of {@link RuleInfo} objects, to which 'rule' and
-   *                  'repository_rule'
+   * @param rules     the list of {@link RuleInfo} objects, to which 'rule'
    *                  invocation information will be added
    * @param providers the list of {@link ProviderInfo} objects, to which
    *                  'provider' invocation
    *                  information will be added
    * @param aspects   the list of {@link AspectInfo} objects, to which 'aspect'
+   *                  invocation information
+   *                  will be added
+   * @param macros    the list of {@link com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo} objects, to which 'macro'
+   *                  invocation information
+   *                  will be added
+   * @param repositoryRules the list of {@link com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo} objects, to which 'repository_rule'
+   *                  invocation information
+   *                  will be added
+   * @param moduleExtensions the list of {@link com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo} objects, to which 'module_extension'
    *                  invocation information
    *                  will be added
    */
@@ -54,11 +65,14 @@ public final class FakeApi {
       /* out parameters: */
       List<RuleInfoWrapper> rules,
       List<ProviderInfoWrapper> providers,
-      List<AspectInfoWrapper> aspects) {
+      List<AspectInfoWrapper> aspects,
+      List<MacroInfoWrapper> macros,
+      List<RepositoryRuleInfoWrapper> repositoryRules,
+      List<ModuleExtensionInfoWrapper> moduleExtensions) {
 
     Starlark.addMethods(env, new FakeBuildApiGlobals()); // e.g. configuration_field func
     Starlark.addMethods(
-        env, new FakeStarlarkRuleFunctionsApi(rules, providers, aspects)); // e.g. rule func
+        env, new FakeStarlarkRuleFunctionsApi(rules, providers, aspects, macros)); // e.g. rule func
     env.put("attr", new FakeStarlarkAttrModuleApi());
     env.put("struct", new FakeStructProviderApi());
     new ConfigBootstrap(
@@ -66,6 +80,6 @@ public final class FakeApi {
         new FakeConfigApi(),
         new FakeConfigGlobalLibrary())
         .addBindingsToBuilder(env);
-    new RepositoryBootstrap(new FakeRepositoryModule(rules)).addBindingsToBuilder(env);
+    new RepositoryBootstrap(new FakeRepositoryModule(rules, repositoryRules, moduleExtensions)).addBindingsToBuilder(env);
   }
 }
