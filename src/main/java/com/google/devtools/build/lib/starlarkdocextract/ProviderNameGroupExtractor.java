@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
  * Starlark API documentation extractor for a provider group described by a rule's {@code provides}
  * or an attribute's {@code providers} declaration.
  */
-final class ProviderNameGroupExtractor {
-  static ProviderNameGroup buildProviderNameGroup(
+public final class ProviderNameGroupExtractor {
+  public static ProviderNameGroup buildProviderNameGroup(
       ExtractorContext context, ImmutableSet<StarlarkProviderIdentifier> providerGroup) {
     ProviderNameGroup.Builder providerNameGroupBuilder = ProviderNameGroup.newBuilder();
     for (StarlarkProviderIdentifier provider : providerGroup) {

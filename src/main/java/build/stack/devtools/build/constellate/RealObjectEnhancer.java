@@ -21,6 +21,7 @@ import build.stack.devtools.build.constellate.rendering.ProviderInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.RepositoryRuleInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.RuleInfoWrapper;
 import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositor
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import java.util.List;
@@ -144,6 +146,7 @@ public class RealObjectEnhancer {
   }
 
   private void enhanceRule(String name, StarlarkRuleFunction ruleFunc, RuleInfoWrapper wrapper) {
+    // Extract OriginKey
     OriginKey.Builder originKey = OriginKey.newBuilder()
         .setName(ruleFunc.getRuleClass().getName());
 
@@ -163,11 +166,19 @@ public class RealObjectEnhancer {
     }
 
     wrapper.getRuleInfo().setOriginKey(originKey.build());
+
+    // TODO: Extract advertised providers
+    // Requires ProviderNameGroupExtractor to be made public in starlarkdocextract
+    // ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
+    //     ruleFunc.getRuleClass().getAdvertisedProviders().getStarlarkProviders();
+    // See CONSTELLATE_INTEGRATION_ANALYSIS.md Phase 2 for details
+
     logger.atFine().log("Enhanced rule %s with OriginKey: %s", name, originKey.getName());
   }
 
   private void enhanceProvider(
       String name, StarlarkProvider provider, ProviderInfoWrapper wrapper) {
+    // Extract OriginKey
     OriginKey.Builder originKey = OriginKey.newBuilder()
         .setName(provider.getName());
 
@@ -177,6 +188,16 @@ public class RealObjectEnhancer {
     }
 
     wrapper.getProviderInfo().setOriginKey(originKey.build());
+
+    // TODO: Extract provider init callback
+    // Requires StarlarkFunctionInfoExtractor to be made public in starlarkdocextract
+    // if (provider.getInit() instanceof StarlarkFunction) { ... }
+    // See CONSTELLATE_INTEGRATION_ANALYSIS.md Phase 3 for details
+
+    // TODO: Extract provider schema field documentation
+    // Schema information is already captured during fake API extraction in FakeProviderApi
+    // Additional enhancement could extract field docs from provider.getSchema()
+
     logger.atFine().log("Enhanced provider %s with OriginKey: %s", name, originKey.getName());
   }
 
