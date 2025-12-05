@@ -42,6 +42,7 @@ DIST_ARCHIVE_REPOS = [
     "platforms",
     "protobuf+",
     "protoc-gen-validate+",
+    "re2+",
     "rules_apple+",
     "rules_cc+",
     "rules_fuzzing+",
