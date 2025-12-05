@@ -17,6 +17,7 @@ package build.stack.devtools.build.constellate.rendering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
@@ -47,27 +48,13 @@ public final class FunctionUtil {
    *                     the function may have been renamed in the target Starlark
    *                     file's scope)
    * @param fn           the function object
-   * @throws build.stack.devtools.build.constellate.rendering.DocstringParseException if
-   *                                                                                  the
-   *                                                                                  function's
-   *                                                                                  docstring
-   *                                                                                  is
-   *                                                                                  malformed
+   * @throws ExtractionException if the function's docstring is malformed
    */
   public static StarlarkFunctionInfo fromNameAndFunction(String functionName, StarlarkFunction fn)
-      throws DocstringParseException {
-    try {
-      // Use the modern starlarkdocextract extractor which includes OriginKey extraction
-      return StarlarkFunctionInfoExtractor.fromNameAndFunction(
-          functionName, fn, LabelRenderer.DEFAULT);
-    } catch (com.google.devtools.build.lib.starlarkdocextract.ExtractionException e) {
-      // Convert to the expected exception type
-      // We can't reconstruct the exact DocstringParseError list, so wrap the message
-      throw new DocstringParseException(
-          functionName,
-          fn.getLocation(),
-          ImmutableList.of());  // Empty list since we don't have the parse errors
-    }
+      throws ExtractionException {
+    // Use the modern starlarkdocextract extractor which includes OriginKey extraction
+    return StarlarkFunctionInfoExtractor.fromNameAndFunction(
+        functionName, fn, LabelRenderer.DEFAULT);
   }
 
   /** Constructor to be used for normal parameters. */

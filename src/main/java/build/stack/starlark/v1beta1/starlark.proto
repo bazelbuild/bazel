@@ -56,6 +56,8 @@ message Module {
     repeated ModuleExtension module_extension = 9;
     // macros with locations
     repeated Macro macro = 10;
+    // extraction errors (e.g., malformed docstrings for individual symbols)
+    repeated string error = 11;
 }
 
 message LoadSymbol {

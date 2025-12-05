@@ -36,6 +36,7 @@ import build.stack.devtools.build.constellate.rendering.RuleInfoWrapper;
 import build.stack.starlark.v1beta1.StarlarkProtos;
 // import build.stack.starlark.v1beta1.StarlarkProtos.Binding;
 
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
@@ -72,6 +73,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -556,7 +558,7 @@ public class Constellate {
               }
               macroInfo.setDocString(docString);
             }
-          } catch (DocstringParseException dspex) {
+          } catch (ExtractionException dspex) {
             // best-effort, ignore error
           }
 
@@ -602,7 +604,7 @@ public class Constellate {
               }
               ruleInfo.setDocString(docString);
             }
-          } catch (DocstringParseException dspex) {
+          } catch (ExtractionException dspex) {
             // best-effort, ignore error
           }
 
@@ -1016,6 +1018,12 @@ public class Constellate {
     env.put("proto", new ProtoModule());
     env.put("depset", new StarlarkCallable() {
       @Override
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+        // Accept any arguments, return empty Depset.
+        return Depset.of(Object.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+      }
+
+      @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
         // Accept any arguments, return empty Depset.
         return Depset.of(Object.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -1032,6 +1040,17 @@ public class Constellate {
     // implementation of 'select' in lib.packages, and so the hacks multiply.)
     env.put("select", new StarlarkCallable() {
       @Override
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException {
+        // Accept dict as first positional argument, return first value
+        if (args.size() > 0) {
+          for (Map.Entry<?, ?> e : ((Dict<?, ?>) args.get(0)).entrySet()) {
+            return e.getValue();
+          }
+        }
+        throw Starlark.errorf("select: empty dict");
+      }
+
+      @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) throws EvalException {
         for (Map.Entry<?, ?> e : ((Dict<?, ?>) positional[0]).entrySet()) {
           return e.getValue();
@@ -1047,6 +1066,13 @@ public class Constellate {
 
     // Override fail() to log instead of throwing an exception
     env.put("fail", new StarlarkCallable() {
+      @Override
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException {
+        String message = args.size() > 0 ? Starlark.str(args.get(0), thread.getSemantics()) : "fail() called";
+        logger.atFine().log("Starlark fail() called at %s: %s", thread.getCallerLocation(), message);
+        return Starlark.NONE;
+      }
+
       @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) throws EvalException {
         String message = positional.length > 0 ? Starlark.str(positional[0], thread.getSemantics()) : "fail() called";

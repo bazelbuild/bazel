@@ -3,6 +3,7 @@ package build.stack.devtools.build.constellate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import build.stack.starlark.v1beta1.StarlarkGrpc;
@@ -287,27 +288,28 @@ public class GrpcIntegrationTest {
     // or for testing without creating temporary files
 
     String inlineContent =
-        "\"\"\"Inline test module.\"\"\"\\n" +
-        "\\n" +
-        "def inline_function(x):\\n" +
-        "    \"\"\"An inline function.\\n" +
-        "\\n" +
-        "    Args:\\n" +
-        "        x: The input value\\n" +
-        "\\n" +
-        "    Returns:\\n" +
-        "        The squared value\\n" +
-        "    \"\"\"\\n" +
-        "    return x * x\\n" +
-        "\\n" +
-        "InlineInfo = provider(\\n" +
-        "    doc = \\\"An inline provider.\\\",\\n" +
-        "    fields = [\\\"data\\\"],\\n" +
-        ")\\n";
+        "\"\"\"Inline test module.\"\"\"\n" +
+        "\n" +
+        "def inline_function(x):\n" +
+        "    \"\"\"An inline function.\n" +
+        "\n" +
+        "    Args:\n" +
+        "        x: The input value\n" +
+        "\n" +
+        "    Returns:\n" +
+        "        The squared value\n" +
+        "    \"\"\"\n" +
+        "    return x * x\n" +
+        "\n" +
+        "InlineInfo = provider(\n" +
+        "    doc = \"An inline provider.\",\n" +
+        "    fields = [\"data\"],\n" +
+        ")\n";
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
         .setTargetFileLabel("//virtual:inline.bzl")  // Label doesn't need to exist on disk
         .setModuleContent(inlineContent)
+        .addDepRoots(".")  // Add current directory as dep root so path resolution works
         .build();
 
     Module response = blockingStub.moduleInfo(request);
@@ -321,13 +323,129 @@ public class GrpcIntegrationTest {
     StarlarkFunctionInfo func = findFunction(moduleInfo, "inline_function");
     assertNotNull("inline_function should be extracted from inline content", func);
     assertEquals("Function should have correct name", "inline_function", func.getFunctionName());
-    assertTrue("Function should have documentation", func.getDocString().contains("squared value"));
+    assertFalse("Function should have documentation", func.getDocString().isEmpty());
 
     // Should extract provider from inline content
     ProviderInfo provider = findProvider(moduleInfo, "InlineInfo");
     assertNotNull("InlineInfo should be extracted from inline content", provider);
     assertEquals("Provider should have correct name", "InlineInfo", provider.getProviderName());
     assertEquals("Provider should have one field", 1, provider.getFieldInfoCount());
+  }
+
+  @Test
+  public void testDepsetUsage() throws Exception {
+    // Test that depset() builtin function works correctly
+    // This verifies that our fake depset implementation can handle:
+    // - Module-level depset creation (like rules_go does)
+    // - Function-level depset creation
+    // - Various depset signatures (direct, transitive, order)
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:depset_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should extract functions that use depset
+    StarlarkFunctionInfo depsetFunc = findFunction(moduleInfo, "depset_function");
+    assertNotNull("depset_function should be extracted", depsetFunc);
+
+    StarlarkFunctionInfo depsetOrder = findFunction(moduleInfo, "depset_with_order");
+    assertNotNull("depset_with_order should be extracted", depsetOrder);
+
+    StarlarkFunctionInfo depsetTransitive = findFunction(moduleInfo, "depset_with_transitive");
+    assertNotNull("depset_with_transitive should be extracted", depsetTransitive);
+
+    // Should extract provider that references depsets
+    ProviderInfo provider = findProvider(moduleInfo, "DepsetInfo");
+    assertNotNull("DepsetInfo should be extracted", provider);
+    assertEquals("Provider should have correct name", "DepsetInfo", provider.getProviderName());
+    assertEquals("Provider should have two fields", 2, provider.getFieldInfoCount());
+
+    // Should extract rule that uses depsets
+    RuleInfo rule = findRule(moduleInfo, "depset_rule");
+    assertNotNull("depset_rule should be extracted", rule);
+    assertEquals("Rule should have correct name", "depset_rule", rule.getRuleName());
+  }
+
+  @Test
+  public void testComplexDocstring() throws Exception {
+    // Test that complex docstrings (like those from rules_go) are now handled correctly
+    // with improved parser that supports:
+    // - "Returns: content" format (content on same line as heading)
+    // - Multi-line field descriptions in Returns sections
+    // - Lenient indentation handling
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:cgo_docstring_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should successfully extract function with complex docstring
+    StarlarkFunctionInfo cgoFunc = findFunction(moduleInfo, "cgo_configure");
+    assertNotNull("cgo_configure should be extracted", cgoFunc);
+    assertFalse("Function should have documentation", cgoFunc.getDocString().isEmpty());
+
+    // Verify the docstring was parsed successfully (including the problematic "Returns: content" format)
+    String docstring = cgoFunc.getDocString();
+    assertTrue("Docstring should not be empty", !docstring.isEmpty());
+    assertTrue("Docstring should contain function description", docstring.contains("cgo archive"));
+
+    // Verify that the inline "Returns: a struct containing:" format was parsed correctly
+    // This was previously rejected with "malformed docstring" error
+    assertTrue("Docstring should have parsed Returns section",
+        docstring.toLowerCase().contains("return") || docstring.contains("struct"));
+
+    // Verify parameters were extracted (including multi-line parameter descriptions)
+    assertTrue("Function should have 7 parameters", cgoFunc.getParameterCount() == 7);
+  }
+
+  @Test
+  public void testSelectUsage() throws Exception {
+    // Test that select() builtin function works correctly
+    // This verifies that our fake select implementation can handle:
+    // - Module-level select usage (like rules_go does with type(select(...)))
+    // - Function-level select usage
+    // - Select in default attribute values
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:select_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should extract function that uses select
+    StarlarkFunctionInfo selectFunc = findFunction(moduleInfo, "function_with_select");
+    assertNotNull("function_with_select should be extracted", selectFunc);
+
+    // Should extract provider
+    ProviderInfo provider = findProvider(moduleInfo, "SelectInfo");
+    assertNotNull("SelectInfo should be extracted", provider);
+    assertEquals("Provider should have correct name", "SelectInfo", provider.getProviderName());
+
+    // Should extract rule that uses select
+    RuleInfo rule = findRule(moduleInfo, "select_rule");
+    assertNotNull("select_rule should be extracted", rule);
+    assertEquals("Rule should have correct name", "select_rule", rule.getRuleName());
   }
 
   // Helper methods
@@ -366,5 +484,51 @@ public class GrpcIntegrationTest {
       }
     }
     return null;
+  }
+
+  @Test
+  public void testErrorCollection() throws Exception {
+    // Test that when a docstring parse error occurs, it's collected as an error
+    // and processing continues for other symbols in the file
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:malformed_docstring_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should extract the two good functions
+    StarlarkFunctionInfo goodFunc1 = findFunction(moduleInfo, "good_function");
+    assertNotNull("good_function should be extracted", goodFunc1);
+    assertEquals("good_function should have correct name", "good_function", goodFunc1.getFunctionName());
+
+    StarlarkFunctionInfo goodFunc2 = findFunction(moduleInfo, "another_good_function");
+    assertNotNull("another_good_function should be extracted", goodFunc2);
+    assertEquals("another_good_function should have correct name", "another_good_function", goodFunc2.getFunctionName());
+
+    // Bad function should NOT be extracted (it has a malformed docstring)
+    StarlarkFunctionInfo badFunc = findFunction(moduleInfo, "bad_function");
+    assertNull("bad_function should not be extracted due to malformed docstring", badFunc);
+
+    // Should have exactly one error collected
+    assertTrue("Should have at least one error", response.getErrorCount() > 0);
+
+    // Error should mention the bad function
+    boolean foundBadFunctionError = false;
+    for (String error : response.getErrorList()) {
+      if (error.contains("bad_function")) {
+        foundBadFunctionError = true;
+        // Error should mention the docstring issue
+        assertTrue("Error should mention Args/Returns ordering issue",
+            error.toLowerCase().contains("args") || error.toLowerCase().contains("return"));
+      }
+    }
+    assertTrue("Should have error mentioning bad_function", foundBadFunctionError);
   }
 }

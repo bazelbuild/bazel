@@ -14,6 +14,8 @@
 
 package build.stack.devtools.build.constellate.rendering;
 
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
@@ -24,17 +26,22 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Rule
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.StarlarkFunction;
 
 /** Produces output in proto form. */
 public class ProtoRenderer {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ModuleInfo.Builder moduleInfo;
+  private final List<String> errors;
 
   public ProtoRenderer() {
     this.moduleInfo = ModuleInfo.newBuilder();
+    this.errors = new ArrayList<>();
   }
 
   /** Appends {@link RuleInfo} protos to a {@link ModuleInfo.Builder}. */
@@ -55,12 +62,22 @@ public class ProtoRenderer {
 
   /**
    * Appends {@link StarlarkFunctionInfo} protos to a {@link ModuleInfo.Builder}.
+   * If a function's docstring is malformed, collects the error and continues processing other functions.
    */
-  public ProtoRenderer appendStarlarkFunctionInfos(Map<String, StarlarkFunction> funcInfosMap)
-      throws DocstringParseException {
+  public ProtoRenderer appendStarlarkFunctionInfos(Map<String, StarlarkFunction> funcInfosMap) {
     for (Map.Entry<String, StarlarkFunction> entry : funcInfosMap.entrySet()) {
-      StarlarkFunctionInfo funcInfo = FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
-      moduleInfo.addFuncInfo(funcInfo);
+      try {
+        StarlarkFunctionInfo funcInfo = FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
+        moduleInfo.addFuncInfo(funcInfo);
+      } catch (ExtractionException e) {
+        // Don't let one bad docstring prevent extracting docs for other functions in the file
+        String errorMsg = String.format(
+            "Skipping function '%s': %s",
+            entry.getKey(),
+            e.getMessage());
+        logger.atWarning().log("%s", errorMsg);
+        errors.add(errorMsg);
+      }
     }
     return this;
   }
@@ -111,5 +128,10 @@ public class ProtoRenderer {
 
   public ModuleInfo.Builder getModuleInfo() {
     return moduleInfo;
+  }
+
+  /** Returns the list of errors collected during extraction. */
+  public List<String> getErrors() {
+    return errors;
   }
 }

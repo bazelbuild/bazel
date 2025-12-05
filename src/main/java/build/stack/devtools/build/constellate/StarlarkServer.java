@@ -10,6 +10,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import build.stack.devtools.build.constellate.rendering.DocstringParseException;
 
@@ -118,7 +119,7 @@ final class StarlarkServer extends StarlarkImplBase {
     }
 
     private void evalModuleInfo(ModuleInfoRequest request, Module.Builder module) throws InterruptedException,
-            IOException, LabelSyntaxException, EvalException, StarlarkEvaluationException, DocstringParseException {
+            IOException, LabelSyntaxException, EvalException, StarlarkEvaluationException {
 
         String targetFileLabelString;
         String outputPath;
@@ -163,9 +164,31 @@ final class StarlarkServer extends StarlarkImplBase {
             semantics = semantics.toBuilder()
                     .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, request.getBuiltinsBzlPath()).build();
         }
+
+        // Choose file accessor based on whether module_content is provided
+        StarlarkFileAccessor fileAccessor = new FilesystemFileAccessor();
+        if (!Strings.isNullOrEmpty(request.getModuleContent())) {
+            // Use HybridFileAccessor to provide in-memory content for target file
+            // We need to compute the file path that Constellate will use to resolve the label
+            // The path is derived from the label's path fragment
+            String workspaceRoot = targetFileLabel.getWorkspaceRootForStarlarkOnly(semantics);
+            String targetFilePath;
+            if (workspaceRoot.isEmpty()) {
+                // Local workspace file: //pkg:file.bzl -> pkg/file.bzl
+                targetFilePath = targetFileLabel.toPathFragment().toString();
+            } else {
+                // External workspace file: @repo//pkg:file.bzl -> external/repo/pkg/file.bzl
+                targetFilePath = workspaceRoot + "/" + targetFileLabel.toPathFragment().toString();
+            }
+            fileAccessor = new HybridFileAccessor(
+                targetFilePath,
+                request.getModuleContent(),
+                fileAccessor
+            );
+        }
+
         try {
-            Constellate constellate = new Constellate(semantics, new FilesystemFileAccessor(),
-                    depRoots);
+            Constellate constellate = new Constellate(semantics, fileAccessor, depRoots);
 
             Path labelPath = constellate.pathOfLabel(targetFileLabel);
             // FIXME(labelPath will die on relative labels!)
@@ -215,16 +238,24 @@ final class StarlarkServer extends StarlarkImplBase {
                 .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
                 .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
-        module.setInfo(new ProtoRenderer().appendRuleInfos(filteredRuleInfos.values())
+        ProtoRenderer renderer = new ProtoRenderer();
+        renderer.appendRuleInfos(filteredRuleInfos.values())
                 .appendProviderInfos(filteredProviderInfos.values())
                 .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
                 .appendAspectInfos(filteredAspectInfos.values())
                 .appendRepositoryRuleInfos(filteredRepositoryRuleInfos.values())
                 .appendModuleExtensionInfos(filteredModuleExtensionInfos.values())
                 .appendMacroInfos(filteredMacroInfos.values())
-                .setModuleDocstring(moduleDocMap.build().get(targetFileLabel)).getModuleInfo().build());
+                .setModuleDocstring(moduleDocMap.build().get(targetFileLabel));
+
+        module.setInfo(renderer.getModuleInfo().build());
         module.setCategory(ModuleCategory.LOAD);
         module.setName(request.getTargetFileLabel());
+
+        // Add any extraction errors to the module
+        for (String error : renderer.getErrors()) {
+            module.addError(error);
+        }
 
         // Populate wrapper messages with location information
         populateWrapperMessages(module);

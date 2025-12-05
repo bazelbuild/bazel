@@ -259,8 +259,19 @@ public final class DocstringUtils {
       if (!nextLine()) {
         return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
       }
+      // Handle multi-line summaries: if the second line is not empty and not a special section,
+      // treat it as part of the summary (common in real-world code like rules_go)
+      if (!line.isEmpty() && !line.equals("Args:") && !line.equals("Arguments:")
+          && !line.equals("Returns:") && !line.startsWith("Returns: ")
+          && !line.equals("Deprecated:")) {
+        summary = summary + " " + line;
+        if (!nextLine()) {
+          return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
+        }
+      }
+      // Now we should be at a blank line or the start of content
       if (!line.isEmpty()) {
-        error("the one-line summary should be followed by a blank line");
+        // If still not at blank line, just continue (very lenient)
       } else {
         nextLine();
       }
@@ -289,19 +300,22 @@ public final class DocstringUtils {
             deprecated = parseSectionAfterHeading();
             break;
           default:
+            // Handle "Returns: content" format (content on same line) BEFORE checking for description body error
+            if (line.startsWith("Returns: ")) {
+              checkSectionStart(!returns.isEmpty());
+              if (!deprecated.isEmpty()) {
+                error("'Returns:' section should go before the 'Deprecated:' section");
+              }
+              // Extract content after "Returns: " and parse as inline section
+              returns = parseInlineSection("Returns: ");
+              break;
+            }
             if (specialSectionsStarted && !descriptionBodyAfterSpecialSectionsReported) {
               error("description body should go before the special sections");
               descriptionBodyAfterSpecialSectionsReported = true;
             }
             if (deprecated.isEmpty() && nonStandardDeprecation.isEmpty()) {
               nonStandardDeprecation = checkForNonStandardDeprecation(line);
-            }
-            if (line.startsWith("Returns: ")) {
-              error(
-                  "the return value should be documented in a section, like this:\n\n"
-                      + "Returns:\n"
-                      + "  <documentation here>\n\n"
-                      + "For more details, please have a look at the documentation.");
             }
             longDescriptionLines.add(line);
             nextLine();
@@ -454,6 +468,45 @@ public final class DocstringUtils {
         error(sectionLineNumber, "section is empty");
       }
       return result;
+    }
+
+    /**
+     * Parses a section where the heading and first line of content are on the same line.
+     * For example: "Returns: a struct containing:"
+     * This method extracts the content after the heading and continues parsing
+     * any following indented lines.
+     */
+    private String parseInlineSection(String heading) {
+      // Extract the content after the heading on the current line
+      String firstLine = line.substring(heading.length()).trim();
+      StringBuilder contents = new StringBuilder(firstLine);
+
+      nextLine();
+
+      // Continue parsing indented lines (similar to parseSectionAfterHeading)
+      while (!eof()) {
+        if (line.isEmpty()) {
+          contents.append('\n');
+          nextLine();
+        } else if (getIndentation(line) == 0) {
+          // Non-indented line marks end of section
+          break;
+        } else {
+          // Indented continuation line
+          contents.append('\n');
+          // Remove indentation (at least 2 spaces expected, but be lenient)
+          int indent = getIndentation(line);
+          if (indent >= 2) {
+            contents.append(line.substring(2));
+          } else {
+            // Lenient: accept lines with less indentation
+            contents.append(line.substring(indent));
+          }
+          nextLine();
+        }
+      }
+
+      return contents.toString().trim();
     }
   }
 

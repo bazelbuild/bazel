@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:apache_velocity",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
