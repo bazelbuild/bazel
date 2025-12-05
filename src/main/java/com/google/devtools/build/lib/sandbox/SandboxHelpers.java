@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.FILE;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 import static java.util.Objects.requireNonNull;
 
@@ -673,8 +674,17 @@ public final class SandboxHelpers {
                 inputSymlinks.put(
                     pathFragment,
                     execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
-            default ->
+            default -> {
+              if (metadata.getResolvedPath() != null) {
+                // The input is a symlink that resolves to a regular file. For sandboxing
+                // implementations, that should be handled like a declared symlink.
+                inputSymlinks.put(
+                    pathFragment,
+                    execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
+              } else {
                 inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+              }
+            }
           }
         }
       }
