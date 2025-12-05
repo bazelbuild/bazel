@@ -15,6 +15,7 @@
 
 load("//:distdir_deps.bzl", "DEPS_BY_NAME")
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
+load("//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
 
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -91,6 +92,15 @@ def dist_http_archive(name, **kwargs):
         kwargs["patches"] = info.get("patches")
     if "strip_prefix" not in kwargs:
         kwargs["strip_prefix"] = info.get("strip_prefix")
+
+    name_without_remotejdk_prefix = name.removeprefix("remotejdk")
+    if name_without_remotejdk_prefix != name:
+        kwargs["build_file_content"] = JDK_BUILD_TEMPLATE.replace(
+            "___RUNTIME_VERSION___",
+            name_without_remotejdk_prefix.split("_", 1)[0],
+        )
+        kwargs.pop("build_file", default=None)
+
     http_archive(
         name = name,
         sha256 = info["sha256"],
