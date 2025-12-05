@@ -34,6 +34,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.lib.json.Json;
+import net.starlark.java.lib.toml.TomlParser;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -253,6 +254,7 @@ public final class ScriptTest {
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
         predeclared.put("json", Json.INSTANCE).put("_utf8_byte_strings", utf8ByteStrings);
+        predeclared.put("toml", TomlParser.INSTANCE);
 
         StarlarkSemantics.Builder semanticsBuilder = StarlarkSemantics.builder();
         if (utf8ByteStrings) {
