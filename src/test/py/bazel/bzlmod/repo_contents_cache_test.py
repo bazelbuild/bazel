@@ -32,7 +32,7 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.ScratchFile(
         '.bazelrc',
         [
-            'build --verbose_failures',
+            'common --verbose_failures',
             'common --repo_contents_cache=%s' % self.repo_contents_cache,
         ],
     )

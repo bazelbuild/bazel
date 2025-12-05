@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -60,12 +61,6 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatches(ImmutableList<Label> patches) {
-    attrBuilder.put("patches", StarlarkList.immutableCopyOf(patches));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
     attrBuilder.put("remote_patches", Dict.immutableCopyOf(remotePatches));
     return this;
@@ -85,6 +80,12 @@ public class ArchiveRepoSpecBuilder {
     attrBuilder.put(
         "remote_module_file_urls", StarlarkList.immutableCopyOf(remoteModuleFile.urls()));
     attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setPurlFragments(Map<String, String> purlFragments) {
+    attrBuilder.put("purl_fragments", Dict.immutableCopyOf(purlFragments));
     return this;
   }
 

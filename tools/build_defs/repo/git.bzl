@@ -159,6 +159,10 @@ _common_attrs = {
         default = "",
         doc = "For internal use only.",
     ),
+    "purl_fragments": attr.string_dict(
+        default = {},
+        doc = "For internal use only.",
+    ),
     "build_file": attr.label(
         allow_single_file = True,
         doc =

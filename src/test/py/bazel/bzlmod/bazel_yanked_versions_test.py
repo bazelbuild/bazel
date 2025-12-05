@@ -64,21 +64,21 @@ class BazelYankedVersionsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --registry=' + self.main_registry.getURL(),
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'build --registry=https://bcr.bazel.build',
-            'build --verbose_failures',
+            'common --registry=https://bcr.bazel.build',
+            'common --verbose_failures',
             # Set an explicit Java language version
-            'build --java_language_version=8',
-            'build --tool_java_language_version=8',
-            'build --lockfile_mode=update',
+            'common --java_language_version=8',
+            'common --tool_java_language_version=8',
+            'common --lockfile_mode=update',
         ]
         + (
             [
                 # Disable yanked version check so we are not affected BCR
                 # changes.
-                'build --allow_yanked_versions=all',
+                'common --allow_yanked_versions=all',
             ]
             if allow_yanked_versions
             else []

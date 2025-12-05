@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkList;
 
@@ -78,6 +79,12 @@ public class GitRepoSpecBuilder {
       ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
     setAttr("remote_module_file_urls", remoteModuleFile.urls());
     setAttr("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPurlFragments(Map<String, String> purlFragments) {
+    attrBuilder.put("purl_fragments", Dict.immutableCopyOf(purlFragments));
     return this;
   }
 

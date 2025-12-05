@@ -168,7 +168,7 @@ def parse_bazel_module_repos(ctx, lockfile_path):
     return {repo: None for repo in repos}.keys()
 
 # Keep in sync with ModuleKey.
-_WELL_KNOWN_MODULES = ["bazel_tools", "platforms"]
+_WELL_KNOWN_MODULES = ["bazel_tools", "package_metadata", "platforms"]
 
 def _module_repo_name(module):
     module_name = module["name"]

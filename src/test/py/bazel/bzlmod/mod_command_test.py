@@ -43,14 +43,14 @@ class ModCommandTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'mod --registry=' + self.main_registry.getURL(),
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'mod --registry=https://bcr.bazel.build',
+            'common --registry=https://bcr.bazel.build',
             # Disable yanked version check so we are not affected BCR changes.
-            'mod --allow_yanked_versions=all',
+            'common --allow_yanked_versions=all',
             # Make sure Bazel CI tests pass in all environments
-            'mod --charset=ascii',
+            'common --charset=ascii',
         ],
     )
 
@@ -525,12 +525,12 @@ class ModCommandTest(test_base.TestBase):
         r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
     )
     self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
-    self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
-    self.assertRegex(stdout.pop(35), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(35), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(39), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(16), r'^  path = ".*",$')
+    self.assertRegex(stdout.pop(36), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(36), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(40), r'^  remote_module_file_urls = \[".*"\],$')
     self.assertRegex(
-        stdout.pop(39), r'^  remote_module_file_integrity = ".*",$'
+        stdout.pop(40), r'^  remote_module_file_integrity = ".*",$'
     )
     self.assertListEqual(
         stdout,
@@ -551,6 +551,7 @@ class ModCommandTest(test_base.TestBase):
             # pop(8) -- remote_module_file_urls
             # pop(8) -- remote_module_file_integrity
             '  remote_patch_strip = 0,',
+            '  purl_fragments = {"name": "bar", "version": "2.0"},',
             ')',
             '',
             '## ext@1.0:',
@@ -560,7 +561,7 @@ class ModCommandTest(test_base.TestBase):
             ),
             'local_repository(',
             '  name = "ext+",',
-            # pop(15) -- path=...
+            # pop(16) -- path=...
             ')',
             '',
             '## @my_repo3:',
@@ -584,15 +585,16 @@ class ModCommandTest(test_base.TestBase):
             ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(35) -- urls=[...]
-            # pop(35) -- integrity=...
+            # pop(36) -- urls=[...]
+            # pop(36) -- integrity=...
             '  strip_prefix = "",',
             '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            # pop(39) -- remote_module_file_urls=[...]
-            # pop(39) -- remote_module_file_integrity=...
+            # pop(40) -- remote_module_file_urls=[...]
+            # pop(40) -- remote_module_file_integrity=...
             '  remote_patch_strip = 0,',
+            '  purl_fragments = {"name": "bar", "version": "2.0"},',
             ')',
             '',
         ],

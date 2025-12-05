@@ -361,6 +361,10 @@ will be overwritten.
         default = "",
         doc = "For internal use only.",
     ),
+    "purl_fragments": attr.string_dict(
+        default = {},
+        doc = "For internal use only.",
+    ),
     "remote_patches": attr.string_dict(
         default = {},
         doc =

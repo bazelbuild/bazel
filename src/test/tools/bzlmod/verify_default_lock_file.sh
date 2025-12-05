@@ -42,6 +42,7 @@ expected_modules=(
   googletest
   jsoncpp
   nlohmann_json
+  package_metadata
   platforms
   protobuf
   pybind11_bazel
