@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.SequencedMap;
 
 /**
  * Helper class that sets up a sandbox in a more comprehensible way. Handles setting up
@@ -40,11 +40,11 @@ import java.util.Map;
 class SandboxHelper {
 
   /** Map from workdir-relative input path to optional real file path. */
-  private final Map<PathFragment, Path> inputs = new HashMap<>();
+  private final SequencedMap<PathFragment, Path> inputs = new LinkedHashMap<>();
 
-  private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
-  private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
-  private final Map<PathFragment, Path> workerFiles = new HashMap<>();
+  private final SequencedMap<VirtualActionInput, byte[]> virtualInputs = new LinkedHashMap<>();
+  private final SequencedMap<PathFragment, PathFragment> symlinks = new LinkedHashMap<>();
+  private final SequencedMap<PathFragment, Path> workerFiles = new LinkedHashMap<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
@@ -188,10 +188,7 @@ class SandboxHelper {
 
   public SandboxInputs getSandboxInputs() {
     return new SandboxInputs(
-        ImmutableSortedMap.copyOf(inputs),
-        ImmutableSortedMap.of(),
-        ImmutableSortedMap.copyOf(symlinks),
-        ImmutableMap.copyOf(virtualInputs));
+        inputs, ImmutableSortedMap.of(), symlinks, ImmutableMap.copyOf(virtualInputs));
   }
 
   public SandboxOutputs getSandboxOutputs() {
