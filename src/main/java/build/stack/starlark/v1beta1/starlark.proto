@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+// build.stack.starlark.v1 contains a protocol for representing Starlark modules
+// and services for querying them.
+package build.stack.starlark.v1beta1;
+
+import "src/main/protobuf/stardoc_output.proto";
+
+option java_package = "build.stack.starlark.v1beta1";
+option java_outer_classname = "StarlarkProtos";
+option go_package = "github.com/stackb/bezel/build/stack/starlark/v1beta1";
+
+// ModuleCategory corresponds to corresponds to
+// StarlarkDocumentationCategory.java.
+enum ModuleCategory {
+    MODULE_CATEGORY_UNKNOWN = 0;
+    CONFIGURATION_FRAGMENT = 1;
+    PROVIDER = 2;
+    BUILTIN = 3;
+    TOP_LEVEL_TYPE = 4;
+    NONE = 5;
+    CORE = 6;
+    LOAD = 7;
+}
+
+message Position {
+    int32 line = 1;
+    int32 character = 2;
+}
+
+message SymbolLocation {
+    Position start = 1;
+    Position end = 2;
+    string name = 3;
+}
+
+// The Module represents all documentation for a single Starlark file.
+message Module {
+    // the module name
+    string name = 1;
+    // the module category - corresponds to StarlarkDocumentationCategory.java.
+    ModuleCategory category = 2;
+    // the module info
+    stardoc_output.ModuleInfo info = 3;
+    // the module filename, as an absolute path
+    string filename = 4;
+    // the symbol locations
+    repeated SymbolLocation symbol_location = 5;
+    // additional global scalars
+    map<string,ValueInfo> global = 6;
+    // load statements
+    repeated LoadStmt load = 7;
+}
+
+message LoadSymbol {
+    string from = 1;
+    string to = 2;
+}
+
+message LoadStmt {
+    string label = 1;
+    repeated LoadSymbol symbol = 2;
+}
+
+message Rule {
+    stardoc_output.RuleInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Aspect {
+    stardoc_output.AspectInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Attribute {
+    stardoc_output.AttributeInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message Provider {
+    stardoc_output.ProviderInfo info = 1;
+    SymbolLocation location = 2;
+    repeated ProviderField field = 3;
+}
+
+message ProviderField {
+    stardoc_output.ProviderFieldInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message Function {
+    stardoc_output.StarlarkFunctionInfo info = 1;
+    SymbolLocation location = 2;
+    repeated FunctionParam param = 3;
+}
+
+message FunctionParam {
+    stardoc_output.FunctionParamInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message ValueInfo {
+    SymbolLocation location = 1;
+    oneof value {
+        string string = 2;
+        int64 int = 3;
+        bool bool = 4;
+        MacroFunction macro = 5;
+    };
+}
+
+message MacroFunction {
+    repeated string kwargs_receiver = 1;
+}
+
+// ModuleRequest is a request for module information.  
+message ModuleInfoRequest {
+    // target_file_label corresponds to the stardoc_binary --input argument.  Inputs are
+    // typically bazel labels pointing to .bzl files, such as those used in load
+    // statements.
+    string target_file_label = 1;
+    // workspace_name is the name of the workspace (can be empty)
+    string workspace_name = 2;
+    // rel is the relative path of the package from the current workspace.  This is 
+    // needed for interpreting relative labels like `:utils.bzl`
+    string rel = 3;
+    // --symbol
+    repeated string symbol_names = 4;
+    // dep_roots corresponds to the stardoc_binary --dep_root argument
+    repeated string dep_roots = 5;
+    // the builtins path for StarlarkSemantics
+    string builtins_bzl_path = 6;
+    // the content of the module to evaluate
+    string module_content = 7;
+    // the workspace cwd
+    string workspace_cwd = 8;
+    // the workspace output_base
+    string workspace_output_base = 9;    
+}
+
+message PingRequest { }
+
+message PingResponse { }
+
+
+// Starlark is a service that provides starlark language information.
+service Starlark {
+    // ModuleInfo services requests for ModuleInfo.
+    rpc ModuleInfo(ModuleInfoRequest) returns (Module) {}
+    // Ping allows connectivity checks
+    rpc Ping(PingRequest) returns (PingResponse) {}
+}

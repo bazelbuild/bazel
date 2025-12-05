@@ -8,6 +8,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:__subpackages__",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:__subpackages__",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:__subpackages__",
+        "//src/main/java/build/stack/devtools/build/constellate/rendering:__subpackages__",
     ],
     deps = [
         "//src/main/java/net/starlark/java/annot",

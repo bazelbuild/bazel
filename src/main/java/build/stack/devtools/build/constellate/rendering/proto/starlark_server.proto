@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package build.stack.starlark.v1beta1;
+
+import "src/main/java/build/stack/devtools/build/constellate/rendering/proto/starlark_language.proto";
+
+option java_package = "build.stack.devtools.build.constellate.rendering.proto";
+option java_outer_classname = "StarlarkServerProtos";
+option go_package = "github.com/stackb/bezel/build/stack/starlark/v1beta1";
+
+// TODO: rename to starlark_module or something.
+
+message Location {
+    string file = 1;
+    int64 line = 2;
+    int64 col = 3;
+}
+
+message LocationRef {
+    int64 id = 1;
+}
+
+message Bool {
+    LocationRef location = 1;
+}
+
+message Int {
+    LocationRef location = 1;
+}
+
+message String {
+    LocationRef location = 1;
+}
+
+message List {
+    LocationRef location = 1;
+}
+
+message Dict {
+    LocationRef location = 1;
+}
+
+message Struct {
+    LocationRef location = 1;
+}
+
+message Function {
+    LocationRef location = 1;
+}
+
+message Provider {
+    LocationRef location = 1;
+}
+
+message Aspect {
+    LocationRef location = 1;
+}
+
+message Rule {
+    LocationRef location = 1;
+}
+
+message Binding {
+    string name = 1;
+    oneof value {
+        Bool bool = 2;
+        Int int = 3;
+        String string = 4;
+        List list = 5;
+        Dict dict = 6;
+        Struct struct = 7;
+        Function function = 8;
+        Provider provider = 9;
+        Rule rule = 10;
+        Aspect aspect = 11;
+    }
+}
+
+message StarlarkModule {
+    // The fully-qualified name of the module, 
+    string name = 1;
+    // reference to the set of predeclared functions?
+    repeated Binding global = 2;
+}
+
+// ModuleCategory corresponds to corresponds to StarlarkDocumentationCategory.java.
+enum ModuleCategory {
+    MODULE_CATEGORY_UNKNOWN = 0;
+    CONFIGURATION_FRAGMENT = 1;
+    PROVIDER = 2;
+    BUILTIN = 3;
+    TOP_LEVEL_TYPE = 4;
+    NONE = 5;
+}
+  
+// The root output proto of StarlarkBazel. A single invocation of StarlarkBazel will output
+// exactly one instance of this proto, representing all documentation for
+// the input Starlark file.
+message Module {
+    // the module name
+    string name = 1;
+    // the module info
+    starlark_language.ModuleInfo info = 2;
+    // the module category - corresponds to StarlarkDocumentationCategory.java.
+    ModuleCategory category = 3;
+}
+  
+// ModuleInfoRequest is a request for module information.  
+message ModuleInfoRequest {
+    // target_file_label corresponds to the StarlarkBazel_binary --input argument.  Inputs are
+    // typically bazel labels pointing to .bzl files, such as those used in load
+    // statements.
+    string target_file_label = 1;
+    // workspace_name is the name of the workspace (can be empty)
+    string workspace_name = 2;
+    // rel is the relative path of the package from the current workspace.  This is 
+    // needed for interpreting relative labels like `:utils.bzl`
+    string rel = 3;
+    // --symbol
+    repeated string symbol_names = 4;
+    // dep_roots corresponds to the StarlarkBazel_binary --dep_root argument
+    repeated string dep_roots = 5;
+    // the builtins path for StarlarkSemantics
+    string builtins_bzl_path = 6;
+    // the content of the module to evaluate
+    string module_content = 7;
+    // the workspace cwd
+    string workspace_cwd = 8;
+    // the workspace output_base
+    string workspace_output_base = 9;
+}
+
+// ModuleInfoResponse is a response container for ModuleInfo.
+message ModuleInfoResponse {
+    // info is the resulting info of the inputs
+    starlark_language.ModuleInfo info = 1;
+    // the augmented StarlarkModule
+    StarlarkModule module = 2;
+    // locations is the list of locations encoded in the module.  Location
+    // references are indexes into this list.
+    repeated Location locations = 3;
+}
+
+// StarlarkBazel is a service that provides starlark language information for
+// the bazel dialect.
+service StarlarkBazel {
+    // ModuleInfo services requests for ModuleInfo.
+    rpc ModuleInfo(ModuleInfoRequest) returns (ModuleInfoResponse) {}
+}
