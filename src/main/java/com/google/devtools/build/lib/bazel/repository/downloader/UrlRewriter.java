@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -71,7 +68,7 @@ public class UrlRewriter {
   private final Function<URL, List<RewrittenURL>> rewriter;
 
   @VisibleForTesting
-  UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader)
+  UrlRewriter(String filePathForErrorReporting, Reader reader)
       throws UrlRewriterParseException {
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
     this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
@@ -83,16 +80,13 @@ public class UrlRewriter {
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
    * @param configPath Path to the config file to use. May be null.
-   * @param reporter Used for logging when URLs are rewritten.
    */
   public static UrlRewriter getDownloaderUrlRewriter(
-      Path workspaceRoot, @Nullable PathFragment configPath, Reporter reporter)
+      Path workspaceRoot, @Nullable PathFragment configPath)
       throws UrlRewriterParseException {
-    Consumer<String> log = str -> reporter.handle(Event.info(str));
-
     // "empty" UrlRewriter shouldn't alter auth headers
     if (configPath == null || configPath.isEmpty()) {
-      return new UrlRewriter(log, "", new StringReader(""));
+      return new UrlRewriter("", new StringReader(""));
     }
 
     // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
@@ -108,7 +102,7 @@ public class UrlRewriter {
     try (InputStream inputStream = actualConfigPath.getInputStream();
         Reader inputStreamReader = new InputStreamReader(inputStream);
         Reader reader = new BufferedReader(inputStreamReader)) {
-      return new UrlRewriter(log, configPath.getPathString(), reader);
+      return new UrlRewriter(configPath.getPathString(), reader);
     } catch (IOException e) {
       throw new UrlRewriterParseException(e.getMessage());
     }
