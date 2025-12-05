@@ -105,6 +105,7 @@ public final class Bazel {
   @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
   public static final ImmutableList<BlazeService> BAZEL_SERVICES =
       ImmutableList.of(
+          new com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
 

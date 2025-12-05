@@ -23,7 +23,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SleepPreventionModule}. */
 @RunWith(JUnit4.class)
-public final class SleepPreventionModuleTest {
+public final class PlatformNativeDepsServiceImplTest {
 
   private static boolean haveSleepPreventionSupport() throws Exception {
     switch (OS.getCurrent()) {
@@ -41,20 +41,21 @@ public final class SleepPreventionModuleTest {
 
   @Test
   public void testSleepPrevention() throws Exception {
+    var service = new PlatformNativeDepsServiceImpl();
     if (haveSleepPreventionSupport()) {
       // Assert standard push pop works.
-      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
+      assertThat(service.pushDisableSleep()).isEqualTo(0);
+      assertThat(service.popDisableSleep()).isEqualTo(0);
 
       // Assert that nested push pop works, and that re-enabling after disabling (above)
       // works.
-      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
-      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
+      assertThat(service.pushDisableSleep()).isEqualTo(0);
+      assertThat(service.pushDisableSleep()).isEqualTo(0);
+      assertThat(service.popDisableSleep()).isEqualTo(0);
+      assertThat(service.popDisableSleep()).isEqualTo(0);
     } else {
-      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(-1);
-      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(-1);
+      assertThat(service.pushDisableSleep()).isEqualTo(-1);
+      assertThat(service.popDisableSleep()).isEqualTo(-1);
     }
   }
 }

@@ -217,8 +217,7 @@ static JavaVM *GetJavaVM(JNIEnv *env) {
   return java_vm;
 }
 
-static void PerformIntegerValueCallback(jobject object, const char *callback,
-                                        int value) {
+static void PerformIntegerValueCallback(jobject intConsumerObject, int value) {
   JavaVM *java_vm = GetJavaVM(nullptr);
   JNIEnv *java_env;
   int status = java_vm->GetEnv((void **)&java_env, JNI_VERSION_1_8);
@@ -232,11 +231,12 @@ static void PerformIntegerValueCallback(jobject object, const char *callback,
     BAZEL_CHECK_EQ(java_vm->AttachCurrentThread((void **)&java_env, nullptr),
                    0);
   }
-  jclass clazz = java_env->GetObjectClass(object);
+  jclass clazz = java_env->GetObjectClass(intConsumerObject);
   BAZEL_CHECK_NE(clazz, nullptr);
-  jmethodID method_id = java_env->GetMethodID(clazz, callback, "(I)V");
+  // Java: IntConsumer#accept(int)
+  jmethodID method_id = java_env->GetMethodID(clazz, "accept", "(I)V");
   BAZEL_CHECK_NE(method_id, nullptr);
-  java_env->CallVoidMethod(object, method_id, value);
+  java_env->CallVoidMethod(intConsumerObject, method_id, value);
 
   if (attach_current_thread) {
     BAZEL_CHECK_EQ(java_vm->DetachCurrentThread(), JNI_OK);
@@ -1044,307 +1044,297 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
 }
 
 /*
- * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
- * Method:    pushDisableSleep
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    pushDisableSleepNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_pushDisableSleep(
-    JNIEnv *, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_pushDisableSleepNative(
+    JNIEnv*, jclass) {
   return portable_push_disable_sleep();
 }
 
 /*
- * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
- * Method:    popDisableSleep
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    popDisableSleepNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_popDisableSleep(
-    JNIEnv *, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_popDisableSleepNative(
+    JNIEnv*, jclass) {
   return portable_pop_disable_sleep();
 }
 
-jobject g_suspend_module;
+jobject g_suspend_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemSuspensionModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerSuspensionNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_suspend_module != nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Singleton SystemSuspensionModule already registered");
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerSuspensionNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_suspend_callback != nullptr) {
+    POST_ASSERTION_ERROR(
+        env, "Singleton system suspension callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemSuspensionModule");
+        env, "Unable to get javaVM registering system suspension callback");
     return;
   }
 
-  g_suspend_module = env->NewGlobalRef(local_object);
-  if (g_suspend_module == nullptr) {
+  g_suspend_callback = env->NewGlobalRef(callback);
+  if (g_suspend_callback == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for SystemSuspensionModule");
+        env, "Unable to create global ref for system suspension callback");
     return;
   }
   portable_start_suspend_monitoring();
 }
 
 void suspend_callback(SuspensionReason value) {
-  if (g_suspend_module != nullptr) {
-    PerformIntegerValueCallback(g_suspend_module, "suspendCallback", value);
+  if (g_suspend_callback != nullptr) {
+    PerformIntegerValueCallback(g_suspend_callback, value);
   }
 }
 
-jobject g_thermal_module;
+jobject g_thermal_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerThermalNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_thermal_module != nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Singleton SystemThermalModule already registered");
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerThermalNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_thermal_callback != nullptr) {
+    POST_ASSERTION_ERROR(env, "Singleton thermal callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemThermalModule");
+    POST_ASSERTION_ERROR(env,
+                         "Unable to get javaVM registering thermal callback");
     return;
   }
 
-  g_thermal_module = env->NewGlobalRef(local_object);
-  if (g_thermal_module == nullptr) {
+  g_thermal_callback = env->NewGlobalRef(callback);
+  if (g_thermal_callback == nullptr) {
     POST_ASSERTION_ERROR(env,
-                         "Unable to create global ref for SystemThermalModule");
+                         "Unable to create global ref for thermal callback");
     return;
   }
   portable_start_thermal_monitoring();
 }
 
 void thermal_callback(int value) {
-  if (g_thermal_module != nullptr) {
-    PerformIntegerValueCallback(g_thermal_module, "thermalCallback", value);
+  if (g_thermal_callback != nullptr) {
+    PerformIntegerValueCallback(g_thermal_callback, value);
   }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
- * Method:    thermalLoad
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    thermalLoadNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoad(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_thermalLoadNative(
+    JNIEnv* env, jclass) {
   return portable_thermal_load();
 }
 
-jobject g_system_load_advisory_module;
+jobject g_system_load_advisory_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerLoadAdvisoryNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_system_load_advisory_module != nullptr) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerLoadAdvisoryNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_system_load_advisory_callback != nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Singleton SystemLoadAdvisoryModule already registered");
+        env, "Singleton system load advisory callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemLoadAdvisoryModule");
+        env, "Unable to get javaVM registering system load advisory callback");
     return;
   }
 
-  g_system_load_advisory_module = env->NewGlobalRef(local_object);
-  if (g_system_load_advisory_module == nullptr) {
+  g_system_load_advisory_callback = env->NewGlobalRef(callback);
+  if (g_system_load_advisory_callback == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for SystemLoadAdvisoryModule");
+        env, "Unable to create global ref for system load advisory callback");
     return;
   }
   portable_start_system_load_advisory_monitoring();
 }
 
 void system_load_advisory_callback(int value) {
-  if (g_system_load_advisory_module != nullptr) {
-    PerformIntegerValueCallback(g_system_load_advisory_module,
-                                "systemLoadAdvisoryCallback", value);
+  if (g_system_load_advisory_callback != nullptr) {
+    PerformIntegerValueCallback(g_system_load_advisory_callback, value);
   }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
- * Method:    systemLoadAdvisory
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    systemLoadAdvisoryNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisory(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemLoadAdvisoryNative(
+    JNIEnv* env, jclass) {
   return portable_system_load_advisory();
 }
 
-jobject g_memory_pressure_module;
+jobject g_memory_pressure_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
- * Method:    registerJNI
- * Signature: ()I
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerMemoryPressureNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_memory_pressure_module != nullptr) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerMemoryPressureNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_memory_pressure_callback != nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Singleton SystemMemoryPressureModule already registered");
+        env, "Singleton memory pressure callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemMemoryPressureModule");
+        env, "Unable to get javaVM registering memory pressure callback");
     return;
   }
 
-  g_memory_pressure_module = env->NewGlobalRef(local_object);
-  if (g_memory_pressure_module == nullptr) {
+  g_memory_pressure_callback = env->NewGlobalRef(callback);
+  if (g_memory_pressure_callback == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for SystemMemoryPressureModule");
+        env, "Unable to create global ref for memory pressure callback");
     return;
   }
   portable_start_memory_pressure_monitoring();
 }
 
 void memory_pressure_callback(MemoryPressureLevel level) {
-  if (g_memory_pressure_module != nullptr) {
-    PerformIntegerValueCallback(g_memory_pressure_module,
-                                "memoryPressureCallback", level);
+  if (g_memory_pressure_callback != nullptr) {
+    PerformIntegerValueCallback(g_memory_pressure_callback, level);
   }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
- * Method:    systemMemoryPressure
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    systemMemoryPressureNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressure(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemMemoryPressureNative(
+    JNIEnv* env, jclass) {
   return portable_memory_pressure();
 }
 
-jobject g_disk_space_module;
+jobject g_disk_space_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule
- * Method:    registerJNI
- * Signature: ()I
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerDiskSpaceNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_disk_space_module != nullptr) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerDiskSpaceNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_disk_space_callback != nullptr) {
     POST_ASSERTION_ERROR(env,
-                         "Singleton SystemDiskSpaceModule already registered");
+                         "Singleton disk space callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
     POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemDiskSpaceModule");
+        env, "Unable to get javaVM registering disk space callback");
     return;
   }
 
-  g_disk_space_module = env->NewGlobalRef(local_object);
-  if (g_disk_space_module == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for SystemDiskSpaceModule");
+  g_disk_space_callback = env->NewGlobalRef(callback);
+  if (g_disk_space_callback == nullptr) {
+    POST_ASSERTION_ERROR(env,
+                         "Unable to create global ref for disk space callback");
     return;
   }
   portable_start_disk_space_monitoring();
 }
 
 void disk_space_callback(DiskSpaceLevel level) {
-  if (g_disk_space_module != nullptr) {
-    PerformIntegerValueCallback(g_disk_space_module, "diskSpaceCallback",
-                                level);
+  if (g_disk_space_callback != nullptr) {
+    PerformIntegerValueCallback(g_disk_space_callback, level);
   }
 }
 
-jobject g_cpu_speed_module;
+jobject g_cpu_speed_callback;
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
- * Method:    registerJNI
- * Signature: ()I
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    registerCPUSpeedNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
-
-  if (g_cpu_speed_module != nullptr) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerCPUSpeedNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
+  if (g_cpu_speed_callback != nullptr) {
     POST_ASSERTION_ERROR(env,
-                         "Singleton SystemCPUSpeedModule already registered");
+                         "Singleton cpu speed callback already registered");
     return;
   }
 
   JavaVM *java_vm = GetJavaVM(env);
   if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering SystemCPUSpeedModule");
+    POST_ASSERTION_ERROR(env,
+                         "Unable to get javaVM registering cpu speed callback");
     return;
   }
 
-  g_cpu_speed_module = env->NewGlobalRef(local_object);
-  if (g_cpu_speed_module == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for SystemCPUSpeedModule");
+  g_cpu_speed_callback = env->NewGlobalRef(callback);
+  if (g_cpu_speed_callback == nullptr) {
+    POST_ASSERTION_ERROR(env,
+                         "Unable to create global ref for cpu speed callback");
     return;
   }
   portable_start_cpu_speed_monitoring();
 }
 
 void cpu_speed_callback(int speed) {
-  if (g_cpu_speed_module != nullptr) {
-    PerformIntegerValueCallback(g_cpu_speed_module, "cpuSpeedCallback", speed);
+  if (g_cpu_speed_callback != nullptr) {
+    PerformIntegerValueCallback(g_cpu_speed_callback, speed);
   }
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
- * Method:    cpuSpeed
+ * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
+ * Method:    cpuSpeedNative
  * Signature: ()I
  *
  * Returns 1-100 to represent CPU speed. Returns -1 in case of error.
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeed(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_cpuSpeedNative(
+    JNIEnv* env, jclass) {
   return portable_cpu_speed();
 }
 
