@@ -377,6 +377,7 @@ package_group(
         "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
         "//src/test/java/com/google/devtools/build/lib/starlarkdocextract/...",
         "//src/main/java/build/stack/devtools/build/constellate/...",
+        "//src/test/java/build/stack/devtools/build/constellate/...",
     ],
 )
 

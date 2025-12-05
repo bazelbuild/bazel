@@ -17,10 +17,12 @@ package build.stack.devtools.build.constellate.rendering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StarlarkFunctionInfoExtractor;
 import com.google.devtools.starlark.common.DocstringUtils;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringInfo;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringParseError;
@@ -37,6 +39,9 @@ public final class FunctionUtil {
    * Create and return a {@link StarlarkFunctionInfo} object encapsulating
    * information obtained from the given function and from its parsed docstring.
    *
+   * <p>This method now uses {@link StarlarkFunctionInfoExtractor} to extract complete
+   * function information including OriginKey.
+   *
    * @param functionName the name of the function in the target scope. (Note this
    *                     is not necessarily the original exported function name;
    *                     the function may have been renamed in the target Starlark
@@ -51,35 +56,18 @@ public final class FunctionUtil {
    */
   public static StarlarkFunctionInfo fromNameAndFunction(String functionName, StarlarkFunction fn)
       throws DocstringParseException {
-    String functionDescription = "";
-    Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
-    FunctionReturnInfo retInfo = FunctionReturnInfo.getDefaultInstance();
-    FunctionDeprecationInfo deprInfo = FunctionDeprecationInfo.getDefaultInstance();
-
-    String doc = fn.getDocumentation();
-
-    if (doc != null) {
-      List<DocstringParseError> parseErrors = Lists.newArrayList();
-      DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
-      // if (!parseErrors.isEmpty()) {
-      // throw new DocstringParseException(functionName, fn.getLocation(),
-      // parseErrors);
-      // }
-      functionDescription += docstringInfo.getSummary();
-      if (!docstringInfo.getSummary().isEmpty() && !docstringInfo.getLongDescription().isEmpty()) {
-        functionDescription += "\n\n";
-      }
-      functionDescription += docstringInfo.getLongDescription();
-      for (ParameterDoc paramDoc : docstringInfo.getParameters()) {
-        paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
-      }
-      retInfo = returnInfo(docstringInfo);
-      deprInfo = deprecationInfo(docstringInfo);
+    try {
+      // Use the modern starlarkdocextract extractor which includes OriginKey extraction
+      return StarlarkFunctionInfoExtractor.fromNameAndFunction(
+          functionName, fn, LabelRenderer.DEFAULT);
+    } catch (com.google.devtools.build.lib.starlarkdocextract.ExtractionException e) {
+      // Convert to the expected exception type
+      // We can't reconstruct the exact DocstringParseError list, so wrap the message
+      throw new DocstringParseException(
+          functionName,
+          fn.getLocation(),
+          ImmutableList.of());  // Empty list since we don't have the parse errors
     }
-    List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
-
-    return StarlarkFunctionInfo.newBuilder().setFunctionName(functionName).setDocString(functionDescription)
-        .addAllParameter(paramsInfo).setReturn(retInfo).setDeprecated(deprInfo).build();
   }
 
   /** Constructor to be used for normal parameters. */

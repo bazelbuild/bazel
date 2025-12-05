@@ -15,8 +15,11 @@
 package build.stack.devtools.build.constellate.rendering;
 
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.BufferedOutputStream;
@@ -78,6 +81,30 @@ public class ProtoRenderer {
   public ProtoRenderer appendAspectInfos(Collection<AspectInfo> aspectInfos) {
     for (AspectInfo aspectInfo : aspectInfos) {
       moduleInfo.addAspectInfo(aspectInfo);
+    }
+    return this;
+  }
+
+  /** Appends {@link RepositoryRuleInfo} protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer appendRepositoryRuleInfos(Collection<RepositoryRuleInfo> repositoryRuleInfos) {
+    for (RepositoryRuleInfo repositoryRuleInfo : repositoryRuleInfos) {
+      moduleInfo.addRepositoryRuleInfo(repositoryRuleInfo);
+    }
+    return this;
+  }
+
+  /** Appends {@link ModuleExtensionInfo} protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer appendModuleExtensionInfos(Collection<ModuleExtensionInfo> moduleExtensionInfos) {
+    for (ModuleExtensionInfo moduleExtensionInfo : moduleExtensionInfos) {
+      moduleInfo.addModuleExtensionInfo(moduleExtensionInfo);
+    }
+    return this;
+  }
+
+  /** Appends {@link MacroInfo} protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer appendMacroInfos(Collection<MacroInfo> macroInfos) {
+    for (MacroInfo macroInfo : macroInfos) {
+      moduleInfo.addMacroInfo(macroInfo);
     }
     return this;
   }

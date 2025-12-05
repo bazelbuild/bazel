@@ -266,34 +266,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
     return new FakeDescriptor(AttributeType.OUTPUT_LIST, docString, mandatory, ImmutableList.of(), "");
   }
 
-  public Descriptor stringDictAttribute(
-      Boolean allowEmpty,
-      Dict<?, ?> defaultO,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
-      throws EvalException {
-    return new FakeDescriptor(
-        AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of(), defaultO);
-  }
-
-  public Descriptor stringListDictAttribute(
-      Boolean allowEmpty,
-      Dict<?, ?> defaultO,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
-      throws EvalException {
-    return new FakeDescriptor(
-        AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of(), defaultO);
-  }
-
-  public Descriptor licenseAttribute(
-      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
-    return new FakeDescriptor(
-        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
-  }
-
   @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,

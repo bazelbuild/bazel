@@ -25,6 +25,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -103,6 +104,16 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       RepositoryRuleInfo.Builder repositoryRuleInfo = RepositoryRuleInfo.newBuilder()
           .setDocString(docString)
           .addAllAttribute(attrInfos);
+
+      // Add environment variables if provided
+      if (environ != null && !Starlark.isNullOrNone(environ)) {
+        for (Object envVar : environ) {
+          if (envVar instanceof String) {
+            repositoryRuleInfo.addEnviron((String) envVar);
+          }
+        }
+      }
+
       repositoryRuleInfoList.add(new RepositoryRuleInfoWrapper(functionIdentifier, loc, repositoryRuleInfo));
     } else {
       // Fallback: store as RuleInfo for backwards compatibility
@@ -241,7 +252,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   /**
    * A fake identifier for module extension definitions.
    */
-  private static class ModuleExtensionDefinitionIdentifier implements PostAssignHookAssignableIdentifier {
+  private static class ModuleExtensionDefinitionIdentifier implements PostAssignHookAssignableIdentifier, StarlarkValue {
     private static int idCounter = 0;
     private final String name = "ModuleExtensionDefinitionIdentifier" + idCounter++;
     private String assignedName = "<unassigned>";

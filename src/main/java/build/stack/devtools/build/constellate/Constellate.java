@@ -39,6 +39,7 @@ import build.stack.starlark.v1beta1.StarlarkProtos;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
@@ -52,8 +53,11 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -74,6 +78,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.Location;
@@ -129,9 +134,6 @@ public class Constellate {
   private final StarlarkFileAccessor fileAccessor;
   // depRoots is the list of module root dirs.
   private final List<String> depRoots;
-  // workspaceName is the name if the external workspace, if defined. It
-  // inflences the 'pathOfLabel' function.
-  private final String workspaceName;
   // semantics initializes the predeclared Module semantics
   private final StarlarkSemantics semantics;
 
@@ -156,11 +158,10 @@ public class Constellate {
   private final ImmutableListMultimap.Builder<UserDefinedFunction, Collection<CallExpression>> functionCalls = ImmutableListMultimap
       .builder();
 
-  public Constellate(StarlarkSemantics semantics, StarlarkFileAccessor fileAccessor, String workspaceName,
+  public Constellate(StarlarkSemantics semantics, StarlarkFileAccessor fileAccessor,
       List<String> depRoots) {
     this.semantics = semantics;
     this.fileAccessor = fileAccessor;
-    this.workspaceName = workspaceName;
 
     if (depRoots.isEmpty()) {
       // For backwards compatibility, if no dep_roots are specified, use the current
@@ -225,6 +226,9 @@ public class Constellate {
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
       ImmutableMap.Builder<String, AspectInfo> aspectInfoMap,
+      ImmutableMap.Builder<String, RepositoryRuleInfo> repositoryRuleInfoMap,
+      ImmutableMap.Builder<String, ModuleExtensionInfo> moduleExtensionInfoMap,
+      ImmutableMap.Builder<String, MacroInfo> macroInfoMap,
       ImmutableMap.Builder<Label, String> moduleDocMap,
       StarlarkProtos.Module.Builder starlarkModule,
       ImmutableMap.Builder<Label, Map<String, Object>> globals)
@@ -252,10 +256,14 @@ public class Constellate {
 
     resolveGlobals(
         module,
+        label,
         ruleInfoMap,
         providerInfoMap,
         userDefinedFunctionMap,
         aspectInfoMap,
+        repositoryRuleInfoMap,
+        moduleExtensionInfoMap,
+        macroInfoMap,
         moduleDocMap,
         ruleInfoList,
         providerInfoList,
@@ -271,10 +279,14 @@ public class Constellate {
   }
 
   public void resolveGlobals(Module module,
+      Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
       ImmutableMap.Builder<String, AspectInfo> aspectInfoMap,
+      ImmutableMap.Builder<String, RepositoryRuleInfo> repositoryRuleInfoMap,
+      ImmutableMap.Builder<String, ModuleExtensionInfo> moduleExtensionInfoMap,
+      ImmutableMap.Builder<String, MacroInfo> macroInfoMap,
       ImmutableMap.Builder<Label, String> moduleDocMap,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
@@ -342,15 +354,21 @@ public class Constellate {
       // +++ RULES
       if (ruleFunctions.containsKey(envEntry.getValue())) {
         RuleInfoWrapper wrapper = ruleFunctions.get(envEntry.getValue());
-        RuleInfo ruleInfo = wrapper.getRuleInfo().build();
-        // Use symbol name as the rule name only if not already set in the call to
-        // rule().
-        if ("".equals(ruleInfo.getRuleName())) {
-          // We make a copy so that additional exports are not affected by setting the
-          // rule name on
-          // this builder
-          ruleInfo = ruleInfo.toBuilder().setRuleName(envEntry.getKey()).build();
+        RuleInfo.Builder ruleInfoBuilder = wrapper.getRuleInfo();
+
+        // Use symbol name as the rule name only if not already set in the call to rule().
+        if ("".equals(ruleInfoBuilder.getRuleName())) {
+          ruleInfoBuilder.setRuleName(envEntry.getKey());
         }
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        ruleInfoBuilder.setOriginKey(originKey);
+
+        RuleInfo ruleInfo = ruleInfoBuilder.build();
         Location loc = wrapper.getLocation();
         logger.atFine().log("global rule %s", ruleInfo.getRuleName());
         ruleInfoMap.put(ruleInfo.getRuleName(), ruleInfo);
@@ -365,7 +383,16 @@ public class Constellate {
       // +++ PROVIDERS
       if (providerInfos.containsKey(envEntry.getValue())) {
         ProviderInfo.Builder providerInfoBuild = providerInfos.get(envEntry.getValue()).getProviderInfo();
-        ProviderInfo providerInfo = providerInfoBuild.setProviderName(envEntry.getKey()).build();
+        providerInfoBuild.setProviderName(envEntry.getKey());
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        providerInfoBuild.setOriginKey(originKey);
+
+        ProviderInfo providerInfo = providerInfoBuild.build();
         logger.atFine().log("global provider %s", envEntry.getKey());
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
@@ -398,7 +425,16 @@ public class Constellate {
       // +++ ASPECTS
       if (aspectFunctions.containsKey(envEntry.getValue())) {
         AspectInfo.Builder aspectInfoBuild = aspectFunctions.get(envEntry.getValue()).getAspectInfo();
-        AspectInfo aspectInfo = aspectInfoBuild.setAspectName(envEntry.getKey()).build();
+        aspectInfoBuild.setAspectName(envEntry.getKey());
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        aspectInfoBuild.setOriginKey(originKey);
+
+        AspectInfo aspectInfo = aspectInfoBuild.build();
         logger.atFine().log("global aspect %s", envEntry.getKey());
         aspectInfoMap.put(envEntry.getKey(), aspectInfo);
       }
@@ -406,31 +442,76 @@ public class Constellate {
       // +++ MACROS
       if (macroFunctions.containsKey(envEntry.getValue())) {
         MacroInfoWrapper wrapper = macroFunctions.get(envEntry.getValue());
-        MacroInfo macroInfo = wrapper.getMacroInfo().setMacroName(envEntry.getKey()).build();
+        MacroInfo.Builder macroInfoBuild = wrapper.getMacroInfo();
+        macroInfoBuild.setMacroName(envEntry.getKey());
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        macroInfoBuild.setOriginKey(originKey);
+
+        MacroInfo macroInfo = macroInfoBuild.build();
+        Location loc = wrapper.getLocation();
         logger.atFine().log("global macro %s", envEntry.getKey());
-        // Note: We'll need to add a macroInfoMap parameter in the future when we have
-        // a ModuleInfo proto that includes MacroInfo. For now, we just log it.
-        // macroInfoMap.put(envEntry.getKey(), macroInfo);
+        macroInfoMap.put(envEntry.getKey(), macroInfo);
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(macroInfo.getMacroName())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
 
       // +++ REPOSITORY RULES
       if (repositoryRuleFunctions.containsKey(envEntry.getValue())) {
         RepositoryRuleInfoWrapper wrapper = repositoryRuleFunctions.get(envEntry.getValue());
-        RepositoryRuleInfo repositoryRuleInfo = wrapper.getRepositoryRuleInfo().setRuleName(envEntry.getKey()).build();
+        RepositoryRuleInfo.Builder repositoryRuleInfoBuild = wrapper.getRepositoryRuleInfo();
+        repositoryRuleInfoBuild.setRuleName(envEntry.getKey());
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        repositoryRuleInfoBuild.setOriginKey(originKey);
+
+        RepositoryRuleInfo repositoryRuleInfo = repositoryRuleInfoBuild.build();
+        Location loc = wrapper.getLocation();
         logger.atFine().log("global repository_rule %s", envEntry.getKey());
-        // Note: We'll need to add a repositoryRuleInfoMap parameter in the future when we have
-        // a ModuleInfo proto that includes RepositoryRuleInfo. For now, we just log it.
-        // repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
+        repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(repositoryRuleInfo.getRuleName())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
 
       // +++ MODULE EXTENSIONS
       if (moduleExtensionObjects.containsKey(envEntry.getValue())) {
         ModuleExtensionInfoWrapper wrapper = moduleExtensionObjects.get(envEntry.getValue());
-        ModuleExtensionInfo moduleExtensionInfo = wrapper.getModuleExtensionInfo().setExtensionName(envEntry.getKey()).build();
+        ModuleExtensionInfo.Builder moduleExtensionInfoBuild = wrapper.getModuleExtensionInfo();
+        moduleExtensionInfoBuild.setExtensionName(envEntry.getKey());
+
+        // Set OriginKey with the exported name and file label
+        OriginKey originKey = OriginKey.newBuilder()
+            .setName(envEntry.getKey())
+            .setFile(label.getCanonicalForm())
+            .build();
+        moduleExtensionInfoBuild.setOriginKey(originKey);
+
+        ModuleExtensionInfo moduleExtensionInfo = moduleExtensionInfoBuild.build();
+        Location loc = wrapper.getLocation();
         logger.atFine().log("global module_extension %s", envEntry.getKey());
-        // Note: We'll need to add a moduleExtensionInfoMap parameter in the future when we have
-        // a ModuleInfo proto that includes ModuleExtensionInfo. For now, we just log it.
-        // moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
+        moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(moduleExtensionInfo.getExtensionName())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
     }
 
@@ -821,7 +902,17 @@ public class Constellate {
     }
 
     // NOTE: a Program is the syntax tree plus identifiers resolved to bindings.
-    Module module = Module.withPredeclared(semantics, predeclaredSymbols);
+    // Create module with BazelModuleContext so that StarlarkFunctionInfoExtractor can get the label
+    BazelModuleContext moduleContext = BazelModuleContext.create(
+        BzlLoadValue.keyForBuild(label),
+        RepositoryMapping.EMPTY,
+        input.getFile(),
+        ImmutableList.of(),  // loads will be filled in later
+        new byte[0],  // bzlTransitiveDigest not needed for extraction
+        ImmutableMap.of(),  // docCommentsMap not needed for extraction
+        ImmutableList.of()  // unusedDocCommentLines not needed for extraction
+    );
+    Module module = Module.withPredeclaredAndData(semantics, predeclaredSymbols, moduleContext);
 
     // process loads
     for (String load : prog.getLoads()) {
@@ -881,7 +972,7 @@ public class Constellate {
 
     // execute
     try (Mutability mu = Mutability.create("Constellate")) {
-      StarlarkThread thread = StarlarkThread.create(mu, semantics, "constellate", null);
+      StarlarkThread thread = StarlarkThread.create(mu, semantics, "constellate", SymbolGenerator.createTransient());
       // We use the default print handler, which writes to stderr.
       thread.setLoader(imports::get);
       // Fake Bazel's "export" hack, by which provider symbols
@@ -929,14 +1020,12 @@ public class Constellate {
     // or 'external/repo' for labels like `@repo//pkg:target`.
     String workspaceRoot = label.getWorkspaceRootForStarlarkOnly(semantics);
     if (workspaceRoot.isEmpty()) {
+      // Local workspace file
       logger.atInfo().log("1 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
       return Paths.get(label.toPathFragment().toString());
     }
-    if (label.getWorkspaceName().equals(workspaceName)) {
-      logger.atInfo().log("2 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
-      return Paths.get(label.toPathFragment().toString());
-    }
-    logger.atInfo().log("3 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
+    // External workspace file
+    logger.atInfo().log("2 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
     return Paths.get(workspaceRoot, label.toPathFragment().toString());
   }
 

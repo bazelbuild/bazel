@@ -6,6 +6,7 @@ load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
 package(
     default_visibility = [
         "//src/main/java/build/stack/devtools/build/constellate:__subpackages__",
+        "//src/test/java/build/stack/devtools/build/constellate:__subpackages__",
     ],
 )
 

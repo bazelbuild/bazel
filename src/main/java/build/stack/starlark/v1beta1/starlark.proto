@@ -50,6 +50,12 @@ message Module {
     map<string,ValueInfo> global = 6;
     // load statements
     repeated LoadStmt load = 7;
+    // repository rules with locations
+    repeated RepositoryRule repository_rule = 8;
+    // module extensions with locations
+    repeated ModuleExtension module_extension = 9;
+    // macros with locations
+    repeated Macro macro = 10;
 }
 
 message LoadSymbol {
@@ -115,15 +121,40 @@ message MacroFunction {
     repeated string kwargs_receiver = 1;
 }
 
-// ModuleRequest is a request for module information.  
+message RepositoryRule {
+    stardoc_output.RepositoryRuleInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message ModuleExtension {
+    stardoc_output.ModuleExtensionInfo info = 1;
+    SymbolLocation location = 2;
+    repeated ModuleExtensionTagClass tag_class = 3;
+}
+
+message ModuleExtensionTagClass {
+    stardoc_output.ModuleExtensionTagClassInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Macro {
+    stardoc_output.MacroInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+// ModuleRequest is a request for module information.
 message ModuleInfoRequest {
     // target_file_label corresponds to the stardoc_binary --input argument.  Inputs are
     // typically bazel labels pointing to .bzl files, such as those used in load
     // statements.
     string target_file_label = 1;
-    // workspace_name is the name of the workspace (can be empty)
-    string workspace_name = 2;
-    // rel is the relative path of the package from the current workspace.  This is 
+    // Reserved field numbers for removed workspace-related fields that were never used
+    reserved 2, 8, 9;
+    reserved "workspace_name", "workspace_cwd", "workspace_output_base";
+    // rel is the relative path of the package from the current workspace.  This is
     // needed for interpreting relative labels like `:utils.bzl`
     string rel = 3;
     // --symbol
@@ -134,10 +165,6 @@ message ModuleInfoRequest {
     string builtins_bzl_path = 6;
     // the content of the module to evaluate
     string module_content = 7;
-    // the workspace cwd
-    string workspace_cwd = 8;
-    // the workspace output_base
-    string workspace_output_base = 9;    
 }
 
 message PingRequest { }

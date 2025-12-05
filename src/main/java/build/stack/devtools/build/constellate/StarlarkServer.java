@@ -14,14 +14,26 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import build.stack.devtools.build.constellate.rendering.DocstringParseException;
 
 import build.stack.starlark.v1beta1.StarlarkGrpc.StarlarkImplBase;
+import build.stack.starlark.v1beta1.StarlarkProtos.Attribute;
+import build.stack.starlark.v1beta1.StarlarkProtos.Macro;
+import build.stack.starlark.v1beta1.StarlarkProtos.ModuleExtension;
+import build.stack.starlark.v1beta1.StarlarkProtos.ModuleExtensionTagClass;
 import build.stack.starlark.v1beta1.StarlarkProtos.ModuleInfoRequest;
 import build.stack.starlark.v1beta1.StarlarkProtos.Module;
 import build.stack.starlark.v1beta1.StarlarkProtos.ModuleCategory;
 import build.stack.starlark.v1beta1.StarlarkProtos.PingRequest;
 import build.stack.starlark.v1beta1.StarlarkProtos.PingResponse;
+import build.stack.starlark.v1beta1.StarlarkProtos.RepositoryRule;
+import build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation;
 
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionTagClassInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 
@@ -148,6 +160,9 @@ final class StarlarkServer extends StarlarkImplBase {
         ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
         ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctions = ImmutableMap.builder();
         ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
+        ImmutableMap.Builder<String, RepositoryRuleInfo> repositoryRuleInfoMap = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ModuleExtensionInfo> moduleExtensionInfoMap = ImmutableMap.builder();
+        ImmutableMap.Builder<String, MacroInfo> macroInfoMap = ImmutableMap.builder();
         ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
         ImmutableMap.Builder<Label, Map<String, Object>> globals = ImmutableMap.builder();
 
@@ -157,7 +172,7 @@ final class StarlarkServer extends StarlarkImplBase {
         }
         try {
             Constellate constellate = new Constellate(semantics, new FilesystemFileAccessor(),
-                    request.getWorkspaceName(), depRoots);
+                    depRoots);
 
             Path labelPath = constellate.pathOfLabel(targetFileLabel);
             // FIXME(labelPath will die on relative labels!)
@@ -171,6 +186,9 @@ final class StarlarkServer extends StarlarkImplBase {
                     providerInfoMap,
                     userDefinedFunctions,
                     aspectInfoMap,
+                    repositoryRuleInfoMap,
+                    moduleExtensionInfoMap,
+                    macroInfoMap,
                     moduleDocMap,
                     module,
                     globals);
@@ -193,13 +211,29 @@ final class StarlarkServer extends StarlarkImplBase {
         Map<String, AspectInfo> filteredAspectInfos = aspectInfoMap.build().entrySet().stream()
                 .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
                 .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+        Map<String, RepositoryRuleInfo> filteredRepositoryRuleInfos = repositoryRuleInfoMap.build().entrySet().stream()
+                .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+                .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+        Map<String, ModuleExtensionInfo> filteredModuleExtensionInfos = moduleExtensionInfoMap.build().entrySet().stream()
+                .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+                .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+        Map<String, MacroInfo> filteredMacroInfos = macroInfoMap.build().entrySet().stream()
+                .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+                .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
         module.setInfo(new ProtoRenderer().appendRuleInfos(filteredRuleInfos.values())
                 .appendProviderInfos(filteredProviderInfos.values())
-                .appendStarlarkFunctionInfos(filteredStarlarkFunctions).appendAspectInfos(filteredAspectInfos.values())
+                .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
+                .appendAspectInfos(filteredAspectInfos.values())
+                .appendRepositoryRuleInfos(filteredRepositoryRuleInfos.values())
+                .appendModuleExtensionInfos(filteredModuleExtensionInfos.values())
+                .appendMacroInfos(filteredMacroInfos.values())
                 .setModuleDocstring(moduleDocMap.build().get(targetFileLabel)).getModuleInfo().build());
         module.setCategory(ModuleCategory.LOAD);
         module.setName(request.getTargetFileLabel());
+
+        // Populate wrapper messages with location information
+        populateWrapperMessages(module);
 
         // logger.atFine().log("rule info: %s", ruleInfoMap.build());
         // logger.atFine().log("function info: %s", userDefinedFunctions.build());
@@ -220,6 +254,108 @@ final class StarlarkServer extends StarlarkImplBase {
             return symbolNames.contains(symbolName.substring(0, symbolName.indexOf('.')));
         }
         return false;
+    }
+
+    /**
+     * Populates wrapper messages (RepositoryRule, ModuleExtension, Macro) in the Module builder
+     * by combining entity info from ModuleInfo with SymbolLocation data.
+     *
+     * <p>Wrapper messages provide location information for IDE features like go-to-definition.
+     */
+    private void populateWrapperMessages(Module.Builder module) {
+        if (!module.hasInfo()) {
+            return;
+        }
+
+        ModuleInfo moduleInfo = module.getInfo();
+
+        // Build a map of symbol names to locations for quick lookup
+        Map<String, SymbolLocation> locationMap = new java.util.HashMap<>();
+        for (SymbolLocation loc : module.getSymbolLocationList()) {
+            locationMap.put(loc.getName(), loc);
+        }
+
+        // Populate RepositoryRule wrappers
+        for (RepositoryRuleInfo repoRuleInfo : moduleInfo.getRepositoryRuleInfoList()) {
+            RepositoryRule.Builder repoRuleBuilder =
+                    RepositoryRule.newBuilder()
+                            .setInfo(repoRuleInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(repoRuleInfo.getRuleName());
+            if (location != null) {
+                repoRuleBuilder.setLocation(location);
+            }
+
+            // Add attribute wrappers
+            for (AttributeInfo attrInfo : repoRuleInfo.getAttributeList()) {
+                Attribute.Builder attrBuilder =
+                        Attribute.newBuilder()
+                                .setInfo(attrInfo);
+                // Note: Attribute locations are not currently tracked in symbol_location
+                repoRuleBuilder.addAttribute(attrBuilder.build());
+            }
+
+            module.addRepositoryRule(repoRuleBuilder.build());
+        }
+
+        // Populate ModuleExtension wrappers
+        for (ModuleExtensionInfo extensionInfo : moduleInfo.getModuleExtensionInfoList()) {
+            ModuleExtension.Builder extensionBuilder =
+                    ModuleExtension.newBuilder()
+                            .setInfo(extensionInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(extensionInfo.getExtensionName());
+            if (location != null) {
+                extensionBuilder.setLocation(location);
+            }
+
+            // Add tag class wrappers
+            for (ModuleExtensionTagClassInfo tagClassInfo : extensionInfo.getTagClassList()) {
+                ModuleExtensionTagClass.Builder tagClassBuilder =
+                        ModuleExtensionTagClass.newBuilder()
+                                .setInfo(tagClassInfo);
+
+                // Note: Tag class locations are not currently tracked separately
+                // They could be tracked as "extensionName.tagName" in the future
+
+                // Add attribute wrappers for tag class
+                for (AttributeInfo attrInfo : tagClassInfo.getAttributeList()) {
+                    Attribute.Builder attrBuilder =
+                            Attribute.newBuilder()
+                                    .setInfo(attrInfo);
+                    tagClassBuilder.addAttribute(attrBuilder.build());
+                }
+
+                extensionBuilder.addTagClass(tagClassBuilder.build());
+            }
+
+            module.addModuleExtension(extensionBuilder.build());
+        }
+
+        // Populate Macro wrappers
+        for (MacroInfo macroInfo : moduleInfo.getMacroInfoList()) {
+            Macro.Builder macroBuilder =
+                    Macro.newBuilder()
+                            .setInfo(macroInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(macroInfo.getMacroName());
+            if (location != null) {
+                macroBuilder.setLocation(location);
+            }
+
+            // Add attribute wrappers
+            for (AttributeInfo attrInfo : macroInfo.getAttributeList()) {
+                Attribute.Builder attrBuilder =
+                        Attribute.newBuilder()
+                                .setInfo(attrInfo);
+                macroBuilder.addAttribute(attrBuilder.build());
+            }
+
+            module.addMacro(macroBuilder.build());
+        }
     }
 
 }
