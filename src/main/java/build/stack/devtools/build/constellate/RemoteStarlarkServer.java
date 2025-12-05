@@ -20,7 +20,6 @@ import com.google.devtools.common.options.OptionsParser;
 import io.grpc.Server;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
-import io.grpc.protobuf.services.ProtoReflectionService;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
@@ -51,11 +50,9 @@ public final class RemoteStarlarkServer {
 
     public Server startServer() throws IOException {
         NettyServerBuilder b = NettyServerBuilder.forPort(starlarkOptions.listenPort)
-                .addService(this.starlarkServer)
-                .addService(ProtoReflectionService.newInstance());
+                .addService(this.starlarkServer);
         Server server = b.build();
         logger.atInfo().log("Starting gRPC server on port %d", starlarkOptions.listenPort);
-        logger.atInfo().log("gRPC reflection enabled - services can be discovered via grpcurl or grpc_cli");
         server.start();
 
         return server;
@@ -80,7 +77,6 @@ public final class RemoteStarlarkServer {
         RemoteStarlarkOptions remoteStarlarkOptions = parser.getOptions(RemoteStarlarkOptions.class);
 
         BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
-        semanticsOptions.incompatibleNewActionsApi = false;
 
         rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
 

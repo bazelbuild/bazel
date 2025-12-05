@@ -20,7 +20,10 @@ java_library(
         "StarlarkType.java",
         "Types.java",
     ],
-    visibility = ["//src/main/java/net/starlark/java:bazel"],
+    visibility = [
+        "//src/main/java/net/starlark/java:bazel",
+        "//src/main/java/build/stack/devtools/build/constellate:__pkg__",
+    ],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",

@@ -128,17 +128,21 @@ final class StarlarkServer extends StarlarkImplBase {
         symbolNames = ImmutableSet.copyOf(request.getSymbolNamesList());
         depRoots = ImmutableList.copyOf(request.getDepRootsList());
 
-        // TODO (pcj): if Label.parseCommandLineLabel handles absolution labels, why use
-        // anything else?
-        Label targetFileLabel = Label.parseCommandLineLabel(targetFileLabelString,
-                PathFragment.create(request.getRel()));
-        // if (!LabelValidator.isAbsolute(targetFileLabelString)) {
-        // targetFileLabel = Label.parseCommandLineLabel(targetFileLabelString,
-        // PathFragment.create(request.getRel()));
-        // } else {
-        // targetFileLabel = Label.parseAbsolute(targetFileLabelString,
-        // ImmutableMap.of());
-        // }
+        // Parse the target file label - absolute or relative to request.getRel()
+        Label targetFileLabel;
+        if (targetFileLabelString.startsWith("@") || targetFileLabelString.startsWith("//")) {
+            // Absolute label
+            targetFileLabel = Label.parseCanonical(targetFileLabelString);
+        } else {
+            // Relative label - resolve against the rel path from the request
+            String rel = request.getRel();
+            if (rel.isEmpty()) {
+                rel = "//";
+            } else if (!rel.startsWith("//")) {
+                rel = "//" + rel;
+            }
+            targetFileLabel = Label.parseCanonical(rel + ":" + targetFileLabelString);
+        }
 
         ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
         ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();

@@ -86,6 +86,7 @@ import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.types.StarlarkType;
 
 /**
  * Main entry point for the Constellate program.
@@ -142,14 +143,9 @@ public class Constellate {
   // module B is A loads B. It's not really used yet, and basically duplicates
   // imports/loaded.
   private final Digraph<Module> moduleGraph = new Digraph<Module>();
-  // moduleLoads does not make any sense at the moment. In theory this is used
-  // to aggregate all the resolved symbols that come from a Module, but the key
-  // is dumb... The value gets repeatedly overwritten.
-  private final ImmutableListMultimap.Builder<Module, LoadedSymbol> moduleLoads = ImmutableListMultimap.builder();
   // functionCalls is a data structure that captures the functions called within
   // the body of a starlark function that receive **kwargs.
-  // this is only used by collectFunctionKwargsCalls, which is itself not used
-  // yet.
+  // This is currently unused since getResolverFunction() is no longer accessible.
   private final ImmutableListMultimap.Builder<UserDefinedFunction, Collection<CallExpression>> functionCalls = ImmutableListMultimap
       .builder();
 
@@ -481,83 +477,6 @@ public class Constellate {
     }
   }
 
-  /**
-   * collectFunctionKwargsCalls walks the body of a function and records the call
-   * expressions that receive its kwargs.
-   */
-  private void collectFunctionKwargsCalls(Module module, StarlarkFunction userDefinedFunction, String assignedName) {
-    if (!userDefinedFunction.hasKwargs()) {
-      return;
-    }
-
-    NodeVisitor visitor = new NodeVisitor() {
-      Stack<Node> stack = new Stack<>();
-
-      @Override
-      public void visit(Node node) {
-        stack.push(node);
-        super.visit(node);
-        stack.pop();
-      }
-
-      @Override
-      public void visit(CallExpression node) {
-        recordStarStarArgs(node);
-        super.visit(node);
-      }
-
-      // Record f(**kwargs) calls.
-      void recordStarStarArgs(CallExpression call) {
-        for (Argument arg : call.getArguments()) {
-          if (!(arg instanceof Argument.StarStar)) {
-            continue;
-          }
-          logger.atFine().log("STAR STAR %s: %s", arg.getStartLocation(), arg.getValue());
-
-          for (int i = stack.size() - 1; i >= 0; i--) {
-            Node parent = stack.get(i);
-            if (!(parent instanceof CallExpression)) {
-              continue;
-            }
-
-            CallExpression parentCall = (CallExpression) parent;
-            if (!(parentCall.getFunction() instanceof Identifier)) {
-              continue;
-            }
-
-            UserDefinedFunction udf = new UserDefinedFunction(module, userDefinedFunction, assignedName);
-            Identifier ident = (Identifier) parentCall.getFunction();
-            Resolver.Binding binding = ident.getBinding();
-
-            // if we are looking at 'foo(**kwargs)' where foo is a GLOBAL, there's a good
-            // chance it's calling a rule.
-
-            // OK, think some more. If we could create a Digraph, what would it
-            // look like? The nodes would have (module,ident,value) where value
-            // could be one of [function,rule,provider,...]. Edges would
-            // represent relationship like CALLS.
-
-            // But hold up, all you are trying to solve for is assignments. In
-            // this simple case, the RHS of an assignment.
-
-            // if (ident.getBinding().getScope() == Resolver.Scope.GLOBAL) {
-            functionCalls.put(udf, ImmutableList.of(parentCall));
-            // logger.atFine().log(" ** !call-expression %s gets kwargs from %s",
-            // ident.getName(), assignedName);
-            // logger.atFine().log(" ** macro receiver %s binding is %s",
-            // ident.getBinding().getClass().getName());
-            break;
-            // }
-
-          }
-        }
-      }
-
-    };
-
-    visitor.visitAll(userDefinedFunction.getResolverFunction().getBody());
-  }
-
   static void resolveFunctionKwargs(
       Module module,
       String globalName,
@@ -630,24 +549,9 @@ public class Constellate {
       }
     };
 
-    checker.visitAll(userDefinedFunction.getResolverFunction().getBody());
-  }
-
-  /**
-   * A LoadedSymbol represents the Load statements in a Module.
-   */
-  static class LoadedSymbol {
-    public final Module source;
-    public final LoadStatement load;
-    public final LoadStatement.Binding binding;
-    public final Object value;
-
-    LoadedSymbol(Module source, LoadStatement load, LoadStatement.Binding binding, Object value) {
-      this.source = source;
-      this.load = load;
-      this.binding = binding;
-      this.value = value;
-    }
+    // Note: StarlarkFunction no longer exposes getResolverFunction() in modern Bazel.
+    // Macro kwargs detection is disabled until an alternative API is found.
+    // checker.visitAll(userDefinedFunction.getResolverFunction().getBody());
   }
 
   static class UserDefinedFunction {
@@ -798,7 +702,7 @@ public class Constellate {
   private Module recursiveEval(ParserInput input, Label label, List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList, List<AspectInfoWrapper> aspectInfoList,
       ImmutableMap.Builder<Label, String> moduleDocMap)
-      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
+      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException, EvalException {
 
     if (pending.contains(label)) {
       throw new StarlarkEvaluationException("cycle with " + label);
@@ -823,15 +727,24 @@ public class Constellate {
     Map<String, Object> predeclaredSymbols = new HashMap<>();
     predeclaredSymbols.putAll(initialEnv);
 
-    Resolver.Module predeclaredResolver = (name) -> {
-      if (predeclaredSymbols.containsKey(name)) {
-        return Scope.PREDECLARED;
+    Resolver.Module predeclaredResolver = new Resolver.Module() {
+      @Override
+      public Scope resolve(String name) {
+        if (predeclaredSymbols.containsKey(name)) {
+          return Scope.PREDECLARED;
+        }
+        if (!Starlark.UNIVERSE.containsKey(name)) {
+          predeclaredSymbols.put(name, FakeDeepStructure.create(name));
+          return Scope.PREDECLARED;
+        }
+        return Resolver.Scope.UNIVERSAL;
       }
-      if (!Starlark.UNIVERSE.containsKey(name)) {
-        predeclaredSymbols.put(name, FakeDeepStructure.create(name));
-        return Scope.PREDECLARED;
+
+      @Override
+      public StarlarkType resolveType(String name) throws Resolver.Module.Undefined {
+        // For now, throw Undefined - type resolution is not needed for this use case
+        throw new Resolver.Module.Undefined("Type resolution not supported");
       }
-      return Resolver.Scope.UNIVERSAL;
     };
 
     // parse & compile (and get doc)
@@ -851,9 +764,14 @@ public class Constellate {
 
     // process loads
     for (String load : prog.getLoads()) {
-      Label from = label.parseAbsoluteUnchecked(load);
-      // Label relativeLabel = label.getRelativeWithRemapping(load,
-      // ImmutableMap.of());
+      // Parse the load label - absolute labels start with @ or //, others are relative
+      Label from;
+      if (load.startsWith("@") || load.startsWith("//")) {
+        from = Label.parseCanonical(load);
+      } else {
+        // Relative load - resolve against current package
+        from = Label.parseCanonical("//" + label.getPackageName() + ":" + load);
+      }
       Path path = pathOfLabel(from);
       try {
         ParserInput loadInput = getInputSource(path.toString());
@@ -902,29 +820,19 @@ public class Constellate {
 
     // execute
     try (Mutability mu = Mutability.create("Constellate")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.create(mu, semantics, "constellate", null);
       // We use the default print handler, which writes to stderr.
       thread.setLoader(imports::get);
       // Fake Bazel's "export" hack, by which provider symbols
       // bound to global variables take on the name of the global variable.
-      thread.setPostAssignHook((name, value) -> {
-        // if ("go_test".equals(name)) {
-        // logger.atFine().log("---> post assign hook %s %s (%s)", name, value,
-        // value.getClass().getName());
-        // }
+      thread.setPostAssignHook((name, location, value) -> {
+        // Post assign hook now receives: String name, Location location, Object value
         if (value instanceof FakeProviderApi) {
           ((FakeProviderApi) value).setName(name);
         } else if (value instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
           FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier functionIdentifier = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) value;
           functionIdentifier.setAssignedName(name);
-          // logger.atFine().log("---> post function assign hook %s %s (%s)", name, value,
-          // functionIdentifier.getIdentifierFunction().getClass().getName());
-
-          // collectFunctionKwargsCalls(module, value, name);
         }
-      });
-      thread.setPostLoadHook((sourceModule, load, binding, value) -> {
-        moduleLoads.put(module, new LoadedSymbol(sourceModule, load, binding, value));
       });
       Starlark.execFileProgram(prog, module, thread);
     } catch (EvalException ex) {
@@ -937,7 +845,7 @@ public class Constellate {
     return module;
   }
 
-  public Path pathOfLabel(Label label) {
+  public Path pathOfLabel(Label label) throws EvalException {
     // workspaceRoot is either the empty string for labels like '//pkg:target'
     // or 'external/repo' for labels like `@repo//pkg:target`.
     String workspaceRoot = label.getWorkspaceRootForStarlarkOnly(semantics);
@@ -1014,7 +922,7 @@ public class Constellate {
       @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
         // Accept any arguments, return empty Depset.
-        return Depset.of(Depset.ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        return Depset.of(Object.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
       }
 
       @Override
@@ -1045,7 +953,7 @@ public class Constellate {
     env.put("fail", new StarlarkCallable() {
       @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) throws EvalException {
-        String message = positional.length > 0 ? Starlark.str(positional[0]) : "fail() called";
+        String message = positional.length > 0 ? Starlark.str(positional[0], thread.getSemantics()) : "fail() called";
         logger.atInfo().log("fail() called: %s", message);
         return Starlark.NONE;
       }
@@ -1099,7 +1007,8 @@ public class Constellate {
       case FREE:
         return null;
       case GLOBAL:
-        return fn.getGlobal(bind.getIndex());
+        // getGlobal() is now private, use the module's globals map instead
+        return fn.getModule().getGlobals().get(id.getName());
       case PREDECLARED:
         return fn.getModule().getPredeclared(id.getName());
       case UNIVERSAL:
