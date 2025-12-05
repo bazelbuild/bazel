@@ -49,7 +49,7 @@ filegroup(
     ] + glob([".bazelci/*"]) + [
         ".bazelrc",
         ".bazelversion",
-    ],
+    ] + glob([".gemini/*"]),
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
