@@ -389,6 +389,19 @@ public class BuildView {
         try (SilentCloseable c = Profiler.instance().profile("prepareForExecution")) {
           checkNotNull(executionSetupCallback).prepareForExecution();
         }
+        boolean discardAnalysisCacheAfterAnalysis =
+            viewOptions.discardAnalysisCache || !skyframeExecutor.tracksStateForIncrementality();
+        if (discardAnalysisCacheAfterAnalysis
+            && remoteAnalysisCachingDependenciesProvider.isRetrievalEnabled()) {
+          // When remote analysis value retrieval is enabled, it is possible for analysis
+          // to occur during the logical execution phase. Discarding the analysis cache
+          // can lead to crashes.
+          //
+          // TODO: b/466388360 - consider alternatives
+          eventHandler.handle(
+              Event.warn("Remote analysis caching is enabled. Not discarding the analysis cache."));
+          discardAnalysisCacheAfterAnalysis = false;
+        }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -410,8 +423,7 @@ public class BuildView {
                 checkForActionConflicts,
                 viewOptions.extraActionTopLevelOnly,
                 executors,
-                /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
-                    || !skyframeExecutor.tracksStateForIncrementality(),
+                /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
                 // not be cleared mid-build. The cache is still cleared upon command completion.
                 /* shouldClearSyscallCache= */ remoteAnalysisCachingDependenciesProvider.mode()

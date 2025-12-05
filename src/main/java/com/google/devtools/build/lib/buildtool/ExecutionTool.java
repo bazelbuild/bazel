@@ -425,8 +425,23 @@ public class ExecutionTool {
     Throwable catastrophe = null;
     boolean buildCompleted = false;
     try {
-      if (request.getViewOptions().discardAnalysisCache
-          || !skyframeExecutor.tracksStateForIncrementality()) {
+      boolean shouldDiscardAnalysisCache =
+          request.getViewOptions().discardAnalysisCache
+              || !skyframeExecutor.tracksStateForIncrementality();
+      if (shouldDiscardAnalysisCache) {
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().isRetrievalEnabled()) {
+          // When remote analysis value retrieval is enabled, it is possible for analysis to occur
+          // during the logical execution phase. Discarding the analysis cache can lead to crashes.
+          //
+          // TODO: b/466388360 - consider alternatives
+          getReporter()
+              .handle(
+                  Event.warn(
+                      "Remote analysis caching is enabled. Not discarding the analysis cache."));
+          shouldDiscardAnalysisCache = false;
+        }
+      }
+      if (shouldDiscardAnalysisCache) {
         // Free memory by removing cache entries that aren't going to be needed.
         try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
           env.getSkyframeBuildView()
