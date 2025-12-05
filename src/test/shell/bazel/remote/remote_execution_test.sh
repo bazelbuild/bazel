@@ -1240,8 +1240,7 @@ EOF
 }
 
 function test_remote_default_exec_properties_invalidation() {
-  # Test that when changing values of --remote_default_exec_properties all actions are
-  # invalidated if no platform is used.
+  # Test that changing --remote_default_exec_properties invalidates actions,
   mkdir -p test
   cat > test/BUILD << 'EOF'
 genrule(
@@ -1264,8 +1263,7 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # Changing --remote_default_exec_properties value should invalidate SkyFrames in-memory
-  # caching and make it re-run the action.
+  # Changing --remote_default_exec_properties value should invalidate Skyframe.
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
@@ -1273,8 +1271,7 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_exec_properties should NOT invalidate SkyFrames in-memory cache
-  #  and make the action should not be re-run.
+  # Unchanging --remote_default_exec_properties should NOT invalidate Skyframe.
   expect_log "1 process: 1 internal"
 
   bazel shutdown
@@ -1284,14 +1281,13 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_exec_properties should NOT invalidate SkyFrames on-disk cache
-  #  and the action should not be re-run.
+  # Unchanging --remote_default_exec_properties should NOT invalidate Skyframe.
   expect_log "1 process: .*1 internal"
 }
 
 function test_remote_default_exec_properties_invalidation_with_platform_exec_properties() {
-  # Test that when changing values of --remote_default_exec_properties all actions are
-  # invalidated.
+  # Test that changing --remote_default_exec_properties invalidates actions,
+  # even if an exec platform with exec properties is set.
   mkdir -p test
   cat > test/BUILD << 'EOF'
 platform(
@@ -1323,9 +1319,10 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # Changing --remote_default_exec_properties value does not invalidate SkyFrames
-  # given it is superseded by the platform exec_properties.
-  expect_log "1 process: .*1 internal."
+  # Changing --remote_default_exec_properties value invalidates Skyframe, but
+  # it doesn't affect the spawn's platform properties, so we still get a remote
+  # cache hit.
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
 function test_combined_disk_remote_exec_with_flag_combinations() {

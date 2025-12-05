@@ -25,7 +25,6 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -96,7 +95,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -231,6 +229,7 @@ public final class SkyframeActionExecutor {
   private boolean freeDiscoveredInputsAfterExecution;
   private InputMetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
+  private String actionExecutionSalt;
 
   /** These variables are nulled out between executions. */
   @Nullable private ProgressSupplier progressSupplier;
@@ -738,8 +737,6 @@ public final class SkyframeActionExecutor {
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
-    RemoteOptions remoteOptions;
-    ImmutableSortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
     OutputChecker outputChecker = null;
 
@@ -754,11 +751,6 @@ public final class SkyframeActionExecutor {
     }
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
-      remoteOptions = this.options.getOptions(RemoteOptions.class);
-      remoteDefaultProperties =
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableSortedMap.of();
       outputChecker = outputService.getOutputChecker();
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
@@ -771,7 +763,7 @@ public final class SkyframeActionExecutor {
               handler,
               inputMetadataProvider,
               outputMetadataStore,
-              remoteDefaultProperties,
+              actionExecutionSalt,
               outputChecker,
               useArchivedTreeArtifacts(action));
 
@@ -813,7 +805,7 @@ public final class SkyframeActionExecutor {
                     handler,
                     inputMetadataProvider,
                     outputMetadataStore,
-                    remoteDefaultProperties,
+                    actionExecutionSalt,
                     outputChecker,
                     useArchivedTreeArtifacts(action));
           }
@@ -852,12 +844,6 @@ public final class SkyframeActionExecutor {
       return;
     }
 
-    RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
-    ImmutableSortedMap<String, String> remoteDefaultProperties =
-        remoteOptions != null
-            ? remoteOptions.getRemoteDefaultExecProperties()
-            : ImmutableSortedMap.of();
-
     try {
       actionCacheChecker.updateActionCache(
           action,
@@ -866,7 +852,7 @@ public final class SkyframeActionExecutor {
           outputMetadataStore,
           clientEnv,
           getOutputPermissions(),
-          remoteDefaultProperties,
+          actionExecutionSalt,
           useArchivedTreeArtifacts(action));
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
@@ -1015,10 +1001,12 @@ public final class SkyframeActionExecutor {
   public void configure(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      DiscoveredModulesPruner discoveredModulesPruner) {
+      DiscoveredModulesPruner discoveredModulesPruner,
+      String actionExecutionSalt) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.discoveredModulesPruner = discoveredModulesPruner;
+    this.actionExecutionSalt = actionExecutionSalt;
   }
 
   /**

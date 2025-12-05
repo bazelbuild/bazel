@@ -246,7 +246,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             scratch.getFileSystem(),
             SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
-        cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
+        cache,
+        ActionInputPrefetcher.NONE,
+        DiscoveredModulesPruner.DEFAULT,
+        /* actionExecutionSalt= */ "");
 
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(

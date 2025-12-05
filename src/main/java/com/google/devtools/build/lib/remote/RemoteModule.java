@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -99,6 +100,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGr
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -1181,6 +1183,30 @@ public final class RemoteModule extends BlazeModule {
         env.getEventBus().register(outputService);
       }
     }
+
+    builder.setActionExecutionSalt(computeActionExecutionSalt(remoteOptions));
+  }
+
+  private static String computeActionExecutionSalt(RemoteOptions remoteOptions) {
+    Fingerprint fp = new Fingerprint();
+
+    // When building without a remote cache following a build with one, cached actions may reference
+    // remotely stored files which cannot be downloaded. For simplicity we also invalidate in the
+    // reverse situation (building with a remote cache after building without one) even though
+    // cached local actions don't need it.
+    // TODO(chiwang): Solve this with build/action rewinding instead. The main difficulty is that if
+    // no remote options are set, we lack a prefetcher and cannot trigger rewinding.
+    fp.addBoolean(remoteOptions.isRemoteCacheEnabled());
+
+    // The default exec properties may affect how a spawn is remotely executed without affecting the
+    // action key. In practice, only spawns with no execution platform or whose execution platform
+    // has no exec properties are affected, but we don't have access to this information at the
+    // time we're computing the action key, so we unconditionally include the defaults. This
+    // shouldn't be too bad, as we don't expect the defaults to change very often.
+    fp.addStringMap(
+        remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
+
+    return fp.hexDigestAndReset();
   }
 
   @Override

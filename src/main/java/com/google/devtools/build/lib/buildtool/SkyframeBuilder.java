@@ -66,6 +66,7 @@ import javax.annotation.Nullable;
 public class SkyframeBuilder implements Builder {
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
+  private final String actionExecutionSalt;
   private final ModifiedFileSet modifiedOutputFiles;
   private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
@@ -78,6 +79,7 @@ public class SkyframeBuilder implements Builder {
       SkyframeExecutor skyframeExecutor,
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
+      String actionExecutionSalt,
       ModifiedFileSet modifiedOutputFiles,
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -86,6 +88,7 @@ public class SkyframeBuilder implements Builder {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
+    this.actionExecutionSalt = actionExecutionSalt;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -117,7 +120,8 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
-      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+      skyframeExecutor.configureActionExecutor(
+          fileCache, actionInputPrefetcher, actionExecutionSalt);
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.

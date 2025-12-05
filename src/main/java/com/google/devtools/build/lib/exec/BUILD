@@ -115,7 +115,9 @@ java_library(
     deps = [
         ":executor_lifecycle_listener",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

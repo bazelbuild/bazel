@@ -864,7 +864,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action action2 =
         new MissingOutputAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -945,7 +946,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // is running. This way, both actions will check the action cache beforehand and try to update
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1075,7 +1077,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1211,7 +1214,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action action2 =
         new TreeArtifactAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2, children);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1325,7 +1329,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionTemplate<DummyAction> template2 =
         new DummyActionTemplate(baseOutput, sharedOutput2, ActionOwner.SYSTEM_ACTION_OWNER);
     ActionLookupValue shared2Ct = createActionLookupValue(template2, shared2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1652,7 +1657,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(slowAction, lc2),
             null,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1783,7 +1789,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(action2, lc2),
             null,
             NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
@@ -1983,6 +1990,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2123,6 +2131,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2247,6 +2256,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2368,6 +2378,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2479,6 +2490,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2576,6 +2588,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2658,6 +2671,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             skyframeExecutor,
             new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
