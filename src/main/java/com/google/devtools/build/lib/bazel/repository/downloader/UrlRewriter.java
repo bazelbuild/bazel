@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
@@ -40,6 +40,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
@@ -48,8 +49,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -70,39 +73,68 @@ public class UrlRewriter {
   @VisibleForTesting
   UrlRewriter(String filePathForErrorReporting, Reader reader)
       throws UrlRewriterParseException {
-    Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
-    this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
+    this(ImmutableList.of(filePathForErrorReporting), ImmutableList.of(reader));
+  }
 
+  @VisibleForTesting
+  UrlRewriter(List<String> filePathsForErrorReporting, List<Reader> readers)
+      throws UrlRewriterParseException {
+    Preconditions.checkNotNull(readers, "UrlRewriterConfig source must be set");
+    Preconditions.checkNotNull(filePathsForErrorReporting, "UrlRewriterConfig filePath must be set");
+    Preconditions.checkArgument(filePathsForErrorReporting.size() == readers.size(), "filePath and readers size must be equal");
+
+    this.config = new UrlRewriterConfig(filePathsForErrorReporting, readers);
     this.rewriter = this::rewrite;
   }
 
   /**
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
-   * @param configPath Path to the config file to use. May be null.
+   * @param configPaths Paths to the config file to use. May be null.
    */
   public static UrlRewriter getDownloaderUrlRewriter(
-      Path workspaceRoot, @Nullable PathFragment configPath)
+      Path workspaceRoot, @Nullable List<PathFragment> configPaths)
       throws UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
-    if (configPath == null || configPath.isEmpty()) {
-      return new UrlRewriter("", new StringReader(""));
+    if (configPaths == null || configPaths.isEmpty() || configPaths.stream().anyMatch(PathFragment::isEmpty)) {
+      return new UrlRewriter( "", new StringReader(""));
     }
 
     // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
     // there are occasional errors when `configFile` can't be found, and when this happens
     // investigation suggests that the current working directory isn't the workspace root.
-    Path actualConfigPath = workspaceRoot.getRelative(configPath);
+    List<Path> actualConfigPaths = configPaths.stream().map(workspaceRoot::getRelative)
+        .toList();
 
-    if (!actualConfigPath.exists()) {
+    List<Path> notFoundConfigPaths =
+        actualConfigPaths.stream().filter(Predicate.not(Path::exists)).toList();
+    if (!notFoundConfigPaths.isEmpty()) {
       throw new UrlRewriterParseException(
-          String.format("Unable to find downloader config file %s", configPath.getPathString()));
+          String.format(
+              "Unable to find downloader config file %s",
+              notFoundConfigPaths.stream()
+                  .map(Path::getPathString)
+                  .collect(Collectors.joining(","))));
     }
 
-    try (InputStream inputStream = actualConfigPath.getInputStream();
-        Reader inputStreamReader = new InputStreamReader(inputStream);
-        Reader reader = new BufferedReader(inputStreamReader)) {
-      return new UrlRewriter(configPath.getPathString(), reader);
+    // Java's try-with-resources doesn't handle dynamic amounts of AutoCloseable resources, so use
+    // Closer to register and close.
+    Closer closer = Closer.create();
+    try {  // For IOExceptions coming from Closer.
+      try {
+        List<Reader> readers = new ArrayList<>();
+        for (Path actualConfigPath : actualConfigPaths) {
+          BufferedReader br =
+              new BufferedReader(new InputStreamReader(actualConfigPath.getInputStream()));
+          closer.register(br);
+          readers.add(br);
+        }
+        return new UrlRewriter(configPaths.stream().map(PathFragment::getPathString).toList(), readers);
+      } catch (Throwable e) {
+        throw closer.rethrow(new UrlRewriterParseException(e.getMessage()));
+      } finally {
+        closer.close();
+      }
     } catch (IOException e) {
       throw new UrlRewriterParseException(e.getMessage());
     }

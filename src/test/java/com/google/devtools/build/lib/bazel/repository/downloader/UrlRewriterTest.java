@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.auth.Credentials;
@@ -56,6 +57,22 @@ public class UrlRewriterTest {
   }
 
   @Test
+  public void constructorMustHaveTheSameNumberOfFilePathsAndReaders()
+      throws UrlRewriterParseException {
+    // This has one file path and one reader - no exception is thrown.
+    new UrlRewriter(ImmutableList.of("/dev/null"), ImmutableList.of(new StringReader("")));
+
+    // Two file paths, but one reader - this will fail the precondition.
+    assertThrows(
+        "filePath and readers size must be equal",
+        IllegalArgumentException.class,
+        () ->
+            new UrlRewriter(
+                ImmutableList.of("/dev/null", "/dev/null"),
+                ImmutableList.of(new StringReader(""))));
+  }
+
+  @Test
   public void shouldBeAbleToBlockParticularHostsRegardlessOfScheme() throws Exception {
     String config = "block example.com";
     UrlRewriter munger = new UrlRewriter("/dev/null", new StringReader(config));
@@ -89,6 +106,25 @@ public class UrlRewriterTest {
         "rewrite example.com/foo/(.*) mycorp.com/$1/somewhere\n"
             + "rewrite example.com/foo/(.*) mycorp.com/$1/elsewhere";
     UrlRewriter munger = new UrlRewriter("/dev/null", new StringReader(config));
+
+    List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
+    ImmutableList<URL> amended =
+        munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
+
+    // There's no guarantee about the ordering of the rewrites
+    assertThat(amended).contains(new URL("https://mycorp.com/bar/somewhere"));
+    assertThat(amended).contains(new URL("https://mycorp.com/bar/elsewhere"));
+  }
+
+  /** Same as {@link #rewritesCanExpandToMoreThanOneUrl()} but spread across two config files. */
+  @Test
+  public void rewritesCanExpandToMoreThanOneUrlWithMultipleConfigs() throws Exception {
+    String config = "rewrite example.com/foo/(.*) mycorp.com/$1/somewhere\n";
+    String config2 = "rewrite example.com/foo/(.*) mycorp.com/$1/elsewhere\n";
+    UrlRewriter munger =
+        new UrlRewriter(
+            ImmutableList.of("/dev/null", "/dev/null"),
+            ImmutableList.of(new StringReader(config), new StringReader(config2)));
 
     List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
     ImmutableList<URL> amended =
