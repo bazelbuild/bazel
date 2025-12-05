@@ -106,7 +106,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
       if (type == Dirent.Type.FILE) {
         materializeRegularFile(fromPath, toPath);
       } else {
-        materializeDirectory(source, target);
+        materializeDirectory(fromPath, toPath);
       }
     }
   }
