@@ -642,20 +642,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   : ((Boolean) removePyFragmentOption.getOptionDefinition().getDefaultValue(null))
                       .booleanValue();
         }
-        boolean removeBazelPyFragment = false;
-        var removeBazelPyFragmentOption =
-            optionsParser.getOptionDescription("incompatible_remove_ctx_bazel_py_fragment");
-        if (removeBazelPyFragmentOption != null) {
-          var cmdLineValue =
-              optionsParser.getOptionValueDescription(
-                  removeBazelPyFragmentOption.getOptionDefinition().getOptionName());
-          removeBazelPyFragment =
-              cmdLineValue != null
-                  ? (Boolean) cmdLineValue.getValue()
-                  : ((Boolean)
-                          removeBazelPyFragmentOption.getOptionDefinition().getDefaultValue(null))
-                      .booleanValue();
-        }
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
@@ -673,7 +659,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               "module resolution",
               env
                   .getSkyframeExecutor()
-                  .getFlagAliases(reporter, removePyFragment, removeBazelPyFragment)
+                  .getFlagAliases(reporter, removePyFragment)
                   .entrySet()
                   .stream()
                   .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))

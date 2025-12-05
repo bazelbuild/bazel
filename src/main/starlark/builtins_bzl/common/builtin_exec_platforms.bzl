@@ -191,14 +191,6 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
     },
 )
 
-bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
-    propagate = [
-        "//command_line_option:python_path",
-        "//command_line_option:experimental_python_import_all_repositories",
-        "//command_line_option:incompatible_remove_ctx_bazel_py_fragment",
-    ],
-)
-
 bazel_fragments["BazelRuleClassProvider$StrictActionEnvOptions"] = fragment(
     propagate = [
         "//command_line_option:incompatible_strict_action_env",

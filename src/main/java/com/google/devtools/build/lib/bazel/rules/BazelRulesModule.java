@@ -357,6 +357,22 @@ public final class BazelRulesModule extends BlazeModule {
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
   public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Option(
+        name = "python_path",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public String pythonPath;
+
+    @Option(
+        name = "experimental_python_import_all_repositories",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPythonImportAllRepositories;
+
+    @Option(
         name = "python_top",
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
