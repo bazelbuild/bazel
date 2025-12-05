@@ -18,7 +18,6 @@ def _java_runtime_alias(ctx):
     """An experimental implementation of java_runtime_alias using toolchain resolution."""
     toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
     toolchain = toolchain_info.java_runtime
-    print("RUNTIME ALIAS:", ctx.label, "JDK VERSION:", toolchain.version)
     return [
         toolchain_info,
         toolchain,

@@ -120,9 +120,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             hermeticStaticLibs,
             ruleContext.attributes().get("version", INTEGER).toIntUnchecked());
 
-    System.out.println("RUNTIME RULE: " + ruleContext.getLabel().toString() +
-      " JDK VERSION: " + javaRuntime.version());
-
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(
             ImmutableMap.of(
