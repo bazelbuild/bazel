@@ -108,18 +108,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     };
   }
 
-  /**
-   * Returns true if executable Python rules should obtain their runtime from the Python toolchain
-   * rather than legacy flags.
-   */
-  @StarlarkMethod(
-      name = "use_toolchains",
-      structField = true,
-      doc = "No-op: Python toolchains are always used.")
-  public boolean useToolchains() {
-    return true;
-  }
-
   @StarlarkMethod(
       name = "default_to_explicit_init_py",
       structField = true,
