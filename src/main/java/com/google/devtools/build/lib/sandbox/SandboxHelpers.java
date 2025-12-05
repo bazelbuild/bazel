@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -50,14 +49,13 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -149,7 +147,7 @@ public final class SandboxHelpers {
 
     private void visitFile(Path sourceFile, Path targetFile) {
       try {
-        copyFile(sourceFile, targetFile);
+        copyPossiblyUnreadableRegularFile(sourceFile, targetFile);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
@@ -222,7 +220,7 @@ public final class SandboxHelpers {
         // Speed up copying of large directory trees by parallelizing over files.
         // Don't delete the original; leave it to the sandbox to clean up after itself.
         if (stat.isFile()) {
-          copyFile(source, target);
+          copyPossiblyUnreadableRegularFile(source, target);
         } else if (stat.isDirectory()) {
           DirectoryCopier copier = new DirectoryCopier(source, target);
           copier.run();
@@ -237,19 +235,16 @@ public final class SandboxHelpers {
     }
   }
 
-  private static void copyFile(Path source, Path target) throws IOException {
-    try (InputStream in = source.getInputStream();
-        OutputStream out = target.getOutputStream()) {
-      ByteStreams.copy(in, out);
+  private static void copyPossiblyUnreadableRegularFile(Path source, Path target)
+      throws IOException {
+    try {
+      FileSystemUtils.copyRegularFile(source, target);
     } catch (FileAccessException e) {
       // Actions may create unreadable output files.
       // Make the source file readable and try again (but only once).
       // Don't check the permissions upfront to optimize for the typical case.
       source.chmod(0644);
-      try (InputStream in = source.getInputStream();
-          OutputStream out = target.getOutputStream()) {
-        ByteStreams.copy(in, out);
-      }
+      FileSystemUtils.copyRegularFile(source, target);
     }
   }
 
