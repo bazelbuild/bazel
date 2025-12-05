@@ -1,0 +1,38 @@
+{
+    "name": "Bazel Development Environment",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+    "mounts": [
+        "source=bazel-cache,target=/home/vscode/.cache/bazel,type=volume",
+        "source=bazelisk-cache,target=/home/vscode/.cache/bazelisk,type=volume"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "configureZshAsDefaultShell": true
+            // Get your own dotfiles configured with
+            // https://code.visualstudio.com/docs/devcontainers/containers#_personalizing-with-dotfile-repositories
+        },
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers-community/features/bazel:1": {
+            "bazelisk_version": "v1.27.0",
+            "buildifier_version": "v8.2.1"
+        },
+        "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+            "upgradePackages": true,
+            "packages": [
+                "build-essential",
+                "openjdk-21-jdk",
+                "python3",
+                "zip",
+                "unzip"
+            ]
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "BazelBuild.vscode-bazel",
+                "eamodio.gitlens"
+            ]
+        }
+    }
+}
