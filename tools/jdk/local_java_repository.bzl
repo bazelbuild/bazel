@@ -229,6 +229,5 @@ def local_java_repository(name, java_home, version = "", build_file = None, buil
       build_file_content: optional BUILD file template as a string
       version: optionally java version
     """
-    print("LOCAL JAVA REPOSITORY:", name, "VERSION:", version)
     _local_java_repository_rule(name = name, java_home = java_home, version = version, build_file = build_file, build_file_content = build_file_content)
     native.register_toolchains("@" + name + "//:runtime_toolchain_definition")
