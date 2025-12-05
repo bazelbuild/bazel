@@ -165,23 +165,32 @@ execute, the following sequence of events happens:
 
 ## Command line options
 
-The command line options for a Bazel invocation are described in an
-`OptionsParsingResult` object, which in turn contains a map from "option
-classes" to the values of the options. An "option class" is a subclass of
-`OptionsBase` and groups command line options together that are related to each
-other. For example:
+The command line options for a Bazel invocation are parsed into an
+`OptionsParsingResult` object, which holds instances of `OptionsBase`
+subclasses populated with the parsed values. An "option class" is a subclass
+of `OptionsBase` and groups related command line options together.
 
-1.  Options related to a programming language (`CppOptions` or `JavaOptions`).
-    These should be a subclass of `FragmentOptions` and are eventually wrapped
-    into a `BuildOptions` object.
-2.  Options related to the way Bazel executes actions (`ExecutionOptions`)
+There are two main kinds of option classes:
 
-These options are designed to be consumed in the analysis phase and (either
-through `RuleContext.getFragment()` in Java or `ctx.fragments` in Starlark).
-Some of them (for example, whether to do C++ include scanning or not) are read
-in the execution phase, but that always requires explicit plumbing since
-`BuildConfiguration` is not available then. For more information, see the
-section "Configurations".
+1.  **Configuration options:** These options affect how targets are built,
+    for example, defining the target platform or compilation mode. They are
+    defined in subclasses of `FragmentOptions` (e.g., `CppOptions`,
+    `JavaOptions`), which is itself a subclass of `OptionsBase`.
+    `FragmentOptions` instances are collected into a `BuildOptions` object,
+    which is used to create the `BuildConfiguration` for a configured target.
+    These options are available during the analysis phase via
+    `RuleContext.getFragment()` in Java or `ctx.fragments` in Starlark.
+2.  **Other command options:** These options affect other aspects of Bazel's
+    behavior. They are defined in classes that extend `OptionsBase` directly,
+    but are not `FragmentOptions`. Examples include `ExecutionOptions`, which
+    influences how actions are executed, and `CommonCommandOptions`, which
+    contains options applicable to many commands. These are not part of
+    `BuildOptions`.
+
+Some configuration options (for example, whether to do C++ include scanning with
+`--cc_include_scanning`) are read in the execution phase. But that always
+requires explicit plumbing since `BuildConfiguration` is not available then. For
+more information, see the section "Configurations".
 
 **WARNING:** We like to pretend that `OptionsBase` instances are immutable and
 use them that way (such as a part of `SkyKeys`). This is not the case and
@@ -193,15 +202,16 @@ called on it is okay.)
 
 Bazel learns about option classes in the following ways:
 
-1.  Some are hard-wired into Bazel (`CommonCommandOptions`)
-2.  From the `@Command` annotation on each Bazel command
-3.  From `ConfiguredRuleClassProvider` (these are command line options related
-    to individual programming languages)
-4.  Starlark rules can also define their own options (see
-    [here](/extending/config))
+1.  Some are hard-wired into Bazel (`CommonCommandOptions`).
+2.  From the `@Command` annotation on each Bazel command, which
+    lists option classes applicable to that command.
+3.  From `ConfiguredRuleClassProvider` (these are `FragmentOptions` for
+    individual programming languages that become part of `BuildOptions`).
+4.  Starlark rules can also define their own options, known as build settings
+    (see [here](/extending/config)).
 
-Each option (excluding Starlark-defined options) is a member variable of a
-`FragmentOptions` subclass that has the `@Option` annotation, which specifies
+Each option (excluding Starlark-defined options) is a member variable of an
+`OptionsBase` subclass that has the `@Option` annotation, which specifies
 the name and the type of the command line option along with some help text.
 
 The Java type of the value of a command line option is usually something simple
