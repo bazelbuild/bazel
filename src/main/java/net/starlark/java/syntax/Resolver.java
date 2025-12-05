@@ -701,6 +701,13 @@ public final class Resolver extends NodeVisitor {
   }
 
   @Override
+  public void visit(Argument node) {
+    // For keyword arguments, don't visit the keyword identifier. Its usage is as a piece of the
+    // function's calling convention, not as a lookup in the call site's block.
+    visit(node.getValue());
+  }
+
+  @Override
   public void visit(ForStatement node) {
     if (locals.syntax instanceof StarlarkFile) {
       errorf(
