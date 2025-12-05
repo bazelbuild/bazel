@@ -1177,13 +1177,24 @@ public class ModExecutorTest {
     assertThat(textOutput)
         .containsExactly(
             "<root> (main@1.0)",
-            "├───A@1.0 ",
-            "│   ├───B@1.0 ",
-            "│   │   ├───A@1.0 (cycle) ",
-            "│   │   └───$@@A~1.0//extensions:extensions%ext ",
-            "│   │       └───repo2",
-            "│   └───$@@A~1.0//extensions:extensions%ext ...",
-            "└───B@1.0 ...",
+            "├───A@1.0 # ",
+            "│   ├───$@@A+1.0//extensions:extensions%ext ",
+            "│   │   └───repo1",
+            "│   ├───B@1.0 (cycle) ",
+            "│   └───B@1.0 # ",
+            "│       ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "│       │   └───repo2",
+            "│       ├───A@1.0 (cycle) ",
+            "│       └───A@1.0 (cycle) ",
+            "└───B@1.0 # ",
+            "    ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "    │   └───repo2",
+            "    ├───A@1.0 (cycle) ",
+            "    └───A@1.0 # ",
+            "        ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "        │   └───repo1",
+            "        ├───B@1.0 (cycle) ",
+            "        └───B@1.0 (cycle) ",
             "")
         .inOrder();
   }

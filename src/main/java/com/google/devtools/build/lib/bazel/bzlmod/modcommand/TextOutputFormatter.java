@@ -46,6 +46,7 @@ public class TextOutputFormatter extends OutputFormatter {
   private DrawCharset drawCharset;
   private Set<ModuleExtensionId> seenExtensions;
   private StringBuilder str;
+  private Set<ModuleKey> parentStack;
 
   @Override
   public void output() {
@@ -56,6 +57,7 @@ public class TextOutputFormatter extends OutputFormatter {
     }
     isLastChildStack = new ArrayDeque<>();
     seenExtensions = new HashSet<>();
+    parentStack = new HashSet<>();
     str = new StringBuilder();
     printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE, IsCycle.FALSE, 0);
     this.printer.println(str);
@@ -170,7 +172,11 @@ public class TextOutputFormatter extends OutputFormatter {
       totalChildrenNum += extensionsUsed.size();
     }
 
-    if (cycle == IsCycle.TRUE) {
+    // If we've already seen this node in the current traversal stack, treat it as a cycle
+    // even if the graph structure says otherwise (which can happen due to merged paths).
+    boolean isCycle = cycle == IsCycle.TRUE || parentStack.contains(key);
+
+    if (isCycle) {
       str.append("(cycle) ");
     } else if (expanded == IsExpanded.FALSE) {
       str.append("(*) ");
@@ -194,10 +200,11 @@ public class TextOutputFormatter extends OutputFormatter {
 
     str.append("\n");
 
-    if (expanded == IsExpanded.FALSE) {
+    if (expanded == IsExpanded.FALSE || isCycle) {
       return;
     }
 
+    parentStack.add(key);
     int currChild = 1;
     if (options.extensionInfo != ExtensionShow.HIDDEN) {
       for (ModuleExtensionId extensionId : extensionsUsed) {
@@ -216,6 +223,7 @@ public class TextOutputFormatter extends OutputFormatter {
       printModule(childKey, key, childExpanded, childIndirect, childCycles, depth + 1);
       isLastChildStack.pop();
     }
+    parentStack.remove(key);
   }
 
   enum DrawCharset {
