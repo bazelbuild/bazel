@@ -2,7 +2,10 @@ package build.stack.devtools.build.constellate.fakebuildapi.config;
 
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import net.starlark.java.eval.StarlarkThread;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeDeepStructure;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeProviderApi;
 import net.starlark.java.eval.EvalException;
@@ -26,9 +29,33 @@ public class FakeConfigStarlarkCommon implements ConfigStarlarkCommonApi, Struct
   }
 
   @Override
-  public StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(
+  public ConfigurationTransitionApi createConfigFeatureFlagTransitionFactory(
       String attribute) {
     return new FakeConfigFeatureFlagTransitionFactory();
+  }
+
+  @Override
+  public StarlarkToolchainTypeRequirement toolchainType(Object toolchainTypeLabel, boolean mandatory, StarlarkThread thread)
+      throws EvalException {
+    // Stub implementation - return a fake toolchain type requirement
+    return new FakeToolchainTypeRequirement();
+  }
+
+  private static class FakeToolchainTypeRequirement implements StarlarkToolchainTypeRequirement {
+    @Override
+    public com.google.devtools.build.lib.cmdline.Label toolchainType() {
+      // Return a dummy label for toolchain type
+      try {
+        return com.google.devtools.build.lib.cmdline.Label.parseCanonical("//toolchains:dummy");
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public boolean mandatory() {
+      return false;
+    }
   }
 
   // Delegate to FakeDeepStructure for dynamic attribute access

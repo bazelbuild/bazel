@@ -27,16 +27,6 @@ public class FakeStructApi implements StructApi, Structure {
     this(ImmutableMap.of());
   }
 
-  @Override
-  public String toProto() throws EvalException {
-    return "";
-  }
-
-  @Override
-  public String toJson() throws EvalException {
-    return "";
-  }
-
   /**
    * Wraps {@link Structure#getValue(String)}, returning null in cases where {@link EvalException}
    * would have been thrown.
@@ -97,5 +87,10 @@ public class FakeStructApi implements StructApi, Structure {
 
     @Override
     public void repr(Printer printer) {}
+
+    @Override
+    public boolean hasInstance(Object value) {
+      return value instanceof FakeStructApi;
+    }
   }
 }

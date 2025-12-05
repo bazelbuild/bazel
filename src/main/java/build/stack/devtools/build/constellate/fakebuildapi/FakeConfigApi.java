@@ -1,6 +1,8 @@
 package build.stack.devtools.build.constellate.fakebuildapi;
 
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import build.stack.devtools.build.constellate.fakebuildapi.ConfigApiFakes.FakeBuildSettingDescriptor;
 import build.stack.devtools.build.constellate.fakebuildapi.ConfigApiFakes.FakeExecTransitionFactory;
 import net.starlark.java.eval.Printer;
@@ -24,12 +26,27 @@ public class FakeConfigApi implements StarlarkConfigApi {
   }
 
   @Override
-  public BuildSettingApi stringListSetting(Boolean flag) {
+  public BuildSettingApi stringListSetting(Boolean flag, Boolean repeatable) {
+    return new FakeBuildSettingDescriptor();
+  }
+
+  @Override
+  public BuildSettingApi stringSetSetting(Boolean flag, Boolean repeatable) {
     return new FakeBuildSettingDescriptor();
   }
 
   @Override
   public ExecTransitionFactoryApi exec(Object execGroup) {
+    return new FakeExecTransitionFactory();
+  }
+
+  @Override
+  public ExecTransitionFactoryApi target() {
+    return new FakeExecTransitionFactory();
+  }
+
+  @Override
+  public ExecTransitionFactoryApi none() {
     return new FakeExecTransitionFactory();
   }
 

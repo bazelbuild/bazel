@@ -1,8 +1,8 @@
 package build.stack.devtools.build.constellate.fakebuildapi;
 
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import net.starlark.java.eval.Printer;
 
 /** Fakes for callables under the {@link StarlarkConfigApi} module. */

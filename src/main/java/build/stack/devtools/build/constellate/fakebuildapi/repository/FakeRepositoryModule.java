@@ -3,6 +3,7 @@ package build.stack.devtools.build.constellate.fakebuildapi.repository;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi.TagClassApi;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeDescriptor;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeStarlarkRuleFunctionsApi.AttributeNameComparator;
 import build.stack.devtools.build.constellate.fakebuildapi.PostAssignHookAssignableIdentifier;
@@ -54,9 +55,10 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
@@ -75,7 +77,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet
     // available.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(docString).addAllAttribute(attrInfos);
 
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
@@ -120,5 +122,29 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
       throws EvalException {
     // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.
+  }
+
+  @Override
+  public TagClassApi tagClass(Dict<?, ?> attrs, Object doc) throws EvalException {
+    // Stub implementation - return a fake tag class
+    return new FakeTagClass();
+  }
+
+  private static class FakeTagClass implements TagClassApi {
+    // Stub implementation
+  }
+
+  @Override
+  public Object moduleExtension(
+      StarlarkCallable implementation,
+      Dict<?, ?> tagClasses,
+      Object doc,
+      Sequence<?> environ,
+      boolean osDependent,
+      boolean archDependent,
+      StarlarkThread thread)
+      throws EvalException {
+    // Stub implementation
+    return new Object();
   }
 }

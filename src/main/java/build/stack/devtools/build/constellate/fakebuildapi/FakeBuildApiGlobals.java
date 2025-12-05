@@ -13,4 +13,9 @@ public class FakeBuildApiGlobals implements StarlarkBuildApiGlobals {
       throws EvalException {
     return new FakeLateBoundDefaultApi();
   }
+
+  @Override
+  public void visibility(Object value, StarlarkThread thread) throws EvalException {
+    // Fake implementation - just ignore visibility declarations
+  }
 }

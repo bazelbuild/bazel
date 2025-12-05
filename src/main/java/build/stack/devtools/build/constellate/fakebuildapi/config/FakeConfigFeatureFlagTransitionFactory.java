@@ -17,18 +17,27 @@ package build.stack.devtools.build.constellate.fakebuildapi.config;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
 /** Fake callable implementation of {@link StarlarkExposedRuleTransitionFactory}. */
 public class FakeConfigFeatureFlagTransitionFactory
-    implements StarlarkExposedRuleTransitionFactory {
+    implements StarlarkExposedRuleTransitionFactory, ConfigurationTransitionApi {
+
+  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {}
 
   @Override
-  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {}
+  public void addToRuleFromStarlark(RuleDefinitionEnvironment env, RuleClass.Builder builder) {}
 
   @Override
   public PatchTransition create(RuleTransitionData ruleData) {
     return null;
+  }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.ANY;
   }
 }

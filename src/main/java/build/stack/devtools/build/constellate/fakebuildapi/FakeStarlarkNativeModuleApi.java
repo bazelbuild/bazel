@@ -36,6 +36,15 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   }
 
   @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include,
+      Sequence<?> exclude,
+      boolean allowEmpty,
+      StarlarkThread thread) throws EvalException {
+    return StarlarkList.empty();
+  }
+
+  @Override
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
       throws EvalException {
     return Dict.of(thread.mutability());
@@ -54,6 +63,31 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   }
 
   @Override
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    // Stub implementation - return empty version
+    return "";
+  }
+
+  @Override
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    // Stub implementation - return empty module name
+    return "";
+  }
+
+  @Override
+  public com.google.devtools.build.lib.cmdline.Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
+    // Stub implementation - try to parse as label or return a dummy label
+    if (input instanceof com.google.devtools.build.lib.cmdline.Label) {
+      return (com.google.devtools.build.lib.cmdline.Label) input;
+    }
+    try {
+      return com.google.devtools.build.lib.cmdline.Label.parseCanonical(input.toString());
+    } catch (Exception e) {
+      throw new EvalException("Invalid label: " + input);
+    }
+  }
+
+  @Override
   public String packageName(StarlarkThread thread) {
     return "";
   }
@@ -61,6 +95,18 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   @Override
   public String repositoryName(StarlarkThread thread) {
     return "";
+  }
+
+  @Override
+  public String repoName(StarlarkThread thread) throws EvalException {
+    // Stub implementation - return empty repo name
+    return "";
+  }
+
+  @Override
+  public java.util.List<com.google.devtools.build.lib.cmdline.Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException {
+    // Stub implementation - return empty visibility list
+    return java.util.Collections.emptyList();
   }
 
   @Nullable

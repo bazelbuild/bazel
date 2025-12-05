@@ -8,8 +8,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.MacroFunctionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import build.stack.devtools.build.constellate.rendering.AspectInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.ProviderInfoWrapper;
@@ -28,11 +30,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -44,7 +48,7 @@ import net.starlark.java.syntax.Location;
  * function to a {@link List} given in the class constructor.
  * </p>
  */
-public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<FileApi> {
+public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR = new FakeDescriptor(
@@ -78,8 +82,9 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public ProviderApi provider(String doc, Object fields, StarlarkThread thread)
+  public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     FakeProviderApi fakeProvider = new FakeProviderApi(null);
     // Field documentation will be output preserving the order in which the fields
     // are listed.
@@ -95,11 +100,13 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     } else {
       // fields is NONE, so there is no field information to add.
     }
-    ProviderInfoWrapper wrapper = forProviderInfo(fakeProvider, doc, providerFieldInfos.build());
+    ProviderInfoWrapper wrapper = forProviderInfo(fakeProvider, docString, providerFieldInfos.build());
     providerInfoList.add(wrapper);
     logger.atFine().log("FakeAPI: provider %s: %s",
         wrapper.getIdentifier().getName(),
         wrapper.getIdentifier().getLocation());
+    // If init is specified, return a tuple of (provider, raw_constructor)
+    // For fake implementation, just return the provider itself
     return fakeProvider;
   }
 
@@ -117,29 +124,33 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   @Override
   public StarlarkCallable rule(
       StarlarkFunction implementation,
-      Boolean test,
-      Object attrs,
+      Object testUnchecked,
+      Dict<?, ?> attrs,
       Object implicitOutputs,
-      Boolean executable,
-      Boolean outputToGenfiles,
+      Object executableUnchecked,
+      boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean starlarkTestable,
+      boolean starlarkTestable,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
+      boolean dependencyResolutionRule,
       Sequence<?> execCompatibleWith,
-      Object analysisTest,
+      boolean analysisTest,
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
-      Object name,
+      Object initializer,
+      Object parentUnchecked,
+      Object extendableUnchecked,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    Object name = Starlark.NONE; // Will be set by post-assign hook
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Starlark.NONE) {
+    if (attrs != null && !Starlark.isNullOrNone(attrs)) {
       attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
@@ -154,7 +165,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
     // Only the Builder is passed to RuleInfoWrapper as the rule name may not be
     // available yet.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(docString).addAllAttribute(attrInfos);
     if (name != Starlark.NONE) {
       ruleInfo.setRuleName((String) name);
     }
@@ -172,12 +183,13 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public Label label(String labelString, StarlarkThread thread) throws EvalException {
+  public Label label(Object input, StarlarkThread thread) throws EvalException {
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    String labelString = (String) input;
     try {
-      return Label.parseAbsolute(
-          labelString,
-          /* defaultToMain= */ false,
-          /* repositoryMapping= */ ImmutableMap.of());
+      return Label.parseCanonical(labelString);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
@@ -186,23 +198,28 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   @Override
   public StarlarkAspectApi aspect(
       StarlarkFunction implementation,
-      Sequence<?> attributeAspects,
-      Object attrs,
+      Object attributeAspects,
+      Object toolchainsAspects,
+      Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
+      Object propagationPredicate,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
-      String doc,
-      Boolean applyToFiles,
+      Object doc,
+      Boolean applyToGeneratingRules,
+      Sequence<?> execCompatibleWith,
+      Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Starlark.NONE) {
+    if (attrs != null && !Starlark.isNullOrNone(attrs)) {
       attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
@@ -222,7 +239,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     // Only the Builder is passed to AspectInfoWrapper as the aspect name is not yet
     // available.
     AspectInfo.Builder aspectInfo = AspectInfo.newBuilder()
-        .setDocString(doc)
+        .setDocString(docString)
         .addAllAttribute(attrInfos)
         .addAllAspectAttribute(aspectAttrs);
 
@@ -238,11 +255,80 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   @Override
   public ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith,
       Sequence<?> toolchains,
-      Boolean copyFromRule,
+      Sequence<?> execCompatibleWith,
       StarlarkThread thread) {
     return new FakeExecGroup();
+  }
+
+  // New methods required by StarlarkRuleFunctionsApi that we need to stub
+  @Override
+  public MacroFunctionApi macro(
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Object inheritAttrs,
+      boolean finalizer,
+      Object doc,
+      StarlarkThread thread) throws EvalException {
+    // Stub implementation - macros not fully supported in fake API yet
+    return new FakeMacroFunction();
+  }
+
+  @Override
+  public StarlarkSubruleApi subrule(
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Sequence<?> toolchains,
+      Sequence<?> fragments,
+      Sequence<?> subrules,
+      StarlarkThread thread) throws EvalException {
+    // Stub implementation
+    return new FakeSubrule();
+  }
+
+  @Override
+  public StarlarkCallable materializerRule(
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Object doc,
+      boolean allowRealDeps,
+      StarlarkThread thread) throws EvalException {
+    // Stub implementation
+    return new FakeMaterializerRule();
+  }
+
+  // Stub classes for new API types
+  private static class FakeMacroFunction implements MacroFunctionApi {
+    @Override
+    public String getName() {
+      return "fake_macro";
+    }
+
+    @Override
+    public void repr(Printer printer) {}
+  }
+
+  private static class FakeSubrule implements StarlarkSubruleApi {
+    @Override
+    public java.util.Optional<String> getUserDefinedNameIfSubruleAttr(String attrName) {
+      // Stub implementation - return empty to indicate not a subrule attribute
+      return java.util.Optional.empty();
+    }
+
+    @Override
+    public void repr(Printer printer) {}
+  }
+
+  private static class FakeMaterializerRule implements StarlarkCallable {
+    @Override
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+      return Starlark.NONE;
+    }
+
+    @Override
+    public String getName() {
+      return "fake_materializer_rule";
+    }
   }
 
   /**

@@ -26,4 +26,13 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       Dict<?, ?> changedSettings, StarlarkThread thread) {
     return new FakeConfigurationTransition();
   }
+
+  @Override
+  public ConfigurationTransitionApi execTransition(
+      StarlarkCallable implementation,
+      Sequence<?> inputs,
+      Sequence<?> outputs,
+      StarlarkThread thread) {
+    return new FakeConfigurationTransition();
+  }
 }

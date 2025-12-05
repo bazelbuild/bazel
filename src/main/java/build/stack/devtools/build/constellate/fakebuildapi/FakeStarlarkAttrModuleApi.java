@@ -21,149 +21,251 @@ import net.starlark.java.eval.StarlarkThread;
 public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
+  public Descriptor licenseAttribute(
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    // LICENSE type doesn't exist, use STRING instead
+    return new FakeDescriptor(AttributeType.STRING, docString, mandatory, ImmutableList.of(), defaultValue);
+  }
+
+  @Override
+  public Descriptor stringListDictAttribute(
+      Boolean mandatory,
+      Object allowEmpty,
+      Dict<?, ?> defaultValue,
+      Object doc,
+      Boolean allowFiles,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.STRING_LIST_DICT, docString, mandatory, ImmutableList.of(), defaultValue);
+  }
+
+  @Override
   public Descriptor intAttribute(
-      StarlarkInt defaultInt,
-      String doc,
+      Object configurable,
+      StarlarkInt defaultValue,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of(), defaultInt);
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.INT, docString, mandatory, ImmutableList.of(), defaultValue);
   }
 
   @Override
   public Descriptor stringAttribute(
-      String defaultString,
-      String doc,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    String defaultString = defaultValue instanceof String ? (String) defaultValue : null;
     return new FakeDescriptor(
         AttributeType.STRING,
-        doc,
+        docString,
         mandatory,
         ImmutableList.of(),
         defaultString != null ? "\"" + defaultString + "\"" : null);
   }
 
   @Override
+  public Descriptor dormantLabelAttribute(
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.LABEL, docString, mandatory, ImmutableList.of(), defaultValue);
+  }
+
+  @Override
   public Descriptor labelAttribute(
-      Object defaultO,
-      String doc,
+      Object configurable,
+      Object defaultValue,
+      Object materializer,
+      Object doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
+      Boolean skipValidations,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flags,
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory, allNameGroups, defaultO);
+    return new FakeDescriptor(AttributeType.LABEL, docString, mandatory, allNameGroups, defaultValue);
   }
 
   @Override
   public Descriptor stringListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
-      Sequence<?> defaultList,
-      String doc,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     return new FakeDescriptor(
-        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultList);
+        AttributeType.STRING_LIST, docString, mandatory, ImmutableList.of(), defaultValue);
   }
 
   @Override
   public Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
-      Sequence<?> defaultList,
-      String doc,
+      Object configurable,
+      Sequence<?> defaultValue,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     return new FakeDescriptor(
-        AttributeType.INT_LIST, doc, mandatory, ImmutableList.of(), defaultList);
+        AttributeType.INT_LIST, docString, mandatory, ImmutableList.of(), defaultValue);
   }
 
   @Override
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
-      Object defaultList,
-      String doc,
+      Object configurable,
+      Object defaultValue,
+      Object materializer,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Boolean skipValidations,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    List<List<String>> allNameGroups = new ArrayList<>();
+    if (providers != null) {
+      allNameGroups = allProviderNameGroups(providers, thread);
+    }
+    return new FakeDescriptor(AttributeType.LABEL_LIST, docString, mandatory, allNameGroups, defaultValue);
+  }
+
+  @Override
+  public Descriptor stringKeyedLabelDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory, allNameGroups, defaultList);
+    return new FakeDescriptor(
+        AttributeType.LABEL_STRING_DICT, docString, mandatory, allNameGroups, defaultValue);
+  }
+
+  @Override
+  public Descriptor dormantLabelListAttribute(
+      Boolean allowEmpty,
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.LABEL_LIST, docString, mandatory, ImmutableList.of(), defaultValue);
   }
 
   @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
-      Object defaultList,
-      String doc,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
     return new FakeDescriptor(
-        AttributeType.LABEL_STRING_DICT, doc, mandatory, allNameGroups, defaultList);
+        AttributeType.LABEL_STRING_DICT, docString, mandatory, allNameGroups, defaultValue);
   }
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
+      Object configurable,
+      Boolean defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread) throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
     return new FakeDescriptor(
         AttributeType.BOOLEAN,
-        doc,
+        docString,
         mandatory,
         ImmutableList.of(),
-        Boolean.TRUE.equals(defaultO) ? "True" : "False");
+        Boolean.TRUE.equals(defaultValue) ? "True" : "False");
   }
 
   @Override
-  public Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
+  public Descriptor outputAttribute(Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of(), "");
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.OUTPUT, docString, mandatory, ImmutableList.of(), "");
   }
 
   @Override
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of(), "");
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.OUTPUT_LIST, docString, mandatory, ImmutableList.of(), "");
   }
 
-  @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultO,
@@ -175,7 +277,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
         AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
-  @Override
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultO,
@@ -187,11 +288,44 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
         AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
-  @Override
   public Descriptor licenseAttribute(
       Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
+  }
+
+  @Override
+  public Descriptor stringDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.STRING_DICT, docString, mandatory, ImmutableList.of(), defaultValue);
+  }
+
+  @Override
+  public Descriptor labelListDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Boolean skipValidations,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    String docString = doc instanceof String ? (String) doc : "";
+    return new FakeDescriptor(AttributeType.LABEL_LIST_DICT, docString, mandatory, ImmutableList.of(), defaultValue);
   }
 
   @Override

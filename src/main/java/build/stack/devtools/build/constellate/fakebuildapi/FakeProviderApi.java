@@ -36,4 +36,10 @@ public class FakeProviderApi implements StarlarkCallable, ProviderApi {
 
   @Override
   public void repr(Printer printer) {}
+
+  @Override
+  public boolean hasInstance(Object value) {
+    // Fake implementation - always return false
+    return false;
+  }
 }
