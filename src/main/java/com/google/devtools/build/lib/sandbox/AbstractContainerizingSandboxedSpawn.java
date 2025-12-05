@@ -174,7 +174,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
         }
         PathFragment symlinkDest = inputs.symlinks().get(fragment);
         if (symlinkDest != null) {
-          key.createSymbolicLink(symlinkDest);
+          FileSystemUtils.ensureSymbolicLink(key, symlinkDest);
         }
       }
     }
