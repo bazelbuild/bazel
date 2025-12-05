@@ -46,6 +46,7 @@ def remote_java_repository(name, version, target_compatible_with = None, prefix 
       prefix: Optional alternative prefix for configuration flag value used to determine this JDK.
       **kwargs: Refer to http_archive documentation
     """
+    print("REMOTE JAVA REPOSITORY:", name, "VERSION:", version)
     http_archive(
         name = name,
         build_file_content = JDK_BUILD_TEMPLATE.replace("___RUNTIME_VERSION___", version),
