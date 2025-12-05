@@ -570,12 +570,14 @@ public final class MerkleTreeComputer {
           inputBytes += subTreeRoot.inputBytes();
         }
         case Artifact.SpecialArtifact symlink when symlink.isSymlink() -> {
-          Path symlinkPath = artifactPathResolver.toPath(symlink);
+          var metadata =
+              checkNotNull(
+                  metadataProvider.getInputMetadata(symlink), "missing metadata: %s", symlink);
           var builder =
               currentDirectory
                   .addSymlinksBuilder()
                   .setName(name)
-                  .setTarget(internalToUnicode(symlinkPath.readSymbolicLink().getPathString()));
+                  .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()));
           if (nodeProperties != null) {
             builder.setNodeProperties(nodeProperties);
           }
