@@ -75,7 +75,6 @@ public class ActionCacheChecker {
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
-
   /** Cache config parameters for ActionCacheChecker. */
   @AutoValue
   public abstract static class CacheConfig {
@@ -179,6 +178,7 @@ public class ActionCacheChecker {
    * @param actionInputs the action inputs; usually action.getInputs(), but might be a previously
    *     cached set of discovered inputs for actions that discover them.
    * @param outputMetadataStore metadata provider for action outputs.
+   * @param mandatoryInputsDigest the digest of mandatory inputs, or null if not discovering inputs.
    * @param cachedOutputMetadata cached metadata that should be used instead of {@code
    *     outputMetadataStore}.
    * @param outputChecker used to check whether remote metadata should be trusted.
@@ -195,6 +195,7 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       ImmutableMap<String, String> effectiveEnvironment,
@@ -209,7 +210,8 @@ public class ActionCacheChecker {
             effectiveEnvironment,
             effectiveExecProperties,
             outputPermissions,
-            useArchivedTreeArtifacts);
+            useArchivedTreeArtifacts,
+            mandatoryInputsDigest);
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -459,6 +461,7 @@ public class ActionCacheChecker {
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -515,6 +518,7 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         remoteDefaultExecProperties,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         useArchivedTreeArtifacts)) {
@@ -548,6 +552,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       ImmutableMap<String, String> remoteDefaultExecProperties,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
@@ -587,6 +592,7 @@ public class ActionCacheChecker {
         actionInputs,
         inputMetadataProvider,
         outputMetadataStore,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         effectiveEnvironment,
@@ -623,7 +629,7 @@ public class ActionCacheChecker {
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
-  private static FileArtifactValue getInputMetadataMaybe(
+  public static FileArtifactValue getInputMetadataMaybe(
       InputMetadataProvider inputMetadataProvider, Artifact artifact) {
     try {
       return getInputMetadataOrConstant(inputMetadataProvider, artifact);
@@ -665,7 +671,8 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       ImmutableMap<String, String> remoteDefaultExecProperties,
-      boolean useArchivedTreeArtifacts)
+      boolean useArchivedTreeArtifacts,
+      @Nullable byte[] mandatoryInputsDigest)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
@@ -694,7 +701,8 @@ public class ActionCacheChecker {
             effectiveEnvironment,
             effectiveExecProperties,
             outputPermissions,
-            useArchivedTreeArtifacts);
+            useArchivedTreeArtifacts,
+            mandatoryInputsDigest);
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
@@ -735,6 +743,14 @@ public class ActionCacheChecker {
     }
 
     actionCache.put(key, builder.build());
+  }
+
+  public boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    checkArgument(action.discoversInputs());
+    ActionCache.Entry entry = getCacheEntry(action);
+    return entry != null
+        && !entry.isCorrupted()
+        && Arrays.equals(entry.getMandatoryInputsDigest(), mandatoryInputsDigest);
   }
 
   @Nullable
@@ -810,6 +826,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -825,6 +842,7 @@ public class ActionCacheChecker {
     return getTokenIfNeedToExecute(
         action,
         resolvedCacheArtifacts,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         handler,
@@ -887,5 +905,4 @@ public class ActionCacheChecker {
       this.cacheKey = action.getPrimaryOutput().getExecPathString();
     }
   }
-
 }
