@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -121,16 +119,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             libModules,
             hermeticStaticLibs,
             ruleContext.attributes().get("version", INTEGER).toIntUnchecked());
-    AttributeMap attrMap = ruleContext.attributes();
-    Attribute versionAttr = attrMap.getAttributeDefinition("version");
-
-    System.out.println(
-      "RUNTIME RULE: " + ruleContext.getLabel().toString() +
-      " RULE CLASS: " + ruleContext.getRuleClassNameForLogging() +
-      " JDK VERSION: " + javaRuntime.version() +
-      " EXPLICIT: " + attrMap.isAttributeValueExplicitlySpecified("version") +
-      " STARLARK TRANSITION: " + versionAttr.hasStarlarkDefinedTransition() +
-      "");
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(
