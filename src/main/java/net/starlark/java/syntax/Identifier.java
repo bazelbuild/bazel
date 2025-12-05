@@ -55,7 +55,14 @@ public final class Identifier extends Expression {
     return name.startsWith("_");
   }
 
-  /** Returns information about the binding that the identifier denotes. Set by the resolver. */
+  /**
+   * Returns information about the binding (symbol) that the identifier refers to.
+   *
+   * <p>Set by the resolver.
+   *
+   * <p>May be null even after resolving, if this identifier does not refer to a symbol (e.g. if it
+   * is for a keyword argument's name).
+   */
   @Nullable
   public Resolver.Binding getBinding() {
     return binding;

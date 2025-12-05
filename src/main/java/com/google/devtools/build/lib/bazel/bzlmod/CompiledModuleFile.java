@@ -166,6 +166,12 @@ public record CompiledModuleFile(
       }
 
       @Override
+      public void visit(Argument node) {
+        // Don't visit the keyword, it's fine to do `whatever(include=...)`.
+        visit(node.getValue());
+      }
+
+      @Override
       public void visit(Identifier node) {
         if (!includeWasAssigned && node.getName().equals(INCLUDE_IDENTIFIER)) {
           // If we somehow reach the `include` identifier but NOT as the other allowed cases above,
