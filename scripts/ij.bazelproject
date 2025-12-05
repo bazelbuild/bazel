@@ -26,3 +26,8 @@ targets:
 java_language_level: 21
 
 workspace_type: java
+
+# Import targets at arbitrary depths beneath //src:bazel.
+# Workaround for https://youtrack.jetbrains.com/issue/BAZEL-2737.
+# TODO: Remove after the next IntelliJ plugin release.
+import_depth: -1
