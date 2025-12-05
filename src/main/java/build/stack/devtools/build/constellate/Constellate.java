@@ -23,6 +23,7 @@ import build.stack.devtools.build.constellate.fakebuildapi.FakeProviderApi;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeStarlarkRuleFunctionsApi;
 import build.stack.devtools.build.constellate.fakebuildapi.PostAssignHookAssignableIdentifier;
 import build.stack.devtools.build.constellate.fakebuildapi.FakeStructApi;
+import build.stack.devtools.build.constellate.RealObjectEnhancer;
 import build.stack.devtools.build.constellate.rendering.AspectInfoWrapper;
 import build.stack.devtools.build.constellate.rendering.DocstringParseException;
 import build.stack.devtools.build.constellate.rendering.FunctionUtil;
@@ -901,6 +902,24 @@ public class Constellate {
 
     pending.remove(label);
     loaded.put(label, module);
+
+    // Best-effort enhancement: extract OriginKey and other metadata from real evaluated objects
+    try {
+      RealObjectEnhancer enhancer = new RealObjectEnhancer(label);
+      enhancer.enhance(
+          module,
+          ruleInfoList,
+          providerInfoList,
+          aspectInfoList,
+          macroInfoList,
+          repositoryRuleInfoList,
+          moduleExtensionInfoList);
+      logger.atFine().log("Successfully enhanced module %s with real object metadata", label);
+    } catch (Exception e) {
+      // Enhancement is best-effort - log but don't fail evaluation
+      logger.atWarning().withCause(e).log(
+          "Failed to enhance module %s with real object metadata", label);
+    }
 
     return module;
   }
