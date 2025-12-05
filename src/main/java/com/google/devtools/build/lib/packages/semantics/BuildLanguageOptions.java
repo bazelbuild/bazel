@@ -392,21 +392,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalSiblingRepositoryLayout;
 
   @Option(
-      name = "incompatible_allow_tags_propagation",
-      oldName = "experimental_allow_tags_propagation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, tags will be propagated from a target to the actions' execution"
-              + " requirements; otherwise tags are not propagated. See"
-              + " https://github.com/bazelbuild/bazel/issues/8830 for details.")
-  public boolean experimentalAllowTagsPropagation;
-
-  @Option(
       name = "incompatible_always_check_depset_elements",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -877,7 +862,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
-            .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
             .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
@@ -1060,8 +1044,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO =
       "+incompatible_disable_autoloads_in_main_repo";
-  public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
-      "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";

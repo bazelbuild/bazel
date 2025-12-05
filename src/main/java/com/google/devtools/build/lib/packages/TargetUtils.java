@@ -252,23 +252,6 @@ public final class TargetUtils {
     return ImmutableMap.copyOf(map);
   }
 
-  /**
-   * Returns the execution info from the tags declared on the target. These include only some tags
-   * {@link #legalExecInfoKeys} as keys with empty values.
-   *
-   * @param rule a rule instance to get tags from
-   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
-   *     actions' execution requirements, for more details {@see
-   *     BuildLanguageOptions#experimentalAllowTagsPropagation}
-   */
-  public static ImmutableMap<String, String> getExecutionInfo(
-      Rule rule, boolean allowTagsPropagation) {
-    if (allowTagsPropagation) {
-      return ImmutableMap.copyOf(getExecutionInfo(rule));
-    } else {
-      return ImmutableMap.of();
-    }
-  }
 
   /**
    * Returns the execution info, obtained from the rule's tags and the execution requirements
@@ -278,13 +261,9 @@ public final class TargetUtils {
    * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
    *     {@code Dict<String, String>} type, null or Starlark None.
    * @param rule a rule instance to get tags from
-   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
-   *     actions' execution requirements, for more details {@see
-   *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableSortedMap<String, String> getFilteredExecutionInfo(
-      @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
-      throws EvalException {
+      @Nullable Object executionRequirementsUnchecked, Rule rule) throws EvalException {
     Map<String, String> executionInfo =
         executionRequirementsUnchecked == null
             ? ImmutableMap.of()
@@ -295,12 +274,10 @@ public final class TargetUtils {
                     String.class,
                     "execution_requirements"));
 
-    if (allowTagsPropagation) {
-      executionInfo = new HashMap<>(executionInfo); // Make mutable.
-      Map<String, String> checkedTags = getExecutionInfo(rule);
-      // merging filtered tags to the execution info map avoiding duplicates
-      checkedTags.forEach(executionInfo::putIfAbsent);
-    }
+    executionInfo = new HashMap<>(executionInfo); // Make mutable.
+    Map<String, String> checkedTags = getExecutionInfo(rule);
+    // merging filtered tags to the execution info map avoiding duplicates
+    checkedTags.forEach(executionInfo::putIfAbsent);
 
     return ImmutableSortedMap.copyOf(executionInfo);
   }
