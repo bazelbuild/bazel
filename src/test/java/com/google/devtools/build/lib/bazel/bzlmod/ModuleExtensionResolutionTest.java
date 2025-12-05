@@ -2803,6 +2803,59 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void tagSortOrder() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "ext.baz(id = 7)",
+        "ext.foo(id = 2)",
+        "ext.baz(id = 9)",
+        "ext.bar(id = 42)",
+        "ext.foo(id = -1)",
+        "ext.foo(id = 5)",
+        "use_repo(ext, 'ext_data')"
+        );
+    scratch.file(
+        "defs.bzl",
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  tags = []",
+        "  for module in ctx.modules:",
+        "    tags += module.tags.foo",
+        "    tags += module.tags.bar",
+        "    tags += module.tags.baz",
+        "  ids = [tag.id for tag in sorted(tags)]",
+        "  data_repo(name='ext_data',data=str(ids))",
+        "foo = tag_class(attrs = {'id': attr.int()})",
+        "bar = tag_class(attrs = {'id': attr.int()})",
+        "baz = tag_class(attrs = {'id': attr.int()})",
+        "ext = module_extension(implementation=_ext_impl,tag_classes={'foo':foo, 'bar':bar, 'baz':baz})");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext_data//:data.bzl', ext_data='data')", "data=ext_data");
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='root',version='1.0')",
+        "ext = use_extension('@root//:defs.bzl','ext')",
+        "ext.bar(id = 3)",
+        "ext.foo(id = 4)",
+        "ext.baz(id = 1)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("[7, 2, 9, 42, -1, 5, 3, 4, 1]"); // sorted order
+  }
+
+  @Test
   public void innate() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
