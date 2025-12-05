@@ -131,7 +131,7 @@ public class UrlRewriter {
         }
         return new UrlRewriter(configPaths.stream().map(PathFragment::getPathString).toList(), readers);
       } catch (Throwable e) {
-        throw closer.rethrow(new UrlRewriterParseException(e.getMessage()));
+        throw closer.rethrow(e);
       } finally {
         closer.close();
       }
