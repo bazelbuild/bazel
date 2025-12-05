@@ -205,7 +205,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   @VisibleForTesting
   public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(repoMappingManifest));
+    writeFile(
+        out, runfiles.getRunfilesInputs(repoMappingManifest), /* inputMetadataProvider= */ null);
   }
 
   /**
@@ -265,7 +266,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
               .build();
       throw new UserExecException(failureDetail);
     }
-    return out -> writeFile(out, runfilesInputs);
+    return out -> writeFile(out, runfilesInputs, ctx.getInputMetadataProvider());
   }
 
   @Override
@@ -278,9 +279,14 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    *
    * @param out is the message stream to write errors to.
    * @param output The actual mapping of the output manifest.
+   * @param inputMetadataProvider The input metadata provider if available.
    * @throws IOException
    */
-  private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
+  private void writeFile(
+      OutputStream out,
+      Map<PathFragment, Artifact> output,
+      @Nullable InputMetadataProvider inputMetadataProvider)
+      throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     sortedManifest.sort(ENTRY_COMPARATOR);
@@ -290,7 +296,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       if (artifact == null) {
         symlinkTarget = null;
       } else if (artifact.isSymlink()) {
-        symlinkTarget = artifact.getPath().readSymbolicLink();
+        if (inputMetadataProvider != null) {
+          symlinkTarget =
+              PathFragment.createAlreadyNormalized(
+                  inputMetadataProvider.getInputMetadata(artifact).getUnresolvedSymlinkTarget());
+        } else {
+          symlinkTarget = artifact.getPath().readSymbolicLink();
+        }
       } else {
         symlinkTarget = artifact.getPath().asFragment();
       }
