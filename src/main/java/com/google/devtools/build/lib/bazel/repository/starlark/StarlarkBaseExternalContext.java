@@ -1262,10 +1262,10 @@ the same path on case-insensitive filesystems.
                 // Since this is an annotation label, the SUPPORTED_DECOMPRESSION_FORMATS string
                 // must be a compile time constant (we can't call a method to get it).
                 """
-                                              The archive type of the downloaded file. By default, the archive type is \
-                                              determined from the file extension of the URL. If the file has no \
-                                              extension, you can explicitly specify either \
-                                              """
+                The archive type of the downloaded file. By default, the archive type is \
+                determined from the file extension of the URL. If the file has no \
+                extension, you can explicitly specify either \
+                """
                     + SUPPORTED_DECOMPRESSION_FORMATS
                     + " here."),
       })
