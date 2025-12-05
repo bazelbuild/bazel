@@ -19,6 +19,7 @@ import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -338,15 +339,18 @@ final class RegularRunnableExtension implements RunnableExtension {
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
-    for (AbridgedModule abridgedModule : usagesValue.getAbridgedModules()) {
-      ModuleKey moduleKey = abridgedModule.getKey();
+    ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
+    for (int i = 0; i < abridgedModules.size(); i++) {
+      var abridgedModule = abridgedModules.get(i);
+      var moduleKey = abridgedModule.getKey();
       modules.add(
           StarlarkBazelModule.create(
               abridgedModule,
               extension,
               usagesValue.getRepoMappings().get(moduleKey),
               usagesValue.getExtensionUsages().get(moduleKey),
-              staticRepoMappingRecorder));
+              staticRepoMappingRecorder,
+              i));
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
