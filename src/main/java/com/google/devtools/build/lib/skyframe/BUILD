@@ -1789,9 +1789,9 @@ java_library(
     deps = [
         ":broken_diff_awareness_exception",
         ":diff_awareness",
+        ":fs_events_native_deps_service",
         ":incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -3336,5 +3336,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "fs_events_native_deps_service",
+    srcs = ["FsEventsNativeDepsService.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+)
+
+java_library(
+    name = "fs_events_native_deps_service_impl",
+    srcs = ["FsEventsNativeDepsServiceImpl.java"],
+    deps = [
+        ":fs_events_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/jni",
     ],
 )
