@@ -70,7 +70,6 @@ public final class RemoteStarlarkServer {
 
     @SuppressWarnings("FutureReturnValueIgnored")
     public static void main(String[] args) throws Exception {
-        System.out.println("Hello.");
         OptionsParser parser = OptionsParser.builder()
                 .optionsClasses(BuildLanguageOptions.class, RemoteStarlarkOptions.class).build();
         parser.parseAndExitUponError(args);
@@ -79,9 +78,6 @@ public final class RemoteStarlarkServer {
         BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
 
         rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
-
-        System.out.println("Debug flag: " + remoteStarlarkOptions.debug);
-        System.out.println("Log level option: " + remoteStarlarkOptions.logLevel);
 
         if (remoteStarlarkOptions.debug) {
             rootLogger.getHandlers()[0].setLevel(FINE);

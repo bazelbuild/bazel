@@ -37,15 +37,6 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Repo
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 
-// import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
-// import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
-// import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
-// import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
-// import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
-// import build.stack.devtools.build.constellate.rendering.proto.StarlarkServerProtos.ModuleInfoRequest;
-// import build.stack.devtools.build.constellate.rendering.proto.StarlarkServerProtos.ModuleInfoResponse;
-// import build.stack.devtools.build.constellate.rendering.proto.StarlarkServerProtos.StarlarkModule;
-
 import build.stack.devtools.build.constellate.rendering.ProtoRenderer;
 import build.stack.devtools.build.constellate.Constellate;
 import build.stack.devtools.build.constellate.Constellate.StarlarkEvaluationException;
@@ -107,7 +98,9 @@ final class StarlarkServer extends StarlarkImplBase {
     public void moduleInfo(ModuleInfoRequest request, StreamObserver<Module> moduleObserver) {
         Module.Builder module = Module.newBuilder();
 
-        logger.atInfo().log("ModuleInfo request: %s", request);
+        logger.atInfo().log("Processing module: %s", request.getTargetFileLabel());
+        logger.atFine().log("ModuleInfo request details: symbol_names=%s, dep_roots=%s, builtins_bzl_path=%s",
+                request.getSymbolNamesList(), request.getDepRootsList(), request.getBuiltinsBzlPath());
 
         try {
             evalModuleInfo(request, module);
@@ -214,7 +207,8 @@ final class StarlarkServer extends StarlarkImplBase {
         Map<String, RepositoryRuleInfo> filteredRepositoryRuleInfos = repositoryRuleInfoMap.build().entrySet().stream()
                 .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
                 .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-        Map<String, ModuleExtensionInfo> filteredModuleExtensionInfos = moduleExtensionInfoMap.build().entrySet().stream()
+        Map<String, ModuleExtensionInfo> filteredModuleExtensionInfos = moduleExtensionInfoMap.build().entrySet()
+                .stream()
                 .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
                 .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
         Map<String, MacroInfo> filteredMacroInfos = macroInfoMap.build().entrySet().stream()
@@ -235,10 +229,6 @@ final class StarlarkServer extends StarlarkImplBase {
         // Populate wrapper messages with location information
         populateWrapperMessages(module);
 
-        // logger.atFine().log("rule info: %s", ruleInfoMap.build());
-        // logger.atFine().log("function info: %s", userDefinedFunctions.build());
-        // logger.atFine().log("aspect info: %s", aspectInfoMap.build());
-
         // response.setModule(starlarkModule.build());
     }
 
@@ -257,10 +247,13 @@ final class StarlarkServer extends StarlarkImplBase {
     }
 
     /**
-     * Populates wrapper messages (RepositoryRule, ModuleExtension, Macro) in the Module builder
+     * Populates wrapper messages (RepositoryRule, ModuleExtension, Macro) in the
+     * Module builder
      * by combining entity info from ModuleInfo with SymbolLocation data.
      *
-     * <p>Wrapper messages provide location information for IDE features like go-to-definition.
+     * <p>
+     * Wrapper messages provide location information for IDE features like
+     * go-to-definition.
      */
     private void populateWrapperMessages(Module.Builder module) {
         if (!module.hasInfo()) {
@@ -277,9 +270,8 @@ final class StarlarkServer extends StarlarkImplBase {
 
         // Populate RepositoryRule wrappers
         for (RepositoryRuleInfo repoRuleInfo : moduleInfo.getRepositoryRuleInfoList()) {
-            RepositoryRule.Builder repoRuleBuilder =
-                    RepositoryRule.newBuilder()
-                            .setInfo(repoRuleInfo);
+            RepositoryRule.Builder repoRuleBuilder = RepositoryRule.newBuilder()
+                    .setInfo(repoRuleInfo);
 
             // Add location if available
             SymbolLocation location = locationMap.get(repoRuleInfo.getRuleName());
@@ -289,9 +281,8 @@ final class StarlarkServer extends StarlarkImplBase {
 
             // Add attribute wrappers
             for (AttributeInfo attrInfo : repoRuleInfo.getAttributeList()) {
-                Attribute.Builder attrBuilder =
-                        Attribute.newBuilder()
-                                .setInfo(attrInfo);
+                Attribute.Builder attrBuilder = Attribute.newBuilder()
+                        .setInfo(attrInfo);
                 // Note: Attribute locations are not currently tracked in symbol_location
                 repoRuleBuilder.addAttribute(attrBuilder.build());
             }
@@ -301,9 +292,8 @@ final class StarlarkServer extends StarlarkImplBase {
 
         // Populate ModuleExtension wrappers
         for (ModuleExtensionInfo extensionInfo : moduleInfo.getModuleExtensionInfoList()) {
-            ModuleExtension.Builder extensionBuilder =
-                    ModuleExtension.newBuilder()
-                            .setInfo(extensionInfo);
+            ModuleExtension.Builder extensionBuilder = ModuleExtension.newBuilder()
+                    .setInfo(extensionInfo);
 
             // Add location if available
             SymbolLocation location = locationMap.get(extensionInfo.getExtensionName());
@@ -313,18 +303,16 @@ final class StarlarkServer extends StarlarkImplBase {
 
             // Add tag class wrappers
             for (ModuleExtensionTagClassInfo tagClassInfo : extensionInfo.getTagClassList()) {
-                ModuleExtensionTagClass.Builder tagClassBuilder =
-                        ModuleExtensionTagClass.newBuilder()
-                                .setInfo(tagClassInfo);
+                ModuleExtensionTagClass.Builder tagClassBuilder = ModuleExtensionTagClass.newBuilder()
+                        .setInfo(tagClassInfo);
 
                 // Note: Tag class locations are not currently tracked separately
                 // They could be tracked as "extensionName.tagName" in the future
 
                 // Add attribute wrappers for tag class
                 for (AttributeInfo attrInfo : tagClassInfo.getAttributeList()) {
-                    Attribute.Builder attrBuilder =
-                            Attribute.newBuilder()
-                                    .setInfo(attrInfo);
+                    Attribute.Builder attrBuilder = Attribute.newBuilder()
+                            .setInfo(attrInfo);
                     tagClassBuilder.addAttribute(attrBuilder.build());
                 }
 
@@ -336,9 +324,8 @@ final class StarlarkServer extends StarlarkImplBase {
 
         // Populate Macro wrappers
         for (MacroInfo macroInfo : moduleInfo.getMacroInfoList()) {
-            Macro.Builder macroBuilder =
-                    Macro.newBuilder()
-                            .setInfo(macroInfo);
+            Macro.Builder macroBuilder = Macro.newBuilder()
+                    .setInfo(macroInfo);
 
             // Add location if available
             SymbolLocation location = locationMap.get(macroInfo.getMacroName());
@@ -348,9 +335,8 @@ final class StarlarkServer extends StarlarkImplBase {
 
             // Add attribute wrappers
             for (AttributeInfo attrInfo : macroInfo.getAttributeList()) {
-                Attribute.Builder attrBuilder =
-                        Attribute.newBuilder()
-                                .setInfo(attrInfo);
+                Attribute.Builder attrBuilder = Attribute.newBuilder()
+                        .setInfo(attrInfo);
                 macroBuilder.addAttribute(attrBuilder.build());
             }
 

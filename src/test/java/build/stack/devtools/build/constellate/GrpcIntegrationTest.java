@@ -280,6 +280,56 @@ public class GrpcIntegrationTest {
     }
   }
 
+  @Test
+  public void testModuleContentInline() throws Exception {
+    // Test that we can provide module content inline without requiring a file on disk
+    // This is useful for LSP scenarios where the file hasn't been saved yet,
+    // or for testing without creating temporary files
+
+    String inlineContent =
+        "\"\"\"Inline test module.\"\"\"\\n" +
+        "\\n" +
+        "def inline_function(x):\\n" +
+        "    \"\"\"An inline function.\\n" +
+        "\\n" +
+        "    Args:\\n" +
+        "        x: The input value\\n" +
+        "\\n" +
+        "    Returns:\\n" +
+        "        The squared value\\n" +
+        "    \"\"\"\\n" +
+        "    return x * x\\n" +
+        "\\n" +
+        "InlineInfo = provider(\\n" +
+        "    doc = \\\"An inline provider.\\\",\\n" +
+        "    fields = [\\\"data\\\"],\\n" +
+        ")\\n";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel("//virtual:inline.bzl")  // Label doesn't need to exist on disk
+        .setModuleContent(inlineContent)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should extract function from inline content
+    StarlarkFunctionInfo func = findFunction(moduleInfo, "inline_function");
+    assertNotNull("inline_function should be extracted from inline content", func);
+    assertEquals("Function should have correct name", "inline_function", func.getFunctionName());
+    assertTrue("Function should have documentation", func.getDocString().contains("squared value"));
+
+    // Should extract provider from inline content
+    ProviderInfo provider = findProvider(moduleInfo, "InlineInfo");
+    assertNotNull("InlineInfo should be extracted from inline content", provider);
+    assertEquals("Provider should have correct name", "InlineInfo", provider.getProviderName());
+    assertEquals("Provider should have one field", 1, provider.getFieldInfoCount());
+  }
+
   // Helper methods
 
   private StarlarkFunctionInfo findFunction(ModuleInfo moduleInfo, String name) {

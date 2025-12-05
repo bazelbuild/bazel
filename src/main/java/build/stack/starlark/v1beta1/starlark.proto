@@ -159,7 +159,7 @@ message ModuleInfoRequest {
     string rel = 3;
     // --symbol
     repeated string symbol_names = 4;
-    // dep_roots corresponds to the stardoc_binary --dep_root argument
+    // dep_roots are directory paths where files should be searched
     repeated string dep_roots = 5;
     // the builtins path for StarlarkSemantics
     string builtins_bzl_path = 6;

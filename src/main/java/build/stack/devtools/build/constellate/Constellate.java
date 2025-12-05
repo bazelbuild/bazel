@@ -250,7 +250,8 @@ public class Constellate {
 
     List<ModuleExtensionInfoWrapper> moduleExtensionInfoList = new ArrayList<>();
 
-    Module module = recursiveEval(input, label, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
+    Module module = recursiveEval(input, label, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList,
+        repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
 
     logger.atFine().log("\n\nresolving module globals: %s", label);
 
@@ -318,8 +319,6 @@ public class Constellate {
     // Sort the globals bindings by name.
     TreeMap<String, Object> sortedBindings = new TreeMap<>(module.getGlobals());
 
-    // logger.atInfo().log("module globals: %s", sortedBindings);
-
     // calledWithKwargs represents a function identifier that was called using
     // kwargs from a user defined function. For example, if the body of `def
     // _buildifier(**kwargs)` calls `buildifier(**kwargs)`, the we store a
@@ -337,10 +336,8 @@ public class Constellate {
             export.getValue().getClass().getName());
       }
     }
-
-    // logger.atFine().log("top-level global objects of %s: %s", label,
-    // sortedBindings.size());
-    logger.atFine().log("resolving module %s: rules: %s, providers: %s, aspects: %s, macros: %s, repository_rules: %s, module_extensions: %s",
+    logger.atFine().log(
+        "resolving module %s: rules: %s, providers: %s, aspects: %s, macros: %s, repository_rules: %s, module_extensions: %s",
         module.getClientData(),
         ruleInfoList.size(), providerInfoList.size(),
         aspectInfoList.size(), macroInfoList.size(), repositoryRuleInfoList.size(), moduleExtensionInfoList.size());
@@ -356,7 +353,8 @@ public class Constellate {
         RuleInfoWrapper wrapper = ruleFunctions.get(envEntry.getValue());
         RuleInfo.Builder ruleInfoBuilder = wrapper.getRuleInfo();
 
-        // Use symbol name as the rule name only if not already set in the call to rule().
+        // Use symbol name as the rule name only if not already set in the call to
+        // rule().
         if ("".equals(ruleInfoBuilder.getRuleName())) {
           ruleInfoBuilder.setRuleName(envEntry.getKey());
         }
@@ -580,8 +578,6 @@ public class Constellate {
     // under the caller function name.
     for (RuleInfoWrapper ruleWrapper : ruleInfoList) {
       String name = ((PostAssignHookAssignableIdentifier) ruleWrapper.getIdentifierFunction()).getAssignedName();
-      // String name = ruleWrapper.getIdentifierFunction().getName();
-      // logger.atFine().log("checking if rule %s was called by a macro", name);
       if (!rulesCalledWithKwargs.containsKey(name)) {
         continue;
       }
@@ -689,7 +685,8 @@ public class Constellate {
       }
     };
 
-    // Note: StarlarkFunction no longer exposes getResolverFunction() in modern Bazel.
+    // Note: StarlarkFunction no longer exposes getResolverFunction() in modern
+    // Bazel.
     // Macro kwargs detection is disabled until an alternative API is found.
     // checker.visitAll(userDefinedFunction.getResolverFunction().getBody());
   }
@@ -723,73 +720,6 @@ public class Constellate {
     }
 
   }
-
-  // /**
-  // *
-  // */
-  // private static RuleInfo getTargetRuleInfo(
-  // StarlarkFunction function, // a user defined function
-  // Module module, // the module to which the function is a top-level
-  // ImmutableListMultimap<Module, Collection<Module>> loadMappings, // the load
-  // mappings
-  // Digraph<Module> modules, // graph of modules and those they load
-  // ImmutableListMultimap<Module,LoadStatement> moduleLoads,
-  // ImmutableListMultimap<StarlarkFunction, Collection<CallExpression>>
-  // kwargsCallers, // mapping from function to the call expressions given kwargs
-  // ) {
-  // StarlarkProtos.Module currentModule = module;
-  // Stack<StarlarkFunction> current = new Stack();
-  // stack.add(current);
-
-  // while (!stack.isEmpty()) {
-  // StarlarkFunction currentFunction = stack.pop();
-
-  // // step 1: does this function pass kwargs to a call-expression within the
-  // // function body?
-  // if (!calledExprs.containsKey(currentFunction)) {
-  // continue;
-  // }
-  // Collection<CallExpression> calledExprs = kwargsCallers.get(currentFunction);
-
-  // // step 3: seek for the loaded symbol that was called by the function.
-  // Object targetOfKwargs = null;
-
-  // LOADS:
-  // for (Collection<LoadStatement> loads : moduleLoads.get(currentModule)) {
-  // for (LoadStatement load : loads) {
-  // for (LoadStatement.Binding binding : lo) {
-  // String localName = binding.getLocalName();
-  // for (CallExpression callExpr : calledExprs()) {
-  // if (!(callExpr.getFunction() instanceof Identifier)) {
-  // continue;
-  // }
-  // Identifier ident = (Identifier)callExpr.getFunction();
-  // if (!ident.getName().equals(localName)) {
-  // Module targetModule =
-  // continue;
-  // }
-  // // we found the thing the current function passed its kwargs to.
-  // }
-  // }
-  // }
-  // }
-  // Collection<Module> modules = loadMappings.get(current);
-  // if (modules == null || modules.isEmpty()) {
-  // return null;
-  // }
-  // for (Module loaded : modules) {
-  // // check all exported symbols
-  // for (Entry<String, Object> global : new
-  // TreeMap(loaded.getGlobal()).entrySet()) {
-  // // ignore private symbols
-  // if (global.getKey().startsWith("_")) {
-  // continue;
-  // }
-  // }
-  // }
-
-  // }
-  // }
 
   /**
    * Recursively adds functions defined in {@code namespace}, and in its nested
@@ -861,7 +791,8 @@ public class Constellate {
     // the fake build
     // API but used by the program; these become FakeDeepStructures.
     ImmutableMap.Builder<String, Object> initialEnvBuilder = ImmutableMap.builder();
-    FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList);
+    FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList,
+        repositoryRuleInfoList, moduleExtensionInfoList);
     addMorePredeclared(initialEnvBuilder);
 
     ImmutableMap<String, Object> initialEnv = initialEnvBuilder.build();
@@ -902,21 +833,23 @@ public class Constellate {
     }
 
     // NOTE: a Program is the syntax tree plus identifiers resolved to bindings.
-    // Create module with BazelModuleContext so that StarlarkFunctionInfoExtractor can get the label
+    // Create module with BazelModuleContext so that StarlarkFunctionInfoExtractor
+    // can get the label
     BazelModuleContext moduleContext = BazelModuleContext.create(
         BzlLoadValue.keyForBuild(label),
         RepositoryMapping.EMPTY,
         input.getFile(),
-        ImmutableList.of(),  // loads will be filled in later
-        new byte[0],  // bzlTransitiveDigest not needed for extraction
-        ImmutableMap.of(),  // docCommentsMap not needed for extraction
-        ImmutableList.of()  // unusedDocCommentLines not needed for extraction
+        ImmutableList.of(), // loads will be filled in later
+        new byte[0], // bzlTransitiveDigest not needed for extraction
+        ImmutableMap.of(), // docCommentsMap not needed for extraction
+        ImmutableList.of() // unusedDocCommentLines not needed for extraction
     );
     Module module = Module.withPredeclaredAndData(semantics, predeclaredSymbols, moduleContext);
 
     // process loads
     for (String load : prog.getLoads()) {
-      // Parse the load label - absolute labels start with @ or //, others are relative
+      // Parse the load label - absolute labels start with @ or //, others are
+      // relative
       Label from;
       if (load.startsWith("@") || load.startsWith("//")) {
         from = Label.parseCanonical(load);
@@ -962,8 +895,8 @@ public class Constellate {
         // Create a stub module that returns FakeDeepStructure for requested symbols
         Module stubModule = createStubModule(load, loadedSymbols);
 
-        // Debug: verify what's in the stub module
-        logger.atInfo().log("Stub module globals for '%s': %s", load, stubModule.getGlobals().keySet());
+        logger.atFine().log("Created stub module for '%s' with %d symbols: %s", load,
+            stubModule.getGlobals().size(), stubModule.getGlobals().keySet());
 
         imports.put(load, stubModule);
         moduleGraph.addEdge(module, stubModule);
@@ -994,7 +927,8 @@ public class Constellate {
     pending.remove(label);
     loaded.put(label, module);
 
-    // Best-effort enhancement: extract OriginKey and other metadata from real evaluated objects
+    // Best-effort enhancement: extract OriginKey and other metadata from real
+    // evaluated objects
     try {
       RealObjectEnhancer enhancer = new RealObjectEnhancer(label);
       enhancer.enhance(
@@ -1021,35 +955,31 @@ public class Constellate {
     String workspaceRoot = label.getWorkspaceRootForStarlarkOnly(semantics);
     if (workspaceRoot.isEmpty()) {
       // Local workspace file
-      logger.atInfo().log("1 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
+      logger.atFine().log("Resolving local workspace file: %s", label);
       return Paths.get(label.toPathFragment().toString());
     }
     // External workspace file
-    logger.atInfo().log("2 pathOfLabel %s: workspaceRoot=%s", label, workspaceRoot);
+    logger.atFine().log("Resolving external workspace file: %s (workspace_root=%s)", label, workspaceRoot);
     return Paths.get(workspaceRoot, label.toPathFragment().toString());
   }
 
   public ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
+    logger.atFine().log("Searching for input source: %s (roots: %s)", bzlWorkspacePath, depRoots);
     for (String rootPath : depRoots) {
       String filepath = rootPath + "/" + bzlWorkspacePath;
       if (fileAccessor.fileExists(filepath)) {
-        logger.atInfo().log("🟢 found input source %s (%s)", bzlWorkspacePath, filepath);
+        logger.atFine().log("Found input source: %s at %s", bzlWorkspacePath, filepath);
         return fileAccessor.inputSource(filepath);
       } else {
-        logger.atInfo().log("🔴 file not found: %s (%s)", bzlWorkspacePath, filepath);
+        logger.atFine().log("Input source not found at: %s", filepath);
       }
     }
 
-    logger.atWarning().log("getInputSource failed %s: %s", bzlWorkspacePath, depRoots);
+    logger.atWarning().log("Failed to resolve input source: %s (searched roots: %s)", bzlWorkspacePath, depRoots);
 
     // All depRoots attempted and no valid file was found.
     throw new NoSuchFileException(bzlWorkspacePath);
   }
-
-  // private static Binding asBinding(Entry<String, Object> envEntry) {
-  // Binding.Builder binding = Binding.newBuilder();
-  // return binding.build();
-  // }
 
   /**
    * Creates a stub module that returns FakeDeepStructure for requested symbols.
@@ -1073,10 +1003,8 @@ public class Constellate {
     // execution, but load statements look at module.getGlobals()
     for (String symbol : symbols) {
       stubModule.setGlobal(symbol, FakeDeepStructure.create(symbol));
+      logger.atFine().log("Created stub symbol '%s' in failed load: %s", symbol, loadLabel);
     }
-
-    logger.atInfo().log("Created stub module for failed load '%s' with %d symbols: %s", loadLabel, symbols.size(),
-        symbols);
 
     return stubModule;
   }
@@ -1122,7 +1050,7 @@ public class Constellate {
       @Override
       public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) throws EvalException {
         String message = positional.length > 0 ? Starlark.str(positional[0], thread.getSemantics()) : "fail() called";
-        logger.atInfo().log("fail() called: %s", message);
+        logger.atFine().log("Starlark fail() called at %s: %s", thread.getCallerLocation(), message);
         return Starlark.NONE;
       }
 

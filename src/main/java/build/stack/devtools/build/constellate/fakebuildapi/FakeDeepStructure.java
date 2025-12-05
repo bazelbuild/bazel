@@ -76,7 +76,7 @@ public class FakeDeepStructure extends FakeProviderApi implements Structure, Sta
 
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
-    logger.atInfo().log("%s called at %s: args=%s, kwargs=%s", fullName, thread.getCallerLocation(), args, kwargs);
+    logger.atFine().log("FakeAPI call: %s(%s, %s) at %s", fullName, args, kwargs, thread.getCallerLocation());
     // Return another FakeDeepStructure so it can be chained or used in any context
     return new FakeDeepStructure(getName() + "()", fullName + "()");
   }
