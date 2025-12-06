@@ -673,9 +673,15 @@ public class ModuleFileGlobals {
     for (String arg : Sequence.cast(args, String.class, "args")) {
       extensionProxy.addImport(arg, arg, "by a use_repo() call", stack);
     }
+    String moduleName = context.getModuleBuilder().getName();
+    String moduleVersion = context.getModuleBuilder().getVersion().normalized();
     for (Map.Entry<String, String> entry :
         Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
-      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", stack);
+      extensionProxy.addImport(
+          entry.getKey(),
+          entry.getValue().replace("{name}", moduleName).replace("{version}", moduleVersion),
+          "by a use_repo() call",
+          stack);
     }
   }
 

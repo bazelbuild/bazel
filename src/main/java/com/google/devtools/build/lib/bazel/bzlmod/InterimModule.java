@@ -212,6 +212,8 @@ public abstract class InterimModule extends ModuleBase {
 
     abstract String getName();
 
+    abstract Version getVersion();
+
     abstract Optional<String> getRepoName();
 
     abstract InterimModule autoBuild();
