@@ -384,8 +384,13 @@ public final class RemoteModule extends BlazeModule {
         }
       }
     } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+      // User pressed Ctrl+C - cancel uploads but continue with the build
+      reporter.handle(
+          Event.warn(
+              "Interrupted while waiting for remote cache uploads from previous build. "
+                  + "Some cache entries may be incomplete."));
       uploads.cancel();
+      // Don't re-interrupt the thread - we want the build to proceed
     }
   }
 
