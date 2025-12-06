@@ -63,6 +63,7 @@ java_library(
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
             "DiskCacheIntegrationTest.java",
+            "RemoteUploadModeIntegrationTest.java",
         ],
     ),
     deps = [
@@ -253,6 +254,33 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "RemoteUploadModeIntegrationTest",
+    size = "large",
+    srcs = ["RemoteUploadModeIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    shard_count = 2,
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        ":build_without_the_bytes_integration_test_base",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",
         "//third_party:junit4",
