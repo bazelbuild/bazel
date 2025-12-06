@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteUploadMode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteCacheAsync;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -246,10 +246,10 @@ final class RemoteActionContextProvider {
   /**
    * Called after a command completes.
    *
-   * @param uploadMode determines whether to wait for uploads to complete
+   * @param cacheAsync determines whether to wait for uploads to complete
    * @return future that completes when uploads are done (immediate for sync mode)
    */
-  public ListenableFuture<Void> afterCommand(RemoteUploadMode uploadMode) {
+  public ListenableFuture<Void> afterCommand(RemoteCacheAsync cacheAsync) {
     // actionInputFetcher uses combinedCache to prefetch inputs, so it must be shut down first.
     if (actionInputFetcher != null) {
       actionInputFetcher.shutdown();
@@ -258,7 +258,7 @@ final class RemoteActionContextProvider {
     ListenableFuture<Void> uploadsFuture = Futures.immediateFuture(null);
 
     if (remoteExecutionService != null) {
-      uploadsFuture = remoteExecutionService.shutdown(uploadMode);
+      uploadsFuture = remoteExecutionService.shutdown(cacheAsync);
     } else {
       if (combinedCache != null) {
         combinedCache.release();

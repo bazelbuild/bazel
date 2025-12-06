@@ -3142,26 +3142,25 @@ public class RemoteExecutionServiceTest {
     future.get();
   }
 
-  // ==================== Tests for shutdown(RemoteUploadMode) ====================
+  // ==================== Tests for shutdown(RemoteCacheAsync) ====================
 
   @Test
-  public void shutdown_waitForUploadComplete_blocksUntilDone() throws Exception {
-    // Test that WAIT_FOR_UPLOAD_COMPLETE mode blocks until uploads complete
+  public void shutdown_true_blocksUntilDone() throws Exception {
+    // Test that TRUE mode (wait at end of build) blocks until uploads complete
     RemoteExecutionService service = newRemoteExecutionService();
 
     // Shutdown with default mode should return an immediate future
-    var future = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+    var future = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
 
     assertThat(future.isDone()).isTrue();
   }
 
   @Test
-  public void shutdown_nowaitForUploadComplete_returnsImmediateFutureWhenNoUploads()
-      throws Exception {
-    // Test that NOWAIT_FOR_UPLOAD_COMPLETE returns immediately when there are no pending uploads
+  public void shutdown_nowait_returnsImmediateFutureWhenNoUploads() throws Exception {
+    // Test that NOWAIT returns immediately when there are no pending uploads
     RemoteExecutionService service = newRemoteExecutionService();
 
-    var future = service.shutdown(RemoteOptions.RemoteUploadMode.NOWAIT_FOR_UPLOAD_COMPLETE);
+    var future = service.shutdown(RemoteOptions.RemoteCacheAsync.NOWAIT);
 
     // With no pending uploads, future should be done immediately
     assertThat(future.isDone()).isTrue();
@@ -3172,8 +3171,8 @@ public class RemoteExecutionServiceTest {
     // Test that calling shutdown twice doesn't cause issues
     RemoteExecutionService service = newRemoteExecutionService();
 
-    var future1 = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
-    var future2 = service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+    var future1 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
+    var future2 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
 
     assertThat(future1.isDone()).isTrue();
     assertThat(future2.isDone()).isTrue();
@@ -3184,7 +3183,7 @@ public class RemoteExecutionServiceTest {
     // Test that shutdown releases the cache
     RemoteExecutionService service = newRemoteExecutionService();
 
-    service.shutdown(RemoteOptions.RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
+    service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
 
     verify(cache).release();
   }

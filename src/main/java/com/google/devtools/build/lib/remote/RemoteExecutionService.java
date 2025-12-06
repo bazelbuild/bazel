@@ -109,7 +109,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
-import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteUploadMode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteCacheAsync;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -202,7 +202,7 @@ public class RemoteExecutionService {
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
   // Track pending upload futures for async upload modes. Only populated when
-  // experimentalRemoteUploadMode != WAIT_FOR_UPLOAD_COMPLETE.
+  // remoteCacheAsync == NOWAIT.
   private final Set<ListenableFuture<Void>> pendingUploads = ConcurrentHashMap.newKeySet();
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
@@ -1760,11 +1760,10 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync
+    if (remoteOptions.remoteCacheAsync != RemoteCacheAsync.FALSE
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      // Only track futures for async upload modes
-      final boolean trackUpload =
-          remoteOptions.experimentalRemoteUploadMode != RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
+      // Only track futures for NOWAIT mode
+      final boolean trackUpload = remoteOptions.remoteCacheAsync == RemoteCacheAsync.NOWAIT;
       final SettableFuture<Void> uploadFuture = trackUpload ? SettableFuture.create() : null;
       if (uploadFuture != null) {
         pendingUploads.add(uploadFuture);
@@ -2015,10 +2014,10 @@ public class RemoteExecutionService {
   /**
    * Shuts the service down.
    *
-   * @param uploadMode determines whether to wait for uploads to complete
+   * @param cacheAsync determines whether to wait for uploads to complete
    * @return future that completes when uploads are done (immediate for sync mode)
    */
-  public ListenableFuture<Void> shutdown(RemoteUploadMode uploadMode) {
+  public ListenableFuture<Void> shutdown(RemoteCacheAsync cacheAsync) {
     if (!shutdown.compareAndSet(false, true)) {
       return Futures.immediateFuture(null);
     }
@@ -2032,7 +2031,7 @@ public class RemoteExecutionService {
       return Futures.immediateFuture(null);
     }
 
-    if (uploadMode == RemoteUploadMode.WAIT_FOR_UPLOAD_COMPLETE) {
+    if (cacheAsync != RemoteCacheAsync.NOWAIT) {
       // Existing behavior - block until done
       backgroundTaskExecutor.close();
       if (combinedCache != null) {

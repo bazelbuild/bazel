@@ -36,7 +36,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Integration tests for {@code --experimental_remote_upload_mode}.
+ * Integration tests for {@code --remote_cache_async=nowait}.
  *
  * <p>Tests the async upload functionality where uploads continue in the background after a build
  * completes, with the next command waiting for pending uploads.
@@ -124,11 +124,11 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
   @Override
   protected void injectFile(byte[] content) {}
 
-  // ==================== Tests for --experimental_remote_upload_mode ====================
+  // ==================== Tests for --remote_cache_async ====================
 
   @Test
   public void nowaitForUploadComplete_uploadsCompleteBeforeNextBuild() throws Exception {
-    // Test that with NOWAIT_FOR_UPLOAD_COMPLETE, uploads from build N complete
+    // Test that with --remote_cache_async=nowait, uploads from build N complete
     // before build N+1 executes (due to waitForPreviousInvocation).
     write(
         "BUILD",
@@ -146,7 +146,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo bar > $@",
         )
         """);
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
 
     // First build - uploads continue in background
     buildTarget("//:foo");
@@ -158,7 +158,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
     // Both outputs should be available in the remote cache
     // Verify by doing a clean build that hits the cache
     restartServer();
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
 
     ActionEventCollector actionEventCollector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(actionEventCollector);
@@ -195,7 +195,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo gen3 > $@",
         )
         """);
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
 
     // Run multiple builds in sequence
     buildTarget("//:gen1");
@@ -205,7 +205,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
     // All uploads should have completed (each build waits for the previous one)
     // Verify by restarting and checking cache hits
     restartServer();
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
 
     ActionEventCollector collector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(collector);
@@ -229,7 +229,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo cached-content > $@",
         )
         """);
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
 
     // Build with async uploads
     buildTarget("//:cached");
@@ -239,7 +239,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
 
     // Evict local state and rebuild - should hit cache
     restartServer();
-    addOptions("--experimental_remote_upload_mode=wait_for_upload_complete");
+    addOptions("--remote_cache_async=true");
     setDownloadToplevel();
 
     buildTarget("//:cached");
@@ -263,13 +263,13 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
         )
         """);
     // Explicitly set default mode (or don't set it at all)
-    addOptions("--experimental_remote_upload_mode=wait_for_upload_complete");
+    addOptions("--remote_cache_async=true");
 
     buildTarget("//:default");
 
     // Restart and verify cache is populated (uploads completed synchronously)
     restartServer();
-    addOptions("--experimental_remote_upload_mode=wait_for_upload_complete");
+    addOptions("--remote_cache_async=true");
 
     ActionEventCollector collector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(collector);
@@ -294,7 +294,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    addOptions("--experimental_remote_upload_mode=nowait_for_upload_complete");
+    addOptions("--remote_cache_async=nowait");
     setDownloadToplevel();
 
     // Initial build
@@ -323,9 +323,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
         )
         """);
     Path diskCachePath = getOutputBase().getRelative("disk-cache");
-    addOptions(
-        "--experimental_remote_upload_mode=nowait_for_upload_complete",
-        "--disk_cache=" + diskCachePath.getPathString());
+    addOptions("--remote_cache_async=nowait", "--disk_cache=" + diskCachePath.getPathString());
 
     buildTarget("//:disk_cached");
 
@@ -334,9 +332,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
 
     // Verify cache is populated
     restartServer();
-    addOptions(
-        "--experimental_remote_upload_mode=wait_for_upload_complete",
-        "--disk_cache=" + diskCachePath.getPathString());
+    addOptions("--remote_cache_async=true", "--disk_cache=" + diskCachePath.getPathString());
 
     ActionEventCollector collector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(collector);
