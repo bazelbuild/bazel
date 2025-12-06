@@ -70,6 +70,8 @@ if ! "$is_windows"; then
   exit 0
 fi
 
+setup_localjdk_javabase
+
 function set_up() {
   copy_examples
   setup_bazelrc

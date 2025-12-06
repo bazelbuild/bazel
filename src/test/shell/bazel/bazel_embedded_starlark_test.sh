@@ -20,9 +20,6 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/remote_helpers.sh" \
-  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
-
 
 test_pkg_tar() {
   rm -rf main
