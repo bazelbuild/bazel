@@ -7575,3 +7575,45 @@ cc_toolchain_config = rule(
     provides = [CcToolchainConfigInfo],
     executable = True,
 )
+
+def _has_any_target_constraint(ctx, constraints):
+    for constraint in constraints:
+        constraint_value = constraint[platform_common.ConstraintValueInfo]
+        if ctx.target_platform_has_constraint(constraint_value):
+            return True
+    return False
+
+def _default_test_runner_func(ctx, binary_info, processed_environment):
+    providers = [
+        DefaultInfo(
+            executable = binary_info.executable,
+            files = binary_info.files,
+            runfiles = binary_info.runfiles,
+        ),
+        RunEnvironmentInfo(
+            environment = processed_environment,
+            inherited_environment = ctx.attr.env_inherit,
+        ),
+    ]
+
+    if _has_any_target_constraint(ctx, ctx.attr._apple_constraints):
+        # When built for Apple platforms, require the execution to be on a Mac.
+        providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
+
+    return providers
+
+def _default_test_runner_impl(_ctx):
+    return [
+        platform_common.ToolchainInfo(
+            cc_test_info = struct(
+                get_runner = struct(
+                    args = {},
+                    func = _default_test_runner_func,
+                ),
+                linkopts = [],
+                linkstatic = False,
+            ),
+        ),
+    ]
+
+default_test_runner = rule(_default_test_runner_impl)
