@@ -1689,8 +1689,8 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", or a list"
-            + " of strings");
+        "root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", a list of"
+            + " strings, or a dict of strings");
   }
 
   @Test
@@ -1701,8 +1701,8 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", or a list"
-            + " of strings");
+        "root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", a list of"
+            + " strings, or a dict of strings");
   }
 
   @Test
@@ -1762,7 +1762,150 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "in root_module_direct_dev_deps: entry 'dep' is also in root_module_direct_deps");
+        "in root_module_direct_dev_deps: module-local name 'dep' is also in"
+            + " root_module_direct_deps");
+  }
+
+  @Test
+  public void extensionMetadata_dictMapping() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'my_dep':'dep1'},root_module_direct_dev_deps={})");
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void extensionMetadata_dictMappingIdentity() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'dep1':'dep1'},root_module_direct_dev_deps={})");
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void extensionMetadata_dictMappingMixed() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'my_dep':'dep1','dep2':'dep2'},root_module_direct_dev_deps={})");
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void extensionMetadata_dictInvalidModuleLocalName() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'+invalid':'dep1'},root_module_direct_dev_deps={})");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "in root_module_direct_deps: invalid module-local name '+invalid': invalid"
+            + " user-provided repo name '+invalid': valid names may contain only A-Z, a-z, 0-9,"
+            + " '-', '_', '.', and must start with a letter");
+  }
+
+  @Test
+  public void extensionMetadata_dictInvalidExtensionName() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'my_dep':'+invalid'},root_module_direct_dev_deps={})");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "in root_module_direct_deps: invalid extension name '+invalid': invalid user-provided"
+            + " repo name '+invalid': valid names may contain only A-Z, a-z, 0-9, '-', '_', '.',"
+            + " and must start with a letter");
+  }
+
+  @Test
+  public void extensionMetadata_dictDuplicateModuleLocalName() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps=['my_dep'],root_module_direct_dev_deps={'my_dep':'dep2'})");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "in root_module_direct_dev_deps: module-local name 'my_dep' is also in"
+            + " root_module_direct_deps");
+  }
+
+  @Test
+  public void extensionMetadata_dictDuplicateExtensionName() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'my_dep1':'dep1'},root_module_direct_dev_deps={'my_dep2':'dep1'})");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "in root_module_direct_dev_deps: extension name 'dep1' is also in"
+            + " root_module_direct_deps");
+  }
+
+  @Test
+  public void extensionMetadata_dictDuplicateExtensionNameSameParam() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            "return"
+                + " ctx.extension_metadata(root_module_direct_deps={'dep1':'same','dep2':'same'},root_module_direct_dev_deps=[])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in root_module_direct_deps: duplicate extension name 'same'");
+  }
+
+  @Test
+  public void extensionMetadata_multipleProxiesSameRepo() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name='ext', version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "include('//:first.MODULE.bazel')",
+        "include('//:second.MODULE.bazel')");
+    scratch.file(
+        "first.MODULE.bazel",
+        "ext = use_extension('@ext//:defs.bzl', 'ext')",
+        "use_repo(ext, my_dep = 'dep1')");
+    scratch.file(
+        "second.MODULE.bazel",
+        "ext = use_extension('@ext//:defs.bzl', 'ext')",
+        "use_repo(ext, my_dep = 'dep1')");
+    scratch.overwriteFile("BUILD");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='dep1')",
+        "  return ctx.extension_metadata(",
+        "    root_module_direct_deps=['dep1'],",
+        "    root_module_direct_dev_deps=[],",
+        "  )",
+        "ext=module_extension(implementation=_ext_impl)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<ModuleFileValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+
+    // Bazel already prevents duplicate repo names at parse time, so the toImmutableMap()
+    // in generateFixup() can never crash with duplicate keys in practice
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("The repo name 'my_dep' is already being used by a use_repo() call");
   }
 
   @Test
