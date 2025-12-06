@@ -29,11 +29,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -129,13 +127,11 @@ import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -163,7 +159,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private String lastBuildId;
 
   // Survives across command invocations within the same server for async upload modes
-  @Nullable private ListenableFuture<Void> pendingUploadsFuture = null;
+  @Nullable private RemoteExecutionService.PendingUploads pendingUploads = null;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -350,35 +346,46 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private void waitForPreviousInvocation(Reporter reporter) {
-    if (pendingUploadsFuture == null) {
+    if (pendingUploads == null) {
       return;
     }
 
-    ListenableFuture<Void> future = pendingUploadsFuture;
-    pendingUploadsFuture = null;
+    RemoteExecutionService.PendingUploads uploads = pendingUploads;
+    pendingUploads = null;
 
     Stopwatch stopwatch = Stopwatch.createStarted();
+    Thread waitThread = new Thread(() -> {
+      try {
+        uploads.awaitTermination();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    });
+    waitThread.start();
+
     try {
       // Wait up to 30 seconds for uploads from previous invocation to complete
-      Uninterruptibles.getUninterruptibly(future, 30, SECONDS);
-      long elapsed = stopwatch.elapsed().toMillis();
-      if (elapsed > 1000) {
+      waitThread.join(30_000);
+      if (waitThread.isAlive()) {
         reporter.handle(
-            Event.info(
-                String.format(
-                    "Waited %.1f seconds for remote cache uploads from previous build to complete",
-                    elapsed / 1000.0)));
+            Event.warn(
+                "Timed out waiting for remote cache uploads from previous build to complete. "
+                    + "The build will continue, but some uploads may be lost."));
+        uploads.cancel();
+      } else {
+        long elapsed = stopwatch.elapsed().toMillis();
+        if (elapsed > 1000) {
+          reporter.handle(
+              Event.info(
+                  String.format(
+                      "Waited %.1f seconds for remote cache uploads from previous build to"
+                          + " complete",
+                      elapsed / 1000.0)));
+        }
       }
-    } catch (TimeoutException e) {
-      reporter.handle(
-          Event.warn(
-              "Timed out waiting for remote cache uploads from previous build to complete. "
-                  + "The build will continue, but some uploads may be lost."));
-      future.cancel(true);
-    } catch (ExecutionException e) {
-      reporter.handle(
-          Event.warn(
-              "Remote cache uploads from previous build failed: " + e.getCause().getMessage()));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      uploads.cancel();
     }
   }
 
@@ -1073,7 +1080,7 @@ public final class RemoteModule extends BlazeModule {
                   tempPathGeneratorRef,
                   rpcLogFileRef,
                   cacheAsyncRef,
-                  future -> pendingUploadsFuture = future));
+                  uploads -> pendingUploads = uploads));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
@@ -1101,38 +1108,53 @@ public final class RemoteModule extends BlazeModule {
       @Nullable TempPathGenerator tempPathGenerator,
       @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile,
       RemoteCacheAsync cacheAsync,
-      Consumer<ListenableFuture<Void>> pendingUploadsSetter)
+      Consumer<RemoteExecutionService.PendingUploads> pendingUploadsSetter)
       throws AbruptExitException {
-    ListenableFuture<Void> uploadsFuture = null;
+    RemoteExecutionService.PendingUploads uploads = RemoteExecutionService.PendingUploads.EMPTY;
 
     if (actionContextProvider != null) {
-      uploadsFuture = actionContextProvider.afterCommand(cacheAsync);
+      uploads = actionContextProvider.afterCommand(cacheAsync);
     }
 
-    // For NOWAIT mode, store the future for next invocation and defer cleanup
-    if (cacheAsync == RemoteCacheAsync.NOWAIT && uploadsFuture != null) {
-      // Add listener to clean up resources when uploads complete
+    // For NOWAIT mode, store the handle for next invocation and defer cleanup
+    if (cacheAsync == RemoteCacheAsync.NOWAIT && uploads != RemoteExecutionService.PendingUploads.EMPTY) {
+      // Wrap the PendingUploads to clean up resources after awaiting
       Path tempDir = tempPathGenerator != null ? tempPathGenerator.getTempDir() : null;
       AsynchronousMessageOutputStream<LogEntry> logFile = rpcLogFile;
-      uploadsFuture.addListener(
-          () -> {
-            if (tempDir != null) {
-              try {
-                tempDir.deleteTree();
-              } catch (IOException ignored) {
-                // Intentionally ignored.
-              }
+      RemoteExecutionService.PendingUploads innerUploads = uploads;
+      pendingUploadsSetter.accept(new RemoteExecutionService.PendingUploads() {
+        @Override
+        public void awaitTermination() throws InterruptedException {
+          try {
+            innerUploads.awaitTermination();
+          } finally {
+            cleanup();
+          }
+        }
+
+        @Override
+        public void cancel() {
+          innerUploads.cancel();
+          cleanup();
+        }
+
+        private void cleanup() {
+          if (tempDir != null) {
+            try {
+              tempDir.deleteTree();
+            } catch (IOException ignored) {
+              // Intentionally ignored.
             }
-            if (logFile != null) {
-              try {
-                logFile.close();
-              } catch (IOException ignored) {
-                // Intentionally ignored - can't throw from listener.
-              }
+          }
+          if (logFile != null) {
+            try {
+              logFile.close();
+            } catch (IOException ignored) {
+              // Intentionally ignored.
             }
-          },
-          MoreExecutors.directExecutor());
-      pendingUploadsSetter.accept(uploadsFuture);
+          }
+        }
+      });
       return;
     }
 
@@ -1159,20 +1181,32 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void blazeShutdown() {
-    if (pendingUploadsFuture == null) {
+    if (pendingUploads == null) {
       return;
     }
 
     // Wait for pending uploads to complete before server shutdown.
     // Use a longer timeout than waitForPreviousInvocation() since this is the final chance.
+    RemoteExecutionService.PendingUploads uploads = pendingUploads;
+    pendingUploads = null;
+
+    Thread waitThread = new Thread(() -> {
+      try {
+        uploads.awaitTermination();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    });
+    waitThread.start();
+
     try {
-      Uninterruptibles.getUninterruptibly(pendingUploadsFuture, 30, SECONDS);
-    } catch (TimeoutException e) {
-      pendingUploadsFuture.cancel(true);
-    } catch (ExecutionException e) {
-      // Upload failed, nothing more we can do.
-    } finally {
-      pendingUploadsFuture = null;
+      waitThread.join(30_000);
+      if (waitThread.isAlive()) {
+        uploads.cancel();
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      uploads.cancel();
     }
   }
 

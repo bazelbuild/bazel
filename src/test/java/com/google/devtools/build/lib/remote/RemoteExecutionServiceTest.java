@@ -3149,33 +3149,33 @@ public class RemoteExecutionServiceTest {
     // Test that TRUE mode (wait at end of build) blocks until uploads complete
     RemoteExecutionService service = newRemoteExecutionService();
 
-    // Shutdown with default mode should return an immediate future
-    var future = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
+    // Shutdown with default mode should return EMPTY (already done)
+    var pendingUploads = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
 
-    assertThat(future.isDone()).isTrue();
+    assertThat(pendingUploads).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
   }
 
   @Test
-  public void shutdown_nowait_returnsImmediateFutureWhenNoUploads() throws Exception {
-    // Test that NOWAIT returns immediately when there are no pending uploads
+  public void shutdown_nowait_returnsPendingUploadsHandle() throws Exception {
+    // Test that NOWAIT returns a PendingUploads handle
     RemoteExecutionService service = newRemoteExecutionService();
 
-    var future = service.shutdown(RemoteOptions.RemoteCacheAsync.NOWAIT);
+    var pendingUploads = service.shutdown(RemoteOptions.RemoteCacheAsync.NOWAIT);
 
-    // With no pending uploads, future should be done immediately
-    assertThat(future.isDone()).isTrue();
+    // Should return a non-empty handle that can be awaited
+    assertThat(pendingUploads).isNotNull();
   }
 
   @Test
-  public void shutdown_calledTwice_secondCallReturnsImmediately() throws Exception {
+  public void shutdown_calledTwice_secondCallReturnsEmpty() throws Exception {
     // Test that calling shutdown twice doesn't cause issues
     RemoteExecutionService service = newRemoteExecutionService();
 
-    var future1 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
-    var future2 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
+    var pendingUploads1 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
+    var pendingUploads2 = service.shutdown(RemoteOptions.RemoteCacheAsync.TRUE);
 
-    assertThat(future1.isDone()).isTrue();
-    assertThat(future2.isDone()).isTrue();
+    assertThat(pendingUploads1).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
+    assertThat(pendingUploads2).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
   }
 
   @Test

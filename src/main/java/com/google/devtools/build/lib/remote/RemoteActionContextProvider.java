@@ -17,8 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.PendingUploads;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -247,18 +246,18 @@ final class RemoteActionContextProvider {
    * Called after a command completes.
    *
    * @param cacheAsync determines whether to wait for uploads to complete
-   * @return future that completes when uploads are done (immediate for sync mode)
+   * @return a {@link PendingUploads} handle for waiting/cancelling background uploads
    */
-  public ListenableFuture<Void> afterCommand(RemoteCacheAsync cacheAsync) {
+  public PendingUploads afterCommand(RemoteCacheAsync cacheAsync) {
     // actionInputFetcher uses combinedCache to prefetch inputs, so it must be shut down first.
     if (actionInputFetcher != null) {
       actionInputFetcher.shutdown();
     }
 
-    ListenableFuture<Void> uploadsFuture = Futures.immediateFuture(null);
+    PendingUploads pendingUploads = PendingUploads.EMPTY;
 
     if (remoteExecutionService != null) {
-      uploadsFuture = remoteExecutionService.shutdown(cacheAsync);
+      pendingUploads = remoteExecutionService.shutdown(cacheAsync);
     } else {
       if (combinedCache != null) {
         combinedCache.release();
@@ -272,6 +271,6 @@ final class RemoteActionContextProvider {
       bazelOutputService.shutdown();
     }
 
-    return uploadsFuture;
+    return pendingUploads;
   }
 }

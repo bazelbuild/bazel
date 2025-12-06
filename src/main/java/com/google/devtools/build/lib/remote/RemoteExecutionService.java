@@ -168,6 +168,35 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+
+  /**
+   * Represents pending background uploads that can be awaited or cancelled.
+   *
+   * <p>This interface provides a way to wait for or cancel background uploads that continue after
+   * an invocation completes when using {@code --remote_cache_async=nowait}.
+   */
+  public interface PendingUploads {
+    /** An empty implementation for when there are no pending uploads. */
+    PendingUploads EMPTY =
+        new PendingUploads() {
+          @Override
+          public void awaitTermination() {}
+
+          @Override
+          public void cancel() {}
+        };
+
+    /**
+     * Blocks until all pending uploads complete.
+     *
+     * @throws InterruptedException if the wait is interrupted
+     */
+    void awaitTermination() throws InterruptedException;
+
+    /** Cancels all pending uploads. Does not wait for cancellation to complete. */
+    void cancel();
+  }
+
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -200,10 +229,6 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
-
-  // Track pending upload futures for async upload modes. Only populated when
-  // remoteCacheAsync == NOWAIT.
-  private final Set<ListenableFuture<Void>> pendingUploads = ConcurrentHashMap.newKeySet();
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
   private final OutputService outputService;
@@ -1762,33 +1787,14 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync != RemoteCacheAsync.FALSE
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      // Only track futures for NOWAIT mode
-      final boolean trackUpload = remoteOptions.remoteCacheAsync == RemoteCacheAsync.NOWAIT;
-      final SettableFuture<Void> uploadFuture = trackUpload ? SettableFuture.create() : null;
-      if (uploadFuture != null) {
-        pendingUploads.add(uploadFuture);
-      }
       backgroundTaskExecutor.execute(
           () -> {
             try {
               doUploadOutputs(action, spawnResult, onUploadComplete);
-              if (uploadFuture != null) {
-                uploadFuture.set(null);
-              }
             } catch (ExecException e) {
               reportUploadError(e);
-              if (uploadFuture != null) {
-                uploadFuture.setException(e);
-              }
             } catch (InterruptedException e) {
               // ThreadPerTaskExecutor does not care about interrupt status.
-              if (uploadFuture != null) {
-                uploadFuture.setException(e);
-              }
-            } finally {
-              if (uploadFuture != null) {
-                pendingUploads.remove(uploadFuture);
-              }
             }
           });
     } else {
@@ -2010,16 +2016,15 @@ public class RemoteExecutionService {
     }
   }
 
-  /** Shuts the service down. */
   /**
    * Shuts the service down.
    *
    * @param cacheAsync determines whether to wait for uploads to complete
-   * @return future that completes when uploads are done (immediate for sync mode)
+   * @return a {@link PendingUploads} handle for waiting/cancelling background uploads
    */
-  public ListenableFuture<Void> shutdown(RemoteCacheAsync cacheAsync) {
+  public PendingUploads shutdown(RemoteCacheAsync cacheAsync) {
     if (!shutdown.compareAndSet(false, true)) {
-      return Futures.immediateFuture(null);
+      return PendingUploads.EMPTY;
     }
 
     if (buildInterrupted.get()) {
@@ -2028,7 +2033,7 @@ public class RemoteExecutionService {
         combinedCache.shutdownNow();
       }
       Thread.currentThread().interrupt();
-      return Futures.immediateFuture(null);
+      return PendingUploads.EMPTY;
     }
 
     if (cacheAsync != RemoteCacheAsync.NOWAIT) {
@@ -2040,28 +2045,37 @@ public class RemoteExecutionService {
       if (remoteExecutor != null) {
         remoteExecutor.close();
       }
-      return Futures.immediateFuture(null);
+      return PendingUploads.EMPTY;
     } else {
-      // Async mode - return future, cleanup in listener
-      ListenableFuture<Void> uploadsFuture =
-          Futures.transform(
-              Futures.allAsList(ImmutableList.copyOf(pendingUploads)),
-              unused -> null,
-              directExecutor());
+      // NOWAIT mode - return handle for caller to wait/cancel later
+      return new PendingUploads() {
+        @Override
+        public void awaitTermination() throws InterruptedException {
+          // Wait for all background tasks to complete
+          backgroundTaskExecutor.shutdown();
+          while (!backgroundTaskExecutor.awaitTermination(1, java.util.concurrent.TimeUnit.DAYS)) {
+            // Keep waiting
+          }
+          // Release resources after uploads complete
+          if (combinedCache != null) {
+            combinedCache.release();
+          }
+          if (remoteExecutor != null) {
+            remoteExecutor.close();
+          }
+        }
 
-      uploadsFuture.addListener(
-          () -> {
-            backgroundTaskExecutor.close();
-            if (combinedCache != null) {
-              combinedCache.release();
-            }
-            if (remoteExecutor != null) {
-              remoteExecutor.close();
-            }
-          },
-          directExecutor());
-
-      return uploadsFuture;
+        @Override
+        public void cancel() {
+          backgroundTaskExecutor.shutdownNow();
+          if (combinedCache != null) {
+            combinedCache.shutdownNow();
+          }
+          if (remoteExecutor != null) {
+            remoteExecutor.close();
+          }
+        }
+      };
     }
   }
 
