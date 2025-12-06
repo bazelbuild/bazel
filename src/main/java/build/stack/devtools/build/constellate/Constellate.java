@@ -389,7 +389,8 @@ public class Constellate {
       }
 
       if (providerInfos.containsKey(providerValue)) {
-        ProviderInfo.Builder providerInfoBuild = providerInfos.get(providerValue).getProviderInfo();
+        ProviderInfoWrapper wrapper = providerInfos.get(providerValue);
+        ProviderInfo.Builder providerInfoBuild = wrapper.getProviderInfo();
         providerInfoBuild.setProviderName(envEntry.getKey());
 
         // Set OriginKey with the exported name and file label
@@ -400,8 +401,15 @@ public class Constellate {
         providerInfoBuild.setOriginKey(originKey);
 
         ProviderInfo providerInfo = providerInfoBuild.build();
+        Location loc = wrapper.getLocation();
         logger.atFine().log("global provider %s", envEntry.getKey());
         providerInfoMap.put(envEntry.getKey(), providerInfo);
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(envEntry.getKey())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
 
       // +++ FUNCTIONS
@@ -413,6 +421,15 @@ public class Constellate {
           resolveFunctionKwargs(module, envEntry.getKey(), userDefinedFunction, calledWithKwargs);
         }
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
+
+        // Add symbol location for function
+        Location loc = userDefinedFunction.getLocation();
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(envEntry.getKey())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
 
       // +++ STRUCTS
@@ -431,7 +448,8 @@ public class Constellate {
 
       // +++ ASPECTS
       if (aspectFunctions.containsKey(envEntry.getValue())) {
-        AspectInfo.Builder aspectInfoBuild = aspectFunctions.get(envEntry.getValue()).getAspectInfo();
+        AspectInfoWrapper wrapper = aspectFunctions.get(envEntry.getValue());
+        AspectInfo.Builder aspectInfoBuild = wrapper.getAspectInfo();
         aspectInfoBuild.setAspectName(envEntry.getKey());
 
         // Set OriginKey with the exported name and file label
@@ -444,6 +462,15 @@ public class Constellate {
         AspectInfo aspectInfo = aspectInfoBuild.build();
         logger.atFine().log("global aspect %s", envEntry.getKey());
         aspectInfoMap.put(envEntry.getKey(), aspectInfo);
+
+        // Add symbol location for aspect
+        Location loc = wrapper.getLocation();
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(envEntry.getKey())
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+        starlarkModule.addSymbolLocation(symbolLocation);
       }
 
       // +++ MACROS

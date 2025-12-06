@@ -109,11 +109,12 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
     } else {
       // fields is NONE, so there is no field information to add.
     }
-    ProviderInfoWrapper wrapper = forProviderInfo(fakeProvider, docString, providerFieldInfos.build());
+    Location location = thread.getCallerLocation();
+    ProviderInfoWrapper wrapper = forProviderInfo(fakeProvider, location, docString, providerFieldInfos.build());
     providerInfoList.add(wrapper);
     logger.atFine().log("FakeAPI: provider %s: %s",
         wrapper.getIdentifier().getName(),
-        wrapper.getIdentifier().getLocation());
+        location);
     // If init is specified, return a tuple of (provider, raw_constructor)
     if (!Starlark.isNullOrNone(init)) {
       // Both elements are the same provider - the real raw_constructor behavior doesn't matter for documentation
@@ -129,8 +130,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
 
   /** Constructor for ProviderInfoWrapper. */
   public ProviderInfoWrapper forProviderInfo(
-      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
-    return new ProviderInfoWrapper(identifier, docString, fieldInfos);
+      StarlarkCallable identifier, Location location, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+    return new ProviderInfoWrapper(identifier, location, docString, fieldInfos);
   }
 
   @Override

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import java.util.Collection;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Stores information about a starlark provider definition, comprised of
@@ -38,18 +39,24 @@ import net.starlark.java.eval.StarlarkCallable;
 public class ProviderInfoWrapper {
 
   private final StarlarkCallable identifier;
+  private final Location location;
   // Only the Builder is passed to ProviderInfoWrapper as the provider name is not
   // yet available.
   private final ProviderInfo.Builder providerInfo;
 
   public ProviderInfoWrapper(
-      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+      StarlarkCallable identifier, Location location, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
+    this.location = location;
     this.providerInfo = ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos);
   }
 
   public StarlarkCallable getIdentifier() {
     return identifier;
+  }
+
+  public Location getLocation() {
+    return location;
   }
 
   public ProviderInfo.Builder getProviderInfo() {

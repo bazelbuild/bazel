@@ -631,4 +631,54 @@ public class GrpcIntegrationTest {
     StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
     assertNotNull("test_function should be extracted", testFunc);
   }
+
+  @Test
+  public void testSymbolLocationsForAllEntityTypes() throws Exception {
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:symbol_locations_test.bzl";
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have symbol locations", response.getSymbolLocationCount() > 0);
+
+    // Check that we have symbol locations for different entity types
+    java.util.List<build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation> symbolLocations = response.getSymbolLocationList();
+
+    // Provider symbol location
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation providerLoc = findSymbolLocation(symbolLocations, "MyProvider");
+    assertNotNull("MyProvider symbol location should exist", providerLoc);
+    assertEquals("MyProvider location should be at line 4", 4, providerLoc.getStart().getLine());
+
+    // Function symbol location
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation functionLoc = findSymbolLocation(symbolLocations, "my_function");
+    assertNotNull("my_function symbol location should exist", functionLoc);
+    assertEquals("my_function location should be at line 10", 10, functionLoc.getStart().getLine());
+
+    // Rule symbol location
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation ruleLoc = findSymbolLocation(symbolLocations, "my_rule");
+    assertNotNull("my_rule symbol location should exist", ruleLoc);
+    assertEquals("my_rule location should be at line 18", 18, ruleLoc.getStart().getLine());
+
+    // Aspect symbol location
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation aspectLoc = findSymbolLocation(symbolLocations, "my_aspect");
+    assertNotNull("my_aspect symbol location should exist", aspectLoc);
+    assertEquals("my_aspect location should be at line 30", 30, aspectLoc.getStart().getLine());
+
+    // Macro symbol location
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation macroLoc = findSymbolLocation(symbolLocations, "my_macro");
+    assertNotNull("my_macro symbol location should exist", macroLoc);
+    assertEquals("my_macro location should be at line 36", 36, macroLoc.getStart().getLine());
+  }
+
+  private build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation findSymbolLocation(
+      java.util.List<build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation> locations, String name) {
+    for (build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation loc : locations) {
+      if (loc.getName().equals(name)) {
+        return loc;
+      }
+    }
+    return null;
+  }
 }
