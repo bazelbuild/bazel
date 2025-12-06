@@ -977,6 +977,23 @@ public class Constellate {
         ignoreReason = "fake implementation object used where function expected: " + errorMsg;
       }
 
+      // Handle missing/renamed symbols in loaded files
+      if (!shouldIgnore && errorMsg != null && errorMsg.contains("does not contain symbol")) {
+        // List of known deprecated/renamed symbols that can be safely ignored
+        String[] deprecatedSymbols = {
+            "use_cc_toolchain",  // Renamed/removed in rules_cc
+            // Add other deprecated symbols here as needed
+        };
+
+        for (String symbol : deprecatedSymbols) {
+          if (errorMsg.contains("'" + symbol + "'") || errorMsg.contains("\"" + symbol + "\"")) {
+            shouldIgnore = true;
+            ignoreReason = "missing/renamed symbol: " + errorMsg;
+            break;
+          }
+        }
+      }
+
       if (shouldIgnore) {
         logger.atWarning().log("Ignoring error in %s: %s", label, ignoreReason);
         // Return an empty module to avoid breaking the evaluation chain
