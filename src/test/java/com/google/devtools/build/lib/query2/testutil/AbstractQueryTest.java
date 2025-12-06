@@ -1522,7 +1522,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     Set<T> result = eval("deps(//kiwi:kiwi.sh)");
-    assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi.sh"));
+    assertThat(result).isEqualTo(eval("//kiwi:kiwi.sh"));
   }
 
   // Regression test for bug #2827101:
