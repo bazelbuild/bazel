@@ -931,9 +931,11 @@ public class Constellate {
       // bound to global variables take on the name of the global variable.
       thread.setPostAssignHook((name, location, value) -> {
         // Post assign hook now receives: String name, Location location, Object value
-        // Handle tuples from provider(init=...) which returns (provider, raw_constructor)
+        // Handle tuples from provider(init=...) which returns (provider,
+        // raw_constructor)
         Object actualValue = value;
-        if (value instanceof Tuple && ((Tuple) value).size() == 2 && ((Tuple) value).get(0) instanceof FakeProviderApi) {
+        if (value instanceof Tuple && ((Tuple) value).size() == 2
+            && ((Tuple) value).get(0) instanceof FakeProviderApi) {
           actualValue = ((Tuple) value).get(0);
         }
 
@@ -946,7 +948,42 @@ public class Constellate {
       });
       Starlark.execFileProgram(prog, module, thread);
     } catch (EvalException ex) {
-      throw new StarlarkEvaluationException(ex.getMessageWithStack());
+      // Handle various evaluation errors gracefully by checking the error message
+      String errorMsg = ex.getMessage();
+      boolean shouldIgnore = false;
+      String ignoreReason = null;
+
+      // Handle deprecated/unknown parameters
+      if (errorMsg != null && errorMsg.contains("got unexpected keyword argument")) {
+        // List of known deprecated parameters that can be safely ignored
+        String[] deprecatedParams = {
+            "incompatible_use_toolchain_transition",
+            // Add other deprecated parameters here as needed
+        };
+
+        for (String param : deprecatedParams) {
+          if (errorMsg.contains("'" + param + "'") || errorMsg.contains("\"" + param + "\"")) {
+            shouldIgnore = true;
+            ignoreReason = "deprecated parameter: " + errorMsg;
+            break;
+          }
+        }
+      }
+
+      // Handle type errors for implementation parameter when using fake objects
+      if (!shouldIgnore && errorMsg != null && errorMsg.contains("parameter 'implementation'")
+          && errorMsg.contains("got value of type") && errorMsg.contains("want 'function'")) {
+        shouldIgnore = true;
+        ignoreReason = "fake implementation object used where function expected: " + errorMsg;
+      }
+
+      if (shouldIgnore) {
+        logger.atWarning().log("Ignoring error in %s: %s", label, ignoreReason);
+        // Return an empty module to avoid breaking the evaluation chain
+        module = Module.create();
+      } else {
+        throw new StarlarkEvaluationException(ex.getMessageWithStack());
+      }
     }
 
     pending.remove(label);
@@ -1000,7 +1037,7 @@ public class Constellate {
       }
     }
 
-    logger.atInfo().log("Failed to resolve input source: %s (searched roots: %s)", bzlWorkspacePath, depRoots);
+    logger.atFine().log("Failed to resolve input source: %s (searched roots: %s)", bzlWorkspacePath, depRoots);
 
     // All depRoots attempted and no valid file was found.
     throw new NoSuchFileException(bzlWorkspacePath);

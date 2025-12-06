@@ -611,4 +611,24 @@ public class GrpcIntegrationTest {
     StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
     assertNotNull("test_function should be extracted", testFunc);
   }
+
+  @Test
+  public void testProviderAsHashableDictKey() throws Exception {
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:provider_as_dict_key_test.bzl";
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should successfully extract the provider and function
+    ProviderInfo myProvider = findProvider(moduleInfo, "MyProvider");
+    assertNotNull("MyProvider should be extracted", myProvider);
+
+    StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
+    assertNotNull("test_function should be extracted", testFunc);
+  }
 }

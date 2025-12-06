@@ -42,4 +42,10 @@ public class FakeProviderApi implements StarlarkCallable, ProviderApi {
     // Fake implementation - always return false
     return false;
   }
+
+  @Override
+  public boolean isImmutable() {
+    // Provider objects should be immutable and thus hashable for use as dict keys
+    return true;
+  }
 }
