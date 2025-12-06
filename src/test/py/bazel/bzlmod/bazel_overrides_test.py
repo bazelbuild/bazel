@@ -720,10 +720,60 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = "\n".join(stderr)
     self.assertIn(
-        "Error in use_repo: The repo name 'my_repo' is already being used by"
-        ' --inject_repository at <builtin>',
+        "ERROR: The repo name 'my_repo' cannot be defined by"
+        ' --inject_repository at <builtin> as it is already defined by'
+        ' a use_repo() call at',
         stderr,
+    )
+    self.assertIn(
+        'MODULE.bazel:2:9',
+        stderr,
+    )
+
+  def testInjectRepositoryRepoNameSideEffects(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_repository = use_repo_rule("@//:defs.bzl", "local_repository")',
+            f'local_repository(name = "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.file("BUILD")',
+            # Deliberate collision with `@bazel_tools//tools/build_defs/repo:local.bzl%local_repository`
+            'local_repository = repository_rule(implementation=_impl)',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    self.ScratchFile('other_module/REPO.bazel')
+    self.ScratchFile('other_repo/BUILD', ['filegroup(name="target")'])
+
+    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''])
+    self.assertIn(
+      '"+local_repository+repo"',
+      "\n".join(stdout),
+    )
+
+    # --inject_repository _must not_ affect `use_repo_rule` generated repo names.
+    _, stdout, _ = self.RunBazel([
+        'mod',
+        'dump_repo_mapping',
+        '',
+        '--inject_repository=injected_repo=%workspace%/other_repo',
+    ])
+    self.assertIn(
+      '"+local_repository+repo"',
+      "\n".join(stdout),
+    )
+    self.assertIn(
+      '"+local_repository2+injected_repo"',
+      "\n".join(stdout),
     )
 
   def testOverrideRepositoryOnNonExistentRepo(self):
