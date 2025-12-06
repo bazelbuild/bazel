@@ -115,7 +115,10 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
         wrapper.getIdentifier().getName(),
         wrapper.getIdentifier().getLocation());
     // If init is specified, return a tuple of (provider, raw_constructor)
-    // For fake implementation, just return the provider itself
+    if (!Starlark.isNullOrNone(init)) {
+      // Both elements are the same provider - the real raw_constructor behavior doesn't matter for documentation
+      return Tuple.of(fakeProvider, fakeProvider);
+    }
     return fakeProvider;
   }
 

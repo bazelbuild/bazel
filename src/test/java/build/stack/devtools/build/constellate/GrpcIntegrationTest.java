@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import build.stack.starlark.v1beta1.StarlarkGrpc;
 import build.stack.starlark.v1beta1.StarlarkProtos.ModuleInfoRequest;
@@ -176,7 +177,11 @@ public class GrpcIntegrationTest {
 
     // Verify all entity types are extracted
     assertTrue("Should extract functions", moduleInfo.getFuncInfoCount() >= 1);
-    assertTrue("Should extract providers", moduleInfo.getProviderInfoCount() >= 2);
+    System.err.println("Provider count: " + moduleInfo.getProviderInfoCount());
+    for (int i = 0; i < moduleInfo.getProviderInfoCount(); i++) {
+      System.err.println("Provider " + i + ": " + moduleInfo.getProviderInfo(i).getProviderName());
+    }
+    assertTrue("Should extract providers (got " + moduleInfo.getProviderInfoCount() + ")", moduleInfo.getProviderInfoCount() >= 2);
     assertTrue("Should extract rules", moduleInfo.getRuleInfoCount() >= 1);
     assertTrue("Should extract aspects", moduleInfo.getAspectInfoCount() >= 1);
 
@@ -530,5 +535,80 @@ public class GrpcIntegrationTest {
       }
     }
     assertTrue("Should have error mentioning bad_function", foundBadFunctionError);
+  }
+
+  @Test
+  public void testInvalidLoadErrorContext() throws Exception {
+    // Test that when a load statement is invalid, the error message includes
+    // context about which file and load statement caused the error
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:invalid_load_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    try {
+      Module response = blockingStub.moduleInfo(request);
+      fail("Should have thrown an exception for invalid load statement");
+    } catch (io.grpc.StatusRuntimeException e) {
+      // Verify the error message includes context
+      String errorMessage = e.getMessage();
+
+      // Should mention the invalid load statement
+      assertTrue("Error should mention the invalid load ':cache.bzl'",
+          errorMessage.contains(":cache.bzl"));
+
+      // Should mention which file the load is in (both label and path)
+      assertTrue("Error should mention the file being processed (label)",
+          errorMessage.contains("invalid_load_test.bzl"));
+
+      // Should mention the absolute file path
+      assertTrue("Error should include absolute file path",
+          errorMessage.contains("testdata/invalid_load_test.bzl") ||
+          errorMessage.contains("/invalid_load_test.bzl"));
+
+      // Should explain what's wrong
+      assertTrue("Error should mention the actual problem (target names may not contain ':')",
+          errorMessage.contains("target names may not contain ':'") ||
+          errorMessage.contains("Invalid load"));
+    }
+  }
+
+  @Test
+  public void testDictSplatWithFakeObjects() throws Exception {
+    // Test that FakeDeepStructure objects can be used with the ** (splat) operator
+    // This is needed for patterns like: dict({...}, **proto_toolchains.if_legacy_toolchain({...}))
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:dict_splat_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should successfully extract the test function
+    StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
+    assertNotNull("test_function should be extracted", testFunc);
+  }
+
+  @Test
+  public void testProviderWithInitReturns2ElementTuple() throws Exception {
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:provider_init_test.bzl";
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+    Module response = blockingStub.moduleInfo(request);
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Should successfully extract ProtoInfo and test_function
+    StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
+    assertNotNull("test_function should be extracted", testFunc);
   }
 }

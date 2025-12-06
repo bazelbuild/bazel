@@ -136,18 +136,27 @@ final class StarlarkServer extends StarlarkImplBase {
 
         // Parse the target file label - absolute or relative to request.getRel()
         Label targetFileLabel;
-        if (targetFileLabelString.startsWith("@") || targetFileLabelString.startsWith("//")) {
-            // Absolute label
-            targetFileLabel = Label.parseCanonical(targetFileLabelString);
-        } else {
-            // Relative label - resolve against the rel path from the request
-            String rel = request.getRel();
-            if (rel.isEmpty()) {
-                rel = "//";
-            } else if (!rel.startsWith("//")) {
-                rel = "//" + rel;
+        try {
+            if (targetFileLabelString.startsWith("@") || targetFileLabelString.startsWith("//")) {
+                // Absolute label
+                targetFileLabel = Label.parseCanonical(targetFileLabelString);
+            } else {
+                // Relative label - resolve against the rel path from the request
+                String rel = request.getRel();
+                if (rel.isEmpty()) {
+                    rel = "//";
+                } else if (!rel.startsWith("//")) {
+                    rel = "//" + rel;
+                }
+                targetFileLabel = Label.parseCanonical(rel + ":" + targetFileLabelString);
             }
-            targetFileLabel = Label.parseCanonical(rel + ":" + targetFileLabelString);
+        } catch (LabelSyntaxException e) {
+            throw new LabelSyntaxException(
+                String.format(
+                    "Invalid target file label '%s' in ModuleInfoRequest (rel='%s'): %s",
+                    targetFileLabelString,
+                    request.getRel(),
+                    e.getMessage()));
         }
 
         ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();

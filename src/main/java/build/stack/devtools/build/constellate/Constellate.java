@@ -381,8 +381,15 @@ public class Constellate {
       }
 
       // +++ PROVIDERS
-      if (providerInfos.containsKey(envEntry.getValue())) {
-        ProviderInfo.Builder providerInfoBuild = providerInfos.get(envEntry.getValue()).getProviderInfo();
+      // Handle provider(init=...) which returns (provider, raw_constructor) tuple
+      Object providerValue = envEntry.getValue();
+      if (providerValue instanceof Tuple && ((Tuple) providerValue).size() == 2
+          && ((Tuple) providerValue).get(0) instanceof FakeProviderApi) {
+        providerValue = ((Tuple) providerValue).get(0);
+      }
+
+      if (providerInfos.containsKey(providerValue)) {
+        ProviderInfo.Builder providerInfoBuild = providerInfos.get(providerValue).getProviderInfo();
         providerInfoBuild.setProviderName(envEntry.getKey());
 
         // Set OriginKey with the exported name and file label
@@ -853,11 +860,21 @@ public class Constellate {
       // Parse the load label - absolute labels start with @ or //, others are
       // relative
       Label from;
-      if (load.startsWith("@") || load.startsWith("//")) {
-        from = Label.parseCanonical(load);
-      } else {
-        // Relative load - resolve against current package
-        from = Label.parseCanonical("//" + label.getPackageName() + ":" + load);
+      try {
+        if (load.startsWith("@") || load.startsWith("//")) {
+          from = Label.parseCanonical(load);
+        } else {
+          // Relative load - resolve against current package
+          from = Label.parseCanonical("//" + label.getPackageName() + ":" + load);
+        }
+      } catch (LabelSyntaxException e) {
+        throw new LabelSyntaxException(
+            String.format(
+                "Invalid load statement '%s' in file %s (%s): %s",
+                load,
+                label,
+                input.getFile(),
+                e.getMessage()));
       }
       Path path = pathOfLabel(from);
       try {
@@ -877,7 +894,7 @@ public class Constellate {
         }
         loadChain.append("  ".repeat(depth)).append("-> ").append(load).append(" (NOT FOUND)");
 
-        logger.atWarning().log("Failed to load '%s' from %s. Using stub module.%s", load, path, loadChain);
+        logger.atFine().log("Failed to load '%s' from %s. Using stub module.%s", load, path, loadChain);
 
         // Extract symbols that are being loaded from this module
         // Note: we need the original names from the module, not the local aliases
@@ -914,10 +931,16 @@ public class Constellate {
       // bound to global variables take on the name of the global variable.
       thread.setPostAssignHook((name, location, value) -> {
         // Post assign hook now receives: String name, Location location, Object value
-        if (value instanceof FakeProviderApi) {
-          ((FakeProviderApi) value).setName(name);
-        } else if (value instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
-          FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier functionIdentifier = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) value;
+        // Handle tuples from provider(init=...) which returns (provider, raw_constructor)
+        Object actualValue = value;
+        if (value instanceof Tuple && ((Tuple) value).size() == 2 && ((Tuple) value).get(0) instanceof FakeProviderApi) {
+          actualValue = ((Tuple) value).get(0);
+        }
+
+        if (actualValue instanceof FakeProviderApi) {
+          ((FakeProviderApi) actualValue).setName(name);
+        } else if (actualValue instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
+          FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier functionIdentifier = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) actualValue;
           functionIdentifier.setAssignedName(name);
         }
       });
@@ -977,7 +1000,7 @@ public class Constellate {
       }
     }
 
-    logger.atWarning().log("Failed to resolve input source: %s (searched roots: %s)", bzlWorkspacePath, depRoots);
+    logger.atInfo().log("Failed to resolve input source: %s (searched roots: %s)", bzlWorkspacePath, depRoots);
 
     // All depRoots attempted and no valid file was found.
     throw new NoSuchFileException(bzlWorkspacePath);

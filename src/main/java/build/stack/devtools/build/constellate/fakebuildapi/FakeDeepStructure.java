@@ -34,11 +34,16 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.TokenKind;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * A fake Starlark structure that returns itself for any field that it's asked for and that can be
- * called. Implements both HasBinary for binary operations and Sequence for type compatibility.
+ * called. Implements HasBinary for binary operations and Sequence for type compatibility.
+ * When called with a dict argument, returns an empty dict to support ** (splat) operator patterns.
  */
 @StarlarkBuiltin(name = "FakeDeepStructure", documented = false)
 public class FakeDeepStructure extends FakeProviderApi implements Structure, StarlarkCallable, StarlarkIndexable, HasBinary, Sequence<Object> {
@@ -76,7 +81,12 @@ public class FakeDeepStructure extends FakeProviderApi implements Structure, Sta
 
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
-    logger.atFine().log("FakeAPI call: %s(%s, %s) at %s", fullName, args, kwargs, thread.getCallerLocation());
+    // If called with a dict argument, return an empty dict to support ** (splat) operator
+    // This handles patterns like: **proto_toolchains.if_legacy_toolchain({...})
+    if (!args.isEmpty() && args.get(0) instanceof Dict) {
+      return Dict.empty();
+    }
+
     // Return another FakeDeepStructure so it can be chained or used in any context
     return new FakeDeepStructure(getName() + "()", fullName + "()");
   }
