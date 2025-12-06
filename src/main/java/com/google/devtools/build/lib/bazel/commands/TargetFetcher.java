@@ -67,7 +67,7 @@ public class TargetFetcher {
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Options required to fetch target",
-          ImmutableList.of("--nobuild"));
+          ImmutableList.of("--nobuild"), false);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Fetch target needed option failed to parse", e);
     }

@@ -361,7 +361,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         optionHandler.parseOptionsAndGetConfigDefinitions(
             args,
             storedEventHandler,
-            /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
+            /* invocationPolicyFlagListBuilder= */ ImmutableList.builder(), true);
     DetailedExitCode earlyExitCode = parseResults.detailedExitCode();
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
@@ -677,7 +677,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   .entrySet()
                   .stream()
                   .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))
-                  .collect(toImmutableList()));
+                  .collect(toImmutableList()), false);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
