@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStore
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
@@ -208,7 +209,7 @@ public class FileFunctionTest {
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
-    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);

@@ -55,8 +55,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-mock_rules_java_to_avoid_downloading
-
 # Make sure no repository cache is used in this test
 add_to_bazelrc "common --repository_cache="
 

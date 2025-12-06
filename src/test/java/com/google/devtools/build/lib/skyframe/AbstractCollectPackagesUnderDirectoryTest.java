@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
@@ -322,7 +323,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+                RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, false),
             PrecomputedValue.injected(
                 RepositoryDirectoryValue.FORCE_FETCH,

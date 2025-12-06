@@ -43,9 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# override rules_java in bazel otherwise no build succeeds without injection
-[[ $(type -t mock_rules_java_to_avoid_downloading) == function ]] && mock_rules_java_to_avoid_downloading
-
 # use an empty prelude else no build succeeds without injection
 rm -f tools/build_rules/{blaze_prelude,prelude_bazel}
 
