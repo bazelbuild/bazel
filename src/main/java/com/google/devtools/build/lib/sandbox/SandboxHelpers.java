@@ -673,18 +673,9 @@ public final class SandboxHelpers {
             case SYMLINK ->
                 inputSymlinks.put(
                     pathFragment,
-                    execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
-            default -> {
-              if (metadata.getResolvedPath() != null) {
-                // The input is a symlink that resolves to a regular file. For sandboxing
-                // implementations, that should be handled like a declared symlink.
-                inputSymlinks.put(
-                    pathFragment,
-                    execRoot.getRelative(actionInput.getExecPath()).readSymbolicLink());
-              } else {
+                    PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget()));
+            default ->
                 inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
-              }
-            }
           }
         }
       }
