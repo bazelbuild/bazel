@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("//src:java_opt_binary.bzl", "java_opt_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -53,6 +54,7 @@ java_library(
         exclude = ALL_WINDOWS_TESTS + [
             "SymlinkAwareFileSystemTest.java",
             "FileSystemTest.java",
+            "CopyFileBenchmark.java",
         ],
     ),
     deps = [
@@ -159,5 +161,23 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_opt_binary(
+    name = "CopyFileBenchmark",
+    srcs = ["CopyFileBenchmark.java"],
+    jvm_flags = [
+        "--enable-native-access=ALL-UNNAMED",
+    ],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/windows",
+        "//third_party:guava",
+        "//third_party:jmh",
     ],
 )
