@@ -58,6 +58,8 @@ public class NodeVisitor {
   /** Entrypoint for visiting a node. Clients should avoid calling node-specific overloads. */
   public void visit(Node node) {
     // Double-dispatch pattern.
+    // If a node type is added to the AST but no corresponding overload added to this class, we'll
+    // see an infinite recursion in this method.
     node.accept(this);
   }
 
@@ -91,9 +93,11 @@ public class NodeVisitor {
    * concrete Parameter subclass; it won't be called.
    */
   public void visit(Parameter node) {
-    // TODO(#27728): Visit type annotation.
     if (node.getIdentifier() != null) {
       visit(node.getIdentifier());
+    }
+    if (node.getType() != null) {
+      visit(node.getType());
     }
     if (node.getDefaultValue() != null) {
       visit(node.getDefaultValue());
@@ -107,8 +111,10 @@ public class NodeVisitor {
   // ==== Statement nodes ====
 
   public void visit(AssignmentStatement node) {
-    // TODO(#27728): Visit type annotation if present.
     visit(node.getLHS());
+    if (node.getType() != null) {
+      visit(node.getType());
+    }
     visit(node.getRHS());
   }
 
@@ -125,9 +131,12 @@ public class NodeVisitor {
   }
 
   public void visit(DefStatement node) {
-    // TODO(#27728): Visit return type annotation.
     visit(node.getIdentifier());
+    visitAll(node.getTypeParameters());
     visitAll(node.getParameters());
+    if (node.getReturnType() != null) {
+      visit(node.getReturnType());
+    }
     visitBlock(node.getBody());
   }
 
@@ -162,12 +171,14 @@ public class NodeVisitor {
   }
 
   public void visit(TypeAliasStatement node) {
-    // TODO(#27728): visit children
+    visit(node.getIdentifier());
+    visitAll(node.getParameters());
+    visit(node.getDefinition());
   }
 
   public void visit(VarStatement node) {
     visit(node.getIdentifier());
-    // TODO(#27728): visit type annotation
+    visit(node.getType());
   }
 
   // ==== Expression nodes ====
@@ -183,7 +194,7 @@ public class NodeVisitor {
   }
 
   public void visit(CastExpression node) {
-    // TODO(#27728): Visit type annotation.
+    visit(node.getType());
     visit(node.getValue());
   }
 
@@ -246,7 +257,7 @@ public class NodeVisitor {
 
   public void visit(IsInstanceExpression node) {
     visit(node.getValue());
-    // TODO(#27728): Visit type annotation.
+    visit(node.getType());
   }
 
   public void visit(LambdaExpression node) {

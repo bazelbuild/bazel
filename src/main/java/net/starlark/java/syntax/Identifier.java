@@ -60,8 +60,8 @@ public final class Identifier extends Expression {
    *
    * <p>Set by the resolver.
    *
-   * <p>May be null even after resolving, if this identifier does not refer to a symbol (e.g. if it
-   * is for a keyword argument's name).
+   * <p>May be null, even after resolving, if this identifier does not refer to a symbol. This
+   * happens for instance with keyword arguments and object fields.
    */
   @Nullable
   public Resolver.Binding getBinding() {
