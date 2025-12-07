@@ -135,7 +135,6 @@ public class GrpcIntegrationTest {
   @Test
   public void testMultiFileExtraction() throws Exception {
     // Test extracting a file that loads another file
-    // First, let's create test files that demonstrate cross-file loading
     String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:load_test_main.bzl";
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
@@ -149,10 +148,33 @@ public class GrpcIntegrationTest {
 
     ModuleInfo moduleInfo = response.getInfo();
 
+    // Verify load statements are recorded
+    assertTrue("Should have load statements", response.getLoadCount() > 0);
+
+    // Find the load statement for load_test_lib.bzl
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt loadStmt = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.getLabel().contains("load_test_lib.bzl")) {
+        loadStmt = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should have load statement for load_test_lib.bzl", loadStmt);
+    assertTrue("Load statement should have symbols", loadStmt.getSymbolCount() > 0);
+
+    // Verify the loaded symbols
+    java.util.Set<String> loadedSymbols = new java.util.HashSet<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadSymbol symbol : loadStmt.getSymbolList()) {
+      loadedSymbols.add(symbol.getTo());  // The local name
+    }
+
+    assertTrue("Should load lib_function", loadedSymbols.contains("lib_function"));
+    assertTrue("Should load LibInfo", loadedSymbols.contains("LibInfo"));
+    assertTrue("Should load lib_rule", loadedSymbols.contains("lib_rule"));
+
     // When loading from other files, OriginKeys should reference the original file
     // This tests that cross-file references are properly tracked
-
-    // Note: This test will be enhanced once we create the load test files
     assertTrue("Should extract entities from loaded files",
         !moduleInfo.getFuncInfoList().isEmpty() ||
         !moduleInfo.getProviderInfoList().isEmpty() ||
@@ -680,5 +702,49 @@ public class GrpcIntegrationTest {
       }
     }
     return null;
+  }
+
+  @Test
+  public void testWrapperFunctionDetection() throws Exception {
+    // Use simple test file without **kwargs to avoid macro resolution conflicts
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:simple_wrapper_test.bzl";
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+    Module response = blockingStub.moduleInfo(request);
+
+    // Verify that the module has the new function field populated
+    assertTrue("Module should have functions", response.getFunctionCount() > 0);
+
+    // Find the functions
+    build.stack.starlark.v1beta1.StarlarkProtos.Function wrapperFunc = null;
+    build.stack.starlark.v1beta1.StarlarkProtos.Function helperFunc = null;
+
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      if (func.getInfo().getFunctionName().equals("wrapper_without_kwargs")) {
+        wrapperFunc = func;
+      } else if (func.getInfo().getFunctionName().equals("helper_func")) {
+        helperFunc = func;
+      }
+    }
+
+    assertNotNull("wrapper_without_kwargs should be found", wrapperFunc);
+    assertNotNull("helper_func should be found", helperFunc);
+
+    // Verify wrapper function detection - calls_rule_or_macro
+    assertEquals("wrapper_without_kwargs should call my_rule",
+        1, wrapperFunc.getCallsRuleOrMacroCount());
+    assertEquals("wrapper_without_kwargs should call my_rule",
+        "my_rule", wrapperFunc.getCallsRuleOrMacro(0));
+
+    // Helper function should not call any rules
+    assertEquals("helper_func should not call any rules",
+        0, helperFunc.getCallsRuleOrMacroCount());
+
+    // Wrapper doesn't use **kwargs, so forwards_kwargs_to should be empty
+    assertEquals("wrapper_without_kwargs should not forward kwargs",
+        0, wrapperFunc.getForwardsKwargsToCount());
+    assertEquals("helper_func should not forward kwargs",
+        0, helperFunc.getForwardsKwargsToCount());
   }
 }

@@ -58,6 +58,8 @@ message Module {
     repeated Macro macro = 10;
     // extraction errors (e.g., malformed docstrings for individual symbols)
     repeated string error = 11;
+    // functions with locations and wrapper info
+    repeated Function function = 12;
 }
 
 message LoadSymbol {
@@ -102,6 +104,15 @@ message Function {
     stardoc_output.StarlarkFunctionInfo info = 1;
     SymbolLocation location = 2;
     repeated FunctionParam param = 3;
+    // Names of rules, aspects, and macros that this function calls.
+    // This identifies "wrapper functions" (traditional Bazel macros) - functions
+    // that primarily forward arguments to underlying rules or other macros.
+    repeated string calls_rule_or_macro = 4;
+    // Names of rules, aspects, and macros that receive **kwargs from this function.
+    // This is a more specific indicator of the primary wrapping relationship.
+    // For example, if `def my_macro(**kwargs): my_rule(**kwargs)`, then
+    // forwards_kwargs_to will contain "my_rule".
+    repeated string forwards_kwargs_to = 5;
 }
 
 message FunctionParam {

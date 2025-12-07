@@ -255,6 +255,29 @@ public class Constellate {
     Module module = recursiveEval(input, label, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList,
         repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
 
+    // Extract load statements from the main file and add to proto
+    StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        LoadStatement loadStmt = (LoadStatement) stmt;
+
+        // Build the LoadStmt proto
+        StarlarkProtos.LoadStmt.Builder loadStmtBuilder = StarlarkProtos.LoadStmt.newBuilder();
+        loadStmtBuilder.setLabel(loadStmt.getImport().getValue());
+
+        // Add each loaded symbol
+        for (LoadStatement.Binding binding : loadStmt.getBindings()) {
+          StarlarkProtos.LoadSymbol loadSymbol = StarlarkProtos.LoadSymbol.newBuilder()
+              .setFrom(binding.getOriginalName().getName())
+              .setTo(binding.getLocalName().getName())
+              .build();
+          loadStmtBuilder.addSymbol(loadSymbol);
+        }
+
+        starlarkModule.addLoad(loadStmtBuilder.build());
+      }
+    }
+
     logger.atFine().log("\n\nresolving module globals: %s", label);
 
     resolveGlobals(
@@ -561,6 +584,61 @@ public class Constellate {
     // userDefinedFunctionMap.build());
     resolveFunctionMacros(ruleInfoMap, ruleInfoList, calledWithKwargs.build(), userDefinedFunctionMap.build());
 
+    // Second pass: analyze functions to detect calls to rules/aspects/macros (wrapper functions)
+    // This must be done after all rules/aspects/macros have been added to their respective maps
+    ImmutableMap<String, RuleInfo> builtRuleInfoMap = ruleInfoMap.build();
+    ImmutableMap<String, AspectInfo> builtAspectInfoMap = aspectInfoMap.build();
+    ImmutableMap<String, MacroInfo> builtMacroInfoMap = macroInfoMap.build();
+    ImmutableMap<String, StarlarkFunction> builtUserFunctionMap = userDefinedFunctionMap.build();
+
+    // Build inverted map: functionName -> [rules/macros that receive **kwargs from this function]
+    // calledWithKwargs maps ruleName -> [functionNames], we need to invert it
+    ImmutableListMultimap<String, Collection<String>> builtCalledWithKwargs = calledWithKwargs.build();
+    Map<String, List<String>> functionToKwargsTargets = new HashMap<>();
+    for (Entry<String, Collection<String>> entry : builtCalledWithKwargs.entries()) {
+      String ruleName = entry.getKey();
+      for (String functionName : entry.getValue()) {
+        functionToKwargsTargets.computeIfAbsent(functionName, k -> new ArrayList<>()).add(ruleName);
+      }
+    }
+
+    for (Entry<String, StarlarkFunction> funcEntry : builtUserFunctionMap.entrySet()) {
+      StarlarkFunction userDefinedFunction = funcEntry.getValue();
+      String functionName = funcEntry.getKey();
+
+      // Analyze function body to detect calls to rules/aspects/macros
+      List<String> calledRulesAndMacros = findRuleAndMacroCallsInFunction(
+          userDefinedFunction,
+          builtRuleInfoMap,
+          builtAspectInfoMap,
+          builtMacroInfoMap);
+
+      // Get the list of rules/macros that receive **kwargs from this function
+      List<String> kwargsTargets = functionToKwargsTargets.getOrDefault(functionName, ImmutableList.of());
+
+      // Create Function proto with wrapper info
+      try {
+        StarlarkFunctionInfo functionInfo = FunctionUtil.fromNameAndFunction(functionName, userDefinedFunction);
+        Location loc = userDefinedFunction.getLocation();
+        StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName(functionName)
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
+            .build();
+
+        StarlarkProtos.Function.Builder functionBuilder = StarlarkProtos.Function.newBuilder()
+            .setInfo(functionInfo)
+            .setLocation(symbolLocation)
+            .addAllCallsRuleOrMacro(calledRulesAndMacros)
+            .addAllForwardsKwargsTo(kwargsTargets);
+        starlarkModule.addFunction(functionBuilder.build());
+      } catch (ExtractionException e) {
+        // If we can't extract function info, log and continue
+        logger.atWarning().log("Could not extract function info for %s: %s",
+            functionName, e.getMessage());
+      }
+    }
+
   }
 
   private void resolveFunctionMacros(
@@ -670,7 +748,7 @@ public class Constellate {
       void recordStarArgs(CallExpression call) {
         for (Argument arg : call.getArguments()) {
           if (arg instanceof Argument.StarStar) {
-            logger.atFine().log("STAR STAR %s: %s", arg.getStartLocation(), arg.getValue());
+            logger.atFine().log("Found **kwargs forwarding at %s: %s", arg.getStartLocation(), arg.getValue());
             for (int i = stack.size() - 1; i >= 0; i--) {
               Node parent = stack.get(i);
               if (parent instanceof CallExpression) {
@@ -679,30 +757,21 @@ public class Constellate {
                 if (parentCallExpr instanceof Identifier) {
                   Identifier ident = (Identifier) parentCallExpr;
                   try {
-                    logger.atFine().log("  ** call-expression %s gets kwargs from %s (%s)", ident.getName(),
-                        globalName, module.resolve(ident.getName()));
-                    logger.atFine().log("  ** macro receiver %s binding is %s",
-                        ident.getName(), ident.getBinding().getClass().getName());
-
                     Object resolved = resolveFunctionIdentifier(userDefinedFunction, ident);
-                    if (resolved != null) {
-                      logger.atFine().log("  ** resolved binding is %s",
-                          resolved.getClass().getName());
-                    } else {
-                      logger.atFine().log("  ** unresolved binding!");
-                    }
                     if (resolved instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
                       FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier ruleIdent = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) resolved;
+                      logger.atFine().log("Function %s forwards **kwargs to rule %s", globalName, ruleIdent.getAssignedName());
                       calledWithKwargs.put(ruleIdent.getAssignedName(), ImmutableList.of(globalName));
-                    } else {
+                    } else if (resolved != null) {
+                      logger.atFine().log("Function %s forwards **kwargs to %s", globalName, ident.getName());
                       calledWithKwargs.put(ident.getName(), ImmutableList.of(globalName));
                     }
                   } catch (InterruptedException iEx) {
                     logger.atFine().log("  ** parent-call-expression interrupt exception: %s", iEx);
                   } catch (EvalException evalEx) {
                     logger.atFine().log("  ** parent-call-expression eval exception: %s", evalEx);
-                  } catch (Module.Undefined undef) {
-                    logger.atFine().log("  ** parent-call-expression is undefined: %s", undef);
+                  } catch (Exception e) {
+                    logger.atFine().log("  ** parent-call-expression exception: %s", e);
                   }
                 }
                 break;
@@ -721,10 +790,9 @@ public class Constellate {
       }
     };
 
-    // Note: StarlarkFunction no longer exposes getResolverFunction() in modern
-    // Bazel.
-    // Macro kwargs detection is disabled until an alternative API is found.
-    // checker.visitAll(userDefinedFunction.getResolverFunction().getBody());
+    // Use the public getResolverFunction() method we added to StarlarkFunction
+    // to access the function body for kwargs analysis
+    checker.visitAll(userDefinedFunction.getResolverFunction().getBody());
   }
 
   static class UserDefinedFunction {
@@ -1242,5 +1310,117 @@ public class Constellate {
       default:
         throw new IllegalStateException(bind.toString());
     }
+  }
+
+  /**
+   * Analyzes a function's body to find calls to rules, aspects, and macros.
+   * Returns a list of names of rules/aspects/macros that this function calls.
+   * This helps identify "wrapper functions" (traditional Bazel macros).
+   */
+  private static List<String> findRuleAndMacroCallsInFunction(
+      StarlarkFunction fn,
+      Map<String, RuleInfo> ruleInfoMap,
+      Map<String, AspectInfo> aspectInfoMap,
+      Map<String, MacroInfo> macroInfoMap) {
+    List<String> calledNames = new ArrayList<>();
+
+    try {
+      // Get the function body statements via the public accessor
+      net.starlark.java.syntax.Resolver.Function resolverFn = fn.getResolverFunction();
+      ImmutableList<net.starlark.java.syntax.Statement> body = resolverFn.getBody();
+
+      // Walk through each statement looking for call expressions
+      for (net.starlark.java.syntax.Statement stmt : body) {
+        findCallsInStatement(stmt, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+    } catch (Exception e) {
+      // If we can't analyze the function, just return empty list
+      logger.atWarning().log("Could not analyze function %s for rule/macro calls: %s",
+          fn.getName(), e.getMessage());
+    }
+
+    return calledNames;
+  }
+
+  /**
+   * Recursively searches a statement for calls to rules, aspects, and macros.
+   */
+  private static void findCallsInStatement(
+      net.starlark.java.syntax.Statement stmt,
+      StarlarkFunction fn,
+      Map<String, RuleInfo> ruleInfoMap,
+      Map<String, AspectInfo> aspectInfoMap,
+      Map<String, MacroInfo> macroInfoMap,
+      List<String> calledNames) {
+
+    if (stmt instanceof net.starlark.java.syntax.ExpressionStatement) {
+      Expression expr = ((net.starlark.java.syntax.ExpressionStatement) stmt).getExpression();
+      findCallsInExpression(expr, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+    } else if (stmt instanceof net.starlark.java.syntax.AssignmentStatement) {
+      Expression rhs = ((net.starlark.java.syntax.AssignmentStatement) stmt).getRHS();
+      findCallsInExpression(rhs, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+    } else if (stmt instanceof net.starlark.java.syntax.IfStatement) {
+      net.starlark.java.syntax.IfStatement ifStmt = (net.starlark.java.syntax.IfStatement) stmt;
+      for (net.starlark.java.syntax.Statement s : ifStmt.getThenBlock()) {
+        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+      for (net.starlark.java.syntax.Statement s : ifStmt.getElseBlock()) {
+        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+    } else if (stmt instanceof net.starlark.java.syntax.ForStatement) {
+      net.starlark.java.syntax.ForStatement forStmt = (net.starlark.java.syntax.ForStatement) stmt;
+      for (net.starlark.java.syntax.Statement s : forStmt.getBody()) {
+        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+    }
+    // Other statement types (def, return, etc.) - we could extend this as needed
+  }
+
+  /**
+   * Recursively searches an expression for calls to rules, aspects, and macros.
+   */
+  private static void findCallsInExpression(
+      Expression expr,
+      StarlarkFunction fn,
+      Map<String, RuleInfo> ruleInfoMap,
+      Map<String, AspectInfo> aspectInfoMap,
+      Map<String, MacroInfo> macroInfoMap,
+      List<String> calledNames) {
+
+    if (expr instanceof CallExpression) {
+      CallExpression call = (CallExpression) expr;
+      Expression callTarget = call.getFunction();
+
+      // Check if this is a simple identifier call (e.g., my_rule(...))
+      if (callTarget instanceof Identifier) {
+        String name = ((Identifier) callTarget).getName();
+
+        // Check if this name is a rule, aspect, or macro
+        if (ruleInfoMap.containsKey(name) || aspectInfoMap.containsKey(name) || macroInfoMap.containsKey(name)) {
+          if (!calledNames.contains(name)) {
+            calledNames.add(name);
+          }
+        }
+      }
+
+      // Also check arguments for nested calls
+      for (Argument arg : call.getArguments()) {
+        if (arg instanceof Argument.Positional) {
+          findCallsInExpression(((Argument.Positional) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+        } else if (arg instanceof Argument.Keyword) {
+          findCallsInExpression(((Argument.Keyword) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+        }
+      }
+    } else if (expr instanceof net.starlark.java.syntax.ListExpression) {
+      for (Expression elem : ((net.starlark.java.syntax.ListExpression) expr).getElements()) {
+        findCallsInExpression(elem, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+    } else if (expr instanceof net.starlark.java.syntax.DictExpression) {
+      for (net.starlark.java.syntax.DictExpression.Entry entry : ((net.starlark.java.syntax.DictExpression) expr).getEntries()) {
+        findCallsInExpression(entry.getKey(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+        findCallsInExpression(entry.getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      }
+    }
+    // We could extend this to handle other expression types as needed
   }
 }

@@ -196,6 +196,14 @@ public final class StarlarkFunction implements StarlarkCallable {
     return module;
   }
 
+  /**
+   * Returns the resolved function information including the function body.
+   * This is useful for static analysis tools that need to inspect the function's AST.
+   */
+  public net.starlark.java.syntax.Resolver.Function getResolverFunction() {
+    return rfn;
+  }
+
   @Override
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
     return new ArgumentProcessor(this, thread);
