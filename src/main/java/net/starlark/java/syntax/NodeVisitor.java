@@ -20,6 +20,8 @@ import java.util.List;
  *
  * <p>Comments are *not* visited.
  *
+ * <p>A subclass can change the traversal logic by setting {@link #skipNonSymbolIdentifiers}.
+ *
  * <p>Typical usage is for a subclass to just override the {@code visit()} method overloads for the
  * nodes that are relevant to its business logic, and to rely on the default implementations in this
  * class to ensure traversal over the remaining node types. Overriding implementations should
@@ -33,11 +35,21 @@ import java.util.List;
  * no such overload exists. But this isn't helpful in the context of the visitor pattern, where the
  * reader expects there to be many unrelated overloads.
  */
-// TODO(bazel-team): Consider supporting a mode that skips non-symbol usages of identifiers, like
-// those in load() original names, object field retrievals, and keyword arguments. Possible clients
-// include the resolver and bzlmod's CompileModuleFile#checkModuleFileSyntax. This avoids having to
-// remember which pieces of syntax to skip over in each client.
 public class NodeVisitor {
+
+  /**
+   * If set, we only visit {@link Identifier}s that correspond to a definition or use of a symbol in
+   * the current file. Specifically, this omits:
+   *
+   * <ul>
+   *   <li>names of keyword arguments (but not names of keyword parameters!)
+   *   <li>field names in dot expressions
+   * </ul>
+   *
+   * <p>Note that {@code Identifier}s in such contexts have no {@link Binding} set for them by the
+   * resolver.
+   */
+  protected boolean skipNonSymbolIdentifiers = false;
 
   // visit() overloads in this class are ordered by node type, first by category (misc / statement /
   // expression), then alphabetically within category. (Subclasses are not obliged to maintain the
@@ -51,9 +63,12 @@ public class NodeVisitor {
 
   // ==== Miscellaneous node types ====
 
-  /** Handles all four Argument node types uniformly. */
+  /**
+   * Handles all four Argument node types uniformly. Subclasses should not add an overload for a
+   * concrete Argument subclass; it won't be called.
+   */
   public void visit(Argument node) {
-    if (node instanceof Argument.Keyword keyword) {
+    if (!skipNonSymbolIdentifiers && node instanceof Argument.Keyword keyword) {
       visit(keyword.getIdentifier());
     }
     visit(node.getValue());
@@ -71,7 +86,10 @@ public class NodeVisitor {
 
   // Clause and Entry are handled below next to Comprehension and Dict respectively.
 
-  /** Handles all four Parameter node types uniformly. */
+  /**
+   * Handles all four Parameter node types uniformly. Subclasses should not add an overload for a
+   * concrete Parameter subclass; it won't be called.
+   */
   public void visit(Parameter node) {
     // TODO(#27728): Visit type annotation.
     if (node.getIdentifier() != null) {
@@ -131,8 +149,9 @@ public class NodeVisitor {
       // means that, if we visited both names here, we would end up double-visiting something that
       // often only appears once in the program source.
       //
-      // TODO(bazel-team): Disambiguate these cases in LoadStatement.Binding, then visit it here.
-      // Mind subclasses that might need new overloads to avoid traversing the original name.
+      // TODO(bazel-team): Disambiguate these cases in LoadStatement.Binding, then visit it here,
+      // but ONLY if skipNonSymbolIdentifiers is not set. Mind that subclasses might need updating
+      // to continue to avoid traversing the original name.
     }
   }
 
@@ -207,7 +226,9 @@ public class NodeVisitor {
 
   public void visit(DotExpression node) {
     visit(node.getObject());
-    visit(node.getField());
+    if (!skipNonSymbolIdentifiers) {
+      visit(node.getField());
+    }
   }
 
   public void visit(Ellipsis node) {}
