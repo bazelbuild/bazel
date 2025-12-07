@@ -228,6 +228,55 @@ public class GrpcIntegrationTest {
   }
 
   @Test
+  public void testGlobalScalarExtraction() throws Exception {
+    // Test extracting global scalar constants
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:global_scalars_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have global values", response.getGlobalCount() > 0);
+
+    // Verify string constants
+    assertTrue("Should contain VERSION", response.containsGlobal("VERSION"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo versionValue = response.getGlobalOrThrow("VERSION");
+    assertEquals("VERSION should be '1.2.3'", "1.2.3", versionValue.getString());
+
+    assertTrue("Should contain TOOLCHAIN_NAME", response.containsGlobal("TOOLCHAIN_NAME"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo toolchainValue = response.getGlobalOrThrow("TOOLCHAIN_NAME");
+    assertEquals("TOOLCHAIN_NAME should be 'my_toolchain'", "my_toolchain", toolchainValue.getString());
+
+    assertTrue("Should contain DEFAULT_TAG", response.containsGlobal("DEFAULT_TAG"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo tagValue = response.getGlobalOrThrow("DEFAULT_TAG");
+    assertEquals("DEFAULT_TAG should be 'latest'", "latest", tagValue.getString());
+
+    // Verify integer constants
+    assertTrue("Should contain MAX_SIZE", response.containsGlobal("MAX_SIZE"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo maxSizeValue = response.getGlobalOrThrow("MAX_SIZE");
+    assertEquals("MAX_SIZE should be 100", 100L, maxSizeValue.getInt());
+
+    assertTrue("Should contain DEFAULT_TIMEOUT", response.containsGlobal("DEFAULT_TIMEOUT"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo timeoutValue = response.getGlobalOrThrow("DEFAULT_TIMEOUT");
+    assertEquals("DEFAULT_TIMEOUT should be 60", 60L, timeoutValue.getInt());
+
+    // Verify boolean constants
+    assertTrue("Should contain ENABLE_FEATURE", response.containsGlobal("ENABLE_FEATURE"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo enableValue = response.getGlobalOrThrow("ENABLE_FEATURE");
+    assertTrue("ENABLE_FEATURE should be true", enableValue.getBool());
+
+    assertTrue("Should contain DEBUG_MODE", response.containsGlobal("DEBUG_MODE"));
+    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo debugValue = response.getGlobalOrThrow("DEBUG_MODE");
+    assertFalse("DEBUG_MODE should be false", debugValue.getBool());
+
+    // Verify that private symbols (starting with _) are NOT captured
+    assertFalse("Should NOT contain private _INTERNAL_VALUE", response.containsGlobal("_INTERNAL_VALUE"));
+  }
+
+  @Test
   public void testBestEffortExtractionOnLoadFailure() throws Exception {
     // Test that extraction still works (best-effort) when load statements fail
     String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:load_failure_test.bzl";

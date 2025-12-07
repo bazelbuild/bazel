@@ -46,7 +46,8 @@ message Module {
     string filename = 4;
     // the symbol locations
     repeated SymbolLocation symbol_location = 5;
-    // additional global scalars
+    // additional global scalars (string, int, bool)
+    // Only includes public symbols (not starting with _) to reduce proto size
     map<string,ValueInfo> global = 6;
     // load statements
     repeated LoadStmt load = 7;

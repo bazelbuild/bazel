@@ -77,6 +77,7 @@ import net.starlark.java.eval.Tuple;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -461,12 +462,26 @@ public class Constellate {
         FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
         logger.atFine().log("global struct %s.%s", namespaceName, namespace);
         putStructFields(namespaceName, namespace, userDefinedFunctionMap);
-      } else if (envEntry.getValue() instanceof String) {
-        String s = (String) envEntry.getValue();
-        starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setString(s).build());
-        // } else if (envEntry.getValue() instanceof String) {
-        // String s = (String) envEntry.getValue();
-        // starlarkModule.addValue(StarlarkProtos.ValueInfo.newBuilder().setString(s).build());
+      }
+
+      // +++ GLOBAL SCALARS (string, int, bool)
+      // Only capture public symbols (not starting with _) to reduce proto size
+      if (!envEntry.getKey().startsWith("_")) {
+        if (envEntry.getValue() instanceof String) {
+          String s = (String) envEntry.getValue();
+          starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setString(s).build());
+        } else if (envEntry.getValue() instanceof StarlarkInt) {
+          StarlarkInt si = (StarlarkInt) envEntry.getValue();
+          try {
+            long value = si.toLong("global constant");
+            starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setInt(value).build());
+          } catch (EvalException e) {
+            logger.atWarning().log("Could not convert StarlarkInt to long for %s: %s", envEntry.getKey(), e.getMessage());
+          }
+        } else if (envEntry.getValue() instanceof Boolean) {
+          Boolean b = (Boolean) envEntry.getValue();
+          starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setBool(b).build());
+        }
       }
 
       // +++ ASPECTS
