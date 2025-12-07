@@ -163,7 +163,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       if (inputs.files().containsKey(fragment)) {
         Path fileDest = inputs.files().get(fragment);
         if (fileDest != null) {
-          materializeRegularFile(fileDest, key);
+          materializeFile(fileDest, key);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }
@@ -180,7 +180,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     }
   }
 
-  protected abstract void materializeRegularFile(Path source, Path target) throws IOException;
+  protected abstract void materializeFile(Path source, Path target) throws IOException;
 
   protected abstract void materializeDirectory(Path source, Path target) throws IOException;
 

@@ -361,7 +361,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
         "Mnemonic") {
 
       @Override
-      protected void materializeRegularFile(Path source, Path target) {
+      protected void materializeFile(Path source, Path target) {
         throw new UnsupportedOperationException();
       }
 

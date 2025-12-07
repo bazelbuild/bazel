@@ -674,8 +674,13 @@ public final class SandboxHelpers {
                 inputSymlinks.put(
                     pathFragment,
                     PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget()));
-            default ->
-                inputFiles.put(pathFragment, execRoot.getRelative(actionInput.getExecPath()));
+            default -> {
+              inputFiles.put(
+                  pathFragment,
+                  metadata.getResolvedPath() != null
+                      ? execRoot.getRelative(metadata.getResolvedPath())
+                      : execRoot.getRelative(actionInput.getExecPath()));
+            }
           }
         }
       }

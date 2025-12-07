@@ -125,7 +125,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   }
 
   @Override
-  protected void materializeRegularFile(Path source, Path target) throws IOException {
+  protected void materializeFile(Path source, Path target) throws IOException {
     target.createSymbolicLink(source);
   }
 

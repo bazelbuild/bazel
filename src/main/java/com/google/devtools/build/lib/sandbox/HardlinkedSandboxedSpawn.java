@@ -104,7 +104,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         type = fromPath.stat().isDirectory() ? Dirent.Type.DIRECTORY : Dirent.Type.FILE;
       }
       if (type == Dirent.Type.FILE) {
-        materializeRegularFile(fromPath, toPath);
+        materializeFile(fromPath, toPath);
       } else {
         materializeDirectory(fromPath, toPath);
       }
