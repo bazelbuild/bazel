@@ -5,6 +5,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -160,6 +161,14 @@ public class Constellate {
   // This is currently unused since getResolverFunction() is no longer accessible.
   private final ImmutableListMultimap.Builder<UserDefinedFunction, Collection<CallExpression>> functionCalls = ImmutableListMultimap
       .builder();
+
+  // Missing symbols tracking for best-effort extraction
+  // Maps label -> set of symbol names that were missing during evaluation
+  // Used to provide stubs on retry
+  private final Map<Label, LinkedHashSet<String>> missingSymbolsByLabel = new HashMap<>();
+
+  // Maximum retries per file to prevent infinite loops
+  private static final int MAX_RETRIES_PER_FILE = 10;
 
   public Constellate(StarlarkSemantics semantics, StarlarkFileAccessor fileAccessor,
       List<String> depRoots) {
@@ -993,6 +1002,40 @@ public class Constellate {
             macroInfoList, repositoryRuleInfoList, moduleExtensionInfoList, moduleDocMap);
         imports.put(load, loadedModule);
         moduleGraph.addEdge(module, loadedModule);
+      } catch (StarlarkEvaluationException evalEx) {
+        // If a transitive load fails with an evaluation error (e.g., missing symbol),
+        // create a stub module to allow best-effort extraction of the top-level file
+        Label topLevelLabel = pending.isEmpty() ? null : pending.iterator().next();
+        boolean isTransitiveLoad = topLevelLabel != null && !label.equals(topLevelLabel);
+
+        if (isTransitiveLoad) {
+          logger.atWarning().log("Transitive load failed for '%s' from %s (best-effort): %s",
+              load, label, evalEx.getMessage());
+
+          // Extract symbols that were being loaded
+          List<String> loadedSymbols = new ArrayList<>();
+          for (Statement stmt : file.getStatements()) {
+            if (stmt instanceof LoadStatement) {
+              LoadStatement loadStmt = (LoadStatement) stmt;
+              if (loadStmt.getImport().getValue().equals(load)) {
+                for (LoadStatement.Binding binding : loadStmt.getBindings()) {
+                  loadedSymbols.add(binding.getOriginalName().getName());
+                }
+              }
+            }
+          }
+
+          // Create stub module with requested symbols
+          Module stubModule = createStubModule(load, loadedSymbols);
+          logger.atFine().log("Created stub module for failed load '%s' with %d symbols: %s",
+              load, stubModule.getGlobals().size(), stubModule.getGlobals().keySet());
+
+          imports.put(load, stubModule);
+          moduleGraph.addEdge(module, stubModule);
+        } else {
+          // For top-level file, propagate the error
+          throw evalEx;
+        }
       } catch (NoSuchFileException noSuchFileException) {
         // Build load chain message for logging
         StringBuilder loadChain = new StringBuilder();
@@ -1032,32 +1075,126 @@ public class Constellate {
       }
     }
 
-    // execute
-    try (Mutability mu = Mutability.create("Constellate")) {
-      StarlarkThread thread = StarlarkThread.create(mu, semantics, "constellate", SymbolGenerator.createTransient());
-      // We use the default print handler, which writes to stderr.
-      thread.setLoader(imports::get);
-      // Fake Bazel's "export" hack, by which provider symbols
-      // bound to global variables take on the name of the global variable.
-      thread.setPostAssignHook((name, location, value) -> {
-        // Post assign hook now receives: String name, Location location, Object value
-        // Handle tuples from provider(init=...) which returns (provider,
-        // raw_constructor)
-        Object actualValue = value;
-        if (value instanceof Tuple && ((Tuple) value).size() == 2
-            && ((Tuple) value).get(0) instanceof FakeProviderApi) {
-          actualValue = ((Tuple) value).get(0);
-        }
+    // Add stubs for any known missing symbols from previous attempts
+    LinkedHashSet<String> missingSymbols = missingSymbolsByLabel.getOrDefault(label, new LinkedHashSet<>());
+    for (String symbol : missingSymbols) {
+      if (!predeclaredSymbols.containsKey(symbol)) {
+        predeclaredSymbols.put(symbol, FakeDeepStructure.create(symbol));
+        logger.atFine().log("Adding stub for known missing symbol '%s' in %s", symbol, label);
+      }
+    }
 
-        if (actualValue instanceof FakeProviderApi) {
-          ((FakeProviderApi) actualValue).setName(name);
-        } else if (actualValue instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
-          FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier functionIdentifier = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) actualValue;
-          functionIdentifier.setAssignedName(name);
+    // Execute with retry mechanism for missing symbols
+    // Track the size of missing symbols to detect if we're making progress
+    int previousMissingCount = missingSymbols.size();
+    int retryCount = 0;
+    EvalException lastException = null;
+
+    while (retryCount <= MAX_RETRIES_PER_FILE) {
+      try (Mutability mu = Mutability.create("Constellate")) {
+        StarlarkThread thread = StarlarkThread.create(mu, semantics, "constellate", SymbolGenerator.createTransient());
+        // We use the default print handler, which writes to stderr.
+        thread.setLoader(imports::get);
+        // Fake Bazel's "export" hack, by which provider symbols
+        // bound to global variables take on the name of the global variable.
+        thread.setPostAssignHook((name, location, value) -> {
+          // Post assign hook now receives: String name, Location location, Object value
+          // Handle tuples from provider(init=...) which returns (provider,
+          // raw_constructor)
+          Object actualValue = value;
+          if (value instanceof Tuple && ((Tuple) value).size() == 2
+              && ((Tuple) value).get(0) instanceof FakeProviderApi) {
+            actualValue = ((Tuple) value).get(0);
+          }
+
+          if (actualValue instanceof FakeProviderApi) {
+            ((FakeProviderApi) actualValue).setName(name);
+          } else if (actualValue instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
+            FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier functionIdentifier = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) actualValue;
+            functionIdentifier.setAssignedName(name);
+          }
+        });
+        Starlark.execFileProgram(prog, module, thread);
+        // Success! Break out of retry loop
+        break;
+      } catch (EvalException ex) {
+        lastException = ex;
+        String errorMsg = ex.getMessage();
+
+        // Check if this is a "does not contain symbol" error
+        MissingSymbolInfo missingInfo = extractMissingSymbol(errorMsg);
+        if (missingInfo != null && retryCount < MAX_RETRIES_PER_FILE) {
+          // Track this missing symbol
+          String trackingKey = missingInfo.filename + ":" + missingInfo.symbol;
+          missingSymbols = missingSymbolsByLabel.computeIfAbsent(label, k -> new LinkedHashSet<>());
+          boolean isNew = missingSymbols.add(trackingKey);
+
+          if (isNew) {
+            logger.atWarning().log("Missing symbol '%s' from file '%s' in %s (retry %d/%d, %d total missing), adding stub and retrying",
+                missingInfo.symbol, missingInfo.filename, label, retryCount + 1, MAX_RETRIES_PER_FILE, missingSymbols.size());
+
+            // Check if we're making progress (discovering new missing symbols)
+            int currentMissingCount = missingSymbols.size();
+            if (currentMissingCount <= previousMissingCount) {
+              // No progress - we found the same or fewer missing symbols, break circuit
+              logger.atWarning().log("No progress made in %s (missing symbols: %d -> %d), stopping retry",
+                  label, previousMissingCount, currentMissingCount);
+              break;
+            }
+            previousMissingCount = currentMissingCount;
+            retryCount++;
+
+            // Get or create the module for the file that's missing the symbol
+            Module targetModule = imports.get(missingInfo.filename);
+            if (targetModule == null) {
+              // Create a stub module for this file
+              logger.atFine().log("Creating stub module for '%s' to add symbol '%s'",
+                  missingInfo.filename, missingInfo.symbol);
+              targetModule = createStubModule(missingInfo.filename, Arrays.asList(missingInfo.symbol));
+              imports.put(missingInfo.filename, targetModule);
+            } else {
+              // Augment existing module with the missing symbol
+              logger.atFine().log("Augmenting module '%s' with stub symbol '%s'",
+                  missingInfo.filename, missingInfo.symbol);
+              try {
+                targetModule.setGlobal(missingInfo.symbol, FakeDeepStructure.create(missingInfo.symbol));
+              } catch (Exception e) {
+                logger.atWarning().log("Failed to add symbol '%s' to module '%s': %s",
+                    missingInfo.symbol, missingInfo.filename, e.getMessage());
+              }
+            }
+
+            // Recreate the current module for retry
+            moduleContext = BazelModuleContext.create(
+                BzlLoadValue.keyForBuild(label),
+                RepositoryMapping.EMPTY,
+                input.getFile(),
+                ImmutableList.of(), // loads will be filled in later
+                new byte[0], // bzlTransitiveDigest not needed for extraction
+                ImmutableMap.of(), // docCommentsMap not needed for extraction
+                ImmutableList.of() // unusedDocCommentLines not needed for extraction
+            );
+            module = Module.withPredeclaredAndData(semantics, predeclaredSymbols, moduleContext);
+            continue; // Retry
+          } else {
+            // Symbol was already added but still failing - no progress
+            logger.atWarning().log("Symbol '%s' from '%s' already stubbed but still missing in %s, stopping retry",
+                missingInfo.symbol, missingInfo.filename, label);
+            break; // Fall through to normal error handling
+          }
+        } else {
+          // Not a missing symbol error, or max retries reached - fall through to normal error handling
+          if (retryCount >= MAX_RETRIES_PER_FILE) {
+            logger.atWarning().log("Max retries (%d) reached for %s, giving up", MAX_RETRIES_PER_FILE, label);
+          }
+          break;
         }
-      });
-      Starlark.execFileProgram(prog, module, thread);
-    } catch (EvalException ex) {
+      }
+    }
+
+    // If we exited the loop with an exception, handle it
+    if (lastException != null) {
+      EvalException ex = lastException;
       // Handle various evaluation errors gracefully by checking the error message
       String errorMsg = ex.getMessage();
       boolean shouldIgnore = false;
@@ -1089,25 +1226,37 @@ public class Constellate {
 
       // Handle missing/renamed symbols in loaded files
       if (!shouldIgnore && errorMsg != null && errorMsg.contains("does not contain symbol")) {
-        // List of known deprecated/renamed symbols that can be safely ignored
-        String[] deprecatedSymbols = {
-            "use_cc_toolchain",  // Renamed/removed in rules_cc
-            // Add other deprecated symbols here as needed
-        };
+        // Get the top-level label (first element in pending set)
+        Label topLevelLabel = pending.isEmpty() ? null : pending.iterator().next();
 
-        for (String symbol : deprecatedSymbols) {
-          if (errorMsg.contains("'" + symbol + "'") || errorMsg.contains("\"" + symbol + "\"")) {
-            shouldIgnore = true;
-            ignoreReason = "missing/renamed symbol: " + errorMsg;
-            break;
+        // For transitive loads (not the top-level file), ignore all "does not contain symbol" errors
+        // to allow best-effort extraction of the top-level file
+        if (topLevelLabel != null && !label.equals(topLevelLabel)) {
+          shouldIgnore = true;
+          ignoreReason = "missing symbol in transitive load (best-effort extraction): " + errorMsg;
+        } else {
+          // For the top-level file, only ignore known deprecated symbols
+          String[] deprecatedSymbols = {
+              "use_cc_toolchain",  // Renamed/removed in rules_cc
+              // Add other deprecated symbols here as needed
+          };
+
+          for (String symbol : deprecatedSymbols) {
+            if (errorMsg.contains("'" + symbol + "'") || errorMsg.contains("\"" + symbol + "\"")) {
+              shouldIgnore = true;
+              ignoreReason = "missing/renamed symbol: " + errorMsg;
+              break;
+            }
           }
         }
       }
 
       if (shouldIgnore) {
         logger.atWarning().log("Ignoring error in %s: %s", label, ignoreReason);
-        // Return an empty module to avoid breaking the evaluation chain
-        module = Module.create();
+        // Keep the partially-evaluated module - it may have some successful definitions
+        // The module object already exists and may contain globals that were set before the error
+        logger.atFine().log("Continuing with partial evaluation of %s (has %d globals)",
+            label, module.getGlobals().size());
       } else {
         throw new StarlarkEvaluationException(ex.getMessageWithStack());
       }
@@ -1150,6 +1299,68 @@ public class Constellate {
     // External workspace file
     logger.atFine().log("Resolving external workspace file: %s (workspace_root=%s)", label, workspaceRoot);
     return Paths.get(workspaceRoot, label.toPathFragment().toString());
+  }
+
+  /**
+   * Holds information about a missing symbol from a load statement error.
+   */
+  private static class MissingSymbolInfo {
+    final String filename;
+    final String symbol;
+
+    MissingSymbolInfo(String filename, String symbol) {
+      this.filename = filename;
+      this.symbol = symbol;
+    }
+  }
+
+  /**
+   * Extracts the missing symbol info from a "does not contain symbol" error message.
+   * Error format: "file 'X' does not contain symbol 'Y'"
+   * Returns null if the message doesn't match this format.
+   */
+  private static MissingSymbolInfo extractMissingSymbol(String errorMsg) {
+    if (errorMsg == null || !errorMsg.contains("does not contain symbol")) {
+      return null;
+    }
+
+    // Extract filename: file 'filename'
+    int fileStart = errorMsg.indexOf("file '");
+    if (fileStart == -1) {
+      fileStart = errorMsg.indexOf("file \"");
+    }
+    if (fileStart == -1) {
+      return null;
+    }
+    fileStart += 6; // length of "file '"
+    int fileEnd = errorMsg.indexOf("'", fileStart);
+    if (fileEnd == -1) {
+      fileEnd = errorMsg.indexOf("\"", fileStart);
+    }
+    if (fileEnd == -1 || fileEnd <= fileStart) {
+      return null;
+    }
+    String filename = errorMsg.substring(fileStart, fileEnd);
+
+    // Extract symbol: symbol 'symbolName'
+    int symbolStart = errorMsg.lastIndexOf("symbol '");
+    if (symbolStart == -1) {
+      symbolStart = errorMsg.lastIndexOf("symbol \"");
+    }
+    if (symbolStart == -1) {
+      return null;
+    }
+    symbolStart += 8; // length of "symbol '"
+    int symbolEnd = errorMsg.indexOf("'", symbolStart);
+    if (symbolEnd == -1) {
+      symbolEnd = errorMsg.indexOf("\"", symbolStart);
+    }
+    if (symbolEnd == -1 || symbolEnd <= symbolStart) {
+      return null;
+    }
+    String symbol = errorMsg.substring(symbolStart, symbolEnd);
+
+    return new MissingSymbolInfo(filename, symbol);
   }
 
   public ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
@@ -1342,6 +1553,12 @@ public class Constellate {
     try {
       // Get the function body statements via the public accessor
       net.starlark.java.syntax.Resolver.Function resolverFn = fn.getResolverFunction();
+      if (resolverFn == null) {
+        // Some functions (e.g., built-in or wrapped functions) may not have a resolver function
+        logger.atFine().log("Function %s has no resolver function (likely built-in or wrapped)", fn.getName());
+        return calledNames;
+      }
+
       ImmutableList<net.starlark.java.syntax.Statement> body = resolverFn.getBody();
 
       // Walk through each statement looking for call expressions
@@ -1350,8 +1567,9 @@ public class Constellate {
       }
     } catch (Exception e) {
       // If we can't analyze the function, just return empty list
+      String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
       logger.atWarning().log("Could not analyze function %s for rule/macro calls: %s",
-          fn.getName(), e.getMessage());
+          fn.getName(), errorMsg);
     }
 
     return calledNames;

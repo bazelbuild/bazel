@@ -106,10 +106,32 @@ final class StarlarkServer extends StarlarkImplBase {
         try {
             evalModuleInfo(request, module);
         } catch (InterruptedException e) {
+            // Operation cancelled
             moduleObserver.onError(StatusUtils.interruptedError(e.getMessage()));
             return;
+        } catch (LabelSyntaxException | IllegalArgumentException e) {
+            // Invalid input from client - label format or request parameters
+            logger.atInfo().withCause(e).log("Invalid argument in ModuleInfo request: %s", request.getTargetFileLabel());
+            moduleObserver.onError(StatusUtils.invalidArgumentError(e));
+            return;
+        } catch (java.nio.file.NoSuchFileException | java.io.FileNotFoundException e) {
+            // File or resource not found
+            logger.atInfo().withCause(e).log("File not found in ModuleInfo request: %s", request.getTargetFileLabel());
+            moduleObserver.onError(StatusUtils.notFoundError(e));
+            return;
+        } catch (StarlarkEvaluationException | EvalException e) {
+            // User's Starlark code has syntax or runtime errors
+            logger.atInfo().withCause(e).log("Starlark evaluation error in ModuleInfo request: %s", request.getTargetFileLabel());
+            moduleObserver.onError(StatusUtils.invalidArgumentError(e));
+            return;
+        } catch (IOException e) {
+            // Other I/O errors are internal server errors
+            logger.atWarning().withCause(e).log("I/O error in ModuleInfo request: %s", request.getTargetFileLabel());
+            moduleObserver.onError(StatusUtils.internalError(e));
+            return;
         } catch (Exception e) {
-            logger.atWarning().withCause(e).log("ModuleInfo request failed: %s", request.getTargetFileLabel());
+            // Unknown/unexpected errors
+            logger.atWarning().withCause(e).log("Unexpected error in ModuleInfo request: %s", request.getTargetFileLabel());
             moduleObserver.onError(StatusUtils.internalError(e));
             return;
         }

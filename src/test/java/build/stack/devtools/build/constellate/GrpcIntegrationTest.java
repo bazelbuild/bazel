@@ -796,4 +796,106 @@ public class GrpcIntegrationTest {
     assertEquals("helper_func should not forward kwargs",
         0, helperFunc.getForwardsKwargsToCount());
   }
+
+  @Test
+  public void testInvalidLabelReturnsInvalidArgument() throws Exception {
+    // Test that an invalid label returns INVALID_ARGUMENT error code
+    // Use a label with illegal characters (e.g., absolute path)
+    String invalidLabel = "///absolute/path/file.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(invalidLabel)
+        .build();
+
+    try {
+      blockingStub.moduleInfo(request);
+      fail("Expected an exception for invalid label");
+    } catch (io.grpc.StatusRuntimeException e) {
+      assertEquals("Invalid label should return INVALID_ARGUMENT",
+          io.grpc.Status.Code.INVALID_ARGUMENT, e.getStatus().getCode());
+    }
+  }
+
+  @Test
+  public void testMissingFileReturnsNotFound() throws Exception {
+    // Test that a missing file returns NOT_FOUND error code
+    String label = "//does/not:exist.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    try {
+      blockingStub.moduleInfo(request);
+      fail("Expected an exception for missing file");
+    } catch (io.grpc.StatusRuntimeException e) {
+      assertEquals("Missing file should return NOT_FOUND",
+          io.grpc.Status.Code.NOT_FOUND, e.getStatus().getCode());
+    }
+  }
+
+  @Test
+  public void testStarlarkSyntaxErrorReturnsInvalidArgument() throws Exception {
+    // Test that Starlark syntax errors return INVALID_ARGUMENT error code
+    // We'll use module_content to provide invalid Starlark code
+    String label = "//test:syntax_error.bzl";
+    String invalidStarlark = "def foo(\n  # Missing closing paren and colon";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .setModuleContent(invalidStarlark)
+        .build();
+
+    try {
+      blockingStub.moduleInfo(request);
+      fail("Expected an exception for syntax error");
+    } catch (io.grpc.StatusRuntimeException e) {
+      assertEquals("Starlark syntax error should return INVALID_ARGUMENT",
+          io.grpc.Status.Code.INVALID_ARGUMENT, e.getStatus().getCode());
+    }
+  }
+
+  @Test
+  public void testTransitiveLoadErrorAllowsTopLevelExtraction() throws Exception {
+    // Test that errors in transitive loads don't prevent extracting the top-level file
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:transitive_error_main.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    // Should succeed despite transitive load having a "does not contain symbol" error
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have module info", response.hasInfo());
+
+    ModuleInfo moduleInfo = response.getInfo();
+
+    // Verify we extracted the top-level file's content
+    assertTrue("Should extract main_rule from top-level file",
+        moduleInfo.getRuleInfoCount() > 0);
+
+    boolean foundMainRule = false;
+    for (RuleInfo ruleInfo : moduleInfo.getRuleInfoList()) {
+      if (ruleInfo.getRuleName().equals("main_rule")) {
+        foundMainRule = true;
+        break;
+      }
+    }
+    assertTrue("Should have extracted main_rule", foundMainRule);
+
+    // Verify we extracted the top-level file's functions
+    assertTrue("Should extract main_function from top-level file",
+        moduleInfo.getFuncInfoCount() > 0);
+
+    boolean foundMainFunction = false;
+    for (StarlarkFunctionInfo funcInfo : moduleInfo.getFuncInfoList()) {
+      if (funcInfo.getFunctionName().equals("main_function")) {
+        foundMainFunction = true;
+        break;
+      }
+    }
+    assertTrue("Should have extracted main_function", foundMainFunction);
+  }
 }

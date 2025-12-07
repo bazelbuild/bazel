@@ -60,4 +60,26 @@ final class StatusUtils {
         .addDetails(Any.pack(BadRequest.newBuilder().addFieldViolations(v).build()))
         .build();
   }
+
+  static StatusException invalidArgumentError(Exception e) {
+    return StatusProto.toStatusException(invalidArgumentStatus(e));
+  }
+
+  static com.google.rpc.Status invalidArgumentStatus(Exception e) {
+    return Status.newBuilder()
+        .setCode(Code.INVALID_ARGUMENT.getNumber())
+        .setMessage("invalid argument: " + e.getMessage())
+        .build();
+  }
+
+  static StatusException notFoundError(Exception e) {
+    return StatusProto.toStatusException(notFoundStatus(e));
+  }
+
+  static com.google.rpc.Status notFoundStatus(Exception e) {
+    return Status.newBuilder()
+        .setCode(Code.NOT_FOUND.getNumber())
+        .setMessage("not found: " + e.getMessage())
+        .build();
+  }
 }
