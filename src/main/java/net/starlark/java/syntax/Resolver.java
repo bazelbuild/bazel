@@ -818,19 +818,29 @@ public final class Resolver extends NodeVisitor {
           "cannot perform augmented assignment on a list or tuple expression");
     }
 
+    // TODO: #27728 - Visit type annotation, if present.
+
     assign(node.getLHS());
   }
 
   @Override
   public void visit(VarStatement node) {
+    // TODO: #27728 - Visit type annotation; delete this override.
     assign(node.getIdentifier());
   }
 
   @Override
+  public void visit(CastExpression node) {
+    // TODO: #27728 - Visit type annotation; delete this override.
+    visit(node.getValue());
+  }
+
+  @Override
   public void visit(IsInstanceExpression node) {
-    // TODO(b/350661266): restrict the types that can be used on the RHS of isinstance(); e.g.
-    // `list` or `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,
-    // since a list can subsequently be mutated to add a non-int element.
+    // TODO: #27848 - Restrict the types that can be used on the RHS of isinstance(); e.g. `list` or
+    // `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,  since a
+    // list can subsequently be mutated to add a non-int element. Probably needs to be done in
+    // TypeResolver.
     errorf(node, "isinstance() is not yet supported");
   }
 
@@ -840,8 +850,12 @@ public final class Resolver extends NodeVisitor {
       errorf(node, "type alias statement not at top level");
     }
 
-    // TODO(brandjon): resolve type alias
-    super.visit(node);
+    // TODO: #27728 - Visit type annotation.
+    // No visitation of children at the moment.
+
+    // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
+    // a new block for the RHS, since the type params don't leak outside the statement. (This
+    // means extending the invariant of Block#syntax to allow include TypeAliasStatement.)
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -958,6 +972,10 @@ public final class Resolver extends NodeVisitor {
     ArrayList<Binding> frame = new ArrayList<>();
     ArrayList<Binding> freevars = new ArrayList<>();
     pushLocalBlock(syntax, frame, freevars);
+
+    // TODO: #27728 - Visit generic type variables.
+    // TODO: #27728 - Visit type annotations of parameters and the return type annotation, prior to
+    // binding any of said parameters in the function block.
 
     // Check parameter order and convert to run-time order:
     // positionals, keyword-only, *args, **kwargs.

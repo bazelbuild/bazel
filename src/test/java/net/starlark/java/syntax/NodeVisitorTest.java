@@ -28,9 +28,11 @@ public final class NodeVisitorTest {
 
   Supplier<IdentGatherer> gathererFactory = IdentGatherer::new;
 
+  FileOptions fileOptions = FileOptions.builder().allowTypeSyntax(true).build();
+
   private StarlarkFile parse(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
@@ -136,13 +138,54 @@ public final class NodeVisitorTest {
         "a b c d");
   }
 
-  // TODO(#27728): Add tests for:
-  //   - function param and return annotations
-  //   - VarStatement and annotations in AssignmentStatement
-  //   - TypeAliasStatement
-  //   - Ellipsis
-  //   - CastExpression
-  //   - IsInstanceExpression
+  @Test
+  public void typeAnnotations() throws Exception {
+    assertIdentsAre(
+        """
+        def a[b, c](d : e[f], g: h) -> i:
+          pass
+        """,
+        "a b c d e f g h i");
+
+    assertIdentsAre(
+        """
+        a : b
+        c : d = e
+        """,
+        "a b c d e");
+  }
+
+  @Test
+  public void typeDeclarations() throws Exception {
+    assertIdentsAre(
+        """
+        type a[b, c] = d
+        """,
+        "a b c d");
+  }
+
+  @Test
+  public void ellipsis() throws Exception {
+    // Really, this is just a test that we defined NodeVisitor#visit(Ellipsis) to exist...
+    fileOptions =
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build();
+    assertIdentsAre(
+        """
+        def a() -> ...:
+          pass
+        """,
+        "a");
+  }
+
+  @Test
+  public void typeOperations() throws Exception {
+    assertIdentsAre(
+        """
+        cast(a, b)
+        isinstance(c, d)
+        """,
+        "a b c d");
+  }
 
   @Test
   public void skipNonSymbolIdentifiers() throws Exception {
