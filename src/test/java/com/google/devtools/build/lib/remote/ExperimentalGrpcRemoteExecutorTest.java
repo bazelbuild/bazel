@@ -160,4 +160,17 @@ public class ExperimentalGrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBa
     assertThat(executionService.getWaitTimes()).isEqualTo(2);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
   }
+
+  @Test
+  public void executeRemotely_executeTerminationPreventsWaitExecution() throws Exception {
+    executionService.whenExecute(DUMMY_REQUEST).finish();
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(executionService.getExecTimes()).isEqualTo(2);
+    assertThat(executionService.getWaitTimes()).isEqualTo(0);
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
 }
