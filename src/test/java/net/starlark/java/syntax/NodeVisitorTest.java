@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,6 +25,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@code NodeVisitor} */
 @RunWith(JUnit4.class)
 public final class NodeVisitorTest {
+
+  Supplier<IdentGatherer> gathererFactory = IdentGatherer::new;
 
   private StarlarkFile parse(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
@@ -38,6 +41,12 @@ public final class NodeVisitorTest {
   private static class IdentGatherer extends NodeVisitor {
     final List<String> idents = new ArrayList<>();
 
+    static IdentGatherer skippingNonSymbolIdentifiers() {
+      IdentGatherer gatherer = new IdentGatherer();
+      gatherer.skipNonSymbolIdentifiers = true;
+      return gatherer;
+    }
+
     @Override
     public void visit(Identifier node) {
       idents.add(node.getName());
@@ -50,7 +59,7 @@ public final class NodeVisitorTest {
    */
   public void assertIdentsAre(String src, String expectedIdents) throws Exception {
     StarlarkFile file = parse(src);
-    IdentGatherer visitor = new IdentGatherer();
+    IdentGatherer visitor = gathererFactory.get();
     visitor.visit(file);
     assertThat(visitor.idents).containsExactlyElementsIn(expectedIdents.split(" ")).inOrder();
   }
@@ -134,4 +143,24 @@ public final class NodeVisitorTest {
   //   - Ellipsis
   //   - CastExpression
   //   - IsInstanceExpression
+
+  @Test
+  public void skipNonSymbolIdentifiers() throws Exception {
+    gathererFactory = IdentGatherer::skippingNonSymbolIdentifiers;
+
+    assertIdentsAre(
+        """
+        load("...", a="b")
+        c(d=e.f)
+        """,
+        // No b, no d, no f.
+        "a c e");
+    assertIdentsAre(
+        """
+        def a(b, c=d):
+          pass
+        """,
+        // Keyword param identifiers ("c") are still visited.
+        "a b c d");
+  }
 }

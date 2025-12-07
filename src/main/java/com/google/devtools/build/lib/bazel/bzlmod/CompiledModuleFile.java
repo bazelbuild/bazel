@@ -31,7 +31,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.CallExpression;
-import net.starlark.java.syntax.DotExpression;
 import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
@@ -97,6 +96,74 @@ public record CompiledModuleFile(
     }
   }
 
+  private static class SyntaxChecker extends DotBazelFileSyntaxChecker {
+
+    final ImmutableList.Builder<IncludeStatement> includeStatements = ImmutableList.builder();
+
+    // Once `include` the identifier is assigned to, we no longer care about its appearance
+    // anywhere. This allows `include` to be used as a module extension proxy (and technically
+    // any other variable binding).
+    private boolean includeWasAssigned = false;
+
+    SyntaxChecker() {
+      super("MODULE.bazel files", /* canLoadBzl= */ false, /* allowLiteralStarStarArgs= */ true);
+      // Don't pick up uses of "include" in keyword args or object fields.
+      this.skipNonSymbolIdentifiers = true;
+    }
+
+    @Override
+    public void visit(ExpressionStatement node) {
+      // We can assume this statement isn't nested in any block, since we don't allow
+      // `if`/`def`/`for` in MODULE.bazel.
+      if (!includeWasAssigned
+          && node.getExpression() instanceof CallExpression call
+          && call.getFunction() instanceof Identifier id
+          && id.getName().equals(INCLUDE_IDENTIFIER)) {
+        // Found a top-level call to `include`!
+        if (call.getArguments().size() == 1
+            && call.getArguments().getFirst() instanceof Argument.Positional pos
+            && pos.getValue() instanceof StringLiteral str) {
+          includeStatements.add(new IncludeStatement(str.getValue(), call.getStartLocation()));
+          // Nothing else to check, we can stop visiting sub-nodes now.
+          return;
+        }
+        error(
+            node.getStartLocation(),
+            "the `include` directive MUST be called with exactly one positional argument that "
+                + "is a string literal");
+        return;
+      }
+      super.visit(node);
+    }
+
+    @Override
+    public void visit(AssignmentStatement node) {
+      visit(node.getRHS());
+      if (!includeWasAssigned
+          && node.getLHS() instanceof Identifier id
+          && id.getName().equals(INCLUDE_IDENTIFIER)) {
+        includeWasAssigned = true;
+        // Technically someone could do something like
+        //   (include, myvar) = (print, 3)
+        // and work around our check, but at that point IDGAF.
+      } else {
+        visit(node.getLHS());
+      }
+    }
+
+    @Override
+    public void visit(Identifier node) {
+      if (!includeWasAssigned && node.getName().equals(INCLUDE_IDENTIFIER)) {
+        // If we somehow reach the `include` identifier but NOT as the other allowed cases above,
+        // cry foul.
+        error(
+            node.getStartLocation(),
+            "the `include` directive MUST be called directly at the top-level");
+      }
+      super.visit(node);
+    }
+  }
+
   /**
    * Checks the given `starlarkFile` for module file syntax, and returns the list of `include`
    * statements it contains. This is a somewhat crude sweep over the AST; we loudly complain about
@@ -107,83 +174,9 @@ public record CompiledModuleFile(
   @VisibleForTesting
   static ImmutableList<IncludeStatement> checkModuleFileSyntax(StarlarkFile starlarkFile)
       throws SyntaxError.Exception {
-    var includeStatements = ImmutableList.<IncludeStatement>builder();
-    new DotBazelFileSyntaxChecker(
-        "MODULE.bazel files", /* canLoadBzl= */ false, /* allowLiteralStarStarArgs= */ true) {
-      // Once `include` the identifier is assigned to, we no longer care about its appearance
-      // anywhere. This allows `include` to be used as a module extension proxy (and technically
-      // any other variable binding).
-      private boolean includeWasAssigned = false;
-
-      @Override
-      public void visit(ExpressionStatement node) {
-        // We can assume this statement isn't nested in any block, since we don't allow
-        // `if`/`def`/`for` in MODULE.bazel.
-        if (!includeWasAssigned
-            && node.getExpression() instanceof CallExpression call
-            && call.getFunction() instanceof Identifier id
-            && id.getName().equals(INCLUDE_IDENTIFIER)) {
-          // Found a top-level call to `include`!
-          if (call.getArguments().size() == 1
-              && call.getArguments().getFirst() instanceof Argument.Positional pos
-              && pos.getValue() instanceof StringLiteral str) {
-            includeStatements.add(new IncludeStatement(str.getValue(), call.getStartLocation()));
-            // Nothing else to check, we can stop visiting sub-nodes now.
-            return;
-          }
-          error(
-              node.getStartLocation(),
-              "the `include` directive MUST be called with exactly one positional argument that "
-                  + "is a string literal");
-          return;
-        }
-        super.visit(node);
-      }
-
-      @Override
-      public void visit(AssignmentStatement node) {
-        visit(node.getRHS());
-        if (!includeWasAssigned
-            && node.getLHS() instanceof Identifier id
-            && id.getName().equals(INCLUDE_IDENTIFIER)) {
-          includeWasAssigned = true;
-          // Technically someone could do something like
-          //   (include, myvar) = (print, 3)
-          // and work around our check, but at that point IDGAF.
-        } else {
-          visit(node.getLHS());
-        }
-      }
-
-      @Override
-      public void visit(DotExpression node) {
-        visit(node.getObject());
-        if (!node.getField().getName().equals(INCLUDE_IDENTIFIER)) {
-          // This is fine: `whatever.include`
-          // (so `include` can be used as a tag class name)
-          visit(node.getField());
-        }
-      }
-
-      @Override
-      public void visit(Argument node) {
-        // Don't visit the keyword, it's fine to do `whatever(include=...)`.
-        visit(node.getValue());
-      }
-
-      @Override
-      public void visit(Identifier node) {
-        if (!includeWasAssigned && node.getName().equals(INCLUDE_IDENTIFIER)) {
-          // If we somehow reach the `include` identifier but NOT as the other allowed cases above,
-          // cry foul.
-          error(
-              node.getStartLocation(),
-              "the `include` directive MUST be called directly at the top-level");
-        }
-        super.visit(node);
-      }
-    }.check(starlarkFile);
-    return includeStatements.build();
+    SyntaxChecker checker = new SyntaxChecker();
+    checker.check(starlarkFile);
+    return checker.includeStatements.build();
   }
 
   public void runOnThread(StarlarkThread thread) throws EvalException, InterruptedException {

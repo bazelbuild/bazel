@@ -497,6 +497,9 @@ public final class Resolver extends NodeVisitor {
       Module module,
       FileOptions options,
       @Nullable Map<String, DocComments> docCommentsMap) {
+    // Don't visit keyword args or dot expression fields -- those aren't symbols.
+    this.skipNonSymbolIdentifiers = true;
+
     this.errors = errors;
     this.module = module;
     this.options = options;
@@ -701,13 +704,6 @@ public final class Resolver extends NodeVisitor {
   }
 
   @Override
-  public void visit(Argument node) {
-    // For keyword arguments, don't visit the keyword identifier. Its usage is as a piece of the
-    // function's calling convention, not as a lookup in the call site's block.
-    visit(node.getValue());
-  }
-
-  @Override
   public void visit(ForStatement node) {
     if (locals.syntax instanceof StarlarkFile) {
       errorf(
@@ -737,12 +733,6 @@ public final class Resolver extends NodeVisitor {
       errorf(node, "%s statement must be inside a for loop", node.getFlowKind());
     }
     super.visit(node);
-  }
-
-  @Override
-  public void visit(DotExpression node) {
-    visit(node.getObject());
-    // Do not visit the field. It is an identifier but does not correspond to a binding.
   }
 
   @Override
