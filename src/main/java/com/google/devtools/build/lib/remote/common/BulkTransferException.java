@@ -96,7 +96,7 @@ public class BulkTransferException extends IOException {
                   + " with a filename",
               e);
         }
-        return LostArtifacts.EMPTY;
+        return ImmutableMap.of();
       }
       var actionInput = actionInputResolver.apply(execPath.getPathString());
       if (actionInput == null) {
