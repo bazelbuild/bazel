@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -222,8 +221,7 @@ public abstract class AnalysisMock extends LoadingMock {
     return ImmutableList.of(
         PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-        PrecomputedValue.injected(
-            RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, false),
         PrecomputedValue.injected(
             RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),

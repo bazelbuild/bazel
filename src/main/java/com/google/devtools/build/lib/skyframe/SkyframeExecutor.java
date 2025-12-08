@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -2130,6 +2131,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // Wrap loading failed exceptions
       if (e != null && e instanceof NoSuchThingException noSuchThingException) {
         e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+      } else if (e != null && e instanceof ExternalDepsException externalDepsException) {
+        e = new InvalidConfigurationException(externalDepsException.getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
         e =

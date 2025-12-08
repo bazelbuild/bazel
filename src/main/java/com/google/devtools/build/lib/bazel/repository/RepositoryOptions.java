@@ -208,12 +208,18 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           """
-          Override a repository with a local path in the form of `{repository name}={path}`. If the
-          given path is an absolute path, it will be used as it is. If the given path is a
-          relative path, it is relative to the current working directory. If the given path
-          starts with `%workspace%`, it is relative to the workspace root, which is the
-          output of `bazel info workspace`. If the given path is empty, then remove any
-          previous overrides.
+          Override a repository with a local path in the form of `{repository name}={path}`,
+          where the repository name can be either a canonical name or an apparent name from the
+          point of view of the main repository.
+
+          Note that if this is flag is used to override a module's repository, changes to the
+          MODULE.bazel file will not be effective if the module is obtained from a registry. Use
+          `--override_module` instead to for that purpose.
+
+          If the given path is an absolute path, it will be used as it is. If the given path is a
+          relative path, it is relative to the current working directory. If the given path starts
+          with `%workspace%`, it is relative to the workspace root, which is the output of `bazel
+          info workspace`. If the given path is empty, then remove any previous overrides.
           """)
   public List<RepositoryOverride> repositoryOverrides;
 
@@ -422,8 +428,13 @@ public class RepositoryOptions extends OptionsBase {
       OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
       String pathString = pathConverter.convert(pieces[1]).getPathString();
       try {
-        return new RepositoryOverride(RepositoryName.create(pieces[0]), pathString);
-      } catch (LabelSyntaxException e) {
+        if (RepositoryName.isApparent(pieces[0])) {
+          RepositoryName.validateUserProvidedRepoName(pieces[0]);
+        } else {
+          var unused = RepositoryName.create(pieces[0]);
+        }
+        return new RepositoryOverride(pieces[0], pathString);
+      } catch (LabelSyntaxException | EvalException e) {
         throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
     }
@@ -495,7 +506,7 @@ public class RepositoryOptions extends OptionsBase {
   }
 
   /** A repository override, represented by a name and an absolute path to a repository. */
-  public record RepositoryOverride(RepositoryName repositoryName, String path) {}
+  public record RepositoryOverride(String repositoryName, String path) {}
 
   /**
    * A repository injected into the scope of the root module, represented by a name and an absolute

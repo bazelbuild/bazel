@@ -62,7 +62,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
 
-  def writeMainProjectFiles(self):
+  def writeMainProjectFiles(self, aaa_repo_name='aaa'):
     self.ScratchFile(
         'aaa.patch',
         [
@@ -85,7 +85,7 @@ class BazelOverridesTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.sh"],',
             '  deps = [',
-            '    "@aaa//:lib_aaa",',
+            '    "@%s//:lib_aaa",' % aaa_repo_name,
             '    "@bbb//:lib_bbb",',
             '  ],',
             '  use_bash_launcher = True,',
@@ -95,7 +95,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'main.sh',
         [
-            'source $(rlocation aaa/aaa.sh)',
+            'source $(rlocation %s/aaa.sh)' % aaa_repo_name,
             'source $(rlocation bbb/bbb.sh)',
             'hello_aaa "main function"',
             'hello_bbb "main function"',
@@ -463,6 +463,41 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0', stdout)
 
+  def testLocalPathOverrideOverriddenWithOverrideRepository(self):
+    src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
+
+    other_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'other'),
+        registry_suffix=' overridden',
+    ).createShModule('aaa', '1.0')
+    src_aaa_override = other_registry.projects.joinpath('aaa', '1.0')
+
+    self.writeMainProjectFiles(aaa_repo_name='aaa_renamed')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'bazel_dep(name = "aaa", version = "1.1", repo_name ='
+                ' "aaa_renamed")'
+            ),
+            'bazel_dep(name = "bbb", version = "1.1")',
+            'local_path_override(',
+            '  module_name = "aaa",',
+            '  path = "%s",' % str(src_aaa_1_0.resolve()).replace('\\', '/'),
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel([
+        'run',
+        '--override_repository=aaa_renamed=%s'
+        % str(src_aaa_override.resolve()).replace('\\', '/'),
+        '//:main',
+    ])
+    self.assertIn('main function => aaa@1.0 overridden', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 overridden', stdout)
+
   def testCmdAbsoluteModuleOverride(self):
     # test commandline_overrides takes precedence over local_path_override
     self.ScratchFile(
@@ -739,9 +774,10 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
+
     self.assertIn(
-        "ERROR: No repository visible as '@my_repo' from main repository",
-        stderr,
+        "no repository visible as '@my_repo'",
+        '\n'.join(stderr).lower(),
     )
 
     exit_code, _, stderr = self.RunBazel(
@@ -753,13 +789,24 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn(
-        "ERROR: Skipping '@@my_repo//:target': no such package '@@my_repo//':"
-        ' the repository @@my_repo does not exist, but has been specified as'
-        ' overridden with --override_repository. Use --inject_repository'
-        ' instead to add a new repository.',
-        stderr,
-    )
+
+    if self.IsWindows():
+      # The use of --python_path on Windows results in a different error
+      # message.
+      expected_msg = (
+          "no repository visible as '@my_repo' from the main"
+          ' repository, but overridden with --override_repository. Use'
+          ' --inject_repository to add new repositories.'
+      )
+    else:
+      expected_msg = (
+          "Skipping '@@my_repo//:target': no such package '@@my_repo//':"
+          ' the repository @@my_repo does not exist, but has been specified'
+          ' as overridden with --override_repository. Use --inject_repository'
+          ' instead to add a new repository.'
+      )
+
+    self.assertIn(expected_msg, '\n'.join(stderr))
 
   def testOverrideRepositoryOnUseRepoRule(self):
     self.ScratchFile(
@@ -790,6 +837,51 @@ class BazelOverridesTest(test_base.TestBase):
             '--override_repository=+local_repository+my_repo=%workspace%/override_repo',
             '@my_repo//:overridden',
         ],
+    )
+    self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repo=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+    )
+
+  def testOverrideRepositoryWithTypo(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(',
+            '  name = "my_repo",',
+            '  path = "original_repo",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('original_repo/REPO.bazel')
+    self.ScratchFile('original_repo/BUILD', ['filegroup(name="original")'])
+
+    self.ScratchFile('override_repo/REPO.bazel')
+    self.ScratchFile('override_repo/BUILD', ['filegroup(name="overridden")'])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repto=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "no repository visible as '@my_repto' (did you mean '@my_repo'?)"
+        ' from the main repository, but overridden with --override_repository.'
+        ' Use --inject_repository to add new repositories.',
+        '\n'.join(stderr),
     )
 
 
