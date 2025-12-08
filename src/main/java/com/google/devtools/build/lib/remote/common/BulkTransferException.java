@@ -103,7 +103,7 @@ public class BulkTransferException extends IOException {
         // This can happen if the lost artifact is not an input of the action, but an output that
         // e.g. failed to be retrieved from the remote cache after a cache hit. This also can't be
         // solved by the rewinding that LostArtifacts would trigger.
-        return LostArtifacts.EMPTY;
+        return ImmutableMap.of();
       }
 
       lostInputs.put(DigestUtil.toString(missingDigest), actionInput);
