@@ -49,6 +49,7 @@ function strip_lines_from_bazel_cc() {
     -e '/^WARNING: The following rc files are no longer being read, please transfer their contents or import their path into one of the standard rc files:$/d' \
     -e '/^\/etc\/bazel.bazelrc$/d' \
     -e '/Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release/d' \
+    -e '/^Picked up JAVA_TOOL_OPTIONS: .*$/d' \
     -e '/^E[0-9]* /d' \
     $TEST_log)
 
