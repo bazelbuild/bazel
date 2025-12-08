@@ -18,23 +18,59 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParsingResult;
+import javax.annotation.Nullable;
 
 /** Info item for the {blaze,bazel}-bin directory. */
 public final class BlazeBinInfoItem extends InfoItem {
-  public BlazeBinInfoItem(String productName) {
+  private final String productName;
+  @Nullable private final OptionsParsingResult commandOptions;
+
+  public BlazeBinInfoItem(String productName, @Nullable OptionsParsingResult commandOptions) {
     super(productName + "-bin", "Configuration dependent directory for binaries.", false);
+    this.productName = productName;
+    this.commandOptions = commandOptions;
   }
 
-  // This is one of the three (non-hidden) info items that require a configuration, because the
-  // corresponding paths contain the short name. Maybe we should recommend using the symlinks
-  // or make them hidden by default?
+  // Returns the convenience symlink path (e.g., <workspace>/bazel-bin) instead of the
+  // configuration-specific path to avoid triggering BuildConfigurationValue creation, which
+  // can invalidate the analysis cache. The symlink is created during the first build and points
+  // to the actual bin directory. This is also the path users typically reference in scripts.
+  //
+  // The path respects the --symlink_prefix option. If --symlink_prefix=custom-, returns
+  // <workspace>/custom-bin. If --symlink_prefix is an absolute path like /tmp/out/, returns
+  // /tmp/out/bin.
   @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
-    checkNotNull(configurationSupplier);
-    return print(configurationSupplier.get().getBinDirectory(RepositoryName.MAIN).getRoot());
+    checkNotNull(env);
+    return print(getSymlinkPath(env, "bin"));
+  }
+
+  private Path getSymlinkPath(CommandEnvironment env, String suffix) {
+    String symlinkPrefix = getSymlinkPrefix();
+    if (symlinkPrefix.startsWith("/")) {
+      // Absolute path prefix (e.g., --symlink_prefix=/tmp/out/)
+      // Note: --symlink_prefix=/ disables symlinks entirely, but we still return a path
+      return env.getRuntime().getFileSystem().getPath(symlinkPrefix + suffix);
+    } else {
+      // Relative prefix (e.g., --symlink_prefix=custom- or default bazel-)
+      return env.getWorkspace().getRelative(symlinkPrefix + suffix);
+    }
+  }
+
+  private String getSymlinkPrefix() {
+    if (commandOptions == null) {
+      return productName + "-";
+    }
+    BuildRequestOptions buildRequestOptions = commandOptions.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return productName + "-";
+    }
+    return buildRequestOptions.getSymlinkPrefix(productName);
   }
 }
