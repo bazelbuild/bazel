@@ -627,21 +627,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           return result;
         }
 
-        // TODO: b/453809359 - Remove this Python logic when Bazel 9+ can read Python flag alias
-        // definitions straight from rules_python's MODULE.bazel.
-        boolean removePyFragment = false;
-        var removePyFragmentOption =
-            optionsParser.getOptionDescription("incompatible_remove_ctx_py_fragment");
-        if (removePyFragmentOption != null) {
-          var cmdLineValue =
-              optionsParser.getOptionValueDescription(
-                  removePyFragmentOption.getOptionDefinition().getOptionName());
-          removePyFragment =
-              cmdLineValue != null
-                  ? ((Boolean) cmdLineValue.getValue()).booleanValue()
-                  : ((Boolean) removePyFragmentOption.getOptionDefinition().getDefaultValue(null))
-                      .booleanValue();
-        }
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
@@ -659,7 +644,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               "module resolution",
               env
                   .getSkyframeExecutor()
-                  .getFlagAliases(reporter, removePyFragment)
+                  .getFlagAliases(reporter)
                   .entrySet()
                   .stream()
                   .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))
