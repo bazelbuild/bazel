@@ -17,7 +17,6 @@ cc_library(
     tags = [
         "__DONT_DEPEND_ON_DEF_PARSER__",
     ],
-    target_compatible_with = ["@platforms//os:windows"],
 )
 
 cc_binary(
@@ -26,7 +25,6 @@ cc_binary(
     tags = [
         "__DONT_DEPEND_ON_DEF_PARSER__",
     ],
-    target_compatible_with = ["@platforms//os:windows"],
     deps = [
         ":def_parser_lib",
     ],
@@ -34,12 +32,18 @@ cc_binary(
 
 py_test(
     name = "def_parser_test",
-    srcs = [
-        "def_parser_test.py",
-    ],
-    data = [":def_parser"],
-    main = "def_parser_test.py",
-    target_compatible_with = ["@platforms//os:windows"],
+    srcs = select({
+        "//src/conditions:windows": ["def_parser_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    data = select({
+        "//src/conditions:windows": [":def_parser"],
+        "//conditions:default": [],
+    }),
+    main = select({
+        "//src/conditions:windows": "def_parser_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
     deps = ["//src/test/py/bazel:test_base"],
 )
 

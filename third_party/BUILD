@@ -5,8 +5,6 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "d
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["remoteapis/MODULE.bazel"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -23,12 +21,14 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/proguard:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
+        "//third_party/remoteapis:srcs",
     ],
 )
 
@@ -328,7 +328,7 @@ genrule(
     # ...
     # when running in the Bazel sandbox, which throws off bazel_determinism_test.
     cmd = """
-    $(location :proguard_bin) \
+    $(location :proguard) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
         -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
@@ -343,13 +343,13 @@ genrule(
     (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
     """,
     tools = [
-        ":proguard_bin",
+        ":proguard",
         "//tools:fastutil.proguard",
     ],
 )
 
 java_binary(
-    name = "proguard_bin",
+    name = "proguard",
     jvm_flags = [
         # Prevent ProGuard from calling out to the internet through log4j.
         "-Dlog4j.rootLogger=OFF",
