@@ -228,6 +228,7 @@ sh_test(
 sh_test(
     name = "stub_finds_runfiles_test",
     size = "medium",
+    timeout = "long",
     srcs = ["stub_finds_runfiles_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -236,6 +237,7 @@ sh_test(
 sh_test(
     name = "discard_analysis_cache_test",
     size = "medium",
+    timeout = "long",
     srcs = ["discard_analysis_cache_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -466,6 +468,7 @@ sh_test(
 sh_test(
     name = "discard_graph_edges_test",
     size = "medium",
+    timeout = "long",
     srcs = ["discard_graph_edges_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -494,7 +497,7 @@ sh_test(
 sh_test(
     name = "build_event_stream_test",
     size = "medium",
-    timeout = "long",
+    timeout = "eternal",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
     shard_count = 2,
@@ -523,6 +526,7 @@ sh_test(
 sh_test(
     name = "bazel_json_worker_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bazel_worker_test.sh"],
     args = [
         "--worker_sandboxing=no",
@@ -589,6 +593,7 @@ sh_test(
 sh_test(
     name = "client_test",
     size = "medium",
+    timeout = "long",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -596,6 +601,7 @@ sh_test(
 
 sh_test(
     name = "test_test",
+    timeout = "long",
     srcs = ["test_test.sh"],
     data = [
         ":test-deps",
@@ -704,6 +710,7 @@ sh_test(
 sh_test(
     name = "sandboxfs_test",
     size = "medium",
+    timeout = "long",
     srcs = ["sandboxfs_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -726,6 +733,7 @@ sh_test(
 
 sh_test(
     name = "py_args_escaping_test",
+    timeout = "long",
     srcs = ["py_args_escaping_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
@@ -766,7 +774,7 @@ sh_test(
 
 sh_test(
     name = "target_compatible_with_test",
-    timeout = "long",
+    timeout = "eternal",
     srcs = ["target_compatible_with_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],

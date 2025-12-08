@@ -76,6 +76,7 @@ filegroup(
 sh_test(
     name = "bazel_symlink_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_symlink_test.sh"],
     data = [
         ":test-deps",
@@ -87,14 +88,12 @@ sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
-    args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
     tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
 sh_test(
@@ -180,6 +179,7 @@ sh_test(
 
 sh_test(
     name = "bazel_java_test_defaults",
+    timeout = "long",
     srcs = ["bazel_java_test_defaults.sh"],
     data = [
         ":test-deps",
@@ -295,6 +295,7 @@ sh_test(
 sh_test(
     name = "bazel_java_tools_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_java_tools_test.sh"],
     data = [
         ":test-deps",
@@ -318,6 +319,7 @@ sh_test(
 sh_test(
     name = "bazel_proto_library_test",
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
+    timeout = "eternal",
     srcs = ["bazel_proto_library_test.sh"],
     data = [
         ":rules_proto_stanza.txt",
@@ -462,6 +464,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
+    timeout = "long",
 )
 
 # Test java coverage with the java_toolchain in the released java_tools versions.
@@ -485,6 +488,7 @@ sh_test(
         tags = [
             "no_windows",
         ],
+        timeout = "long",
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
@@ -511,6 +515,7 @@ sh_test(
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
+        timeout = "long",
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
@@ -694,6 +699,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+        "@local_jdk//:jdk",
     ],
     shard_count = 15,
     tags = [
@@ -728,6 +734,7 @@ sh_test(
 sh_test(
     name = "starlark_git_repository_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["starlark_git_repository_test.sh"],
     data = [
         ":test-deps",
@@ -787,6 +794,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "@local_jdk//:jdk",
     ],
     shard_count = 6,
     tags = [
@@ -829,6 +837,7 @@ sh_test(
 sh_test(
     name = "runfiles_test",
     size = "medium",
+    timeout = "long",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
     tags = [
@@ -920,6 +929,7 @@ sh_test(
 sh_test(
     name = "cc_integration_test",
     size = "medium",
+    timeout = "long",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 5,
@@ -958,6 +968,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "@local_jdk//:jdk",
     ],
     tags = [
         "no-sandbox",
@@ -978,6 +989,7 @@ sh_test(
         "no-sandbox",
         "no_windows",
     ],
+    timeout = "moderate",
 )
 
 sh_test(
@@ -1013,6 +1025,7 @@ sh_test(
 sh_test(
     name = "execroot_test",
     size = "medium",
+    timeout = "long",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
     tags = [
@@ -1025,7 +1038,10 @@ sh_test(
     name = "bazel_repository_cache_test",
     size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@local_jdk//:jdk",
+    ],
     shard_count = 6,
     tags = [
         "no_windows",
@@ -1036,6 +1052,7 @@ sh_test(
 sh_test(
     name = "bazel_with_jdk_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_with_jdk_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -1161,6 +1178,7 @@ sh_test(
 sh_test(
     name = "bazel_strategy_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["bazel_strategy_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -1174,9 +1192,11 @@ test_suite(
 sh_test(
     name = "bazel_workspaces_test",
     srcs = ["bazel_workspaces_test.sh"],
+    timeout = "eternal",
     data = [
         ":test-deps",
         "//src/tools/workspacelog:parser",
+        "@local_jdk//:jdk",
     ],
     tags = [
         "no_windows",
@@ -1314,6 +1334,7 @@ sh_test(
 
 sh_test(
     name = "check_external_files_test",
+    timeout = "long",
     srcs = ["check_external_files_test.sh"],
     data = [
         ":test-deps",

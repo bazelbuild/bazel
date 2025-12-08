@@ -101,8 +101,12 @@ function test_bootstrap() {
     esac
 
     JAVABASE=$(echo reduced*)
+    BAZEL_ARGS=(
+      '--java_runtime_version=local_jdk'
+      '--tool_java_runtime_version=local_jdk'
+    )
 
-    env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh \
+    env EXTRA_BAZEL_ARGS="${BAZEL_ARGS[*]}" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
 
     ./output/bazel \

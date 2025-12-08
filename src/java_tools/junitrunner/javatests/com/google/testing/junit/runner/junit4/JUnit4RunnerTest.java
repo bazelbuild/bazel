@@ -450,8 +450,8 @@ public class JUnit4RunnerTest {
       String apiVersion, boolean shouldInstallSecurityManager) {
     Properties properties = new Properties();
     properties.setProperty(JUnit4Config.JUNIT_API_VERSION_PROPERTY, apiVersion);
-    if (!shouldInstallSecurityManager) {
-      properties.setProperty("java.security.manager", "whatever");
+    if (shouldInstallSecurityManager) {
+      properties.setProperty(JUnit4Config.SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "true");
     }
     return properties;
   }

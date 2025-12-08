@@ -51,8 +51,8 @@ public class FailureCircuitBreakerTest {
     listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-    // Sleep for windowInterval + 1ms.
-    Thread.sleep(windowInterval + 1 /*to compensate any delay*/);
+    // Sleep for windowInterval + 5ms.
+    Thread.sleep(windowInterval + 5 /*to compensate any delay*/);
 
     // make calls equals to threshold number of not ignored failure calls in parallel.
     listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);

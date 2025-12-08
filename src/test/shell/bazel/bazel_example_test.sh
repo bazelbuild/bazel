@@ -41,13 +41,10 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# $1 is equal to the $(JAVABASE) make variable
-javabase="$1"
-if [[ $javabase = external/* ]]; then
-  javabase=${javabase#external/}
-fi
-javabase="$(rlocation "${javabase}/bin/java")"
-javabase=${javabase%/bin/java}
+add_to_bazelrc "build --java_language_version=11"
+add_to_bazelrc "build --java_runtime_version=remotejdk_11"
+add_to_bazelrc "build --tool_java_language_version=11"
+add_to_bazelrc "build --tool_java_runtime_version=remotejdk_11"
 
 function set_up() {
   copy_examples
@@ -67,7 +64,7 @@ function test_cpp() {
 # An assertion that execute a binary from a sub directory (to test runfiles)
 function assert_binary_run_from_subdir() {
     ( # Needed to make execution from a different path work.
-    export PATH=${javabase}/bin:"$PATH" &&
+    export PATH="$(bazel info java-home)/bin:${PATH}" &&
     mkdir -p x &&
     cd x &&
     unset JAVA_RUNFILES &&
@@ -132,7 +129,7 @@ function test_native_python_with_zip() {
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
-  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  python3 ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test --build_python_zip
