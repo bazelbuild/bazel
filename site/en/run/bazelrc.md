@@ -87,13 +87,60 @@ rules as the Bourne shell.
 
 #### Imports {:#imports}
 
-Lines that start with `import` or `try-import` are special: use these to load
-other "rc" files. To specify a path that is relative to the workspace root,
-write `import %workspace%/path/to/bazelrc`.
+Lines that start with `import`, `try-import` or `try-import-if-bazel-version`
+are special: use these to load other "rc" files. To specify a path that is
+relative to the workspace root, write `import %workspace%/path/to/bazelrc`.
 
-The difference between `import` and `try-import` is that Bazel fails if the
-`import`'ed file is missing (or can't be read), but not so for a `try-import`'ed
-file.
+The difference between the various import statements is as follows:
+
+*   `import` - Bazel will fail if the `imported`'ed file is missing (or can't be
+    read)
+*   `try-import` - An attempt to import the file will be made, but unlike
+    `import`, Bazel will NOT fail if the file is missing (or can't be read).
+*   `try-import-if-bazel-version` - Similar to `try-import`, but an additional
+    condition on the current Bazel version is checked before attempting to do
+    the import. See below for the syntax.
+
+Conditional Bazel version imports can be useful if a project needs to work under
+several Bazel versions or during the transition from one Bazel version to
+another. Different flags may be needed for different Bazel versions since flags
+may be deprecated, removed or introduced in each release. To check which version
+of Bazel you have, run `bazel --version`. The following conditional checks are
+supported and require valid semantic versions:
+
+```none
+# Strictly greater than: used for post-release targeting
+try-import-if-bazel-version >7.0.0 %workspace%/configs/post_v7.rc
+
+# Greater than or equal to: commonly used for feature introduction
+try-import-if-bazel-version >=6.0.0 %workspace%/configs/features.rc
+
+# Strictly less than: used for deprecated flags removed in newer versions
+try-import-if-bazel-version <7.0.0 %workspace%/configs/legacy.rc
+
+# Less than or equal to: caps configuration to a specific version
+try-import-if-bazel-version <=5.4.0 %workspace%/configs/v5_fixes.rc
+
+# Exact match: hotfix for a specific broken release
+try-import-if-bazel-version ==6.3.2 %workspace%/configs/hotfix_6.3.2.rc
+
+# Not equal to: excludes broken version from standard config
+try-import-if-bazel-version !=7.0.1 %workspace%/configs/standard.rc
+```
+
+An additional tilde operator provides ranges for patch, minor, and major version
+changes:
+
+```none
+# Equivalent to >=1.2.3 <1.3.0
+try-import-if-bazel-version ~1.2.3 %workspace%/configs/1.2.3_flags.rc
+
+# Equivalent to >=1.2.0 <1.3.0 (Same as 1.2.x)
+try-import-if-bazel-version ~1.2 %workspace%/configs/1.2_flags.rc
+
+# Equivalent to >=1.0.0 <2.0.0 (Same as 1.x)
+try-import-if-bazel-version ~1 %workspace%/configs/v1_flags.rc
+```
 
 Import precedence:
 
