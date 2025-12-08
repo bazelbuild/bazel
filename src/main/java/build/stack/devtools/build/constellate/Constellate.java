@@ -403,8 +403,15 @@ public class Constellate {
 
         RuleInfo ruleInfo = ruleInfoBuilder.build();
         Location loc = wrapper.getLocation();
-        logger.atFine().log("global rule %s", ruleInfo.getRuleName());
-        ruleInfoMap.put(ruleInfo.getRuleName(), ruleInfo);
+        logger.atFine().log("global rule %s from %s", ruleInfo.getRuleName(), label);
+        try {
+          ruleInfoMap.put(ruleInfo.getRuleName(), ruleInfo);
+        } catch (IllegalArgumentException e) {
+          // ImmutableMap.Builder throws IllegalArgumentException on duplicate keys
+          // Log the duplicate and skip it (use the first definition)
+          logger.atWarning().log("Duplicate rule definition for '%s' in %s (keeping first definition). Error: %s",
+              ruleInfo.getRuleName(), label, e.getMessage());
+        }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName(ruleInfo.getRuleName())
             .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
@@ -435,8 +442,13 @@ public class Constellate {
 
         ProviderInfo providerInfo = providerInfoBuild.build();
         Location loc = wrapper.getLocation();
-        logger.atFine().log("global provider %s", envEntry.getKey());
-        providerInfoMap.put(envEntry.getKey(), providerInfo);
+        logger.atFine().log("global provider %s from %s", envEntry.getKey(), label);
+        try {
+          providerInfoMap.put(envEntry.getKey(), providerInfo);
+        } catch (IllegalArgumentException e) {
+          logger.atWarning().log("Duplicate provider definition for '%s' in %s (keeping first definition). Error: %s",
+              envEntry.getKey(), label, e.getMessage());
+        }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName(envEntry.getKey())
             .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
@@ -473,23 +485,12 @@ public class Constellate {
         putStructFields(namespaceName, namespace, userDefinedFunctionMap);
       }
 
-      // +++ GLOBAL SCALARS (string, int, bool)
+      // +++ GLOBAL SCALARS (string, int, bool, list)
       // Only capture public symbols (not starting with _) to reduce proto size
       if (!envEntry.getKey().startsWith("_")) {
-        if (envEntry.getValue() instanceof String) {
-          String s = (String) envEntry.getValue();
-          starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setString(s).build());
-        } else if (envEntry.getValue() instanceof StarlarkInt) {
-          StarlarkInt si = (StarlarkInt) envEntry.getValue();
-          try {
-            long value = si.toLong("global constant");
-            starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setInt(value).build());
-          } catch (EvalException e) {
-            logger.atWarning().log("Could not convert StarlarkInt to long for %s: %s", envEntry.getKey(), e.getMessage());
-          }
-        } else if (envEntry.getValue() instanceof Boolean) {
-          Boolean b = (Boolean) envEntry.getValue();
-          starlarkModule.putGlobal(envEntry.getKey(), StarlarkProtos.ValueInfo.newBuilder().setBool(b).build());
+        StarlarkProtos.Value value = convertToValue(envEntry.getValue(), envEntry.getKey());
+        if (value != null) {
+          starlarkModule.putGlobal(envEntry.getKey(), value);
         }
       }
 
@@ -507,8 +508,13 @@ public class Constellate {
         aspectInfoBuild.setOriginKey(originKey);
 
         AspectInfo aspectInfo = aspectInfoBuild.build();
-        logger.atFine().log("global aspect %s", envEntry.getKey());
-        aspectInfoMap.put(envEntry.getKey(), aspectInfo);
+        logger.atFine().log("global aspect %s from %s", envEntry.getKey(), label);
+        try {
+          aspectInfoMap.put(envEntry.getKey(), aspectInfo);
+        } catch (IllegalArgumentException e) {
+          logger.atWarning().log("Duplicate aspect definition for '%s' in %s (keeping first definition). Error: %s",
+              envEntry.getKey(), label, e.getMessage());
+        }
 
         // Add symbol location for aspect
         Location loc = wrapper.getLocation();
@@ -535,8 +541,13 @@ public class Constellate {
 
         MacroInfo macroInfo = macroInfoBuild.build();
         Location loc = wrapper.getLocation();
-        logger.atFine().log("global macro %s", envEntry.getKey());
-        macroInfoMap.put(envEntry.getKey(), macroInfo);
+        logger.atFine().log("global macro %s from %s", envEntry.getKey(), label);
+        try {
+          macroInfoMap.put(envEntry.getKey(), macroInfo);
+        } catch (IllegalArgumentException e) {
+          logger.atWarning().log("Duplicate macro definition for '%s' in %s (keeping first definition). Error: %s",
+              envEntry.getKey(), label, e.getMessage());
+        }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName(macroInfo.getMacroName())
             .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
@@ -560,8 +571,13 @@ public class Constellate {
 
         RepositoryRuleInfo repositoryRuleInfo = repositoryRuleInfoBuild.build();
         Location loc = wrapper.getLocation();
-        logger.atFine().log("global repository_rule %s", envEntry.getKey());
-        repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
+        logger.atFine().log("global repository_rule %s from %s", envEntry.getKey(), label);
+        try {
+          repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
+        } catch (IllegalArgumentException e) {
+          logger.atWarning().log("Duplicate repository_rule definition for '%s' in %s (keeping first definition). Error: %s",
+              envEntry.getKey(), label, e.getMessage());
+        }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName(repositoryRuleInfo.getRuleName())
             .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
@@ -585,8 +601,13 @@ public class Constellate {
 
         ModuleExtensionInfo moduleExtensionInfo = moduleExtensionInfoBuild.build();
         Location loc = wrapper.getLocation();
-        logger.atFine().log("global module_extension %s", envEntry.getKey());
-        moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
+        logger.atFine().log("global module_extension %s from %s", envEntry.getKey(), label);
+        try {
+          moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
+        } catch (IllegalArgumentException e) {
+          logger.atWarning().log("Duplicate module_extension definition for '%s' in %s (keeping first definition). Error: %s",
+              envEntry.getKey(), label, e.getMessage());
+        }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName(moduleExtensionInfo.getExtensionName())
             .setStart(StarlarkProtos.Position.newBuilder().setLine(loc.line()).setCharacter(loc.column()).build())
@@ -698,7 +719,12 @@ public class Constellate {
             // best-effort, ignore error
           }
 
-          ruleInfoMap.put(macroName, macroInfo.build());
+          try {
+            ruleInfoMap.put(macroName, macroInfo.build());
+          } catch (IllegalArgumentException e) {
+            logger.atWarning().log("Duplicate macro/rule definition for '%s' (from rule %s) (keeping first definition). Error: %s",
+                macroName, ruleName, e.getMessage());
+          }
           logger.atFine().log("global macro %s (rule from %s, called by function %s)", macroName, ruleName,
               function.getName());
         }
@@ -744,7 +770,12 @@ public class Constellate {
             // best-effort, ignore error
           }
 
-          ruleInfoMap.put(caller, ruleInfo.build());
+          try {
+            ruleInfoMap.put(caller, ruleInfo.build());
+          } catch (IllegalArgumentException e) {
+            logger.atWarning().log("Duplicate macro/rule definition for '%s' (from rule %s via %s) (keeping first definition). Error: %s",
+                caller, name, function.getName(), e.getMessage());
+          }
           logger.atFine().log("global macro %s (rule from %s, called by %s)", caller, name, function.getName());
         }
       }
@@ -1363,6 +1394,47 @@ public class Constellate {
     return new MissingSymbolInfo(filename, symbol);
   }
 
+  /**
+   * Converts a Starlark value to a Value proto message.
+   * Supports string, int, bool, and list types.
+   * Returns null for unsupported types.
+   */
+  private StarlarkProtos.Value convertToValue(Object value, String name) {
+    if (value instanceof String) {
+      return StarlarkProtos.Value.newBuilder().setString((String) value).build();
+    } else if (value instanceof StarlarkInt) {
+      StarlarkInt si = (StarlarkInt) value;
+      try {
+        long longValue = si.toLong("global constant");
+        return StarlarkProtos.Value.newBuilder().setInt(longValue).build();
+      } catch (EvalException e) {
+        logger.atWarning().log("Could not convert StarlarkInt to long for %s: %s", name, e.getMessage());
+        return null;
+      }
+    } else if (value instanceof Boolean) {
+      return StarlarkProtos.Value.newBuilder().setBool((Boolean) value).build();
+    } else if (value instanceof net.starlark.java.eval.StarlarkList) {
+      net.starlark.java.eval.StarlarkList<?> list = (net.starlark.java.eval.StarlarkList<?>) value;
+      StarlarkProtos.ValueList.Builder listBuilder = StarlarkProtos.ValueList.newBuilder();
+
+      for (Object item : list) {
+        StarlarkProtos.Value itemValue = convertToValue(item, name + "[]");
+        if (itemValue != null) {
+          listBuilder.addValue(itemValue);
+        } else {
+          // If we can't convert an item, log and skip it
+          logger.atFine().log("Skipping unsupported list item type in %s: %s", name,
+              item == null ? "null" : item.getClass().getName());
+        }
+      }
+
+      return StarlarkProtos.Value.newBuilder().setList(listBuilder.build()).build();
+    }
+
+    // Unsupported type
+    return null;
+  }
+
   public ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
     logger.atFine().log("Searching for input source: %s (roots: %s)", bzlWorkspacePath, depRoots);
     for (String rootPath : depRoots) {
@@ -1597,8 +1669,11 @@ public class Constellate {
       for (net.starlark.java.syntax.Statement s : ifStmt.getThenBlock()) {
         findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
       }
-      for (net.starlark.java.syntax.Statement s : ifStmt.getElseBlock()) {
-        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+      // getElseBlock() returns null if there's no else clause
+      if (ifStmt.getElseBlock() != null) {
+        for (net.starlark.java.syntax.Statement s : ifStmt.getElseBlock()) {
+          findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, calledNames);
+        }
       }
     } else if (stmt instanceof net.starlark.java.syntax.ForStatement) {
       net.starlark.java.syntax.ForStatement forStmt = (net.starlark.java.syntax.ForStatement) stmt;

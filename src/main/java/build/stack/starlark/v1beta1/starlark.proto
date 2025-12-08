@@ -48,7 +48,7 @@ message Module {
     repeated SymbolLocation symbol_location = 5;
     // additional global scalars (string, int, bool)
     // Only includes public symbols (not starting with _) to reduce proto size
-    map<string,ValueInfo> global = 6;
+    map<string,Value> global = 6;
     // load statements
     repeated LoadStmt load = 7;
     // repository rules with locations
@@ -121,14 +121,19 @@ message FunctionParam {
     SymbolLocation location = 2;
 }
 
-message ValueInfo {
+message Value {
     SymbolLocation location = 1;
     oneof value {
         string string = 2;
         int64 int = 3;
         bool bool = 4;
         MacroFunction macro = 5;
+        ValueList list = 6;
     };
+}
+
+message ValueList {
+    repeated Value value = 1;
 }
 
 message MacroFunction {

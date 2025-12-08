@@ -17,6 +17,14 @@ DEFAULT_TIMEOUT = 60
 ENABLE_FEATURE = True
 DEBUG_MODE = False
 
+# List constants
+SUPPORTED_PLATFORMS = ["linux", "darwin", "windows"]
+EMPTY_LIST = []
+
+# List comprehension
+NUMBERS = [x * 2 for x in range(5)]  # Should be [0, 2, 4, 6, 8]
+FILTERED_NUMBERS = [x for x in range(10) if x % 2 == 0]  # Should be [0, 2, 4, 6, 8]
+
 # Private constant (starts with _) - NOT importable
 _INTERNAL_VALUE = "internal"
 

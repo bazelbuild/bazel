@@ -243,34 +243,69 @@ public class GrpcIntegrationTest {
 
     // Verify string constants
     assertTrue("Should contain VERSION", response.containsGlobal("VERSION"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo versionValue = response.getGlobalOrThrow("VERSION");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value versionValue = response.getGlobalOrThrow("VERSION");
     assertEquals("VERSION should be '1.2.3'", "1.2.3", versionValue.getString());
 
     assertTrue("Should contain TOOLCHAIN_NAME", response.containsGlobal("TOOLCHAIN_NAME"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo toolchainValue = response.getGlobalOrThrow("TOOLCHAIN_NAME");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value toolchainValue = response.getGlobalOrThrow("TOOLCHAIN_NAME");
     assertEquals("TOOLCHAIN_NAME should be 'my_toolchain'", "my_toolchain", toolchainValue.getString());
 
     assertTrue("Should contain DEFAULT_TAG", response.containsGlobal("DEFAULT_TAG"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo tagValue = response.getGlobalOrThrow("DEFAULT_TAG");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value tagValue = response.getGlobalOrThrow("DEFAULT_TAG");
     assertEquals("DEFAULT_TAG should be 'latest'", "latest", tagValue.getString());
 
     // Verify integer constants
     assertTrue("Should contain MAX_SIZE", response.containsGlobal("MAX_SIZE"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo maxSizeValue = response.getGlobalOrThrow("MAX_SIZE");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value maxSizeValue = response.getGlobalOrThrow("MAX_SIZE");
     assertEquals("MAX_SIZE should be 100", 100L, maxSizeValue.getInt());
 
     assertTrue("Should contain DEFAULT_TIMEOUT", response.containsGlobal("DEFAULT_TIMEOUT"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo timeoutValue = response.getGlobalOrThrow("DEFAULT_TIMEOUT");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value timeoutValue = response.getGlobalOrThrow("DEFAULT_TIMEOUT");
     assertEquals("DEFAULT_TIMEOUT should be 60", 60L, timeoutValue.getInt());
 
     // Verify boolean constants
     assertTrue("Should contain ENABLE_FEATURE", response.containsGlobal("ENABLE_FEATURE"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo enableValue = response.getGlobalOrThrow("ENABLE_FEATURE");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value enableValue = response.getGlobalOrThrow("ENABLE_FEATURE");
     assertTrue("ENABLE_FEATURE should be true", enableValue.getBool());
 
     assertTrue("Should contain DEBUG_MODE", response.containsGlobal("DEBUG_MODE"));
-    build.stack.starlark.v1beta1.StarlarkProtos.ValueInfo debugValue = response.getGlobalOrThrow("DEBUG_MODE");
+    build.stack.starlark.v1beta1.StarlarkProtos.Value debugValue = response.getGlobalOrThrow("DEBUG_MODE");
     assertFalse("DEBUG_MODE should be false", debugValue.getBool());
+
+    // Verify list constants
+    assertTrue("Should contain SUPPORTED_PLATFORMS", response.containsGlobal("SUPPORTED_PLATFORMS"));
+    build.stack.starlark.v1beta1.StarlarkProtos.Value platformsValue = response.getGlobalOrThrow("SUPPORTED_PLATFORMS");
+    assertTrue("SUPPORTED_PLATFORMS should be a list", platformsValue.hasList());
+    assertEquals("SUPPORTED_PLATFORMS should have 3 elements", 3, platformsValue.getList().getValueCount());
+    assertEquals("First platform should be 'linux'", "linux", platformsValue.getList().getValue(0).getString());
+    assertEquals("Second platform should be 'darwin'", "darwin", platformsValue.getList().getValue(1).getString());
+    assertEquals("Third platform should be 'windows'", "windows", platformsValue.getList().getValue(2).getString());
+
+    assertTrue("Should contain EMPTY_LIST", response.containsGlobal("EMPTY_LIST"));
+    build.stack.starlark.v1beta1.StarlarkProtos.Value emptyListValue = response.getGlobalOrThrow("EMPTY_LIST");
+    assertTrue("EMPTY_LIST should be a list", emptyListValue.hasList());
+    assertEquals("EMPTY_LIST should have 0 elements", 0, emptyListValue.getList().getValueCount());
+
+    // Verify list comprehension results
+    assertTrue("Should contain NUMBERS (list comprehension)", response.containsGlobal("NUMBERS"));
+    build.stack.starlark.v1beta1.StarlarkProtos.Value numbersValue = response.getGlobalOrThrow("NUMBERS");
+    assertTrue("NUMBERS should be a list", numbersValue.hasList());
+    assertEquals("NUMBERS should have 5 elements [0, 2, 4, 6, 8]", 5, numbersValue.getList().getValueCount());
+    assertEquals("NUMBERS[0] should be 0", 0L, numbersValue.getList().getValue(0).getInt());
+    assertEquals("NUMBERS[1] should be 2", 2L, numbersValue.getList().getValue(1).getInt());
+    assertEquals("NUMBERS[2] should be 4", 4L, numbersValue.getList().getValue(2).getInt());
+    assertEquals("NUMBERS[3] should be 6", 6L, numbersValue.getList().getValue(3).getInt());
+    assertEquals("NUMBERS[4] should be 8", 8L, numbersValue.getList().getValue(4).getInt());
+
+    assertTrue("Should contain FILTERED_NUMBERS (list comprehension with filter)", response.containsGlobal("FILTERED_NUMBERS"));
+    build.stack.starlark.v1beta1.StarlarkProtos.Value filteredValue = response.getGlobalOrThrow("FILTERED_NUMBERS");
+    assertTrue("FILTERED_NUMBERS should be a list", filteredValue.hasList());
+    assertEquals("FILTERED_NUMBERS should have 5 elements [0, 2, 4, 6, 8]", 5, filteredValue.getList().getValueCount());
+    assertEquals("FILTERED_NUMBERS[0] should be 0", 0L, filteredValue.getList().getValue(0).getInt());
+    assertEquals("FILTERED_NUMBERS[1] should be 2", 2L, filteredValue.getList().getValue(1).getInt());
+    assertEquals("FILTERED_NUMBERS[2] should be 4", 4L, filteredValue.getList().getValue(2).getInt());
+    assertEquals("FILTERED_NUMBERS[3] should be 6", 6L, filteredValue.getList().getValue(3).getInt());
+    assertEquals("FILTERED_NUMBERS[4] should be 8", 8L, filteredValue.getList().getValue(4).getInt());
 
     // Verify that private symbols (starting with _) are NOT captured
     assertFalse("Should NOT contain private _INTERNAL_VALUE", response.containsGlobal("_INTERNAL_VALUE"));
