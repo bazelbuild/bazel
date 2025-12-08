@@ -965,6 +965,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "@local_jdk//:jdk",
     ],
     tags = [
         "no-sandbox",

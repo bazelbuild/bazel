@@ -38,6 +38,10 @@ cat >>$TEST_TMPDIR/bazelrc <<'EOF'
 # we want to make sure that this explicitly fails when the strategy is not available on the system
 # running the test.
 build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
+build --java_language_version=11
+build --java_runtime_version=remotejdk_11
+build --tool_java_language_version=11
+build --tool_java_runtime_version=remotejdk_11
 EOF
 
 function set_up {
