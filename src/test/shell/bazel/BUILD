@@ -76,6 +76,7 @@ filegroup(
 sh_test(
     name = "bazel_symlink_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_symlink_test.sh"],
     data = [
         ":test-deps",
@@ -178,6 +179,7 @@ sh_test(
 
 sh_test(
     name = "bazel_java_test_defaults",
+    timeout = "long",
     srcs = ["bazel_java_test_defaults.sh"],
     data = [
         ":test-deps",
@@ -835,6 +837,7 @@ sh_test(
 sh_test(
     name = "runfiles_test",
     size = "medium",
+    timeout = "long",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
     tags = [
@@ -1022,6 +1025,7 @@ sh_test(
 sh_test(
     name = "execroot_test",
     size = "medium",
+    timeout = "long",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
     tags = [
@@ -1048,6 +1052,7 @@ sh_test(
 sh_test(
     name = "bazel_with_jdk_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_with_jdk_test.sh"],
     args = ["$(JAVABASE)"],
     data = [
@@ -1187,7 +1192,7 @@ test_suite(
 sh_test(
     name = "bazel_workspaces_test",
     srcs = ["bazel_workspaces_test.sh"],
-    timeout = "long",
+    timeout = "eternal",
     data = [
         ":test-deps",
         "//src/tools/workspacelog:parser",

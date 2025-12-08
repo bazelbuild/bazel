@@ -28,6 +28,7 @@ genrule(
 sh_test(
     name = "bash_completion_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["bash_completion_test.sh"],
     data = [
         "bazel-complete.bash",
