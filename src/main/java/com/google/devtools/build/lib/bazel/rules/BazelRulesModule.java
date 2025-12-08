@@ -11,12 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -43,6 +44,47 @@ public final class BazelRulesModule extends BlazeModule {
    * AllCommandGraveyardOptions}.
    */
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "build_python_zip",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public TriState buildPythonZip;
+
+    @Option(
+        name = "incompatible_default_to_explicit_init_py",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDefaultToExplicitInitPy;
+
+    @Option(
+        name = "python_native_rules_allowlist",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "Deprecated. No-op.")
+    public Label nativeRulesAllowlist;
+
+    @Option(
+        name = "incompatible_python_disallow_native_rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disallowNativeRules;
+
+    @Option(
+        name = "incompatible_remove_ctx_py_fragment",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disablePyFragment;
 
     @Option(
         name = "incompatible_use_python_toolchains",
@@ -125,7 +167,8 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help =
-            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
+            "Flag for disabling the legacy cc_toolchain Starlark API "
+                + "for accessing legacy "
                 + "CROSSTOOL fields.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
@@ -272,7 +315,8 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        help = "This option is deprecated and has no effect and will be removed in the future.")
+        help =
+            "This option is deprecated and has no effect and will be " + "removed in the future.")
     public boolean deferParamFiles;
 
     @Option(
@@ -307,7 +351,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+        help = "When enabled java_common.compile only accepts " + "JavaPluginInfo for plugins.")
     public boolean requireJavaPluginInfo;
 
     @Option(
@@ -343,7 +387,8 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op.")
     public boolean useSemaphoreForJobs;
 
-    // TODO(b/410585542): Remove this once there are no more internal users trying to set it.
+    // TODO(b/410585542): Remove this once there are no more internal users
+    // trying to set it.
     @Option(
         name = "experimental_skip_ttvs_for_genquery",
         defaultValue = "true",
@@ -356,6 +401,7 @@ public final class BazelRulesModule extends BlazeModule {
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
   public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+
     @Option(
         name = "python_path",
         defaultValue = "",
@@ -459,7 +505,8 @@ public final class BazelRulesModule extends BlazeModule {
 
     private static final String ANDROID_FLAG_DEPRECATION =
         "Legacy Android flags have been deprecated. See"
-            + " https://blog.bazel.build/2023/11/15/android-platforms.html for details and"
+            + " https://blog.bazel.build/2023/11/15/android-platforms.html for "
+            + "details and"
             + " migration directions";
 
     @Option(
@@ -842,7 +889,8 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "false",
         deprecationWarning =
             "BES best effort upload has been removed. The flag has no more "
-                + "functionality attached to it and will be removed in a future release.",
+                + "functionality attached to it and will be removed in a "
+                + "future release.",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
