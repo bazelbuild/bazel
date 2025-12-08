@@ -297,7 +297,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testExecStarlarkFlag_isAllowedByDefault() throws Exception {
+  public void testExecStarlarkFlag_isDisallowedByDefault() throws Exception {
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
         """
@@ -325,7 +325,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             cfg.getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
-        .isEqualTo("true");
+        .isNull();
   }
 
   @Test
