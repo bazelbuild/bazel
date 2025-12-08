@@ -317,6 +317,7 @@ sh_test(
 sh_test(
     name = "bazel_proto_library_test",
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
+    timeout = "eternal",
     srcs = ["bazel_proto_library_test.sh"],
     data = [
         ":rules_proto_stanza.txt",
@@ -731,6 +732,7 @@ sh_test(
 sh_test(
     name = "starlark_git_repository_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["starlark_git_repository_test.sh"],
     data = [
         ":test-deps",
@@ -924,6 +926,7 @@ sh_test(
 sh_test(
     name = "cc_integration_test",
     size = "medium",
+    timeout = "long",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 5,
@@ -1169,6 +1172,7 @@ sh_test(
 sh_test(
     name = "bazel_strategy_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["bazel_strategy_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -1324,6 +1328,7 @@ sh_test(
 
 sh_test(
     name = "check_external_files_test",
+    timeout = "long",
     srcs = ["check_external_files_test.sh"],
     data = [
         ":test-deps",

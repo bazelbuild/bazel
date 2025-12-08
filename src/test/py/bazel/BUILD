@@ -56,6 +56,7 @@ py_test(
 py_test(
     name = "cc_import_test",
     size = "medium",
+    timeout = "long",
     srcs = ["cc_import_test.py"],
     deps = [":test_base"],
 )
@@ -85,6 +86,7 @@ py_test(
 py_test(
     name = "bazel_external_repository_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
     tags = [
@@ -150,6 +152,7 @@ py_test(
 py_test(
     name = "launcher_test",
     size = "medium",
+    timeout = "long",
     srcs = ["launcher_test.py"],
     deps = [":test_base"],
 )
@@ -300,6 +303,7 @@ py_test(
 py_test(
     name = "bazel_overrides_test",
     size = "medium",
+    timeout = "long",
     srcs = ["bzlmod/bazel_overrides_test.py"],
     tags = [
         "requires-network",

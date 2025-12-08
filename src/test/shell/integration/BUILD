@@ -228,6 +228,7 @@ sh_test(
 sh_test(
     name = "stub_finds_runfiles_test",
     size = "medium",
+    timeout = "long",
     srcs = ["stub_finds_runfiles_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -589,6 +590,7 @@ sh_test(
 sh_test(
     name = "client_test",
     size = "medium",
+    timeout = "long",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -596,6 +598,7 @@ sh_test(
 
 sh_test(
     name = "test_test",
+    timeout = "long",
     srcs = ["test_test.sh"],
     data = [
         ":test-deps",
@@ -726,6 +729,7 @@ sh_test(
 
 sh_test(
     name = "py_args_escaping_test",
+    timeout = "long",
     srcs = ["py_args_escaping_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
