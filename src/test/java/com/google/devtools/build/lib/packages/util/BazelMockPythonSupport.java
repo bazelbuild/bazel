@@ -129,6 +129,8 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "bool_flag(name = 'experimental_python_import_all_repositories', build_setting_default ="
             + " True)",
         "bool_flag(name = 'build_python_zip', build_setting_default = False)",
+        "bool_flag(name = 'incompatible_default_to_explicit_init_py', build_setting_default ="
+            + " True)",
         "string_flag(name = 'python_path', build_setting_default = 'python')");
     config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");
     config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
