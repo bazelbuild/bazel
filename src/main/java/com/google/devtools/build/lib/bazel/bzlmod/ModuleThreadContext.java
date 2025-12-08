@@ -108,11 +108,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   public void addRepoNameUsage(
       String repoName, String how, ImmutableList<StarlarkThread.CallStackEntry> stack)
       throws EvalException {
-    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, stack));
+    RepoNameUsage incoming = new RepoNameUsage(how, stack);
+    RepoNameUsage collision = repoNameUsages.put(repoName, incoming);
     if (collision != null) {
       throw Starlark.errorf(
-          "The repo name '%s' is already being used %s at %s",
-          repoName, collision.how(), collision.location());
+          "The repo name '%s' cannot be defined %s at %s as it is already defined %s at %s",
+          repoName, incoming.how(), incoming.location(), collision.how(), collision.location());
     }
   }
 
