@@ -707,7 +707,7 @@ class BazelOverridesTest(test_base.TestBase):
         '\n'.join(stdout),
     )
     self.assertIn(
-        '"+local_repository2+injected_repo"',
+        '"+_repo_rules2+injected_repo"',
         '\n'.join(stdout),
     )
 
