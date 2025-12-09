@@ -21,28 +21,28 @@ import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.DiskBackedFileSystem;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
-/** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
+/**
+ * A disk-backed filesystem suitable for Unix systems, implemented using a mix of JNI and standard
+ * library calls.
+ */
 @ThreadSafe
-public class UnixFileSystem extends AbstractFileSystem {
+public class UnixFileSystem extends DiskBackedFileSystem {
+  private static final Profiler profiler = Profiler.instance();
+
   protected final String hashAttributeName;
 
   public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
@@ -440,80 +440,5 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public java.nio.file.Path getNioPath(PathFragment path) {
     return java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString()));
-  }
-
-  @Override
-  protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
-  }
-
-  protected OutputStream createFileOutputStream(PathFragment path, boolean append)
-      throws FileNotFoundException {
-    return createFileOutputStream(path, append, /* internal= */ false);
-  }
-
-  @Override
-  protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
-      throws FileNotFoundException {
-    String name = path.getPathString();
-    if (!internal
-        && profiler.isActive()
-        && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
-            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
-      var comp = Blocker.begin();
-      try {
-        return new ProfiledFileOutputStream(name, /* append= */ append);
-      } finally {
-        Blocker.end(comp);
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
-      }
-    } else {
-      var comp = Blocker.begin();
-      try {
-        return new FileOutputStream(StringEncoding.internalToPlatform(name), /* append= */ append);
-      } finally {
-        Blocker.end(comp);
-      }
-    }
-  }
-
-  private static final class ProfiledFileOutputStream extends FileOutputStream {
-    private final String name;
-
-    private ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
-      super(StringEncoding.internalToPlatform(name), append);
-      this.name = name;
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        super.write(b);
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
-      }
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        super.write(b);
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
-      }
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        super.write(b, off, len);
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
-      }
-    }
   }
 }

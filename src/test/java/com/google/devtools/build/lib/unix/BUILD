@@ -27,6 +27,7 @@ java_library(
         "no_windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -39,7 +40,9 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava-testlib",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

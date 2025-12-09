@@ -25,7 +25,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import org.junit.Test;
 
 /** Tests for the {@link com.google.devtools.build.lib.unix.UnixFileSystem} class. */
@@ -118,5 +122,19 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
     assertThrows(FileAccessException.class, dir::getDirectoryEntries);
     assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
+  }
+
+  @Test
+  public void testInputStreamIsFileInputStream() throws Exception {
+    try (InputStream in = xFile.getInputStream()) {
+      assertThat(in).isInstanceOf(FileInputStream.class);
+    }
+  }
+
+  @Test
+  public void testOutputStreamIsFileOutputStream() throws Exception {
+    try (OutputStream out = xFile.getOutputStream()) {
+      assertThat(out).isInstanceOf(FileOutputStream.class);
+    }
   }
 }
