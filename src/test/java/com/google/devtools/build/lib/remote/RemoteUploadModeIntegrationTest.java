@@ -36,7 +36,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Integration tests for {@code --remote_cache_async=nowait}.
+ * Integration tests for {@code --remote_cache_async=nowait_for_upload_complete}.
  *
  * <p>Tests the async upload functionality where uploads continue in the background after a build
  * completes, with the next command waiting for pending uploads.
@@ -128,7 +128,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
 
   @Test
   public void nowaitForUploadComplete_uploadsCompleteBeforeNextBuild() throws Exception {
-    // Test that with --remote_cache_async=nowait, uploads from build N complete
+    // Test that with --remote_cache_async=nowait_for_upload_complete, uploads from build N complete
     // before build N+1 executes (due to waitForPreviousInvocation).
     write(
         "BUILD",
@@ -146,7 +146,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo bar > $@",
         )
         """);
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
 
     // First build - uploads continue in background
     buildTarget("//:foo");
@@ -158,7 +158,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
     // Both outputs should be available in the remote cache
     // Verify by doing a clean build that hits the cache
     restartServer();
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
 
     ActionEventCollector actionEventCollector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(actionEventCollector);
@@ -195,7 +195,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo gen3 > $@",
         )
         """);
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
 
     // Run multiple builds in sequence
     buildTarget("//:gen1");
@@ -205,7 +205,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
     // All uploads should have completed (each build waits for the previous one)
     // Verify by restarting and checking cache hits
     restartServer();
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
 
     ActionEventCollector collector = new ActionEventCollector();
     getRuntimeWrapper().registerSubscriber(collector);
@@ -229,7 +229,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "echo cached-content > $@",
         )
         """);
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
 
     // Build with async uploads
     buildTarget("//:cached");
@@ -294,7 +294,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    addOptions("--remote_cache_async=nowait");
+    addOptions("--remote_cache_async=nowait_for_upload_complete");
     setDownloadToplevel();
 
     // Initial build
@@ -323,7 +323,7 @@ public class RemoteUploadModeIntegrationTest extends BuildWithoutTheBytesIntegra
         )
         """);
     Path diskCachePath = getOutputBase().getRelative("disk-cache");
-    addOptions("--remote_cache_async=nowait", "--disk_cache=" + diskCachePath.getPathString());
+    addOptions("--remote_cache_async=nowait_for_upload_complete", "--disk_cache=" + diskCachePath.getPathString());
 
     buildTarget("//:disk_cached");
 

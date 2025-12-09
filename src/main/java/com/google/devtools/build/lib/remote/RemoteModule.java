@@ -1076,7 +1076,7 @@ public final class RemoteModule extends BlazeModule {
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
     RemoteCacheAsync cacheAsyncRef =
-        remoteOptions != null ? remoteOptions.remoteCacheAsync : RemoteCacheAsync.TRUE;
+        remoteOptions != null ? remoteOptions.remoteCacheAsync : RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE;
     if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
       blockWaitingModule.submit(
           () ->
@@ -1122,7 +1122,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     // For NOWAIT mode, store the handle for next invocation and defer cleanup
-    if (cacheAsync == RemoteCacheAsync.NOWAIT && uploads != RemoteExecutionService.PendingUploads.EMPTY) {
+    if (cacheAsync == RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE && uploads != RemoteExecutionService.PendingUploads.EMPTY) {
       // Wrap the PendingUploads to clean up resources after awaiting
       Path tempDir = tempPathGenerator != null ? tempPathGenerator.getTempDir() : null;
       AsynchronousMessageOutputStream<LogEntry> logFile = rpcLogFile;

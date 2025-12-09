@@ -1785,7 +1785,7 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync != RemoteCacheAsync.FALSE
+    if (remoteOptions.remoteCacheAsync != RemoteCacheAsync.OFF
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       backgroundTaskExecutor.execute(
           () -> {
@@ -2036,7 +2036,7 @@ public class RemoteExecutionService {
       return PendingUploads.EMPTY;
     }
 
-    if (cacheAsync != RemoteCacheAsync.NOWAIT) {
+    if (cacheAsync != RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE) {
       // Existing behavior - block until done
       backgroundTaskExecutor.close();
       if (combinedCache != null) {

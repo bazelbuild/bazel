@@ -125,25 +125,29 @@ public final class RemoteOptions extends CommonRemoteOptions {
      * Synchronous uploads: block completion of each action until its outputs are uploaded. This is
      * the old {@code --remote_cache_async=false} behavior.
      */
-    FALSE,
+    OFF,
     /**
      * Async uploads with wait at end of build: upload action outputs in the background, but block
      * at the end of the build until all uploads complete. This is the old {@code
      * --remote_cache_async=true} behavior and is the default.
      */
-    TRUE,
+    WAIT_FOR_UPLOAD_COMPLETE,
     /**
      * Async uploads with wait at start of next build: upload action outputs in the background and
      * return immediately when the build completes. Block at the beginning of the next invocation
      * until all uploads from the previous invocation complete.
      */
-    NOWAIT,
+    NOWAIT_FOR_UPLOAD_COMPLETE,
   }
 
   /** Converter for {@link RemoteCacheAsync} that accepts both boolean and enum values. */
   public static class RemoteCacheAsyncConverter extends BoolOrEnumConverter<RemoteCacheAsync> {
     public RemoteCacheAsyncConverter() {
-      super(RemoteCacheAsync.class, "remote cache async mode", RemoteCacheAsync.TRUE, RemoteCacheAsync.FALSE);
+      super(
+          RemoteCacheAsync.class,
+          "remote cache async mode",
+          RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE,
+          RemoteCacheAsync.OFF);
     }
   }
 
