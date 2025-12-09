@@ -2068,6 +2068,7 @@ public class RemoteExecutionService {
         @Override
         public void cancel() {
           backgroundTaskExecutor.shutdownNow();
+          backgroundTaskExecutor.close();  // Wait for interrupted tasks to terminate
           if (combinedCache != null) {
             combinedCache.shutdownNow();
           }
