@@ -1793,7 +1793,7 @@ public class RemoteExecutionService {
               doUploadOutputs(action, spawnResult, onUploadComplete);
             } catch (ExecException e) {
               reportUploadError(e);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ignored) {
               // ThreadPerTaskExecutor does not care about interrupt status.
             }
           });
