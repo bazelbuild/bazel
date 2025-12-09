@@ -703,7 +703,7 @@ class BazelOverridesTest(test_base.TestBase):
         '--inject_repository=injected_repo=%workspace%/other_repo',
     ])
     self.assertIn(
-        '"+local_repository+repo"',
+        '"+_repo_rules+repo"',
         '\n'.join(stdout),
     )
     self.assertIn(
