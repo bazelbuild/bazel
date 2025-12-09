@@ -277,6 +277,7 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "downloader_config",
       oldName = "experimental_downloader_config",
+      allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -288,7 +289,7 @@ public class RepositoryOptions extends OptionsBase {
               + "against, and one to use as a substitute URL, with back-references starting from "
               + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
               + "given, and in this case multiple URLs will be returned.")
-  public PathFragment downloaderConfig;
+  public List<PathFragment> downloaderConfigs;
 
   @Option(
       name = "ignore_dev_dependency",
