@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import java.io.BufferedReader;
@@ -59,7 +61,7 @@ import net.starlark.java.syntax.Location;
  *             artifacts.mycorp.com/api/vcs/downloadRelease/github.com/$1/$2/$3?ext=$4
  * </pre>
  *
- * In addition, you can block all hosts using the @{code *} wildcard.
+ * In addition, you can block all hosts using the {@code *} wildcard.
  *
  * <p>Comments within the config file are allowed, and must be on their own line preceded by a
  * {@code #}.
@@ -80,18 +82,54 @@ class UrlRewriterConfig {
   @Nullable private final String allBlockedMessage;
 
   /**
-   * Constructor to use. The {@code config} will be read to completion.
+   * Constructor for a single file. The {@code config} will be read to completion.
    *
    * @throws UrlRewriterParseException If the file contents was invalid.
    * @throws UncheckedIOException If any processing problems occur.
    */
   public UrlRewriterConfig(String filePathForErrorReporting, Reader config)
       throws UrlRewriterParseException {
+    this(ImmutableList.of(filePathForErrorReporting), ImmutableList.of(config));
+  }
+
+  /**
+   * Constructor for multiple files. The {@code configs} will be read to completion.
+   *
+   * @throws UrlRewriterParseException If the file(s) contents was invalid.
+   * @throws UncheckedIOException If any processing problems occur.
+   */
+  public UrlRewriterConfig(List<String> filePathsForErrorReporting, List<Reader> configs)
+      throws UrlRewriterParseException {
+    Preconditions.checkArgument(
+        filePathsForErrorReporting.size() == configs.size(),
+        "Number of file paths do not match number of readers");
+
     ImmutableSet.Builder<String> allowList = ImmutableSet.builder();
     ImmutableSet.Builder<String> blockList = ImmutableSet.builder();
     ImmutableMultimap.Builder<Pattern, String> rewrites = ImmutableMultimap.builder();
-    String allBlockedMessage = null;
+    StringBuilder allBlockedMessage = new StringBuilder();
 
+    for (int i = 0; i < filePathsForErrorReporting.size(); i++) {
+      String filePathForErrorReporting = filePathsForErrorReporting.get(i);
+      Reader config = configs.get(i);
+      parseConfig(
+          config, filePathForErrorReporting, allowList, blockList, rewrites, allBlockedMessage);
+    }
+
+    this.allowList = allowList.build();
+    this.blockList = blockList.build();
+    this.rewrites = rewrites.build();
+    this.allBlockedMessage = allBlockedMessage.isEmpty() ? null : allBlockedMessage.toString();
+  }
+
+  private static void parseConfig(
+      Reader config,
+      String filePathForErrorReporting,
+      ImmutableSet.Builder<String> allowList,
+      ImmutableSet.Builder<String> blockList,
+      ImmutableMultimap.Builder<Pattern, String> rewrites,
+      StringBuilder allBlockedMessage)
+      throws UrlRewriterParseException {
     try (BufferedReader reader = new BufferedReader(config)) {
       int lineNumber = 1;
       for (String line = reader.readLine(); line != null; line = reader.readLine(), lineNumber++) {
@@ -149,11 +187,11 @@ class UrlRewriterConfig {
               throw new UrlRewriterParseException(
                   "all_blocked_message must be followed by a message", location);
             }
-            if (allBlockedMessage != null) {
+            if (!allBlockedMessage.isEmpty()) {
               throw new UrlRewriterParseException(
                   "At most one all_blocked_message directive is allowed", location);
             }
-            allBlockedMessage = line.substring(ALL_BLOCKED_MESSAGE_DIRECTIVE.length() + 1);
+            allBlockedMessage.append(line.substring(ALL_BLOCKED_MESSAGE_DIRECTIVE.length() + 1));
           }
           default -> throw new UrlRewriterParseException("Unable to parse: " + line, location);
         }
@@ -161,11 +199,6 @@ class UrlRewriterConfig {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-
-    this.allowList = allowList.build();
-    this.blockList = blockList.build();
-    this.rewrites = rewrites.build();
-    this.allBlockedMessage = allBlockedMessage;
   }
 
   /** Returns all {@code allow} directives. */
