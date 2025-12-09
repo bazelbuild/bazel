@@ -260,8 +260,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
-    remoteFs.injectRemoteRepo(repoName, repoDirectoryContent, markerFileContent);
-    return true;
+    return remoteFs.injectRemoteRepo(repoName, repoDirectoryContent, markerFileContent);
   }
 
   private RemoteActionExecutionContext buildContext(RepositoryName repoName) {

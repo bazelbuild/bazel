@@ -236,8 +236,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     // If an action output is stale, Skyframe will delete it prior to action execution. However,
-    // this doesn't apply to spawn outputs that aren't action outputs. To avoid incorrectly reusing
-    // one such stale output, check for its up-to-dateness here.
+    // this doesn't apply to spawn outputs that aren't action outputs as well as to files in
+    // external repos that are remote repo contents cache hits. To avoid incorrectly reusing one
+    // such stale file, check for its up-to-dateness here.
     if (stat.getSize() != metadata.getSize()) {
       return true;
     }
