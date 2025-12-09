@@ -1293,7 +1293,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // First parse the command line so that we get the option_sources argument
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
-    parser.parse(PriorityCategory.COMMAND_LINE, null, args);
+    parser.parse(PriorityCategory.COMMAND_LINE, null, args, false);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
     Function<OptionDefinition, String> sourceFunction =
@@ -1307,7 +1307,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parseWithSourceFunction(
-        PriorityCategory.COMMAND_LINE, sourceFunction, args, /* fallbackData= */ null);
+        PriorityCategory.COMMAND_LINE, sourceFunction, args, /* fallbackData= */ null, false);
     return parser;
   }
 

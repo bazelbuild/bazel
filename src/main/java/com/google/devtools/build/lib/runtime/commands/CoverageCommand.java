@@ -123,11 +123,11 @@ public class CoverageCommand extends TestCommand {
       optionsParser.parse(
           PriorityCategory.SOFTWARE_REQUIREMENT,
           "Options required by the coverage command",
-          ImmutableList.of("--collect_code_coverage"));
+          ImmutableList.of("--collect_code_coverage"), false);
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Options suggested for the coverage command",
-          ImmutableList.of(TestTimeout.COVERAGE_CMD_TIMEOUT));
+          ImmutableList.of(TestTimeout.COVERAGE_CMD_TIMEOUT), false);
     } catch (OptionsParsingException e) {
       // Should never happen.
       throw new IllegalStateException("Unexpected exception", e);

@@ -229,7 +229,7 @@ public final class BlazeOptionHandler {
                   PriorityCategory.RC_FILE,
                   o -> rcArgs.getRcFile(),
                   rcArgs.getArgs(),
-                  OptionsParser.getFallbackOptionsData(allOptionsClasses));
+                  OptionsParser.getFallbackOptionsData(allOptionsClasses), false);
           if (!ignoredArgs.isEmpty()) {
             // Append richer information to the note.
             int index = rcfileNotes.size() - 1;
@@ -241,7 +241,7 @@ public final class BlazeOptionHandler {
             rcfileNotes.set(index, note);
           }
         } else {
-          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs(), false);
         }
       }
     }
@@ -253,7 +253,7 @@ public final class BlazeOptionHandler {
    * options that apply to all build commands.
    */
   private ListMultimap<String, RcChunkOfArgs> parseArgsAndConfigs(
-      List<String> args, ExtendedEventHandler eventHandler)
+      List<String> args, ExtendedEventHandler eventHandler, boolean isFirstParsing)
       throws OptionsParsingException, InterruptedException, AbruptExitException {
     Path workspaceDirectory = workspace.getWorkspace();
     // TODO(ulfjack): The working directory is passed by the client as part of CommonCommandOptions,
@@ -285,7 +285,7 @@ public final class BlazeOptionHandler {
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         defaultOverridesAndRcSources.build(),
-        /* fallbackData= */ null);
+        /* fallbackData= */ null, isFirstParsing);
 
     // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
@@ -302,7 +302,7 @@ public final class BlazeOptionHandler {
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         remainingCmdLine.build(),
-        /* fallbackData= */ null);
+        /* fallbackData= */ null, isFirstParsing);
 
     if (commandAnnotation.buildPhase().analyzes()) {
       // split project files from targets in the traditional sense.
@@ -466,7 +466,7 @@ public final class BlazeOptionHandler {
       ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
     DetailedParseResults result =
         parseOptionsInternal(
-            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ false);
+            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ false, false);
     if (!result.detailedExitCode.isSuccess()) {
       optionsParser.setError();
     }
@@ -480,10 +480,10 @@ public final class BlazeOptionHandler {
   DetailedParseResults parseOptionsAndGetConfigDefinitions(
       List<String> args,
       ExtendedEventHandler eventHandler,
-      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder, boolean isFirstParsing) {
     DetailedParseResults result =
         parseOptionsInternal(
-            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ true);
+            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ true, isFirstParsing);
     if (!result.detailedExitCode.isSuccess()) {
       optionsParser.setError();
     }
@@ -494,7 +494,7 @@ public final class BlazeOptionHandler {
       List<String> args,
       ExtendedEventHandler eventHandler,
       ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder,
-      boolean getConfigDefinitions) {
+      boolean getConfigDefinitions, boolean isFirstParsing) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
@@ -508,7 +508,7 @@ public final class BlazeOptionHandler {
     ListMultimap<String, RcChunkOfArgs> rcDefinitions = ImmutableListMultimap.of();
     DetailedExitCode exitCode;
     try {
-      rcDefinitions = parseArgsAndConfigs(args, eventHandler);
+      rcDefinitions = parseArgsAndConfigs(args, eventHandler, isFirstParsing);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
       // Merge the invocation policy that is user-supplied, from the command line, and any
