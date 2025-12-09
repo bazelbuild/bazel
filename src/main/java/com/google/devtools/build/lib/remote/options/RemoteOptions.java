@@ -160,11 +160,12 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Determines how action outputs are uploaded to the remote or disk cache. "
-              + "'true' (default): upload in the background, but block at end of build until "
-              + "uploads complete. "
-              + "'false': block completion of each action until its outputs are uploaded. "
-              + "'nowait': upload in the background and return immediately when the build "
-              + "completes; block at the start of the next build until uploads finish.")
+              + "'wait_for_upload_complete' or 'true' (default): upload in the background, but "
+              + "block at end of build until uploads complete. "
+              + "'off' or 'false': block completion of each action until its outputs are uploaded. "
+              + "'nowait_for_upload_complete': upload in the background and return immediately "
+              + "when the build completes; block at the start of the next build until uploads "
+              + "finish.")
   public RemoteCacheAsync remoteCacheAsync;
 
   @Option(
