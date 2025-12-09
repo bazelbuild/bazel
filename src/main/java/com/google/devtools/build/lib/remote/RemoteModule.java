@@ -1205,7 +1205,7 @@ public final class RemoteModule extends BlazeModule {
     waitThread.start();
 
     try {
-      waitThread.join(30_000);
+      waitThread.join(60_000);
       if (waitThread.isAlive()) {
         uploads.cancel();
       }
