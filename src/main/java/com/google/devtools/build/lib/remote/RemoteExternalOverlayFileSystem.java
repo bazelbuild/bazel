@@ -354,12 +354,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
   /** Whether the file with the given path should be materialized eagerly when injecting a repo. */
   private static boolean shouldPrefetch(PathFragment path) {
-    // .bzl files are typically small and the loads between them can form complex DAGs that can only
-    // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
-    // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // All these files are typically small and they can form complex DAGs that can only be
+    // discovered layer by layer, so prefetching them is worthwhile to reduce the number of
+    // sequential cache requests. While REPO.bazel does not contain loads, it is an implicit dep of
+    // all packages in a repo.
+    // Note that we don't prefetch MODULE.bazel since it is only accessed for overridden modules,
+    // which are rare.
+    // TODO: Investigate whether this allows us to remove support for rewinding on lost BUILD/.bzl
+    // files.
+    var baseName = path.getBaseName();
+    return baseName.equals("BUILD.bazel")
+        || baseName.equals("BUILD")
+        || baseName.equals("REPO.bazel")
+        || baseName.endsWith(".bzl");
   }
 
   @Override
