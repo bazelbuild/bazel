@@ -546,7 +546,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
-    assertContainsEvent("The repo name 'foo' is already being used");
+    assertContainsEvent("The repo name 'foo' cannot be defined");
+    assertContainsEvent("as it is already defined");
   }
 
   @Test
@@ -1165,8 +1166,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
 
-    assertContainsEvent(
-        "The repo name 'mymod' is already being used as the current module name at");
+    assertContainsEvent("The repo name 'mymod' cannot be defined");
+    assertContainsEvent("as it is already defined as the current module name");
   }
 
   @Test
@@ -1510,7 +1511,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
+    assertContainsEvent("The repo name 'bbb' cannot be defined");
+    assertContainsEvent("as it is already defined as the module's own repo name");
   }
 
   @Test
