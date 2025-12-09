@@ -126,6 +126,8 @@ def create_lto_backends(
             if file.is_directory:
                 fail("Thinlto with tree artifacts requires feature use_lto_native_object_directory.")
 
+    build_variables, additional_inputs = setup_common_lto_variables(cc_toolchain, feature_configuration)
+
     # Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
     # and N .o files, this is O(M*N). If we had nested sets of bitcode files, it would be O(M + N).
     all_bitcode_depset = depset(all_bitcode)
@@ -154,6 +156,8 @@ def create_lto_backends(
                     cc_toolchain = cc_toolchain,
                     use_pic = use_pic,
                     should_create_per_object_debug_info = debug,
+                    build_variables = build_variables,
+                    additional_inputs = additional_inputs,
                     argv = backend_user_compile_flags,
                 ))
             else:
@@ -182,6 +186,8 @@ def create_lto_backends(
             cc_toolchain = cc_toolchain,
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
+            build_variables = build_variables,
+            additional_inputs = additional_inputs,
             argv = backend_user_compile_flags,
         ))
     return lto_outputs
@@ -229,6 +235,8 @@ def create_shared_non_lto_artifacts(
     cpp_config = cc_toolchain._cpp_configuration
     debug = should_create_per_object_debug_info(feature_configuration, cpp_config)
 
+    build_variables, additional_inputs = setup_common_lto_variables(cc_toolchain, feature_configuration)
+
     shared_non_lto_backends = {}
     for obj in object_file_inputs:
         if obj not in lto_compilation_context.lto_bitcode_inputs:
@@ -245,9 +253,46 @@ def create_shared_non_lto_artifacts(
             cc_toolchain = cc_toolchain,
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
+            build_variables = build_variables,
+            additional_inputs = additional_inputs,
             argv = backend_user_compile_flags,
         )
     return shared_non_lto_backends
+
+def setup_common_lto_variables(
+        cc_toolchain,
+        feature_configuration):
+    """
+    Populates build_variables and additional_inputs with data that is independent of what file is the input to the action.
+
+    Args:
+      cc_toolchain: (CcToolchainInfo) The C++ toolchain.
+      feature_configuration: (feature_configuration) The feature configuration.
+
+    Returns:
+      A CcToolchainVariables provider and a list[File] of additional inputs.
+    """
+
+    build_variables = {}
+    additional_inputs = []
+
+    _add_profile_for_lto_backend(
+        additional_inputs,
+        cc_toolchain._fdo_context,
+        feature_configuration,
+        build_variables,
+    )
+
+    # Add the context sensitive instrument path to the backend.
+    if feature_configuration.is_enabled("cs_fdo_instrument"):
+        build_variables["cs_fdo_instrument_path"] = cc_toolchain._cpp_configuration.cs_fdo_instrument()
+
+    build_variables = _cc_internal.combine_cc_toolchain_variables(
+        cc_toolchain._build_variables,
+        _cc_internal.cc_toolchain_variables(vars = build_variables),
+    )
+
+    return build_variables, additional_inputs
 
 def create_lto_backend_artifacts(
         *,
@@ -260,6 +305,8 @@ def create_lto_backend_artifacts(
         cc_toolchain,
         use_pic,
         should_create_per_object_debug_info,
+        build_variables,
+        additional_inputs,
         argv):
     """Create an LTO backend.
 
@@ -282,26 +329,26 @@ def create_lto_backend_artifacts(
       cc_toolchain: (CcToolchainInfo) The C++ toolchain.
       use_pic: (bool) Whether to use PIC.
       should_create_per_object_debug_info: (bool) Whether to create per-object debug info.
+      build_variables: (CcToolchainVariables) Toolchain variables to use for argument expansion.
+      additional_inputs: list[File] Additional file inputs required for generated actions.
       argv: (list[str]) The command line arguments to pass to the LTO backend.
 
     Returns:
       An LtoBackendArtifactsInfo provider.
     """
 
+    if not _cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = "lto-backend"):
+        fail("Thinlto build is requested, but the C++ toolchain doesn't define an action_config for 'lto-backend' action.")
+
     create_shared_non_lto = all_bitcode_files == None
 
-    build_variables = {}
-    additional_inputs = []
-    _initialize_build_variables(
+    build_variables = _cc_internal.combine_cc_toolchain_variables(
         build_variables,
-        additional_inputs,
-        cc_toolchain,
-        feature_configuration,
-        argv,
+        _cc_internal.cc_toolchain_variables(vars = {
+            "user_compile_flags": _cc_internal.intern_string_sequence_variable_value(argv),
+        }),
     )
 
-    build_variables = _cc_internal.cc_toolchain_variables(vars = build_variables)
-    build_variables = _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, build_variables)
     env = _cc_common_internal.get_environment_variables(
         feature_configuration = feature_configuration,
         action_name = "lto-backend",
@@ -372,26 +419,6 @@ def create_lto_backend_artifacts(
         _object_file = object_file,
         _dwo_file = dwo_file,
     )
-
-def _initialize_build_variables(build_variables, additional_inputs, cc_toolchain, feature_configuration, user_compile_flags):
-    """
-    Populates build_variables and additional_inputs with data that is independent of what file is the input to the action.
-    """
-    _add_profile_for_lto_backend(
-        additional_inputs,
-        cc_toolchain._fdo_context,
-        feature_configuration,
-        build_variables,
-    )
-
-    # Add the context sensitive instrument path to the backend.
-    if feature_configuration.is_enabled("cs_fdo_instrument"):
-        build_variables["cs_fdo_instrument_path"] = cc_toolchain._cpp_configuration.cs_fdo_instrument()
-
-    build_variables["user_compile_flags"] = _cc_internal.intern_string_sequence_variable_value(user_compile_flags)
-
-    if not _cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = "lto-backend"):
-        fail("Thinlto build is requested, but the C++ toolchain doesn't define an action_config for 'lto-backend' action.")
 
 def _add_profile_for_lto_backend(additional_inputs, fdo_context, feature_configuration, build_variables):
     prefetch = getattr(fdo_context, "prefetch_hints_artifact", None)
