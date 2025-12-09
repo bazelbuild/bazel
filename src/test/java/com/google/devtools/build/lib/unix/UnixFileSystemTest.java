@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.TraceProfilerService;
@@ -37,6 +39,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 
 /** Tests for the {@link com.google.devtools.build.lib.unix.UnixFileSystem} class. */
@@ -129,6 +133,46 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
     assertThrows(FileAccessException.class, dir::getDirectoryEntries);
     assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
+  }
+
+  @Test
+  public void testTransferToWorksWhenCallingThreadHasInterruptBitSet(
+      @TestParameter boolean profiling) throws Throwable {
+    try (var m = new MaybeWithMockProfiler(profiling)) {
+      Path src = absolutize("src");
+      Path dst = absolutize("dst");
+
+      FileSystemUtils.writeContent(src, UTF_8, "hello world");
+
+      CountDownLatch ready = new CountDownLatch(1);
+      AtomicReference<Throwable> caughtException = new AtomicReference<>();
+      Thread thread =
+          new Thread(
+              () -> {
+                try (InputStream in = src.getInputStream();
+                    OutputStream out = dst.getOutputStream()) {
+                  Uninterruptibles.awaitUninterruptibly(ready);
+                  assertThat(Thread.currentThread().isInterrupted()).isTrue();
+                  in.transferTo(out);
+                  assertThat(Thread.currentThread().isInterrupted()).isTrue();
+                  assertThat(((FileInputStream) in).getChannel().isOpen()).isTrue();
+                  assertThat(((FileOutputStream) out).getChannel().isOpen()).isTrue();
+                } catch (Throwable e) {
+                  caughtException.set(e);
+                }
+              });
+
+      thread.start();
+      thread.interrupt();
+      ready.countDown();
+      thread.join();
+
+      if (caughtException.get() != null) {
+        throw caughtException.get();
+      }
+      assertThat(dst.exists()).isTrue();
+      assertThat(FileSystemUtils.readContent(dst, UTF_8)).isEqualTo("hello world");
+    }
   }
 
   @Test
