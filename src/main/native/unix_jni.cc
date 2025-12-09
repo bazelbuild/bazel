@@ -20,6 +20,7 @@
 #include <jni.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -45,6 +46,20 @@
 #else
 #define PORTABLE_O_DIRECTORY 0
 #endif
+
+#define RESTARTABLE(_cmd, _result)                 \
+  do {                                             \
+    do {                                           \
+      _result = _cmd;                              \
+    } while ((_result == -1) && (errno == EINTR)); \
+  } while (0)
+
+#define RESTARTABLE_PTR(_cmd, _result)                  \
+  do {                                                  \
+    do {                                                \
+      _result = _cmd;                                   \
+    } while ((_result == nullptr) && (errno == EINTR)); \
+  } while (0)
 
 namespace blaze_jni {
 
@@ -86,9 +101,6 @@ void PostException(JNIEnv* env, int error_number, const std::string& message) {
       exception_classname =
           "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
-    case EINTR:   // Interrupted system call
-      exception_classname = "java/io/InterruptedIOException";
-      break;
     case ENOSYS:   // Function not implemented
     case ENOTSUP:  // Operation not supported on transport endpoint
                    // (aka EOPNOTSUPP)
@@ -108,6 +120,7 @@ void PostException(JNIEnv* env, int error_number, const std::string& message) {
 #if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
+    case EINTR:      // Interrupted system call
     case ENOMEM:     // Out of memory
     case EPERM:      // Operation not permitted
     case ENOLINK:    // Link has been severed
@@ -264,7 +277,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
                                                      jstring path) {
   JStringLatin1Holder path_chars(env, path);
   char target[PATH_MAX + 1];
-  ssize_t len = readlink(path_chars, target, arraysize(target) - 1);
+  ssize_t len;
+  RESTARTABLE(readlink(path_chars, target, arraysize(target) - 1), len);
   if (len == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     return nullptr;
@@ -279,7 +293,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_chmod(JNIEnv *env,
                                                   jstring path,
                                                   jint mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-  if (chmod(path_chars, static_cast<int>(mode)) == -1) {
+  int err;
+  RESTARTABLE(chmod(path_chars, static_cast<int>(mode)), err);
+  if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
@@ -291,7 +307,9 @@ static void link_common(JNIEnv *env,
                         int (*link_function)(const char *, const char *)) {
   const char *oldpath_chars = GetStringLatin1Chars(env, oldpath);
   const char *newpath_chars = GetStringLatin1Chars(env, newpath);
-  if (link_function(oldpath_chars, newpath_chars) == -1) {
+  int err;
+  RESTARTABLE(link_function(oldpath_chars, newpath_chars), err);
+  if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, newpath_chars);
   }
   ReleaseStringLatin1Chars(oldpath_chars);
@@ -360,9 +378,9 @@ static jobject StatCommon(JNIEnv *env, jstring path,
                           char error_handling) {
   JStringLatin1Holder path_chars(env, path);
   portable_stat_struct statbuf;
-  int r;
-  while ((r = stat_function(path_chars, &statbuf)) == -1 && errno == EINTR) { }
-  if (r == -1) {
+  int err;
+  RESTARTABLE(stat_function(path_chars, &statbuf), err);
+  if (err == -1) {
     // Save errno immediately, before we do any other syscalls.
     int saved_errno = errno;
 
@@ -431,7 +449,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
       {sec, now ? UTIME_NOW : nsec},
       {sec, now ? UTIME_NOW : nsec},
   };
-  if (::utimensat(AT_FDCWD, path_chars, times, 0) == -1) {
+  int err;
+  RESTARTABLE(utimensat(AT_FDCWD, path_chars, times, 0), err);
+  if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
@@ -450,7 +470,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
                                                   jint mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   jboolean result = true;
-  if (::mkdir(path_chars, mode) == -1) {
+  int err;
+  RESTARTABLE(mkdir(path_chars, mode), err);
+  if (err == -1) {
     if (errno == EEXIST) {
       result = false;
     } else {
@@ -541,8 +563,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
                                                                  jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   DIR *dirh;
-  while ((dirh = ::opendir(path_chars)) == nullptr && errno == EINTR) {
-  }
+  RESTARTABLE_PTR(opendir(path_chars), dirh);
   if (dirh == nullptr) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
@@ -556,16 +577,16 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
     // Clear errno beforehand.  Because readdir() is not required to clear it at
     // EOF, this is the only way to reliably distinguish EOF from error.
     errno = 0;
-    struct dirent *entry = ::readdir(dirh);
+    struct dirent* entry;
+    RESTARTABLE_PTR(readdir(dirh), entry);
     if (entry == nullptr) {
       if (errno == 0) break;  // EOF
       // It is unclear whether an error can also skip some records.
       // That does not appear to happen with glibc, at least.
-      if (errno == EINTR) continue;  // interrupted by a signal
       if (errno == EIO) continue;  // glibc returns this on transient errors
       // Otherwise, this is a real error we should report.
       POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-      ::closedir(dirh);
+      closedir(dirh);
       return nullptr;
     }
     // Omit . and .. from results.
@@ -580,7 +601,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
     dirents.push_back(dirent);
   }
 
-  if (::closedir(dirh) < 0 && errno != EINTR) {
+  // Do not reattempt closedir() on EINTR to avoid a double-close.
+  if (closedir(dirh) < 0 && errno != EINTR) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     return nullptr;
   }
@@ -612,7 +634,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
                                                    jstring newpath) {
   const char *oldpath_chars = GetStringLatin1Chars(env, oldpath);
   const char *newpath_chars = GetStringLatin1Chars(env, newpath);
-  if (::rename(oldpath_chars, newpath_chars) == -1) {
+  int err;
+  RESTARTABLE(rename(oldpath_chars, newpath_chars), err);
+  if (err == -1) {
     std::string message(std::string(oldpath_chars) + " -> " + newpath_chars);
     POST_EXCEPTION_FROM_ERRNO(env, errno, message);
   }
@@ -634,14 +658,15 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
   if (path_chars == nullptr) {
     return false;
   }
-  bool ok = remove(path_chars) != -1;
-  if (!ok) {
+  int err;
+  RESTARTABLE(remove(path_chars), err);
+  if (err == -1) {
     if (errno != ENOENT && errno != ENOTDIR) {
       POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     }
   }
   ReleaseStringLatin1Chars(path_chars);
-  return ok;
+  return err == 0;
 }
 
 /*
@@ -656,7 +681,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
                                                    jstring path,
                                                    jint mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-  if (mkfifo(path_chars, mode) == -1) {
+  int err;
+  RESTARTABLE(mkfifo(path_chars, mode), err);
+  if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
@@ -720,7 +747,8 @@ static DIROrError ForceOpendir(JNIEnv *env,
                                const std::vector<std::string> &dir_path,
                                const int dir_fd, const char *entry) {
   static const int flags = O_RDONLY | O_NOFOLLOW | PORTABLE_O_DIRECTORY;
-  int fd = openat(dir_fd, entry, flags);
+  int fd;
+  RESTARTABLE(openat(dir_fd, entry, flags), fd);
   if (fd == -1) {
     if (errno == ENOENT) {
       return {nullptr, errno};
@@ -732,7 +760,9 @@ static DIROrError ForceOpendir(JNIEnv *env,
     // descriptor, not AT_FDCWD used as the starting point of DeleteTreesBelow
     // recursion).
     if (errno == EACCES && dir_fd != AT_FDCWD) {
-      if (fchmod(dir_fd, 0700) == -1) {
+      int err;
+      RESTARTABLE(fchmod(dir_fd, 0700), err);
+      if (err == -1) {
         if (errno != ENOENT) {
           POST_DELETE_TREES_BELOW_EXCEPTION(env, errno, "fchmod", dir_path,
                                             nullptr);
@@ -740,14 +770,16 @@ static DIROrError ForceOpendir(JNIEnv *env,
         return {nullptr, errno};
       }
     }
-    if (fchmodat(dir_fd, entry, 0700, 0) == -1) {
+    int err;
+    RESTARTABLE(fchmodat(dir_fd, entry, 0700, 0), err);
+    if (err == -1) {
       if (errno != ENOENT) {
         POST_DELETE_TREES_BELOW_EXCEPTION(env, errno, "fchmodat", dir_path,
                                           entry);
       }
       return {nullptr, errno};
     }
-    fd = openat(dir_fd, entry, flags);
+    RESTARTABLE(openat(dir_fd, entry, flags), fd);
     if (fd == -1) {
       if (errno != ENOENT) {
         POST_DELETE_TREES_BELOW_EXCEPTION(env, errno, "opendir", dir_path,
@@ -756,14 +788,16 @@ static DIROrError ForceOpendir(JNIEnv *env,
       return {nullptr, errno};
     }
   }
-  DIR* dir = fdopendir(fd);
+  DIR* dir;
+  RESTARTABLE_PTR(fdopendir(fd), dir);
   if (dir == nullptr) {
     if (errno != ENOENT) {
       POST_DELETE_TREES_BELOW_EXCEPTION(env, errno, "fdopendir", dir_path,
                                         entry);
     }
+    // Do not reattempt close() on EINTR to avoid a double-close.
     close(fd);
-    return {nullptr, errno};
+    return {nullptr, errno != EINTR ? errno : 0};
   }
   return {dir, 0};
 }
@@ -784,11 +818,14 @@ static int ForceDelete(JNIEnv* env, const std::vector<std::string>& dir_path,
                        const int dir_fd, const char* entry,
                        const bool is_dir) {
   const int flags = is_dir ? AT_REMOVEDIR : 0;
-  if (unlinkat(dir_fd, entry, flags) == -1) {
+  int err;
+  RESTARTABLE(unlinkat(dir_fd, entry, flags), err);
+  if (err == -1) {
     if (errno == ENOENT) {
       return 0;
     }
-    if (fchmod(dir_fd, 0700) == -1) {
+    RESTARTABLE(fchmod(dir_fd, 0700), err);
+    if (err == -1) {
       if (errno == ENOENT) {
         return 0;
       }
@@ -796,7 +833,8 @@ static int ForceDelete(JNIEnv* env, const std::vector<std::string>& dir_path,
                                         nullptr);
       return -1;
     }
-    if (unlinkat(dir_fd, entry, flags) == -1) {
+    RESTARTABLE(unlinkat(dir_fd, entry, flags), err);
+    if (err == -1) {
       if (errno == ENOENT) {
         return 0;
       }
@@ -830,7 +868,9 @@ static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
 
     case DT_UNKNOWN: {
       struct stat st;
-      if (fstatat(dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) == -1) {
+      int err;
+      RESTARTABLE(fstatat(dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW), err);
+      if (err == -1) {
         if (errno == ENOENT) {
           *is_dir = false;
           return 0;
@@ -894,8 +934,9 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   std::vector<std::string> dir_files, dir_subdirs;
   for (;;) {
     errno = 0;
-    struct dirent* de = readdir(dir);
-    if (de == nullptr) {
+    struct dirent* entry;
+    RESTARTABLE_PTR(readdir(dir), entry);
+    if (entry == nullptr) {
       if (errno != 0 && errno != ENOENT) {
         POST_DELETE_TREES_BELOW_EXCEPTION(env, errno, "readdir", *dir_path,
                                           nullptr);
@@ -903,19 +944,19 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
       break;
     }
 
-    if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
       continue;
     }
 
     bool is_dir;
-    if (IsSubdir(env, *dir_path, dirfd(dir), de, &is_dir) == -1) {
+    if (IsSubdir(env, *dir_path, dirfd(dir), entry, &is_dir) == -1) {
       BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
       break;
     }
     if (is_dir) {
-      dir_subdirs.push_back(de->d_name);
+      dir_subdirs.push_back(entry->d_name);
     } else {
-      dir_files.push_back(de->d_name);
+      dir_files.push_back(entry->d_name);
     }
   }
   if (env->ExceptionOccurred() == nullptr) {
@@ -940,7 +981,8 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
       }
     }
   }
-  if (closedir(dir) == -1) {
+  // Do not reattempt closedir() on EINTR to avoid a double-close.
+  if (closedir(dir) == -1 && errno != EINTR) {
     // Prefer reporting the error encountered while processing entries,
     // not the (unlikely) error on close.
     if (env->ExceptionOccurred() == nullptr) {
@@ -989,8 +1031,10 @@ static jbyteArray getxattr_common(JNIEnv *env,
   jbyte value[4096];
   jbyteArray result = nullptr;
   bool attr_not_found = false;
-  ssize_t size = getxattr(path_chars, name_chars, value, arraysize(value),
-                          &attr_not_found);
+  ssize_t size;
+  RESTARTABLE(size = getxattr(path_chars, name_chars, value, arraysize(value),
+                              &attr_not_found),
+              size);
   if (size == -1) {
     if (!attr_not_found) {
       POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
