@@ -690,7 +690,7 @@ class BazelOverridesTest(test_base.TestBase):
 
     _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''])
     self.assertIn(
-        '"+local_repository+repo"',
+        '"+_repo_rules+repo"',
         '\n'.join(stdout),
     )
 
