@@ -53,6 +53,15 @@ java_library(
 )
 
 java_library(
+    name = "file_channels",
+    srcs = ["FileChannels.java"],
+    add_exports = ["java.base/sun.nio.ch"],
+    deps = [
+        "//third_party:flogger",
+    ],
+)
+
+java_library(
     name = "process",
     srcs = ["ProcessUtils.java"],
     deps = [
