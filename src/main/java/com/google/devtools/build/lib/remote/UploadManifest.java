@@ -605,9 +605,10 @@ public class UploadManifest {
   public ActionResult upload(
       RemoteActionExecutionContext context,
       CombinedCache combinedCache,
-      ExtendedEventHandler reporter)
+      ExtendedEventHandler reporter,
+      boolean reportUploadProgress)
       throws IOException, InterruptedException, ExecException {
-    ActionExecutionMetadata action = context.getSpawnOwner();
+    ActionExecutionMetadata action = reportUploadProgress ? context.getSpawnOwner() : null;
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
     ImmutableSet<Digest> missingDigests;
     try (var s = Profiler.instance().profile(ProfilerTask.INFO, "findMissingDigests")) {

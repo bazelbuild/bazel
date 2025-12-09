@@ -361,6 +361,7 @@ public final class RemoteModule extends BlazeModule {
         Thread.currentThread().interrupt();
       }
     });
+
     waitThread.start();
 
     try {

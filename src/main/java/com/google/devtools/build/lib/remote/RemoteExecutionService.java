@@ -1808,8 +1808,15 @@ public class RemoteExecutionService {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
+      // In NOWAIT mode, don't report upload progress to the UI - we don't want the UI to wait.
+      boolean reportUploadProgress =
+          remoteOptions.remoteCacheAsync != RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE;
       var unused =
-          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+          manifest.upload(
+              action.getRemoteActionExecutionContext(),
+              combinedCache,
+              reporter,
+              reportUploadProgress);
     } catch (IOException e) {
       reportUploadError(e);
     } finally {
