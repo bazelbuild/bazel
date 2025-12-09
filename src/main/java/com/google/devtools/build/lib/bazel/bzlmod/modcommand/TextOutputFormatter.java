@@ -46,6 +46,7 @@ public class TextOutputFormatter extends OutputFormatter {
   private DrawCharset drawCharset;
   private Set<ModuleExtensionId> seenExtensions;
   private StringBuilder str;
+  private Set<ModuleKey> visted;
 
   @Override
   public void output() {
@@ -56,6 +57,7 @@ public class TextOutputFormatter extends OutputFormatter {
     }
     isLastChildStack = new ArrayDeque<>();
     seenExtensions = new HashSet<>();
+    visted = new HashSet<>();
     str = new StringBuilder();
     printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE, IsCycle.FALSE, 0);
     this.printer.println(str);
@@ -147,74 +149,85 @@ public class TextOutputFormatter extends OutputFormatter {
       int depth) {
     printTreeDrawing(indirect, depth);
 
-    ResultNode node = Objects.requireNonNull(result.get(key));
-    if (key.equals(ModuleKey.ROOT)) {
-      AugmentedModule rootModule = depGraph.get(ModuleKey.ROOT);
-      Preconditions.checkNotNull(rootModule);
-      str.append(
-          String.format(
-              "<root> (%s@%s)",
-              rootModule.name(),
-              rootModule.version().equals(Version.EMPTY) ? "_" : rootModule.version()));
-    } else {
-      str.append(key).append(" ");
-    }
-
-    int totalChildrenNum = node.getChildren().size();
-
-    ImmutableSortedSet<ModuleExtensionId> extensionsUsed =
-        extensionRepoImports.keySet().stream()
-            .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
-            .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
-    if (options.extensionInfo != ExtensionShow.HIDDEN) {
-      totalChildrenNum += extensionsUsed.size();
-    }
-
-    if (cycle == IsCycle.TRUE) {
-      str.append("(cycle) ");
-    } else if (expanded == IsExpanded.FALSE) {
-      str.append("(*) ");
-    } else {
-      if (node.isTarget()) {
-        str.append("# ");
+    boolean added = visted.add(key);
+    try {
+      ResultNode node = Objects.requireNonNull(result.get(key));
+      if (key.equals(ModuleKey.ROOT)) {
+        AugmentedModule rootModule = depGraph.get(ModuleKey.ROOT);
+        Preconditions.checkNotNull(rootModule);
+        str.append(
+            String.format(
+                "<root> (%s@%s)",
+                rootModule.name(),
+                rootModule.version().equals(Version.EMPTY) ? "_" : rootModule.version()));
+      } else {
+        str.append(key).append(" ");
       }
-    }
-    AugmentedModule module = Objects.requireNonNull(depGraph.get(key));
-    if (!options.verbose && !module.isUsed()) {
-      str.append("(unused) ");
-    }
-    // If the edge is indirect, the parent is not only unknown, but the node could have come
-    // from multiple paths merged in the process, so we skip the resolution explanation.
-    if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
-      Explanation explanation = getExtraResolutionExplanation(key, parent);
-      if (explanation != null) {
-        str.append(explanation.toExplanationString(!module.isUsed()));
+
+      int totalChildrenNum = node.getChildren().size();
+
+      ImmutableSortedSet<ModuleExtensionId> extensionsUsed =
+          extensionRepoImports.keySet().stream()
+              .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
+              .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
+      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+        totalChildrenNum += extensionsUsed.size();
       }
-    }
 
-    str.append("\n");
+      // If we've already seen this node in the current traversal path, treat it as a cycle
+      // even if the graph structure says otherwise (which can happen due to merged paths).
+      boolean isCycle = cycle == IsCycle.TRUE || !added;
 
-    if (expanded == IsExpanded.FALSE) {
-      return;
-    }
+      if (isCycle) {
+        str.append("(cycle) ");
+      } else if (expanded == IsExpanded.FALSE) {
+        str.append("(*) ");
+      } else {
+        if (node.isTarget()) {
+          str.append("# ");
+        }
+      }
+      AugmentedModule module = Objects.requireNonNull(depGraph.get(key));
+      if (!options.verbose && !module.isUsed()) {
+        str.append("(unused) ");
+      }
+      // If the edge is indirect, the parent is not only unknown, but the node could have come
+      // from multiple paths merged in the process, so we skip the resolution explanation.
+      if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
+        Explanation explanation = getExtraResolutionExplanation(key, parent);
+        if (explanation != null) {
+          str.append(explanation.toExplanationString(!module.isUsed()));
+        }
+      }
 
-    int currChild = 1;
-    if (options.extensionInfo != ExtensionShow.HIDDEN) {
-      for (ModuleExtensionId extensionId : extensionsUsed) {
-        boolean unexpandedExtension = !seenExtensions.add(extensionId);
+      str.append("\n");
+
+      if (expanded == IsExpanded.FALSE || isCycle) {
+        return;
+      }
+
+      int currChild = 1;
+      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+        for (ModuleExtensionId extensionId : extensionsUsed) {
+          boolean unexpandedExtension = !seenExtensions.add(extensionId);
+          isLastChildStack.push(currChild++ == totalChildrenNum);
+          printExtension(key, extensionId, unexpandedExtension, depth + 1);
+          isLastChildStack.pop();
+        }
+      }
+      for (Entry<ModuleKey, NodeMetadata> e : node.getChildrenSortedByEdgeType()) {
+        ModuleKey childKey = e.getKey();
+        IsExpanded childExpanded = e.getValue().isExpanded();
+        IsIndirect childIndirect = e.getValue().isIndirect();
+        IsCycle childCycles = e.getValue().isCycle();
         isLastChildStack.push(currChild++ == totalChildrenNum);
-        printExtension(key, extensionId, unexpandedExtension, depth + 1);
+        printModule(childKey, key, childExpanded, childIndirect, childCycles, depth + 1);
         isLastChildStack.pop();
       }
-    }
-    for (Entry<ModuleKey, NodeMetadata> e : node.getChildrenSortedByEdgeType()) {
-      ModuleKey childKey = e.getKey();
-      IsExpanded childExpanded = e.getValue().isExpanded();
-      IsIndirect childIndirect = e.getValue().isIndirect();
-      IsCycle childCycles = e.getValue().isCycle();
-      isLastChildStack.push(currChild++ == totalChildrenNum);
-      printModule(childKey, key, childExpanded, childIndirect, childCycles, depth + 1);
-      isLastChildStack.pop();
+    } finally {
+      if (added) {
+        visted.remove(key);
+      }
     }
   }
 

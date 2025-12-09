@@ -811,6 +811,15 @@ public class ModExecutorTest {
         Optional.empty());
   }
 
+  private ModuleExtensionId createExtensionId(
+      String moduleName, String version, String path, String extensionName)
+      throws LabelSyntaxException {
+    return ModuleExtensionId.create(
+        Label.parseCanonical("@@" + moduleName + "+" + version + "//" + path + ":" + path),
+        extensionName,
+        Optional.empty());
+  }
+
   @Test
   public void testModCommandPath_complexGraphFiltersCorrectly() throws ParseException, IOException {
     // <root> -> A -> B -> C -> D
@@ -1075,6 +1084,116 @@ public class ModExecutorTest {
     assertThat(textOutput)
         .containsExactly(
             "<root> (main@1.0)", "└───$@@//extensions:extensions%maven ", "    └───repo1", "")
+        .inOrder();
+  }
+
+  @Test
+  public void testGraphWithExtensionFilterAndCycle() throws Exception {
+    // <root> -> A -> B -> A (cycle)
+    // A and B both use extension defined in A.
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .addDep("A", "1.0")
+                    .addDep("B", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("A", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addStillDependant("B", "1.0")
+                    .addDep("B", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("B", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addStillDependant("A", "1.0")
+                    .addDep("A", "1.0")
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModuleExtensionId extensionId = createExtensionId("A", "1.0", "extensions", "ext");
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages =
+        new ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>()
+            .put(
+                extensionId,
+                createModuleKey("A", "1.0"),
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("ext")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .put(
+                extensionId,
+                createModuleKey("B", "1.0"),
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("ext")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo2", "repo2"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .buildOrThrow();
+
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
+        new ImmutableSetMultimap.Builder<ModuleExtensionId, String>()
+            .putAll(extensionId, ImmutableSet.of("repo1", "repo2"))
+            .build();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+    options.extensionInfo = ExtensionShow.ALL;
+    options.cycles = true;
+
+    File file = File.createTempFile("output_text_cycle_ext", "txt");
+    file.deleteOnExit();
+    try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(extensionId))),
+              options,
+              writer);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)",
+            "├───A@1.0 # ",
+            "│   ├───$@@A+1.0//extensions:extensions%ext ",
+            "│   │   └───repo1",
+            "│   ├───B@1.0 (cycle) ",
+            "│   └───B@1.0 # ",
+            "│       ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "│       │   └───repo2",
+            "│       ├───A@1.0 (cycle) ",
+            "│       └───A@1.0 (cycle) ",
+            "└───B@1.0 # ",
+            "    ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "    │   └───repo2",
+            "    ├───A@1.0 (cycle) ",
+            "    └───A@1.0 # ",
+            "        ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "        │   └───repo1",
+            "        ├───B@1.0 (cycle) ",
+            "        └───B@1.0 (cycle) ",
+            "")
         .inOrder();
   }
 }
