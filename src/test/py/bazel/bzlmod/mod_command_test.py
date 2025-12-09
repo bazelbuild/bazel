@@ -525,9 +525,9 @@ class ModCommandTest(test_base.TestBase):
         'remote_module_file_integrity', 'urls',
     }
     for repo in repos:
-      attrs = repo.get('rule', {}).get('attribute')
+      attrs = repo.get('attribute')
       if attrs:
-        repo['rule']['attribute'] = [
+        repo['attribute'] = [
             attr
             for attr in attrs
             if attr.get('explicitlySpecified', False) and attr['name'] not in ignored_attrs
@@ -537,135 +537,99 @@ class ModCommandTest(test_base.TestBase):
         repos,
         [
             {
-                'type': 'RULE',
-                'rule': {
-                    'name': 'bar+',
-                    'ruleClass': 'http_archive',
-                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
-                    'attribute': [
-                        {
-                            'name': '$apparent_repo_name',
-                            'type': 'STRING',
-                            'stringValue': '@bar_from_foo2',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'strip_prefix',
-                            'type': 'STRING',
-                            'stringValue': '',
-                            'explicitlySpecified': True,
-                            'nodep': False,
-                        },
-                        {
-                            'name': 'remote_file_urls',
-                            'type': 'STRING_LIST_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_file_integrity',
-                            'type': 'STRING_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_patches',
-                            'type': 'STRING_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_patch_strip',
-                            'type': 'INTEGER',
-                            'intValue': 0,
-                            'explicitlySpecified': True,
-                        },
-                    ],
-                },
-            },
-            {
-                'type': 'RULE',
-                'rule': {
-                    'name': 'ext+',
-                    'ruleClass': 'local_repository',
-                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:local.bzl%local_repository',
-                    'attribute': [{
-                        'name': '$module_key',
+                'canonicalName': 'bar+',
+                'ruleClass': 'http_archive',
+                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                'apparentName': '@bar_from_foo2',
+                'attribute': [
+                    {
+                        'name': 'strip_prefix',
                         'type': 'STRING',
-                        'stringValue': 'ext@1.0',
+                        'stringValue': '',
                         'explicitlySpecified': True,
-                    }],
-                },
+                        'nodep': False,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                ],
             },
             {
-                'type': 'RULE',
-                'rule': {
-                    'name': 'ext++ext+repo3',
-                    'ruleClass': 'data_repo',
-                    'ruleClassKey': '@@ext+//:ext.bzl%data_repo',
-                    'attribute': [
-                        {
-                            'name': '$apparent_repo_name',
-                            'type': 'STRING',
-                            'stringValue': '@my_repo3',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': '$original_name',
-                            'type': 'STRING',
-                            'stringValue': 'repo3',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'data',
-                            'type': 'STRING',
-                            'stringValue': 'requested repo',
-                            'nodep': False,
-                            'explicitlySpecified': True,
-                        },
-                    ],
-                },
+                'canonicalName': 'ext+',
+                'ruleClass': 'local_repository',
+                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:local.bzl%local_repository',
+                'moduleKey': 'ext@1.0',
+                'attribute': [],
             },
             {
-                'type': 'RULE',
-                'rule': {
-                    'name': 'bar+',
-                    'ruleClass': 'http_archive',
-                    'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
-                    'attribute': [
-                        {
-                            'name': '$module_key',
-                            'type': 'STRING',
-                            'stringValue': 'bar@2.0',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'strip_prefix',
-                            'type': 'STRING',
-                            'stringValue': '',
-                            'explicitlySpecified': True,
-                            'nodep': False,
-                        },
-                        {
-                            'name': 'remote_file_urls',
-                            'type': 'STRING_LIST_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_file_integrity',
-                            'type': 'STRING_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_patches',
-                            'type': 'STRING_DICT',
-                            'explicitlySpecified': True,
-                        },
-                        {
-                            'name': 'remote_patch_strip',
-                            'type': 'INTEGER',
-                            'intValue': 0,
-                            'explicitlySpecified': True,
-                        },
-                    ],
-                },
+                'canonicalName': 'ext++ext+repo3',
+                'ruleClass': 'data_repo',
+                'ruleClassKey': '@@ext+//:ext.bzl%data_repo',
+                'apparentName': '@my_repo3',
+                'originalName': 'repo3',
+                'attribute': [
+                    {
+                        'name': 'data',
+                        'type': 'STRING',
+                        'stringValue': 'requested repo',
+                        'nodep': False,
+                        'explicitlySpecified': True,
+                    },
+                ],
+            },
+            {
+                'canonicalName': 'bar+',
+                'ruleClass': 'http_archive',
+                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                'moduleKey': 'bar@2.0',
+                'attribute': [
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                ],
             },
         ],
         'wrong output in the show query for module and extension-generated repos',

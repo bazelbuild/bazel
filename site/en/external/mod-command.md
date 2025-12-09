@@ -173,11 +173,11 @@ The following options only affect the subcommands that print graphs (`graph`,
     *   `streamed_proto`: Prints a
         [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
         stream of
-        [`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+        [`Repository`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
         protocol buffers.
 
     *   `streamed_jsonproto`: Similar to `--output streamed_proto`, prints a
-        stream of [`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+        stream of [`Repository`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
         protocol buffers but in [NDJSON](https://github.com/ndjson/ndjson-spec) format.
 
 ### Other options

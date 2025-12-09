@@ -89,7 +89,7 @@ public class RepoOutputFormatter {
   }
 
   private void printStreamedProto(String key, RepoDefinition repoDefinition) {
-    Build.Target serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
+    Build.Repository serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
       serialized.writeDelimitedTo(outputStream);
     } catch (IOException e) {
@@ -98,7 +98,7 @@ public class RepoOutputFormatter {
   }
 
   private void printProtoJson(String key, RepoDefinition repoDefinition) {
-    Build.Target serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
+    Build.Repository serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
       printer.println(jsonPrinter.print(serialized));
     } catch (InvalidProtocolBufferException e) {
@@ -106,46 +106,25 @@ public class RepoOutputFormatter {
     }
   }
 
-  private Build.Target serializeRepoDefinitionAsProto(String key, RepoDefinition repoDefinition) {
+  private Build.Repository serializeRepoDefinitionAsProto(String key, RepoDefinition repoDefinition) {
     RepoRule repoRule = repoDefinition.repoRule();
 
-    Build.Target.Builder pbBuilder = Build.Target.newBuilder();
-    pbBuilder.setType(Build.Target.Discriminator.RULE);
-
-    Build.Rule.Builder ruleBuilder = pbBuilder.getRuleBuilder();
-    ruleBuilder.setName(internalToUnicode(repoDefinition.name()));
-    ruleBuilder.setRuleClass(internalToUnicode(repoRule.id().ruleName()));
-    ruleBuilder.setRuleClassKey(internalToUnicode(repoRule.id().toString()));
+    Build.Repository.Builder pbBuilder = Build.Repository.newBuilder();
+    pbBuilder.setCanonicalName(internalToUnicode(repoDefinition.name()));
+    pbBuilder.setRuleClass(internalToUnicode(repoRule.id().ruleName()));
+    pbBuilder.setRuleClassKey(internalToUnicode(repoRule.id().toString()));
 
     // TODO: record and print the call stack for the repo definition itself?
-    // ruleBuilder.setLocation(repoDefinition.location());
-    // ruleBuilder.addAllInstantiationStack();
 
     if (key.startsWith("@")) {
       if (!key.startsWith("@@")) {
-        ruleBuilder
-            .addAttributeBuilder()
-            .setName("$apparent_repo_name")
-            .setType(Build.Attribute.Discriminator.STRING)
-            .setStringValue(internalToUnicode(key))
-            .setExplicitlySpecified(true);
+        pbBuilder.setApparentName(internalToUnicode(key));
       }
     } else {
-      ruleBuilder
-          .addAttributeBuilder()
-          .setName("$module_key")
-          .setType(Build.Attribute.Discriminator.STRING)
-          .setStringValue(internalToUnicode(key))
-          .setExplicitlySpecified(true);
+      pbBuilder.setModuleKey(internalToUnicode(key));
     }
-
     if (repoDefinition.originalName() != null) {
-      ruleBuilder
-          .addAttributeBuilder()
-          .setName("$original_name")
-          .setType(Build.Attribute.Discriminator.STRING)
-          .setStringValue(internalToUnicode(repoDefinition.originalName()))
-          .setExplicitlySpecified(true);
+      pbBuilder.setOriginalName(internalToUnicode(repoDefinition.originalName()));
     }
 
     for (Map.Entry<String, Integer> attr : repoRule.attributeIndices().entrySet()) {
@@ -166,7 +145,7 @@ public class RepoOutputFormatter {
               /* sourceAspect= */ null,
               /* includeAttributeSourceAspects= */ false,
               LabelPrinter.legacy());
-      ruleBuilder.addAttribute(serializedAttribute);
+      pbBuilder.addAttribute(serializedAttribute);
     }
 
     return pbBuilder.build();
