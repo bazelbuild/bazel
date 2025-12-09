@@ -33,7 +33,7 @@ def _bazel_build_deps(ctx):
         dirname = "derived/repository_cache",
         module_files = [
             "//:MODULE.bazel",
-            "//third_party/remoteapis:MODULE.bazel",
+            "//third_party:remoteapis/MODULE.bazel",
             "//src:MODULE.tools",
         ],
     )

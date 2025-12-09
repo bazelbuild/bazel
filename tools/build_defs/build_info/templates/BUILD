@@ -22,7 +22,7 @@ exports_files(
         "redacted_file.properties.template",
     ],
     visibility = [
-        "@bazel_tools//tools/build_defs/build_info:__pkg__",
+        "//tools/build_defs/build_info:__pkg__",
     ],
 )
 

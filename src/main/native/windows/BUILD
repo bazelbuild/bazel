@@ -31,6 +31,7 @@ cc_library(
     linkopts = [
         "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
     ],
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/cpp:__subpackages__",
         "//src/main/tools:__pkg__",
@@ -45,6 +46,7 @@ cc_library(
     name = "lib-process",
     srcs = ["process.cc"],
     hdrs = ["process.h"],
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/cpp:__pkg__",
         "//src/test/native:__subpackages__",
@@ -73,6 +75,7 @@ cc_binary(
         "//src/main/native:jni_md.h",
     ],
     linkshared = 1,
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
