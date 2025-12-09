@@ -94,6 +94,7 @@ public final class LabelBuildSettings {
                 .value("universal")
                 .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
                 .allowedValues(new AllowedValueSet(Scope.ScopeType.allowedAttributeValues())))
+        .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
