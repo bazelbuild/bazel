@@ -137,7 +137,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Returns the unresolved symlink target path.
+   * Returns the unresolved symlink target path, which is always normalized.
    *
    * @throws UnsupportedOperationException if the metadata is not of symlink file type.
    */
