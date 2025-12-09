@@ -250,24 +250,6 @@ static void PerformIntegerValueCallback(jobject object, const char *callback,
   }
 }
 
-namespace {
-
-class JStringLatin1Holder {
-  const char* const chars;
-
- public:
-  JStringLatin1Holder(JNIEnv* env, jstring string)
-      : chars(GetStringLatin1Chars(env, string)) {}
-
-  ~JStringLatin1Holder() { ReleaseStringLatin1Chars(chars); }
-
-  operator const char*() const { return chars; }
-
-  operator std::string() const { return chars; }
-};
-
-}  // namespace
-
 // TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
@@ -276,6 +258,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path) {
   JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return nullptr;
+  }
   char target[PATH_MAX + 1];
   ssize_t len;
   RESTARTABLE(readlink(path_chars, target, arraysize(target) - 1), len);
@@ -292,28 +277,31 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_chmod(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path,
                                                   jint mode) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   int err;
   RESTARTABLE(chmod(path_chars, static_cast<int>(mode)), err);
   if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
-  ReleaseStringLatin1Chars(path_chars);
 }
 
 static void link_common(JNIEnv *env,
                         jstring oldpath,
                         jstring newpath,
                         int (*link_function)(const char *, const char *)) {
-  const char *oldpath_chars = GetStringLatin1Chars(env, oldpath);
-  const char *newpath_chars = GetStringLatin1Chars(env, newpath);
+  JStringLatin1Holder oldpath_chars(env, oldpath);
+  JStringLatin1Holder newpath_chars(env, newpath);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   int err;
   RESTARTABLE(link_function(oldpath_chars, newpath_chars), err);
   if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, newpath_chars);
   }
-  ReleaseStringLatin1Chars(oldpath_chars);
-  ReleaseStringLatin1Chars(newpath_chars);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -377,6 +365,10 @@ static jobject StatCommon(JNIEnv *env, jstring path,
                                                portable_stat_struct *),
                           char error_handling) {
   JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return nullptr;
+  }
+
   portable_stat_struct statbuf;
   int err;
   RESTARTABLE(stat_function(path_chars, &statbuf), err);
@@ -438,7 +430,10 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lstat(
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
     JNIEnv *env, jclass clazz, jstring path, jboolean now, jlong millis) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   // If `now` is true use the current time, otherwise use `millis`.
   // On Linux, if the current user has write permission but isn't the owner of
   // the file, atime and mtime may be simultaneously set to UTIME_NOW, but any
@@ -454,7 +449,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
   if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
-  ReleaseStringLatin1Chars(path_chars);
 }
 
 /*
@@ -468,7 +462,11 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path,
                                                   jint mode) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return false;
+  }
+
   jboolean result = true;
   int err;
   RESTARTABLE(mkdir(path_chars, mode), err);
@@ -479,7 +477,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
       POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     }
   }
-  ReleaseStringLatin1Chars(path_chars);
   return result;
 }
 
@@ -561,13 +558,15 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
                                                                  jclass clazz,
                                                                  jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return nullptr;
+  }
   DIR *dirh;
   RESTARTABLE_PTR(opendir(path_chars), dirh);
   if (dirh == nullptr) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
-  ReleaseStringLatin1Chars(path_chars);
   if (dirh == nullptr) {
     return nullptr;
   }
@@ -632,16 +631,18 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring oldpath,
                                                    jstring newpath) {
-  const char *oldpath_chars = GetStringLatin1Chars(env, oldpath);
-  const char *newpath_chars = GetStringLatin1Chars(env, newpath);
+  JStringLatin1Holder oldpath_chars(env, oldpath);
+  JStringLatin1Holder newpath_chars(env, newpath);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   int err;
   RESTARTABLE(rename(oldpath_chars, newpath_chars), err);
   if (err == -1) {
-    std::string message(std::string(oldpath_chars) + " -> " + newpath_chars);
+    std::string message(std::string(oldpath_chars) + " -> " +
+                        std::string(newpath_chars));
     POST_EXCEPTION_FROM_ERRNO(env, errno, message);
   }
-  ReleaseStringLatin1Chars(oldpath_chars);
-  ReleaseStringLatin1Chars(newpath_chars);
 }
 
 /*
@@ -654,8 +655,8 @@ extern "C" JNIEXPORT bool JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  if (path_chars == nullptr) {
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
     return false;
   }
   int err;
@@ -665,7 +666,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
       POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     }
   }
-  ReleaseStringLatin1Chars(path_chars);
   return err == 0;
 }
 
@@ -680,13 +680,15 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path,
                                                    jint mode) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   int err;
   RESTARTABLE(mkfifo(path_chars, mode), err);
   if (err == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
-  ReleaseStringLatin1Chars(path_chars);
 }
 
 namespace {
@@ -1004,13 +1006,15 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_deleteTreesBelow(
     JNIEnv *env, jclass clazz, jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
+  JStringLatin1Holder path_chars(env, path);
+  if (env->ExceptionOccurred()) {
+    return;
+  }
   std::vector<std::string> dir_path;
   if (DeleteTreesBelow(env, &dir_path, AT_FDCWD, path_chars) == -1) {
     BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
   }
   BAZEL_CHECK(dir_path.empty());
-  ReleaseStringLatin1Chars(path_chars);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1024,8 +1028,11 @@ static jbyteArray getxattr_common(JNIEnv *env,
                                   jstring path,
                                   jstring name,
                                   getxattr_func getxattr) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  const char *name_chars = GetStringLatin1Chars(env, name);
+  JStringLatin1Holder path_chars(env, path);
+  JStringLatin1Holder name_chars(env, name);
+  if (env->ExceptionOccurred()) {
+    return nullptr;
+  }
 
   // TODO(bazel-team): on ERANGE, try again with larger buffer.
   jbyte value[4096];
@@ -1047,8 +1054,6 @@ static jbyteArray getxattr_common(JNIEnv *env,
       env->SetByteArrayRegion(result, 0, size, value);
     }
   }
-  ReleaseStringLatin1Chars(path_chars);
-  ReleaseStringLatin1Chars(name_chars);
   return result;
 }
 }  // namespace

@@ -17,18 +17,9 @@
 #include <jni.h>
 #include <string.h>
 
-namespace blaze_jni {
+#include <string_view>
 
-static void LogBadPath(JNIEnv *env, jstring jstr) {
-  static const jclass NativePosixFiles_class =
-      static_cast<jclass>(env->NewGlobalRef(env->FindClass(
-          "com/google/devtools/build/lib/unix/NativePosixFiles")));
-  static const jmethodID NativePosixFiles_logBadPath_method =
-      env->GetStaticMethodID(NativePosixFiles_class, "logBadPath",
-                             "(Ljava/lang/String;)V");
-  env->CallVoidMethod(NativePosixFiles_class,
-                      NativePosixFiles_logBadPath_method, jstr);
-}
+namespace blaze_jni {
 
 jstring NewStringLatin1(JNIEnv *env, const char *str) {
   int len = strlen(str);
@@ -49,6 +40,19 @@ jstring NewStringLatin1(JNIEnv *env, const char *str) {
     delete[] str1;
   }
   return result;
+}
+
+namespace {
+
+void LogBadPath(JNIEnv* env, jstring jstr) {
+  static const jclass NativePosixFiles_class =
+      static_cast<jclass>(env->NewGlobalRef(env->FindClass(
+          "com/google/devtools/build/lib/unix/NativePosixFiles")));
+  static const jmethodID NativePosixFiles_logBadPath_method =
+      env->GetStaticMethodID(NativePosixFiles_class, "logBadPath",
+                             "(Ljava/lang/String;)V");
+  env->CallVoidMethod(NativePosixFiles_class,
+                      NativePosixFiles_logBadPath_method, jstr);
 }
 
 char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
@@ -92,10 +96,21 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
   return result;
 }
 
-/**
- * Release the Latin1 chars returned by a prior call to
- * GetStringLatin1Chars.
- */
-void ReleaseStringLatin1Chars(const char *s) { delete[] s; }
+}  // namespace
+
+JStringLatin1Holder::JStringLatin1Holder(JNIEnv* env, jstring string)
+    : chars(GetStringLatin1Chars(env, string)) {}
+
+JStringLatin1Holder::~JStringLatin1Holder() {
+  if (chars != nullptr) {
+    delete[] chars;
+  }
+}
+
+JStringLatin1Holder::operator const char*() const { return chars; }
+
+JStringLatin1Holder::operator std::string_view() const {
+  return std::string_view(chars);
+}
 
 }  // namespace blaze_jni
