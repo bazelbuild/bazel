@@ -166,10 +166,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help =
-            "Flag for disabling the legacy cc_toolchain Starlark API "
-                + "for accessing legacy "
-                + "CROSSTOOL fields.")
+        help = "Deprecated. No-op.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
     @Option(
@@ -315,8 +312,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        help =
-            "This option is deprecated and has no effect and will be " + "removed in the future.")
+        help = "This option is deprecated and has no effect and will be removed in the future.")
     public boolean deferParamFiles;
 
     @Option(
@@ -351,7 +347,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "When enabled java_common.compile only accepts " + "JavaPluginInfo for plugins.")
+        help = "Deprecated. No-op.")
     public boolean requireJavaPluginInfo;
 
     @Option(

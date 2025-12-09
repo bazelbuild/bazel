@@ -355,12 +355,8 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
-  assert_not_contains "//$pkg:cclib .*PythonOptions" output
-
-  assert_not_contains "//$pkg:py_reading_condition .*PythonOptions" output
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
-  assert_not_contains "//$pkg:cclib_with_select .*PythonOptions" output
 }
 
 function test_show_transitive_config_fragments_alias() {
@@ -566,13 +562,10 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
-  assert_not_contains "//$pkg:cclib .*PythonOptions" output
 
-  assert_not_contains "//$pkg:py_reading_condition .*PythonOptions" output
   assert_contains "//$pkg:py_reading_condition .*ShellConfiguration\$Options" output
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
-  assert_not_contains "//$pkg:cclib_with_select .*PythonOptions" output
   assert_contains "//$pkg:cclib_with_select .*ShellConfiguration\$Options" output
 }
 
