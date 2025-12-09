@@ -46,7 +46,7 @@ public class TextOutputFormatter extends OutputFormatter {
   private DrawCharset drawCharset;
   private Set<ModuleExtensionId> seenExtensions;
   private StringBuilder str;
-  private Set<ModuleKey> visted;
+  private Set<ModuleKey> visited;
 
   @Override
   public void output() {
@@ -57,7 +57,7 @@ public class TextOutputFormatter extends OutputFormatter {
     }
     isLastChildStack = new ArrayDeque<>();
     seenExtensions = new HashSet<>();
-    visted = new HashSet<>();
+    visited = new HashSet<>();
     str = new StringBuilder();
     printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE, IsCycle.FALSE, 0);
     this.printer.println(str);
@@ -149,7 +149,7 @@ public class TextOutputFormatter extends OutputFormatter {
       int depth) {
     printTreeDrawing(indirect, depth);
 
-    boolean added = visted.add(key);
+    boolean added = visited.add(key);
     try {
       ResultNode node = Objects.requireNonNull(result.get(key));
       if (key.equals(ModuleKey.ROOT)) {
@@ -226,7 +226,7 @@ public class TextOutputFormatter extends OutputFormatter {
       }
     } finally {
       if (added) {
-        visted.remove(key);
+        visited.remove(key);
       }
     }
   }
