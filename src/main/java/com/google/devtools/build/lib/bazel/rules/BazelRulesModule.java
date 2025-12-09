@@ -501,8 +501,7 @@ public final class BazelRulesModule extends BlazeModule {
 
     private static final String ANDROID_FLAG_DEPRECATION =
         "Legacy Android flags have been deprecated. See"
-            + " https://blog.bazel.build/2023/11/15/android-platforms.html for "
-            + "details and"
+            + " https://blog.bazel.build/2023/11/15/android-platforms.html for details and"
             + " migration directions";
 
     @Option(
