@@ -895,6 +895,4 @@ bool UnlimitResources() {
 
 bool UnlimitCoredumps() { return UnlimitResource(RLIMIT_CORE, true); }
 
-
-
 }  // namespace blaze

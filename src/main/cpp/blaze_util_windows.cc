@@ -1495,6 +1495,4 @@ string DetectBashAndExportBazelSh() {
   return bash;
 }
 
-
-
 }  // namespace blaze
