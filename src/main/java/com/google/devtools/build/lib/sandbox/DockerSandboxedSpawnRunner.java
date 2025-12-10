@@ -280,7 +280,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         sandboxPath,
         sandboxExecRoot,
         cmdLine.build(),
-        cmdEnv.getClientEnv(),
+        environment,
         inputs,
         outputs,
         writableDirs,
