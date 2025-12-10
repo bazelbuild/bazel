@@ -687,7 +687,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
                                   blaze_util::ConvertPath(option.source_path)));
     ++cur_index;
   }
-  EnsurePythonPathOption(&result);
+
   for (const auto& option : blazerc_options) {
     result.push_back(
         absl::StrCat("--default_override=", rcfile_index[option.source_path],
