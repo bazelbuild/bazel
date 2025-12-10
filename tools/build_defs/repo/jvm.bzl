@@ -143,7 +143,6 @@ def _jvm_import_external(repository_ctx):
         _HEADER,
         "",
         "package(default_visibility = %r)" % (
-            repository_ctx.attr.visibility or
             repository_ctx.attr.default_visibility
         ),
         "",
