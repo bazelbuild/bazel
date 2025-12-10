@@ -30,6 +30,7 @@ java_test(
         "StarlarkFileTest.java",
         "SyntaxTests.java",  # (suite)
         "TypeResolverTest.java",
+        "TypesTest.java",
     ],
     deps = [
         "//src/main/java/net/starlark/java/syntax",
