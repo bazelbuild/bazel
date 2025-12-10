@@ -23,7 +23,6 @@ import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -345,45 +344,24 @@ public final class RemoteModule extends BlazeModule {
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
-  private void waitForPreviousInvocation(Reporter reporter) {
+  private void waitForPreviousInvocation(CommandEnvironment env) {
     if (pendingUploads == null) {
       return;
     }
 
+    // Only wait for uploads on commands that analyze (build, test, run, etc.)
+    if (!env.getCommand().buildPhase().analyzes()) {
+      return;
+    }
+
+    Reporter reporter = env.getReporter();
     RemoteExecutionService.PendingUploads uploads = pendingUploads;
     pendingUploads = null;
 
-    Stopwatch stopwatch = Stopwatch.createStarted();
-    Thread waitThread = new Thread(() -> {
-      try {
-        uploads.awaitTermination();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    });
-
-    waitThread.start();
+    reporter.handle(Event.info("Waiting for remote cache uploads from previous build..."));
 
     try {
-      // Wait up to 30 seconds for uploads from previous invocation to complete
-      waitThread.join(30_000);
-      if (waitThread.isAlive()) {
-        reporter.handle(
-            Event.warn(
-                "Timed out waiting for remote cache uploads from previous build to complete. "
-                    + "The build will continue, but some uploads may be lost."));
-        uploads.cancel();
-      } else {
-        long elapsed = stopwatch.elapsed().toMillis();
-        if (elapsed > 1000) {
-          reporter.handle(
-              Event.info(
-                  String.format(
-                      "Waited %.1f seconds for remote cache uploads from previous build to"
-                          + " complete",
-                      elapsed / 1000.0)));
-        }
-      }
+      uploads.awaitTermination();
     } catch (InterruptedException e) {
       // User pressed Ctrl+C - cancel uploads but continue with the build
       reporter.handle(
@@ -417,8 +395,6 @@ public final class RemoteModule extends BlazeModule {
 
     this.remoteOptions = remoteOptions;
     this.env = env;
-
-    waitForPreviousInvocation(env.getReporter());
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -1330,6 +1306,11 @@ public final class RemoteModule extends BlazeModule {
   @Nullable
   public OutputService getOutputService() {
     return outputService;
+  }
+
+  @Override
+  public void afterUiSetup(CommandEnvironment env) {
+    waitForPreviousInvocation(env);
   }
 
   @Override
