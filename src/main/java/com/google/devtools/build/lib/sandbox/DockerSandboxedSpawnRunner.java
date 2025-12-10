@@ -276,19 +276,37 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // We register the container UUID for cleanup, but remove the UUID if the process ran
     // successfully.
     containersToCleanup.add(uuid);
-    return new CopyingSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        cmdLine.build(),
-        environment,
-        inputs,
-        outputs,
-        writableDirs,
-        treeDeleter,
-        /* sandboxDebugPath= */ null,
-        /* statisticsPath= */ null,
-        () -> containersToCleanup.remove(uuid),
-        spawn.getMnemonic());
+    if (cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerSandboxUseSymlinks) {
+      return new SymlinkedSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              cmdLine.build(),
+              environment,
+              inputs,
+              outputs,
+              writableDirs,
+              treeDeleter,
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              () -> containersToCleanup.remove(uuid),
+              null,
+              spawn.getMnemonic(),
+              spawn.getTargetLabel());
+    } else {
+      return new CopyingSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              cmdLine.build(),
+              environment,
+              inputs,
+              outputs,
+              writableDirs,
+              treeDeleter,
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              () -> containersToCleanup.remove(uuid),
+              spawn.getMnemonic());
+    }
   }
 
   private String getOrCreateCustomizedImage(String baseImage)
