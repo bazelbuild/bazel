@@ -40,8 +40,9 @@ message Module {
     string name = 1;
     // the module category - corresponds to StarlarkDocumentationCategory.java.
     ModuleCategory category = 2;
-    // the module info
-    stardoc_output.ModuleInfo info = 3;
+    // Reserved field for removed ModuleInfo - all info now in typed wrapper fields below
+    reserved 3;
+    reserved "info";
     // the module filename, as an absolute path
     string filename = 4;
     // the symbol locations
@@ -61,6 +62,16 @@ message Module {
     repeated string error = 11;
     // functions with locations and wrapper info
     repeated Function function = 12;
+    // the docstring present at the top of the input Starlark file
+    string module_docstring = 13;
+    // rules with locations
+    repeated Rule rule = 14;
+    // providers with locations
+    repeated Provider provider = 15;
+    // aspects with locations
+    repeated Aspect aspect = 16;
+    // rule macros - functions that wrap private rules
+    repeated RuleMacro rule_macro = 17;
 }
 
 message LoadSymbol {
@@ -114,6 +125,12 @@ message Function {
     // For example, if `def my_macro(**kwargs): my_rule(**kwargs)`, then
     // forwards_kwargs_to will contain "my_rule".
     repeated string forwards_kwargs_to = 5;
+    // Names of rules, aspects, and macros that receive the 'name' parameter from this function.
+    // This provides a stronger signal for wrapper function detection by tracking explicit
+    // name parameter forwarding. For example, if `def my_macro(name, **kwargs): my_rule(name=name, **kwargs)`,
+    // then forwards_name_to will contain "my_rule". This includes cases where name is used in
+    // expressions like `name=name + "_suffix"` (still references the name parameter).
+    repeated string forwards_name_to = 6;
 }
 
 message FunctionParam {
@@ -162,6 +179,21 @@ message Macro {
     stardoc_output.MacroInfo info = 1;
     SymbolLocation location = 2;
     repeated Attribute attribute = 3;
+}
+
+// RuleMacro is the case wherein a function forwards name and or kwargs to a
+// rule. This is the familiar "macro" pattern, where "macro()" is now a first
+// class citizen.
+message RuleMacro {
+    // function is the entrypoint callable (src)
+    Function function = 1;
+    // rule is the final resolved rule (dst)
+    Rule rule = 2;
+    // symbol is a list of resolved symbols that the function called, but not as
+    // kwargs or name.
+    repeated string symbol = 3;
+    // loads represents the load statement that were used to resolve rule.
+    repeated LoadStmt loads = 4;
 }
 
 // ModuleRequest is a request for module information.

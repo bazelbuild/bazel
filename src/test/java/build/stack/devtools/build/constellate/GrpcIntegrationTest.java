@@ -12,10 +12,11 @@ import build.stack.starlark.v1beta1.StarlarkProtos.ModuleInfoRequest;
 import build.stack.starlark.v1beta1.StarlarkProtos.Module;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
-import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.google.devtools.common.options.OptionsParser;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -44,8 +45,69 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GrpcIntegrationTest {
 
-  private static final String TEST_DATA_DIR =
-      "src/test/java/build/stack/devtools/build/constellate/testdata";
+  /**
+   * Helper class to adapt Module proto to ModuleInfo-like interface for test
+   * compatibility.
+   * This allows existing tests to work with the new Module structure that no
+   * longer embeds ModuleInfo.
+   */
+  private static class ModuleInfoAdapter {
+    private final Module module;
+
+    ModuleInfoAdapter(Module module) {
+      this.module = module;
+    }
+
+    public int getRuleInfoCount() {
+      return module.getRuleCount();
+    }
+
+    public List<RuleInfo> getRuleInfoList() {
+      return module.getRuleList().stream().map(r -> r.getInfo()).collect(Collectors.toList());
+    }
+
+    public RuleInfo getRuleInfo(int i) {
+      return module.getRule(i).getInfo();
+    }
+
+    public int getProviderInfoCount() {
+      return module.getProviderCount();
+    }
+
+    public List<ProviderInfo> getProviderInfoList() {
+      return module.getProviderList().stream().map(p -> p.getInfo()).collect(Collectors.toList());
+    }
+
+    public ProviderInfo getProviderInfo(int i) {
+      return module.getProvider(i).getInfo();
+    }
+
+    public int getFuncInfoCount() {
+      return module.getFunctionCount();
+    }
+
+    public List<StarlarkFunctionInfo> getFuncInfoList() {
+      return module.getFunctionList().stream().map(f -> f.getInfo()).collect(Collectors.toList());
+    }
+
+    public int getAspectInfoCount() {
+      return module.getAspectCount();
+    }
+
+    public List<AspectInfo> getAspectInfoList() {
+      return module.getAspectList().stream().map(a -> a.getInfo()).collect(Collectors.toList());
+    }
+
+    public AspectInfo getAspectInfo(int i) {
+      return module.getAspect(i).getInfo();
+    }
+
+    public String getModuleDocstring() {
+      return module.getModuleDocstring();
+    }
+  }
+
+  private static final String TEST_DATA_DIR = "src/test/java/build/stack/devtools/build/constellate/testdata";
 
   private Server server;
   private ManagedChannel channel;
@@ -54,8 +116,7 @@ public class GrpcIntegrationTest {
   @Before
   public void setUp() throws Exception {
     // Create parser options
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
     StarlarkSemantics semantics = semanticsOptions.toStarlarkSemantics();
 
@@ -104,9 +165,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Verify basic extraction
     assertTrue("Should extract at least 1 function", moduleInfo.getFuncInfoCount() >= 1);
@@ -144,9 +204,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Verify load statements are recorded
     assertTrue("Should have load statements", response.getLoadCount() > 0);
@@ -166,7 +225,7 @@ public class GrpcIntegrationTest {
     // Verify the loaded symbols
     java.util.Set<String> loadedSymbols = new java.util.HashSet<>();
     for (build.stack.starlark.v1beta1.StarlarkProtos.LoadSymbol symbol : loadStmt.getSymbolList()) {
-      loadedSymbols.add(symbol.getTo());  // The local name
+      loadedSymbols.add(symbol.getTo()); // The local name
     }
 
     assertTrue("Should load lib_function", loadedSymbols.contains("lib_function"));
@@ -177,8 +236,8 @@ public class GrpcIntegrationTest {
     // This tests that cross-file references are properly tracked
     assertTrue("Should extract entities from loaded files",
         !moduleInfo.getFuncInfoList().isEmpty() ||
-        !moduleInfo.getProviderInfoList().isEmpty() ||
-        !moduleInfo.getRuleInfoList().isEmpty());
+            !moduleInfo.getProviderInfoList().isEmpty() ||
+            !moduleInfo.getRuleInfoList().isEmpty());
   }
 
   @Test
@@ -193,9 +252,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Verify all entity types are extracted
     assertTrue("Should extract functions", moduleInfo.getFuncInfoCount() >= 1);
@@ -203,7 +261,8 @@ public class GrpcIntegrationTest {
     for (int i = 0; i < moduleInfo.getProviderInfoCount(); i++) {
       System.err.println("Provider " + i + ": " + moduleInfo.getProviderInfo(i).getProviderName());
     }
-    assertTrue("Should extract providers (got " + moduleInfo.getProviderInfoCount() + ")", moduleInfo.getProviderInfoCount() >= 2);
+    assertTrue("Should extract providers (got " + moduleInfo.getProviderInfoCount() + ")",
+        moduleInfo.getProviderInfoCount() >= 2);
     assertTrue("Should extract rules", moduleInfo.getRuleInfoCount() >= 1);
     assertTrue("Should extract aspects", moduleInfo.getAspectInfoCount() >= 1);
 
@@ -297,7 +356,8 @@ public class GrpcIntegrationTest {
     assertEquals("NUMBERS[3] should be 6", 6L, numbersValue.getList().getValue(3).getInt());
     assertEquals("NUMBERS[4] should be 8", 8L, numbersValue.getList().getValue(4).getInt());
 
-    assertTrue("Should contain FILTERED_NUMBERS (list comprehension with filter)", response.containsGlobal("FILTERED_NUMBERS"));
+    assertTrue("Should contain FILTERED_NUMBERS (list comprehension with filter)",
+        response.containsGlobal("FILTERED_NUMBERS"));
     build.stack.starlark.v1beta1.StarlarkProtos.Value filteredValue = response.getGlobalOrThrow("FILTERED_NUMBERS");
     assertTrue("FILTERED_NUMBERS should be a list", filteredValue.hasList());
     assertEquals("FILTERED_NUMBERS should have 5 elements [0, 2, 4, 6, 8]", 5, filteredValue.getList().getValueCount());
@@ -327,14 +387,14 @@ public class GrpcIntegrationTest {
 
     // Best-effort means we should still extract what we can from the file itself
     // Even if loaded dependencies are missing
-    if (response.hasInfo()) {
-      ModuleInfo moduleInfo = response.getInfo();
+    if (response.getRuleCount() > 0 || response.getProviderCount() > 0 || response.getFunctionCount() > 0) {
+      ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
       // Any entities defined in the file itself should still be extracted
       // Verify the file has local entities despite load failure
       assertTrue("Should extract local entities despite load failure",
           !moduleInfo.getFuncInfoList().isEmpty() ||
-          !moduleInfo.getProviderInfoList().isEmpty() ||
-          !moduleInfo.getRuleInfoList().isEmpty());
+              !moduleInfo.getProviderInfoList().isEmpty() ||
+              !moduleInfo.getRuleInfoList().isEmpty());
     }
   }
 
@@ -345,15 +405,14 @@ public class GrpcIntegrationTest {
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
         .setTargetFileLabel(label)
-        .addSymbolNames("simple_function")  // Only extract this symbol
+        .addSymbolNames("simple_function") // Only extract this symbol
         .build();
 
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should only have the requested symbol (and not private symbols)
     StarlarkFunctionInfo func = findFunction(moduleInfo, "simple_function");
@@ -361,7 +420,8 @@ public class GrpcIntegrationTest {
 
     // Private functions (starting with _) should be filtered out
     StarlarkFunctionInfo privateFunc = findFunction(moduleInfo, "_simple_rule_impl");
-    // Note: Current implementation may include private functions, this documents the behavior
+    // Note: Current implementation may include private functions, this documents
+    // the behavior
   }
 
   @Test
@@ -376,9 +436,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Check OriginKey format
     if (moduleInfo.getRuleInfoCount() > 0) {
@@ -386,7 +445,8 @@ public class GrpcIntegrationTest {
       if (rule.hasOriginKey()) {
         String file = rule.getOriginKey().getFile();
         assertFalse("OriginKey file should not be empty", file.isEmpty());
-        // File should be in label format (e.g., "//package:file.bzl" or "@repo//package:file.bzl")
+        // File should be in label format (e.g., "//package:file.bzl" or
+        // "@repo//package:file.bzl")
         // The exact format depends on how labels are rendered
       }
     }
@@ -394,12 +454,12 @@ public class GrpcIntegrationTest {
 
   @Test
   public void testModuleContentInline() throws Exception {
-    // Test that we can provide module content inline without requiring a file on disk
+    // Test that we can provide module content inline without requiring a file on
+    // disk
     // This is useful for LSP scenarios where the file hasn't been saved yet,
     // or for testing without creating temporary files
 
-    String inlineContent =
-        "\"\"\"Inline test module.\"\"\"\n" +
+    String inlineContent = "\"\"\"Inline test module.\"\"\"\n" +
         "\n" +
         "def inline_function(x):\n" +
         "    \"\"\"An inline function.\n" +
@@ -418,17 +478,16 @@ public class GrpcIntegrationTest {
         ")\n";
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
-        .setTargetFileLabel("//virtual:inline.bzl")  // Label doesn't need to exist on disk
+        .setTargetFileLabel("//virtual:inline.bzl") // Label doesn't need to exist on disk
         .setModuleContent(inlineContent)
-        .addDepRoots(".")  // Add current directory as dep root so path resolution works
+        .addDepRoots(".") // Add current directory as dep root so path resolution works
         .build();
 
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should extract function from inline content
     StarlarkFunctionInfo func = findFunction(moduleInfo, "inline_function");
@@ -459,9 +518,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should extract functions that use depset
     StarlarkFunctionInfo depsetFunc = findFunction(moduleInfo, "depset_function");
@@ -487,7 +545,8 @@ public class GrpcIntegrationTest {
 
   @Test
   public void testComplexDocstring() throws Exception {
-    // Test that complex docstrings (like those from rules_go) are now handled correctly
+    // Test that complex docstrings (like those from rules_go) are now handled
+    // correctly
     // with improved parser that supports:
     // - "Returns: content" format (content on same line as heading)
     // - Multi-line field descriptions in Returns sections
@@ -501,26 +560,28 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should successfully extract function with complex docstring
     StarlarkFunctionInfo cgoFunc = findFunction(moduleInfo, "cgo_configure");
     assertNotNull("cgo_configure should be extracted", cgoFunc);
     assertFalse("Function should have documentation", cgoFunc.getDocString().isEmpty());
 
-    // Verify the docstring was parsed successfully (including the problematic "Returns: content" format)
+    // Verify the docstring was parsed successfully (including the problematic
+    // "Returns: content" format)
     String docstring = cgoFunc.getDocString();
     assertTrue("Docstring should not be empty", !docstring.isEmpty());
     assertTrue("Docstring should contain function description", docstring.contains("cgo archive"));
 
-    // Verify that the inline "Returns: a struct containing:" format was parsed correctly
+    // Verify that the inline "Returns: a struct containing:" format was parsed
+    // correctly
     // This was previously rejected with "malformed docstring" error
     assertTrue("Docstring should have parsed Returns section",
         docstring.toLowerCase().contains("return") || docstring.contains("struct"));
 
-    // Verify parameters were extracted (including multi-line parameter descriptions)
+    // Verify parameters were extracted (including multi-line parameter
+    // descriptions)
     assertTrue("Function should have 7 parameters", cgoFunc.getParameterCount() == 7);
   }
 
@@ -540,9 +601,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should extract function that uses select
     StarlarkFunctionInfo selectFunc = findFunction(moduleInfo, "function_with_select");
@@ -561,7 +621,7 @@ public class GrpcIntegrationTest {
 
   // Helper methods
 
-  private StarlarkFunctionInfo findFunction(ModuleInfo moduleInfo, String name) {
+  private StarlarkFunctionInfo findFunction(ModuleInfoAdapter moduleInfo, String name) {
     for (StarlarkFunctionInfo func : moduleInfo.getFuncInfoList()) {
       if (func.getFunctionName().equals(name)) {
         return func;
@@ -570,7 +630,7 @@ public class GrpcIntegrationTest {
     return null;
   }
 
-  private ProviderInfo findProvider(ModuleInfo moduleInfo, String name) {
+  private ProviderInfo findProvider(ModuleInfoAdapter moduleInfo, String name) {
     for (ProviderInfo provider : moduleInfo.getProviderInfoList()) {
       if (provider.getProviderName().equals(name)) {
         return provider;
@@ -579,7 +639,7 @@ public class GrpcIntegrationTest {
     return null;
   }
 
-  private RuleInfo findRule(ModuleInfo moduleInfo, String name) {
+  private RuleInfo findRule(ModuleInfoAdapter moduleInfo, String name) {
     for (RuleInfo rule : moduleInfo.getRuleInfoList()) {
       if (rule.getRuleName().equals(name)) {
         return rule;
@@ -588,7 +648,7 @@ public class GrpcIntegrationTest {
     return null;
   }
 
-  private AspectInfo findAspect(ModuleInfo moduleInfo, String name) {
+  private AspectInfo findAspect(ModuleInfoAdapter moduleInfo, String name) {
     for (AspectInfo aspect : moduleInfo.getAspectInfoList()) {
       if (aspect.getAspectName().equals(name)) {
         return aspect;
@@ -610,9 +670,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should extract the two good functions
     StarlarkFunctionInfo goodFunc1 = findFunction(moduleInfo, "good_function");
@@ -621,7 +680,8 @@ public class GrpcIntegrationTest {
 
     StarlarkFunctionInfo goodFunc2 = findFunction(moduleInfo, "another_good_function");
     assertNotNull("another_good_function should be extracted", goodFunc2);
-    assertEquals("another_good_function should have correct name", "another_good_function", goodFunc2.getFunctionName());
+    assertEquals("another_good_function should have correct name", "another_good_function",
+        goodFunc2.getFunctionName());
 
     // Bad function should NOT be extracted (it has a malformed docstring)
     StarlarkFunctionInfo badFunc = findFunction(moduleInfo, "bad_function");
@@ -671,19 +731,20 @@ public class GrpcIntegrationTest {
       // Should mention the absolute file path
       assertTrue("Error should include absolute file path",
           errorMessage.contains("testdata/invalid_load_test.bzl") ||
-          errorMessage.contains("/invalid_load_test.bzl"));
+              errorMessage.contains("/invalid_load_test.bzl"));
 
       // Should explain what's wrong
       assertTrue("Error should mention the actual problem (target names may not contain ':')",
           errorMessage.contains("target names may not contain ':'") ||
-          errorMessage.contains("Invalid load"));
+              errorMessage.contains("Invalid load"));
     }
   }
 
   @Test
   public void testDictSplatWithFakeObjects() throws Exception {
     // Test that FakeDeepStructure objects can be used with the ** (splat) operator
-    // This is needed for patterns like: dict({...}, **proto_toolchains.if_legacy_toolchain({...}))
+    // This is needed for patterns like: dict({...},
+    // **proto_toolchains.if_legacy_toolchain({...}))
     String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:dict_splat_test.bzl";
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
@@ -693,9 +754,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should successfully extract the test function
     StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
@@ -710,8 +770,8 @@ public class GrpcIntegrationTest {
         .build();
     Module response = blockingStub.moduleInfo(request);
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
-    ModuleInfo moduleInfo = response.getInfo();
+
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should successfully extract ProtoInfo and test_function
     StarlarkFunctionInfo testFunc = findFunction(moduleInfo, "test_function");
@@ -727,8 +787,8 @@ public class GrpcIntegrationTest {
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
-    ModuleInfo moduleInfo = response.getInfo();
+
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Should successfully extract the provider and function
     ProviderInfo myProvider = findProvider(moduleInfo, "MyProvider");
@@ -750,15 +810,18 @@ public class GrpcIntegrationTest {
     assertTrue("Should have symbol locations", response.getSymbolLocationCount() > 0);
 
     // Check that we have symbol locations for different entity types
-    java.util.List<build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation> symbolLocations = response.getSymbolLocationList();
+    java.util.List<build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation> symbolLocations = response
+        .getSymbolLocationList();
 
     // Provider symbol location
-    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation providerLoc = findSymbolLocation(symbolLocations, "MyProvider");
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation providerLoc = findSymbolLocation(symbolLocations,
+        "MyProvider");
     assertNotNull("MyProvider symbol location should exist", providerLoc);
     assertEquals("MyProvider location should be at line 4", 4, providerLoc.getStart().getLine());
 
     // Function symbol location
-    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation functionLoc = findSymbolLocation(symbolLocations, "my_function");
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation functionLoc = findSymbolLocation(symbolLocations,
+        "my_function");
     assertNotNull("my_function symbol location should exist", functionLoc);
     assertEquals("my_function location should be at line 10", 10, functionLoc.getStart().getLine());
 
@@ -768,12 +831,14 @@ public class GrpcIntegrationTest {
     assertEquals("my_rule location should be at line 18", 18, ruleLoc.getStart().getLine());
 
     // Aspect symbol location
-    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation aspectLoc = findSymbolLocation(symbolLocations, "my_aspect");
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation aspectLoc = findSymbolLocation(symbolLocations,
+        "my_aspect");
     assertNotNull("my_aspect symbol location should exist", aspectLoc);
     assertEquals("my_aspect location should be at line 30", 30, aspectLoc.getStart().getLine());
 
     // Macro symbol location
-    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation macroLoc = findSymbolLocation(symbolLocations, "my_macro");
+    build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation macroLoc = findSymbolLocation(symbolLocations,
+        "my_macro");
     assertNotNull("my_macro symbol location should exist", macroLoc);
     assertEquals("my_macro location should be at line 36", 36, macroLoc.getStart().getLine());
   }
@@ -830,6 +895,83 @@ public class GrpcIntegrationTest {
         0, wrapperFunc.getForwardsKwargsToCount());
     assertEquals("helper_func should not forward kwargs",
         0, helperFunc.getForwardsKwargsToCount());
+  }
+
+  @Test
+  public void testNameForwarding() throws Exception {
+    // Test that name parameter forwarding is tracked correctly
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:name_forwarding_test.bzl";
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+    Module response = blockingStub.moduleInfo(request);
+
+    // Verify that the module has functions or RuleMacros
+    assertTrue("Module should have functions or RuleMacros",
+        response.getFunctionCount() > 0 || response.getRuleMacroCount() > 0);
+
+    // Helper to find function by name (check both Function list and RuleMacro list)
+    java.util.Map<String, build.stack.starlark.v1beta1.StarlarkProtos.Function> functions = new java.util.HashMap<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      functions.put(func.getInfo().getFunctionName(), func);
+    }
+    // Also collect functions from RuleMacros (functions with **kwargs become RuleMacros)
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.hasFunction()) {
+        functions.put(macro.getFunction().getInfo().getFunctionName(), macro.getFunction());
+      }
+    }
+
+    // Test explicit_name_macro: should forward name to my_rule
+    build.stack.starlark.v1beta1.StarlarkProtos.Function explicitNameFunc = functions.get("explicit_name_macro");
+    assertNotNull("explicit_name_macro should be found", explicitNameFunc);
+    assertTrue("explicit_name_macro should forward name to my_rule",
+        explicitNameFunc.getForwardsNameToList().contains("my_rule"));
+    assertTrue("explicit_name_macro should forward kwargs to my_rule",
+        explicitNameFunc.getForwardsKwargsToList().contains("my_rule"));
+
+    // Test positional_name_macro: should forward name to my_rule
+    build.stack.starlark.v1beta1.StarlarkProtos.Function positionalFunc = functions.get("positional_name_macro");
+    assertNotNull("positional_name_macro should be found", positionalFunc);
+    assertTrue("positional_name_macro should forward name to my_rule",
+        positionalFunc.getForwardsNameToList().contains("my_rule"));
+
+    // Test transformed_name_macro: name + "_lib" still references name param
+    build.stack.starlark.v1beta1.StarlarkProtos.Function transformedFunc = functions.get("transformed_name_macro");
+    assertNotNull("transformed_name_macro should be found", transformedFunc);
+    assertTrue("transformed_name_macro should forward name to my_rule (even with transformation)",
+        transformedFunc.getForwardsNameToList().contains("my_rule"));
+
+    // Test hardcoded_name_macro: should NOT forward name (uses hardcoded string)
+    build.stack.starlark.v1beta1.StarlarkProtos.Function hardcodedFunc = functions.get("hardcoded_name_macro");
+    assertNotNull("hardcoded_name_macro should be found", hardcodedFunc);
+    assertFalse("hardcoded_name_macro should NOT forward name to my_rule",
+        hardcodedFunc.getForwardsNameToList().contains("my_rule"));
+    assertTrue("hardcoded_name_macro should still forward kwargs to my_rule",
+        hardcodedFunc.getForwardsKwargsToList().contains("my_rule"));
+
+    // Test multiple_name_macro: should forward name to both rules
+    build.stack.starlark.v1beta1.StarlarkProtos.Function multipleFunc = functions.get("multiple_name_macro");
+    assertNotNull("multiple_name_macro should be found", multipleFunc);
+    assertTrue("multiple_name_macro should forward name to my_rule",
+        multipleFunc.getForwardsNameToList().contains("my_rule"));
+    assertTrue("multiple_name_macro should forward name to my_binary",
+        multipleFunc.getForwardsNameToList().contains("my_binary"));
+
+    // Test no_name_param_macro: shouldn't have name forwarding (no name param)
+    build.stack.starlark.v1beta1.StarlarkProtos.Function noNameFunc = functions.get("no_name_param_macro");
+    assertNotNull("no_name_param_macro should be found", noNameFunc);
+    assertEquals("no_name_param_macro should have empty forwards_name_to",
+        0, noNameFunc.getForwardsNameToCount());
+
+    // Test name_without_kwargs_macro: should forward name but not kwargs
+    build.stack.starlark.v1beta1.StarlarkProtos.Function nameWithoutKwargsFunc = functions
+        .get("name_without_kwargs_macro");
+    assertNotNull("name_without_kwargs_macro should be found", nameWithoutKwargsFunc);
+    assertTrue("name_without_kwargs_macro should forward name to my_rule",
+        nameWithoutKwargsFunc.getForwardsNameToList().contains("my_rule"));
+    assertEquals("name_without_kwargs_macro should NOT forward kwargs",
+        0, nameWithoutKwargsFunc.getForwardsKwargsToCount());
   }
 
   @Test
@@ -892,20 +1034,21 @@ public class GrpcIntegrationTest {
 
   @Test
   public void testTransitiveLoadErrorAllowsTopLevelExtraction() throws Exception {
-    // Test that errors in transitive loads don't prevent extracting the top-level file
+    // Test that errors in transitive loads don't prevent extracting the top-level
+    // file
     String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:transitive_error_main.bzl";
 
     ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
         .setTargetFileLabel(label)
         .build();
 
-    // Should succeed despite transitive load having a "does not contain symbol" error
+    // Should succeed despite transitive load having a "does not contain symbol"
+    // error
     Module response = blockingStub.moduleInfo(request);
 
     assertNotNull("Response should not be null", response);
-    assertTrue("Should have module info", response.hasInfo());
 
-    ModuleInfo moduleInfo = response.getInfo();
+    ModuleInfoAdapter moduleInfo = new ModuleInfoAdapter(response);
 
     // Verify we extracted the top-level file's content
     assertTrue("Should extract main_rule from top-level file",
@@ -932,5 +1075,169 @@ public class GrpcIntegrationTest {
       }
     }
     assertTrue("Should have extracted main_function", foundMainFunction);
+  }
+
+  @Test
+  public void testRuleMacroDetection() throws Exception {
+    // Test detection of RuleMacros - functions that wrap private rules
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:golden_file_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder().setTargetFileLabel(label).build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // We should have 1 RuleMacro: golden_file_test wraps _golden_file_test
+    assertTrue("Should have at least 1 RuleMacro", response.getRuleMacroCount() >= 1);
+
+    // Find golden_file_test RuleMacro
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro goldenTestMacro = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.getFunction().getInfo().getFunctionName().equals("golden_file_test")) {
+        goldenTestMacro = macro;
+        break;
+      }
+    }
+
+    assertNotNull("golden_file_test should be detected as RuleMacro", goldenTestMacro);
+
+    // Verify it has a function
+    assertTrue("Should have function", goldenTestMacro.hasFunction());
+    assertEquals("Function name should be golden_file_test",
+        "golden_file_test", goldenTestMacro.getFunction().getInfo().getFunctionName());
+    assertTrue("Function should have docstring",
+        goldenTestMacro.getFunction().getInfo().getDocString().length() > 0);
+    assertTrue("Function should have location", goldenTestMacro.getFunction().hasLocation());
+
+    // Verify it has a rule
+    assertTrue("Should have rule", goldenTestMacro.hasRule());
+    assertEquals("Rule should be _golden_file_test",
+        "_golden_file_test", goldenTestMacro.getRule().getInfo().getRuleName());
+    assertTrue("Rule should have location", goldenTestMacro.getRule().hasLocation());
+
+    // Verify the rule has attributes
+    assertTrue("Rule should have attributes", goldenTestMacro.getRule().getAttributeCount() > 0);
+    boolean hasSrcsAttr = false;
+    boolean hasGoldensAttr = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Attribute attr : goldenTestMacro.getRule().getAttributeList()) {
+      if (attr.getInfo().getName().equals("srcs")) {
+        hasSrcsAttr = true;
+      }
+      if (attr.getInfo().getName().equals("goldens")) {
+        hasGoldensAttr = true;
+      }
+    }
+    assertTrue("Should have 'srcs' attribute", hasSrcsAttr);
+    assertTrue("Should have 'goldens' attribute", hasGoldensAttr);
+
+    // Verify the public function is NOT in the regular functions list
+    boolean foundInFunctions = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      if (func.getInfo().getFunctionName().equals("golden_file_test")) {
+        foundInFunctions = true;
+        break;
+      }
+    }
+    assertFalse("golden_file_test should NOT be in regular functions (it's a RuleMacro)",
+        foundInFunctions);
+
+    // Note: The private rules (_golden_file_test, _golden_file_update) are embedded
+    // in the RuleMacros, not in the regular rule list
+  }
+
+  @Test
+  public void testRuleMacroDetectionAcrossFiles() throws Exception {
+    // Test RuleMacro detection across multiple files with load statements
+    // This tests: go_wrappers.bzl loads and forwards to go_binary rule from go_binary.bzl
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:go_wrappers.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // We should have 1 RuleMacro: go_binary_macro wraps go_binary
+    assertTrue("Should have at least 1 RuleMacro", response.getRuleMacroCount() >= 1);
+
+    // Find go_binary_macro RuleMacro
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro goBinaryMacro = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.getFunction().getInfo().getFunctionName().equals("go_binary_macro")) {
+        goBinaryMacro = macro;
+        break;
+      }
+    }
+
+    assertNotNull("go_binary_macro should be detected as RuleMacro", goBinaryMacro);
+
+    // Verify it has a function
+    assertTrue("Should have function", goBinaryMacro.hasFunction());
+    assertEquals("Function name should be go_binary_macro",
+        "go_binary_macro", goBinaryMacro.getFunction().getInfo().getFunctionName());
+    assertTrue("Function should have docstring",
+        goBinaryMacro.getFunction().getInfo().getDocString().length() > 0);
+    assertTrue("Docstring should mention go_binary",
+        goBinaryMacro.getFunction().getInfo().getDocString().contains("go_binary"));
+
+    // Verify it has a rule
+    assertTrue("Should have rule", goBinaryMacro.hasRule());
+    assertEquals("Rule should be go_binary",
+        "go_binary", goBinaryMacro.getRule().getInfo().getRuleName());
+
+    // Verify the rule has expected attributes
+    assertTrue("Rule should have attributes", goBinaryMacro.getRule().getAttributeCount() > 0);
+    boolean hasSrcsAttr = false;
+    boolean hasDepsAttr = false;
+    boolean hasLinkmodeAttr = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Attribute attr : goBinaryMacro.getRule().getAttributeList()) {
+      String attrName = attr.getInfo().getName();
+      if (attrName.equals("srcs")) {
+        hasSrcsAttr = true;
+      } else if (attrName.equals("deps")) {
+        hasDepsAttr = true;
+      } else if (attrName.equals("linkmode")) {
+        hasLinkmodeAttr = true;
+      }
+    }
+    assertTrue("Should have 'srcs' attribute", hasSrcsAttr);
+    assertTrue("Should have 'deps' attribute", hasDepsAttr);
+    assertTrue("Should have 'linkmode' attribute", hasLinkmodeAttr);
+
+    // Verify the function forwards kwargs to the rule
+    assertTrue("Function should forward kwargs",
+        goBinaryMacro.getFunction().getForwardsKwargsToCount() > 0);
+    boolean forwardsToGoBinary = false;
+    for (String target : goBinaryMacro.getFunction().getForwardsKwargsToList()) {
+      if (target.equals("go_binary")) {
+        forwardsToGoBinary = true;
+        break;
+      }
+    }
+    assertTrue("Should forward kwargs to go_binary", forwardsToGoBinary);
+
+    // Verify the function also calls go_non_executable_binary (conditional)
+    boolean callsNonExecutable = false;
+    for (String called : goBinaryMacro.getFunction().getCallsRuleOrMacroList()) {
+      if (called.equals("go_non_executable_binary")) {
+        callsNonExecutable = true;
+        break;
+      }
+    }
+    assertTrue("Should also call go_non_executable_binary", callsNonExecutable);
+
+    // Verify go_binary_macro is NOT in regular functions (it's a RuleMacro)
+    boolean foundInFunctions = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      if (func.getInfo().getFunctionName().equals("go_binary_macro")) {
+        foundInFunctions = true;
+        break;
+      }
+    }
+    assertFalse("go_binary_macro should NOT be in regular functions (it's a RuleMacro)",
+        foundInFunctions);
   }
 }

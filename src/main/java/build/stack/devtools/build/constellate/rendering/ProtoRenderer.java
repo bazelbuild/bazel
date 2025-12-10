@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
-import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
@@ -36,39 +35,49 @@ import net.starlark.java.eval.StarlarkFunction;
 public class ProtoRenderer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final ModuleInfo.Builder moduleInfo;
+  private final List<RuleInfo> ruleInfos;
+  private final List<ProviderInfo> providerInfos;
+  private final List<AspectInfo> aspectInfos;
+  private final List<StarlarkFunctionInfo> functionInfos;
+  private final List<RepositoryRuleInfo> repositoryRuleInfos;
+  private final List<ModuleExtensionInfo> moduleExtensionInfos;
+  private final List<MacroInfo> macroInfos;
   private final List<String> errors;
+  private String moduleDocstring;
 
   public ProtoRenderer() {
-    this.moduleInfo = ModuleInfo.newBuilder();
+    this.ruleInfos = new ArrayList<>();
+    this.providerInfos = new ArrayList<>();
+    this.aspectInfos = new ArrayList<>();
+    this.functionInfos = new ArrayList<>();
+    this.repositoryRuleInfos = new ArrayList<>();
+    this.moduleExtensionInfos = new ArrayList<>();
+    this.macroInfos = new ArrayList<>();
     this.errors = new ArrayList<>();
+    this.moduleDocstring = "";
   }
 
-  /** Appends {@link RuleInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link RuleInfo} protos. */
   public ProtoRenderer appendRuleInfos(Collection<RuleInfo> ruleInfos) {
-    for (RuleInfo ruleInfo : ruleInfos) {
-      moduleInfo.addRuleInfo(ruleInfo);
-    }
+    this.ruleInfos.addAll(ruleInfos);
     return this;
   }
 
-  /** Appends {@link ProviderInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link ProviderInfo} protos. */
   public ProtoRenderer appendProviderInfos(Collection<ProviderInfo> providerInfos) {
-    for (ProviderInfo providerInfo : providerInfos) {
-      moduleInfo.addProviderInfo(providerInfo);
-    }
+    this.providerInfos.addAll(providerInfos);
     return this;
   }
 
   /**
-   * Appends {@link StarlarkFunctionInfo} protos to a {@link ModuleInfo.Builder}.
+   * Appends {@link StarlarkFunctionInfo} protos.
    * If a function's docstring is malformed, collects the error and continues processing other functions.
    */
   public ProtoRenderer appendStarlarkFunctionInfos(Map<String, StarlarkFunction> funcInfosMap) {
     for (Map.Entry<String, StarlarkFunction> entry : funcInfosMap.entrySet()) {
       try {
         StarlarkFunctionInfo funcInfo = FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
-        moduleInfo.addFuncInfo(funcInfo);
+        this.functionInfos.add(funcInfo);
       } catch (ExtractionException e) {
         // Don't let one bad docstring prevent extracting docs for other functions in the file
         String errorMsg = String.format(
@@ -82,52 +91,74 @@ public class ProtoRenderer {
     return this;
   }
 
-  /** Appends module docstring protos to a {@link ModuleInfo.Builder}. */
+  /** Sets the module docstring. */
   public ProtoRenderer setModuleDocstring(String moduleDoc) {
-    moduleInfo.setModuleDocstring(moduleDoc);
+    this.moduleDocstring = moduleDoc != null ? moduleDoc : "";
     return this;
   }
 
-  /** Outputs the raw form of a {@link ModuleInfo} proto. */
-  public void writeModuleInfo(BufferedOutputStream outputStream) throws IOException {
-    ModuleInfo build = moduleInfo.build();
-    build.writeTo(outputStream);
-  }
-
-  /** Appends {@link AspectInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link AspectInfo} protos. */
   public ProtoRenderer appendAspectInfos(Collection<AspectInfo> aspectInfos) {
-    for (AspectInfo aspectInfo : aspectInfos) {
-      moduleInfo.addAspectInfo(aspectInfo);
-    }
+    this.aspectInfos.addAll(aspectInfos);
     return this;
   }
 
-  /** Appends {@link RepositoryRuleInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link RepositoryRuleInfo} protos. */
   public ProtoRenderer appendRepositoryRuleInfos(Collection<RepositoryRuleInfo> repositoryRuleInfos) {
-    for (RepositoryRuleInfo repositoryRuleInfo : repositoryRuleInfos) {
-      moduleInfo.addRepositoryRuleInfo(repositoryRuleInfo);
-    }
+    this.repositoryRuleInfos.addAll(repositoryRuleInfos);
     return this;
   }
 
-  /** Appends {@link ModuleExtensionInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link ModuleExtensionInfo} protos. */
   public ProtoRenderer appendModuleExtensionInfos(Collection<ModuleExtensionInfo> moduleExtensionInfos) {
-    for (ModuleExtensionInfo moduleExtensionInfo : moduleExtensionInfos) {
-      moduleInfo.addModuleExtensionInfo(moduleExtensionInfo);
-    }
+    this.moduleExtensionInfos.addAll(moduleExtensionInfos);
     return this;
   }
 
-  /** Appends {@link MacroInfo} protos to a {@link ModuleInfo.Builder}. */
+  /** Appends {@link MacroInfo} protos. */
   public ProtoRenderer appendMacroInfos(Collection<MacroInfo> macroInfos) {
-    for (MacroInfo macroInfo : macroInfos) {
-      moduleInfo.addMacroInfo(macroInfo);
-    }
+    this.macroInfos.addAll(macroInfos);
     return this;
   }
 
-  public ModuleInfo.Builder getModuleInfo() {
-    return moduleInfo;
+  /** Returns the collected rule infos. */
+  public List<RuleInfo> getRuleInfos() {
+    return ruleInfos;
+  }
+
+  /** Returns the collected provider infos. */
+  public List<ProviderInfo> getProviderInfos() {
+    return providerInfos;
+  }
+
+  /** Returns the collected aspect infos. */
+  public List<AspectInfo> getAspectInfos() {
+    return aspectInfos;
+  }
+
+  /** Returns the collected function infos. */
+  public List<StarlarkFunctionInfo> getFunctionInfos() {
+    return functionInfos;
+  }
+
+  /** Returns the collected repository rule infos. */
+  public List<RepositoryRuleInfo> getRepositoryRuleInfos() {
+    return repositoryRuleInfos;
+  }
+
+  /** Returns the collected module extension infos. */
+  public List<ModuleExtensionInfo> getModuleExtensionInfos() {
+    return moduleExtensionInfos;
+  }
+
+  /** Returns the collected macro infos. */
+  public List<MacroInfo> getMacroInfos() {
+    return macroInfos;
+  }
+
+  /** Returns the module docstring. */
+  public String getModuleDocstring() {
+    return moduleDocstring;
   }
 
   /** Returns the list of errors collected during extraction. */

@@ -234,13 +234,12 @@ public class GrpcWrapperTest {
     // Verify that ALL wrapper entity types have location info
     // This is the key value proposition of wrapper messages
 
-    // Verify ModuleInfo contains entities (from stardoc_output.proto)
-    assertTrue("Should have module info", response.hasInfo());
+    // Verify Module contains entities (wrapper messages with locations)
     assertTrue(
         "Module should have some entities",
-        response.getInfo().getRuleInfoCount() > 0
-            || response.getInfo().getProviderInfoCount() > 0
-            || response.getInfo().getFuncInfoCount() > 0);
+        response.getRuleCount() > 0
+            || response.getProviderCount() > 0
+            || response.getFunctionCount() > 0);
 
     // Verify wrapper fields contain same entities WITH locations
     // Also verify locations point to correct line numbers in the source file

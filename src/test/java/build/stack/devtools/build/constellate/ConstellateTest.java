@@ -38,7 +38,70 @@ public class ConstellateTest {
   private static final String TEST_DATA_DIR =
       "src/test/java/build/stack/devtools/build/constellate/testdata";
 
-  private ModuleInfo evaluateFile(String filename) throws Exception {
+  /**
+   * Helper class to hold entity info collections for test assertions.
+   * Mimics the old ModuleInfo structure for backward compatibility in tests.
+   */
+  private static class TestModuleInfo {
+    private final java.util.List<RuleInfo> ruleInfos;
+    private final java.util.List<ProviderInfo> providerInfos;
+    private final java.util.List<StarlarkFunctionInfo> funcInfos;
+    private final java.util.List<AspectInfo> aspectInfos;
+    private final java.util.List<RepositoryRuleInfo> repositoryRuleInfos;
+    private final java.util.List<ModuleExtensionInfo> moduleExtensionInfos;
+    private final java.util.List<MacroInfo> macroInfos;
+    private final String moduleDocstring;
+
+    TestModuleInfo(
+        java.util.List<RuleInfo> ruleInfos,
+        java.util.List<ProviderInfo> providerInfos,
+        java.util.List<StarlarkFunctionInfo> funcInfos,
+        java.util.List<AspectInfo> aspectInfos,
+        java.util.List<RepositoryRuleInfo> repositoryRuleInfos,
+        java.util.List<ModuleExtensionInfo> moduleExtensionInfos,
+        java.util.List<MacroInfo> macroInfos,
+        String moduleDocstring) {
+      this.ruleInfos = ruleInfos;
+      this.providerInfos = providerInfos;
+      this.funcInfos = funcInfos;
+      this.aspectInfos = aspectInfos;
+      this.repositoryRuleInfos = repositoryRuleInfos;
+      this.moduleExtensionInfos = moduleExtensionInfos;
+      this.macroInfos = macroInfos;
+      this.moduleDocstring = moduleDocstring;
+    }
+
+    public int getRuleInfoCount() { return ruleInfos.size(); }
+    public java.util.List<RuleInfo> getRuleInfoList() { return ruleInfos; }
+    public RuleInfo getRuleInfo(int i) { return ruleInfos.get(i); }
+
+    public int getProviderInfoCount() { return providerInfos.size(); }
+    public java.util.List<ProviderInfo> getProviderInfoList() { return providerInfos; }
+    public ProviderInfo getProviderInfo(int i) { return providerInfos.get(i); }
+
+    public int getFuncInfoCount() { return funcInfos.size(); }
+    public java.util.List<StarlarkFunctionInfo> getFuncInfoList() { return funcInfos; }
+
+    public int getAspectInfoCount() { return aspectInfos.size(); }
+    public java.util.List<AspectInfo> getAspectInfoList() { return aspectInfos; }
+    public AspectInfo getAspectInfo(int i) { return aspectInfos.get(i); }
+
+    public int getRepositoryRuleInfoCount() { return repositoryRuleInfos.size(); }
+    public java.util.List<RepositoryRuleInfo> getRepositoryRuleInfoList() { return repositoryRuleInfos; }
+    public RepositoryRuleInfo getRepositoryRuleInfo(int i) { return repositoryRuleInfos.get(i); }
+
+    public int getModuleExtensionInfoCount() { return moduleExtensionInfos.size(); }
+    public java.util.List<ModuleExtensionInfo> getModuleExtensionInfoList() { return moduleExtensionInfos; }
+    public ModuleExtensionInfo getModuleExtensionInfo(int i) { return moduleExtensionInfos.get(i); }
+
+    public int getMacroInfoCount() { return macroInfos.size(); }
+    public java.util.List<MacroInfo> getMacroInfoList() { return macroInfos; }
+    public MacroInfo getMacroInfo(int i) { return macroInfos.get(i); }
+
+    public String getModuleDocstring() { return moduleDocstring; }
+  }
+
+  private TestModuleInfo evaluateFile(String filename) throws Exception {
     // Read the test file
     Path testFile = Paths.get(TEST_DATA_DIR, filename);
     assertTrue("Test file not found: " + testFile, Files.exists(testFile));
@@ -90,20 +153,31 @@ public class ConstellateTest {
         moduleBuilder,
         globals);
 
-    // Render to ModuleInfo
+    // Collect entity info using ProtoRenderer
     ProtoRenderer renderer = new ProtoRenderer();
     renderer.appendRuleInfos(ruleInfoMap.build().values());
     renderer.appendProviderInfos(providerInfoMap.build().values());
     renderer.appendStarlarkFunctionInfos(userDefinedFunctions.build());
     renderer.appendAspectInfos(aspectInfoMap.build().values());
+    renderer.appendRepositoryRuleInfos(repositoryRuleInfoMap.build().values());
+    renderer.appendModuleExtensionInfos(moduleExtensionInfoMap.build().values());
+    renderer.appendMacroInfos(macroInfoMap.build().values());
     renderer.setModuleDocstring(moduleDocMap.build().get(label));
 
-    return renderer.getModuleInfo().build();
+    return new TestModuleInfo(
+        renderer.getRuleInfos(),
+        renderer.getProviderInfos(),
+        renderer.getFunctionInfos(),
+        renderer.getAspectInfos(),
+        renderer.getRepositoryRuleInfos(),
+        renderer.getModuleExtensionInfos(),
+        renderer.getMacroInfos(),
+        renderer.getModuleDocstring());
   }
 
   @Test
   public void testSimpleFile() throws Exception {
-    ModuleInfo moduleInfo = evaluateFile("simple_test.bzl");
+    TestModuleInfo moduleInfo = evaluateFile("simple_test.bzl");
 
     assertNotNull(moduleInfo);
 
@@ -141,7 +215,7 @@ public class ConstellateTest {
 
   @Test
   public void testComprehensiveFile() throws Exception {
-    ModuleInfo moduleInfo = evaluateFile("comprehensive_test.bzl");
+    TestModuleInfo moduleInfo = evaluateFile("comprehensive_test.bzl");
 
     assertNotNull(moduleInfo);
 

@@ -15,6 +15,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import build.stack.devtools.build.constellate.rendering.DocstringParseException;
 
 import build.stack.starlark.v1beta1.StarlarkGrpc.StarlarkImplBase;
+import build.stack.starlark.v1beta1.StarlarkProtos.Aspect;
 import build.stack.starlark.v1beta1.StarlarkProtos.Attribute;
 import build.stack.starlark.v1beta1.StarlarkProtos.Macro;
 import build.stack.starlark.v1beta1.StarlarkProtos.ModuleExtension;
@@ -24,7 +25,10 @@ import build.stack.starlark.v1beta1.StarlarkProtos.Module;
 import build.stack.starlark.v1beta1.StarlarkProtos.ModuleCategory;
 import build.stack.starlark.v1beta1.StarlarkProtos.PingRequest;
 import build.stack.starlark.v1beta1.StarlarkProtos.PingResponse;
+import build.stack.starlark.v1beta1.StarlarkProtos.Provider;
+import build.stack.starlark.v1beta1.StarlarkProtos.ProviderField;
 import build.stack.starlark.v1beta1.StarlarkProtos.RepositoryRule;
+import build.stack.starlark.v1beta1.StarlarkProtos.Rule;
 import build.stack.starlark.v1beta1.StarlarkProtos.SymbolLocation;
 
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
@@ -32,7 +36,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Attr
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionTagClassInfo;
-import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
@@ -279,9 +283,9 @@ final class StarlarkServer extends StarlarkImplBase {
                 .appendMacroInfos(filteredMacroInfos.values())
                 .setModuleDocstring(moduleDocMap.build().get(targetFileLabel));
 
-        module.setInfo(renderer.getModuleInfo().build());
         module.setCategory(ModuleCategory.LOAD);
         module.setName(request.getTargetFileLabel());
+        module.setModuleDocstring(renderer.getModuleDocstring());
 
         // Add any extraction errors to the module
         for (String error : renderer.getErrors()) {
@@ -289,7 +293,7 @@ final class StarlarkServer extends StarlarkImplBase {
         }
 
         // Populate wrapper messages with location information
-        populateWrapperMessages(module);
+        populateWrapperMessages(module, renderer);
 
         // response.setModule(starlarkModule.build());
     }
@@ -309,29 +313,87 @@ final class StarlarkServer extends StarlarkImplBase {
     }
 
     /**
-     * Populates wrapper messages (RepositoryRule, ModuleExtension, Macro) in the
-     * Module builder
-     * by combining entity info from ModuleInfo with SymbolLocation data.
+     * Populates wrapper messages (Rule, Provider, Aspect, RepositoryRule, ModuleExtension, Macro) in the
+     * Module builder by combining entity info from ProtoRenderer with SymbolLocation data.
      *
      * <p>
-     * Wrapper messages provide location information for IDE features like
-     * go-to-definition.
+     * Wrapper messages provide location information for IDE features like go-to-definition.
      */
-    private void populateWrapperMessages(Module.Builder module) {
-        if (!module.hasInfo()) {
-            return;
-        }
-
-        ModuleInfo moduleInfo = module.getInfo();
-
+    private void populateWrapperMessages(Module.Builder module, ProtoRenderer renderer) {
         // Build a map of symbol names to locations for quick lookup
         Map<String, SymbolLocation> locationMap = new java.util.HashMap<>();
         for (SymbolLocation loc : module.getSymbolLocationList()) {
             locationMap.put(loc.getName(), loc);
         }
 
+        // Populate Rule wrappers
+        for (RuleInfo ruleInfo : renderer.getRuleInfos()) {
+            Rule.Builder ruleBuilder = Rule.newBuilder()
+                    .setInfo(ruleInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(ruleInfo.getRuleName());
+            if (location != null) {
+                ruleBuilder.setLocation(location);
+            }
+
+            // Add attribute wrappers
+            for (AttributeInfo attrInfo : ruleInfo.getAttributeList()) {
+                Attribute.Builder attrBuilder = Attribute.newBuilder()
+                        .setInfo(attrInfo);
+                // Note: Attribute locations are not currently tracked in symbol_location
+                ruleBuilder.addAttribute(attrBuilder.build());
+            }
+
+            module.addRule(ruleBuilder.build());
+        }
+
+        // Populate Provider wrappers
+        for (ProviderInfo providerInfo : renderer.getProviderInfos()) {
+            Provider.Builder providerBuilder = Provider.newBuilder()
+                    .setInfo(providerInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(providerInfo.getProviderName());
+            if (location != null) {
+                providerBuilder.setLocation(location);
+            }
+
+            // Add field wrappers
+            for (ProviderFieldInfo fieldInfo : providerInfo.getFieldInfoList()) {
+                ProviderField.Builder fieldBuilder = ProviderField.newBuilder()
+                        .setInfo(fieldInfo);
+                // Note: Field locations are not currently tracked in symbol_location
+                providerBuilder.addField(fieldBuilder.build());
+            }
+
+            module.addProvider(providerBuilder.build());
+        }
+
+        // Populate Aspect wrappers
+        for (AspectInfo aspectInfo : renderer.getAspectInfos()) {
+            Aspect.Builder aspectBuilder = Aspect.newBuilder()
+                    .setInfo(aspectInfo);
+
+            // Add location if available
+            SymbolLocation location = locationMap.get(aspectInfo.getAspectName());
+            if (location != null) {
+                aspectBuilder.setLocation(location);
+            }
+
+            // Add attribute wrappers
+            for (AttributeInfo attrInfo : aspectInfo.getAttributeList()) {
+                Attribute.Builder attrBuilder = Attribute.newBuilder()
+                        .setInfo(attrInfo);
+                // Note: Attribute locations are not currently tracked in symbol_location
+                aspectBuilder.addAttribute(attrBuilder.build());
+            }
+
+            module.addAspect(aspectBuilder.build());
+        }
+
         // Populate RepositoryRule wrappers
-        for (RepositoryRuleInfo repoRuleInfo : moduleInfo.getRepositoryRuleInfoList()) {
+        for (RepositoryRuleInfo repoRuleInfo : renderer.getRepositoryRuleInfos()) {
             RepositoryRule.Builder repoRuleBuilder = RepositoryRule.newBuilder()
                     .setInfo(repoRuleInfo);
 
@@ -353,7 +415,7 @@ final class StarlarkServer extends StarlarkImplBase {
         }
 
         // Populate ModuleExtension wrappers
-        for (ModuleExtensionInfo extensionInfo : moduleInfo.getModuleExtensionInfoList()) {
+        for (ModuleExtensionInfo extensionInfo : renderer.getModuleExtensionInfos()) {
             ModuleExtension.Builder extensionBuilder = ModuleExtension.newBuilder()
                     .setInfo(extensionInfo);
 
@@ -385,7 +447,7 @@ final class StarlarkServer extends StarlarkImplBase {
         }
 
         // Populate Macro wrappers
-        for (MacroInfo macroInfo : moduleInfo.getMacroInfoList()) {
+        for (MacroInfo macroInfo : renderer.getMacroInfos()) {
             Macro.Builder macroBuilder = Macro.newBuilder()
                     .setInfo(macroInfo);
 
