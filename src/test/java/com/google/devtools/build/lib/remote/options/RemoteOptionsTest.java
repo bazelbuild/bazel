@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -48,31 +47,6 @@ public class RemoteOptionsTest {
 
     SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
     assertThat(properties).isEqualTo(ImmutableSortedMap.of("OSFamily", "linux", "ISA", "x86-64"));
-  }
-
-  @Test
-  public void testRemoteDefaultPlatformProperties() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDefaultPlatformProperties =
-        "properties:{name:\"ISA\" value:\"x86-64\"} properties:{name:\"OSFamily\" value:\"linux\"}";
-
-    SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
-    assertThat(properties).isEqualTo(ImmutableSortedMap.of("OSFamily", "linux", "ISA", "x86-64"));
-  }
-
-  @Test
-  public void testConflictingRemotePlatformAndExecProperties() {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDefaultExecProperties = Arrays.asList(Maps.immutableEntry("ISA", "x86-64"));
-    options.remoteDefaultPlatformProperties = "properties:{name:\"OSFamily\" value:\"linux\"}";
-
-    // TODO(buchgr): Use assertThrows once Bazel starts using junit > 4.13
-    try {
-      options.getRemoteDefaultExecProperties();
-      fail();
-    } catch (UserExecException e) {
-      // Intentionally left empty.
-    }
   }
 
   @Test

@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
@@ -2036,26 +2035,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
       throws AbruptExitException {
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    Map<String, String> remoteDefaultExecProperties;
-    try {
-      remoteDefaultExecProperties =
-          remoteOptions != null
-              ? remoteOptions.getRemoteDefaultExecProperties()
-              : ImmutableMap.of();
-    } catch (UserExecException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(e.getMessage())
-                  .setRemoteOptions(
-                      FailureDetails.RemoteOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.RemoteOptions.Code
-                                  .REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR)
-                          .build())
-                  .build()),
-          e);
-    }
+    Map<String, String> remoteDefaultExecProperties =
+        remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of();
     boolean needsDeletion =
         lastRemoteDefaultExecProperties != null
             && !remoteDefaultExecProperties.equals(lastRemoteDefaultExecProperties);
