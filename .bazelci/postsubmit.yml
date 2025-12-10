@@ -67,8 +67,7 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//..."
-      - "-//third_party/..."
+      - "//src/main/java/..."
     include_json_profile:
       - build
       - test
