@@ -82,6 +82,14 @@ public abstract class FileOptions {
   public abstract boolean allowTypeSyntax();
 
   /**
+   * Whether type annotations are processed by the resolver.
+   *
+   * <p>This is required for static type checking, but will cause code to fail if it contains type
+   * annotations that are not understood by this version of Bazel.
+   */
+  public abstract boolean resolveTypeSyntax();
+
+  /**
    * If true, type expressions in annotations and {@code type} declarations may be any valid
    * expression (except for unparenthesized tuples, which are grammatically ambiguous). Otherwise
    * type expressions must represent a valid type.
@@ -102,6 +110,7 @@ public abstract class FileOptions {
         .requireLoadStatementsFirst(true)
         .stringLiteralsAreAsciiOnly(false)
         .allowTypeSyntax(false)
+        .resolveTypeSyntax(false)
         .tolerateInvalidTypeExpressions(false);
   }
 
@@ -122,6 +131,8 @@ public abstract class FileOptions {
     public abstract Builder stringLiteralsAreAsciiOnly(boolean value);
 
     public abstract Builder allowTypeSyntax(boolean value);
+
+    public abstract Builder resolveTypeSyntax(boolean value);
 
     public abstract Builder tolerateInvalidTypeExpressions(boolean value);
 

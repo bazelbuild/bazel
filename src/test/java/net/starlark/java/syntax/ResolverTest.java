@@ -461,8 +461,6 @@ public class ResolverTest {
     assertThat(errors.get(0).message()).isEqualTo("name 'undef' is not defined");
   }
 
-  // TODO: #27728 - Add resolver behavior for type expressions, add bindingScopeAndIndex tests here.
-
   @Test
   public void testBindingScopeAndIndex_basic() throws Exception {
     checkBindings(
@@ -544,16 +542,106 @@ public class ResolverTest {
   }
 
   @Test
-  public void testBindingScopeAndIndex_varStatement() throws Exception {
+  public void testBindingScopeAndIndex_functionAnnotations() throws Exception {
     options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
     checkBindings(
-        // Var statement creates a binding, even in the absence of assignment.
-        "xᴳ₀ : T",
-        // Var statement can shadow predeclared.
-        "preᴳ₁ : T",
-        "def fᴳ₂():",
-        "  xᴳ₀",
-        "  preᴳ₁");
+        """
+        Tᴳ₀ = 1
+        def fᴳ₁(xᴸ₀: Tᴳ₀ = preᴾ₀) -> preᴾ₀:
+          pass
+        """);
+
+    // Type annotations are resolved outside of the function's block, just like default expressions.
+    checkBindings(
+        """
+        xᴳ₀ = 1
+        def fᴳ₁(xᴸ₀: xᴳ₀) -> xᴳ₀:
+          xᴸ₀
+        """);
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_varAnnotations() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    checkBindings(
+        "Tᴳ₀ = 1",
+        // A var statement creates a binding for its variable (x), and its type annotation (T) has
+        // its binding set.
+        "xᴳ₁ : Tᴳ₀",
+        // Var statements can shadow predeclared.
+        "preᴳ₂ : Tᴳ₀",
+        "def fᴳ₃():",
+        "  xᴳ₁",
+        "  preᴳ₂");
+
+    // Type annotations in assignments have their bindings set.
+    checkBindings("xᴳ₀ : preᴾ₀ = 1");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_typeAlias() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    // A type declaration creates a binding for its variable (T) and its definition has its bindings
+    // set.
+    checkBindings("type Tᴳ₀ = preᴾ₀");
+
+    // A type declaration can shadow a predeclared.
+    checkBindings(
+        """
+        Tᴳ₀ = 1
+        type preᴳ₁ = Tᴳ₀
+        """);
+
+    // This is dumb and illegal, but not for resolver-related reasons.
+    checkBindings("type Tᴳ₀ = Tᴳ₀");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_cast() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    checkBindings("cast(preᴾ₀, preᴾ₀)");
+  }
+
+  // TODO: #27848 - Add test case for isinstance(), once supported.
+
+  @Test
+  public void testBindingScopeAndIndex_typeSyntaxNotResolvedWhenFlagDisabled() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(false);
+
+    checkBindings(
+        """
+        def fᴳ₀(xᴸ₀: T   = preᴾ₀) -> pre  :
+          pass
+        xᴳ₁ : pre  #
+        yᴳ₂ : pre   = 1
+        """);
+
+    checkBindings(
+        """
+        type T   = S  #
+        cast(T  , preᴾ₀)
+        """);
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_genericTypeVars_notResolved() throws Exception {
+    // Check that these are not currently processed.
+    // TODO: #27370 - Add support to the resolver for these.
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    checkBindings(
+        "def fᴳ₀[S  , T  ]():", //
+        "  pass",
+        "type Fooᴳ₁[X  ] = preᴾ₀");
   }
 
   @Test
@@ -569,8 +657,8 @@ public class ResolverTest {
             BAR, BAZ = (2, 3)  #: Applies to LHS list
 
             #: Applies to var annotation without initialier
-            QUX : T
-            QUUX : T #: And the trailing version...
+            QUX : pre
+            QUUX : pre #: And the trailing version...
             """);
 
     assertThat(file.docCommentsMap.keySet())
@@ -594,6 +682,51 @@ public class ResolverTest {
         """
         def f():
           type X = int
+        """);
+  }
+
+  @Test
+  public void testTypeAliasStatement_redeclarationDisallowed() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    assertInvalid(
+        ":2:6: 'T' redeclared at top level",
+        """
+        type T = pre
+        type T = pre
+        """);
+    assertInvalid(
+        ":2:6: 'T' redeclared at top level",
+        """
+        T = 1
+        type T = pre
+        """);
+    assertInvalid(
+        ":2:1: 'T' redeclared at top level",
+        """
+        type T = pre
+        T = 1
+        """);
+  }
+
+  @Test
+  public void testTypeAliasStatement_redeclarationAllowedWithFlag() throws Exception {
+    options.allowTypeSyntax(true);
+    options.allowToplevelRebinding(true);
+    assertValid(
+        """
+        type T = pre
+        type T = pre
+        """);
+    assertValid(
+        """
+        T = 1
+        type T = pre
+        """);
+    assertValid(
+        """
+        type T = pre
+        T = 1
         """);
   }
 
@@ -659,7 +792,7 @@ public class ResolverTest {
         def f():
             # Redefinition is allowed (but bad style) if second definition has no type
             # annotation.
-            def a(x : int):
+            def a(x : pre):
                 pass
             def a(x):
                 pass
@@ -673,13 +806,13 @@ public class ResolverTest {
                 # none.
                 def b(x):
                     pass
-                def b(x : int):
+                def b(x : pre):
                     pass
 
                 # Return type annotation counts too.
                 def c(x):
                     pass
-                def c(x) -> int:
+                def c(x) -> pre:
                     pass
 
                 # Even generic type vars count.
@@ -701,7 +834,7 @@ public class ResolverTest {
     assertValid(
         """
         def f():
-            a : int
+            a : pre
             a = 123
         """);
   }
@@ -770,31 +903,20 @@ public class ResolverTest {
   }
 
   @Test
-  public void testCastExpression_value_isResolved() throws Exception {
+  public void testCastExpression_valueAndType_areResolved() throws Exception {
     options.allowTypeSyntax(true);
-    StarlarkFile badFile = resolveFile("cast(int, f())");
-    assertThat(badFile.ok()).isFalse();
-    assertContainsError(badFile.errors(), "name 'f' is not defined");
+    options.resolveTypeSyntax(true);
 
-    StarlarkFile goodFile =
-        resolveFile(
-            """
-            def f():
-              return 1
-            cast(int, f())
-            """);
+    StarlarkFile goodFile = resolveFile("cast(pre, pre)");
     assertThat(goodFile.ok()).isTrue();
+
+    StarlarkFile badFile = resolveFile("cast(a, b)");
+    assertThat(badFile.ok()).isFalse();
+    assertContainsError(badFile.errors(), "name 'a' is not defined");
+    assertContainsError(badFile.errors(), "name 'b' is not defined");
   }
 
-  @Test
-  public void testCastExpression_type_notResolved() throws Exception {
-    // TODO(brandjon): resolve the cast's type once we have type checking.
-    options.allowTypeSyntax(true);
-    StarlarkFile badFile = resolveFile("cast(NoSuchType[int], 42)");
-    assertThat(badFile.ok()).isTrue();
-  }
-
-  // TODO(b/350661266): resolve types in isinstance().
+  // TODO: #27848 - Resolve types in isinstance().
   @Test
   public void testIsInstanceExpression_notYetSupported() throws Exception {
     options.allowTypeSyntax(true);
@@ -831,13 +953,6 @@ public class ResolverTest {
             out[0].substring(0, id.getEndOffset())
                 + suffix
                 + out[0].substring(id.getEndOffset() + 2);
-      }
-
-      @Override
-      public void visit(VarStatement varStatement) {
-        visit(varStatement.getIdentifier());
-        // Don't visit type expression, it isn't processed.
-        // TODO: #27728 - Include the type expression in these tests.
       }
     }.visit(file);
     assertThat(out[0]).isEqualTo(src);
