@@ -38,6 +38,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs:FileSystemTest_lib",
         "//src/test/java/com/google/devtools/build/lib/vfs:SymlinkAwareFileSystemTest",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:mockito",
