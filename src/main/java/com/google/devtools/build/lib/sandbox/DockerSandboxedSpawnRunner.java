@@ -214,6 +214,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+    ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
@@ -246,6 +247,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setImageName(customizedImageName)
         .setCommandArguments(spawn.getArguments())
         .setSandboxExecRoot(sandboxExecRoot)
+        .setWritableFilesAndDirectories(writableDirs)
         .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
@@ -280,7 +282,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         cmdEnv.getClientEnv(),
         inputs,
         outputs,
-        ImmutableSet.of(),
+        writableDirs,
         treeDeleter,
         /* sandboxDebugPath= */ null,
         /* statisticsPath= */ null,
