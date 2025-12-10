@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -111,10 +112,10 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   public void testEmptyTreeArtifacts() throws Exception {
     TreeArtifactValue value = doTestTreeArtifacts(ImmutableList.of());
     // Additional test, only for this test method: we expect the FileArtifactValue is equal to
-    // the digest [0]
+    // the hash of the empty byte array.
     assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
-    assertThat(value.getDigest()).isEqualTo(new byte[1]);
+    assertThat(value.getDigest()).isEqualTo(new Fingerprint().digestAndReset());
   }
 
   @Test

@@ -734,6 +734,7 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
@@ -763,6 +764,7 @@ public final class SkyframeActionExecutor {
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
+              mandatoryInputsDigest,
               clientEnv,
               getOutputPermissions(),
               handler,
@@ -805,6 +807,7 @@ public final class SkyframeActionExecutor {
                 actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
                     action,
                     resolvedCacheArtifacts,
+                    mandatoryInputsDigest,
                     clientEnv,
                     getOutputPermissions(),
                     handler,
@@ -843,6 +846,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Token token,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
@@ -864,7 +868,8 @@ public final class SkyframeActionExecutor {
           clientEnv,
           getOutputPermissions(),
           remoteDefaultProperties,
-          useArchivedTreeArtifacts(action));
+          useArchivedTreeArtifacts(action),
+          mandatoryInputsDigest);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
@@ -874,6 +879,10 @@ public final class SkyframeActionExecutor {
               + ", but all outputs should already have been checked",
           e);
     }
+  }
+
+  boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    return actionCacheChecker.mandatoryInputsMatch(action, mandatoryInputsDigest);
   }
 
   @Nullable
