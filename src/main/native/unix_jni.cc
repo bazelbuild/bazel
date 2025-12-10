@@ -41,12 +41,6 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/native/latin1_jni_path.h"
 
-#if defined(O_DIRECTORY)
-#define PORTABLE_O_DIRECTORY O_DIRECTORY
-#else
-#define PORTABLE_O_DIRECTORY 0
-#endif
-
 #define RESTARTABLE(_cmd, _result)                 \
   do {                                             \
     do {                                           \
@@ -748,7 +742,7 @@ static void PostDeleteTreesBelowException(
 static DIROrError ForceOpendir(JNIEnv *env,
                                const std::vector<std::string> &dir_path,
                                const int dir_fd, const char *entry) {
-  static const int flags = O_RDONLY | O_NOFOLLOW | PORTABLE_O_DIRECTORY;
+  static constexpr int flags = O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC;
   int fd;
   RESTARTABLE(openat(dir_fd, entry, flags), fd);
   if (fd == -1) {
