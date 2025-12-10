@@ -73,7 +73,8 @@ if [[ "${gold_output_ret}" != 0 ]] ; then
 fi
 
 # Correct for different paths between Blaze and Bazel.
-diff <(sed 's|third_party/bazel/||g' "${gold_stderr_file}") <(sed 's|third_party/bazel/||g' "${checker_stderr}")
+# Filter out JAVA_TOOL_OPTIONS messages that appear when the env var is set in CI.
+diff <(sed 's|third_party/bazel/||g' "${gold_stderr_file}" | grep -v '^Picked up JAVA_TOOL_OPTIONS:') <(sed 's|third_party/bazel/||g' "${checker_stderr}" | grep -v '^Picked up JAVA_TOOL_OPTIONS:')
 gold_stderr_ret=$?
 
 if [[ "${gold_stderr_ret}" != 0 ]]; then

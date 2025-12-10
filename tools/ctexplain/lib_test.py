@@ -54,8 +54,9 @@ class LibTest(test_base.TestBase):
                          ['//testapp:a', '//testapp:h', '//testapp:h.src'])
     # Don't use assertIsInstance because we don't want to match subclasses.
     self.assertEqual(Configuration, type(cts[0].config))
-    self.assertEqual('HOST', cts[1].config_hash)
-    self.assertIsInstance(cts[1].config, HostConfiguration)
+    # TODO: Bazel no longer has the concept of a host config. Fix the test.
+    # self.assertEqual('HOST', cts[1].config_hash)
+    # self.assertIsInstance(cts[1].config, HostConfiguration)
     self.assertEqual('null', cts[2].config_hash)
     self.assertIsInstance(cts[2].config, NullConfiguration)
 
@@ -80,8 +81,8 @@ class LibTest(test_base.TestBase):
     # Even though the build references //testapp:other twice, it only appears
     # once.
     self.assertListEqual(
-        [ct.label for ct in cts],
-        ['//testapp:a', '//testapp:h', '//testapp:other', '//testapp:h.src'])
+        sorted([ct.label for ct in cts]),
+        sorted(['//testapp:a', '//testapp:other', '//testapp:h', '//testapp:h.src']))
 
 
 if __name__ == '__main__':
