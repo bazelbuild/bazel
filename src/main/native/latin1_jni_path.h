@@ -17,34 +17,33 @@
 
 #include <jni.h>
 
+#include <string_view>
+
 namespace blaze_jni {
 
-// Latin1 <--> java.lang.String conversion functions.
-// Derived from similar routines in Sun JDK.  See:
-// j2se/src/solaris/native/java/io/UnixFileSystem_md.c
-// j2se/src/share/native/common/jni_util.c
-//
-// Like the Sun JDK in its usual configuration, we assume all UNIX
-// filenames are Latin1 encoded.
+// Returns a new Java String for a null-terminated sequence of Latin1
+// characters.
+jstring NewStringLatin1(JNIEnv* env, const char* str);
 
-/**
- * Returns a new Java String for the specified Latin1 characters.
- */
-jstring NewStringLatin1(JNIEnv *env, const char *str);
+// Provides access to a Java String as a sequence of Latin1 characters.
+// Any non-Latin1 characters are replaced with '?'.
+class JStringLatin1Holder {
+ public:
+  // Constructs a JStringLatin1Holder.
+  // Callers must check env->ExceptionOccurred() before using this object.
+  JStringLatin1Holder(JNIEnv* env, jstring string);
 
-/**
- * Returns a nul-terminated Latin1-encoded byte array for the
- * specified Java string, or null on failure.  Unencodable characters
- * are replaced by '?'.  Must be followed by a call to
- * ReleaseStringLatin1Chars.
- */
-char *GetStringLatin1Chars(JNIEnv *env, jstring jstr);
+  ~JStringLatin1Holder();
 
-/**
- * Release the Latin1 chars returned by a prior call to
- * GetStringLatin1Chars.
- */
-void ReleaseStringLatin1Chars(const char *s);
+  // Returns a pointer to the null-terminated sequence of Latin1 characters.
+  operator const char*() const;
+
+  // Returns a string view into the sequence of Latin1 characters.
+  operator std::string_view() const;
+
+ private:
+  const char* const chars;
+};
 
 }  // namespace blaze_jni
 
