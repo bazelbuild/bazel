@@ -57,6 +57,7 @@ bazel_dep(name = "buildozer", version = "8.2.1", repo_name = None)  # Keep in sy
 bazel_dep(name = "rules_swift", version = "3.3.0")  # with repo_name = None, version drops to 2.4.0
 bazel_dep(name = "rules_apple", version = "4.3.1", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
+bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 
 # bazel_dep overrides
 single_version_override(
