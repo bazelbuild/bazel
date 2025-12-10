@@ -502,7 +502,7 @@ public final class ActionCacheCheckerTest {
                 /* handler= */ null,
                 fakeMetadataHandler,
                 fakeMetadataHandler,
-                /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+                /* remoteDefaultExecProperties= */ ImmutableMap.of(),
                 OutputChecker.TRUST_ALL,
                 /* useArchivedTreeArtifacts= */ false))
         .isNotNull();
@@ -656,7 +656,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -691,7 +691,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -721,7 +721,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             /* outputChecker= */ null,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -783,7 +783,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -980,7 +980,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1086,7 +1086,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1147,7 +1147,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -1221,7 +1221,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
@@ -1287,7 +1287,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1332,7 +1332,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1385,7 +1385,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             CHECK_TTL,
             !initiallyEnabled);
 
@@ -1430,7 +1430,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
