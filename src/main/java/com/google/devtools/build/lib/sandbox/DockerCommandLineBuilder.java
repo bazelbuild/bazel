@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -24,7 +25,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 final class DockerCommandLineBuilder {
   private ProcessWrapper processWrapper;
@@ -40,7 +43,8 @@ final class DockerCommandLineBuilder {
   private int gid;
   private String commandId;
   private boolean privileged;
-  private List<Map.Entry<String, String>> additionalMounts;
+  private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
+  private List<Map.Entry<String, String>> additionalMounts = ImmutableList.of();
 
   @CanIgnoreReturnValue
   public DockerCommandLineBuilder setProcessWrapper(ProcessWrapper processWrapper) {
@@ -122,6 +126,13 @@ final class DockerCommandLineBuilder {
   }
 
   @CanIgnoreReturnValue
+  public DockerCommandLineBuilder setWritableFilesAndDirectories(
+          Set<Path> writableFilesAndDirectories) {
+    this.writableFilesAndDirectories = writableFilesAndDirectories;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setAdditionalMounts(
       List<Map.Entry<String, String>> additionalMounts) {
     this.additionalMounts = additionalMounts;
@@ -153,10 +164,16 @@ final class DockerCommandLineBuilder {
         "-v", sandboxExecRoot.getPathString() + ":" + execRootInsideDocker.getPathString());
     dockerCmdLine.add("-w", execRootInsideDocker.getPathString());
 
-    for (ImmutableMap.Entry<String, String> additionalMountPath : additionalMounts) {
+    final Set<String> writeablePaths = writableFilesAndDirectories.stream().map(Path::getPathString).collect(ImmutableSet.toImmutableSet());
+    for (Map.Entry<String, String> additionalMountPath : additionalMounts) {
       final String mountTarget = additionalMountPath.getValue();
       final String mountSource = additionalMountPath.getKey();
-      dockerCmdLine.add("-v", mountSource + ":" + mountTarget);
+      final String mountSpec = mountSource + ":" + mountTarget;
+      if (writeablePaths.contains(mountTarget)) {
+        dockerCmdLine.add("-v", mountSpec + ":rw");
+      } else {
+        dockerCmdLine.add("-v", mountSpec + ":ro");
+      }
     }
 
     StringBuilder uidGidFlagBuilder = new StringBuilder();
