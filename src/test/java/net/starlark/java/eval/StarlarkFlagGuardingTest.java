@@ -199,11 +199,10 @@ public final class StarlarkFlagGuardingTest {
     ev =
         new EvaluationTestCase() {
           @Override
-          protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+          protected void newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
             predeclared.put(
                 "GlobalSymbol",
                 FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(EXPERIMENTAL_FLAG, "foo"));
-            return null; // no client data
           }
         };
 
@@ -232,10 +231,9 @@ public final class StarlarkFlagGuardingTest {
     ev =
         new EvaluationTestCase() {
           @Override
-          protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+          protected void newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
             predeclared.put(
                 "GlobalSymbol", FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(FLAG2, "foo"));
-            return null; // no client data
           }
         };
 

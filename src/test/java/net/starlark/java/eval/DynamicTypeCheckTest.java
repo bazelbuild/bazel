@@ -37,6 +37,8 @@ public class DynamicTypeCheckTest {
   @Before
   public void setup() {
     ev = new EvaluationTestCase();
+    // TODO: #27728 - Ensure the predeclared environment contains builtin type names so that we can
+    // set resolveTypeSyntax(true) here.
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
