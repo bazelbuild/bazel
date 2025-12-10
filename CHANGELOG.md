@@ -1,3 +1,16 @@
+## Release 10.0.0-pre.20251203.1 (2025-12-10)
+
+```
+Baseline: 413f554735101e4e933984c09b2ed59745ce7ab4
+```
+
+Important changes:
+
+  - Added an optional parameter to allow eliding the stack trace when
+    calling fail().
+
+This release contains contributions from many people at Google, as well as Amit Keren, Benjamin Peterson, Chris Heisterkamp, David Zbarsky, Dylan Joss, Fabian Brandstetter, Fabian Meumertzheim, Greg, Jordan Mele, Keith Smiley, Pieter Agten, Rgis Desgroppes.
+
 ## Release 10.0.0-pre.20251116.2 (2025-12-01)
 
 ```
