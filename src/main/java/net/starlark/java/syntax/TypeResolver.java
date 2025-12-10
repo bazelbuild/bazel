@@ -26,7 +26,11 @@ import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 
-/** A visitor for annotating a resolved file with type information. */
+/**
+ * A visitor for annotating a resolved file with type information.
+ *
+ * <p>This populates the function type on the {@link Resolver.Function} objects in the AST.
+ */
 public class TypeResolver extends NodeVisitor {
 
   // TODO: #27728 - Will be used when we support non-universal type symbols.
@@ -92,6 +96,9 @@ public class TypeResolver extends NodeVisitor {
       case IDENTIFIER:
         Identifier id = (Identifier) expr;
         // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
+        // TODO: #27728 - Don't lookup in the type universe based on the identifier's name. Instead,
+        // retrieve it from the Module using the Binding in the Identifier. I.e., make type
+        // resolution build upon symbol resolution.
         Object result = Types.TYPE_UNIVERSE.get(id.getName());
         if (result == null) {
           // TODO(ilist@): include possible candidates in the error message
@@ -181,6 +188,25 @@ public class TypeResolver extends NodeVisitor {
         returnType);
   }
 
+  /**
+   * Resolves a type expression to a {@link StarlarkType}.
+   *
+   * @param expr a valid type expression; for example, one produced by {@link
+   *     Expression#parseTypeExpression}.
+   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
+   *     to a type.
+   */
+  public static StarlarkType evalTypeExpression(Expression expr, Module module)
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeResolver r = new TypeResolver(errors, module);
+    StarlarkType result = r.evalType(expr);
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(r.errors);
+    }
+    return result;
+  }
+
   @Override
   public void visit(DefStatement def) {
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
@@ -205,24 +231,5 @@ public class TypeResolver extends NodeVisitor {
     if (!r.errors.isEmpty()) {
       throw new SyntaxError.Exception(r.errors);
     }
-  }
-
-  /**
-   * Resolves a type expression to a {@link StarlarkType}.
-   *
-   * @param expr a valid type expression; for example, one produced by {@link
-   *     Expression#parseTypeExpression}.
-   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
-   *     to a type.
-   */
-  public static StarlarkType evalTypeExpression(Expression expr, Module module)
-      throws SyntaxError.Exception {
-    List<SyntaxError> errors = new ArrayList<>();
-    TypeResolver r = new TypeResolver(errors, module);
-    StarlarkType result = r.evalType(expr);
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(r.errors);
-    }
-    return result;
   }
 }
