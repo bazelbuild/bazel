@@ -48,6 +48,8 @@ genrule(
 )
 """ % srcs_excludes)
 
+    rctx.watch_tree(workspace)
+
 list_source_repository = repository_rule(
     implementation = _impl,
     environ = ["SRCS_EXCLUDES"],
