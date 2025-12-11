@@ -97,12 +97,6 @@ def _use_cpp_toolchain(mandatory = False):
     """
     return [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]
 
-def _additional_inputs_from_linking_context(linking_context):
-    inputs = []
-    for linker_input in linking_context.linker_inputs.to_list():
-        inputs.extend(linker_input.additional_inputs)
-    return depset(inputs, order = "topological")
-
 # LINT.IfChange(forked_exports)
 
 cpp_file_types = struct(
@@ -1119,23 +1113,6 @@ def _has_target_constraints(ctx, constraints):
 
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
 
-def _is_stamping_enabled_for_aspect(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.rule.attr, "stamp"):
-        stamp = ctx.rule.attr.stamp
-    return stamp
-
-def _proto_output_root(proto_root, bin_dir_path):
-    if proto_root == ".":
-        return bin_dir_path
-
-    if proto_root.startswith(bin_dir_path):
-        return proto_root
-    else:
-        return bin_dir_path + "/" + proto_root
-
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1163,7 +1140,6 @@ cc_helper = struct(
     check_file_extensions = _check_file_extensions,
     check_srcs_extensions = _check_srcs_extensions,
     libraries_from_linking_context = _libraries_from_linking_context,
-    additional_inputs_from_linking_context = _additional_inputs_from_linking_context,
     dll_hash_suffix = _dll_hash_suffix,
     get_windows_def_file_for_linking = _get_windows_def_file_for_linking,
     generate_def_file = _generate_def_file,
@@ -1181,7 +1157,6 @@ cc_helper = struct(
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,
-    is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
     get_srcs = _get_srcs,
     get_cpp_module_interfaces = _get_cpp_module_interfaces,
@@ -1199,7 +1174,6 @@ cc_helper = struct(
     copts_filter = _copts_filter,
     package_exec_path = _package_exec_path,
     repository_exec_path = _repository_exec_path,
-    proto_output_root = _proto_output_root,
     package_source_root = _package_source_root,
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
