@@ -2355,7 +2355,7 @@ EOF
   cat > a.cppm <<'EOF'
 export module a;
 EOF
-  cat > bar.cppm <<'EOF'
+  cat > b.cppm <<'EOF'
 export module b;
 import a;
 EOF
