@@ -4,10 +4,11 @@ title: 'Visibility'
 
 
 
-This page covers Bazel's two visibility systems:
-[target visibility](#target-visibility) and [load visibility](#load-visibility).
+This page covers Bazel's three visibility systems:
+[target visibility](#target-visibility) [transitive visibility](#transitive-visibility)
+and [load visibility](#load-visibility).
 
-Both types of visibility help other developers distinguish between your
+These types of visibility help other developers distinguish between your
 library's public API and its implementation details, and help enforce structure
 as your workspace grows. You can also use visibility when deprecating a public
 API to allow current users while denying new ones.
@@ -397,6 +398,63 @@ own package or to the finalizer macro's definition, and is not delegated to the
 finalizer, the finalizer cannot see such a target. Note, however, that a
 `native.existing_rules()`-based legacy macro will also be unable to see such a
 target.
+
+
+## Transitive visibility {:#transitive-visibility}
+
+**Transitive visibility** allows packages to specify which targets may
+transitively depend on targets they define.
+
+Transitive visibility is specified at the package level, using the
+`transitive_visibility` attribute of the `package` function.
+`transitive_visibility` takes a single label corresponding to a
+`package_group`, which defines the set of targets that may depend on targets
+defined in the package. Package groups used in `transitive_visibility` may not
+`include` other package groups.
+
+
+```starlark
+# //sensitive_dep/BUILD
+package(
+    # This must be explicitly listed
+    transitive_visibility = [":sensitive_dep_users"]
+)
+
+package_group(
+    name = "sensitive_dep_users",
+    packages = [
+        "//sensitive_dep/...", # has to include itself
+        "//allowed",
+    ],
+)
+
+sh_library(
+    name = "sensitive_dep"
+)
+```
+
+```starlark
+# //not_allowed/BUILD
+sh_binary(
+    name = "bad",
+    deps = ["//sensitive_dep:sensitive_dep"]
+)
+```
+Building `//not_allowed:bad`, which depends on
+`//sensitive_dep:sensitive_dep` but is not part of its
+`transitive_visibility`, results in the following error:
+
+```none
+Transitive visibility error: //sensitive_dep:sensitive_dep is not transitively
+visible from ///not_allowed:bad. //sensitive_dep:sensitive_dep inherits a
+transitive_visibility declaration from its package or one of its dependencies
+that does not allow //not_allowed:bad.
+```
+
+Targets inherit the restrictions of all of their dependencies. That is, a target
+must be a member of all of the `transitive_visibility` package groups of its
+dependencies. If a target depends on multiple targets with transitive visibility
+restrictions, it must be a member of *all* of those package groups.
 
 ## Load visibility
 
