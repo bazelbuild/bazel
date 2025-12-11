@@ -189,6 +189,7 @@ public final class Resolver extends NodeVisitor {
 
     // Set by type checking (possibly more than once) if applicable.
     // Null is treated as untyped / Any.
+    // Always null for the function associated with a StarlarkFile object.
     @Nullable private Types.CallableType functionType;
 
     private Function(

@@ -145,6 +145,7 @@ public class TypeResolver extends NodeVisitor {
       }
       if (param instanceof Parameter.StarStar pstarstar) {
         starStar = pstarstar;
+        continue;
       }
       if (star == null) {
         numPositionalParameters++;
@@ -160,13 +161,13 @@ public class TypeResolver extends NodeVisitor {
       }
     }
 
-    StarlarkType varargsType = Types.NONE;
+    StarlarkType varargsType = null;
     if (star != null && star.getIdentifier() != null) {
       Expression typeExpr = star.getType();
       varargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
     }
 
-    StarlarkType kwargsType = Types.NONE;
+    StarlarkType kwargsType = null;
     if (starStar != null) {
       Expression typeExpr = starStar.getType();
       kwargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
@@ -211,6 +212,8 @@ public class TypeResolver extends NodeVisitor {
   public void visit(DefStatement def) {
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
     def.getResolvedFunction().setFunctionType(type);
+
+    super.visit(def);
   }
 
   @Override
@@ -218,6 +221,8 @@ public class TypeResolver extends NodeVisitor {
     Types.CallableType type =
         createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
     lambda.getResolvedFunction().setFunctionType(type);
+
+    super.visit(lambda);
   }
 
   /**
@@ -225,7 +230,7 @@ public class TypeResolver extends NodeVisitor {
    * already been processed by {@link Resolver}), based on the supplied annotations.
    */
   // TODO: #27728 - Also set type information in `Resolver.Binding`s.
-  public static void resolveFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
+  public static void annotateFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
     TypeResolver r = new TypeResolver(file.errors, module);
     r.visit(file);
     if (!r.errors.isEmpty()) {
