@@ -105,7 +105,7 @@ public final class Program {
       throw new SyntaxError.Exception(file.errors());
     }
 
-    TypeResolver.resolveFile(file, env);
+    TypeResolver.annotateFile(file, env);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
