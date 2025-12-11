@@ -1180,7 +1180,7 @@ public final class RemoteModule extends BlazeModule {
     // cached local actions don't need it.
     // TODO(chiwang): Solve this with build/action rewinding instead. The main difficulty is that if
     // no remote options are set, we lack a prefetcher and cannot trigger rewinding.
-    fp.addBoolean(remoteOptions.isRemoteCacheEnabled());
+    fp.addBoolean(remoteOptions != null && remoteOptions.isRemoteCacheEnabled());
 
     // The default exec properties may affect how a spawn is remotely executed without affecting the
     // action key. In practice, only spawns with no execution platform or whose execution platform
