@@ -82,6 +82,9 @@ public final class PlatformUtils {
       if (!executionPlatform.execProperties().isEmpty()) {
         return true;
       }
+      if (!executionPlatform.remoteExecutionProperties().isEmpty()) {
+        return true;
+      }
     }
     if (!spawn.getCombinedExecProperties().isEmpty()) {
       return true;
