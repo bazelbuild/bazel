@@ -366,13 +366,11 @@ message Repository {
   // The canonical name of the repository.
   required string canonical_name = 1;
 
-  // The rule class name (e.g., http_archive).
-  required string rule_class = 2;
+  // The name of the repository rule (e.g., http_archive).
+  required string repo_rule_name = 2;
 
-  // A key uniquely identifying the rule's rule class. Stable between repeated
-  // blaze query invocations (assuming that there are no changes to Starlark
-  // files and the same blaze binary is invoked with the same options).
-  required string rule_class_key = 3;
+  // The canonical label of the bzl file that defined the repository rule.
+  required string repo_rule_bzl_label = 3;
 
   // The apparent name of the repository, as visible to --base_module.
   optional string apparent_name = 4;

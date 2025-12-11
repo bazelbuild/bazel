@@ -538,8 +538,8 @@ class ModCommandTest(test_base.TestBase):
         [
             {
                 'canonicalName': 'bar+',
-                'ruleClass': 'http_archive',
-                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': '@@bazel_tools//tools/build_defs/repo:http.bzl',
                 'apparentName': '@bar_from_foo2',
                 'attribute': [
                     {
@@ -574,15 +574,15 @@ class ModCommandTest(test_base.TestBase):
             },
             {
                 'canonicalName': 'ext+',
-                'ruleClass': 'local_repository',
-                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:local.bzl%local_repository',
+                'repoRuleName': 'local_repository',
+                'repoRuleBzlLabel': '@@bazel_tools//tools/build_defs/repo:local.bzl',
                 'moduleKey': 'ext@1.0',
                 'attribute': [],
             },
             {
                 'canonicalName': 'ext++ext+repo3',
-                'ruleClass': 'data_repo',
-                'ruleClassKey': '@@ext+//:ext.bzl%data_repo',
+                'repoRuleName': 'data_repo',
+                'repoRuleBzlLabel': '@@ext+//:ext.bzl',
                 'apparentName': '@my_repo3',
                 'originalName': 'repo3',
                 'attribute': [
@@ -597,8 +597,8 @@ class ModCommandTest(test_base.TestBase):
             },
             {
                 'canonicalName': 'bar+',
-                'ruleClass': 'http_archive',
-                'ruleClassKey': '@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': '@@bazel_tools//tools/build_defs/repo:http.bzl',
                 'moduleKey': 'bar@2.0',
                 'attribute': [
                     {

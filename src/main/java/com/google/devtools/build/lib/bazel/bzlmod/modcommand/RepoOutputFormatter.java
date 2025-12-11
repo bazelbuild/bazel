@@ -1,3 +1,17 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
@@ -18,6 +32,7 @@ import java.io.PrintWriter;
 import java.util.Map;
 import net.starlark.java.eval.Starlark;
 
+/** Outputs repository definitions for {@code mod show_repo}. */
 public class RepoOutputFormatter {
   private static final JsonFormat.Printer jsonPrinter =
       JsonFormat.printer().omittingInsignificantWhitespace();
@@ -111,8 +126,8 @@ public class RepoOutputFormatter {
 
     Build.Repository.Builder pbBuilder = Build.Repository.newBuilder();
     pbBuilder.setCanonicalName(internalToUnicode(repoDefinition.name()));
-    pbBuilder.setRuleClass(internalToUnicode(repoRule.id().ruleName()));
-    pbBuilder.setRuleClassKey(internalToUnicode(repoRule.id().toString()));
+    pbBuilder.setRepoRuleName(internalToUnicode(repoRule.id().ruleName()));
+    pbBuilder.setRepoRuleBzlLabel(internalToUnicode(repoRule.id().bzlFileLabel().getUnambiguousCanonicalForm()));
 
     // TODO: record and print the call stack for the repo definition itself?
 
