@@ -14,8 +14,6 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
@@ -36,6 +34,4 @@ exported_toplevels = {
 exported_rules = {}
 
 # A list of Starlark functions callable from native rules implementation.
-exported_to_java = {
-    "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
-}
+exported_to_java = {}
