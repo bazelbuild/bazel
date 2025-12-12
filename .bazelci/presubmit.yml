@@ -20,7 +20,6 @@ tasks:
       - "--config=ci-linux"
     test_targets:
       - "//..."
-      - "-//third_party/..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -74,7 +73,6 @@ tasks:
       - "--config=ci-linux"
     test_targets:
       - "//..."
-      - "-//third_party/..."
     include_json_profile:
       - build
       - test
@@ -117,7 +115,6 @@ tasks:
       - "--config=ci-linux"
     test_targets:
       - "//..."
-      - "-//third_party/..."
     include_json_profile:
       - build
       - test
@@ -185,7 +182,6 @@ tasks:
       - "--test_timeout=72,360,1080,4320"
     test_targets:
       - "//..."
-      - "-//third_party/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable some slow tests
