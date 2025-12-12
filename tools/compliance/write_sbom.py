@@ -63,6 +63,7 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
 
   packages = []
   relationships = []
+  missing = []
 
   relationships.append({
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -101,7 +102,7 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
       pi["downloadLocation"] = have_maven["url"]
     else:
       # TODO(aiuto): Do something better for this case.
-      print("MISSING ", pkg)
+      missing.append(pkg)
 
     packages.append(pi)
     relationships.append({
@@ -109,6 +110,18 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
         "relatedSpdxElement": spdxid,
         "relationshipType": "CONTAINS",
     })
+
+  if missing:
+    print(
+        "Missing {count} packages in {target}".format(
+            count=len(missing),
+            target=package_info["top_level_target"],
+        )
+    )
+    for pkg in sorted(missing)[:10]:
+      print("  MISSING ", pkg)
+    if len(missing) > 10:
+      print("  ... and %d more" % (len(missing) - 10))
 
   ret["packages"] = packages
   ret["relationships"] = relationships
