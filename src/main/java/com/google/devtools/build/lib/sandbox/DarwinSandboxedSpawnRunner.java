@@ -54,12 +54,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Path to the {@code getconf} system tool to use. */
-  @VisibleForTesting
-  static String getconfBinary = "/usr/bin/getconf";
+  @VisibleForTesting static String getconfBinary = "/usr/bin/getconf";
 
   /** Path to the {@code sandbox-exec} system tool to use. */
-  @VisibleForTesting
-  static String sandboxExecBinary = "/usr/bin/sandbox-exec";
+  @VisibleForTesting static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static Boolean isSupported = null;
@@ -217,7 +215,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            execRoot,
+            context.getInputMetadataProvider());
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
