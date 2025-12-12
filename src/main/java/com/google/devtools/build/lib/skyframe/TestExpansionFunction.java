@@ -164,9 +164,11 @@ final class TestExpansionFunction implements SkyFunction {
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
     for (PackageIdentifier key : pkgIdentifiers) {
       try {
-        packageMap.put(
-            key,
-            ((PackageValue) packages.getOrThrow(key, NoSuchPackageException.class)).getPackage());
+        var packageValue = (PackageValue) packages.getOrThrow(key, NoSuchPackageException.class);
+        if (packageValue == null) {
+          return false;
+        }
+        packageMap.put(key, packageValue.getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;
