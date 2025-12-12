@@ -108,8 +108,7 @@ public final class Bazel {
           new com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
-          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
-          new com.google.devtools.build.lib.unix.ProcessUtilsServiceImpl());
+          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());

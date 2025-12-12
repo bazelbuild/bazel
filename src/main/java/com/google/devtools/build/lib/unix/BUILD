@@ -5,11 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-PROCESS_UTILS_SRCS = [
-    "ProcessUtilsService.java",
-    "ProcessUtilsServiceImpl.java",
-]
-
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
@@ -20,7 +15,7 @@ java_library(
     name = "unix",
     srcs = glob(
         ["*.java"],
-        exclude = PROCESS_UTILS_SRCS + ["ProcMeminfoParser.java"],
+        exclude = ["ProcMeminfoParser.java"],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -41,22 +36,4 @@ java_library(
     name = "procmeminfo_parser",
     srcs = ["ProcMeminfoParser.java"],
     deps = ["//third_party:guava"],
-)
-
-java_library(
-    name = "process_utils_service",
-    srcs = ["ProcessUtilsService.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
-    ],
-)
-
-java_library(
-    name = "process_utils_service_impl",
-    srcs = ["ProcessUtilsServiceImpl.java"],
-    deps = [
-        ":process_utils_service",
-        "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-    ],
 )

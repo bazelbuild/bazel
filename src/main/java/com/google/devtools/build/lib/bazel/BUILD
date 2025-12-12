@@ -201,7 +201,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
-        "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service_impl",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//third_party:guava",
     ],

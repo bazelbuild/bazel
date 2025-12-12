@@ -1,4 +1,4 @@
-// Copyright 2025 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,49 +14,29 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.util.OS;
 
-/** Various utilities related to UNIX processes. */
-public final class ProcessUtilsServiceImpl implements ProcessUtilsService {
-
-  @Override
-  public void globalInit() {
-    ProcessUtilsService.registerJniService(this);
-  }
+/**
+ * Various utilities related to UNIX processes.
+ */
+public final class ProcessUtils {
 
   static {
     JniLoader.loadJni();
   }
 
-  public ProcessUtilsServiceImpl() {}
-
-  @Override
-  public int getgid() {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      throw new UnsupportedOperationException();
-    }
-    return getgidNative();
-  }
-
-  @Override
-  public int getuid() {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      throw new UnsupportedOperationException();
-    }
-    return getuidNative();
-  }
+  private ProcessUtils() {}
 
   /**
    * Native wrapper around POSIX getgid(2).
    *
    * @return the real group ID of the current process.
    */
-  private native int getgidNative();
+  public static native int getgid();
 
   /**
    * Native wrapper around POSIX getuid(2).
    *
    * @return the real user ID of the current process.
    */
-  private native int getuidNative();
+  public static native int getuid();
 }

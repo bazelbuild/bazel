@@ -17,23 +17,21 @@
 #include <unistd.h>
 
 /*
- * Class:     com.google.devtools.build.lib.unix.ProcessUtilsServiceImpl
+ * Class:     com.google.devtools.build.lib.unix.ProcessUtils
  * Method:    getgid
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_ProcessUtilsServiceImpl_getgidNative(
-    JNIEnv* env, jobject local_object) {
+Java_com_google_devtools_build_lib_unix_ProcessUtils_getgid(JNIEnv *env, jclass clazz) {
   return getgid();
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.ProcessUtilsServiceImpl
+ * Class:     com.google.devtools.build.lib.unix.ProcessUtils
  * Method:    getuid
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_ProcessUtilsServiceImpl_getuidNative(
-    JNIEnv* env, jobject local_object) {
+Java_com_google_devtools_build_lib_unix_ProcessUtils_getuid(JNIEnv *env, jclass clazz) {
   return getuid();
 }

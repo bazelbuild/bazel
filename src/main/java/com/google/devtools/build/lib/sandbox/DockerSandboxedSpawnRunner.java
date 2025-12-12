@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.unix.ProcessUtilsService;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -93,18 +93,17 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // create files as 'root' and we can't move them to the execRoot.
     if (OS.getCurrent() == OS.LINUX) {
       try {
-        var unused = ProcessUtilsService.getService().getuid();
-        unused = ProcessUtilsService.getService().getgid();
+        ProcessUtils.getuid();
+        ProcessUtils.getgid();
       } catch (UnsatisfiedLinkError e) {
         if (verbose) {
           cmdEnv
               .getReporter()
               .handle(
                   Event.error(
-                      "Docker sandboxing is disabled, because"
-                          + " ProcessUtilsService.getService().getuid/getgid threw an"
-                          + " UnsatisfiedLinkError. This means that you're running a Bazel version"
-                          + " that doesn't have JNI libraries - did you build it correctly?\n"
+                      "Docker sandboxing is disabled, because ProcessUtils.getuid/getgid threw an "
+                          + "UnsatisfiedLinkError. This means that you're running a Bazel version "
+                          + "that doesn't have JNI libraries - did you build it correctly?\n"
                           + Throwables.getStackTraceAsString(e)));
         }
         return false;
@@ -187,8 +186,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
-      this.uid = ProcessUtilsService.getService().getuid();
-      this.gid = ProcessUtilsService.getService().getgid();
+      this.uid = ProcessUtils.getuid();
+      this.gid = ProcessUtils.getgid();
     } else {
       this.uid = -1;
       this.gid = -1;
