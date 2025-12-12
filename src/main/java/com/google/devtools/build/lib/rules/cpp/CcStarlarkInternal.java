@@ -25,6 +25,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTemplateContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -578,7 +580,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       name = "create_cc_compile_action",
       documented = false,
       parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(
+            name = "action_construction_context",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = StarlarkRuleContext.class),
+              @ParamType(type = StarlarkTemplateContext.class)
+            }),
         @Param(name = "cc_compilation_context", positional = false, named = true),
         @Param(name = "cc_toolchain", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
@@ -636,6 +645,15 @@ public class CcStarlarkInternal implements StarlarkValue {
             },
             defaultValue = "None"),
         @Param(
+            name = "additional_prunable_headers",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = Artifact.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+        @Param(
             name = "action_name",
             positional = false,
             named = true,
@@ -665,7 +683,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "toolchain_type", positional = false, named = true),
       })
   public void createCppCompileAction(
-      StarlarkRuleContext starlarkRuleContext,
+      Object actionConstructionContextUnchecked,
       StarlarkInfo ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
@@ -685,6 +703,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       CcToolchainVariables compileBuildVariables,
       Object cacheKeyInputs,
       Object buildInfoHeaderArtifacts,
+      Object additionalPrunableHeaders,
       Object actionName,
       Object shouldScanIncludes,
       Object shareable,
@@ -695,13 +714,23 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean needsIncludeValidation,
       String toolchainType)
       throws EvalException, TypeException {
+    CcActionContext ccActionContext;
+    if (actionConstructionContextUnchecked instanceof StarlarkRuleContext starlarkRuleContext) {
+      ccActionContext = new CcRuleContext(starlarkRuleContext.getRuleContext(), toolchainType);
+    } else if (actionConstructionContextUnchecked
+        instanceof StarlarkTemplateContext starlarkTemplateContext) {
+      ccActionContext = new CcTemplateContext(starlarkTemplateContext);
+    } else {
+      throw new EvalException(
+          "action_construction_context must be either StarlarkRuleContext or"
+              + " StarlarkTemplateContext");
+    }
     CoptsFilter coptsFilter =
         createCoptsFilter(
             Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
-            starlarkRuleContext,
-            toolchainType,
+            ccActionContext.getActionOwner(),
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
@@ -717,7 +746,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             dwoFile,
             ltoIndexingFile,
             usePic,
-            needsIncludeValidation);
+            needsIncludeValidation,
+            ccActionContext.getExecutionInfo());
     if (additionalCompilationInputsSet instanceof Depset additionalCompilationInputsDepset) {
       builder.addMandatoryInputs(additionalCompilationInputsDepset.getSet(Artifact.class));
     }
@@ -739,6 +769,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (shareable instanceof Boolean bool) {
       builder.setShareable(bool);
     }
+    if (additionalPrunableHeaders instanceof Depset additionalPrunableHeadersDepset) {
+      builder.setAdditionalPrunableHeaders(additionalPrunableHeadersDepset.getSet(Artifact.class));
+    }
     builder.setModuleFiles(Depset.noneableCast(moduleFiles, Artifact.class, "module_files"));
     builder.setModmapFile(nullIfNone(modmapFile, Artifact.class));
     builder.setModmapInputFile(nullIfNone(modmapInputFile, Artifact.class));
@@ -746,12 +779,76 @@ public class CcStarlarkInternal implements StarlarkValue {
         Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs").getImmutableList());
     try {
       CppCompileAction compileAction = builder.buildAndVerify();
-      starlarkRuleContext.getRuleContext().registerAction(compileAction);
+      ccActionContext.registerAction(compileAction);
     } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
       throw new EvalException(
           String.format(
               "Expected action_config for '%s' to be configured", builder.getActionName()),
           e);
+    }
+  }
+
+  // CcActionContext encapsulates the differences between using a RuleContext (the regular case) vs.
+  // a StarlarkTemplateContext (invoked inside map_directory()) when creating a CppCompileAction.
+  private interface CcActionContext {
+    void registerAction(CppCompileAction action);
+
+    ActionOwner getActionOwner();
+
+    ImmutableMap<String, String> getExecutionInfo();
+  }
+
+  private static class CcRuleContext implements CcActionContext {
+    private final RuleContext ruleContext;
+    private final String toolchainType;
+
+    private CcRuleContext(RuleContext ruleContext, String toolchainType) {
+      this.ruleContext = ruleContext;
+      this.toolchainType = toolchainType;
+    }
+
+    @Override
+    public void registerAction(CppCompileAction action) {
+      ruleContext.registerAction(action);
+    }
+
+    @Override
+    public ActionOwner getActionOwner() {
+      ActionOwner actionOwner = null;
+      if (ruleContext.useAutoExecGroups()) {
+        actionOwner =
+            ruleContext.getActionOwner(Label.parseCanonicalUnchecked(toolchainType).toString());
+      }
+      return actionOwner == null ? ruleContext.getActionOwner() : actionOwner;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getExecutionInfo() {
+      return TargetUtils.getExecutionInfo(
+          ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+    }
+  }
+
+  private static class CcTemplateContext implements CcActionContext {
+    private final StarlarkTemplateContext starlarkTemplateContext;
+
+    private CcTemplateContext(StarlarkTemplateContext starlarkTemplateContext) {
+      this.starlarkTemplateContext = starlarkTemplateContext;
+    }
+
+    @Override
+    public void registerAction(CppCompileAction action) {
+      starlarkTemplateContext.registerAction(action);
+    }
+
+    @Override
+    public ActionOwner getActionOwner() {
+      return starlarkTemplateContext.getActionOwner();
+    }
+
+    @Override
+    public ImmutableMap<String, String> getExecutionInfo() {
+      return starlarkTemplateContext.getExecutionInfo();
     }
   }
 
@@ -848,10 +945,15 @@ public class CcStarlarkInternal implements StarlarkValue {
                 outputCategoryObject));
       }
     }
+    ActionOwner owner =
+        CppCompileActionBuilder.getActionOwner(starlarkRuleContext.getRuleContext(), toolchainType);
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getExecutionInfo(
+            starlarkRuleContext.getRuleContext().getRule(),
+            starlarkRuleContext.getRuleContext().isAllowTagsPropagation());
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
-            starlarkRuleContext,
-            toolchainType,
+            owner,
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
@@ -867,7 +969,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             usePic,
-            needsIncludeValidation);
+            needsIncludeValidation,
+            executionInfo);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     SpecialArtifact sourceArtifact = (SpecialArtifact) source;
     builder.setVariables(compileBuildVariables);
@@ -890,8 +993,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   private static CppCompileActionBuilder createCppCompileActionBuilder(
-      StarlarkRuleContext starlarkRuleContext,
-      String toolchainType,
+      ActionOwner owner,
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
@@ -907,22 +1009,16 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dwoFile,
       Object ltoIndexingFile,
       boolean usePic,
-      boolean needsIncludeValidation)
+      boolean needsIncludeValidation,
+      ImmutableMap<String, String> executionInfo)
       throws EvalException {
     CppCompileActionBuilder builder =
-        new CppCompileActionBuilder(
-                starlarkRuleContext.getRuleContext(),
-                CcToolchainProvider.create(ccToolchain),
-                configuration,
-                toolchainType)
+        new CppCompileActionBuilder(owner, CcToolchainProvider.create(ccToolchain), configuration)
             .setSourceFile(sourceArtifact)
             .setCcCompilationContext(ccCompilationContext)
             .setCoptsFilter(coptsFilter)
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
-            .addExecutionInfo(
-                TargetUtils.getExecutionInfo(
-                    starlarkRuleContext.getRuleContext().getRule(),
-                    starlarkRuleContext.getRuleContext().isAllowTagsPropagation()));
+            .addExecutionInfo(executionInfo);
     if (additionalCompilationInputs.size() > 0) {
       builder.addMandatoryInputs(
           Sequence.cast(
