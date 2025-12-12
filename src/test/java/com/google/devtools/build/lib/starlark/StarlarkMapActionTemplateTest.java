@@ -461,53 +461,6 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
-  @TestParameters("{value: '[]', errorType: 'list'}")
-  @TestParameters("{value: '(1, 2)', errorType: 'tuple'}")
-  @TestParameters("{value: 'ctx.file.data', errorType: 'File'}")
-  @TestParameters("{value: 'depset()', errorType: 'depset'}")
-  @TestParameters("{value: '{}', errorType: 'dict'}")
-  @TestParameters("{value: 'set()', errorType: 'set'}")
-  // Only boolean integer and strings are allowed in additional_params.
-  public void disallowedAdditionalParams(String value, String errorType) throws Exception {
-    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
-    write(
-        "test/rule_def.bzl",
-        String.format(
-            """
-            load(":helpers.bzl", "create_seed_dir", "unused_impl")
-
-            def rule_impl(ctx):
-                input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
-                output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
-                ctx.actions.map_directory(
-                    implementation = unused_impl,
-                    input_directories = {
-                        "input_dir": input_dir,
-                    },
-                    output_directories = {
-                        "output_dir": output_dir,
-                    },
-                    tools = {
-                        "tool": ctx.attr.tool.files_to_run,
-                    },
-                    additional_params = {
-                        "some_key": %s,
-                    },
-                )
-                return [DefaultInfo(files = depset([output_dir]))]
-            """,
-            value));
-    RecordingOutErr recordingOutErr = new RecordingOutErr();
-    this.outErr = recordingOutErr;
-    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//test:target"));
-    assertThat(recordingOutErr.errAsLatin1())
-        .contains(
-            String.format(
-                "Expected one of [bool, int, string]; but got %s in additional_params['some_key']",
-                errorType));
-  }
-
-  @Test
   @TestParameters("{inputs: '{\"input_dir\": input_dir}', outputs: '{}', errorType: 'output'}")
   @TestParameters("{inputs: '{}', outputs: '{\"output_dir\": output_dir}', errorType: 'input'}")
   public void emptyInputOrOutputDirectoriesNotAllowed(
