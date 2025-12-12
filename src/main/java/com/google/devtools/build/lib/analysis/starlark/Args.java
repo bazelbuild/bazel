@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -313,6 +314,13 @@ public abstract class Args implements CommandLineArgsApi {
         throw Starlark.errorf(
             "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
                 + " Args.add_joined() instead.");
+      }
+      if (value instanceof ConfiguredTarget target) {
+        // When including target labels in command lines, use the label as specified by the user,
+        // not the fully resolved label in case of aliases. This ensures that e.g. buildozer fixup
+        // commands work as expected while not exposing the fact that a target is an alias to the
+        // rule implementation.
+        value = target.getOriginalLabel();
       }
       if (value instanceof Label label && !label.getRepository().isMain()) {
         mayStringifyExternalLabel = true;
