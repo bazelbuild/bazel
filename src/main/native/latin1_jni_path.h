@@ -29,7 +29,9 @@ jstring NewStringLatin1(JNIEnv* env, const char* str);
 // Any non-Latin1 characters are replaced with '?'.
 class JStringLatin1Holder {
  public:
-  // Constructs a JStringLatin1Holder.
+  // Constructs a JStringLatin1Holder for a Java String.
+  // If the Java String is null, a NullPointerException is thrown.
+  // Other errors might be thrown, e.g. OutOfMemoryError.
   // Callers must check env->ExceptionOccurred() before using this object.
   JStringLatin1Holder(JNIEnv* env, jstring string);
 

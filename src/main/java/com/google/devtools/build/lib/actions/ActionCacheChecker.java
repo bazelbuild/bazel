@@ -183,7 +183,7 @@ public class ActionCacheChecker {
    *     outputMetadataStore}.
    * @param outputChecker used to check whether remote metadata should be trusted.
    * @param effectiveEnvironment the effective client environment for the action.
-   * @param effectiveExecProperties the effective exec properties for the action.
+   * @param actionExecutionSalt the action execution salt
    * @param outputPermissions the requested output permissions
    * @param useArchivedTreeArtifacts whether archived tree artifacts are enabled.
    * @return whether the action cache entry is valid.
@@ -199,7 +199,7 @@ public class ActionCacheChecker {
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       ImmutableMap<String, String> effectiveEnvironment,
-      ImmutableMap<String, String> effectiveExecProperties,
+      String actionExecutionSalt,
       OutputPermissions outputPermissions,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -208,7 +208,7 @@ public class ActionCacheChecker {
             actionKey,
             action.discoversInputs(),
             effectiveEnvironment,
-            effectiveExecProperties,
+            actionExecutionSalt,
             outputPermissions,
             useArchivedTreeArtifacts,
             mandatoryInputsDigest);
@@ -288,13 +288,6 @@ public class ActionCacheChecker {
 
   private boolean unconditionalExecution(Action action) {
     return !isActionExecutionProhibited(action) && action.executeUnconditionally();
-  }
-
-  private static ImmutableMap<String, String> computeEffectiveExecProperties(
-      Action action, ImmutableMap<String, String> defaultExecProperties) {
-    return action.getExecProperties().isEmpty()
-        ? defaultExecProperties
-        : action.getExecProperties();
   }
 
   private static ImmutableMap<String, String> computeEffectiveEnvironment(
@@ -467,7 +460,7 @@ public class ActionCacheChecker {
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<String, String> remoteDefaultExecProperties,
+      String actionExecutionSalt,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -517,7 +510,7 @@ public class ActionCacheChecker {
         actionInputs,
         clientEnv,
         outputPermissions,
-        remoteDefaultExecProperties,
+        actionExecutionSalt,
         mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
@@ -551,7 +544,7 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
-      ImmutableMap<String, String> remoteDefaultExecProperties,
+      String actionExecutionSalt,
       @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
@@ -582,8 +575,6 @@ public class ActionCacheChecker {
 
     ImmutableMap<String, String> effectiveEnvironment =
         computeEffectiveEnvironment(action, clientEnv);
-    ImmutableMap<String, String> effectiveExecProperties =
-        computeEffectiveExecProperties(action, remoteDefaultExecProperties);
 
     if (!isUpToDate(
         entry,
@@ -596,7 +587,7 @@ public class ActionCacheChecker {
         cachedOutputMetadata,
         outputChecker,
         effectiveEnvironment,
-        effectiveExecProperties,
+        actionExecutionSalt,
         outputPermissions,
         useArchivedTreeArtifacts)) {
       reportDigestMismatch(handler, action);
@@ -670,7 +661,7 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
-      ImmutableMap<String, String> remoteDefaultExecProperties,
+      String actionExecutionSalt,
       boolean useArchivedTreeArtifacts,
       @Nullable byte[] mandatoryInputsDigest)
       throws IOException, InterruptedException {
@@ -683,8 +674,6 @@ public class ActionCacheChecker {
     }
     ImmutableMap<String, String> effectiveEnvironment =
         computeEffectiveEnvironment(action, clientEnv);
-    ImmutableMap<String, String> effectiveExecProperties =
-        computeEffectiveExecProperties(action, remoteDefaultExecProperties);
 
     // We may already have the action key stored in the token if there was a previous (but out of
     // date) cache entry for this action. If not, there's no need to store the action key in the
@@ -699,7 +688,7 @@ public class ActionCacheChecker {
             actionKey,
             action.discoversInputs(),
             effectiveEnvironment,
-            effectiveExecProperties,
+            actionExecutionSalt,
             outputPermissions,
             useArchivedTreeArtifacts,
             mandatoryInputsDigest);
@@ -832,7 +821,7 @@ public class ActionCacheChecker {
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<String, String> remoteDefaultExecProperties,
+      String actionExecutionSalt,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -848,7 +837,7 @@ public class ActionCacheChecker {
         handler,
         inputMetadataProvider,
         outputMetadataStore,
-        remoteDefaultExecProperties,
+        actionExecutionSalt,
         outputChecker,
         useArchivedTreeArtifacts);
   }
