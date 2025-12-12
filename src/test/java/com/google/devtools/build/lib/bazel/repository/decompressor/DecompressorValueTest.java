@@ -15,20 +15,29 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.runfiles.Runfiles;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link DecompressorValue}.
- */
+/** Tests for {@link DecompressorValue}. */
 @RunWith(JUnit4.class)
 public class DecompressorValueTest {
 
@@ -87,4 +96,69 @@ public class DecompressorValueTest {
     assertThat(expected).hasMessageThat().contains("Expected a file with a .zip, .jar,");
   }
 
+  @Test
+  public void httpBzlDocumentation() throws IOException {
+    // This test is specific to the Bazel runfiles structure and the open-source http.bzl.
+    // Skip this test when running under Google's internal Blaze.
+    assumeFalse(
+        "Skipping httpBzlDocumentation test in Blaze environment.", PRODUCT_NAME.equals("blaze"));
+
+    String filePath = Runfiles.create().rlocation("_main/tools/build_defs/repo/http.bzl");
+    String contents = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
+
+    // Find where the archive formats variable is initialized and parse out.
+    int startVarNameIndex = contents.indexOf("SUPPORTED_ARCHIVE_FORMATS =");
+    int startBracket = contents.indexOf("[", startVarNameIndex);
+    int endBracket = contents.indexOf("]", startBracket);
+    String formats = contents.substring(startBracket + 1, endBracket);
+    List<String> observedExtensions =
+        Arrays.stream(formats.split(","))
+            .map(String::strip)
+            .filter(s -> s.contains("\""))
+            .map(s -> s.substring(1, s.length() - 1))
+            .toList();
+
+    ImmutableList<String> expectedExtensions =
+        DecompressorValue.allSupportedExtensions(/* prefix= */ "", /* suffix= */ "");
+    if (!expectedExtensions.equals(observedExtensions)) {
+      String copyPasteCode =
+          "SUPPORTED_ARCHIVE_FORMATS = [\n"
+              + String.join(
+                  "\n",
+                  DecompressorValue.allSupportedExtensions(
+                      /* prefix= */ "    \"", /* suffix= */ "\","))
+              + "\n]";
+
+      fail(
+          String.format(
+              """
+              Supported archive formats list is out-dated.
+
+              Expected:
+              \t%1$s
+              Got:
+              \t%2$s
+
+              Copy-paste string to replace in http.bzl:
+
+              %3$s
+              """,
+              expectedExtensions, observedExtensions, copyPasteCode));
+    }
+  }
+
+  @Test
+  public void getDecompressorByType() throws Exception {
+    DecompressorValue.Decompressor decompressor = DecompressorValue.getDecompressor("zip");
+    assertThat(decompressor).isInstanceOf(ZipDecompressor.class);
+
+    decompressor = DecompressorValue.getDecompressor("deb");
+    assertThat(decompressor).isInstanceOf(ArFunction.class);
+
+    RepositoryFunctionException expected =
+        assertThrows(
+            RepositoryFunctionException.class, () -> DecompressorValue.getDecompressor("baz"));
+    assertThat(expected).hasMessageThat().contains("No decompressor found for type baz");
+    assertThat(expected).hasMessageThat().contains("Available types are: zip, jar");
+  }
 }

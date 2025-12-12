@@ -26,7 +26,11 @@ import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 
-/** A visitor for annotating a resolved file with type information. */
+/**
+ * A visitor for annotating a resolved file with type information.
+ *
+ * <p>This populates the function type on the {@link Resolver.Function} objects in the AST.
+ */
 public class TypeResolver extends NodeVisitor {
 
   // TODO: #27728 - Will be used when we support non-universal type symbols.
@@ -92,6 +96,9 @@ public class TypeResolver extends NodeVisitor {
       case IDENTIFIER:
         Identifier id = (Identifier) expr;
         // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
+        // TODO: #27728 - Don't lookup in the type universe based on the identifier's name. Instead,
+        // retrieve it from the Module using the Binding in the Identifier. I.e., make type
+        // resolution build upon symbol resolution.
         Object result = Types.TYPE_UNIVERSE.get(id.getName());
         if (result == null) {
           // TODO(ilist@): include possible candidates in the error message
@@ -138,6 +145,7 @@ public class TypeResolver extends NodeVisitor {
       }
       if (param instanceof Parameter.StarStar pstarstar) {
         starStar = pstarstar;
+        continue;
       }
       if (star == null) {
         numPositionalParameters++;
@@ -153,13 +161,13 @@ public class TypeResolver extends NodeVisitor {
       }
     }
 
-    StarlarkType varargsType = Types.NONE;
+    StarlarkType varargsType = null;
     if (star != null && star.getIdentifier() != null) {
       Expression typeExpr = star.getType();
       varargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
     }
 
-    StarlarkType kwargsType = Types.NONE;
+    StarlarkType kwargsType = null;
     if (starStar != null) {
       Expression typeExpr = starStar.getType();
       kwargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
@@ -181,32 +189,6 @@ public class TypeResolver extends NodeVisitor {
         returnType);
   }
 
-  @Override
-  public void visit(DefStatement def) {
-    Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
-    def.getResolvedFunction().setFunctionType(type);
-  }
-
-  @Override
-  public void visit(LambdaExpression lambda) {
-    Types.CallableType type =
-        createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
-    lambda.getResolvedFunction().setFunctionType(type);
-  }
-
-  /**
-   * Sets the Starlark types of the {@link Resolver.Function}s in the given AST (which must have
-   * already been processed by {@link Resolver}), based on the supplied annotations.
-   */
-  // TODO: #27728 - Also set type information in `Resolver.Binding`s.
-  public static void resolveFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
-    TypeResolver r = new TypeResolver(file.errors, module);
-    r.visit(file);
-    if (!r.errors.isEmpty()) {
-      throw new SyntaxError.Exception(r.errors);
-    }
-  }
-
   /**
    * Resolves a type expression to a {@link StarlarkType}.
    *
@@ -224,5 +206,35 @@ public class TypeResolver extends NodeVisitor {
       throw new SyntaxError.Exception(r.errors);
     }
     return result;
+  }
+
+  @Override
+  public void visit(DefStatement def) {
+    Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
+    def.getResolvedFunction().setFunctionType(type);
+
+    super.visit(def);
+  }
+
+  @Override
+  public void visit(LambdaExpression lambda) {
+    Types.CallableType type =
+        createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
+    lambda.getResolvedFunction().setFunctionType(type);
+
+    super.visit(lambda);
+  }
+
+  /**
+   * Sets the Starlark types of the {@link Resolver.Function}s in the given AST (which must have
+   * already been processed by {@link Resolver}), based on the supplied annotations.
+   */
+  // TODO: #27728 - Also set type information in `Resolver.Binding`s.
+  public static void annotateFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
+    TypeResolver r = new TypeResolver(file.errors, module);
+    r.visit(file);
+    if (!r.errors.isEmpty()) {
+      throw new SyntaxError.Exception(r.errors);
+    }
   }
 }

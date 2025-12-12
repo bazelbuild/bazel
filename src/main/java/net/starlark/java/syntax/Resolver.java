@@ -189,6 +189,7 @@ public final class Resolver extends NodeVisitor {
 
     // Set by type checking (possibly more than once) if applicable.
     // Null is treated as untyped / Any.
+    // Always null for the function associated with a StarlarkFile object.
     @Nullable private Types.CallableType functionType;
 
     private Function(
@@ -600,7 +601,15 @@ public final class Resolver extends NodeVisitor {
         }
         break;
       case TYPE_ALIAS:
-      // TODO(brandjon): create a type-valence binding for the alias
+        if (options.resolveTypeSyntax()) {
+          TypeAliasStatement typeStmt = (TypeAliasStatement) stmt;
+          bind(
+              typeStmt.getIdentifier(),
+              /* isLoad= */ false,
+              /* hasType= */ false,
+              /* docComments= */ null);
+        }
+        break;
       case EXPRESSION:
       case FLOW:
       case RETURN:
@@ -619,10 +628,16 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /**
+   * Extends the visit() traversal to the lhs of an assignment or for loop.
+   *
+   * <p>In particular, this sets bindings on identifiers appearing in read context, and asserts that
+   * bindings are already set on identifiers appearing in write context.
+   */
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
-      // Bindings are created by the first pass (createBindings),
-      // so there's nothing to do here.
+      // Bindings are created by the first pass (createBindings).
+      assertIsBound((Identifier) lhs);
     } else if (lhs instanceof IndexExpression) {
       visit(lhs);
     } else if (lhs instanceof ListExpression) {
@@ -637,8 +652,23 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  private void assertIsBound(Identifier id) {
+    Preconditions.checkState(id.getBinding() != null, "%s expected to be bound", id.getName());
+  }
+
+  private void assertIsNotBound(Identifier id) {
+    if (id.getBinding() != null) {
+      throw new IllegalStateException(
+          String.format("%s expected to not be bound", id.getBinding()));
+    }
+  }
+
   @Override
   public void visit(Identifier id) {
+    // The visit() traversal should not reach any Identifier node more than once.
+    // It also should not reach any binding occurrence of an Identifier at all -- those are set by
+    // the first pass.
+    assertIsNotBound(id);
     Binding bind = use(id);
     if (bind != null) {
       id.setBinding(bind);
@@ -773,6 +803,7 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(DefStatement node) {
+    assertIsBound(node.getIdentifier());
     // resolveFunction() recurses into the body.
     node.setResolvedFunction(
         resolveFunction(
@@ -780,6 +811,7 @@ public final class Resolver extends NodeVisitor {
             node.getIdentifier().getName(),
             node.getIdentifier().getStartLocation(),
             node.getParameters(),
+            node.getReturnType(),
             node.getBody()));
   }
 
@@ -792,6 +824,7 @@ public final class Resolver extends NodeVisitor {
             "lambda",
             expr.getStartLocation(),
             expr.getParameters(),
+            /* returnType= */ null,
             ImmutableList.of(ReturnStatement.make(expr.getBody()))));
   }
 
@@ -818,20 +851,25 @@ public final class Resolver extends NodeVisitor {
           "cannot perform augmented assignment on a list or tuple expression");
     }
 
-    // TODO: #27728 - Visit type annotation, if present.
-
+    if (node.getType() != null && options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
     assign(node.getLHS());
   }
 
   @Override
   public void visit(VarStatement node) {
-    // TODO: #27728 - Visit type annotation; delete this override.
-    assign(node.getIdentifier());
+    assertIsBound(node.getIdentifier());
+    if (options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
   }
 
   @Override
   public void visit(CastExpression node) {
-    // TODO: #27728 - Visit type annotation; delete this override.
+    if (options.resolveTypeSyntax()) {
+      visit(node.getType());
+    }
     visit(node.getValue());
   }
 
@@ -850,8 +888,10 @@ public final class Resolver extends NodeVisitor {
       errorf(node, "type alias statement not at top level");
     }
 
-    // TODO: #27728 - Visit type annotation.
-    // No visitation of children at the moment.
+    if (options.resolveTypeSyntax()) {
+      assertIsBound(node.getIdentifier());
+      visit(node.getDefinition());
+    }
 
     // TODO: #27370 - Bind the generic type params (`type Foo[S, T] = ...`). Will require creating
     // a new block for the RHS, since the type params don't leak outside the statement. (This
@@ -959,13 +999,21 @@ public final class Resolver extends NodeVisitor {
       String name,
       Location loc,
       ImmutableList<Parameter> parameters,
+      @Nullable Expression returnType,
       ImmutableList<Statement> body) {
 
-    // Resolve defaults in enclosing environment.
+    // Resolve parameter types and default initializer exprs in enclosing environment.
     for (Parameter param : parameters) {
       if (param instanceof Parameter.Optional) {
         visit(param.getDefaultValue());
       }
+      if (param.getType() != null && options.resolveTypeSyntax()) {
+        visit(param.getType());
+      }
+    }
+    // Resolve return type in enclosing environment.
+    if (returnType != null && options.resolveTypeSyntax()) {
+      visit(returnType);
     }
 
     // Enter function block.
@@ -973,9 +1021,9 @@ public final class Resolver extends NodeVisitor {
     ArrayList<Binding> freevars = new ArrayList<>();
     pushLocalBlock(syntax, frame, freevars);
 
-    // TODO: #27728 - Visit generic type variables.
-    // TODO: #27728 - Visit type annotations of parameters and the return type annotation, prior to
-    // binding any of said parameters in the function block.
+    // TODO: #27728 - When we handle generic type variables, they should be bound in a new outer
+    // block that sits between the enclosing environment and this one. Type annotations and default
+    // expressions are evaluated inside that block.
 
     // Check parameter order and convert to run-time order:
     // positionals, keyword-only, *args, **kwargs.

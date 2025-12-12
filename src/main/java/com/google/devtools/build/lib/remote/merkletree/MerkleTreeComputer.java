@@ -20,7 +20,6 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.submitAsync;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
@@ -43,6 +42,8 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.AsyncCallable;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -87,13 +89,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -174,8 +175,8 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final ConcurrentHashMap<InFlightCacheKey, ListenableFuture<MerkleTree.RootOnly>>
-      inFlightSubTreeCache = new ConcurrentHashMap<>();
+  private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
+      new TaskDeduplicator<>();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -282,7 +283,6 @@ public final class MerkleTreeComputer {
         if (!Objects.equals(scrubber, lastScrubber)) {
           persistentToolSubTreeCache.invalidateAll();
           persistentNonToolSubTreeCache.invalidateAll();
-          inFlightSubTreeCache.clear();
           lastScrubber = scrubber;
         }
       }
@@ -850,99 +850,88 @@ public final class MerkleTreeComputer {
         return immediateFuture(cachedRoot);
       }
     }
-    var inFlightCacheKey = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
+    var key = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
+    AsyncCallable<MerkleTree.RootOnly> buildMerkleTreeTask =
+        () -> {
+          // There is a window in which a concurrent call may have removed the in-flight cache entry
+          // while this one had already passed the check above. Recheck the persistent cache to
+          // avoid unnecessary work.
+          var cachedRoot = persistentCache.getIfPresent(metadata);
+          if (cachedRoot != null
+              && (blobPolicy == BlobPolicy.DISCARD
+                  || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
+            return immediateFuture(cachedRoot);
+          }
+          // An ongoing computation with blobs can be reused for one that doesn't require them.
+          if (blobPolicy == BlobPolicy.DISCARD) {
+            var inFlightComputation =
+                inFlightComputations.maybeJoinExecution(
+                    new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
+            if (inFlightComputation != null) {
+              return inFlightComputation;
+            }
+          }
+          ListenableFuture<MerkleTree> merkleTreeFuture;
+          try {
+            // Subtrees either consist entirely of tool inputs or don't contain any. The same
+            // applies to scrubbed inputs.
+            merkleTreeFuture =
+                build(
+                    sortedInputsSupplier.compute(),
+                    isTool ? alwaysTrue() : alwaysFalse(),
+                    /* spawnScrubber= */ null,
+                    metadataProvider,
+                    artifactPathResolver,
+                    remoteActionExecutionContext,
+                    remotePathResolver,
+                    blobPolicy);
+          } catch (IOException e) {
+            throw new WrappedException(e);
+          } catch (InterruptedException e) {
+            throw new WrappedException(e);
+          }
+          return transform(
+              merkleTreeFuture,
+              merkleTree -> {
+                if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
+                  try {
+                    if (merkleTreeUploader != null) {
+                      merkleTreeUploader.ensureInputsPresent(
+                          remoteActionExecutionContext,
+                          uploadable,
+                          blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
+                          remotePathResolver);
+                    }
+                  } catch (IOException e) {
+                    throw new WrappedException(e);
+                  } catch (InterruptedException e) {
+                    throw new WrappedException(e);
+                  }
+                }
+                // Move the computed root to the persistent cache so that it can be reused by later
+                // builds.
+                persistentCache
+                    .asMap()
+                    .compute(
+                        metadata,
+                        (unused, oldRoot) -> {
+                          // Don't downgrade the cached root from one indicating that its blobs have
+                          // been uploaded.
+                          return oldRoot instanceof MerkleTree.RootOnly.BlobsUploaded
+                              ? oldRoot
+                              : merkleTree.root();
+                        });
+                return merkleTree.root();
+              },
+              MERKLE_TREE_UPLOAD_POOL);
+        };
+    Supplier<ListenableFuture<MerkleTree.RootOnly>> buildMerkleTreeTaskSupplier =
+        () -> Futures.submitAsync(buildMerkleTreeTask, MERKLE_TREE_BUILD_POOL);
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      inFlightSubTreeCache.remove(inFlightCacheKey);
+      return inFlightComputations.executeUnconditionally(key, buildMerkleTreeTaskSupplier);
+    } else {
+      return inFlightComputations.executeIfNew(key, buildMerkleTreeTaskSupplier);
     }
-    var newlyComputed = new AtomicBoolean();
-    var future =
-        inFlightSubTreeCache.computeIfAbsent(
-            inFlightCacheKey,
-            unusedKey -> {
-              newlyComputed.set(true);
-              return submitAsync(
-                  () -> {
-                    // There is a window in which a concurrent call may have removed the in-flight
-                    // cache entry while this one had already passed the check above. Recheck the
-                    // persistent cache to avoid unnecessary work.
-                    var cachedRoot = persistentCache.getIfPresent(metadata);
-                    if (cachedRoot != null
-                        && (blobPolicy == BlobPolicy.DISCARD
-                            || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
-                      return immediateFuture(cachedRoot);
-                    }
-                    // An ongoing computation with blobs can be reused for one that doesn't require
-                    // them.
-                    if (blobPolicy == BlobPolicy.DISCARD) {
-                      var inFlightComputation =
-                          inFlightSubTreeCache.get(
-                              new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
-                      if (inFlightComputation != null) {
-                        return inFlightComputation;
-                      }
-                    }
-                    ListenableFuture<MerkleTree> merkleTreeFuture;
-                    try {
-                      // Subtrees either consist entirely of tool inputs or don't contain any.
-                      // The same applies to scrubbed inputs.
-                      merkleTreeFuture =
-                          build(
-                              sortedInputsSupplier.compute(),
-                              isTool ? alwaysTrue() : alwaysFalse(),
-                              /* spawnScrubber= */ null,
-                              metadataProvider,
-                              artifactPathResolver,
-                              remoteActionExecutionContext,
-                              remotePathResolver,
-                              blobPolicy);
-                    } catch (IOException e) {
-                      throw new WrappedException(e);
-                    } catch (InterruptedException e) {
-                      throw new WrappedException(e);
-                    }
-                    return transform(
-                        merkleTreeFuture,
-                        merkleTree -> {
-                          if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
-                            try {
-                              if (merkleTreeUploader != null) {
-                                merkleTreeUploader.ensureInputsPresent(
-                                    remoteActionExecutionContext,
-                                    uploadable,
-                                    blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
-                                    remotePathResolver);
-                              }
-                            } catch (IOException e) {
-                              throw new WrappedException(e);
-                            } catch (InterruptedException e) {
-                              throw new WrappedException(e);
-                            }
-                          }
-                          // Move the computed root to the persistent cache so that it can be reused
-                          // by later builds.
-                          persistentCache
-                              .asMap()
-                              .compute(
-                                  metadata,
-                                  (unused, oldRoot) -> {
-                                    // Don't downgrade the cached root from one indicating that its
-                                    // blobs have been uploaded.
-                                    return oldRoot instanceof MerkleTree.RootOnly.BlobsUploaded
-                                        ? oldRoot
-                                        : merkleTree.root();
-                                  });
-                          return merkleTree.root();
-                        },
-                        MERKLE_TREE_UPLOAD_POOL);
-                  },
-                  MERKLE_TREE_BUILD_POOL);
-            });
-    if (newlyComputed.get()) {
-      // Clean up the in-flight cache so that it doesn't grow unboundedly.
-      future.addListener(
-          () -> inFlightSubTreeCache.remove(inFlightCacheKey, future), directExecutor());
-    }
-    return future;
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {

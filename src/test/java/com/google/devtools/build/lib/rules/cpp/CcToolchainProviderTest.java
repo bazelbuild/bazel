@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.util.Pair;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
@@ -198,11 +198,25 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   private ImmutableMap<String, String> getMakeVariables(CcToolchainProvider ccToolchainProvider)
       throws Exception {
-    StarlarkFunction getMakeVariables =
-        (StarlarkFunction)
-            getTestAnalysisEnvironment()
-                .getStarlarkDefinedBuiltins()
-                .get("get_toolchain_global_make_variables");
+    scratch.overwriteFile(
+        "bazel_testing/fake_test_utils/util.bzl",
+        """
+        load("@rules_cc//cc/common:cc_helper.bzl", "cc_helper")
+        FuncInfo = provider()
+        def _impl(ctx):
+          return [FuncInfo(func = cc_helper.get_toolchain_global_make_variables)]
+        func_exporting_rule = rule(_impl)
+        """);
+    scratch.overwriteFile(
+        "bazel_testing/fake_test_utils/BUILD",
+        """
+        load(":util.bzl", "func_exporting_rule")
+        func_exporting_rule(name = "func_rule")
+        """);
+    StarlarkCallable getMakeVariables =
+        getStarlarkProvider(
+                getConfiguredTarget("//bazel_testing/fake_test_utils:func_rule"), "FuncInfo")
+            .getValue("func", StarlarkCallable.class);
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Dict<?, ?> makeVarsDict =

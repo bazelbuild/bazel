@@ -172,11 +172,9 @@ Markdown for posterity.
 ### Using Google Docs {:#gdocs}
 
 For consistency, use the [Bazel design doc template](
-https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/edit){: .external}.
+https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/template/preview){: .external}.
 It includes the necessary header and creates visual
-consistency with other Bazel related documents. To do that, click on **File** >
-**Make a copy** or click this link to [make a copy of the design doc
-template](https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/copy){: .external}.
+consistency with other Bazel related documents.
 
 To make your document readable to the world, click on
 **Share** > **Advanced** > **Change…**, and

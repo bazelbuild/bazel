@@ -1495,14 +1495,4 @@ string DetectBashAndExportBazelSh() {
   return bash;
 }
 
-void EnsurePythonPathOption(std::vector<string>* options) {
-  string python_path = GetBinaryFromPath("python.exe");
-  if (!python_path.empty()) {
-    // Provide python path as coming from the least important rc file.
-    std::replace(python_path.begin(), python_path.end(), '\\', '/');
-    options->push_back(string("--default_override=0:build=--python_path=") +
-                       python_path);
-  }
-}
-
 }  // namespace blaze

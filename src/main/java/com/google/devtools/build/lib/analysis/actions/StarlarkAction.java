@@ -345,6 +345,15 @@ public class StarlarkAction extends SpawnAction {
       return getInputs();
     }
 
+    @Override
+    public NestedSet<Artifact> getMandatoryInputs() {
+      if (unusedInputsList.isPresent()) {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else {
+        return getInputs();
+      }
+    }
+
     @Nullable
     @Override
     public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -358,7 +367,11 @@ public class StarlarkAction extends SpawnAction {
         NestedSet<Artifact> inputFilesForExtraAction =
             shadowedActionObj.getInputFilesForExtraAction(actionExecutionContext);
         if (inputFilesForExtraAction == null) {
-          return null;
+          if (unusedInputsList.isPresent()) {
+            return allStarlarkActionInputs;
+          } else {
+            return null;
+          }
         }
         updateInputs(
             createInputs(

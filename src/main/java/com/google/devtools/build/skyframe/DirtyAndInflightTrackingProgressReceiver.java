@@ -14,11 +14,17 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.collect.ConcurrentHashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -31,8 +37,30 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
 
+  // Nodes that were dirtied because one of their transitive dependencies changed
+  private final ConcurrentHashMultiset<SkyFunctionName> dirtied;
+  // Nodes that were dirtied because they themselves changed (for example, a leaf node that
+  // represents a file and that changed between builds)
+  private final ConcurrentHashMultiset<SkyFunctionName> changed;
+  // Nodes that were built and found different from the previous version
+  private final ConcurrentHashMultiset<SkyFunctionName> built;
+  // Nodes that were built and found to be same as the previous version
+  private final ConcurrentHashMultiset<SkyFunctionName> cleaned;
+  // Nodes that were computed during the build
+  private final ConcurrentHashMultiset<SkyFunctionName> evaluated;
+
+  private static ConcurrentHashMultiset<SkyFunctionName> createMultiset() {
+    return ConcurrentHashMultiset.create(
+        new ConcurrentHashMap<>(Runtime.getRuntime().availableProcessors(), 0.75f));
+  }
+
   public DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver progressReceiver) {
     this.progressReceiver = checkNotNull(progressReceiver);
+    this.dirtied = createMultiset();
+    this.changed = createMultiset();
+    this.built = createMultiset();
+    this.cleaned = createMultiset();
+    this.evaluated = createMultiset();
   }
 
   @Override
@@ -46,6 +74,12 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
     progressReceiver.dirtied(skyKey, dirtyType);
     addToDirtySet(skyKey, dirtyType);
+
+    switch (dirtyType) {
+      case DIRTY -> dirtied.add(skyKey.functionName());
+      case CHANGE -> changed.add(skyKey.functionName());
+      case REWIND -> {}
+    }
   }
 
   @Override
@@ -103,6 +137,9 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   @Override
   public void stateEnding(SkyKey skyKey, NodeState nodeState) {
     progressReceiver.stateEnding(skyKey, nodeState);
+    if (nodeState == NodeState.COMPUTE) {
+      evaluated.add(skyKey.functionName());
+    }
   }
 
   @Override
@@ -123,6 +160,14 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     } else {
       // Leave unsuccessful keys in unsuccessfullyRewoundKeys. Only remove them from dirtyKeys.
       dirtyKeys.remove(skyKey);
+    }
+
+    if (directDeps == null) {
+      // In this case, no actual evaluation work was done so let's not record it.
+    } else if (state.versionChanged()) {
+      built.add(skyKey.functionName(), 1);
+    } else {
+      cleaned.add(skyKey.functionName(), 1);
     }
   }
 
@@ -156,7 +201,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
    *   <li>evaluated to an error
    * </ul>
    */
-  public final Set<SkyKey> getAndClearUnsuccessfullyRewoundKeys() {
+  final Set<SkyKey> getAndClearUnsuccessfullyRewoundKeys() {
     Set<SkyKey> keys = unsuccessfullyRewoundKeys;
     unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
     return keys;
@@ -186,5 +231,27 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     if (!dirtyKeys.remove(skyKey)) {
       unsuccessfullyRewoundKeys.remove(skyKey);
     }
+  }
+
+  private static ImmutableMap<SkyFunctionName, Integer> fromMultiset(
+      ConcurrentHashMultiset<SkyFunctionName> s) {
+    return s.entrySet().stream()
+        .collect(toImmutableMap(Multiset.Entry::getElement, Multiset.Entry::getCount));
+  }
+
+  final EvaluationStats aggregateAndReset() {
+    EvaluationStats result =
+        new EvaluationStats(
+            fromMultiset(dirtied),
+            fromMultiset(changed),
+            fromMultiset(built),
+            fromMultiset(cleaned),
+            fromMultiset(evaluated));
+    dirtied.clear();
+    changed.clear();
+    built.clear();
+    cleaned.clear();
+    evaluated.clear();
+    return result;
   }
 }

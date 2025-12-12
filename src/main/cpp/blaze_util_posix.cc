@@ -895,8 +895,4 @@ bool UnlimitResources() {
 
 bool UnlimitCoredumps() { return UnlimitResource(RLIMIT_CORE, true); }
 
-void EnsurePythonPathOption(vector<string>* options) {
-  // do nothing.
-}
-
 }  // namespace blaze

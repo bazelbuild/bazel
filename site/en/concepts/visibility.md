@@ -5,10 +5,12 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-This page covers Bazel's two visibility systems:
-[target visibility](#target-visibility) and [load visibility](#load-visibility).
+This page covers Bazel's three visibility systems:
+[target visibility](#target-visibility),
+transitive visibility](#transitive-visibility) and
+[load visibility](#load-visibility).
 
-Both types of visibility help other developers distinguish between your
+These types of visibility help other developers distinguish between your
 library's public API and its implementation details, and help enforce structure
 as your workspace grows. You can also use visibility when deprecating a public
 API to allow current users while denying new ones.
@@ -398,6 +400,68 @@ own package or to the finalizer macro's definition, and is not delegated to the
 finalizer, the finalizer cannot see such a target. Note, however, that a
 `native.existing_rules()`-based legacy macro will also be unable to see such a
 target.
+
+## Transitive visibility {:#transitive-visibility}
+
+**Transitive visibility** is a way of restricting who may depend on a target,
+including when the dependency is only indirect. It applies separately from the
+ordinary target visibility system, so it is possible for a transitive visibility
+error to occur even when every link in the dependency chain is valid. This
+allows the author of the target to share it with a trusted set of client targets
+while guarding against inadvertently leaking it to the rest of the build.
+
+Transitive visibility is declared at the package level, using the
+`transitive_visibility` parameter of the [`package`][package]
+function. This declaration applies to all targets in the package. The parameter
+takes a single label of a `package_group`, which specifies the packages whose
+targets may transitively depend on this package's targets.
+
+```starlark
+# //third_party/sensitive_dep/BUILD
+package(
+    # This must be explicitly listed
+    transitive_visibility = [":sensitive_dep_users"]
+)
+
+package_group(
+    name = "sensitive_dep_users",
+    packages = [
+        "//third_party/sensitive_dep/...", # has to include itself
+        "//allowed",
+    ],
+)
+
+sh_library(
+    name = "sensitive_dep"
+)
+```
+
+```starlark
+# //not_allowed/BUILD
+sh_binary(
+    name = "bad",
+    deps = ["//third_party/sensitive_dep:sensitive_dep"]
+)
+```
+Building `//not_allowed:bad`, which depends on
+`//third_party/sensitive_dep:sensitive_dep` but is not part of its
+`transitive_visibility`, results in the following error:
+
+```none
+Transitive visibility error: //third_party/sensitive_dep:sensitive_dep is not transitively visible from ///not_allowed:bad. //"//third_party/sensitive_dep:sensitive_dep inherits a transitive_visibility declaration from its package or one of its dependencies that does not allow //not_allowed:bad.
+```
+
+Package groups used in `transitive_visibility` may not `include` other package
+groups.
+
+Note that if a target has a transitive dependency with a transitive visibility
+restriction, that target itself inherits the restriction and passes it along to
+targets that depend on it. If a target has multiple transitive dependencies
+with transitive visibility restrictions, it must meet all of the restrictions.
+
+Transitive visibility also applies to targets that are declared in symbolic
+macros. However, unlike ordinary target visibility, it only considers the
+package these targets live in, not the package that defined the symbolic macro.
 
 ## Load visibility {:#load-visibility}
 

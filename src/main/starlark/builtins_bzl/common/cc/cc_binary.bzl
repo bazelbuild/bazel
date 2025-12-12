@@ -277,7 +277,15 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
         linker_inputs_count,
     )
 
-    return cc_common.create_linking_context(linker_inputs = depset(sorted_linker_inputs, order = "topological"))
+    # Deps that came from cc_runtimes may have been filtered out above, so we need to re-add them.
+    # For example, libc++/libstdc++ or malloc-like deps should still be linked in normally
+    # even though they will also be a transitive dep of things in dynamic_deps.
+    cc_runtimes = semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    cc_runtimes_infos = [dep[CcInfo] for dep in cc_runtimes if CcInfo in dep]
+
+    return cc_common.merge_cc_infos(direct_cc_infos = [
+        CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = depset(sorted_linker_inputs, order = "topological"))),
+    ] + cc_runtimes_infos).linking_context
 
 def _create_transitive_linking_actions(
         ctx,
@@ -359,6 +367,7 @@ def _create_transitive_linking_actions(
 
     if len(ctx.attr.dynamic_deps) > 0:
         cc_linking_context = _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context)
+
     link_deps_statically = True
     if linking_mode == linker_mode.LINKING_DYNAMIC:
         link_deps_statically = False

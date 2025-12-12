@@ -90,12 +90,9 @@ class EvaluationTestCase {
   }
 
   // A hook for subclasses to alter the created module.
-  // Implementations may add to the predeclared environment,
-  // and return the module's client data value.
+  // Implementations may add to the predeclared environment.
   // TODO(adonovan): only used in StarlarkFlagGuardingTest; move there.
-  protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    return null; // no client data
-  }
+  protected void newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {}
 
   StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
@@ -112,7 +109,7 @@ class EvaluationTestCase {
   private Module getModule() {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-      newModuleHook(predeclared); // see StarlarkFlagGuardingTest
+      newModuleHook(predeclared);
       this.module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
     }
     return this.module;

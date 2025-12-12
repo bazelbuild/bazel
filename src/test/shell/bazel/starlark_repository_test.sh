@@ -3311,6 +3311,46 @@ EOF
   shutdown_server
 }
 
+# Uses repository_ctx.extract(type="tar.gz") instead of guessing by file extension.
+function test_download_then_extract_tar_forced_type() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local data_dir="${TEST_TMPDIR}/data_dir"
+  mkdir -p "${server_dir}"
+  mkdir -p "${data_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
+  tar -zcvf server_dir/download_then_extract.other.extension data_dir
+  file_sha256="$(sha256sum server_dir/download_then_extract.other.extension | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("http://localhost:${fileserver_port}/download_then_extract.other.extension", "downloaded_file.tar.gz", "${file_sha256}")
+  repository_ctx.extract("downloaded_file.tar.gz", "out_dir", "data_dir/", type="tar.gz")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "Experiment with tar" "$output_base/external/+repo+foo/out_dir/download_then_extract_tar.txt"
+
+  shutdown_server
+}
+
 function test_download_and_extract() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
