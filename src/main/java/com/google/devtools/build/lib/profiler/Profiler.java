@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -197,8 +196,7 @@ public final class Profiler implements TraceProfilerService {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
-      boolean collectTaskHistograms,
-      LocalResourceCollector localResourceCollector)
+      boolean collectTaskHistograms)
       throws IOException {
     if (traceProfilerService == null) {
       throw new IllegalStateException("cannot call start before setTraceProfilerService");
@@ -212,12 +210,11 @@ public final class Profiler implements TraceProfilerService {
         recordAllDurations,
         clock,
         execStartTimeNanos,
-        slimProfile,
-        includePrimaryOutput,
-        includeTargetLabel,
-        includeConfiguration,
-        collectTaskHistograms,
-        localResourceCollector);
+        /* slimProfile= */ slimProfile,
+        /* includePrimaryOutput= */ includePrimaryOutput,
+        /* includeTargetLabel= */ includeTargetLabel,
+        /* includeConfiguration= */ includeConfiguration,
+        /* collectTaskHistograms= */ collectTaskHistograms);
   }
 
   @Override
@@ -291,6 +288,13 @@ public final class Profiler implements TraceProfilerService {
   public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
     if (traceProfilerService != null) {
       traceProfilerService.registerCounterSeriesCollector(collector);
+    }
+  }
+
+  @Override
+  public void unregisterCounterSeriesCollector(CounterSeriesCollector collector) {
+    if (traceProfilerService != null) {
+      traceProfilerService.unregisterCounterSeriesCollector(collector);
     }
   }
 

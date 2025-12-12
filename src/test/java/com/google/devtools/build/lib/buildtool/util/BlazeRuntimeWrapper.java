@@ -55,10 +55,8 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -89,7 +87,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -578,19 +575,7 @@ public class BlazeRuntimeWrapper {
             /* includePrimaryOutput= */ false,
             /* includeTargetLabel= */ false,
             /* includeConfiguration= */ false,
-            /* collectTaskHistograms= */ true,
-            new CollectLocalResourceUsage(
-                runtime.getBugReporter(),
-                WorkerProcessMetricsCollector.instance(),
-                env.getLocalResourceManager(),
-                env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
-                /* collectWorkerDataInProfiler= */ false,
-                /* collectLoadAverage= */ false,
-                /* collectSystemNetworkUsage= */ false,
-                /* collectResourceManagerEstimation= */ false,
-                /* collectPressureStallIndicators= */ false,
-                /* collectSkyframeCounts= */ false,
-                runtime.getBlazeService(SystemNetworkStatsService.class)));
+            /* collectTaskHistograms= */ true);
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);

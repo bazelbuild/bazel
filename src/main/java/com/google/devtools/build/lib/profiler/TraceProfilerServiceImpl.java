@@ -141,7 +141,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
   /** Collects local cpu usage data (if enabled). */
-  private LocalResourceCollector localResourceCollector;
+  private final ResourceCollector resourceCollector;
 
   private final AtomicReference<TimeSeries> actionCountTimeSeriesRef;
   private final AtomicReference<TimeSeries> actionCacheCountTimeSeriesRef;
@@ -165,6 +165,8 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
         slowestTasks[task.ordinal()] = new SlowestTaskAggregator();
       }
     }
+
+    resourceCollector = new ResourceCollector();
   }
 
   private void initHistograms() {
@@ -240,8 +242,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
-      boolean collectTaskHistograms,
-      LocalResourceCollector localResourceCollector)
+      boolean collectTaskHistograms)
       throws IOException {
     checkState(!active, "Profiler already active");
 
@@ -287,9 +288,8 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
     profileCpuStartTime = getProcessCpuTime();
     active = true;
 
-    this.localResourceCollector = localResourceCollector;
     // Start collecting Bazel and system-wide CPU metric collection.
-    this.localResourceCollector.start();
+    this.resourceCollector.start();
   }
 
   // TODO(ulfjack): This returns incomplete data by design. Also see getTasksHistograms.
@@ -368,7 +368,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       return;
     }
     collectActionCounts();
-    localResourceCollector.stop();
+    resourceCollector.stop();
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
     try {
@@ -420,10 +420,12 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
-    if (!isActive()) {
-      return;
-    }
-    localResourceCollector.registerCounterSeriesCollector(collector);
+    resourceCollector.registerCounterSeriesCollector(collector);
+  }
+
+  @Override
+  public void unregisterCounterSeriesCollector(CounterSeriesCollector collector) {
+    resourceCollector.unregisterCounterSeriesCollector(collector);
   }
 
   @Override

@@ -13,16 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.FULL;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.SOME;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.CPU;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.IO;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.MEMORY;
-import static java.util.stream.Collectors.groupingBy;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
@@ -37,239 +34,92 @@ import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import javax.annotation.Nullable;
 
-/** Thread to collect local resource usage data and log into JSON profile. */
-public class CollectLocalResourceUsage implements LocalResourceCollector {
-
-  // TODO(twerth): Make these configurable.
-  private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
-  private static final Duration LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL = Duration.ofMillis(200);
-
+/** An assortment of classes that collects various interesting metrics about the local system. */
+public class LocalResourceUsageCollectors {
   private final BugReporter bugReporter;
-  private final boolean collectWorkerDataInProfiler;
-  private final boolean collectLoadAverage;
-  private final boolean collectSystemNetworkUsage;
-  private final boolean collectResourceManagerEstimation;
+
   private final InMemoryGraph graph;
-
-  private volatile boolean stopLocalUsageCollection;
-  private volatile boolean profilingStarted;
-
-  private final ConcurrentLinkedQueue<CounterSeriesCollector> collectors =
-      new ConcurrentLinkedQueue<>();
-
-  @GuardedBy("this")
-  @Nullable
-  private Map<CounterSeriesTask, TimeSeries> timeSeries;
-
-  private Stopwatch stopwatch;
-
   private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
   private final ResourceEstimator resourceEstimator;
-  private final boolean collectPressureStallIndicators;
 
-  private final boolean collectSkyframeCounts;
   private final SystemNetworkStatsService systemNetworkStatsService;
 
-  private Collector collector;
-
-  public CollectLocalResourceUsage(
+  public LocalResourceUsageCollectors(
       BugReporter bugReporter,
+      InMemoryGraph graph,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       ResourceEstimator resourceEstimator,
-      @Nullable InMemoryGraph graph,
+      SystemNetworkStatsService systemNetworkStatsService) {
+    this.bugReporter = bugReporter;
+    this.graph = graph;
+    this.workerProcessMetricsCollector = workerProcessMetricsCollector;
+    this.resourceEstimator = resourceEstimator;
+    this.systemNetworkStatsService = systemNetworkStatsService;
+  }
+
+  public void addCollectors(
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
       boolean collectResourceManagerEstimation,
       boolean collectPressureStallIndicators,
-      boolean collectSkyframeCounts,
-      SystemNetworkStatsService systemNetworkStatsService) {
-    this.bugReporter = checkNotNull(bugReporter);
-    this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
-    this.workerProcessMetricsCollector = workerProcessMetricsCollector;
-    this.collectLoadAverage = collectLoadAverage;
-    this.collectSystemNetworkUsage = collectSystemNetworkUsage;
-    this.collectResourceManagerEstimation = collectResourceManagerEstimation;
-    this.resourceEstimator = resourceEstimator;
-    this.collectPressureStallIndicators = collectPressureStallIndicators;
-    this.systemNetworkStatsService = systemNetworkStatsService;
-    this.collector = new Collector();
-
+      boolean collectSkyframeCounts) {
     Preconditions.checkState(
         !collectSkyframeCounts || graph != null,
         "--experimental_collect_skyframe_counts_in_profiler requires the Skyframe graph.");
-    this.collectSkyframeCounts = collectSkyframeCounts;
-    this.graph = graph;
-  }
 
-  @Override
-  public void start() {
-    collector.setDaemon(true);
-    collector.start();
-  }
-
-  @Override
-  public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
-    collectors.add(collector);
-  }
-
-  private List<CounterSeriesCollector> createLocalCollectors() {
     OperatingSystemMXBean osBean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-    var collectors = new ArrayList<CounterSeriesCollector>();
-    collectors.add(new LocalCpuUsageCollector(osBean));
-    collectors.add(new LocalMemoryUsageCollector(memoryBean, bugReporter));
-    collectors.add(new SystemCpuUsageCollector(osBean));
-    collectors.add(new SystemMemoryUsageCollector(osBean));
+    Profiler.instance().registerCounterSeriesCollector(new LocalCpuUsageCollector(osBean));
+    Profiler.instance()
+        .registerCounterSeriesCollector(new LocalMemoryUsageCollector(memoryBean, bugReporter));
+    Profiler.instance().registerCounterSeriesCollector(new SystemCpuUsageCollector(osBean));
+    Profiler.instance().registerCounterSeriesCollector(new SystemMemoryUsageCollector(osBean));
 
     if (collectWorkerDataInProfiler
         && (OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN)) {
       // Enabling the WorkerMemoryUsageCollector will cause hangs on Windows. We should only enable
       // it on Linux and Darwin.
-      collectors.add(new TotalWorkerMemoryUsageCollector(workerProcessMetricsCollector));
-      collectors.add(new PerMnemonicWorkerMemoryUsageCollector(workerProcessMetricsCollector));
+      Profiler.instance()
+          .registerCounterSeriesCollector(
+              new TotalWorkerMemoryUsageCollector(workerProcessMetricsCollector));
+      Profiler.instance()
+          .registerCounterSeriesCollector(
+              new PerMnemonicWorkerMemoryUsageCollector(workerProcessMetricsCollector));
     }
     if (collectLoadAverage) {
-      collectors.add(new SystemLoadAverageCollector(osBean));
+      Profiler.instance().registerCounterSeriesCollector(new SystemLoadAverageCollector(osBean));
     }
     if (collectSystemNetworkUsage) {
-      collectors.add(new SystemNetworkUsageCollector(systemNetworkStatsService));
+      Profiler.instance()
+          .registerCounterSeriesCollector(
+              new SystemNetworkUsageCollector(systemNetworkStatsService));
     }
     if (collectResourceManagerEstimation) {
-      collectors.add(new ResourceManagerEstimationCollector(resourceEstimator));
+      Profiler.instance()
+          .registerCounterSeriesCollector(
+              new ResourceManagerEstimationCollector(resourceEstimator));
     }
     // The pressure stall indicators are only available on Linux.
     if (collectPressureStallIndicators && OS.getCurrent() == OS.LINUX) {
-      collectors.add(new PressureStallIndicatorCollector());
+      Profiler.instance().registerCounterSeriesCollector(new PressureStallIndicatorCollector());
     }
 
     if (collectSkyframeCounts) {
-      collectors.add(new SkyframeCountsCollector(graph));
-    }
-
-    return collectors;
-  }
-
-  /** Thread that does the collection. */
-  private class Collector extends Thread {
-
-    Collector() {
-      super("collect-local-resources");
-    }
-
-    @Override
-    public void run() {
-      collectors.addAll(createLocalCollectors());
-      synchronized (CollectLocalResourceUsage.this) {
-        timeSeries = new LinkedHashMap<>();
-      }
-
-      stopwatch = Stopwatch.createStarted();
-      Duration startTime = stopwatch.elapsed();
-      Duration previousElapsed = stopwatch.elapsed();
-      profilingStarted = true;
-      while (!stopLocalUsageCollection) {
-        try {
-          Thread.sleep(LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL.toMillis());
-        } catch (InterruptedException e) {
-          return;
-        }
-        Duration nextElapsed = stopwatch.elapsed();
-        double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
-        Duration finalPreviousElapsed = previousElapsed;
-        synchronized (CollectLocalResourceUsage.this) {
-          for (var collector : collectors) {
-            collector.collect(
-                deltaNanos,
-                (type, value) ->
-                    addRange(type, startTime, finalPreviousElapsed, nextElapsed, value));
-          }
-        }
-        previousElapsed = nextElapsed;
-      }
+      Profiler.instance().registerCounterSeriesCollector(new SkyframeCountsCollector(graph));
     }
   }
 
-  @Override
-  public void stop() {
-    if (collector != null) {
-      Preconditions.checkArgument(!stopLocalUsageCollection);
-      stopLocalUsageCollection = true;
-      collector.interrupt();
-      try {
-        collector.join();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-      logCollectedData();
-      collector = null;
-    }
-  }
-
-  synchronized void logCollectedData() {
-    if (!profilingStarted) {
-      return;
-    }
-    Preconditions.checkArgument(stopLocalUsageCollection);
-    long endTimeNanos = System.nanoTime();
-    long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
-    long startTimeNanos = endTimeNanos - elapsedNanos;
-    Duration profileStart = Duration.ofNanos(startTimeNanos);
-    int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
-
-    Map<String, List<Map.Entry<CounterSeriesTask, TimeSeries>>> stackedTaskGroups =
-        timeSeries.entrySet().stream().collect(groupingBy(e -> e.getKey().laneName()));
-
-    for (var taskGroup : stackedTaskGroups.values()) {
-      ImmutableMap.Builder<CounterSeriesTask, double[]> stackedCounters =
-          ImmutableMap.builderWithExpectedSize(taskGroup.size());
-      for (var task : taskGroup) {
-        stackedCounters.put(task.getKey(), task.getValue().toDoubleArray(len));
-      }
-      Profiler.instance()
-          .logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
-    }
-
-    collectors.clear();
-    timeSeries = null;
-  }
-
-  private void addRange(
-      CounterSeriesTask type,
-      Duration startTime,
-      Duration previousElapsed,
-      Duration nextElapsed,
-      double value) {
-    synchronized (this) {
-      if (timeSeries == null) {
-        return;
-      }
-      var series =
-          timeSeries.computeIfAbsent(
-              type, unused -> Profiler.instance().createTimeSeries(startTime, BUCKET_DURATION));
-      series.addRange(previousElapsed, nextElapsed, value);
-    }
-  }
-
-  private static class LocalCpuUsageCollector implements CounterSeriesCollector {
+  static class LocalCpuUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask LOCAL_CPU_USAGE =
         new CounterSeriesTask("CPU usage (Bazel)", "cpu", CounterSeriesTask.Color.GOOD);
 
@@ -290,7 +140,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class LocalMemoryUsageCollector implements CounterSeriesCollector {
+  static class LocalMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask LOCAL_MEMORY_USAGE =
         new CounterSeriesTask("Memory usage (Bazel)", "memory", CounterSeriesTask.Color.OLIVE);
     private final MemoryMXBean memoryBean;
@@ -320,7 +170,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class SystemCpuUsageCollector implements CounterSeriesCollector {
+  static class SystemCpuUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_CPU_USAGE =
         new CounterSeriesTask("CPU usage (total)", "system cpu", CounterSeriesTask.Color.RAIL_LOAD);
     private final OperatingSystemMXBean osBean;
@@ -353,7 +203,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class SystemMemoryUsageCollector implements CounterSeriesCollector {
+  static class SystemMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_MEMORY_USAGE =
         new CounterSeriesTask("Memory usage (total)", "system memory", CounterSeriesTask.Color.BAD);
     private final OperatingSystemMXBean osBean;
@@ -387,7 +237,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class TotalWorkerMemoryUsageCollector implements CounterSeriesCollector {
+  static class TotalWorkerMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask WORKERS_MEMORY_USAGE =
         new CounterSeriesTask(
             "Total worker memory usage", "workers memory", CounterSeriesTask.Color.RAIL_ANIMATION);
@@ -412,7 +262,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class PerMnemonicWorkerMemoryUsageCollector implements CounterSeriesCollector {
+  static class PerMnemonicWorkerMemoryUsageCollector implements CounterSeriesCollector {
     private static final HashMap<String, CounterSeriesTask> workerMemoryUsageSeries =
         new HashMap<>();
     private static final String SERIES_LANE_NAME = "Per-mnemonic worker memory usage";
@@ -447,7 +297,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class SystemLoadAverageCollector implements CounterSeriesCollector {
+  static class SystemLoadAverageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_LOAD_AVERAGE =
         new CounterSeriesTask("System load average", "load", CounterSeriesTask.Color.GENERIC_WORK);
     private final OperatingSystemMXBean osBean;
@@ -465,7 +315,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class SystemNetworkUsageCollector implements CounterSeriesCollector {
+  static class SystemNetworkUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask SYSTEM_NETWORK_UP_USAGE =
         new CounterSeriesTask(
             "Network Up usage (total)",
@@ -494,7 +344,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class ResourceManagerEstimationCollector implements CounterSeriesCollector {
+  static class ResourceManagerEstimationCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask MEMORY_USAGE_ESTIMATION =
         new CounterSeriesTask(
             "Memory usage estimation", "estimated memory", CounterSeriesTask.Color.RAIL_IDLE);
@@ -519,7 +369,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class PressureStallIndicatorCollector implements CounterSeriesCollector {
+  static class PressureStallIndicatorCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask PRESSURE_STALL_FULL_IO =
         new CounterSeriesTask(
             "I/O pressure stall level",
@@ -563,7 +413,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class SkyframeCountsCollector implements CounterSeriesCollector {
+  static class SkyframeCountsCollector implements CounterSeriesCollector {
     private record SkyFunctionProfilerTasks(
         CounterSeriesTask totalCounter, CounterSeriesTask doneCounter) {}
 

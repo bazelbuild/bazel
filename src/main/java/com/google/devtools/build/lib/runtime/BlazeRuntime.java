@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
+import com.google.devtools.build.lib.profiler.LocalResourceUsageCollectors;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -454,6 +454,24 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             WorkerProcessMetricsCollector.instance();
         workerProcessMetricsCollector.setClock(clock);
 
+        LocalResourceUsageCollectors localResourceUsageCollectors =
+            new LocalResourceUsageCollectors(
+                bugReporter,
+                commandOptions.collectSkyframeCounts
+                    ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
+                    : null,
+                workerProcessMetricsCollector,
+                env.getLocalResourceManager(),
+                getBlazeService(SystemNetworkStatsService.class));
+
+        localResourceUsageCollectors.addCollectors(
+            /* collectWorkerDataInProfiler= */ commandOptions.collectWorkerDataInProfiler,
+            /* collectLoadAverage= */ commandOptions.collectLoadAverageInProfiler,
+            /* collectSystemNetworkUsage= */ commandOptions.collectSystemNetworkUsage,
+            /* collectResourceManagerEstimation= */ commandOptions.collectResourceEstimation,
+            /* collectPressureStallIndicators= */ commandOptions.collectPressureStallIndicators,
+            /* collectSkyframeCounts= */ commandOptions.collectSkyframeCounts);
+
         // TODO(b/457644247): Encapsulate the start params into a config object.
         Profiler.instance()
             .start(
@@ -465,25 +483,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 recordFullProfilerData,
                 clock,
                 execStartTimeNanos,
-                commandOptions.slimProfile,
-                commandOptions.includePrimaryOutput,
-                commandOptions.profileIncludeTargetLabel,
-                commandOptions.profileIncludeTargetConfiguration,
-                commandOptions.alwaysProfileSlowOperations,
-                new CollectLocalResourceUsage(
-                    bugReporter,
-                    workerProcessMetricsCollector,
-                    env.getLocalResourceManager(),
-                    commandOptions.collectSkyframeCounts
-                        ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
-                        : null,
-                    commandOptions.collectWorkerDataInProfiler,
-                    commandOptions.collectLoadAverageInProfiler,
-                    commandOptions.collectSystemNetworkUsage,
-                    commandOptions.collectResourceEstimation,
-                    commandOptions.collectPressureStallIndicators,
-                    commandOptions.collectSkyframeCounts,
-                    getBlazeService(SystemNetworkStatsService.class)));
+                /* slimProfile= */ commandOptions.slimProfile,
+                /* includePrimaryOutput= */ commandOptions.includePrimaryOutput,
+                /* includeTargetLabel= */ commandOptions.profileIncludeTargetLabel,
+                /* includeConfiguration= */ commandOptions.profileIncludeTargetConfiguration,
+                /* collectTaskHistograms= */ commandOptions.alwaysProfileSlowOperations);
+
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
