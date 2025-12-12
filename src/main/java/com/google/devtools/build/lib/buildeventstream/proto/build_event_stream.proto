@@ -403,6 +403,9 @@ message BuildStarted {
 
   // The username of the user who started the build.
   string user = 11;
+
+  // Information about the Java version used by the Blaze server.
+  JavaVersionInfo java_version_info = 12;
 }
 
 // Configuration related to the blaze workspace and output tree.
@@ -1451,6 +1454,18 @@ message ExecRequestConstructed {
 message EnvironmentVariable {
   bytes name = 1;
   bytes value = 2;
+}
+
+// Information about the Java version.
+message JavaVersionInfo {
+  // The Java version string, e.g. "25.0.1+8-LTS-27".
+  string java_version = 1;
+
+  // The major Java version, e.g. 25.
+  int32 java_major_version = 2;
+
+  // The minor Java version, e.g. 0.
+  int32 java_minor_version = 3;
 }
 
 // Message describing a build event. Events will have an identifier that
