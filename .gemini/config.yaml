@@ -16,7 +16,7 @@ code_review:
     # Whether to offer help when a PR is opened.
     help: false
     # Whether to generate a summary for the PR.
-    summary: true
+    summary: false
     # Whether to automatically trigger a code review on PR open.
     code_review: true
     # Whether to include draft pull requests in the review process.
