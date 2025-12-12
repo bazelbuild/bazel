@@ -926,11 +926,10 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             named = true,
             positional = false,
             doc =
-                "A dictionary mapping of strings to additional parameters (only string, boolean and"
-                    + " integer values are allowed here). The values specify any additional"
-                    + " parameters that we want to make accessible to the implementation function"
-                    + " that could be used to influence its behavior. The keys (strings) act as"
-                    + " identifiers to easily reference a specific parameter from within the"
+                "A dictionary mapping of strings to additional parameters. The values specify any"
+                    + " additional parameters that we want to make accessible to the implementation"
+                    + " function that could be used to influence its behavior. The keys (strings)"
+                    + " act as identifiers to easily reference a specific parameter from within the"
                     + " implementation function."),
         @Param(
             name = "execution_requirements",

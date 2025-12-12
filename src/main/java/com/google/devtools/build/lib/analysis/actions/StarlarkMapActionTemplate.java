@@ -83,8 +83,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   // The allowed classes for values for the different keys.
   private static final ImmutableSet<Class<?>> ADDITIONAL_INPUTS_CLASSES =
       ImmutableSet.of(Artifact.class, FilesToRunProvider.class, Depset.class);
-  private static final ImmutableSet<Class<?>> ALLOWED_PRIMITIVE_CLASSES =
-      ImmutableSet.of(Boolean.class, StarlarkInt.class, String.class);
   private static final ImmutableSet<Class<?>> DIRECTORY_CLASSES =
       ImmutableSet.of(SpecialArtifact.class);
 
@@ -141,11 +139,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     addDictValuesToNestedSets(tools, TOOLS_KEY, allInputsNsBuilder, toolsNsBuilder);
     this.allInputs = allInputsNsBuilder.build();
     this.toolsNs = toolsNsBuilder.build();
-    // Only allow bool, int and string values in `additional_params` for now so that users do not
-    // pass in arbitrary objects as inputs / outputs to expanded actions and circumvent the
-    // `input_directories`, `output_directories` and `additional_inputs` fields.
-    this.additionalParams =
-        validateDictValues(additionalParams, ADDITIONAL_PARAMS_KEY, ALLOWED_PRIMITIVE_CLASSES);
+    this.additionalParams = Dict.<String, Object>immutableCopyOf(additionalParams);
     this.spawnActionBuilder = spawnActionBuilder;
     this.executionRequirements = executionRequirements;
     this.outputPathsMode = outputPathsMode;
