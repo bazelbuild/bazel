@@ -264,12 +264,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
           } catch (IOException e) {
-            throw new RepositoryFunctionException(
-                new IOException(
-                    "error looking up repo %s in remote repo contents cache: %s"
-                        .formatted(repositoryName, e.getMessage()),
-                    e),
-                Transience.TRANSIENT);
+            throw new RepositoryFunctionException(e, Transience.TRANSIENT);
           }
         }
       }
