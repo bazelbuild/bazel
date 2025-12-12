@@ -307,7 +307,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   }
 
   private String maybeGetStackTrace(Exception e) {
-    return verboseFailures ? e.getMessage() : Throwables.getStackTraceAsString(e);
+    return verboseFailures ? Throwables.getStackTraceAsString(e) : e.getMessage();
   }
 
   private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
