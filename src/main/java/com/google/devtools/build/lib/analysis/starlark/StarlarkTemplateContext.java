@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -46,6 +47,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final SpawnAction.Builder spawnActionBuilder;
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
   private final ImmutableSet<SpecialArtifact> outputDirectories;
+  private final ImmutableMap<String, String> executionInfo;
   private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
 
   public StarlarkTemplateContext(
@@ -54,13 +56,15 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       ActionLookupKey artifactOwner,
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
-      ImmutableSet<SpecialArtifact> outputDirectories) {
+      ImmutableSet<SpecialArtifact> outputDirectories,
+      ImmutableMap<String, String> executionInfo) {
     this.semantics = semantics;
     this.actionOwner = actionOwner;
     this.artifactOwner = artifactOwner;
     this.spawnActionBuilder = spawnActionBuilder;
     this.repoMappingSupplier = repoMappingSupplier;
     this.outputDirectories = outputDirectories;
+    this.executionInfo = executionInfo;
   }
 
   @Override
@@ -132,6 +136,10 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     actions.add(builder.buildForStarlarkActionTemplate(actionOwner));
   }
 
+  public void registerAction(AbstractAction action) {
+    actions.add(action);
+  }
+
   private SpawnAction.Builder newSpawnActionBuilder() {
     return new SpawnAction.Builder(spawnActionBuilder);
   }
@@ -156,6 +164,14 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
   public ImmutableList<AbstractAction> getActions() {
     return actions.build();
+  }
+
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
+  }
+
+  public ActionOwner getActionOwner() {
+    return actionOwner;
   }
 
   public void close() {

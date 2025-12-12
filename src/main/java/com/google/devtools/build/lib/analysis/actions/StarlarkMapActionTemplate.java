@@ -226,7 +226,8 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             artifactOwner,
             spawnActionBuilder,
             () -> repoMapping,
-            ImmutableSet.copyOf(outputDirectories.values()));
+            ImmutableSet.copyOf(outputDirectories.values()),
+            getExecutionInfo());
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
     for (Entry<String, SpecialArtifact> entry : inputDirectories.entrySet()) {
@@ -269,6 +270,11 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     } finally {
       context.close();
     }
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    return this.executionRequirements;
   }
 
   private void checkActionOutputsArtifactOwner(
