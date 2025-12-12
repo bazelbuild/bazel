@@ -680,24 +680,25 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # First fetch: not cached
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'file.txt')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'subdir/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'nested.bzl')))
     self.assertTrue(
       os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'file.txt')))
 
-    # After expunging: cached, BUILD and .bzl files materialized, file.txt notA
+    # After expunging: cached, .bzl files materialized
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'file.txt')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'subdir/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'nested.bzl')))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'subdir/BUILD')))
     self.assertTrue(
       os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'file.txt')))
 
     # After expunging, without using repo contents cache: not cached
     self.RunBazel(['clean', '--expunge'])
@@ -707,12 +708,13 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       '@my_repo//:haha',
     ])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'file.txt')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'subdir/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'nested.bzl')))
     self.assertTrue(
       os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'file.txt')))
 
 
 if __name__ == '__main__':
