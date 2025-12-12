@@ -816,6 +816,22 @@ class BazelOverridesTest(test_base.TestBase):
         '\n'.join(stdout),
     )
 
+  def testInjectRepositoryAndLocalRepository(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/27953
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
+            'local_repository(name = "local_repo", path = "local_repo")'
+        ],
+    )
+    self.ScratchFile("local_repo/REPO.bazel")
+    self.ScratchFile("injected_repo/REPO.bazel")
+
+    self.RunBazel([
+      'mod', 'deps', '--inject_repository=injected_repo=%workspace%/injected_repo'
+    ])
+
   def testOverrideRepositoryOnNonExistentRepo(self):
     self.ScratchFile('other_repo/REPO.bazel')
     self.ScratchFile('other_repo/BUILD', ['filegroup(name="target")'])
