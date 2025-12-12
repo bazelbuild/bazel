@@ -44,7 +44,8 @@ function git_get_branch() {
   # Case 1 works when a release branch was checked out,
   # whereas the second case works if we're in "detached HEAD" state,
   # which can happen on CI.
-  git symbolic-ref --short HEAD 2>/dev/null || git branch --remote --contains | cut -d "/" -f2
+  # If in detached HEAD, try using BUILDKITE_BRANCH if available, otherwise fallback to git branch.
+  git symbolic-ref --short HEAD 2>/dev/null || { [[ -n "${BUILDKITE_BRANCH:-}" ]] && echo "${BUILDKITE_BRANCH}" || git branch --remote --contains | cut -d "/" -f2; }
 }
 
 # Returns the tag name of the current git repository
