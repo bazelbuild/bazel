@@ -156,8 +156,7 @@ public final class ActionCacheCheckerTest {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore)
       throws Exception {
-    runAction(
-        action, ImmutableMap.of(), ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
+    runAction(action, ImmutableMap.of(), "", inputMetadataProvider, outputMetadataStore);
   }
 
   /**
@@ -165,27 +164,27 @@ public final class ActionCacheCheckerTest {
    * client environment.
    */
   private void runAction(Action action, ImmutableMap<String, String> clientEnv) throws Exception {
-    runAction(action, clientEnv, ImmutableMap.of());
+    runAction(action, clientEnv, "");
   }
 
   private void runAction(
-      Action action, ImmutableMap<String, String> clientEnv, ImmutableMap<String, String> platform)
+      Action action, ImmutableMap<String, String> clientEnv, String actionExecutionSalt)
       throws Exception {
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
-    runAction(action, clientEnv, platform, metadataHandler, metadataHandler);
+    runAction(action, clientEnv, actionExecutionSalt, metadataHandler, metadataHandler);
   }
 
   private void runAction(
       Action action,
       ImmutableMap<String, String> clientEnv,
-      ImmutableMap<String, String> platform,
+      String actionExecutionSalt,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore)
       throws Exception {
     runAction(
         action,
         clientEnv,
-        platform,
+        actionExecutionSalt,
         inputMetadataProvider,
         outputMetadataStore,
         OutputChecker.TRUST_ALL);
@@ -194,7 +193,7 @@ public final class ActionCacheCheckerTest {
   private void runAction(
       Action action,
       ImmutableMap<String, String> clientEnv,
-      ImmutableMap<String, String> platform,
+      String actionExecutionSalt,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       OutputChecker outputChecker)
@@ -202,7 +201,7 @@ public final class ActionCacheCheckerTest {
     runAction(
         action,
         clientEnv,
-        platform,
+        actionExecutionSalt,
         inputMetadataProvider,
         outputMetadataStore,
         outputChecker,
@@ -212,7 +211,7 @@ public final class ActionCacheCheckerTest {
   private void runAction(
       Action action,
       ImmutableMap<String, String> clientEnv,
-      ImmutableMap<String, String> platform,
+      String actionExecutionSalt,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       OutputChecker outputChecker,
@@ -228,13 +227,13 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             inputMetadataProvider,
             outputMetadataStore,
-            platform,
+            actionExecutionSalt,
             outputChecker,
             /* useArchivedTreeArtifacts= */ useArchivedTreeArtifacts);
     runAction(
         action,
         clientEnv,
-        platform,
+        actionExecutionSalt,
         inputMetadataProvider,
         outputMetadataStore,
         token,
@@ -244,7 +243,7 @@ public final class ActionCacheCheckerTest {
   private void runAction(
       Action action,
       ImmutableMap<String, String> clientEnv,
-      ImmutableMap<String, String> platform,
+      String actionExecutionSalt,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable Token token)
@@ -252,7 +251,7 @@ public final class ActionCacheCheckerTest {
     runAction(
         action,
         clientEnv,
-        platform,
+        actionExecutionSalt,
         inputMetadataProvider,
         outputMetadataStore,
         token,
@@ -262,7 +261,7 @@ public final class ActionCacheCheckerTest {
   private void runAction(
       Action action,
       ImmutableMap<String, String> clientEnv,
-      ImmutableMap<String, String> platform,
+      String actionExecutionSalt,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable Token token,
@@ -296,7 +295,7 @@ public final class ActionCacheCheckerTest {
           outputMetadataStore,
           clientEnv,
           OutputPermissions.READONLY,
-          platform,
+          actionExecutionSalt,
           useArchivedTreeArtifacts,
           /* mandatoryInputsDigest= */ null);
     }
@@ -414,27 +413,21 @@ public final class ActionCacheCheckerTest {
   }
 
   @Test
-  public void testDifferentRemoteDefaultPlatform() throws Exception {
+  public void testDifferentSalt() throws Exception {
     Action action = new WriteEmptyOutputAction();
     ImmutableMap<String, String> env = ImmutableMap.of("unused-var", "1");
 
     // Not cached.
-    runAction(action, env, ImmutableMap.of("used-var", "1"));
-    // Cache hit because nothing changed.
-    runAction(action, env, ImmutableMap.of("used-var", "1"));
-    // Cache miss because platform changed to an empty from a previous value.
-    runAction(action, env, ImmutableMap.of());
-    // Cache hit with an empty platform.
-    runAction(action, env, ImmutableMap.of());
-    // Cache miss because platform changed to a value from an empty one.
-    runAction(action, env, ImmutableMap.of("used-var", "1"));
-    // Cache miss because platform value changed.
-    runAction(action, env, ImmutableMap.of("used-var", "1", "another-var", "1234"));
+    runAction(action, env, "foo");
+    // Cache hit because actionExecutionSalt did not change.
+    runAction(action, env, "foo");
+    // Cache miss because actionExecutionSalt changed.
+    runAction(action, env, "bar");
 
     assertStatistics(
-        2,
+        1,
         new MissDetailsBuilder()
-            .set(MissReason.DIGEST_MISMATCH, 3)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .set(MissReason.NOT_CACHED, 1)
             .build());
   }
@@ -502,7 +495,7 @@ public final class ActionCacheCheckerTest {
                 /* handler= */ null,
                 fakeMetadataHandler,
                 fakeMetadataHandler,
-                /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+                /* actionExecutionSalt= */ "",
                 OutputChecker.TRUST_ALL,
                 /* useArchivedTreeArtifacts= */ false))
         .isNotNull();
@@ -656,7 +649,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -691,7 +684,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -721,7 +714,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             /* outputChecker= */ null,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -783,7 +776,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -792,7 +785,7 @@ public final class ActionCacheCheckerTest {
     runAction(
         action,
         /* clientEnv= */ ImmutableMap.of(),
-        /* platform= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         metadataHandler,
         metadataHandler,
         token);
@@ -821,8 +814,8 @@ public final class ActionCacheCheckerTest {
     FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -849,8 +842,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         new FakeInputMetadataHandler(),
         outputChecker);
@@ -980,7 +973,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1086,7 +1079,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1147,7 +1140,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -1158,7 +1151,7 @@ public final class ActionCacheCheckerTest {
     runAction(
         action,
         /* clientEnv= */ ImmutableMap.of(),
-        /* platform= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         metadataHandler,
         metadataHandler,
         token);
@@ -1221,7 +1214,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
@@ -1229,7 +1222,7 @@ public final class ActionCacheCheckerTest {
     runAction(
         action,
         /* clientEnv= */ ImmutableMap.of(),
-        /* platform= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         metadataHandler,
         metadataHandler,
         token);
@@ -1287,7 +1280,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1332,7 +1325,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1366,8 +1359,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         metadataHandler,
         metadataHandler,
         OutputChecker.TRUST_ALL,
@@ -1385,7 +1378,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             CHECK_TTL,
             !initiallyEnabled);
 
@@ -1430,7 +1423,7 @@ public final class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* remoteDefaultExecProperties= */ ImmutableMap.of(),
+            /* actionExecutionSalt= */ "",
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1519,8 +1512,8 @@ public final class ActionCacheCheckerTest {
     FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 
@@ -1555,8 +1548,8 @@ public final class ActionCacheCheckerTest {
     FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 
@@ -1596,8 +1589,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         new FakeInputMetadataHandler(),
         outputChecker);
@@ -1637,8 +1630,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 
@@ -1669,8 +1662,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 
@@ -1704,8 +1697,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 
@@ -1739,8 +1732,8 @@ public final class ActionCacheCheckerTest {
 
     runAction(
         action,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
 

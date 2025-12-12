@@ -183,7 +183,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
@@ -471,9 +470,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<Semaphore> cpuBoundSemaphore =
       new AtomicReference<>(new Semaphore(DEFAULT_SEMAPHORE_SIZE));
 
-  private Map<String, String> lastRemoteDefaultExecProperties;
-  private RemoteOutputsMode lastRemoteOutputsMode;
-  private Boolean lastRemoteCacheEnabled;
+  @Nullable private String lastExecutionSalt;
 
   // start: Skymeld-only
   // This is set once every build and set to null at the end of each.
@@ -1019,9 +1016,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public void configureActionExecutor(
-      InputMetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+      InputMetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      String actionExecutionSalt) {
     skyframeActionExecutor.configure(
-        fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT);
+        fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT, actionExecutionSalt);
   }
 
   @ForOverride
@@ -1909,7 +1908,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkActive();
     checkState(actionLogBufferPathGenerator != null);
 
-    deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       prepareSkyframeActionExecutorForExecution(
@@ -2032,33 +2030,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         reporter, executor, options, checker, outputDirectoryHelper);
   }
 
-  public void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
-      throws AbruptExitException {
-    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    Map<String, String> remoteDefaultExecProperties =
-        remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of();
-    boolean needsDeletion =
-        lastRemoteDefaultExecProperties != null
-            && !remoteDefaultExecProperties.equals(lastRemoteDefaultExecProperties);
-    lastRemoteDefaultExecProperties = remoteDefaultExecProperties;
-
-    boolean remoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
-    // If we have remote metadata from last build, and the remote cache is not
-    // enabled in this build, invalidate actions since they can't download those
-    // remote files.
-    //
-    // TODO(chiwang): Re-evaluate this after action rewinding is implemented in
-    //  Bazel since we can treat that case as lost inputs.
-    if (lastRemoteOutputsMode != RemoteOutputsMode.ALL) {
-      needsDeletion |=
-          lastRemoteCacheEnabled != null && lastRemoteCacheEnabled && !remoteCacheEnabled;
-    }
-    lastRemoteCacheEnabled = remoteCacheEnabled;
-    lastRemoteOutputsMode =
-        remoteOptions != null ? remoteOptions.remoteOutputsMode : RemoteOutputsMode.ALL;
-
-    if (needsDeletion) {
-      memoizingEvaluator.delete(k -> SkyFunctions.ACTION_EXECUTION.equals(k.functionName()));
+  /**
+   * Sets the execution salt and deletes all action execution nodes if it has changed since the last
+   * time it was set.
+   */
+  public void setSaltAndDeleteActionsIfChanged(String executionSalt) throws AbruptExitException {
+    try (SilentCloseable c = Profiler.instance().profile("setSaltAndDeleteActionsIfChanged")) {
+      if (lastExecutionSalt != null && !lastExecutionSalt.equals(executionSalt)) {
+        memoizingEvaluator.delete(k -> k.functionName().equals(SkyFunctions.ACTION_EXECUTION));
+      }
+      lastExecutionSalt = executionSalt;
     }
   }
 

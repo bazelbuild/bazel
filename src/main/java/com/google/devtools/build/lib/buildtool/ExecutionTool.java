@@ -143,6 +143,7 @@ public class ExecutionTool {
   private final ModuleActionContextRegistry actionContextRegistry;
 
   @Nullable private ActionCacheChecker actionCacheChecker;
+  private final String actionExecutionSalt;
 
   private boolean informedOutputServiceToStartTheBuild = false;
 
@@ -192,6 +193,7 @@ public class ExecutionTool {
 
     this.prefetcher = executorBuilder.getActionInputPrefetcher();
     this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
+    this.actionExecutionSalt = executorBuilder.getActionExecutionSalt();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -320,10 +322,11 @@ public class ExecutionTool {
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
-          skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
+          skyframeBuilder.getFileCache(),
+          skyframeBuilder.getActionInputPrefetcher(),
+          actionExecutionSalt);
     }
-
-    skyframeExecutor.deleteActionsIfRemoteOptionsChanged(request);
+    skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
@@ -935,6 +938,7 @@ public class ExecutionTool {
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),
+        actionExecutionSalt,
         modifiedOutputFiles,
         env.getFileCache(),
         prefetcher,

@@ -287,7 +287,8 @@ public interface ActionCache {
       private final HashMap<String, FileArtifactValue> metadataMap = new HashMap<>();
 
       private final ImmutableMap<String, String> clientEnv;
-      private final ImmutableMap<String, String> execProperties;
+
+      private final String actionExecutionSalt;
 
       // Discovered inputs.
       // Null if the action does not discover inputs.
@@ -318,13 +319,13 @@ public interface ActionCache {
           String actionKey,
           boolean discoversInputs,
           ImmutableMap<String, String> clientEnv,
-          ImmutableMap<String, String> execProperties,
+          String actionExecutionSalt,
           OutputPermissions outputPermissions,
           boolean useArchivedTreeArtifacts,
           @Nullable byte[] mandatoryInputsDigest) {
         this.actionKey = actionKey;
         this.clientEnv = clientEnv;
-        this.execProperties = execProperties;
+        this.actionExecutionSalt = actionExecutionSalt;
         this.discoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
         this.outputPermissions = outputPermissions;
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
@@ -412,7 +413,7 @@ public interface ActionCache {
                 discoveredInputPaths != null,
                 metadataMap,
                 clientEnv,
-                execProperties,
+                actionExecutionSalt,
                 outputPermissions,
                 useArchivedTreeArtifacts),
             mandatoryInputsDigest,
@@ -427,7 +428,7 @@ public interface ActionCache {
           boolean discoversInputs,
           Map<String, FileArtifactValue> metadataMap,
           Map<String, String> clientEnv,
-          Map<String, String> execProperties,
+          String actionExecutionSalt,
           OutputPermissions outputPermissions,
           boolean useArchivedTreeArtifacts) {
         Fingerprint fp = new Fingerprint();
@@ -435,7 +436,7 @@ public interface ActionCache {
         fp.addBoolean(discoversInputs);
         fp.addBytes(MetadataDigestUtils.fromMetadata(metadataMap));
         fp.addBytes(computeMapDigest(clientEnv));
-        fp.addBytes(computeMapDigest(execProperties));
+        fp.addString(actionExecutionSalt);
         fp.addInt(outputPermissions.getPermissionsMode());
         fp.addBoolean(useArchivedTreeArtifacts);
         return fp.digestAndReset();
