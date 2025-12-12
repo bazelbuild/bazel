@@ -19,6 +19,8 @@
 
 #include <string_view>
 
+#include "src/main/cpp/util/logging.h"
+
 namespace blaze_jni {
 
 jstring NewStringLatin1(JNIEnv *env, const char *str) {
@@ -44,36 +46,64 @@ jstring NewStringLatin1(JNIEnv *env, const char *str) {
 
 namespace {
 
-void LogBadPath(JNIEnv* env, jstring jstr) {
-  static const jclass NativePosixFiles_class =
-      static_cast<jclass>(env->NewGlobalRef(env->FindClass(
-          "com/google/devtools/build/lib/unix/NativePosixFiles")));
-  static const jmethodID NativePosixFiles_logBadPath_method =
-      env->GetStaticMethodID(NativePosixFiles_class, "logBadPath",
-                             "(Ljava/lang/String;)V");
-  env->CallVoidMethod(NativePosixFiles_class,
-                      NativePosixFiles_logBadPath_method, jstr);
+jclass GetClass(JNIEnv* env, const char* name) {
+  jclass clazz = env->FindClass(name);
+  BAZEL_CHECK_NE(clazz, nullptr);
+  return static_cast<jclass>(env->NewGlobalRef(clazz));
 }
 
-char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
-  static jclass String_class = env->FindClass("java/lang/String");
-  static jfieldID String_coder_field =
-      env->GetFieldID(String_class, "coder", "B");
-  static jfieldID String_value_field =
-      env->GetFieldID(String_class, "value", "[B");
+jmethodID GetStaticMethodId(JNIEnv* env, jclass clazz, const char* name,
+                            const char* sig) {
+  jmethodID method = env->GetStaticMethodID(clazz, name, sig);
+  BAZEL_CHECK_NE(method, nullptr);
+  return method;
+}
+
+jfieldID GetFieldId(JNIEnv* env, jclass clazz, const char* name,
+                    const char* sig) {
+  jfieldID field = env->GetFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return field;
+}
+
+void LogBadPath(JNIEnv* env, jstring jstr) {
+  static const jclass NativePosixFiles_class =
+      GetClass(env, "com/google/devtools/build/lib/unix/NativePosixFiles");
+  static const jmethodID NativePosixFiles_logBadPath_method = GetStaticMethodId(
+      env, NativePosixFiles_class, "logBadPath", "(Ljava/lang/String;)V");
+  env->CallStaticVoidMethod(NativePosixFiles_class,
+                            NativePosixFiles_logBadPath_method, jstr);
+}
+
+char* GetStringLatin1Chars(JNIEnv* env, jstring jstr) {
+  static const jclass String_class = GetClass(env, "java/lang/String");
+  static const jfieldID String_coder_field =
+      GetFieldId(env, String_class, "coder", "B");
+  static const jfieldID String_value_field =
+      GetFieldId(env, String_class, "value", "[B");
+  static const jclass NullPointerException_class =
+      GetClass(env, "java/lang/NullPointerException");
+
+  if (jstr == nullptr) {
+    env->ThrowNew(NullPointerException_class,
+                  "JStringLatin1Holder: String should not be null");
+    return nullptr;
+  }
 
   jint len = env->GetStringLength(jstr);
 
   // Fast path for strings with a Latin1 coder, which all well-formed path
   // strings in Bazel ought to be.
   if (env->GetByteField(jstr, String_coder_field) == 0) {
-    char *result = new char[len + 1];
-    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
-    } else {
-      delete[] result;
+    jobject jvalue = env->GetObjectField(jstr, String_value_field);
+    if (jvalue == nullptr) {
+      // Memory corruption?
+      env->ThrowNew(NullPointerException_class,
+                    "JStringLatin1Holder: String.value should not be null");
       return nullptr;
     }
+    char* result = new char[len + 1];
+    env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte*)result);
     result[len] = 0;
     return result;
   }
@@ -82,11 +112,13 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
   // but must be tolerated until all occurrences at Google have been fixed.
   // TODO(tjgq): Delete this fallback.
   LogBadPath(env, jstr);
-  const jchar *str = env->GetStringCritical(jstr, nullptr);
+  const jchar* str = env->GetStringCritical(jstr, nullptr);
   if (str == nullptr) {
+    // OutOfMemoryError already set by GetStringCritical.
+    BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
     return nullptr;
   }
-  char *result = new char[len + 1];
+  char* result = new char[len + 1];
   for (int i = 0; i < len; i++) {
     jchar unicode = str[i];  // (unsigned)
     result[i] = unicode <= 0x00ff ? unicode : '?';
