@@ -359,6 +359,12 @@ message Rule {
   //
   // Requires --proto:rule_classes=true
   optional stardoc_output.RuleInfo rule_class_info = 17;
+
+  // The rule is a test.
+  optional bool test = 18;
+
+  // The rule is marked as executable or is a test.
+  optional bool executable = 19;
 }
 
 // Direct dependencies of a rule in <depLabel, depConfiguration> form.
