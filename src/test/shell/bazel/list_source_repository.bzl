@@ -22,13 +22,6 @@ def _impl(rctx):
     workspace = rctx.path(Label("//:BUILD")).dirname
     srcs_excludes = "XXXXXXXXXXXXXX1268778dfsdf4"
 
-    # Depending in ~/.git/logs/HEAD is a trick to depends on something that
-    # change every time the workspace content change.
-    r = rctx.execute(["test", "-f", "%s/.git/logs/HEAD" % workspace])
-    if r.return_code == 0:
-        # We only add the dependency if it exists.
-        unused_var = rctx.path(Label("//:.git/logs/HEAD"))  # pylint: disable=unused-variable
-
     if "SRCS_EXCLUDES" in rctx.os.environ:
         srcs_excludes = rctx.os.environ["SRCS_EXCLUDES"]
     r = rctx.execute(["find", "-L", str(workspace), "-type", "f"])
@@ -47,6 +40,8 @@ genrule(
   ]),
 )
 """ % srcs_excludes)
+
+    rctx.watch_tree(workspace)
 
 list_source_repository = repository_rule(
     implementation = _impl,
