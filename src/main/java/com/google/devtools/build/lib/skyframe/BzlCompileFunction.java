@@ -210,6 +210,7 @@ public class BzlCompileFunction implements SkyFunction {
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .allowTypeSyntax(useTypeSyntax)
+            .resolveTypeSyntax(doTypeChecking)
             .tolerateInvalidTypeExpressions(!doTypeChecking)
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
