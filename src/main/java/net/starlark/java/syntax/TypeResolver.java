@@ -16,6 +16,7 @@ package net.starlark.java.syntax;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
@@ -29,7 +30,12 @@ import net.starlark.java.types.Types;
 /**
  * A visitor for annotating a resolved file with type information.
  *
- * <p>This populates the function type on the {@link Resolver.Function} objects in the AST.
+ * <p>This populates the function type on the {@link Resolver.Function} objects in the AST, and the
+ * variable types on the {@link Resolver.Binding} objects. These type fields must all be null prior
+ * to running the visitor. The types assigned to the fields are based solely on the evaluation of
+ * type annotations in the program; no type inference is done here.
+ *
+ * <p>Only a file that has passed the Resolver without errors should be run through this visitor.
  */
 public class TypeResolver extends NodeVisitor {
 
@@ -208,28 +214,101 @@ public class TypeResolver extends NodeVisitor {
     return result;
   }
 
+  /**
+   * Helper that sets an identifier's type, asserting that a corresponding binding exists and that
+   * it doesn't already have a type.
+   *
+   * <p>We can expect these preconditions to hold because we should only traverse symbol usages of
+   * identifiers (not fields, or keyword args at call sites), and because a symbol may have at most
+   * one type annotation in a valid program.
+   */
+  private static void setType(Identifier id, StarlarkType type) {
+    Resolver.Binding binding = id.getBinding();
+    Preconditions.checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+    if (binding.getType() != null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected type of binding %s to be null but was %s", binding, binding.getType()));
+    }
+    binding.setType(type);
+  }
+
+  /** Same as {@link #setType(Identifier, StarlarkType)} but for resolved functions. */
+  private static void setType(Resolver.Function resolved, Types.CallableType type) {
+    Preconditions.checkNotNull(resolved);
+    if (resolved.getFunctionType() != null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected type of resolved function %s to be null but was %s",
+              resolved.getName(), resolved.getFunctionType()));
+    }
+    resolved.setFunctionType(type);
+  }
+
+  @Override
+  public void visit(AssignmentStatement assignment) {
+    if (assignment.getType() != null) {
+      StarlarkType type = evalType(assignment.getType());
+      setType((Identifier) assignment.getLHS(), type);
+    }
+
+    // Traverse children; RHS could contain a lambda.
+    super.visit(assignment);
+  }
+
   @Override
   public void visit(DefStatement def) {
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
-    def.getResolvedFunction().setFunctionType(type);
+    setType(def.getResolvedFunction(), type);
+    setType(def.getIdentifier(), type);
 
     super.visit(def);
+  }
+
+  @Override
+  public void visit(Parameter param) {
+    if (param.getIdentifier() != null) {
+      // Default to ANY for unannotated params.
+      // This matches the behavior for the Resolver.Function's type.
+      StarlarkType type = Types.ANY;
+      if (param.getType() != null) {
+        type = evalType(param.getType());
+      }
+      setType(param.getIdentifier(), type);
+    }
+
+    super.visit(param);
+  }
+
+  @Override
+  public void visit(VarStatement var) {
+    StarlarkType type = evalType(var.getType());
+    setType(var.getIdentifier(), type);
+
+    // No need to descend into type expression child.
   }
 
   @Override
   public void visit(LambdaExpression lambda) {
     Types.CallableType type =
         createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
-    lambda.getResolvedFunction().setFunctionType(type);
+    setType(lambda.getResolvedFunction(), type);
 
     super.visit(lambda);
   }
 
+  // TODO: #27370 - Figure out the relationship between this visitor and identifiers introduced by
+  // type alias statements. I don't think it's quite correct to say that `type A = B` is annotating
+  // A's binding with the evaluation of type B. It probably should live in outer logic that
+  // determines the type environment.
+
   /**
-   * Sets the Starlark types of the {@link Resolver.Function}s in the given AST (which must have
-   * already been processed by {@link Resolver}), based on the supplied annotations.
+   * Sets the Starlark types of the {@link Resolver.Function}s and {@link Resolver.Binding}s in the
+   * given AST (which must have already been processed by {@link Resolver}), based on the supplied
+   * annotations.
+   *
+   * <p>The file must not have any existing type information in its resolved functions and bindings.
    */
-  // TODO: #27728 - Also set type information in `Resolver.Binding`s.
   public static void annotateFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
     TypeResolver r = new TypeResolver(file.errors, module);
     r.visit(file);

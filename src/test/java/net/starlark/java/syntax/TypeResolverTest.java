@@ -17,6 +17,8 @@ package net.starlark.java.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import java.util.ArrayList;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
@@ -46,6 +48,43 @@ public class TypeResolverTest {
     Resolver.resolveFile(file, module);
     TypeResolver.annotateFile(file, module);
     return file;
+  }
+
+  /** Returns the first statement of a parsed file. */
+  private <T extends Statement> T getFirstStatement(Class<T> clazz, StarlarkFile file) {
+    assertThat(file.getStatements()).isNotEmpty();
+    Statement stmt = file.getStatements().get(0);
+    assertThat(stmt).isInstanceOf(clazz);
+    return clazz.cast(stmt);
+  }
+
+  /** Returns the first statement of a function body. */
+  private <T extends Statement> T getFirstStatement(Class<T> clazz, DefStatement def) {
+    assertThat(def.getBody()).isNotEmpty();
+    Statement stmt = def.getBody().get(0);
+    assertThat(stmt).isInstanceOf(clazz);
+    return clazz.cast(stmt);
+  }
+
+  /** Returns the type of an identifier. */
+  @Nullable
+  private StarlarkType getType(Identifier id) throws Exception {
+    assertThat(id.getBinding()).isNotNull();
+    return id.getBinding().getType();
+  }
+
+  /** Returns the type of a {@code def}'s resolved function. */
+  @Nullable
+  private Types.CallableType getType(DefStatement def) throws Exception {
+    assertThat(def.getResolvedFunction()).isNotNull();
+    return def.getResolvedFunction().getFunctionType();
+  }
+
+  /** Returns the type of a {@code lambda}'s resolved function. */
+  @Nullable
+  private Types.CallableType getType(LambdaExpression lambda) throws Exception {
+    assertThat(lambda.getResolvedFunction()).isNotNull();
+    return lambda.getResolvedFunction().getFunctionType();
   }
 
   @Test
@@ -134,8 +173,7 @@ public class TypeResolverTest {
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
               pass
             """);
-    Resolver.Function resolved = ((DefStatement) file.getStatements().get(0)).getResolvedFunction();
-    Types.CallableType type = resolved.getFunctionType();
+    Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();
@@ -158,8 +196,7 @@ public class TypeResolverTest {
             def f(*a, **b):
               pass
             """);
-    Resolver.Function resolved = ((DefStatement) file.getStatements().get(0)).getResolvedFunction();
-    Types.CallableType type = resolved.getFunctionType();
+    Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).isEmpty();
@@ -174,8 +211,7 @@ public class TypeResolverTest {
             def f():
               pass
             """);
-    resolved = ((DefStatement) file.getStatements().get(0)).getResolvedFunction();
-    type = resolved.getFunctionType();
+    type = getType(getFirstStatement(DefStatement.class, file));
 
     assertThat(type).isNotNull();
     assertThat(type.getVarargsType()).isNull();
@@ -192,9 +228,9 @@ public class TypeResolverTest {
               def g(a : int):
                 pass
             """);
-    DefStatement outer = (DefStatement) file.getStatements().get(0);
-    Resolver.Function resolved = ((DefStatement) outer.getBody().get(0)).getResolvedFunction();
-    Types.CallableType type = resolved.getFunctionType();
+    var outer = getFirstStatement(DefStatement.class, file);
+    var inner = getFirstStatement(DefStatement.class, outer);
+    Types.CallableType type = getType(inner);
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a");
@@ -208,9 +244,8 @@ public class TypeResolverTest {
             """
             lambda x: 123
             """);
-    ExpressionStatement stmt = (ExpressionStatement) file.getStatements().get(0);
-    Resolver.Function resolved = ((LambdaExpression) stmt.getExpression()).getResolvedFunction();
-    Types.CallableType type = resolved.getFunctionType();
+    var stmt = getFirstStatement(ExpressionStatement.class, file);
+    Types.CallableType type = getType((LambdaExpression) stmt.getExpression());
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("x");
@@ -222,11 +257,8 @@ public class TypeResolverTest {
             """
             lambda x: lambda y: 123
             """);
-    stmt = (ExpressionStatement) file.getStatements().get(0);
-    resolved =
-        ((LambdaExpression) ((LambdaExpression) stmt.getExpression()).getBody())
-            .getResolvedFunction();
-    type = resolved.getFunctionType();
+    stmt = getFirstStatement(ExpressionStatement.class, file);
+    type = getType((LambdaExpression) ((LambdaExpression) stmt.getExpression()).getBody());
 
     assertThat(type).isNotNull();
   }
@@ -237,9 +269,124 @@ public class TypeResolverTest {
   @Test
   public void annotateFile_doesNotSetTypeOnStarlarkFileFunction() throws Exception {
     StarlarkFile file = annotateFile("pass");
-    Resolver.Function resolved = file.getResolvedFunction();
-    Types.CallableType type = resolved.getFunctionType();
+    Types.CallableType type = file.getResolvedFunction().getFunctionType();
 
     assertThat(type).isNull();
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_nullByDefault() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            x = 1
+            """);
+    var stmt = getFirstStatement(AssignmentStatement.class, file);
+    StarlarkType type = getType((Identifier) stmt.getLHS());
+
+    assertThat(type).isNull();
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_var() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            x : int
+            """);
+    var stmt = getFirstStatement(VarStatement.class, file);
+    StarlarkType type = getType(stmt.getIdentifier());
+
+    assertThat(type).isEqualTo(Types.INT);
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_assignment() throws Exception {
+    options.allowToplevelRebinding(true);
+
+    StarlarkFile file =
+        annotateFile(
+            """
+            x : int = 5
+            x = 6  # not clobbered by annotation-less reassignment
+            """);
+    var stmt = getFirstStatement(AssignmentStatement.class, file);
+    StarlarkType type = getType(((Identifier) stmt.getLHS()));
+
+    assertThat(type).isEqualTo(Types.INT);
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_functionIdentifier() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            def f(x : int):
+              pass
+            """);
+    var stmt = getFirstStatement(DefStatement.class, file);
+    StarlarkType type = getType(stmt.getIdentifier());
+
+    assertThat(type).isInstanceOf(Types.CallableType.class);
+    assertThat(((Types.CallableType) type).getParameterTypeByPos(0)).isEqualTo(Types.INT);
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_functionParams() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
+              pass
+            """);
+    var stmt = getFirstStatement(DefStatement.class, file);
+    ArrayList<StarlarkType> bindingTypes = new ArrayList<>();
+    for (var param : stmt.getParameters()) {
+      bindingTypes.add(getType(param.getIdentifier()));
+    }
+
+    assertThat(bindingTypes)
+        .containsExactly(Types.INT, Types.ANY, Types.BOOL, Types.STR, Types.ANY, Types.INT)
+        .inOrder();
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_lambdaParams() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            lambda x, y: 123
+            """);
+    var stmt = getFirstStatement(ExpressionStatement.class, file);
+    var lambda = (LambdaExpression) stmt.getExpression();
+    ArrayList<StarlarkType> bindingTypes = new ArrayList<>();
+    for (var param : lambda.getParameters()) {
+      bindingTypes.add(getType(param.getIdentifier()));
+    }
+
+    assertThat(bindingTypes).containsExactly(Types.ANY, Types.ANY).inOrder();
+  }
+
+  @Test
+  public void annotateFile_setsBindingType_insideFunctions() throws Exception {
+    StarlarkFile file =
+        annotateFile(
+            """
+            def f():
+              x : int
+            """);
+    var stmt = getFirstStatement(DefStatement.class, file);
+    StarlarkType type = getType(getFirstStatement(VarStatement.class, stmt).getIdentifier());
+
+    assertThat(type).isEqualTo(Types.INT);
+  }
+
+  @Test
+  public void annotateFile_toleratesBareStarParam() throws Exception {
+    annotateFile(
+        """
+        def f(*, x):
+            pass
+        """);
   }
 }

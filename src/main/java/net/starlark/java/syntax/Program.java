@@ -105,9 +105,11 @@ public final class Program {
       throw new SyntaxError.Exception(file.errors());
     }
 
-    TypeResolver.annotateFile(file, env);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
+    if (file.getOptions().resolveTypeSyntax()) {
+      TypeResolver.annotateFile(file, env);
+      if (!file.ok()) {
+        throw new SyntaxError.Exception(file.errors());
+      }
     }
 
     // Extract load statements.

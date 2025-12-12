@@ -187,13 +187,23 @@ public class BzlCompileFunction implements SkyFunction {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
 
-    List<String> typeSyntaxAllowlist =
-        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
-    boolean typeSyntaxAllowlistMatchesPath =
-        !key.isBuildPrelude() // annotations in prelude not allowed (it has null key.label)
-            && (typeSyntaxAllowlist.isEmpty()
-                || typeSyntaxAllowlist.stream()
-                    .anyMatch(s -> key.label.getCanonicalForm().startsWith(s)));
+    // Annotation syntax is controlled by a global flag, an allowlist, and whether the file is a
+    // prelude.
+    boolean useTypeSyntax = false;
+    if (semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
+        // annotations in prelude not allowed (it has null key.label)
+        && !key.isBuildPrelude()) {
+      List<String> typeAllowlist =
+          semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
+      if (typeAllowlist.isEmpty()
+          || typeAllowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+        useTypeSyntax = true;
+      }
+    }
+    // Type checking requires the syntax flag to be enabled, though technically it shouldn't matter
+    // to semantics if unannotated code is considered untyped.
+    boolean doTypeChecking =
+        useTypeSyntax && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
 
     FileOptions options =
         FileOptions.builder()
@@ -209,11 +219,9 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
-            .allowTypeSyntax(
-                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
-                    && typeSyntaxAllowlistMatchesPath)
-            .tolerateInvalidTypeExpressions(
-                !semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING))
+            .allowTypeSyntax(useTypeSyntax)
+            .resolveTypeSyntax(doTypeChecking)
+            .tolerateInvalidTypeExpressions(!doTypeChecking)
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

@@ -99,6 +99,10 @@ public final class Resolver extends NodeVisitor {
     // Otherwise, the first occurrence of this symbol (which must be non-binding).
     private final Identifier first;
 
+    // Set by type checking (possibly more than once) if applicable.
+    // Null is treated as untyped / Any.
+    @Nullable private StarlarkType type;
+
     private Binding(Scope scope, int index, boolean isSyntactic, Identifier first) {
       this.scope = scope;
       this.index = index;
@@ -134,6 +138,17 @@ public final class Resolver extends NodeVisitor {
                   // e.g., on a previous input of the REPL
                   : "<previously defined>";
       return String.format("%s[%d] %s @ %s", scope, index, first.getName(), declaredAt);
+    }
+
+    /** Returns the type of this binding, or null if a type is not set. */
+    @Nullable
+    public StarlarkType getType() {
+      return type;
+    }
+
+    /** Assigns (or clears) a type to this binding. May be called more than once. */
+    void setType(@Nullable StarlarkType type) {
+      this.type = type;
     }
   }
 
@@ -569,7 +584,12 @@ public final class Resolver extends NodeVisitor {
         // Def statements are considered to supply a type annotation on the function identifier
         // iff they have at least one piece of type syntax in their signature -- a type annotation
         // on a parameter or return value, or a list of generic type variables.
-        // .
+        //
+        // TODO: #27728 - Let's just ban redefinitions of functions in type-checked code, on the
+        // basis that they always imply a type since even an unannotated function is still a
+        // Callable. This also enforces better readability practices in type-checked code, and
+        // redefinitions are pretty rare anyway. Enforcement should be done in TypeResolver, not
+        // here in Resolver.
         boolean hasType =
             def.getParameters().stream().anyMatch(p -> p.getType() != null)
                 || def.getReturnType() != null
@@ -1203,6 +1223,8 @@ public final class Resolver extends NodeVisitor {
 
     id.setBinding(bind);
 
+    // TODO: #27728 - Move the functionality of banning multiple type declarations of the same
+    // symbol over to the TypeResolver, eliminating this hasType logic.
     if (hasType && !isNew) {
       if (bind.isSyntactic) {
         errorf(

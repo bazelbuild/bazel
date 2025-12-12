@@ -35,15 +35,18 @@ public class DynamicTypeCheckTest {
   private EvaluationTestCase ev;
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     ev = new EvaluationTestCase();
-    // TODO: #27728 - Ensure the predeclared environment contains builtin type names so that we can
-    // set resolveTypeSyntax(true) here.
-    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, true)
             .build());
+    // TODO: #27728 - No need to add to global environment once these builtin types are in the
+    // universal block.
+    ev.update("Collection", Starlark.NONE);
+    ev.update("Sequence", Starlark.NONE);
+    ev.update("Mapping", Starlark.NONE);
   }
 
   @Test

@@ -24,6 +24,7 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark types. */
 @RunWith(JUnit4.class)
 public class StarlarkTypesTest extends BuildViewTestCase {
+
   @Test
   public void experimentalStarlarkTypes_on_allowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
@@ -109,5 +110,105 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     getTarget("@@r+//test:BUILD");
 
     assertNoEvents();
+  }
+
+  @Test
+  public void typeResolverDoesNotRunByDefault() throws Exception {
+    // If the type resolver were running, it'd complain about the redefinition of g.
+    //
+    // We need a type annotation in f()'s signature to ensure its body is considered typed code.
+    //
+    // TODO: #27728 - Replace this test setup with a simple erroneous re-annotation of an previously
+    // defined var, once validation of that is moved into the resolver.
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        def f() -> None:
+            def g():
+                pass
+            def g():
+                pass
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "f")
+        """);
+
+    getTarget("//test:BUILD");
+    assertNoEvents();
+  }
+
+  @Test
+  public void typeResolverDoesRunWithTypeCheckingFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_type_checking");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        def f() -> None:
+            def g():
+                pass
+            def g():
+                pass
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "f")
+        """);
+
+    // TODO: #27728 -- Replace this exception/crash with an error on the StarlarkFile that we can
+    // assert on as an ordinary Event.
+    Exception ex = assertThrows(RuntimeException.class, () -> getTarget("//test:BUILD"));
+    assertThat(ex)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains(
+            "Expected type of binding local[0] g @ /workspace/test/foo.bzl:2:9 to be null but was"
+                + " Callable[[], Any]");
+  }
+
+  @Test
+  public void dynamicTypeCheckingDoesNotRunByDefault() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        def f(x: int):
+            pass
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "f")
+        f("abc")
+        """);
+
+    getTarget("//test:BUILD");
+    assertNoEvents();
+  }
+
+  @Test
+  public void dynamicTypeCheckingDoesRunWithTypeCheckingFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_type_checking");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        def f(x: int):
+            pass
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "f")
+        f("abc")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//test:BUILD");
+    assertContainsEvent("in call to f(), parameter 'x' got value of type 'str', want 'int'");
   }
 }
