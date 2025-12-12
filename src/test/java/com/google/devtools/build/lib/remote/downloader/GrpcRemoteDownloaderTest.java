@@ -88,7 +88,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,6 +106,7 @@ public class GrpcRemoteDownloaderTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private final StoredEventHandler eventHandler = new StoredEventHandler();
+  private final RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
   private Server fakeServer;
   private RemoteActionExecutionContext context;
   private ListeningScheduledExecutorService retryService;
@@ -144,12 +144,11 @@ public class GrpcRemoteDownloaderTest {
   }
 
   private GrpcRemoteDownloader newDownloader(RemoteCacheClient cacheClient) throws IOException {
-    return newDownloader(cacheClient, /* fallbackDownloader= */ null);
+    return newDownloader(cacheClient, mock(Downloader.class)/* allowFallback= */ );
   }
 
   private GrpcRemoteDownloader newDownloader(
-      RemoteCacheClient cacheClient, @Nullable Downloader fallbackDownloader) throws IOException {
-    final RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      RemoteCacheClient cacheClient, Downloader httpDownloader) throws IOException {
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -182,7 +181,8 @@ public class GrpcRemoteDownloaderTest {
         DIGEST_UTIL.getDigestFunction(),
         remoteOptions,
         /* verboseFailures= */ false,
-        fallbackDownloader);
+        httpDownloader,
+        remoteOptions.remoteDownloaderLocalFallback);
   }
 
   private byte[] downloadBlob(GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
@@ -252,6 +252,7 @@ public class GrpcRemoteDownloaderTest {
 
   @Test
   public void testDownloadFallback() throws Exception {
+    remoteOptions.remoteDownloaderLocalFallback = true;
     final byte[] content = "example content".getBytes(UTF_8);
     serviceRegistry.addService(
         new FetchImplBase() {
@@ -288,6 +289,39 @@ public class GrpcRemoteDownloaderTest {
   }
 
   @Test
+  public void testFileUrl() throws Exception {
+    var fileUrl = new URL("file:///my/local/file");
+    byte[] content = "example content".getBytes(UTF_8);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onError(new IOException("io error"));
+          }
+        });
+    var cacheClient = new InMemoryCacheClient();
+    var fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              List<URL> urls = invocation.getArgument(0);
+              if (urls.equals(ImmutableList.of(fileUrl))) {
+                Path output = invocation.getArgument(5);
+                FileSystemUtils.writeContent(output, content);
+              }
+              return null;
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("context"));
+    GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
+    byte[] downloaded = downloadBlob(downloader, fileUrl, Optional.empty());
+
+    assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts()).isEmpty();
+  }
+
+  @Test
   public void testStatusHandling() throws Exception {
     serviceRegistry.addService(
         new FetchImplBase() {
@@ -315,8 +349,7 @@ public class GrpcRemoteDownloaderTest {
           }
         });
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
-    final GrpcRemoteDownloader downloader =
-        newDownloader(cacheClient, /* fallbackDownloader= */ null);
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, /* httpDownloader= */ null);
     // Add a cache entry for the empty Digest to verify that the implementation checks the status
     // before fetching the digest.
     getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY));
