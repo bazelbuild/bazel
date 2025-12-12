@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
+
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -56,7 +57,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -76,7 +76,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final DigestFunction.Value digestFunction;
   private final RemoteOptions options;
   private final boolean verboseFailures;
-  @Nullable private final Downloader fallbackDownloader;
+  private final Downloader httpDownloader;
+  private final boolean remoteDownloaderLocalFallback;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -106,7 +107,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       DigestFunction.Value digestFunction,
       RemoteOptions options,
       boolean verboseFailures,
-      @Nullable Downloader fallbackDownloader) {
+      Downloader httpDownloader,
+      boolean remoteDownloaderLocalFallback) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
@@ -116,7 +118,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.digestFunction = digestFunction;
     this.options = options;
     this.verboseFailures = verboseFailures;
-    this.fallbackDownloader = fallbackDownloader;
+    this.httpDownloader = httpDownloader;
+    this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
   }
 
   @Override
@@ -141,6 +144,21 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<String> type,
       String context)
       throws IOException, InterruptedException {
+    // file: URLs can't use the gRPC downloader.
+    if (urls.stream().anyMatch(url -> url.getProtocol().equals("file"))) {
+      httpDownloader.download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+      return;
+    }
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId,
@@ -188,7 +206,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           });
 
     } catch (StatusRuntimeException | IOException e) {
-      if (fallbackDownloader == null) {
+      if (!remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
         }
@@ -196,7 +214,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       }
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
-      fallbackDownloader.download(
+      httpDownloader.download(
           urls,
           headers,
           credentials,
