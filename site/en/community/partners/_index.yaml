@@ -123,3 +123,12 @@ landing_page:
       - label: Learn more
         path:  https://buildkite.com/
         classname: button
+    # Item 11
+    - image_path: /community/images/mergify.svg
+      heading: Mergify
+      description: >
+        Mergify helps Bazel teams streamline how changes land in main by pairing GitHub-native automation with an advanced Merge Queue. It batches and orders pull requests, runs speculative and two-step CI, and enforces merge policies that prevent conflicting or wasteful rebuilds in large monorepos. Organizations using Bazel rely on Mergify to safeguard CI capacity, keep the main branch healthy, and sustain high developer throughput even when builds and tests are long-running or resource-intensive.
+      buttons:
+      - label: Learn more
+        path: https://mergify.com/
+        classname: button
