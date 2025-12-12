@@ -61,7 +61,7 @@ public class SystemNetworkStatsServiceImpl implements SystemNetworkStatsService 
       }
       String name = line.substring(0, colonAt).strip();
       long[] fields =
-          SPLITTER.splitToStream(line.substring(colonAt + 1)).mapToLong(Long::parseLong).toArray();
+          SPLITTER.splitToStream(line.substring(colonAt + 1)).mapToLong(Long::parseUnsignedLong).toArray();
       if (fields.length > 9) {
         long bytesRecv = fields[0];
         long packetsRecv = fields[1];
