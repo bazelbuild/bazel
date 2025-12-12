@@ -23,6 +23,14 @@ java_library(
         "StarlarkFileAccessor.java",
         "SystemOutEventHandler.java",
     ],
+    resources = [
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
+    ],
     deps = [
         "//src/main/java/build/stack/devtools/build/constellate/fakebuildapi",
         "//src/main/java/build/stack/devtools/build/constellate/rendering",
@@ -51,6 +59,7 @@ java_library(
         "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
+        "@com_google_protobuf//java/core",
     ],
 )
 

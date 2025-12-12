@@ -59,6 +59,7 @@ public final class FakeApi {
    * @param moduleExtensions the list of {@link com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo} objects, to which 'module_extension'
    *                  invocation information
    *                  will be added
+   * @param nativeRules the map of native rule name to {@link RuleInfo} for native Bazel rules
    */
   public static void addPredeclared(
       ImmutableMap.Builder<String, Object> env,
@@ -68,13 +69,15 @@ public final class FakeApi {
       List<AspectInfoWrapper> aspects,
       List<MacroInfoWrapper> macros,
       List<RepositoryRuleInfoWrapper> repositoryRules,
-      List<ModuleExtensionInfoWrapper> moduleExtensions) {
+      List<ModuleExtensionInfoWrapper> moduleExtensions,
+      java.util.Map<String, RuleInfo> nativeRules) {
 
     Starlark.addMethods(env, new FakeBuildApiGlobals()); // e.g. configuration_field func
     Starlark.addMethods(
         env, new FakeStarlarkRuleFunctionsApi(rules, providers, aspects, macros)); // e.g. rule func
     env.put("attr", new FakeStarlarkAttrModuleApi());
     env.put("struct", new FakeStructProviderApi());
+    env.put("native", new FakeStarlarkNativeModuleApi(nativeRules));
     new ConfigBootstrap(
         new FakeConfigStarlarkCommon(), //
         new FakeConfigApi(),

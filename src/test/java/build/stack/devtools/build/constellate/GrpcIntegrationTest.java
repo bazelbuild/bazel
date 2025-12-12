@@ -213,7 +213,7 @@ public class GrpcIntegrationTest {
     // Find the load statement for load_test_lib.bzl
     build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt loadStmt = null;
     for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
-      if (stmt.getLabel().contains("load_test_lib.bzl")) {
+      if (stmt.getLabel().getName().contains("load_test_lib.bzl")) {
         loadStmt = stmt;
         break;
       }
@@ -1239,5 +1239,275 @@ public class GrpcIntegrationTest {
     }
     assertFalse("go_binary_macro should NOT be in regular functions (it's a RuleMacro)",
         foundInFunctions);
+  }
+
+  @Test
+  public void testPrivateFunctionsFiltered() throws Exception {
+    // Verify that private functions (starting with _) are not exported
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:simple_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // Check that no functions starting with _ are in the function list
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      assertFalse("Function " + func.getInfo().getFunctionName() + " should not start with underscore",
+          func.getInfo().getFunctionName().startsWith("_"));
+    }
+
+    // Check that no RuleMacros have functions starting with _
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.hasFunction()) {
+        assertFalse("RuleMacro function " + macro.getFunction().getInfo().getFunctionName() + " should not start with underscore",
+            macro.getFunction().getInfo().getFunctionName().startsWith("_"));
+      }
+    }
+  }
+
+  @Test
+  public void testTransitiveNativeRuleForwarding() throws Exception {
+    // Test case for transitive forwarding: function -> loaded symbol -> native rule
+    // Currently, Constellate detects the forwarding to the loaded symbol but does NOT
+    // create a RuleMacro because it doesn't transitively resolve through load chains
+    // to detect that the loaded symbol ultimately calls a native rule.
+    //
+    // This test documents the current behavior as a known limitation.
+    // Future enhancement: traverse loaded modules to detect transitive native calls.
+
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:transitive_native_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // Find functions in the response
+    java.util.Map<String, build.stack.starlark.v1beta1.StarlarkProtos.Function> functionMap = new java.util.HashMap<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.Function func : response.getFunctionList()) {
+      functionMap.put(func.getInfo().getFunctionName(), func);
+    }
+
+    // Verify: java_binary function should exist
+    assertTrue("java_binary function should exist", functionMap.containsKey("java_binary"));
+    build.stack.starlark.v1beta1.StarlarkProtos.Function javaBinaryFunc = functionMap.get("java_binary");
+
+    // Verify: It correctly detects forwarding to _java_binary (the loaded symbol)
+    assertTrue("java_binary should forward kwargs to _java_binary",
+        javaBinaryFunc.getForwardsKwargsToList().contains("_java_binary"));
+
+    // Known limitation: RuleMacro is NOT created because Constellate doesn't currently
+    // traverse through loaded modules to detect that _java_binary -> native.java_binary
+    // This would require cross-module transitive analysis.
+    java.util.Map<String, build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro> macroMap = new java.util.HashMap<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.hasFunction()) {
+        macroMap.put(macro.getFunction().getInfo().getFunctionName(), macro);
+      }
+    }
+
+    // Document the limitation: Currently, this does NOT create a RuleMacro
+    assertFalse("java_binary is NOT detected as RuleMacro (known limitation: no transitive resolution)",
+        macroMap.containsKey("java_binary"));
+  }
+
+  @Test
+  public void testDirectNativeForwardingWithFullDocs() throws Exception {
+    // Test the exact pattern from the user's example:
+    // A function that forwards **attrs (note: parameter name doesn't matter) to native.java_binary
+    // This should create a RuleMacro with full RuleInfo from Build Encyclopedia
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:direct_native_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // Find RuleMacros in the response
+    java.util.Map<String, build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro> macroMap = new java.util.HashMap<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.hasFunction()) {
+        macroMap.put(macro.getFunction().getInfo().getFunctionName(), macro);
+      }
+    }
+
+    // Verify: java_binary should be detected as a RuleMacro
+    assertTrue("java_binary should be detected as RuleMacro", macroMap.containsKey("java_binary"));
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro javaBinary = macroMap.get("java_binary");
+
+    // Verify: It forwards **attrs to native.java_binary (parameter name "attrs" shouldn't matter)
+    assertTrue("java_binary should forward kwargs to native.java_binary",
+        javaBinary.getFunction().getForwardsKwargsToList().contains("native.java_binary"));
+
+    // Verify: The RuleMacro has the rule with full ModuleInfo from Build Encyclopedia
+    assertTrue("RuleMacro should have rule", javaBinary.hasRule());
+    assertTrue("Rule should have info", javaBinary.getRule().hasInfo());
+
+    // Verify: The rule name is from Build Encyclopedia (either full or short name)
+    String ruleName = javaBinary.getRule().getInfo().getRuleName();
+    assertTrue("Rule name should be java_binary related (got: " + ruleName + ")",
+        ruleName.equals("binary_rules.java_binary") || ruleName.equals("java_binary"));
+
+    // Verify: Rule has attributes from Build Encyclopedia
+    assertTrue("Rule should have attributes from Build Encyclopedia",
+        javaBinary.getRule().getAttributeCount() > 0);
+
+    // Verify: The docstring should come from user's function, not overwritten by Build Encyclopedia
+    String functionDoc = javaBinary.getFunction().getInfo().getDocString();
+    assertTrue("Function docstring should contain user's docs",
+        functionDoc.contains("Bazel java_binary rule"));
+  }
+
+  @Test
+  public void testNativeRuleForwarding() throws Exception {
+    // Verify that functions forwarding to native rules are detected as RuleMacros
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:native_forwarding_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+
+    // Find RuleMacros in the response
+    java.util.Map<String, build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro> macroMap = new java.util.HashMap<>();
+    for (build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro macro : response.getRuleMacroList()) {
+      if (macro.hasFunction()) {
+        macroMap.put(macro.getFunction().getInfo().getFunctionName(), macro);
+      }
+    }
+
+    // Test 1: my_java_library should forward **kwargs to native.java_library
+    assertTrue("my_java_library should be detected as RuleMacro", macroMap.containsKey("my_java_library"));
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro myJavaLibrary = macroMap.get("my_java_library");
+    assertTrue("my_java_library should forward kwargs to native.java_library",
+        myJavaLibrary.getFunction().getForwardsKwargsToList().contains("native.java_library"));
+
+    // Test 2: my_java_binary should forward **kwargs and name to native.java_binary
+    assertTrue("my_java_binary should be detected as RuleMacro", macroMap.containsKey("my_java_binary"));
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro myJavaBinary = macroMap.get("my_java_binary");
+    assertTrue("my_java_binary should forward kwargs to native.java_binary",
+        myJavaBinary.getFunction().getForwardsKwargsToList().contains("native.java_binary"));
+
+    // Test 3: my_java_test only forwards name (not kwargs), so it should NOT be a RuleMacro
+    // RuleMacros specifically require **kwargs forwarding
+    assertFalse("my_java_test should not be detected as RuleMacro (only forwards name)",
+        macroMap.containsKey("my_java_test"));
+
+    // Test 4: mixed_native_wrapper should forward to both native.java_library and native.java_binary
+    assertTrue("mixed_native_wrapper should be detected as RuleMacro", macroMap.containsKey("mixed_native_wrapper"));
+    build.stack.starlark.v1beta1.StarlarkProtos.RuleMacro mixedWrapper = macroMap.get("mixed_native_wrapper");
+    assertTrue("mixed_native_wrapper should forward kwargs to native.java_library",
+        mixedWrapper.getFunction().getForwardsKwargsToList().contains("native.java_library"));
+    assertTrue("mixed_native_wrapper should forward kwargs to native.java_binary",
+        mixedWrapper.getFunction().getForwardsKwargsToList().contains("native.java_binary"));
+
+    // Test 5: non_forwarding_helper should NOT be detected as RuleMacro
+    assertFalse("non_forwarding_helper should not be detected as RuleMacro",
+        macroMap.containsKey("non_forwarding_helper"));
+
+    // Test 6: indirect_native_call only forwards name (not kwargs), so it should NOT be a RuleMacro
+    assertFalse("indirect_native_call should not be detected as RuleMacro (only forwards name)",
+        macroMap.containsKey("indirect_native_call"));
+  }
+
+  @Test
+  public void testLoadStatementLocations() throws Exception {
+    // Test that load statements and their symbols have location information
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:load_locations_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have load statements", response.getLoadCount() > 0);
+
+    // The test file has 3 load statements at lines 8, 11, and 14
+    // Verify we have at least these load statements
+    assertTrue("Should have at least 3 load statements", response.getLoadCount() >= 3);
+
+    // Find the load statement at line 8: load("load_test_lib.bzl", "lib_function", "LibInfo")
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt loadStmt1 = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.hasLocation() && stmt.getLocation().getStart().getLine() == 8) {
+        loadStmt1 = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should find load statement at line 8", loadStmt1);
+    assertTrue("Load statement should have location", loadStmt1.hasLocation());
+    assertEquals("Load statement should start at line 8", 8, loadStmt1.getLocation().getStart().getLine());
+    assertEquals("Load statement location name should be 'load'", "load", loadStmt1.getLocation().getName());
+
+    // Verify symbols have locations
+    assertTrue("Load statement should have symbols", loadStmt1.getSymbolCount() > 0);
+
+    boolean foundLibFunction = false;
+    boolean foundLibInfo = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadSymbol symbol : loadStmt1.getSymbolList()) {
+      assertTrue("Symbol should have location", symbol.hasLocation());
+      assertTrue("Symbol location should have valid line number", symbol.getLocation().getStart().getLine() > 0);
+
+      if (symbol.getTo().equals("lib_function")) {
+        foundLibFunction = true;
+        assertEquals("lib_function symbol location name should match", "lib_function", symbol.getLocation().getName());
+      } else if (symbol.getTo().equals("LibInfo")) {
+        foundLibInfo = true;
+        assertEquals("LibInfo symbol location name should match", "LibInfo", symbol.getLocation().getName());
+      }
+    }
+
+    assertTrue("Should find lib_function symbol", foundLibFunction);
+    assertTrue("Should find LibInfo symbol", foundLibInfo);
+
+    // Find the load statement at line 14 with aliasing:
+    // load("load_test_lib.bzl", lib_func = "lib_function", lib_prov = "LibInfo", lib = "lib_rule")
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt loadStmt3 = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.hasLocation() && stmt.getLocation().getStart().getLine() == 14) {
+        loadStmt3 = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should find load statement at line 14", loadStmt3);
+    assertTrue("Load statement should have location", loadStmt3.hasLocation());
+    assertEquals("Load statement should start at line 14", 14, loadStmt3.getLocation().getStart().getLine());
+
+    // Verify aliased symbols have locations with local names
+    boolean foundLibFunc = false;
+    boolean foundLibProv = false;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadSymbol symbol : loadStmt3.getSymbolList()) {
+      assertTrue("Symbol should have location", symbol.hasLocation());
+
+      if (symbol.getTo().equals("lib_func")) {
+        foundLibFunc = true;
+        assertEquals("Original name should be lib_function", "lib_function", symbol.getFrom());
+        assertEquals("Symbol location should use local name", "lib_func", symbol.getLocation().getName());
+      } else if (symbol.getTo().equals("lib_prov")) {
+        foundLibProv = true;
+        assertEquals("Original name should be LibInfo", "LibInfo", symbol.getFrom());
+        assertEquals("Symbol location should use local name", "lib_prov", symbol.getLocation().getName());
+      }
+    }
+
+    assertTrue("Should find aliased lib_func symbol", foundLibFunc);
+    assertTrue("Should find aliased lib_prov symbol", foundLibProv);
   }
 }

@@ -3,6 +3,9 @@ package build.stack.devtools.build.constellate.fakebuildapi;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
+import java.util.Collections;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -19,6 +22,17 @@ import net.starlark.java.syntax.Location;
 
 /** Fake implementation of {@link StarlarkNativeModuleApi}. */
 public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Structure {
+
+  private final Map<String, RuleInfo> nativeRules;
+
+  public FakeStarlarkNativeModuleApi(Map<String, RuleInfo> nativeRules) {
+    this.nativeRules = nativeRules != null ? nativeRules : Collections.emptyMap();
+  }
+
+  // Default constructor for backward compatibility
+  public FakeStarlarkNativeModuleApi() {
+    this(Collections.emptyMap());
+  }
 
   @Override
   public Sequence<?> glob(
@@ -112,6 +126,34 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   @Nullable
   @Override
   public Object getValue(String name) throws EvalException {
+    // Check if this is a known native rule
+    final RuleInfo ruleInfo = nativeRules.get(name);
+
+    if (ruleInfo != null) {
+      // Return a callable that represents the native rule
+      return new StarlarkCallable() {
+        @Override
+        public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+          return Starlark.NONE;
+        }
+
+        @Override
+        public String getName() {
+          return name;
+        }
+
+        @Override
+        public Location getLocation() {
+          return Location.BUILTIN;
+        }
+
+        @Override
+        public void repr(Printer printer) {
+          printer.append("<native." + name + ">");
+        }
+      };
+    }
+
     // Bazel's notion of the global "native" isn't fully exposed via public interfaces, for example,
     // as far as native rules are concerned. Returning None on all unsupported invocations of
     // native.[func_name]() is the safest "best effort" approach to implementing a fake for

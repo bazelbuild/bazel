@@ -74,14 +74,24 @@ message Module {
     repeated RuleMacro rule_macro = 17;
 }
 
+message Label {
+    string repo = 1;
+    string pkg = 2;
+    string name = 3;
+    // version optionally narrows augments the repo to a specific version
+    string version = 4;
+}
+
 message LoadSymbol {
     string from = 1;
     string to = 2;
+    SymbolLocation location = 3;
 }
 
 message LoadStmt {
-    string label = 1;
+    Label label = 1;
     repeated LoadSymbol symbol = 2;
+    SymbolLocation location = 3;
 }
 
 message Rule {

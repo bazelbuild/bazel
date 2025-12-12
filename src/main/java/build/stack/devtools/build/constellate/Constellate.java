@@ -91,6 +91,7 @@ import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.DotExpression;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FileOptions;
@@ -169,6 +170,11 @@ public class Constellate {
   // Maps label -> set of symbol names that were missing during evaluation
   // Used to provide stubs on retry
   private final Map<Label, LinkedHashSet<String>> missingSymbolsByLabel = new HashMap<>();
+
+  // Native rules loaded from bundled binary protos at class initialization time
+  // Maps rule name -> RuleInfo for native Bazel rules (genrule, filegroup, etc.)
+  // Static to avoid reloading on every Constellate instance (worker process optimization)
+  private static final Map<String, RuleInfo> NATIVE_RULES = loadNativeRulesFromResources();
 
   // Maximum retries per file to prevent infinite loops
   private static final int MAX_RETRIES_PER_FILE = 10;
@@ -276,13 +282,53 @@ public class Constellate {
 
         // Build the LoadStmt proto
         StarlarkProtos.LoadStmt.Builder loadStmtBuilder = StarlarkProtos.LoadStmt.newBuilder();
-        loadStmtBuilder.setLabel(loadStmt.getImport().getValue());
 
-        // Add each loaded symbol
+        // Parse the load label and convert to proto Label message
+        String loadLabelStr = loadStmt.getImport().getValue();
+        try {
+          Label parsedLabel;
+          if (loadLabelStr.startsWith("//") || loadLabelStr.startsWith("@")) {
+            parsedLabel = Label.parseCanonical(loadLabelStr);
+          } else {
+            // Relative label - parse relative to current package
+            parsedLabel = Label.parseCanonical("//" + label.getPackageName() + ":" + loadLabelStr);
+          }
+
+          StarlarkProtos.Label protoLabel = StarlarkProtos.Label.newBuilder()
+              .setRepo(parsedLabel.getRepository().getName())
+              .setPkg(parsedLabel.getPackageName())
+              .setName(parsedLabel.getName())
+              .build();
+          loadStmtBuilder.setLabel(protoLabel);
+        } catch (LabelSyntaxException e) {
+          // If label parsing fails, create a Label with just the name field
+          loadStmtBuilder.setLabel(StarlarkProtos.Label.newBuilder()
+              .setName(loadLabelStr)
+              .build());
+        }
+
+        // Add location for the load statement itself
+        Location loadLoc = loadStmt.getStartLocation();
+        Location loadEndLoc = loadStmt.getEndLocation();
+        StarlarkProtos.SymbolLocation loadSymbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
+            .setName("load")
+            .setStart(StarlarkProtos.Position.newBuilder().setLine(loadLoc.line()).setCharacter(loadLoc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loadEndLoc.line()).setCharacter(loadEndLoc.column()).build())
+            .build();
+        loadStmtBuilder.setLocation(loadSymbolLocation);
+
+        // Add each loaded symbol with its location
         for (LoadStatement.Binding binding : loadStmt.getBindings()) {
+          Location bindingLoc = binding.getLocalName().getStartLocation();
+          Location bindingEndLoc = binding.getLocalName().getEndLocation();
           StarlarkProtos.LoadSymbol loadSymbol = StarlarkProtos.LoadSymbol.newBuilder()
               .setFrom(binding.getOriginalName().getName())
               .setTo(binding.getLocalName().getName())
+              .setLocation(StarlarkProtos.SymbolLocation.newBuilder()
+                  .setName(binding.getLocalName().getName())
+                  .setStart(StarlarkProtos.Position.newBuilder().setLine(bindingLoc.line()).setCharacter(bindingLoc.column()).build())
+                  .setEnd(StarlarkProtos.Position.newBuilder().setLine(bindingEndLoc.line()).setCharacter(bindingEndLoc.column()).build())
+                  .build())
               .build();
           loadStmtBuilder.addSymbol(loadSymbol);
         }
@@ -723,13 +769,19 @@ public class Constellate {
       StarlarkFunction userDefinedFunction = funcEntry.getValue();
       String functionName = funcEntry.getKey();
 
+      // Skip private functions (those starting with underscore)
+      if (functionName.startsWith("_")) {
+        continue;
+      }
+
       // Analyze function body to detect calls to rules/aspects/macros
       List<String> calledRulesAndMacros = findRuleAndMacroCallsInFunction(
           userDefinedFunction,
           builtRuleInfoMap,
           builtAspectInfoMap,
           builtMacroInfoMap,
-          ruleInfoList);
+          ruleInfoList,
+          NATIVE_RULES);
 
       // Get the list of rules/macros that receive **kwargs from this function
       List<String> kwargsTargets = functionToKwargsTargets.getOrDefault(functionName, ImmutableList.of());
@@ -739,13 +791,21 @@ public class Constellate {
 
       // Check if this function should be a RuleMacro:
       // - Function forwards kwargs or name to a rule
-      // - The target is a rule in our rule map OR in the ruleInfoList
+      // - The target is a rule in our rule map OR in the ruleInfoList OR a native rule
       // Note: We don't restrict to private rules (_) - real-world macros often wrap public rules too
       String wrappedRuleName = null;
       for (String target : kwargsTargets) {
         if (builtRuleInfoMap.containsKey(target)) {
           wrappedRuleName = target;
           break;
+        }
+        // Check if this is a native.* rule
+        if (target.startsWith("native.")) {
+          String nativeRuleName = target.substring("native.".length());
+          if (NATIVE_RULES.containsKey(nativeRuleName)) {
+            wrappedRuleName = target;
+            break;
+          }
         }
         // Also check if there's a wrapper for this rule (might be from a loaded module)
         for (RuleInfoWrapper wrapper : ruleInfoList) {
@@ -771,7 +831,12 @@ public class Constellate {
         try {
           StarlarkFunctionInfo functionInfo = FunctionUtil.fromNameAndFunction(functionName, userDefinedFunction);
           RuleInfo ruleInfo = builtRuleInfoMap.get(wrappedRuleName);
-          // If not in the map, try to find it in ruleInfoList (might be from a loaded module)
+          // If not in the map, check if it's a native rule
+          if (ruleInfo == null && wrappedRuleName.startsWith("native.")) {
+            String nativeRuleName = wrappedRuleName.substring("native.".length());
+            ruleInfo = NATIVE_RULES.get(nativeRuleName);
+          }
+          // If still not found, try to find it in ruleInfoList (might be from a loaded module)
           if (ruleInfo == null) {
             for (RuleInfoWrapper wrapper : ruleInfoList) {
               if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
@@ -813,6 +878,7 @@ public class Constellate {
               .setInfo(ruleInfo);
 
           // Find the rule's location from the rule wrapper list
+          boolean foundRuleLocation = false;
           for (RuleInfoWrapper ruleWrapper : ruleInfoList) {
             String ruleWrapperName = ((PostAssignHookAssignableIdentifier) ruleWrapper.getIdentifierFunction()).getAssignedName();
             if (ruleWrapperName.equals(wrappedRuleName)) {
@@ -823,8 +889,18 @@ public class Constellate {
                   .setEnd(StarlarkProtos.Position.newBuilder().setLine(ruleLoc.line()).setCharacter(ruleLoc.column()).build())
                   .build();
               ruleBuilder.setLocation(ruleSymbolLocation);
+              foundRuleLocation = true;
               break;
             }
+          }
+          // For native rules, set a built-in location since they're not in ruleInfoList
+          if (!foundRuleLocation && wrappedRuleName.startsWith("native.")) {
+            StarlarkProtos.SymbolLocation builtinLocation = StarlarkProtos.SymbolLocation.newBuilder()
+                .setName(wrappedRuleName)
+                .setStart(StarlarkProtos.Position.newBuilder().setLine(0).setCharacter(0).build())
+                .setEnd(StarlarkProtos.Position.newBuilder().setLine(0).setCharacter(0).build())
+                .build();
+            ruleBuilder.setLocation(builtinLocation);
           }
 
           // Add attributes from the rule
@@ -1043,6 +1119,16 @@ public class Constellate {
                   } catch (Exception e) {
                     logger.atFine().log("  ** parent-call-expression exception: %s", e);
                   }
+                } else if (parentCallExpr instanceof DotExpression) {
+                  // Handle native.* calls (e.g., native.genrule(**kwargs))
+                  DotExpression dotExpr = (DotExpression) parentCallExpr;
+                  Expression object = dotExpr.getObject();
+                  String field = dotExpr.getField().getName();
+                  if (object instanceof Identifier && ((Identifier) object).getName().equals("native")) {
+                    String nativeCallName = "native." + field;
+                    logger.atFine().log("Function %s forwards **kwargs to %s", globalName, nativeCallName);
+                    calledWithKwargs.put(nativeCallName, ImmutableList.of(globalName));
+                  }
                 }
                 break;
               }
@@ -1085,6 +1171,16 @@ public class Constellate {
                         logger.atFine().log("  ** parent-call-expression eval exception: %s", evalEx);
                       } catch (Exception e) {
                         logger.atFine().log("  ** parent-call-expression exception: %s", e);
+                      }
+                    } else if (parentCallExpr instanceof DotExpression) {
+                      // Handle native.* calls (e.g., native.genrule(name = name))
+                      DotExpression dotExpr = (DotExpression) parentCallExpr;
+                      Expression object = dotExpr.getObject();
+                      String field = dotExpr.getField().getName();
+                      if (object instanceof Identifier && ((Identifier) object).getName().equals("native")) {
+                        String nativeCallName = "native." + field;
+                        logger.atFine().log("Function %s forwards name to %s", globalName, nativeCallName);
+                        calledWithName.put(nativeCallName, ImmutableList.of(globalName));
                       }
                     }
                     break;
@@ -1156,11 +1252,6 @@ public class Constellate {
       // Check for name parameter forwarding in call expressions
       void checkNameForwarding(CallExpression call) {
         Expression callTarget = call.getFunction();
-        if (!(callTarget instanceof Identifier)) {
-          return;
-        }
-
-        Identifier targetIdent = (Identifier) callTarget;
 
         // Check each argument to see if 'name' is being forwarded
         boolean forwardsName = false;
@@ -1185,7 +1276,13 @@ public class Constellate {
           }
         }
 
-        if (forwardsName) {
+        if (!forwardsName) {
+          return;
+        }
+
+        // Handle Identifier calls (regular rules/macros)
+        if (callTarget instanceof Identifier) {
+          Identifier targetIdent = (Identifier) callTarget;
           logger.atFine().log("Found name parameter forwarding to %s at %s", targetIdent.getName(), call.getStartLocation());
           try {
             Object resolved = resolveFunctionIdentifier(userDefinedFunction, targetIdent);
@@ -1203,6 +1300,18 @@ public class Constellate {
             }
           } catch (Exception e) {
             logger.atFine().log("Exception resolving identifier: %s", e.getMessage());
+          }
+        }
+        // Handle DotExpression calls (native.* rules)
+        else if (callTarget instanceof DotExpression) {
+          DotExpression dotExpr = (DotExpression) callTarget;
+          Expression object = dotExpr.getObject();
+          String field = dotExpr.getField().getName();
+          if (object instanceof Identifier && ((Identifier) object).getName().equals("native")) {
+            String nativeCallName = "native." + field;
+            logger.atFine().log("Found name parameter forwarding to %s at %s", nativeCallName, call.getStartLocation());
+            logger.atFine().log("Function %s forwards name to %s", globalName, nativeCallName);
+            calledWithName.put(nativeCallName, ImmutableList.of(globalName));
           }
         }
       }
@@ -1332,7 +1441,7 @@ public class Constellate {
     // API but used by the program; these become FakeDeepStructures.
     ImmutableMap.Builder<String, Object> initialEnvBuilder = ImmutableMap.builder();
     FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList, macroInfoList,
-        repositoryRuleInfoList, moduleExtensionInfoList);
+        repositoryRuleInfoList, moduleExtensionInfoList, NATIVE_RULES);
     addMorePredeclared(initialEnvBuilder);
 
     ImmutableMap<String, Object> initialEnv = initialEnvBuilder.build();
@@ -1862,6 +1971,68 @@ public class Constellate {
     return stubModule;
   }
 
+  /**
+   * Load native rule documentation from bundled binary proto resources.
+   * These protos are generated from Build Encyclopedia entry points and bundled
+   * into the JAR during build.
+   *
+   * Called once at class initialization time and cached in NATIVE_RULES static field.
+   * Returns an immutable map for thread safety in worker processes.
+   *
+   * @return Immutable map of rule name to RuleInfo for all native Bazel rules
+   */
+  private static Map<String, RuleInfo> loadNativeRulesFromResources() {
+    Map<String, RuleInfo> nativeRules = new HashMap<>();
+
+    // List of resource paths for native rule protos (bundled in JAR)
+    String[] resourcePaths = {
+      "/main/starlark/docgen/gen_be_java_stardoc_proto.binaryproto",
+      "/main/starlark/docgen/gen_be_cpp_stardoc_proto.binaryproto",
+      "/main/starlark/docgen/gen_be_python_stardoc_proto.binaryproto",
+      "/main/starlark/docgen/gen_be_proto_stardoc_proto.binaryproto",
+      "/main/starlark/docgen/gen_be_shell_stardoc_proto.binaryproto",
+      "/main/starlark/docgen/gen_be_objc_stardoc_proto.binaryproto",
+    };
+
+    for (String resourcePath : resourcePaths) {
+      try (java.io.InputStream stream = Constellate.class.getResourceAsStream(resourcePath)) {
+        if (stream == null) {
+          logger.atFine().log("Native rule proto resource not found: %s", resourcePath);
+          continue;
+        }
+
+        // Parse binary proto from resource
+        com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo moduleInfo =
+            com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo.parseFrom(
+                stream,
+                com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+
+        // Extract RuleInfo for each rule
+        for (RuleInfo ruleInfo : moduleInfo.getRuleInfoList()) {
+          String ruleName = ruleInfo.getRuleName();
+          nativeRules.put(ruleName, ruleInfo);
+          // Also add mapping from short name (e.g., "java_library") to RuleInfo
+          // The ruleName might be like "library_rules.java_library"
+          if (ruleName.contains(".")) {
+            String shortName = ruleName.substring(ruleName.lastIndexOf('.') + 1);
+            nativeRules.put(shortName, ruleInfo);
+            logger.atFine().log("Loaded native rule from resource %s: %s (short: %s)", resourcePath, ruleName, shortName);
+          } else {
+            logger.atFine().log("Loaded native rule from resource %s: %s", resourcePath, ruleName);
+          }
+        }
+      } catch (java.io.IOException e) {
+        logger.atWarning().log("Failed to load native rules from resource %s: %s",
+            resourcePath, e.getMessage());
+      }
+    }
+
+    logger.atInfo().log("Loaded %d native rules from bundled resources", nativeRules.size());
+
+    // Return immutable map for thread safety in worker processes
+    return ImmutableMap.copyOf(nativeRules);
+  }
+
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
     // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
     // were Constellate allowed to depend on it. See hack for select below.
@@ -2001,7 +2172,8 @@ public class Constellate {
       Map<String, RuleInfo> ruleInfoMap,
       Map<String, AspectInfo> aspectInfoMap,
       Map<String, MacroInfo> macroInfoMap,
-      List<RuleInfoWrapper> ruleInfoList) {
+      List<RuleInfoWrapper> ruleInfoList,
+      Map<String, RuleInfo> nativeRules) {
     List<String> calledNames = new ArrayList<>();
 
     try {
@@ -2017,7 +2189,7 @@ public class Constellate {
 
       // Walk through each statement looking for call expressions
       for (net.starlark.java.syntax.Statement stmt : body) {
-        findCallsInStatement(stmt, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+        findCallsInStatement(stmt, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
       }
     } catch (Exception e) {
       // If we can't analyze the function, just return empty list
@@ -2039,29 +2211,30 @@ public class Constellate {
       Map<String, AspectInfo> aspectInfoMap,
       Map<String, MacroInfo> macroInfoMap,
       List<RuleInfoWrapper> ruleInfoList,
+      Map<String, RuleInfo> nativeRules,
       List<String> calledNames) {
 
     if (stmt instanceof net.starlark.java.syntax.ExpressionStatement) {
       Expression expr = ((net.starlark.java.syntax.ExpressionStatement) stmt).getExpression();
-      findCallsInExpression(expr, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+      findCallsInExpression(expr, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
     } else if (stmt instanceof net.starlark.java.syntax.AssignmentStatement) {
       Expression rhs = ((net.starlark.java.syntax.AssignmentStatement) stmt).getRHS();
-      findCallsInExpression(rhs, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+      findCallsInExpression(rhs, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
     } else if (stmt instanceof net.starlark.java.syntax.IfStatement) {
       net.starlark.java.syntax.IfStatement ifStmt = (net.starlark.java.syntax.IfStatement) stmt;
       for (net.starlark.java.syntax.Statement s : ifStmt.getThenBlock()) {
-        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
       }
       // getElseBlock() returns null if there's no else clause
       if (ifStmt.getElseBlock() != null) {
         for (net.starlark.java.syntax.Statement s : ifStmt.getElseBlock()) {
-          findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+          findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
         }
       }
     } else if (stmt instanceof net.starlark.java.syntax.ForStatement) {
       net.starlark.java.syntax.ForStatement forStmt = (net.starlark.java.syntax.ForStatement) stmt;
       for (net.starlark.java.syntax.Statement s : forStmt.getBody()) {
-        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+        findCallsInStatement(s, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
       }
     }
     // Other statement types (def, return, etc.) - we could extend this as needed
@@ -2077,6 +2250,7 @@ public class Constellate {
       Map<String, AspectInfo> aspectInfoMap,
       Map<String, MacroInfo> macroInfoMap,
       List<RuleInfoWrapper> ruleInfoList,
+      Map<String, RuleInfo> nativeRules,
       List<String> calledNames) {
 
     if (expr instanceof CallExpression) {
@@ -2108,23 +2282,40 @@ public class Constellate {
           calledNames.add(name);
         }
       }
+      // Check if this is a DotExpression call (e.g., native.genrule(...))
+      else if (callTarget instanceof DotExpression) {
+        DotExpression dotExpr = (DotExpression) callTarget;
+        Expression object = dotExpr.getObject();
+        String field = dotExpr.getField().getName();
+
+        // Check if this is a call to native.*
+        if (object instanceof Identifier && ((Identifier) object).getName().equals("native")) {
+          // Check if this is a known native rule
+          if (NATIVE_RULES.containsKey(field)) {
+            String nativeCallName = "native." + field;
+            if (!calledNames.contains(nativeCallName)) {
+              calledNames.add(nativeCallName);
+            }
+          }
+        }
+      }
 
       // Also check arguments for nested calls
       for (Argument arg : call.getArguments()) {
         if (arg instanceof Argument.Positional) {
-          findCallsInExpression(((Argument.Positional) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+          findCallsInExpression(((Argument.Positional) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
         } else if (arg instanceof Argument.Keyword) {
-          findCallsInExpression(((Argument.Keyword) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+          findCallsInExpression(((Argument.Keyword) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
         }
       }
     } else if (expr instanceof net.starlark.java.syntax.ListExpression) {
       for (Expression elem : ((net.starlark.java.syntax.ListExpression) expr).getElements()) {
-        findCallsInExpression(elem, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+        findCallsInExpression(elem, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
       }
     } else if (expr instanceof net.starlark.java.syntax.DictExpression) {
       for (net.starlark.java.syntax.DictExpression.Entry entry : ((net.starlark.java.syntax.DictExpression) expr).getEntries()) {
-        findCallsInExpression(entry.getKey(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
-        findCallsInExpression(entry.getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, calledNames);
+        findCallsInExpression(entry.getKey(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+        findCallsInExpression(entry.getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
       }
     }
     // We could extend this to handle other expression types as needed
