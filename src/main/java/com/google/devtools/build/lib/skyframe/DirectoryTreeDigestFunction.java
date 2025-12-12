@@ -29,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
@@ -129,19 +130,15 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .map(p -> DirectoryTreeDigestValue.key(p.getSecond().realRootedPath(p.getFirst())))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
-    if (env.valuesMissing()) {
+    if (env.valuesMissing()
+        || dirTreeDigestValueKeys.stream().map(result::get).anyMatch(Objects::isNull)) {
       return null;
     }
-    ImmutableList<String> dirTreeDigests =
-        dirTreeDigestValueKeys.stream()
-            .map(result::get)
-            .map(DirectoryTreeDigestValue.class::cast)
-            .map(DirectoryTreeDigestValue::hexDigest)
-            .collect(toImmutableList());
-    if (env.valuesMissing()) {
-      return null;
-    }
-    return dirTreeDigests;
+    return dirTreeDigestValueKeys.stream()
+        .map(result::get)
+        .map(DirectoryTreeDigestValue.class::cast)
+        .map(DirectoryTreeDigestValue::hexDigest)
+        .collect(toImmutableList());
   }
 
   private static final class DirectoryTreeDigestFunctionException extends SkyFunctionException {
