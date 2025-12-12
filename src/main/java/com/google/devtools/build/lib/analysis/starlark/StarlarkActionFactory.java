@@ -813,10 +813,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+        TargetUtils.getFilteredExecutionInfo(executionRequirementsUnchecked, ruleContext.getRule());
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
@@ -1061,10 +1058,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .getConfiguration()
             .modifiedExecutionInfo(
                 TargetUtils.getFilteredExecutionInfo(
-                    executionRequirementsUnchecked,
-                    ruleContext.getRule(),
-                    getSemantics()
-                        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
+                    executionRequirementsUnchecked, ruleContext.getRule()),
                 mnemonic);
 
     ActionEnvironment actionEnv =

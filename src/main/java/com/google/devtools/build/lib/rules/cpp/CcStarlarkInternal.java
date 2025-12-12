@@ -920,9 +920,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             .setCoptsFilter(coptsFilter)
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(
-                TargetUtils.getExecutionInfo(
-                    starlarkRuleContext.getRuleContext().getRule(),
-                    starlarkRuleContext.getRuleContext().isAllowTagsPropagation()));
+                TargetUtils.getExecutionInfo(starlarkRuleContext.getRuleContext().getRule()));
     if (additionalCompilationInputs.size() > 0) {
       builder.addMandatoryInputs(
           Sequence.cast(

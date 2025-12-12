@@ -373,8 +373,7 @@ public final class JavaCompilationHelper {
         getConfiguration()
             .modifiedExecutionInfo(
                 modifiableExecutionInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
-    executionInfo.putAll(
-        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+    executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
     return executionInfo.buildKeepingLast();
   }
