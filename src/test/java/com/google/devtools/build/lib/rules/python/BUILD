@@ -22,7 +22,6 @@ test_suite(
         ":PyRuntimeConfiguredTargetTest",
         ":PyRuntimeInfoTest",
         ":PyTestConfiguredTargetTest",
-        ":PythonConfigurationTest",
         ":PythonStarlarkApiTest",
         ":PythonToolchainTest",
         ":PythonVersionTest",
@@ -54,20 +53,6 @@ java_library(
 )
 
 java_test(
-    name = "PythonConfigurationTest",
-    srcs = ["PythonConfigurationTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "PyRuntimeConfiguredTargetTest",
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
@@ -85,7 +70,6 @@ java_library(
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -101,7 +85,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -145,7 +128,6 @@ java_test(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:junit4",
         "//third_party:truth",

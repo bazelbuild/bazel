@@ -17,11 +17,8 @@ java_library(
     name = "PythonTests_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
         "//third_party:truth",
     ],

@@ -3221,13 +3221,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
-          // LINT.IfChange
           "build_python_zip",
           "@@rules_python+//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
           "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
-
-  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
 
   /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
@@ -3246,11 +3243,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * command line flags to canonical Starlark flags.
    *
    * @param eventHandler handler for Skyframe events
-   * @param ensurePyAliases If true, add Python-specific flag aliases even if they're not defined in
-   *     {@code rules_python}'s {@code MODULE.bazel}
    */
-  public Map<String, String> getFlagAliases(
-      ExtendedEventHandler eventHandler, boolean ensurePyAliases) throws InterruptedException {
+  public Map<String, String> getFlagAliases(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
@@ -3266,12 +3261,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!module.getValue().getFlagAliases().isEmpty()) {
         continue;
       }
-      if (ensurePyAliases) {
-        // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-        PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
+      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+      PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
       BAZEL_PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
