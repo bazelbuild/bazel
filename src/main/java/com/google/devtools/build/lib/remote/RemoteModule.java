@@ -851,10 +851,6 @@ public final class RemoteModule extends BlazeModule {
                 ServerCapabilitiesRequirement.NONE);
       }
 
-      Downloader fallbackDownloader = null;
-      if (remoteOptions.remoteDownloaderLocalFallback) {
-        fallbackDownloader = env.getHttpDownloader();
-      }
       remoteDownloader =
           new GrpcRemoteDownloader(
               buildRequestId,
@@ -866,7 +862,8 @@ public final class RemoteModule extends BlazeModule {
               digestUtil.getDigestFunction(),
               remoteOptions,
               verboseFailures,
-              fallbackDownloader);
+              env.getHttpDownloader(),
+              remoteOptions.remoteDownloaderLocalFallback);
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
