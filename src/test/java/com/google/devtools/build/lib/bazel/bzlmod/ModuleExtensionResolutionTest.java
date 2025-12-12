@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,10 +52,9 @@ import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for module extension resolution. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class ModuleExtensionResolutionTest extends BuildViewTestCase {
   private final CyclesReporter cyclesReporter =
       new CyclesReporter(new BzlLoadCycleReporter(), new BzlmodRepoCycleReporter());
@@ -3324,5 +3325,67 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     Object fooData = result.get(skyKey).getModule().getGlobal("foo_data");
     assertThat(fooData).isInstanceOf(String.class);
     assertThat(fooData).isEqualTo("overridden_data");
+  }
+
+  @Test
+  public void useRepo_placeholders(
+      @TestParameter({"1.2.3-beta.4.5.6+build.7", "1.2.3-beta.4.5.6", ""}) String rootVersion)
+      throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='root',version='%s')".formatted(rootVersion),
+        "bazel_dep(name='ext',version='2.0')",
+        "bazel_dep(name='foo',version='3.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "use_repo(ext,ext_repo='{name}_{version}_repo')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext_repo//:data.bzl', ext_data='data')", "data=ext_data");
+
+    registry.addModule(
+        createModuleKey("foo", "3.0"),
+        "module(name='foo',version='3.0')",
+        "bazel_dep(name='ext',version='2.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "use_repo(ext,ext_repo='{name}_{version}_repo')");
+    scratch.file(moduleRoot.getRelative("foo+3.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("foo+3.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("foo+3.0/data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(
+        createModuleKey("ext", "2.0"),
+        "module(name='ext',version='2.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+2.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+2.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+2.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    data_repo(",
+        "      name = '{}_{}_repo'.format(mod.name, mod.version),",
+        "      data = '{}@{}'.format(mod.name, mod.version),",
+        "    )",
+        "ext=module_extension(implementation=_ext_impl)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@foo+//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo@3.0");
+
+    skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    result = SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("root@%s".formatted(Version.parse(rootVersion).normalized()));
   }
 }
