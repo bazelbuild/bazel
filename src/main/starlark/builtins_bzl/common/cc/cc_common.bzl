@@ -718,6 +718,10 @@ def _cc_toolchain_variables(*, vars):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_internal.cc_toolchain_variables(vars = vars)
 
+def _register_swig_action(*args, **kwargs):
+    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.register_swig_action(*args, **kwargs)
+
 def _internal_exports():
     _builtins.internal.cc_internal.check_private_api(allowlist = [
         ("", "third_party/bazel_rules/rules_cc"),
@@ -787,6 +791,7 @@ cc_common = struct(
     cc_toolchain_features = _cc_toolchain_features,
     solib_symlink_action = _solib_symlink_action,
     cc_toolchain_variables = _cc_toolchain_variables,
+    register_swig_action = _register_swig_action,
 )
 
 # LINT.ThenChange(@rules_cc//cc/private/cc_common.bzl:forked_exports)
