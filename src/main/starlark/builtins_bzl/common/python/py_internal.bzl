@@ -19,7 +19,6 @@ These may change at any time and are closely coupled to the rule implementation.
 """
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
@@ -33,15 +32,6 @@ def _add_py_extra_pseudo_action(*args, **kwargs):
 
 def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
-
-def _cc_semantics_get_cc_runtimes(*args, **kwargs):
-    return cc_semantics.get_cc_runtimes(*args, **kwargs)
-
-def _cc_semantics_get_runtimes_toolchain(*args, **kwargs):
-    return cc_semantics.get_runtimes_toolchain(*args, **kwargs)
-
-def _cc_semantics_get_stl(*args, **kwargs):
-    return cc_semantics.get_stl(*args, **kwargs)
 
 def _copy_without_caching(*args, **kwargs):
     return _py_builtins.copy_without_caching(*args, **kwargs)
@@ -118,9 +108,6 @@ py_internal = struct(
     cc_helper = struct(
         is_valid_shared_library_artifact = cc_helper.is_valid_shared_library_artifact,
     ),
-    cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
-    cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
-    cc_semantics_get_stl = _cc_semantics_get_stl,
     copy_without_caching = _copy_without_caching,
     create_repo_mapping_manifest = _create_repo_mapping_manifest,
     create_sources_only_manifest = _create_sources_only_manifest,
