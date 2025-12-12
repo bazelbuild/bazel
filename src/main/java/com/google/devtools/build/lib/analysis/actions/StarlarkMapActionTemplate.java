@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -69,7 +70,7 @@ import net.starlark.java.eval.SymbolGenerator;
 
 /** An {@link ActionTemplate} generated from Starlark's `ctx.actions.map_directory()` API. */
 public final class StarlarkMapActionTemplate extends ActionKeyComputer
-    implements ActionTemplate<SpawnAction> {
+    implements ActionTemplate<AbstractAction> {
 
   private static final String INTERNAL_MAP_ACTION_TEMPLATE_MNEMONIC = "StarlarkMapActionTemplate";
 
@@ -209,7 +210,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
+  public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionLookupKey artifactOwner,
       EventHandler eventHandler)
@@ -259,7 +260,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             implementation.getName(), implementation.getLocation(), Starlark.repr(returnValue));
       }
 
-      ImmutableList<SpawnAction> actions = context.getActions();
+      ImmutableList<AbstractAction> actions = context.getActions();
       checkActionOutputsArtifactOwner(actions, artifactOwner);
       return actions;
     } catch (EvalException e) {
@@ -271,7 +272,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   }
 
   private void checkActionOutputsArtifactOwner(
-      ImmutableList<SpawnAction> actions, ActionLookupKey artifactOwner)
+      ImmutableList<AbstractAction> actions, ActionLookupKey artifactOwner)
       throws ActionConflictException {
     // This partially checks for action conflicts whereby files declared outside of this
     // Starlark implementation call are set as outputs of actions created within the implementation.
@@ -280,7 +281,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     // is already output by some other action outside of this implementation, and hence is an action
     // conflict. The other typical checks for action conflicts are handled in the
     // ActionTemplateExpansionFunction.
-    for (SpawnAction action : actions) {
+    for (AbstractAction action : actions) {
       for (Artifact output : action.getOutputs()) {
         if (!output.getArtifactOwner().equals(artifactOwner)) {
           throw ActionConflictException.create(

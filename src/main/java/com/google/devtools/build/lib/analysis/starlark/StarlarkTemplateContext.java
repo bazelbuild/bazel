@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,7 +46,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final SpawnAction.Builder spawnActionBuilder;
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
   private final ImmutableSet<SpecialArtifact> outputDirectories;
-  private ImmutableList.Builder<SpawnAction> actions = ImmutableList.builder();
+  private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
 
   public StarlarkTemplateContext(
       StarlarkSemantics semantics,
@@ -153,7 +154,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     return Args.newArgs(thread.mutability(), semantics);
   }
 
-  public ImmutableList<SpawnAction> getActions() {
+  public ImmutableList<AbstractAction> getActions() {
     return actions.build();
   }
 
