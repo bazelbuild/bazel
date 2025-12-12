@@ -46,10 +46,17 @@ filegroup(
         "//src/main/starlark/tests/builtins_bzl:srcs",
         "//third_party:srcs",
         "//tools:srcs",
-    ] + glob([".bazelci/*"]) + [
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + [
         ".bazelrc",
         ".bazelversion",
-    ] + glob([".gemini/*"]),
+    ] + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -154,8 +161,16 @@ pkg_files(
         "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
         "//examples:srcs",
         "//site:srcs",
+        "//docs:srcs",
         "//src:srcs-to-exclude-in-distfile",
-    ],
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
     renames = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
     },
