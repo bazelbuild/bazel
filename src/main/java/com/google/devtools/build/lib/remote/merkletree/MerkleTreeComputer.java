@@ -897,7 +897,10 @@ public final class MerkleTreeComputer {
                   try {
                     if (merkleTreeUploader != null) {
                       merkleTreeUploader.ensureInputsPresent(
-                          remoteActionExecutionContext,
+                          // Inputs only have to be uploaded to and must be present in the remote
+                          // cache.
+                          remoteActionExecutionContext.withWriteCachePolicy(
+                              CachePolicy.REMOTE_CACHE_ONLY),
                           uploadable,
                           blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
                           remotePathResolver);
