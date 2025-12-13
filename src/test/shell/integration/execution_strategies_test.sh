@@ -100,60 +100,60 @@ function test_spawn_strategy_order() {
   bazel build \
     --spawn_strategy=worker,local \
     --genrule_strategy=local \
-    --strategy=LOREM=sandboxed,worker \
-    --strategy=IPSUM=worker,sandboxed \
-    --strategy_regexp='//bar=sandboxed,local' \
-    --strategy_regexp='//foo.*\.cc,-//foo/bar=local,sandboxed' \
+    --strategy=LOREM=local,worker \
+    --strategy=IPSUM=worker,local \
+    --strategy_regexp='//bar=local,worker' \
+    --strategy_regexp='//foo.*\.cc,-//foo/bar=worker,local' \
     --strategy_regexp='//buzz=local' \
-    --dynamic_local_strategy==sandboxed \
-    --dynamic_local_strategy=FOO=worker,sandboxed \
-    --dynamic_local_strategy=BAR=sandboxed,worker \
+    --dynamic_local_strategy==local \
+    --dynamic_local_strategy=FOO=worker,local \
+    --dynamic_local_strategy=BAR=local,worker \
     --dynamic_remote_strategy==remote \
-    --dynamic_remote_strategy=BETA=sandboxed,remote \
-    --dynamic_remote_strategy=ALPHA=remote,sandboxed \
-    --remote_local_fallback_strategy=sandboxed \
-    --allowed_strategies_by_exec_platform=@platforms//host:host=local,sandboxed,worker \
-    --allowed_strategies_by_exec_platform=//:foo_platform=worker,sandboxed \
+    --dynamic_remote_strategy=BETA=local,remote \
+    --dynamic_remote_strategy=ALPHA=remote,local \
+    --remote_local_fallback_strategy=local \
+    --allowed_strategies_by_exec_platform=@platforms//host:host=local,worker \
+    --allowed_strategies_by_exec_platform=//:foo_platform=worker,local \
     || fail
 
   assert_contains 'DefaultStrategyImplementations: \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' "$SERVER_LOG"
-  assert_contains 'RemoteLocalFallbackImplementation: \[.*SandboxedStrategy\]' "$SERVER_LOG"
+  assert_contains 'RemoteLocalFallbackImplementation: \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
 
   # Keys (regex filters) in reverse specified order, values in specified order
   assert_line_order \
-    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[StandaloneSpawnStrategy, .*SandboxedStrategy\]' \
-    'FilterDescriptionToStrategyImplementations: "(?:(?>//bar))" = \[.*SandboxedStrategy, StandaloneSpawnStrategy\]' \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//bar))" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     "$SERVER_LOG"
   assert_line_order \
     'FilterDescriptionToStrategyImplementations: "(?:(?>//buzz))" = \[StandaloneSpawnStrategy\]' \
-    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[StandaloneSpawnStrategy, .*SandboxedStrategy\]' \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
 
   # Keys (mnemonics) in lexical order, values in specified order
   assert_contains 'MnemonicToStrategyImplementations: "Genrule" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToStrategyImplementations: "IPSUM" = \[WorkerSpawnStrategy, .*SandboxedStrategy\]' \
-    'MnemonicToStrategyImplementations: "LOREM" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
+    'MnemonicToStrategyImplementations: "IPSUM" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
+    'MnemonicToStrategyImplementations: "LOREM" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     "$SERVER_LOG"
 
   # Keys (mnemonics) in lexical order, values in specified order
-  assert_contains 'MnemonicToLocalDynamicStrategyImplementations: "" = \[.*SandboxedStrategy\]' "$SERVER_LOG"
+  assert_contains 'MnemonicToLocalDynamicStrategyImplementations: "" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToLocalDynamicStrategyImplementations: "BAR" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
-    'MnemonicToLocalDynamicStrategyImplementations: "FOO" = \[WorkerSpawnStrategy, .*SandboxedStrategy\]' \
+    'MnemonicToLocalDynamicStrategyImplementations: "BAR" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    'MnemonicToLocalDynamicStrategyImplementations: "FOO" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
 
   # Keys (mnemonics) in lexical order, values in specified order
   assert_contains 'MnemonicToRemoteDynamicStrategyImplementations: "" = \[RemoteSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToRemoteDynamicStrategyImplementations: "ALPHA" = \[RemoteSpawnStrategy, .*SandboxedStrategy\]' \
-    'MnemonicToRemoteDynamicStrategyImplementations: "BETA" = \[.*SandboxedStrategy, RemoteSpawnStrategy\]' \
+    'MnemonicToRemoteDynamicStrategyImplementations: "ALPHA" = \[RemoteSpawnStrategy, StandaloneSpawnStrategy\]' \
+    'MnemonicToRemoteDynamicStrategyImplementations: "BETA" = \[StandaloneSpawnStrategy, RemoteSpawnStrategy\]' \
     "$SERVER_LOG"
 
   # Keys (platform labels) and values in lexical order
   assert_line_order \
-    'FilterPlatformToStrategyImplementations: "//:foo_platform" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
-    'FilterPlatformToStrategyImplementations: "@@platforms//host:host" = \[.*SandboxedStrategy, StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    'FilterPlatformToStrategyImplementations: "//:foo_platform" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    'FilterPlatformToStrategyImplementations: "@@platforms//host:host" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     "$SERVER_LOG"
 }
 
