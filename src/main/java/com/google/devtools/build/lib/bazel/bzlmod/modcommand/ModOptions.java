@@ -253,9 +253,21 @@ public class ModOptions extends OptionsBase {
 
   /** Possible formats of the `mod` command result. */
   public enum OutputFormat {
+    // Default
     TEXT,
+
+    // For graph commands:
     JSON,
-    GRAPH
+    GRAPH,
+
+    // For show_repo:
+    STREAMED_PROTO,
+    STREAMED_JSONPROTO;
+
+    @Override
+    public String toString() {
+      return Ascii.toLowerCase(this.name());
+    }
   }
 
   /** Converts an output format option string to a properly typed {@link OutputFormat} */

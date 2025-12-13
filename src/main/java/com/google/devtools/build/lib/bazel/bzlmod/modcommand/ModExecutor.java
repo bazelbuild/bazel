@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.reverseOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -39,17 +41,12 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
-import com.google.devtools.build.lib.packages.LabelPrinter;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
-import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
-import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Comparator;
@@ -75,19 +72,22 @@ public class ModExecutor {
   private final ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos;
   private final Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter;
   private final ModOptions options;
+  private final OutputStream outputStream;
   private final PrintWriter printer;
   private ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
       extensionRepoImports;
 
   public ModExecutor(
-      ImmutableMap<ModuleKey, AugmentedModule> depGraph, ModOptions options, Writer writer) {
+      ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ModOptions options,
+      OutputStream outputStream) {
     this(
         depGraph,
         ImmutableTable.of(),
         ImmutableSetMultimap.of(),
         Optional.of(MaybeCompleteSet.completeSet()),
         options,
-        writer);
+        outputStream);
   }
 
   public ModExecutor(
@@ -96,13 +96,17 @@ public class ModExecutor {
       ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos,
       Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter,
       ModOptions options,
-      Writer writer) {
+      OutputStream outputStream) {
     this.depGraph = depGraph;
     this.extensionUsages = extensionUsages;
     this.extensionRepos = extensionRepos;
     this.extensionFilter = extensionFilter;
     this.options = options;
-    this.printer = new PrintWriter(writer);
+    this.outputStream = outputStream;
+    this.printer =
+        new PrintWriter(
+            new OutputStreamWriter(
+                outputStream, options.charset == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
     // Easier lookup table for repo imports by module.
     // It is updated after pruneByDepthAndLink to filter out pruned modules.
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());
@@ -167,10 +171,15 @@ public class ModExecutor {
   }
 
   public void showRepo(ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues) {
-    RuleDisplayOutputter outputter = new RuleDisplayOutputter(printer);
+    var formatter = new RepoOutputFormatter(printer, outputStream, options.outputFormat);
     for (Entry<String, BzlmodRepoRuleValue> e : targetRepoRuleValues.entrySet()) {
-      printer.printf("## %s:\n", e.getKey());
-      outputter.outputRule(e.getValue().getRule());
+      formatter.print(e.getKey(), e.getValue());
+    }
+
+    try {
+      outputStream.flush();
+    } catch (IOException ex) {
+      // Ignore IOException like PrintWriter.
     }
     printer.flush();
   }
@@ -746,37 +755,6 @@ public class ModExecutor {
       }
 
       abstract ResultNode build();
-    }
-  }
-
-  /**
-   * Uses Query's {@link TargetOutputter} to display the generating repo rule and other information.
-   */
-  static class RuleDisplayOutputter {
-    private static final AttributeReader attrReader =
-        (rule, attr) ->
-            // Query's implementation copied
-            PossibleAttributeValues.forRuleAndAttribute(
-                rule, attr, /* mayTreatMultipleAsNone= */ true);
-    private final TargetOutputter targetOutputter;
-    private final PrintWriter printer;
-
-    RuleDisplayOutputter(PrintWriter printer) {
-      this.printer = printer;
-      this.targetOutputter =
-          new TargetOutputter(
-              this.printer,
-              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
-              "\n",
-              LabelPrinter.legacy());
-    }
-
-    private void outputRule(Rule rule) {
-      try {
-        targetOutputter.outputRule(rule, attrReader, this.printer);
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
     }
   }
 }
