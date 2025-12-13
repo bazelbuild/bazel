@@ -658,8 +658,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
     // Use the innate extension backing use_repo_rule.
     ModuleExtensionUsageBuilder usageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context,
+        context.getOrCreateExtensionUsageBuilder(
             "//:MODULE.bazel",
             "@bazel_tools//tools/build_defs/repo:local.bzl local_repository",
             /* isolate= */ false);
@@ -686,7 +685,6 @@ public class ModuleFileFunction implements SkyFunction {
           "by --inject_repository",
           thread.getCallStack());
     }
-    context.getExtensionUsageBuilders().add(usageBuilder);
   }
 
   /**
