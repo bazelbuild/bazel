@@ -44,6 +44,36 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Helper function to assert that one pattern appears before another in a file.
+# Usage: assert_line_order <pattern1> <pattern2> <file>
+# Verifies that pattern1 appears on an earlier line than pattern2.
+function assert_line_order() {
+  local pattern1=$1
+  local pattern2=$2
+  local file=$3
+  local message="Expected '$pattern1' to appear before '$pattern2' in '$file'"
+  
+  local line1=$(grep -n "$pattern1" "$file" | head -1 | cut -d: -f1)
+  local line2=$(grep -n "$pattern2" "$file" | head -1 | cut -d: -f1)
+  
+  if [[ -z "$line1" ]]; then
+    fail "Pattern '$pattern1' not found in '$file'" $(__copy_to_undeclared_outputs "$file")
+    return 1
+  fi
+  
+  if [[ -z "$line2" ]]; then
+    fail "Pattern '$pattern2' not found in '$file'" $(__copy_to_undeclared_outputs "$file")
+    return 1
+  fi
+  
+  if [[ "$line1" -lt "$line2" ]]; then
+    return 0
+  else
+    fail "$message (line $line1 >= line $line2)" $(__copy_to_undeclared_outputs "$file")
+    return 1
+  fi
+}
+
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
   SERVER_LOG=$(bazel info server_log)
@@ -61,6 +91,70 @@ function test_no_worker_defaults() {
   assert_not_contains "\"Closure\"" "$SERVER_LOG"
   assert_not_contains "\"DexBuilder\"" "$SERVER_LOG"
   assert_not_contains "\"Javac\"" "$SERVER_LOG"
+}
+
+# Tests that spawn strategy data structures are populated in the expected order and that it is
+# reflected in the server log.
+function test_spawn_strategy_order() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build \
+    --spawn_strategy=worker,local \
+    --genrule_strategy=local \
+    --strategy=LOREM=sandboxed,worker \
+    --strategy=IPSUM=worker,sandboxed \
+    --strategy_regexp='//bar=sandboxed,local' \
+    --strategy_regexp='//foo.*\.cc,-//foo/bar=local,sandboxed' \
+    --strategy_regexp='//buzz=local' \
+    --dynamic_local_strategy==sandboxed \
+    --dynamic_local_strategy=FOO=worker,sandboxed \
+    --dynamic_local_strategy=BAR=sandboxed,worker \
+    --dynamic_remote_strategy==remote \
+    --dynamic_remote_strategy=BETA=sandboxed,remote \
+    --dynamic_remote_strategy=ALPHA=remote,sandboxed \
+    --remote_local_fallback_strategy=sandboxed \
+    --allowed_strategies_by_exec_platform=@platforms//host:host=local,sandboxed,worker \
+    --allowed_strategies_by_exec_platform=//:foo_platform=worker,sandboxed \
+    || fail
+
+  assert_contains 'DefaultStrategyImplementations: \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' "$SERVER_LOG"
+  assert_contains 'RemoteLocalFallbackImplementation: \[.*SandboxedStrategy\]' "$SERVER_LOG"
+
+  # Keys (regex filters) in reverse specified order, values in specified order
+  assert_line_order \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[StandaloneSpawnStrategy, .*SandboxedStrategy\]' \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//bar))" = \[.*SandboxedStrategy, StandaloneSpawnStrategy\]' \
+    "$SERVER_LOG"
+  assert_line_order \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//buzz))" = \[StandaloneSpawnStrategy\]' \
+    'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[StandaloneSpawnStrategy, .*SandboxedStrategy\]' \
+    "$SERVER_LOG"
+
+  # Keys (mnemonics) in lexical order, values in specified order
+  assert_contains 'MnemonicToStrategyImplementations: "Genrule" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
+  assert_line_order \
+    'MnemonicToStrategyImplementations: "IPSUM" = \[WorkerSpawnStrategy, .*SandboxedStrategy\]' \
+    'MnemonicToStrategyImplementations: "LOREM" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
+    "$SERVER_LOG"
+
+  # Keys (mnemonics) in lexical order, values in specified order
+  assert_contains 'MnemonicToLocalDynamicStrategyImplementations: "" = \[.*SandboxedStrategy\]' "$SERVER_LOG"
+  assert_line_order \
+    'MnemonicToLocalDynamicStrategyImplementations: "BAR" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
+    'MnemonicToLocalDynamicStrategyImplementations: "FOO" = \[WorkerSpawnStrategy, .*SandboxedStrategy\]' \
+    "$SERVER_LOG"
+
+  # Keys (mnemonics) in lexical order, values in specified order
+  assert_contains 'MnemonicToRemoteDynamicStrategyImplementations: "" = \[RemoteSpawnStrategy\]' "$SERVER_LOG"
+  assert_line_order \
+    'MnemonicToRemoteDynamicStrategyImplementations: "ALPHA" = \[RemoteSpawnStrategy, .*SandboxedStrategy\]' \
+    'MnemonicToRemoteDynamicStrategyImplementations: "BETA" = \[.*SandboxedStrategy, RemoteSpawnStrategy\]' \
+    "$SERVER_LOG"
+
+  # Keys (platform labels) and values in lexical order
+  assert_line_order \
+    'FilterPlatformToStrategyImplementations: "//:foo_platform" = \[.*SandboxedStrategy, WorkerSpawnStrategy\]' \
+    'FilterPlatformToStrategyImplementations: "@@platforms//host:host" = \[.*SandboxedStrategy, StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    "$SERVER_LOG"
 }
 
 # Tests that Bazel catches an invalid strategy list that has an empty string as an element.

@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 // TODO(blaze-team): If possible, merge this with AbstractSpawnStrategy and SpawnRunner. The former
 //  because (almost?) all implementations of this interface extend it; the latter because it forms
 //  a shadow hierarchy graph that looks like that of the corresponding strategies.
-public interface SpawnStrategy {
+public interface SpawnStrategy extends Comparable<SpawnStrategy> {
 
   /**
    * Executes the given spawn and returns metadata about the execution. Implementations must
@@ -49,4 +49,15 @@ public interface SpawnStrategy {
   // TODO(katre): Remove once strategies are only instantiated if used, the callback can then be
   //  done upon construction.
   default void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {}
+
+  @Override
+  default int compareTo(SpawnStrategy other) {
+    if (this == other) {
+      return 0;
+    }
+
+    // Most implementations override toString to provide their name (e.g. `standalone`).
+    // To maintain `a.compareTo(b) == 0` and `a.equals(b)` consistency, `hashCode` is appended.
+    return (this.toString() + this.hashCode()).compareTo(other.toString() + other.hashCode());
+  }
 }
