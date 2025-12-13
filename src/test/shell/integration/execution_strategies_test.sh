@@ -44,6 +44,11 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+tear_down() {
+  # Rollover to a new server log by shutting down the Bazel server.
+  bazel shutdown
+}
+
 # Helper function to assert that one pattern appears before another in a file.
 # Usage: assert_line_order <pattern1> <pattern2> <file>
 # Verifies that pattern1 appears on an earlier line than pattern2.
