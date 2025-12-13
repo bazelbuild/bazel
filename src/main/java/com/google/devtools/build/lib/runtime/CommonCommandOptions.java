@@ -611,19 +611,6 @@ public class CommonCommandOptions extends OptionsBase {
   public List<Converters.EnvVar> repositoryEnvironment;
 
   @Option(
-      name = "incompatible_repo_env_ignores_action_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
-          and module extension environments.
-          """)
-  public boolean repoEnvIgnoresActionEnv;
-
-  @Option(
       name = "experimental_strict_repo_env",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
