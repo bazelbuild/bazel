@@ -114,18 +114,59 @@ public final class RemoteOptions extends CommonRemoteOptions {
       help = "A path to a directory where the corrupted outputs will be captured to.")
   public PathFragment remoteCaptureCorruptedOutputs;
 
+  /**
+   * Determines the mode for uploading action results to a remote or disk cache.
+   *
+   * <p>This enum is used with {@link BoolOrEnumConverter} to support backwards compatibility with
+   * the old boolean {@code --remote_cache_async} flag.
+   */
+  public enum RemoteCacheAsync {
+    /**
+     * Synchronous uploads: block completion of each action until its outputs are uploaded. This is
+     * the old {@code --remote_cache_async=false} behavior.
+     */
+    OFF,
+    /**
+     * Async uploads with wait at end of build: upload action outputs in the background, but block
+     * at the end of the build until all uploads complete. This is the old {@code
+     * --remote_cache_async=true} behavior and is the default.
+     */
+    WAIT_FOR_UPLOAD_COMPLETE,
+    /**
+     * Async uploads with wait at start of next build: upload action outputs in the background and
+     * return immediately when the build completes. Block at the beginning of the next invocation
+     * until all uploads from the previous invocation complete.
+     */
+    NOWAIT_FOR_UPLOAD_COMPLETE,
+  }
+
+  /** Converter for {@link RemoteCacheAsync} that accepts both boolean and enum values. */
+  public static class RemoteCacheAsyncConverter extends BoolOrEnumConverter<RemoteCacheAsync> {
+    public RemoteCacheAsyncConverter() {
+      super(
+          RemoteCacheAsync.class,
+          "remote cache async mode",
+          RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE,
+          RemoteCacheAsync.OFF);
+    }
+  }
+
   @Option(
       name = "remote_cache_async",
       oldName = "experimental_remote_cache_async",
       defaultValue = "true",
+      converter = RemoteCacheAsyncConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true, uploading of action results to a disk or remote cache will happen in the"
-              + " background instead of blocking the completion of an action. Some actions are"
-              + " incompatible with background uploads, and may still block even when this flag is"
-              + " set.")
-  public boolean remoteCacheAsync;
+          "Determines how action outputs are uploaded to the remote or disk cache. "
+              + "'wait_for_upload_complete' or 'true' (default): upload in the background, but "
+              + "block at end of build until uploads complete. "
+              + "'off' or 'false': block completion of each action until its outputs are uploaded. "
+              + "'nowait_for_upload_complete': upload in the background and return immediately "
+              + "when the build completes; block at the start of the next build until uploads "
+              + "finish.")
+  public RemoteCacheAsync remoteCacheAsync;
 
   @Option(
       name = "remote_cache",
