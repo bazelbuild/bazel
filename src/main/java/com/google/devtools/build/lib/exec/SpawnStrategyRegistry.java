@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.RecencyMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -306,11 +307,10 @@ public final class SpawnStrategyRegistry
     private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
     // Using List values here rather than multimaps as there is no need for the latter's
     // functionality: The values are always replaced as a whole, no adding/creation required.
-    private final HashMap<String, List<String>> mnemonicToIdentifiers = new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers =
-        new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new HashMap<>();
-    private final HashMap<Label, List<String>> execPlatformFilters = new HashMap<>();
+    private final RecencyMap<String, List<String>> mnemonicToIdentifiers = new RecencyMap<>();
+    private final RecencyMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers = new RecencyMap<>();
+    private final RecencyMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new RecencyMap<>();
+    private final RecencyMap<Label, List<String>> execPlatformFilters = new RecencyMap<>();
 
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
 
@@ -474,10 +474,8 @@ public final class SpawnStrategyRegistry
         }
       }
 
-      var platformToStrategies =
-          new ImmutableSetMultimap.Builder<Label, SpawnStrategy>()
-          .orderKeysBy(Label::compareTo)
-          .orderValuesBy(SpawnStrategy::compareTo);
+       ImmutableSetMultimap.Builder<Label, SpawnStrategy> platformToStrategies =
+          ImmutableSetMultimap.builder();
       for (Map.Entry<Label, List<String>> entry : execPlatformFilters.entrySet()) {
         Label platform = entry.getKey();
         platformToStrategies.putAll(
@@ -486,9 +484,8 @@ public final class SpawnStrategyRegistry
                 entry.getValue(), "platform " + platform.getCanonicalForm()));
       }
 
-      var mnemonicToStrategies =
-          new ImmutableListMultimap.Builder<String, SpawnStrategy>()
-          .orderKeysBy(String::compareTo);
+      ImmutableListMultimap.Builder<String, SpawnStrategy> mnemonicToStrategies =
+          ImmutableListMultimap.builder();
       for (Map.Entry<String, List<String>> entry : mnemonicToIdentifiers.entrySet()) {
         String mnemonic = entry.getKey();
         ImmutableList<String> sanitizedStrategies =
@@ -497,9 +494,8 @@ public final class SpawnStrategyRegistry
             mnemonic, strategyMapper.toStrategies(sanitizedStrategies, "mnemonic " + mnemonic));
       }
 
-      var mnemonicToLocalStrategies =
-          new ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy>()
-          .orderKeysBy(String::compareTo);
+      ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToLocalStrategies =
+          ImmutableListMultimap.builder();
       for (Map.Entry<String, List<String>> entry : mnemonicToLocalDynamicIdentifiers.entrySet()) {
         String mnemonic = entry.getKey();
         ImmutableList<String> sanitizedStrategies =
@@ -510,9 +506,8 @@ public final class SpawnStrategyRegistry
                 sanitizedStrategies, "local mnemonic " + mnemonic));
       }
 
-      var mnemonicToRemoteStrategies =
-          new ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy>()
-          .orderKeysBy(String::compareTo);
+      ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToRemoteStrategies =
+          ImmutableListMultimap.builder();
       for (Map.Entry<String, List<String>> entry : mnemonicToRemoteDynamicIdentifiers.entrySet()) {
         String mnemonic = entry.getKey();
         ImmutableList<String> sanitizedStrategies =

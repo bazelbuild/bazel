@@ -44,6 +44,10 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function testenv_set_up() {
+  echo 'startup --quiet' > .bazelrc
+}
+
 tear_down() {
   # Rollover to a new server log by shutting down the Bazel server.
   bazel shutdown
@@ -121,8 +125,8 @@ function test_spawn_strategy_order() {
     --allowed_strategies_by_exec_platform=//:foo_platform=worker,local \
     || fail
 
+  # Values in specified order
   assert_contains 'DefaultStrategyImplementations: \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' "$SERVER_LOG"
-  assert_contains 'RemoteLocalFallbackImplementation: \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
 
   # Keys (regex filters) in reverse specified order, values in specified order
   assert_line_order \
@@ -134,32 +138,34 @@ function test_spawn_strategy_order() {
     'FilterDescriptionToStrategyImplementations: "(?:(?>//foo.*\.cc)),-(?:(?>//foo/bar))" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
 
-  # Keys (mnemonics) in lexical order, values in specified order
+  # Keys (mnemonics) and values in specified order
   assert_contains 'MnemonicToStrategyImplementations: "Genrule" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToStrategyImplementations: "IPSUM" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     'MnemonicToStrategyImplementations: "LOREM" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    'MnemonicToStrategyImplementations: "IPSUM" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
 
-  # Keys (mnemonics) in lexical order, values in specified order
+  # Keys in last-specified order and values in specified order
   assert_contains 'MnemonicToLocalDynamicStrategyImplementations: "" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToLocalDynamicStrategyImplementations: "BAR" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     'MnemonicToLocalDynamicStrategyImplementations: "FOO" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
+    'MnemonicToLocalDynamicStrategyImplementations: "BAR" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     "$SERVER_LOG"
 
-  # Keys (mnemonics) in lexical order, values in specified order
+  # Keys in last-specified order and values in specified order
   assert_contains 'MnemonicToRemoteDynamicStrategyImplementations: "" = \[RemoteSpawnStrategy\]' "$SERVER_LOG"
   assert_line_order \
-    'MnemonicToRemoteDynamicStrategyImplementations: "ALPHA" = \[RemoteSpawnStrategy, StandaloneSpawnStrategy\]' \
     'MnemonicToRemoteDynamicStrategyImplementations: "BETA" = \[StandaloneSpawnStrategy, RemoteSpawnStrategy\]' \
+    'MnemonicToRemoteDynamicStrategyImplementations: "ALPHA" = \[RemoteSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
 
-  # Keys (platform labels) and values in lexical order
+  # Keys in last-specified order and values in specified order
   assert_line_order \
-    'FilterPlatformToStrategyImplementations: "//:foo_platform" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
     'FilterPlatformToStrategyImplementations: "@@platforms//host:host" = \[StandaloneSpawnStrategy, WorkerSpawnStrategy\]' \
+    'FilterPlatformToStrategyImplementations: "//:foo_platform" = \[WorkerSpawnStrategy, StandaloneSpawnStrategy\]' \
     "$SERVER_LOG"
+
+  assert_contains 'RemoteLocalFallbackImplementation: \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
 }
 
 # Tests that Bazel catches an invalid strategy list that has an empty string as an element.
@@ -335,7 +341,7 @@ genrule(
 
 EOF
 
-  bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
+  bazel --noquiet build --internal_spawn_scheduler --genrule_strategy=dynamic \
     --dynamic_remote_strategy=sandboxed \
     --dynamic_local_strategy=standalone \
     --sandbox_add_mount_pair=/tmp \

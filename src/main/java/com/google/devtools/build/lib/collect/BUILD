@@ -70,6 +70,14 @@ java_library(
 )
 
 java_library(
+    name = "recency_map",
+    srcs = ["RecencyMap.java"],
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "iterable_codecs",
     srcs = ["IterableCodecs.java"],
     deps = [
