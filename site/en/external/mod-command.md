@@ -82,6 +82,8 @@ modules can stand in for the corresponding repos.
 The `<label_to_bzl_file>` part must be a repo-relative label (for example,
 `//pkg/path:file.bzl`).
 
+### Graph command options
+
 The following options only affect the subcommands that print graphs (`graph`,
 `deps`, `all_paths`, `path`, and `explain`):
 
@@ -142,7 +144,7 @@ The following options only affect the subcommands that print graphs (`graph`,
     legacy platforms which cannot use Unicode.
 
 *   `--output <mode>`: Include information about the module extension usages as
-    part of the output graph. `<mode`> can be one of:
+    part of the output graph. `<mode>` can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph
         (flattened as a tree).
@@ -158,6 +160,31 @@ The following options only affect the subcommands that print graphs (`graph`,
     ```sh
     bazel mod graph --output graph | dot -Tsvg > /tmp/graph.svg
     ```
+
+### show_repo options
+
+`show_repo` supports a different set of output formats:
+
+*   `--output <mode>`: Change how repository definitions are displayed.
+    `<mode>` can be one of:
+
+    *   `text` *(default)*: Display repository definitions in Starlark.
+
+    *   `streamed_proto`: Prints a
+        [length-delimited](https://protobuf.dev/programming-guides/encoding/#siz
+        e-limit)
+        stream of
+        [`Repository`](https://github.com/bazelbuild/bazel/blob/master/src/main/
+        protobuf/build.proto)
+        protocol buffers.
+
+    *   `streamed_jsonproto`: Similar to `--output streamed_proto`, prints a
+        stream of [`Repository`](https://github.com/bazelbuild/bazel/blob/master
+        /src/main/protobuf/build.proto)
+        protocol buffers but in [NDJSON](https://github.com/ndjson/ndjson-spec)
+        format.
+
+### Other options
 
 Other options include:
 
