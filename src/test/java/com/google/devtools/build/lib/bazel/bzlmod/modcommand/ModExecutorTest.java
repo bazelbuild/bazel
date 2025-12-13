@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -44,12 +43,11 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
@@ -65,7 +63,7 @@ public class ModExecutorTest {
   // TODO(andreisolo): Add a Json output test
   // TODO(andreisolo): Add a PATH query test
 
-  private final Writer writer = new StringWriter();
+  private final OutputStream outputStream = new ByteArrayOutputStream();
 
   // Tests for the ModExecutor::expandAndPrune core function.
   //
@@ -95,7 +93,7 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
 
     // RESULT:
     // <root> ...> ccc -> ddd
@@ -170,7 +168,7 @@ public class ModExecutorTest {
     ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
     ImmutableSet<ModuleKey> targets =
         ImmutableSet.of(createModuleKey("eee", "1.0"), createModuleKey("hhh", "1.0"));
 
@@ -246,7 +244,7 @@ public class ModExecutorTest {
     ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
     ImmutableSet<ModuleKey> targets = ImmutableSet.of(createModuleKey("eee", "1.0"));
 
     // RESULT:
@@ -464,9 +462,7 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
     ImmutableSet<ModuleKey> targets =
         ImmutableSet.of(
             createModuleKey("C", "0.1"),
@@ -476,11 +472,16 @@ public class ModExecutorTest {
             createModuleKey("E", "1.0"),
             createModuleKey("H", "1.0"));
 
-    // Double check for human error
-    assertThat(executor.expandPathsToTargets(ImmutableSet.of(ModuleKey.ROOT), targets, false))
-        .isEqualTo(result);
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
 
-    executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+      // Double check for human error
+      assertThat(executor.expandPathsToTargets(ImmutableSet.of(ModuleKey.ROOT), targets, false))
+          .isEqualTo(result);
+
+      executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+    }
+
     List<String> textOutput = Files.readAllLines(file.toPath());
 
     assertThat(textOutput)
@@ -502,10 +503,10 @@ public class ModExecutorTest {
     options.outputFormat = OutputFormat.GRAPH;
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
-    executor = new ModExecutor(depGraph, options, writer);
-
-    executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+    try (var outputStream = new FileOutputStream(fileGraph)) {
+      var executor = new ModExecutor(depGraph, options, outputStream);
+      executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+    }
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
 
     assertThat(graphOutput)
@@ -662,7 +663,6 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
     // Contains the already-filtered map of target extensions along with their full list of repos
     ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
@@ -675,11 +675,12 @@ public class ModExecutorTest {
     options.outputFormat = OutputFormat.TEXT;
     options.extensionInfo = ExtensionShow.ALL;
 
-    ModExecutor executor =
-        new ModExecutor(
-            depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
-
-    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph, extensionUsages, extensionRepos, Optional.empty(), options, outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
 
     List<String> textOutput = Files.readAllLines(file.toPath());
 
@@ -714,12 +715,13 @@ public class ModExecutorTest {
     options.outputFormat = OutputFormat.GRAPH;
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
-    executor =
-        new ModExecutor(
-            depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
 
-    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    try (var outputStream = new FileOutputStream(fileGraph)) {
+      var executor =
+          new ModExecutor(
+              depGraph, extensionUsages, extensionRepos, Optional.empty(), options, outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
 
     assertThat(graphOutput)
@@ -764,18 +766,19 @@ public class ModExecutorTest {
     options.depth = 1;
     File fileText2 = File.createTempFile("output_text2", "txt");
     fileText2.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileText2), UTF_8);
-    executor =
-        new ModExecutor(
-            depGraph,
-            extensionUsages,
-            extensionRepos,
-            Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
-            options,
-            writer);
+    try (var outputStream = new FileOutputStream(fileText2)) {
+      var executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
+              options,
+              outputStream);
+      executor.allPaths(
+          ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("Y", "2.0")));
+    }
 
-    executor.allPaths(
-        ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("Y", "2.0")));
     List<String> textOutput2 = Files.readAllLines(fileText2.toPath());
 
     assertThat(textOutput2)
@@ -887,13 +890,13 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
-    // Test `executor.allPaths`, it should output all "interesting" paths to the target modules.
-    executor.allPaths(
-        ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("D", "1.0")));
-    writer.close();
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
+      // Test `executor.allPaths`, it should output all "interesting" paths to the target modules.
+      executor.allPaths(
+          ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("D", "1.0")));
+    }
 
     List<String> textOutput = Files.readAllLines(file.toPath());
 
@@ -913,8 +916,8 @@ public class ModExecutorTest {
     // be the shortest one
     File file2 = File.createTempFile("output_text", "txt");
     file2.deleteOnExit();
-    try (Writer writer2 = new OutputStreamWriter(new FileOutputStream(file2), UTF_8)) {
-      ModExecutor executor2 = new ModExecutor(depGraph, options, writer2);
+    try (var outputStream2 = new FileOutputStream(file2)) {
+      ModExecutor executor2 = new ModExecutor(depGraph, options, outputStream2);
       executor2.path(ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("D", "1.0")));
     }
 
@@ -926,8 +929,8 @@ public class ModExecutorTest {
     // Test multiple targets D and G for allPaths
     File file3 = File.createTempFile("output_text_multi_all", "txt");
     file3.deleteOnExit();
-    try (Writer writer3 = new OutputStreamWriter(new FileOutputStream(file3), UTF_8)) {
-      ModExecutor executor3 = new ModExecutor(depGraph, options, writer3);
+    try (var outputStream3 = new FileOutputStream(file3)) {
+      ModExecutor executor3 = new ModExecutor(depGraph, options, outputStream3);
       executor3.allPaths(
           ImmutableSet.of(ModuleKey.ROOT),
           ImmutableSet.of(createModuleKey("D", "1.0"), createModuleKey("G", "1.0")));
@@ -950,8 +953,8 @@ public class ModExecutorTest {
     // Test multiple targets D and G for path (shortest path)
     File file4 = File.createTempFile("output_text_multi_path", "txt");
     file4.deleteOnExit();
-    try (Writer writer4 = new OutputStreamWriter(new FileOutputStream(file4), UTF_8)) {
-      ModExecutor executor4 = new ModExecutor(depGraph, options, writer4);
+    try (var outputStream4 = new FileOutputStream(file4)) {
+      ModExecutor executor4 = new ModExecutor(depGraph, options, outputStream4);
       executor4.path(
           ImmutableSet.of(ModuleKey.ROOT),
           ImmutableSet.of(createModuleKey("D", "1.0"), createModuleKey("G", "1.0")));
@@ -965,8 +968,8 @@ public class ModExecutorTest {
     // Test starting from E to D for allPaths
     File file5 = File.createTempFile("output_text_E_to_D_all", "txt");
     file5.deleteOnExit();
-    try (Writer writer5 = new OutputStreamWriter(new FileOutputStream(file5), UTF_8)) {
-      ModExecutor executor5 = new ModExecutor(depGraph, options, writer5);
+    try (var outputStream5 = new FileOutputStream(file5)) {
+      ModExecutor executor5 = new ModExecutor(depGraph, options, outputStream5);
       executor5.allPaths(
           ImmutableSet.of(createModuleKey("E", "1.0")),
           ImmutableSet.of(createModuleKey("D", "1.0")));
@@ -1012,8 +1015,8 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text_cycle", "txt");
     file.deleteOnExit();
-    try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8)) {
-      ModExecutor executor = new ModExecutor(depGraph, options, writer);
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
       executor.graph(ImmutableSet.of(ModuleKey.ROOT));
     }
 
@@ -1065,20 +1068,18 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text_repro", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
-
-    ModExecutor executor =
-        new ModExecutor(
-            depGraph,
-            extensionUsages,
-            extensionRepos,
-            Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
-            options,
-            writer);
-
-    // This should not throw NPE
-    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
-    writer.close();
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
+              options,
+              outputStream);
+      // This should not throw NPE
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
 
     List<String> textOutput = Files.readAllLines(file.toPath());
     assertThat(textOutput)
@@ -1159,7 +1160,7 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text_cycle_ext", "txt");
     file.deleteOnExit();
-    try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8)) {
+    try (var outputStream = new FileOutputStream(file)) {
       ModExecutor executor =
           new ModExecutor(
               depGraph,
@@ -1167,7 +1168,7 @@ public class ModExecutorTest {
               extensionRepos,
               Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(extensionId))),
               options,
-              writer);
+              outputStream);
       executor.graph(ImmutableSet.of(ModuleKey.ROOT));
     }
 
