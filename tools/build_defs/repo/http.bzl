@@ -77,6 +77,50 @@ Authentication is not supported.
 URLs are tried in order until one succeeds, so you should list local mirrors first.
 If all downloads fail, the rule will fail."""
 
+# Do not manually edit - this is a semi-auto-generated list based on the values
+# in DecompressorValue.java. You can get an updated list to copy-paste here by
+# running the httpBzlDocumentation test in DecompressorValueTest.java.
+SUPPORTED_ARCHIVE_FORMATS = [
+    "zip",
+    "jar",
+    "war",
+    "aar",
+    "nupkg",
+    "whl",
+    "tar",
+    "tar.gz",
+    "tgz",
+    "gz",
+    "tar.xz",
+    "txz",
+    "xz",
+    "tar.zst",
+    "tzst",
+    "zst",
+    "tar.bz2",
+    "tbz",
+    "bz2",
+    "ar",
+    "deb",
+    "7z",
+]
+
+# Put quotes around the formats for documentation (i.e. `"zip"`)
+QUOTED_ARCHIVE_FORMATS = (
+    [
+        "`\"" + ext + "\"`"
+        for ext in SUPPORTED_ARCHIVE_FORMATS
+    ]
+)
+
+# Combines the list into a readable list of formats to choose from.
+# Eg. '`"zip"`, `"jar"` or `"7z"`'
+READABLE_ARCHIVE_FORMATS = (", ".join(
+                                QUOTED_ARCHIVE_FORMATS[:len(QUOTED_ARCHIVE_FORMATS) - 1],
+                            ) +
+                            " or " +
+                            QUOTED_ARCHIVE_FORMATS[len(QUOTED_ARCHIVE_FORMATS) - 1])
+
 def _get_source_urls(ctx):
     """Returns source urls provided via the url, urls attributes.
 
@@ -323,9 +367,7 @@ repository. Files are symlinked after remote files are downloaded and patches (`
 
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
-following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"gz"`, `"tar.xz"`, `"txz"`, `"xz"`, `"tar.zst"`, `"tzst"`, `"zst"`,
-`"tar.bz2"`, `"tbz"`, `"bz2"`, `"ar"`, `"deb"`, or `"7z"`.""",
+following: """ + READABLE_ARCHIVE_FORMATS + ".",
     ),
     "patches": attr.label_list(
         default = [],
@@ -436,9 +478,7 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`,
-`"tar"`, `"tar.gz"`, `"tgz"`, `"gz"`, `"tar.xz"`, `"txz"`, `"xz"`, `"tar.zst"`,
-`"tzst"`, `"zst"`, `tar.bz2`, `tbz`, `bz2`, `"ar"`, `"deb"`, or `"7z"`.
+It supports the following file extensions: """ + READABLE_ARCHIVE_FORMATS + """.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,
