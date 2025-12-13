@@ -1430,6 +1430,13 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/bar.out");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    if (useDiskCache) {
+      // Verify that no inputs have been uploaded to the disk cache yet.
+      assertThat(
+              getWorkspace().getRelative("disk_cache_dir").getDirectoryEntries().stream()
+                  .map(Path::getBaseName))
+          .containsExactly("ac", "tmp");
+    }
 
     // Evict blobs from remote cache
     evictAllBlobs();
