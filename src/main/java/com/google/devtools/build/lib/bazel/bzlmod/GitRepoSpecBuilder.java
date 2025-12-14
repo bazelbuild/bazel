@@ -15,10 +15,13 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 
 /**
@@ -78,6 +81,33 @@ public class GitRepoSpecBuilder {
       ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
     setAttr("remote_module_file_urls", remoteModuleFile.urls());
     setAttr("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatches(ImmutableList<Label> patches) {
+    attrBuilder.put("patches", StarlarkList.immutableCopyOf(patches));
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
+    attrBuilder.put("remote_patches", Dict.immutableCopyOf(remotePatches));
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setOverlay(ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay) {
+    var remoteFiles = Maps.transformValues(overlay, rf -> StarlarkList.immutableCopyOf(rf.urls()));
+    var remoteFilesIntegrity = Maps.transformValues(overlay, ArchiveRepoSpecBuilder.RemoteFile::integrity);
+    attrBuilder.put("remote_file_urls", Dict.immutableCopyOf(remoteFiles));
+    attrBuilder.put("remote_file_integrity", Dict.immutableCopyOf(remoteFilesIntegrity));
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRemotePatchStrip(int remotePatchStrip) {
+    attrBuilder.put("remote_patch_strip", StarlarkInt.of(remotePatchStrip));
     return this;
   }
 
