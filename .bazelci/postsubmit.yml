@@ -196,7 +196,6 @@ tasks:
       - "//src/test/java/com/google/devtools/common/options/..."
       - "//src/test/native/windows/..."
       - "//src/test/py/bazel/..."
-      - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
       - "//src/tools/one_version/..."
