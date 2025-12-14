@@ -88,7 +88,7 @@ class RunCommandLine {
   /**
    * Returns a console-friendly (including relative paths) representation of the command line.
    *
-   * <p>Arguments from the {@code run} command line are omitted as to avoid possibly leaking
+   * <p>Arguments from the {@code run} command line can be omitted as to avoid possibly leaking
    * sensitive user-provided information in logging, BEP, etc.
    */
   String getPrettyArgs(boolean runOmitRunArgs) {
@@ -107,7 +107,7 @@ class RunCommandLine {
         result.append(" <args omitted>");
       } else {
         for (int i = 0; i < residue.size(); i++) {
-          if (i < residue.size()) {
+          if (i < residue.size() - 1) {
             result.append(" ");
           }
           result.append(ShellEscaper.escapeString(residue.get(i)));
