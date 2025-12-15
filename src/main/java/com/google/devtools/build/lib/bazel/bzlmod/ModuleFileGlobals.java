@@ -468,27 +468,17 @@ public class ModuleFileGlobals {
             .setContainingModuleFilePath(context.getCurrentModuleFilePath());
 
     String extensionBzlFile = normalizeLabelString(context.getModuleBuilder(), rawExtensionBzlFile);
-    var newUsageBuilder =
-        new ModuleExtensionUsageBuilder(context, extensionBzlFile, extensionName, isolate);
 
     if (context.shouldIgnoreDevDeps() && devDependency) {
       // This is a no-op proxy.
-      return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
+      return new ModuleExtensionProxy(
+          new ModuleExtensionUsageBuilder(context, extensionBzlFile, extensionName, isolate),
+          proxyBuilder);
     }
 
-    // Find an existing usage builder corresponding to this extension. Isolated usages need to get
-    // their own proxy.
-    if (!isolate) {
-      for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
-        if (usageBuilder.isForExtension(extensionBzlFile, extensionName)) {
-          return new ModuleExtensionProxy(usageBuilder, proxyBuilder);
-        }
-      }
-    }
-
-    // If no such proxy exists, we can just use a new one.
-    context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
+    return new ModuleExtensionProxy(
+        context.getOrCreateExtensionUsageBuilder(extensionBzlFile, extensionName, isolate),
+        proxyBuilder);
   }
 
   private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile)
@@ -820,16 +810,9 @@ public class ModuleFileGlobals {
     String extensionName = bzlFile + ' ' + ruleName;
     // Find or create the builder for the singular "innate" extension of this repo rule for this
     // module.
-    for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
-      if (usageBuilder.isForExtension("//:MODULE.bazel", extensionName)) {
-        return new RepoRuleProxy(usageBuilder);
-      }
-    }
-    ModuleExtensionUsageBuilder newUsageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context, "//:MODULE.bazel", extensionName, /* isolate= */ false);
-    context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return new RepoRuleProxy(newUsageBuilder);
+    return new RepoRuleProxy(
+        context.getOrCreateExtensionUsageBuilder(
+            "//:MODULE.bazel", extensionName, /* isolate= */ false));
   }
 
   @StarlarkBuiltin(name = "repo_rule_proxy", documented = false)
