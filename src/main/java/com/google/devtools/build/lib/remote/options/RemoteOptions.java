@@ -292,6 +292,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "Whether to fall back to standalone local execution strategy if remote execution fails.")
   public boolean remoteLocalFallback;
 
+  @Option(
+      name = "incompatible_remote_local_fallback_for_remote_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether --remote_local_fallback applies to --remote_cache.")
+  public boolean remoteLocalFallbackForRemoteCache;
+
   @Deprecated
   @Option(
       name = "remote_local_fallback_strategy",
