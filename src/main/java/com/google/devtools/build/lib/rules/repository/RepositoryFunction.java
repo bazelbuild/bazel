@@ -239,7 +239,12 @@ public abstract class RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       Environment env)
       throws InterruptedException {
-    return RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
+    return RepoRecordedInput.isAnyValueOutdated(
+        env,
+        directories,
+        recordedInputValues.entrySet().stream()
+            .map(e -> new RepoRecordedInput.WithValue(e.getKey(), e.getValue()))
+            .collect(com.google.common.collect.ImmutableList.toImmutableList()));
   }
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)

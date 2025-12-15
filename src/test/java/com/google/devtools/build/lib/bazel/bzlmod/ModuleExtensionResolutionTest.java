@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -924,8 +925,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .lockFileInfo()
                 .get()
                 .moduleExtension()
-                .getRecordedRepoMappingEntries())
-        .containsCell(RepositoryName.create("foo+"), "bar", RepositoryName.create("bar+"));
+                .getRecordedInputs())
+        .contains(
+            new RepoRecordedInput.WithValue(
+                new RepoRecordedInput.RecordedRepoMapping(RepositoryName.create("foo+"), "bar"),
+                "bar+"));
   }
 
   @Test

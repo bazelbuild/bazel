@@ -271,13 +271,13 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               "repository " + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
               SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      var repoMappingRecorder = new Label.RepoMappingRecorder();
-      // For repos defined in Bzlmod, record any used repo mappings in the marker file.
+      var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
+      // For repos defined in Bzlmod, record any repo mappings used by the rule's implementation in
+      // the marker file. The repo mappings recorded while loading the repo rule definition are
+      // instead folded into the predeclared input hash (see DigestWriter#computePredeclaredInputHash).
       // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
       // record which chunk the repo mapping was used in, and ain't nobody got time for that).
       if (!isWorkspaceRepo(rule)) {
-        repoMappingRecorder.mergeEntries(
-            rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
@@ -328,13 +328,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
 
       // Modify marker data to include the files/dirents/env vars used by the rule's implementation
-      // function.
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
-      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
-      recordedInputValues.putAll(
-          Maps.transformValues(
-              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
+      // function, in the order they were recorded.
+      for (RepoRecordedInput.WithValue wv : starlarkRepositoryContext.getRecordedInputs()) {
+        recordedInputValues.put(wv.input(), wv.value());
+      }
 
       for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
           repoMappingRecorder.recordedEntries().cellSet()) {

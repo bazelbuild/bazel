@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,17 +31,16 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Tests for {@link RepositoryFunction} */
+/** Test class for {@link RepoRecordedInput}. */
 @RunWith(JUnit4.class)
-public class RepositoryFunctionTest extends BuildViewTestCase {
-
+public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
-    String escaped = RepositoryDelegatorFunction.escape(testCase);
-    assertThat(RepositoryDelegatorFunction.unescape(escaped)).isEqualTo(testCase);
+    String escaped = RepoRecordedInput.WithValue.escape(testCase);
+    assertThat(RepoRecordedInput.WithValue.unescape(escaped)).isEqualTo(testCase);
   }
 
   @Test
-  public void testMarkerFileEscaping() throws Exception {
+  public void testMarkerFileEscaping() {
     assertMarkerFileEscaping(null);
     assertMarkerFileEscaping("\\0");
     assertMarkerFileEscaping("a\\0");
