@@ -193,15 +193,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var repoDir = externalDirectory.getChild(repo.getName());
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
-        externalFs,
-        repoDir,
-        remoteContents.getRoot(),
-        childMap,
-        path -> {
-          if (shouldPrefetch(path)) {
-            filesToPrefetch.add(path);
-          }
-        });
+        externalFs, repoDir, remoteContents.getRoot(), childMap, filesToPrefetch::add);
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
       // would be more efficient.
@@ -228,12 +220,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
-      Consumer<PathFragment> fileCollector)
+      Consumer<PathFragment> filesToPrefetch)
       throws IOException {
     fs.createDirectoryAndParents(path);
     for (var file : dir.getFilesList()) {
       var filePath = path.getRelative(unicodeToInternal(file.getName()));
-      fileCollector.accept(filePath);
+      if (shouldPrefetch(filePath)) {
+        filesToPrefetch.accept(filePath);
+      }
       fs.injectFile(
           filePath,
           FileArtifactValue.createForRemoteFile(
@@ -259,7 +253,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap, fileCollector);
+      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch);
     }
   }
 
@@ -319,13 +313,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   }
 
   private void prefetch(List<PathFragment> paths) throws IOException, InterruptedException {
-    getFromFuture(
-        inputPrefetcher.prefetchFilesInterruptibly(
-            /* action= */ null,
-            Lists.transform(paths, ActionInputHelper::fromPath),
-            actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
-            ActionInputPrefetcher.Priority.CRITICAL,
-            ActionInputPrefetcher.Reason.INPUTS));
+    var unused =
+        getFromFuture(
+            inputPrefetcher.prefetchFilesInterruptibly(
+                /* action= */ null,
+                Lists.transform(paths, ActionInputHelper::fromPath),
+                actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
+                ActionInputPrefetcher.Priority.CRITICAL,
+                ActionInputPrefetcher.Reason.INPUTS));
   }
 
   private record WalkResult(
