@@ -96,7 +96,7 @@ public class StarlarkBazelModuleTest {
             .build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
-    Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
+    var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
     StarlarkBazelModule moduleProxy =
         StarlarkBazelModule.create(
             abridgedModule,
@@ -158,7 +158,7 @@ public class StarlarkBazelModuleTest {
                     module.getRepoMappingWithBazelDepsOnly(
                         ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
                     usage,
-                    new Label.RepoMappingRecorder()));
+                    new Label.SimpleRepoMappingRecorder()));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

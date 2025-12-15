@@ -804,7 +804,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (mainRepoMapping == null) {
       return null;
     }
-    Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
+    var repoMappingRecorder = new Label.SimpleRepoMappingRecorder();
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
         getLoadLabels(
@@ -867,7 +867,7 @@ public class BzlLoadFunction implements SkyFunction {
       BzlLoadValue v = loadValues.get(i++);
       loadMap.put(load.first, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
-      repoMappingRecorder.mergeEntries(v.getRecordedRepoMappings());
+      repoMappingRecorder.record(v.getRecordedRepoMappings());
     }
 
     // Retrieve predeclared symbols and complete the digest computation.

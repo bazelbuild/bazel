@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -582,7 +583,10 @@ public final class StarlarkRepositoryContextTest {
     scratch.file(root.getRelative("foo").getPathString());
     StarlarkPath unusedPath = context.getPath(fakeFileLabel);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);
-    assertThat(context.getRecordedFileInputs()).isNotEmpty();
+    assertThat(
+            context.getRecordedInputs().stream()
+                .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
+        .isNotEmpty();
   }
 
   @Test
@@ -595,6 +599,9 @@ public final class StarlarkRepositoryContextTest {
     scratch.file(root.getRelative("foo").getPathString());
     StarlarkPath unusedPath = context.getPath(fakeFileLabel);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);
-    assertThat(context.getRecordedFileInputs()).isEmpty();
+    assertThat(
+            context.getRecordedInputs().stream()
+                .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
+        .isEmpty();
   }
 }

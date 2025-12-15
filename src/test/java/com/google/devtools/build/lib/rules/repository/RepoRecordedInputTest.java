@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -32,16 +31,16 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+/** Test class for {@link RepoRecordedInput}. */
 @RunWith(JUnit4.class)
-public class DigestWriterTest extends BuildViewTestCase {
-
+public class RepoRecordedInputTest extends BuildViewTestCase {
   private static void assertMarkerFileEscaping(String testCase) {
-    String escaped = DigestWriter.escape(testCase);
-    assertThat(DigestWriter.unescape(escaped)).isEqualTo(testCase);
+    String escaped = RepoRecordedInput.WithValue.escape(testCase);
+    assertThat(RepoRecordedInput.WithValue.unescape(escaped)).isEqualTo(testCase);
   }
 
   @Test
-  public void testMarkerFileEscaping() throws Exception {
+  public void testMarkerFileEscaping() {
     assertMarkerFileEscaping(null);
     assertMarkerFileEscaping("\\0");
     assertMarkerFileEscaping("a\\0");
