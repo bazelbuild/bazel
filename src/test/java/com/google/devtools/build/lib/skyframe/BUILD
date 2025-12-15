@@ -2017,6 +2017,7 @@ java_test(
     name = "SourceDirectoryIntegrationTest",
     timeout = "short",
     srcs = ["SourceDirectoryIntegrationTest.java"],
+    shard_count = 2,
     jvm_flags = [
         "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
     ],
