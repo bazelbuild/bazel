@@ -16,15 +16,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.RunnableExtension.RunModuleExtensionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -45,8 +40,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -212,9 +207,14 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var nonVisibleRepoNames =
-          moduleExtensionResult.recordedRepoMappingEntries().values().stream()
-              .filter(repoName -> !repoName.isVisible())
-              .map(RepositoryName::toString)
+          moduleExtensionResult.recordedInputs().stream()
+              .filter(
+                  inputAndValue ->
+                      inputAndValue.input() instanceof RepoRecordedInput.RecordedRepoMapping
+                          && inputAndValue.value() == null)
+              .map(entry -> (RepoRecordedInput.RecordedRepoMapping) entry.input())
+              .map(RepoRecordedInput.RecordedRepoMapping::apparentName)
+              .map(apparentName -> "@" + apparentName)
               .collect(joining(", "));
       if (!nonVisibleRepoNames.isEmpty()) {
         env.getListener()
@@ -241,7 +241,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     var newFacts = moduleExtensionMetadata.getFacts();
     if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
       String reason =
-          "The extension '%s' has changed its facts: %s != %s"
+          "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
                   Starlark.repr(newFacts.value()),
@@ -258,15 +258,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
     if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
-      var envVariables =
-          ImmutableMap.<RepoRecordedInput.EnvVar, Optional<String>>builder()
-              // The environment variable dependencies statically declared via the 'environ'
-              // attribute.
-              .putAll(RepoRecordedInput.EnvVar.wrap(extension.getStaticEnvVars()))
-              // The environment variable dependencies dynamically declared via the 'getenv' method.
-              .putAll(moduleExtensionResult.recordedEnvVarInputs())
-              .buildKeepingLast();
-
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -276,13 +267,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setUsagesDigest(
                           SingleExtensionUsagesValue.hashForEvaluation(
                               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
-                      .setRecordedFileInputs(moduleExtensionResult.recordedFileInputs())
-                      .setRecordedDirentsInputs(moduleExtensionResult.recordedDirentsInputs())
-                      .setEnvVariables(ImmutableSortedMap.copyOf(envVariables))
+                      .setRecordedInputs(moduleExtensionResult.recordedInputs())
                       .setGeneratedRepoSpecs(generatedRepoSpecs)
                       .setModuleExtensionMetadata(lockfileModuleExtensionMetadata)
-                      .setRecordedRepoMappingEntries(
-                          moduleExtensionResult.recordedRepoMappingEntries())
                       .build()));
     } else {
       lockFileInfo = Optional.empty();
@@ -324,19 +311,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (!Arrays.equals(
           extension.getBzlTransitiveDigest(), lockedExtension.getBzlTransitiveDigest())) {
         diffRecorder.record(
-            "The implementation of the extension '"
+            "the implementation of the extension '"
                 + extensionId
                 + "' or one of its transitive .bzl files has changed");
-      }
-      if (didRecordedInputsChange(
-          env,
-          directories,
-          // didRecordedInputsChange expects possibly null String values.
-          Maps.transformValues(lockedExtension.getEnvVariables(), v -> v.orElse(null)))) {
-        diffRecorder.record(
-            "The environment variables the extension '"
-                + extensionId
-                + "' depends on (or their values) have changed");
       }
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
@@ -344,23 +321,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           SingleExtensionUsagesValue.hashForEvaluation(
               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue),
           lockedExtension.getUsagesDigest())) {
-        diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
+        diffRecorder.record("the usages of the extension '" + extensionId + "' have changed");
       }
-      if (didRepoMappingsChange(env, lockedExtension.getRecordedRepoMappingEntries())) {
+      Optional<String> reason =
+          didRecordedInputsChange(env, directories, lockedExtension.getRecordedInputs());
+      if (reason.isPresent()) {
         diffRecorder.record(
-            "The repo mappings of certain repos used by the extension '"
-                + extensionId
-                + "' have changed");
-      }
-      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedFileInputs())) {
-        diffRecorder.record(
-            "One or more files the extension '" + extensionId + "' is using have changed");
-      }
-      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedDirentsInputs())) {
-        diffRecorder.record(
-            "One or more directory listings watched by the extension '"
-                + extensionId
-                + "' have changed");
+            "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
@@ -412,51 +379,17 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
   }
 
-  private static boolean didRepoMappingsChange(
-      Environment env, ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings)
-      throws InterruptedException, NeedsSkyframeRestartException {
-    // Request repo mappings for any 'source repos' in the recorded mapping entries.
-    SkyframeLookupResult result =
-        env.getValuesAndExceptions(
-            recordedRepoMappings.rowKeySet().stream()
-                .map(RepositoryMappingValue::key)
-                .collect(toImmutableSet()));
-    if (env.valuesMissing()) {
-      // This likely means that one of the 'source repos' in the recorded mapping entries is no
-      // longer there.
-      throw new NeedsSkyframeRestartException();
-    }
-    for (Table.Cell<RepositoryName, String, RepositoryName> cell : recordedRepoMappings.cellSet()) {
-      RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue) result.get(RepositoryMappingValue.key(cell.getRowKey()));
-      if (repoMappingValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-      // Very importantly, `repoMappingValue` here could be for a repo that's no longer existent in
-      // the dep graph. See
-      // bazel_lockfile_test.testExtensionRepoMappingChange_sourceRepoNoLongerExistent for a test
-      // case.
-      if (repoMappingValue.equals(RepositoryMappingValue.NOT_FOUND_VALUE)
-          || !cell.getValue()
-              .equals(repoMappingValue.repositoryMapping().get(cell.getColumnKey()))) {
-        // Wee woo wee woo -- diff detected!
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean didRecordedInputsChange(
+  private static Optional<String> didRecordedInputsChange(
       Environment env,
       BlazeDirectories directories,
-      Map<? extends RepoRecordedInput, String> recordedInputs)
+      List<RepoRecordedInput.WithValue> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
     Optional<String> outdated =
         RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputs);
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
-    return outdated.isPresent();
+    return outdated;
   }
 
   private SingleExtensionValue createSingleExtensionValue(
@@ -510,7 +443,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return new SingleExtensionEvalFunctionException(
         ExternalDepsException.withMessage(
             Code.BAD_LOCKFILE,
-            "MODULE.bazel.lock is no longer up-to-date because: %s. Please run `bazel mod deps"
+            "MODULE.bazel.lock is no longer up-to-date because %s. Please run `bazel mod deps"
                 + " --lockfile_mode=update` to update your lockfile.",
             reason));
   }
