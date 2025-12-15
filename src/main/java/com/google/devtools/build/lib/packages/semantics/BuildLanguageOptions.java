@@ -643,7 +643,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   // Flip when dependencies to rules_* repos are upgraded and protobuf registers toolchains
   @Option(
       name = "incompatible_enable_proto_toolchain_resolution",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -1118,7 +1118,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "+incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
-      "-incompatible_enable_proto_toolchain_resolution";
+      FlagConstants.DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION_NAME;
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
