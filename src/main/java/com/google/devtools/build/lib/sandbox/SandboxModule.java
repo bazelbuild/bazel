@@ -365,6 +365,13 @@ public final class SandboxModule extends BlazeModule {
 
   @Nullable
   private static Path getPathToDockerClient(CommandEnvironment cmdEnv) {
+    SandboxOptions options = cmdEnv.getOptions().getOptions(SandboxOptions.class);
+    FileSystem fs = cmdEnv.getRuntime().getFileSystem();
+    Path sandboxExecutablePath = fs.getPath(options.getDockerSandboxExecutable());
+    if (sandboxExecutablePath.exists()) {
+      return sandboxExecutablePath;
+    }
+
     String path = cmdEnv.getClientEnv().getOrDefault("PATH", "");
 
     // TODO(philwo): Does this return the correct result if one of the elements intentionally ends
@@ -372,7 +379,6 @@ public final class SandboxModule extends BlazeModule {
     Splitter pathSplitter =
         Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':').trimResults().omitEmptyStrings();
 
-    FileSystem fs = cmdEnv.getRuntime().getFileSystem();
 
     for (String pathElement : pathSplitter.split(path)) {
       // Sometimes the PATH contains the non-absolute entry "." - this resolves it against the
@@ -380,7 +386,7 @@ public final class SandboxModule extends BlazeModule {
       pathElement = new File(pathElement).getAbsolutePath();
       try {
         for (Path dentry : fs.getPath(pathElement).getDirectoryEntries()) {
-          if (dentry.getBaseName().replace(".exe", "").equals("docker")) {
+          if (dentry.getBaseName().replace(".exe", "").equals(options.getDockerSandboxExecutable())) {
             return dentry;
           }
         }

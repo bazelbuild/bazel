@@ -248,6 +248,15 @@ public abstract class SandboxOptions extends OptionsBase {
   public abstract boolean getDockerSandboxUseSymlinks();
 
   @Option(
+          name = "experimental_docker_sandbox_executable",
+          defaultValue = "docker",
+          documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+          effectTags = {OptionEffectTag.EXECUTION},
+          help =
+                  "When Docker-based sandboxing is enabled, use the specified docker-cli compatible executable to run the containers.")
+  public abstract String getDockerSandboxExecutable();
+
+  @Option(
       name = "experimental_docker_image",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
