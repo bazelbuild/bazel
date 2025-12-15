@@ -353,6 +353,8 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
+      # TODO(pcloudy): Re-enable once https://github.com/bazelbuild/bazel/issues/27982 is fixed.
+      - "-//src/test/shell/bazel:srcs_test"
     include_json_profile:
       - build
       - test
