@@ -827,7 +827,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateStarlarkActionArgumentsWithResourceSet_illegalResource() throws Exception {
+  public void testCreateStarlarkActionArgumentsWithResourceSet_customResource() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -844,11 +844,31 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    Exception thrown =
-        assertThrows(
-            ExecException.class,
-            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
-    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(ImmutableMap.of("gpu", 1.0, "cpu", 2.0, "memory", 350.0), 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_onlyCustomResource()
+      throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "def get_resources(os, inputs_size):",
+        "  return {\"gpu\": 1.}",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = get_resources,",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+        .isEqualTo(ResourceSet.create(ImmutableMap.of("gpu", 1.0, "cpu", 1.0, "memory", 250.0), 0));
   }
 
   @Test
@@ -2792,8 +2812,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testAbstractActionInterface() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     scratch.file(
         "test/rules.bzl",
         "load('//test:providers.bzl', 'AInfo')",
@@ -2838,8 +2857,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreatedActions() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -2927,8 +2945,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
