@@ -70,8 +70,13 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -96,6 +101,9 @@ import javax.annotation.Nullable;
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
 final class SelectedEntrySerializer implements Consumer<SkyKey> {
+  // Chosen completely arbitrarily and the first attempt worked out quite well
+  private static final int MAX_PENDING_SKYVALUES = 10_000;
+
   /**
    * Counters for the progress of serialization.
    *
@@ -218,7 +226,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      SerializationStats serializationStats) {
+      SerializationStats serializationStats)
+      throws InterruptedException {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fileInvalidationWriter);
@@ -236,7 +245,23 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             eventBus,
             profileCollector,
             serializationStats);
-    selection.parallelStream().forEach(serializer);
+
+    List<ListenableFuture<?>> submissions = new ArrayList<>(selection.size());
+    for (SkyKey selectedKey : selection) {
+      // We acquire the semaphore here and not in serializer.accept() so as not to starve commonPool
+      writeStatuses.semaphore.acquire();
+      submissions.add(
+          Futures.submit(() -> serializer.accept(selectedKey), ForkJoinPool.commonPool()));
+    }
+
+    try {
+      Futures.allAsList(submissions).get();
+    } catch (ExecutionException | CancellationException e) {
+      // We get informed of the result through SerializationStatus
+    }
+
+    // This needs to be done after submissions finishes because that's the earliest point when we
+    // know that all work is registered in writeStatuses
     writeStatuses.notifyAllStarted();
     return writeStatuses;
   }
@@ -519,6 +544,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
               writeStatuses.counters.entriesUploaded.incrementAndGet();
               writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
               writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
+              writeStatuses.semaphore.release();
             },
             directExecutor());
 
@@ -544,6 +570,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
   public static class SerializationStatus extends QuiescingFuture<ImmutableList<Throwable>>
       implements FutureCallback<Void>, CounterSeriesCollector {
+    private final Semaphore semaphore = new Semaphore(MAX_PENDING_SKYVALUES);
     private final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
     private final FileDependencySerializer.Counters fileDependencySerializerCounters;
     private final Counters counters = new Counters();
