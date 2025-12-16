@@ -531,6 +531,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
+        additional_inputs = ctx.files.additional_compiler_inputs,
     )
     precompiled_file_objects = cc_common.create_compilation_outputs(
         objects = depset(precompiled_files[0]),  # objects

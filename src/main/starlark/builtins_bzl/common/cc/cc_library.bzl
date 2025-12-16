@@ -878,15 +878,6 @@ prefix is added.
 
 <p>This attribute is only legal under <code>third_party</code>.
 """),
-        "additional_compiler_inputs": attr.label_list(
-            allow_files = True,
-            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-            doc = """
-Any additional files you might want to pass to the compiler command line, such as sanitizer
-ignorelists, for example. Files specified here can then be used in copts with the
-$(location) function.
-""",
-        ),
         "alwayslink": attr.bool(default = False, doc = """
 If 1, any binary that depends (directly or indirectly) on this C++
 library will link in all the object files for the files listed in
