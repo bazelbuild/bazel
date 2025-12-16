@@ -37,6 +37,10 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
+import com.google.devtools.build.lib.profiler.CounterSeriesTask;
+import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
@@ -47,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
@@ -68,6 +73,7 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -90,6 +96,75 @@ import javax.annotation.Nullable;
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
 final class SelectedEntrySerializer implements Consumer<SkyKey> {
+  /**
+   * Counters for the progress of serialization.
+   *
+   * <p>Logged in the trace profile.
+   */
+  private static final class Counters implements CounterSeriesCollector {
+    private final AtomicLong entriesWaitingForKeyBytes = new AtomicLong();
+    private final AtomicLong entriesWaitingForValueBytes = new AtomicLong();
+    private final AtomicLong entriesWaitingForInvalidationInfo = new AtomicLong();
+    private final AtomicLong entriesWaitingForInvalidationBytes = new AtomicLong();
+    private final AtomicLong entriesWaitingForUpload = new AtomicLong();
+    private final AtomicLong entriesUploaded = new AtomicLong();
+    private final AtomicLong keyBytesWaitingForUpload = new AtomicLong();
+    private final AtomicLong valueBytesWaitingForUpload = new AtomicLong();
+    private final AtomicLong keyBytesUploaded = new AtomicLong();
+    private final AtomicLong valueBytesUploaded = new AtomicLong();
+
+    private static final CounterSeriesTask ENTRIES_WAITING_FOR_KEY_BYTES =
+        new CounterSeriesTask(
+            "Skycache: SkyValues: Waiting for key bytes", "SkyValues", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask ENTRIES_WAITING_FOR_VALUE_BYTES =
+        new CounterSeriesTask(
+            "Skycache: SkyValues: Waiting for value bytes", "SkyValues", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask ENTRIES_WAITING_FOR_INVALIDATION_INFO =
+        new CounterSeriesTask(
+            "Skycache: SkyValues: Waiting for invalidation info", "SkyValues", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask ENTRIES_WAITING_FOR_INVALIDATION_BYTES =
+        new CounterSeriesTask(
+            "Skycache: SkyValues: Waiting for invalidation bytes", "SkyValues", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask ENTRIES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask(
+            "Skycache: SkyValues: Waiting for upload", "SkyValues", Color.RAIL_LOAD);
+    private static final CounterSeriesTask ENTRIES_UPLOADED =
+        new CounterSeriesTask("Skycache: SkyValues: Uploaded", "SkyValues", Color.RAIL_RESPONSE);
+
+    private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask("Skycache: SkyValue bytes: Pending", "Key", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask("Skycache: SkyValue bytes: Pending", "Value", Color.RAIL_LOAD);
+
+    private static final CounterSeriesTask KEY_BYTES_UPLOADED =
+        new CounterSeriesTask("Skycache: SkyValue bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
+
+    private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
+        new CounterSeriesTask("Skycache: SkyValue bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      consumer.accept(ENTRIES_WAITING_FOR_KEY_BYTES, (double) entriesWaitingForKeyBytes.get());
+      consumer.accept(ENTRIES_WAITING_FOR_VALUE_BYTES, (double) entriesWaitingForValueBytes.get());
+      consumer.accept(
+          ENTRIES_WAITING_FOR_INVALIDATION_INFO, (double) entriesWaitingForInvalidationInfo.get());
+      consumer.accept(
+          ENTRIES_WAITING_FOR_INVALIDATION_BYTES,
+          (double) entriesWaitingForInvalidationBytes.get());
+      consumer.accept(ENTRIES_WAITING_FOR_UPLOAD, (double) entriesWaitingForUpload.get());
+      consumer.accept(ENTRIES_UPLOADED, (double) entriesUploaded.get());
+      consumer.accept(KEY_BYTES_WAITING_FOR_UPLOAD, (double) keyBytesWaitingForUpload.get());
+      consumer.accept(KEY_BYTES_UPLOADED, (double) keyBytesUploaded.get());
+      consumer.accept(VALUE_BYTES_WAITING_FOR_UPLOAD, (double) valueBytesWaitingForUpload.get());
+      consumer.accept(VALUE_BYTES_UPLOADED, (double) valueBytesUploaded.get());
+    }
+  }
+
   static final class SerializationStats {
     private final AtomicLong analysisNodes = new AtomicLong(0);
     private final AtomicLong executionNodes = new AtomicLong(0);
@@ -125,14 +200,14 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
   private final FileOpNodeMemoizingLookup fileOpNodes;
   private final FileDependencySerializer fileDependencySerializer;
 
-  private final WriteStatusesFuture writeStatuses;
+  private final SerializationStatus writeStatuses;
 
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
   private final SerializationStats serializationStats;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
-  static ListenableFuture<ImmutableList<Throwable>> uploadSelection(
+  static QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
@@ -147,7 +222,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fileInvalidationWriter);
-    var writeStatuses = new WriteStatusesFuture();
+    var writeStatuses = new SerializationStatus(fileDependencySerializer.getCounters());
     var serializer =
         new SelectedEntrySerializer(
             graph,
@@ -174,7 +249,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
-      WriteStatusesFuture writeStatuses,
+      SerializationStatus writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats) {
@@ -239,6 +314,10 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       throw new MissingSkyframeEntryException(key);
     }
 
+    writeStatuses.counters.entriesWaitingForKeyBytes.incrementAndGet();
+    writeStatuses.counters.entriesWaitingForValueBytes.incrementAndGet();
+    writeStatuses.counters.entriesWaitingForInvalidationInfo.incrementAndGet();
+
     ListenableFuture<SerializationResult<ByteString>> futureKeyBytes =
         Futures.submitAsync(
             () -> codecs.serializeMemoizedAsync(fingerprintValueService, key, profileCollector),
@@ -250,6 +329,12 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
                 codecs.serializeMemoizedAsync(
                     fingerprintValueService, nodeEntry.getValue(), profileCollector),
             fingerprintValueService.getExecutor());
+
+    futureKeyBytes.addListener(
+        () -> writeStatuses.counters.entriesWaitingForKeyBytes.decrementAndGet(), directExecutor());
+    futureValueBytes.addListener(
+        () -> writeStatuses.counters.entriesWaitingForValueBytes.decrementAndGet(),
+        directExecutor());
 
     new FileOpNodeProcessor(
             futureKeyBytes, futureValueBytes, isExecutionValue(key), key, dependencyKey, before)
@@ -293,6 +378,9 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
     @Override
     public final void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
+      writeStatuses.counters.entriesWaitingForInvalidationInfo.decrementAndGet();
+      writeStatuses.counters.entriesWaitingForInvalidationBytes.incrementAndGet();
+
       ListenableFuture<InvalidationDataInfo> futureDataInfo =
           switch (nodeOrEmpty) {
             case FileOpNode node ->
@@ -319,6 +407,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
     @Override
     public final void onFailure(Throwable t) {
+      writeStatuses.counters.entriesWaitingForInvalidationInfo.decrementAndGet();
       writeStatuses.notifyWriteFailure(t);
     }
 
@@ -409,7 +498,30 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             fingerprintValueService.fingerprint(
                 frontierVersion.concat(keyBytes.getObject().toByteArray()));
         byte[] entryBytes = bytesOut.toByteArray();
+
+        // Put this in a separate variable so that we don't close over potentially large byte arrays
+        long keyByteCount = versionedKey.toBytes().length;
+        long valueByteCount = entryBytes.length;
+        writeStatuses.counters.entriesWaitingForInvalidationBytes.decrementAndGet();
+        writeStatuses.counters.entriesWaitingForUpload.incrementAndGet();
+        writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+        writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
         WriteStatus putStatus = fingerprintValueService.put(versionedKey, entryBytes);
+        putStatus.addListener(
+            () -> {
+              // This counts bytes failed to upload as "uploaded" also. This is somewhat misleading
+              // but
+              // probably okay since we don't care much about cases with failures.
+              writeStatuses.counters.entriesWaitingForUpload.decrementAndGet();
+              writeStatuses.counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+              writeStatuses.counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+              writeStatuses.counters.entriesUploaded.incrementAndGet();
+              writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
+              writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
+            },
+            directExecutor());
+
         if (jsonLogWriter != null) {
           WriteStatus logStatus =
               jsonLogWriter.logWrite(putStatus, e -> log(versionedKey, entryBytes, e));
@@ -424,17 +536,53 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
       @Override
       public final void onFailure(Throwable t) {
+        writeStatuses.counters.entriesWaitingForInvalidationBytes.decrementAndGet();
         writeStatuses.notifyWriteFailure(t);
       }
     }
   }
 
-  private static class WriteStatusesFuture extends QuiescingFuture<ImmutableList<Throwable>>
-      implements FutureCallback<Void> {
+  public static class SerializationStatus extends QuiescingFuture<ImmutableList<Throwable>>
+      implements FutureCallback<Void>, CounterSeriesCollector {
     private final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
+    private final FileDependencySerializer.Counters fileDependencySerializerCounters;
+    private final Counters counters = new Counters();
 
-    private WriteStatusesFuture() {
+    private static final CounterSeriesTask BYTES_WAITING_FOR_FUTURE_PUTS =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Bytes: Pending", "Waiting for future puts", Color.RAIL_LOAD);
+    private static final CounterSeriesTask BYTES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Bytes: Pending", "Waiting for upload", Color.RAIL_LOAD);
+    private static final CounterSeriesTask BYTES_UPLOADED =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Bytes: Uploaded", "Written", Color.RAIL_RESPONSE);
+    private static final CounterSeriesTask OBJECTS_WAITING_FOR_SERIALIZATION =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Objects: Pending",
+            "Waiting for serialization",
+            Color.RAIL_LOAD);
+    private static final CounterSeriesTask OBJECTS_WAITING_FOR_FUTURE_PUTS =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Objects: Pending",
+            "Waiting for future puts",
+            Color.RAIL_LOAD);
+    private static final CounterSeriesTask OBJECTS_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Objects: Pending", "Waiting for upload", Color.RAIL_LOAD);
+    private static final CounterSeriesTask OBJECTS_UPLOADED =
+        new CounterSeriesTask(
+            "Skycache: Serialization: Objects: Uploaded", "done", Color.RAIL_RESPONSE);
+
+    private SerializationStatus(
+        FileDependencySerializer.Counters fileDependencySerializerCounters) {
       super(directExecutor());
+
+      this.fileDependencySerializerCounters = fileDependencySerializerCounters;
+
+      Profiler.instance().registerCounterSeriesCollector(this);
+      Profiler.instance().registerCounterSeriesCollector(counters);
+      Profiler.instance().registerCounterSeriesCollector(fileDependencySerializerCounters);
     }
 
     private void selectedEntryStarting() {
@@ -460,6 +608,9 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
     @Override
     protected ImmutableList<Throwable> getValue() {
+      Profiler.instance().unregisterCounterSeriesCollector(this);
+      Profiler.instance().unregisterCounterSeriesCollector(counters);
+      Profiler.instance().unregisterCounterSeriesCollector(fileDependencySerializerCounters);
       return ImmutableList.copyOf(errors);
     }
 
@@ -491,6 +642,34 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     @Deprecated // only called via addWriteStatus
     public void onFailure(Throwable t) {
       notifyWriteFailure(t);
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      // This should really be a method on StatsCollector but that means that serialization must
+      // depend on profiler, and profiler transitively depends on serialization because it depends
+      // on
+      // common/options, which has EnvVar, which is marked as @AutoCodec.
+
+      consumer.accept(
+          BYTES_WAITING_FOR_FUTURE_PUTS,
+          (double) SharedValueSerializationContext.COUNTERS.getBytesWaitingForFuturePuts());
+      consumer.accept(
+          BYTES_WAITING_FOR_UPLOAD,
+          (double) SharedValueSerializationContext.COUNTERS.getBytesWaitingForUpload());
+      consumer.accept(
+          BYTES_UPLOADED, (double) SharedValueSerializationContext.COUNTERS.getBytesUploaded());
+      consumer.accept(
+          OBJECTS_WAITING_FOR_SERIALIZATION,
+          (double) SharedValueSerializationContext.COUNTERS.getObjectsWaitingForSerialization());
+      consumer.accept(
+          OBJECTS_WAITING_FOR_FUTURE_PUTS,
+          (double) SharedValueSerializationContext.COUNTERS.getObjectsWaitingForFuturePuts());
+      consumer.accept(
+          OBJECTS_WAITING_FOR_UPLOAD,
+          (double) SharedValueSerializationContext.COUNTERS.getObjectsWaitingForUpload());
+      consumer.accept(
+          OBJECTS_UPLOADED, (double) SharedValueSerializationContext.COUNTERS.getObjectsUploaded());
     }
   }
 
