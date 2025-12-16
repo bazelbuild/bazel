@@ -929,12 +929,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             getNumericOrDefault(
                 resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()));
 
-        resourceSetBuilder.put(
-            "local_test",
-            getNumericOrDefault(
-                resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
+        return ResourceSet.create(
+            resourceSetBuilder.buildOrThrow(),
+            (int)
+                getNumericOrDefault(
+                    resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
 
-        return ResourceSet.create(resourceSetBuilder.buildOrThrow());
       } catch (EvalException e) {
         throw new UserExecException(
             FailureDetail.newBuilder()
