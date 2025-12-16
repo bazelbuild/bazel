@@ -105,6 +105,7 @@ public final class FingerprintValueService implements KeyValueWriter {
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+    int serializedBytesLength = serializedBytes.length;
     Instant before = Instant.now();
     WriteStatus putStatus = store.put(fingerprint, serializedBytes);
     if (jsonLogWriter == null) {
@@ -118,7 +119,7 @@ public final class FingerprintValueService implements KeyValueWriter {
             entry.addField("start", before);
             entry.addField("end", Instant.now());
             entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
-            entry.addField("valueSize", serializedBytes.length);
+            entry.addField("valueSize", serializedBytesLength);
             if (e != null) {
               entry.addField("exception", e.getMessage());
             }

@@ -409,6 +409,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
           },
           directExecutor());
       childWriteStatuses.add(writeStatus);
+      childBytes = null; // Do not hold on to the bytes longer than needed
       return new PutOperation(fingerprint, childWriteStatuses.build());
     }
   }
@@ -503,8 +504,10 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
 
     @Override
     protected SerializationResult<ByteString> getValue() {
-      return SerializationResult.create(
-          ByteString.copyFrom(childBytes), childWriteStatuses.build());
+      var result =
+          SerializationResult.create(ByteString.copyFrom(childBytes), childWriteStatuses.build());
+      childBytes = null;
+      return result;
     }
   }
 
@@ -539,7 +542,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
   }
 
   private abstract static class ResolveFuturePuts<T> extends QuiescingFuture<T> {
-    final byte[] childBytes;
+    byte[] childBytes;
     final SparseAggregateWriteStatusBuilder childWriteStatuses =
         new SparseAggregateWriteStatusBuilder();
 
