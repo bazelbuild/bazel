@@ -75,6 +75,7 @@ single_version_override(
         "//third_party:rules_graalvm_fix.patch",
         "//third_party:rules_graalvm_unicode.patch",
         "//third_party:rules_graalvm_load_fix.patch",
+        "//third_party:rules_graalvm_bazel9_fixes.patch",
     ],
 )
 

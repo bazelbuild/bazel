@@ -1,0 +1,337 @@
+diff --git a/example/disabled_tests/bazel1/sample/BUILD.bazel b/example/disabled_tests/bazel1/sample/BUILD.bazel
+index fbb24b47bc..0b3481c34e 100755
+--- a/example/disabled_tests/bazel1/sample/BUILD.bazel
++++ b/example/disabled_tests/bazel1/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/disabled_tests/bazel2/sample/BUILD.bazel b/example/disabled_tests/bazel2/sample/BUILD.bazel
+index fbb24b47bc..0b3481c34e 100755
+--- a/example/disabled_tests/bazel2/sample/BUILD.bazel
++++ b/example/disabled_tests/bazel2/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/disabled_tests/bazel3/sample/BUILD.bazel b/example/disabled_tests/bazel3/sample/BUILD.bazel
+index fbb24b47bc..0b3481c34e 100755
+--- a/example/disabled_tests/bazel3/sample/BUILD.bazel
++++ b/example/disabled_tests/bazel3/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/bazel4/sample/BUILD.bazel b/example/integration_tests/bazel4/sample/BUILD.bazel
+index fbb24b47bc..0b3481c34e 100755
+--- a/example/integration_tests/bazel4/sample/BUILD.bazel
++++ b/example/integration_tests/bazel4/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/bazel5/sample/BUILD.bazel b/example/integration_tests/bazel5/sample/BUILD.bazel
+index fbb24b47bc..0b3481c34e 100755
+--- a/example/integration_tests/bazel5/sample/BUILD.bazel
++++ b/example/integration_tests/bazel5/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/bazel6/sample/BUILD.bazel b/example/integration_tests/bazel6/sample/BUILD.bazel
+index 342ea1c158..9c07df9afd 100755
+--- a/example/integration_tests/bazel6/sample/BUILD.bazel
++++ b/example/integration_tests/bazel6/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/bzlmod/sample/BUILD.bazel b/example/integration_tests/bzlmod/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/bzlmod/sample/BUILD.bazel
++++ b/example/integration_tests/bzlmod/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/components-ce/sample/BUILD.bazel b/example/integration_tests/components-ce/sample/BUILD.bazel
+index 0132240328..809269f194 100755
+--- a/example/integration_tests/components-ce/sample/BUILD.bazel
++++ b/example/integration_tests/components-ce/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/components-oracle/sample/BUILD.bazel b/example/integration_tests/components-oracle/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/components-oracle/sample/BUILD.bazel
++++ b/example/integration_tests/components-oracle/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-ce-17/sample/BUILD.bazel b/example/integration_tests/graalvm-ce-17/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-ce-17/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-ce-17/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-ce-20/sample/BUILD.bazel b/example/integration_tests/graalvm-ce-20/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-ce-20/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-ce-20/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-ce-21/sample/BUILD.bazel b/example/integration_tests/graalvm-ce-21/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-ce-21/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-ce-21/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-oracle-17/sample/BUILD.bazel b/example/integration_tests/graalvm-oracle-17/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-oracle-17/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-oracle-17/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-oracle-20/sample/BUILD.bazel b/example/integration_tests/graalvm-oracle-20/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-oracle-20/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-oracle-20/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/graalvm-oracle-21/sample/BUILD.bazel b/example/integration_tests/graalvm-oracle-21/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/graalvm-oracle-21/sample/BUILD.bazel
++++ b/example/integration_tests/graalvm-oracle-21/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/inert-workspace/sample/BUILD.bazel b/example/integration_tests/inert-workspace/sample/BUILD.bazel
+index 282ebb6577..0ebf40891c 100755
+--- a/example/integration_tests/inert-workspace/sample/BUILD.bazel
++++ b/example/integration_tests/inert-workspace/sample/BUILD.bazel
+@@ -1,3 +1,6 @@
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "java",
+     srcs = ["Main.java"],
+diff --git a/example/integration_tests/inert/sample/BUILD.bazel b/example/integration_tests/inert/sample/BUILD.bazel
+index 282ebb6577..0ebf40891c 100755
+--- a/example/integration_tests/inert/sample/BUILD.bazel
++++ b/example/integration_tests/inert/sample/BUILD.bazel
+@@ -1,3 +1,6 @@
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "java",
+     srcs = ["Main.java"],
+diff --git a/example/integration_tests/java-toolchain/sample/BUILD.bazel b/example/integration_tests/java-toolchain/sample/BUILD.bazel
+index 282ebb6577..0ebf40891c 100755
+--- a/example/integration_tests/java-toolchain/sample/BUILD.bazel
++++ b/example/integration_tests/java-toolchain/sample/BUILD.bazel
+@@ -1,3 +1,6 @@
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "java",
+     srcs = ["Main.java"],
+diff --git a/example/integration_tests/legacy-gvm/sample/BUILD.bazel b/example/integration_tests/legacy-gvm/sample/BUILD.bazel
+index 99c49de6b0..e64badcd2d 100755
+--- a/example/integration_tests/legacy-gvm/sample/BUILD.bazel
++++ b/example/integration_tests/legacy-gvm/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "graal_binary",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/legacy-rules/sample/BUILD.bazel b/example/integration_tests/legacy-rules/sample/BUILD.bazel
+index 99c49de6b0..e64badcd2d 100755
+--- a/example/integration_tests/legacy-rules/sample/BUILD.bazel
++++ b/example/integration_tests/legacy-rules/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graal:graal.bzl",
+     "graal_binary",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/maven-artifacts/sample/BUILD.bazel b/example/integration_tests/maven-artifacts/sample/BUILD.bazel
+index 072f207564..d952e1de4f 100755
+--- a/example/integration_tests/maven-artifacts/sample/BUILD.bazel
++++ b/example/integration_tests/maven-artifacts/sample/BUILD.bazel
+@@ -1,4 +1,6 @@
+ load("@rules_graalvm//graalvm/artifacts:maven.bzl", graalvm = "alias")
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/shared-lib/sample/BUILD.bazel b/example/integration_tests/shared-lib/sample/BUILD.bazel
+index 25d49107b2..c22be679c0 100755
+--- a/example/integration_tests/shared-lib/sample/BUILD.bazel
++++ b/example/integration_tests/shared-lib/sample/BUILD.bazel
+@@ -2,6 +2,7 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/example/integration_tests/workspace/sample/BUILD.bazel b/example/integration_tests/workspace/sample/BUILD.bazel
+index fde1e0bda6..717df86abd 100755
+--- a/example/integration_tests/workspace/sample/BUILD.bazel
++++ b/example/integration_tests/workspace/sample/BUILD.bazel
+@@ -2,6 +2,8 @@ load(
+     "@rules_graalvm//graalvm:defs.bzl",
+     "native_image",
+ )
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+
+ java_library(
+     name = "java",
+diff --git a/internal/native_image/builder.bzl b/internal/native_image/builder.bzl
+index fc2a2068a4..84e0c90323 100755
+--- a/internal/native_image/builder.bzl
++++ b/internal/native_image/builder.bzl
+@@ -1,5 +1,7 @@
+ "Logic to assemble `native-image` options."
+
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
++
+ def _configure_static_zlib_compile(ctx, args, direct_inputs):
+     """Configure a static image compile against hermetic/static zlib.
+
+diff --git a/internal/native_image/classic.bzl b/internal/native_image/classic.bzl
+index f7a7875662..75c885b559 100755
+--- a/internal/native_image/classic.bzl
++++ b/internal/native_image/classic.bzl
+@@ -1,5 +1,6 @@
+ "Legacy ('classic') rules for building with GraalVM on Bazel."
+
++load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+ load(
+     "//internal/native_image:common.bzl",
+     _BAZEL_CPP_TOOLCHAIN_TYPE = "BAZEL_CPP_TOOLCHAIN_TYPE",
+diff --git a/internal/native_image/rules.bzl b/internal/native_image/rules.bzl
+index 7287d4820e..7d92e3f85c 100755
+--- a/internal/native_image/rules.bzl
++++ b/internal/native_image/rules.bzl
+@@ -105,6 +105,7 @@ def _graal_binary_implementation(ctx):
+     )
+
+     env = native_toolchain.env
++
+     # The native image will use the same native encoding (as determined by "sun.jnu.encoding")
+     # as the build environment, so we need to force a UTF-8 locale. On other platforms, the
+     # encoding is always UTF-8 (on macOS since JEP 400) or determined by the active code page
+diff --git a/internal/native_image/toolchain.bzl b/internal/native_image/toolchain.bzl
+index f3e69b79a0..8c08ade50e 100755
+--- a/internal/native_image/toolchain.bzl
++++ b/internal/native_image/toolchain.bzl
+@@ -19,6 +19,7 @@ load(
+     "@bazel_tools//tools/cpp:toolchain_utils.bzl",
+     "find_cpp_toolchain",
+ )
++load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+
+ def resolve_cc_toolchain(ctx, transitive_inputs, *, is_windows):
+     """Build a context struct for accessing the native C toolchain.
