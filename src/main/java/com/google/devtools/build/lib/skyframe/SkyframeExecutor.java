@@ -119,7 +119,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -2093,21 +2092,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
-      // Wrap loading failed exceptions
-      if (e != null && e instanceof NoSuchThingException noSuchThingException) {
-        e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
-      } else if (e != null && e instanceof ExternalDepsException externalDepsException) {
-        e = new InvalidConfigurationException(externalDepsException.getDetailedExitCode(), e);
-      } else if (e == null && !error.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
-        e =
-            new InvalidConfigurationException(
+      switch (e) {
+        case InvalidConfigurationException invalidConfigurationException ->
+            throw invalidConfigurationException;
+        case DetailedException detailedException ->
+            throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
+        case null, default -> {
+          if (e == null && !error.getCycleInfo().isEmpty()) {
+            cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
+            throw new InvalidConfigurationException(
                 "cannot load build configuration because of this cycle", Code.CYCLE);
+          }
+          throw new IllegalStateException(
+              "Unknown error during configuration creation evaluation", e);
+        }
       }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
     }
 
     // Prepare and return the results.
