@@ -110,6 +110,19 @@ public final class Resolver extends NodeVisitor {
       this.first = first;
     }
 
+    /**
+     * Returns the first binding occurrence of this symbol, or if there is none, the first
+     * non-binding occurrence.
+     */
+    Identifier getFirst() {
+      return first;
+    }
+
+    /** Returns whether any binding occurrence of this symbol appears in the syntax tree. */
+    boolean isSyntactic() {
+      return isSyntactic;
+    }
+
     /** Returns the name of this binding's identifier. */
     public String getName() {
       return first.getName();
@@ -547,60 +560,31 @@ public final class Resolver extends NodeVisitor {
 
   private void createBindings(Statement stmt) {
     switch (stmt.kind()) {
-      case ASSIGNMENT:
+      case ASSIGNMENT -> {
         AssignmentStatement assignStmt = (AssignmentStatement) stmt;
-        if (assignStmt.getType() != null) {
-          bind(
-              (Identifier) assignStmt.getLHS(),
-              /* isLoad= */ false,
-              /* hasType= */ true,
-              assignStmt.getDocComments());
-        } else {
-          createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
-        }
-        break;
-      case VAR:
+        createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
+      }
+      case VAR -> {
         VarStatement varStmt = (VarStatement) stmt;
-        bind(
-            varStmt.getIdentifier(),
-            /* isLoad= */ false,
-            /* hasType= */ true,
-            varStmt.getDocComments());
-        break;
-      case IF:
+        bind(varStmt.getIdentifier(), /* isLoad= */ false, varStmt.getDocComments());
+      }
+      case IF -> {
         IfStatement ifStmt = (IfStatement) stmt;
         createBindingsForBlock(ifStmt.getThenBlock());
         if (ifStmt.getElseBlock() != null) {
           createBindingsForBlock(ifStmt.getElseBlock());
         }
-        break;
-      case FOR:
+      }
+      case FOR -> {
         ForStatement forStmt = (ForStatement) stmt;
         createBindingsForLHS(forStmt.getVars(), /* docComments= */ null);
         createBindingsForBlock(forStmt.getBody());
-        break;
-      case DEF:
-        DefStatement def = (DefStatement) stmt;
-        // Def statements are considered to supply a type annotation on the function identifier
-        // iff they have at least one piece of type syntax in their signature -- a type annotation
-        // on a parameter or return value, or a list of generic type variables.
-        //
-        // TODO: #27728 - Let's just ban redefinitions of functions in type-checked code, on the
-        // basis that they always imply a type since even an unannotated function is still a
-        // Callable. This also enforces better readability practices in type-checked code, and
-        // redefinitions are pretty rare anyway. Enforcement should be done in TypeResolver, not
-        // here in Resolver.
-        boolean hasType =
-            def.getParameters().stream().anyMatch(p -> p.getType() != null)
-                || def.getReturnType() != null
-                || !def.getTypeParameters().isEmpty();
-        bind(
-            def.getIdentifier(),
-            /* isLoad= */ false,
-            /* hasType= */ hasType,
-            /* docComments= */ null);
-        break;
-      case LOAD:
+      }
+      case DEF -> {
+        DefStatement defStmt = (DefStatement) stmt;
+        bind(defStmt.getIdentifier(), /* isLoad= */ false, /* docComments= */ null);
+      }
+      case LOAD -> {
         LoadStatement load = (LoadStatement) stmt;
         Set<String> names = new HashSet<>();
         for (LoadStatement.Binding b : load.getBindings()) {
@@ -614,37 +598,27 @@ public final class Resolver extends NodeVisitor {
           // even if options.allowToplevelRebinding.
           Identifier local = b.getLocalName();
           if (names.add(local.getName())) {
-            bind(local, /* isLoad= */ true, /* hasType= */ false, /* docComments= */ null);
+            bind(local, /* isLoad= */ true, /* docComments= */ null);
           } else {
             errorf(local, "load statement defines '%s' more than once", local.getName());
           }
         }
-        break;
-      case TYPE_ALIAS:
+      }
+      case TYPE_ALIAS -> {
         if (options.resolveTypeSyntax()) {
           TypeAliasStatement typeStmt = (TypeAliasStatement) stmt;
-          bind(
-              typeStmt.getIdentifier(),
-              /* isLoad= */ false,
-              /* hasType= */ false,
-              /* docComments= */ null);
+          bind(typeStmt.getIdentifier(), /* isLoad= */ false, /* docComments= */ null);
         }
-        break;
-      case EXPRESSION:
-      case FLOW:
-      case RETURN:
-        // nothing to declare
+      }
+      // nothing to declare
+      case EXPRESSION, FLOW, RETURN -> {}
     }
   }
 
-  /**
-   * Calls {@link #bind} for appropriate identifiers of the LHS of an assignment.
-   *
-   * <p>This is only appropriate when no type annotation applies.
-   */
+  /** Calls {@link #bind} for appropriate identifiers of the LHS of an assignment. */
   private void createBindingsForLHS(Expression lhs, @Nullable DocComments docComments) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      bind(id, /* isLoad= */ false, /* hasType= */ false, docComments);
+      bind(id, /* isLoad= */ false, docComments);
     }
   }
 
@@ -1135,14 +1109,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
-    if (!bind(
-        param.getIdentifier(),
-        /* isLoad= */ false,
-        // We set hasType to false, even if there is a param annotation. This is to avoid
-        // complaining that an erroneous duplicated parameter has a type annotation, when we should
-        // really just be complaining about the fact the param was duplicated at all.
-        /* hasType= */ false,
-        /* docComments= */ null)) {
+    if (!bind(param.getIdentifier(), /* isLoad= */ false, /* docComments= */ null)) {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
@@ -1152,13 +1119,9 @@ public final class Resolver extends NodeVisitor {
    * Process a binding use of a name by adding a binding to the current block if not already bound,
    * and associate the identifier with it.
    *
-   * @param hasType true if this binding use has a type annotation associated with it and is not a
-   *     function parameter; an error is reported when hasType is true but the binding already
-   *     exists in this block.
    * @return true if the name was newly bound in this block, or false if it already existed
    */
-  private boolean bind(
-      Identifier id, boolean isLoad, boolean hasType, @Nullable DocComments docComments) {
+  private boolean bind(Identifier id, boolean isLoad, @Nullable DocComments docComments) {
     String name = id.getName();
     boolean isNew = false;
     Binding bind;
@@ -1222,21 +1185,6 @@ public final class Resolver extends NodeVisitor {
     }
 
     id.setBinding(bind);
-
-    // TODO: #27728 - Move the functionality of banning multiple type declarations of the same
-    // symbol over to the TypeResolver, eliminating this hasType logic.
-    if (hasType && !isNew) {
-      if (bind.isSyntactic) {
-        errorf(
-            id, "type annotation on '%s' may only appear at its first declaration", id.getName());
-        errorf(bind.first, "'%s' first declared here", id.getName());
-      } else {
-        // The binding already exists and yet had no definition in this syntax tree. This shouldn't
-        // really be possible -- any binding that we should be shadowing would've be introduced by
-        // `use()` in the `visit()` traversal, which hasn't run yet.
-        errorf(id, "symbol '%s' cannot be annotated with a type", id.getName());
-      }
-    }
 
     return isNew;
   }

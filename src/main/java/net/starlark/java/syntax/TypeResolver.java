@@ -215,16 +215,45 @@ public class TypeResolver extends NodeVisitor {
   }
 
   /**
-   * Helper that sets an identifier's type, asserting that a corresponding binding exists and that
-   * it doesn't already have a type.
+   * Sets an identifier's type.
    *
-   * <p>We can expect these preconditions to hold because we should only traverse symbol usages of
-   * identifiers (not fields, or keyword args at call sites), and because a symbol may have at most
-   * one type annotation in a valid program.
+   * <p>The {@code Binding} on the identifier must have already been set by the resolver.
+   * (Therefore, this method cannot be called for identifiers that are not symbols, like field names
+   * or call site keyword arguments.)
+   *
+   * <p>Logs an error if the identifier is not the first binding occurrence of the {@code Binding}.
+   * In this case, the type is not updated.
+   *
+   * <p>Throws {@link IllegalArgumentException} if this is the first binding occurrence but somehow
+   * the type is already set.
    */
-  private static void setType(Identifier id, StarlarkType type) {
+  private void setType(Node node, Identifier id, StarlarkType type) {
     Resolver.Binding binding = id.getBinding();
     Preconditions.checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+
+    if (binding.getFirst() != id) {
+      if (node instanceof DefStatement) {
+        // A def statement appearing in typed code constitutes an implicit type annotation on the
+        // function identifier's symbol. Even if the signature contains no type annotations, the
+        // function identifier is still considered to be marked as a Callable. Therefore, this needs
+        // to be the first binding occurrence of the symbol.
+        //
+        // A consequence of this is that `def f(): ...; f = lambda: ...` is permitted by the
+        // type resolver (though the type checker will still require the assignment to be consistent
+        // with the def's type signature), even though the opposite statement order is prohibited.
+        //
+        // When a violation occurs at a def statement, we use a more specific error message to avoid
+        // confusing the user.
+        errorf(id, "function '%s' was previously declared", id.getName());
+      } else {
+        errorf(id, "type annotation on '%s' may only appear at its declaration", id.getName());
+      }
+      if (binding.isSyntactic()) {
+        errorf(binding.getFirst(), "'%s' previously declared here", id.getName());
+      }
+      return;
+    }
+
     if (binding.getType() != null) {
       throw new IllegalArgumentException(
           String.format(
@@ -233,7 +262,11 @@ public class TypeResolver extends NodeVisitor {
     binding.setType(type);
   }
 
-  /** Same as {@link #setType(Identifier, StarlarkType)} but for resolved functions. */
+  /**
+   * Sets a resolved function's type.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the type is already set.
+   */
   private static void setType(Resolver.Function resolved, Types.CallableType type) {
     Preconditions.checkNotNull(resolved);
     if (resolved.getFunctionType() != null) {
@@ -249,7 +282,7 @@ public class TypeResolver extends NodeVisitor {
   public void visit(AssignmentStatement assignment) {
     if (assignment.getType() != null) {
       StarlarkType type = evalType(assignment.getType());
-      setType((Identifier) assignment.getLHS(), type);
+      setType(assignment, (Identifier) assignment.getLHS(), type);
     }
 
     // Traverse children; RHS could contain a lambda.
@@ -260,7 +293,7 @@ public class TypeResolver extends NodeVisitor {
   public void visit(DefStatement def) {
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
     setType(def.getResolvedFunction(), type);
-    setType(def.getIdentifier(), type);
+    setType(def, def.getIdentifier(), type);
 
     super.visit(def);
   }
@@ -274,7 +307,7 @@ public class TypeResolver extends NodeVisitor {
       if (param.getType() != null) {
         type = evalType(param.getType());
       }
-      setType(param.getIdentifier(), type);
+      setType(param, param.getIdentifier(), type);
     }
 
     super.visit(param);
@@ -283,7 +316,7 @@ public class TypeResolver extends NodeVisitor {
   @Override
   public void visit(VarStatement var) {
     StarlarkType type = evalType(var.getType());
-    setType(var.getIdentifier(), type);
+    setType(var, var.getIdentifier(), type);
 
     // No need to descend into type expression child.
   }
@@ -308,12 +341,11 @@ public class TypeResolver extends NodeVisitor {
    * annotations.
    *
    * <p>The file must not have any existing type information in its resolved functions and bindings.
+   *
+   * <p>Any errors are appended to the file's list of errors.
    */
-  public static void annotateFile(StarlarkFile file, Module module) throws SyntaxError.Exception {
+  public static void annotateFile(StarlarkFile file, Module module) {
     TypeResolver r = new TypeResolver(file.errors, module);
     r.visit(file);
-    if (!r.errors.isEmpty()) {
-      throw new SyntaxError.Exception(r.errors);
-    }
   }
 }

@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,14 +53,12 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         """);
     scratch.file("test/BUILD", "load(':foo.bzl', 'f')");
 
-    AssertionError e = assertThrows(AssertionError.class, () -> getTarget("//test:BUILD"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            """
-            syntax error at ':': type annotations are disallowed. Enable them with \
-            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
-            """);
+    checkLoadingPhaseError(
+        "//test:BUILD",
+        """
+        syntax error at ':': type annotations are disallowed. Enable them with \
+        --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
+        """);
   }
 
   @Test
@@ -79,14 +74,12 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         """);
     scratch.file("test/BUILD", "load(':foo.bzl', 'f')");
 
-    AssertionError e = assertThrows(AssertionError.class, () -> getTarget("//test:BUILD"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            """
-            syntax error at ':': type annotations are disallowed. Enable them with \
-            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
-            """);
+    checkLoadingPhaseError(
+        "//test:BUILD",
+        """
+        syntax error at ':': type annotations are disallowed. Enable them with \
+        --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
+        """);
   }
 
   @Test
@@ -114,21 +107,15 @@ public class StarlarkTypesTest extends BuildViewTestCase {
 
   @Test
   public void typeResolverDoesNotRunByDefault() throws Exception {
-    // If the type resolver were running, it'd complain about the redefinition of g.
-    //
-    // We need a type annotation in f()'s signature to ensure its body is considered typed code.
-    //
-    // TODO: #27728 - Replace this test setup with a simple erroneous re-annotation of an previously
-    // defined var, once validation of that is moved into the resolver.
+    // If the type resolver were running, it'd complain about the var annotation after x has already
+    // been assigned to.
     setBuildLanguageOptions("--experimental_starlark_type_syntax");
     scratch.file(
         "test/foo.bzl",
         """
-        def f() -> None:
-            def g():
-                pass
-            def g():
-                pass
+        def f():
+            x = 1
+            x : int
         """);
     scratch.file(
         "test/BUILD",
@@ -147,11 +134,9 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     scratch.file(
         "test/foo.bzl",
         """
-        def f() -> None:
-            def g():
-                pass
-            def g():
-                pass
+        def f():
+            x = 1
+            x : int
         """);
     scratch.file(
         "test/BUILD",
@@ -159,15 +144,8 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         load(":foo.bzl", "f")
         """);
 
-    // TODO: #27728 -- Replace this exception/crash with an error on the StarlarkFile that we can
-    // assert on as an ordinary Event.
-    Exception ex = assertThrows(RuntimeException.class, () -> getTarget("//test:BUILD"));
-    assertThat(ex)
-        .hasCauseThat()
-        .hasMessageThat()
-        .contains(
-            "Expected type of binding local[0] g @ /workspace/test/foo.bzl:2:9 to be null but was"
-                + " Callable[[], Any]");
+    checkLoadingPhaseError(
+        "//test:BUILD", "type annotation on 'x' may only appear at its declaration");
   }
 
   @Test

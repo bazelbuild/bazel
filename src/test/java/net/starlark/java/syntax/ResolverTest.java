@@ -756,79 +756,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testMultipleTypeAnnotationsDisallowed_localLevel() throws Exception {
-    // Same as testMultipleTypeAnnotationsDisallowed_topLevel but inside a function, where
-    // reassignment is always allowed.
-    options.allowTypeSyntax(true);
-    List<SyntaxError> errors =
-        getResolutionErrors(
-            // All four permutations of VarStatement vs annotated assignment statement.
-            """
-            def f():
-                a : int
-                a : str
-
-                b : int = 123
-                b : str
-
-                c : int
-                c : str = "abc"
-
-                d : int = 123
-                d : str = "abc"
-            """);
-    assertContainsError(errors, "type annotation on 'a' may only appear at its first declaration");
-    assertContainsError(errors, "type annotation on 'b' may only appear at its first declaration");
-    assertContainsError(errors, "type annotation on 'c' may only appear at its first declaration");
-    assertContainsError(errors, "type annotation on 'd' may only appear at its first declaration");
-  }
-
-  @Test
-  public void testMultipleTypeAnnotationsDisallowed_defStatement() throws Exception {
-    options.allowTypeSyntax(true);
-
-    assertValid(
-        """
-        def f():
-            # Redefinition is allowed (but bad style) if second definition has no type
-            # annotation.
-            def a(x : pre):
-                pass
-            def a(x):
-                pass
-        """);
-
-    List<SyntaxError> errors =
-        getResolutionErrors(
-            """
-            def f():
-                # Second definition may not have a type annotation, even if first definition has
-                # none.
-                def b(x):
-                    pass
-                def b(x : pre):
-                    pass
-
-                # Return type annotation counts too.
-                def c(x):
-                    pass
-                def c(x) -> pre:
-                    pass
-
-                # Even generic type vars count.
-                def d(x):
-                    pass
-                def d[T](x):
-                    pass
-            """);
-    // TODO: #27371 - For the case of redefining a function, the error message is a little
-    // confusing. But this is also a pretty rare case.
-    assertContainsError(errors, "type annotation on 'b' may only appear at its first declaration");
-    assertContainsError(errors, "type annotation on 'c' may only appear at its first declaration");
-    assertContainsError(errors, "type annotation on 'd' may only appear at its first declaration");
-  }
-
-  @Test
   public void testSingleAnnotationWithReassignmentIsAllowed() throws Exception {
     options.allowTypeSyntax(true);
     assertValid(
@@ -847,42 +774,6 @@ public class ResolverTest {
         """
         a : int
         a = 123
-        """);
-  }
-
-  @Test
-  public void testVarStatementMustPreceedAssignment() throws Exception {
-    options.allowTypeSyntax(true);
-    assertInvalid(
-        "type annotation on 'x' may only appear at its first declaration",
-        """
-        def f():
-            x = 123
-            x : int
-        """);
-  }
-
-  @Test
-  public void onlyFirstAssignmentMayBeAnnotated() throws Exception {
-    options.allowTypeSyntax(true);
-    assertInvalid(
-        "type annotation on 'x' may only appear at its first declaration",
-        """
-        def f():
-            x = 123
-            x : int = 123
-        """);
-  }
-
-  @Test
-  public void cannotAnnotateParamInBody() throws Exception {
-    options.allowTypeSyntax(true);
-    assertInvalid(
-        "type annotation on 'x' may only appear at its first declaration",
-        """
-        def f(x):
-            # Invalid even though x has no type annotation above.
-            x : int
         """);
   }
 

@@ -15,6 +15,8 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static net.starlark.java.syntax.LexerTest.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
@@ -40,14 +42,34 @@ public class TypeResolverTest {
     return TypeResolver.evalTypeExpression(typeExpr, Resolver.moduleWithPredeclared());
   }
 
-  /** Parses a series of strings as a file, then resolves and type-resolves it. */
-  private StarlarkFile annotateFile(String... lines) throws SyntaxError.Exception {
+  /**
+   * Parses a series of strings as a file, then resolves and type-resolves it.
+   *
+   * <p>Asserts that parsing and symbol resolution succeeded, but type-resolving may fail.
+   */
+  private StarlarkFile annotateFilePossiblyFailing(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
+    assertThat(file.ok()).isTrue();
     Module module = Resolver.moduleWithPredeclared();
     Resolver.resolveFile(file, module);
+    assertThat(file.ok()).isTrue();
     TypeResolver.annotateFile(file, module);
     return file;
+  }
+
+  /** As in {@link #annotateFilePossiblyFailing} but asserts that even type resolution succeeded. */
+  private StarlarkFile annotateFile(String... lines) throws Exception {
+    StarlarkFile file = annotateFilePossiblyFailing(lines);
+    assertThat(file.ok()).isTrue();
+    return file;
+  }
+
+  /** Asserts that type resolution fails with at least the specified error. */
+  private void assertInvalid(String expectedError, String... lines) throws Exception {
+    StarlarkFile file = annotateFilePossiblyFailing(lines);
+    assertWithMessage("type resolution suceeded unexpectedly").that(file.ok()).isFalse();
+    assertContainsError(file.errors(), expectedError);
   }
 
   /** Returns the first statement of a parsed file. */
@@ -166,12 +188,101 @@ public class TypeResolverTest {
   }
 
   @Test
+  public void annotationMustBeAtFirstOccurrence_assignment() throws Exception {
+    assertInvalid(
+        "type annotation on 'x' may only appear at its declaration",
+        """
+        def f():
+            x = 123
+            x : int = 123
+        """);
+  }
+
+  @Test
+  public void annotationMustBeAtFirstOccurrence_varStatementAfterAssignment() throws Exception {
+    assertInvalid(
+        "type annotation on 'y' may only appear at its declaration",
+        """
+        def f():
+            x, y, z = 123
+            y : int
+        """);
+  }
+
+  @Test
+  public void annotationMustBeAtFirstOccurrence_parameters() throws Exception {
+    assertInvalid(
+        "type annotation on 'x' may only appear at its declaration",
+        """
+        def f(x):
+            # Invalid even though x has no type annotation above.
+            x : int
+        """);
+  }
+
+  @Test
+  public void annotationMustBeAtFirstOccurence_localVar() throws Exception {
+    // Also avoid assertInvalid() in this test case so we have some coverage of the declaration
+    // location reporting, which is spread over two events.
+    StarlarkFile file =
+        annotateFilePossiblyFailing(
+            """
+            def f():
+                x : int
+                x : str
+            """);
+    assertThat(file.ok()).isFalse();
+    assertContainsError(
+        file.errors(), "3:5: type annotation on 'x' may only appear at its declaration");
+    assertContainsError(file.errors(), "2:5: 'x' previously declared here");
+  }
+
+  @Test
+  public void annotationMustBeAtFirstOccurrence_innerFunction() throws Exception {
+    // Every function definition implicitly annotates its identifier as at least a Callable, even
+    // if the definition has no parameter or return type annotations.
+    assertInvalid(
+        "function 'g' was previously declared",
+        """
+        def f():
+            def g():
+                pass
+            def g():
+                pass
+        """);
+
+    assertInvalid(
+        "function 'g' was previously declared",
+        """
+        def f():
+            g = 1
+            def g():
+                pass
+        """);
+  }
+
+  @Test
+  public void annotationMustBeAtFirstOccurrence_loadedGlobal() throws Exception {
+    // These options are needed to exercise attempting to annotate a loaded symbol. Otherwise we
+    // would be annotating a distinct global symbol whose name happens to clash with the loaded one.
+    // That's also an error, but not the one we want to test.
+    options.loadBindsGlobally(true).allowToplevelRebinding(true);
+
+    assertInvalid(
+        "type annotation on 'x' may only appear at its declaration",
+        """
+        load("...", "x")
+        x : int = 1
+        """);
+  }
+
+  @Test
   public void annotateFile_setsFunctionType_basic() throws Exception {
     StarlarkFile file =
         annotateFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
-              pass
+                pass
             """);
     Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
 
@@ -194,7 +305,7 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f(*a, **b):
-              pass
+                pass
             """);
     Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
 
@@ -209,7 +320,7 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f():
-              pass
+                pass
             """);
     type = getType(getFirstStatement(DefStatement.class, file));
 
@@ -225,8 +336,8 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f():
-              def g(a : int):
-                pass
+                def g(a : int):
+                    pass
             """);
     var outer = getFirstStatement(DefStatement.class, file);
     var inner = getFirstStatement(DefStatement.class, outer);
@@ -322,7 +433,7 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f(x : int):
-              pass
+                pass
             """);
     var stmt = getFirstStatement(DefStatement.class, file);
     StarlarkType type = getType(stmt.getIdentifier());
@@ -337,7 +448,7 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
-              pass
+                pass
             """);
     var stmt = getFirstStatement(DefStatement.class, file);
     ArrayList<StarlarkType> bindingTypes = new ArrayList<>();
@@ -373,7 +484,7 @@ public class TypeResolverTest {
         annotateFile(
             """
             def f():
-              x : int
+                x : int
             """);
     var stmt = getFirstStatement(DefStatement.class, file);
     StarlarkType type = getType(getFirstStatement(VarStatement.class, stmt).getIdentifier());
