@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -914,22 +912,29 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         Map<String, Object> resourceSetMapRaw =
             Dict.cast(response, String.class, Object.class, "resource_set");
 
-        if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
-          String message =
-              String.format(
-                  "Illegal resource keys: (%s)",
-                  Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
-          throw new EvalException(message);
+        ImmutableMap.Builder<String, Double> resourceSetBuilder = ImmutableMap.builder();
+        for (String key : resourceSetMapRaw.keySet()) {
+          if (!validResources.contains(key)) {
+            resourceSetBuilder.put(key, getNumericOrDefault(resourceSetMapRaw, key, 0.0));
+          }
         }
 
-        return ResourceSet.create(
+        resourceSetBuilder.put(
+            ResourceSet.MEMORY,
             getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()),
+                resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()));
+
+        resourceSetBuilder.put(
+            ResourceSet.CPU,
             getNumericOrDefault(
-                resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()),
-            (int)
-                getNumericOrDefault(
-                    resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
+                resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()));
+
+        resourceSetBuilder.put(
+            "local_test",
+            getNumericOrDefault(
+                resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
+
+        return ResourceSet.create(resourceSetBuilder.buildOrThrow());
       } catch (EvalException e) {
         throw new UserExecException(
             FailureDetail.newBuilder()
