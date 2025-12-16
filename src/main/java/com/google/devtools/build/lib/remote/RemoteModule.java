@@ -367,7 +367,7 @@ public final class RemoteModule extends BlazeModule {
       reporter.handle(
           Event.warn(
               "Interrupted while waiting for remote cache uploads from previous build. "
-                  + "Some cache entries may be incomplete."));
+                  + "Some cache entries may be missing."));
       uploads.cancel();
       // Don't re-interrupt the thread - we want the build to proceed
     }
@@ -1168,7 +1168,6 @@ public final class RemoteModule extends BlazeModule {
     }
 
     // Wait for pending uploads to complete before server shutdown.
-    // Use a longer timeout than waitForPreviousInvocation() since this is the final chance.
     RemoteExecutionService.PendingUploads uploads = pendingUploads;
     pendingUploads = null;
 
