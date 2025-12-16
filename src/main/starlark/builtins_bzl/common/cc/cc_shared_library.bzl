@@ -1130,7 +1130,7 @@ The <code>cc_shared_library</code> implementation will use the list of
 current target's <code>dynamic_deps</code>) to decide which <code>cc_libraries</code> in
 the transitive <code>deps</code> should not be linked in because they are already provided
 by a different <code>cc_shared_library</code>.
-        """,
+        """ + semantics.dynamic_deps_extra_docs,
     ),
     "_deps_analyzed_by_graph_structure_aspect": attr.label_list(
         providers = [CcInfo],
