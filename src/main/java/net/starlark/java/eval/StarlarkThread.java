@@ -260,6 +260,30 @@ public final class StarlarkThread {
 
   /** Pushes a function onto the call stack. */
   void push(StarlarkCallable fn) {
+    // Poll for newly installed CPU profiler.
+    if (profiler == null) {
+      this.profiler = CpuProfiler.get();
+      if (profiler != null) {
+        // Associated current Java thread with this StarlarkThread.
+        // (Save the previous association so we can restore it later.)
+        this.savedThread = CpuProfiler.setStarlarkThread(this);
+      }
+    }
+
+    if (profiler != null) {
+      if (callstack.isEmpty()) {
+        // If this is the top-level frame, reset the CPU tick counter.
+        cpuTicks.set(0);
+      } else {
+        // Record CPU ticks already accrued by the current frame, as otherwise they'd be
+        // misattributed to the next frame.
+        int ticks = cpuTicks.getAndSet(0);
+        if (ticks > 0) {
+          profiler.addEvent(ticks, getDebugCallStack());
+        }
+      }
+    }
+
     Frame fr = new Frame(this, fn);
     callstack.add(fr);
 
@@ -274,17 +298,6 @@ public final class StarlarkThread {
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null) {
       fr.profileStartTimeNanos = callProfiler.start();
-    }
-
-    // Poll for newly installed CPU profiler.
-    if (profiler == null) {
-      this.profiler = CpuProfiler.get();
-      if (profiler != null) {
-        cpuTicks.set(0);
-        // Associated current Java thread with this StarlarkThread.
-        // (Save the previous association so we can restore it later.)
-        this.savedThread = CpuProfiler.setStarlarkThread(this);
-      }
     }
   }
 
