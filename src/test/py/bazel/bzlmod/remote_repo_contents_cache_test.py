@@ -18,6 +18,7 @@
 import json
 import os
 import re
+import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 
@@ -95,6 +96,57 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         '--noexperimental_remote_repo_contents_cache',
         'build',
         '@my_repo//:haha',
+    ])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testLocalRepoContentsCacheInteraction(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'repo = use_repo_rule("//:repo.bzl", "repo")',
+        'repo(name = "my_repo")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'repo.bzl',
+      [
+        'def _repo_impl(rctx):',
+        '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+        '  print("JUST FETCHED")',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(_repo_impl)',
+      ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    repo_contents_cache = tempfile.mkdtemp(dir = os.environ['TEST_TMPDIR'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha', '--repo_contents_cache='+repo_contents_cache])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After expunging: cached, hits the local repo contents cache
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha', '--repo_contents_cache='+repo_contents_cache])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After cleaning out local repo contents cache: cached, hits the remote cache
+    self.RunBazel(['clean', '--expunge'])
+    # Deleting the cache fails on Windows, so we just use a different directory.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha', '--repo_contents_cache='+repo_contents_cache+'2'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After expunging, without using any repo contents cache: not cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel([
+      '--noexperimental_remote_repo_contents_cache',
+      'build',
+      '@my_repo//:haha',
     ])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
