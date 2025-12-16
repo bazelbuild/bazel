@@ -690,10 +690,12 @@ public class BazelRepositoryModule extends BlazeModule {
    */
   @Nullable
   private Path toPath(PathFragment path, CommandEnvironment env) {
-    if (path.isEmpty() || env.getBlazeWorkspace().getWorkspace() == null) {
+    if (path.isEmpty() || env.getDirectories().getWorkspace() == null) {
       return null;
     }
-    return env.getBlazeWorkspace().getWorkspace().getRelative(path);
+    // While this can resolve to a path under the workspace directory, it doesn't actually write
+    // source files and thus has to use getWorkspace(), not getWorkingDirectory().
+    return env.getDirectories().getWorkspace().getRelative(path);
   }
 
   @Override
