@@ -40,6 +40,8 @@ public interface FingerprintValueStore {
     return new Stats(0, 0, 0, 0, 0, 0, 0, 0);
   }
 
+  default void shutdown() {}
+
   /**
    * Associates a fingerprint with the serialized representation of some object.
    *

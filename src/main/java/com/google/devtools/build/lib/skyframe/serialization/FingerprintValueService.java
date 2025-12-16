@@ -98,6 +98,10 @@ public final class FingerprintValueService implements KeyValueWriter {
     this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
   }
 
+  public void shutdown() {
+    store.shutdown();
+  }
+
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
