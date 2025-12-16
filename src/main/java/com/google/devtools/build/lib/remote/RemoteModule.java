@@ -1171,20 +1171,8 @@ public final class RemoteModule extends BlazeModule {
     RemoteExecutionService.PendingUploads uploads = pendingUploads;
     pendingUploads = null;
 
-    Thread waitThread = new Thread(() -> {
-      try {
-        uploads.awaitTermination();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    });
-    waitThread.start();
-
     try {
-      waitThread.join(60_000);
-      if (waitThread.isAlive()) {
-        uploads.cancel();
-      }
+      uploads.awaitTermination();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       uploads.cancel();
