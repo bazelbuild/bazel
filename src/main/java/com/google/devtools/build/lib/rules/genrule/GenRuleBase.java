@@ -258,7 +258,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    if (ruleContext.isExecutedOnWindows()) {
+    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
