@@ -206,11 +206,6 @@ final class RegularRunnableExtension implements RunnableExtension {
   }
 
   @Override
-  public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
-    return staticEnvVars;
-  }
-
-  @Override
   public byte[] getBzlTransitiveDigest() {
     return BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
   }
@@ -273,13 +268,10 @@ final class RegularRunnableExtension implements RunnableExtension {
             mainRepositoryMapping,
             env.getListener());
     ModuleExtensionMetadata moduleExtensionMetadata;
-    var repoMappingRecorder = new Label.RepoMappingRecorder();
-    repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
     try (Mutability mu =
             Mutability.create("module extension", usagesValue.getExtensionUniqueName());
         ModuleExtensionContext moduleContext =
-            createContext(
-                env, usagesValue, starlarkSemantics, extensionId, repoMappingRecorder, facts)) {
+            createContext(env, usagesValue, starlarkSemantics, extensionId, facts, bzlLoadValue)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
@@ -288,9 +280,7 @@ final class RegularRunnableExtension implements RunnableExtension {
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
-      // apparent repo names to canonical repo names. See #20721 for why this is necessary.
-      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      moduleContext.storeRepoMappingRecorderInThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
@@ -315,12 +305,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedFileInputs(),
-          moduleContext.getRecordedDirentsInputs(),
-          moduleContext.getRecordedEnvVarInputs(),
-          threadContext.createRepos(),
-          moduleExtensionMetadata,
-          repoMappingRecorder.recordedEntries());
+          moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
     } catch (EvalException e) {
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
@@ -343,9 +328,11 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      Label.RepoMappingRecorder repoMappingRecorder,
-      Facts facts)
+      Facts facts,
+      BzlLoadValue bzlLoadValue)
       throws ExternalDepsException {
+    var staticRepoMappingRecorder = new Label.SimpleRepoMappingRecorder();
+    staticRepoMappingRecorder.record(bzlLoadValue.getRecordedRepoMappings());
     Path workingDirectory =
         directories
             .getOutputBase()
@@ -360,7 +347,7 @@ final class RegularRunnableExtension implements RunnableExtension {
               extension,
               usagesValue.getRepoMappings().get(moduleKey),
               usagesValue.getExtensionUsages().get(moduleKey),
-              repoMappingRecorder));
+              staticRepoMappingRecorder));
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
@@ -379,6 +366,8 @@ final class RegularRunnableExtension implements RunnableExtension {
         extensionId,
         StarlarkList.immutableCopyOf(modules),
         facts,
-        rootModuleHasNonDevDependency);
+        rootModuleHasNonDevDependency,
+        staticEnvVars,
+        staticRepoMappingRecorder.recordedEntries());
   }
 }

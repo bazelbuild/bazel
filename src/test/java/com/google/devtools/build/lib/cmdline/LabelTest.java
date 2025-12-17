@@ -21,7 +21,6 @@ import com.google.common.collect.Tables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -513,7 +512,7 @@ public class LabelTest {
             PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
             RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar));
 
-    RepoMappingRecorder recorder = new RepoMappingRecorder();
+    var recorder = new Label.SimpleRepoMappingRecorder();
     // Not recorded: no repo part
     var unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext, recorder);
     // Recorded: <foo, bar, quux>
