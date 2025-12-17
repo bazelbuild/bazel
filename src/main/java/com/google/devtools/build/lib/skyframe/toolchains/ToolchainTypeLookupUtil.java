@@ -70,6 +70,11 @@ public class ToolchainTypeLookupUtil {
       Label originalLabel = key.getLabel();
       Optional<ToolchainTypeInfo> toolchainTypeInfo =
           findToolchainTypeInfo(toolchainTypeRequirement, key, values);
+      if (toolchainTypeInfo == null) {
+        // Continue processing to find errors, but note that we didn't succeed.
+        valuesMissing = true;
+        continue;
+      }
       if (!valuesMissing) {
         toolchainTypeInfo.ifPresent(
             info -> {
