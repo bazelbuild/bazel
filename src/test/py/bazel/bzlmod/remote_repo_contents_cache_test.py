@@ -608,12 +608,10 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.ClearRemoteCache()
 
     # Build the other target: fails due to the lost input
-    # TODO: #26450 - Assert success and enable the checks below.
-    _, _, stderr = self.RunBazel(
-        ['build', '@my_repo//sub:sub'], allow_failure=True
-    )
+    _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
+    # First restart recovers @my_repo, the next one recovers @platforms.
     self.assertEqual(
-        1,
+        2,
         stderr.count(
             'Found transient remote cache error, retrying the build...'
         ),

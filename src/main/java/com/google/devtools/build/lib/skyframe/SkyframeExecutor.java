@@ -1921,19 +1921,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
-      // Wrap loading failed exceptions
-      if (e != null && e instanceof NoSuchThingException noSuchThingException) {
-        e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+      if (e instanceof InvalidConfigurationException invalidConfigurationException) {
+        throw invalidConfigurationException;
+      } else if (e instanceof DetailedException detailedException) {
+        throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
-        e =
-            new InvalidConfigurationException(
+        throw new InvalidConfigurationException(
                 "cannot load build configuration because of this cycle", Code.CYCLE);
       }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
+      throw new IllegalStateException(
+          "Unknown error during configuration creation evaluation", e);
     }
 
     // Prepare and return the results.
