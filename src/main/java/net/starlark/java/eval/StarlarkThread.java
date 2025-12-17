@@ -279,7 +279,7 @@ public final class StarlarkThread {
         // misattributed to the next frame.
         int ticks = cpuTicks.getAndSet(0);
         if (ticks > 0) {
-          profiler.addEvent(ticks, getDebugCallStack());
+          profiler.addEvent(ticks, callstack);
         }
       }
     }
@@ -309,7 +309,7 @@ public final class StarlarkThread {
     if (profiler != null) {
       int ticks = cpuTicks.getAndSet(0);
       if (ticks > 0) {
-        profiler.addEvent(ticks, getDebugCallStack());
+        profiler.addEvent(ticks, callstack);
       }
 
       // If this is the final pop in this thread,
