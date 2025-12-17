@@ -663,6 +663,7 @@ class ModCommandTest(test_base.TestBase):
             '@ext2': 'ext2+',
             '@myrepo': 'ext++ext+repo1',
             '@myrepo2': 'ext2++ext+repo1',
+            '@local_config_platform': 'local_config_platform'
         },
         parsed,
     )
