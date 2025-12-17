@@ -472,7 +472,7 @@ public class FileSystemUtils {
         }
       } else {
         // TODO(tjgq): The move/copy cases should have a consistent result for a directory.
-        throw new IOException("Don't know how to move " + from);
+        throw new IOException("Don't know how to move " + from, ignored);
       }
       try {
         from.delete();
