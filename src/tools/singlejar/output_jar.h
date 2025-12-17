@@ -29,6 +29,7 @@
 // Need newline so clang-format won't alpha-sort with other headers.
 
 #include "src/tools/singlejar/combiners.h"
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/options.h"
 #include "absl/container/flat_hash_map.h"
 
@@ -144,6 +145,7 @@ class OutputJar {
   Concatenator protobuf_meta_handler_;
   ManifestCombiner manifest_;
   PropertyCombiner build_properties_;
+  Log4J2PluginDatCombiner log4j2_plugin_dat_combiner_;
   NullCombiner null_combiner_;
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;
   std::vector<std::unique_ptr<Concatenator> > classpath_resources_;
