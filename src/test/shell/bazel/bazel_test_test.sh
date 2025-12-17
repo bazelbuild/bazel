@@ -1082,8 +1082,11 @@ sh_test(
     srcs = ['test.sh'],
 )
 EOF
-  bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "cannot run local tests with --nobuild_runfile_manifests"
+  bazel test --nobuild_runfile_manifests --spawn_strategy=local --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
+  bazel test --nobuild_runfile_manifests --spawn_strategy=standalone --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
+  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
 }
 
 function test_run_from_external_repo_sibling_repository_layout() {
