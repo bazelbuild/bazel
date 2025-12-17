@@ -27,14 +27,15 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
- * Container for common test execution settings shared by all
- * all TestRunnerAction instances for the given test target.
+ * Container for common test execution settings shared by all TestRunnerAction instances for the
+ * given test target.
  */
 public final class TestTargetExecutionSettings {
 
@@ -59,8 +60,8 @@ public final class TestTargetExecutionSettings {
       Artifact executable,
       Artifact instrumentedFileManifest,
       int shards,
-      int runs)
-      throws InterruptedException { // due to CommandLine.arguments
+      int runs,
+      PlatformInfo executionPlatform) {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfigurationValue config = ruleContext.getConfiguration();
@@ -83,8 +84,7 @@ public final class TestTargetExecutionSettings {
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;
-    this.executionOs =
-        ConstraintConstants.getOsFromConstraints(ruleContext.getExecutionPlatform().constraints());
+    this.executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
   }
 
   @Nullable
@@ -127,18 +127,24 @@ public final class TestTargetExecutionSettings {
     return executable;
   }
 
-  /** @return whether or not the runfiles symlinks were created */
+  /**
+   * @return whether or not the runfiles symlinks were created
+   */
   public boolean getRunfilesSymlinksCreated() {
     return runfilesSymlinksCreated;
   }
 
-  /** @return the directory of the runfiles. */
+  /**
+   * @return the directory of the runfiles.
+   */
   @Nullable
   public Path getRunfilesDir() {
     return runfilesDir;
   }
 
-  /** @return the runfiles for the test */
+  /**
+   * @return the runfiles for the test
+   */
   public Runfiles getRunfiles() {
     return runfiles;
   }
@@ -154,10 +160,7 @@ public final class TestTargetExecutionSettings {
     return runfilesInputManifest;
   }
 
-  /**
-   * Returns instrumented file manifest or null if code coverage is not
-   * collected.
-   */
+  /** Returns instrumented file manifest or null if code coverage is not collected. */
   public Artifact getInstrumentedFileManifest() {
     return instrumentedFileManifest;
   }
