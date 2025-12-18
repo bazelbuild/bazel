@@ -114,6 +114,9 @@ public class StarlarkOptionsParser {
   // Map of starlark options to their {@link Scope.ScopeType}.
   private final Map<String, String> scopes = new TreeMap<>();
 
+  // Map of starlark options to their on-leave scope values.
+  private final Map<String, Object> onLeaveScopeValues = new TreeMap<>();
+
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new LinkedHashMap<>();
 
@@ -226,6 +229,7 @@ public class StarlarkOptionsParser {
 
     Map<String, Object> parsedOptions = new HashMap<>();
     Map<String, String> scopeTypeMap = new HashMap<>();
+    Map<String, Object> onLeaveScopeMap = new HashMap<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
@@ -272,11 +276,19 @@ public class StarlarkOptionsParser {
       }
       scopeTypeMap.put(buildSetting, scopeType);
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
+
+      if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+        var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
+        if (onLeaveScopeValue != null) {
+          onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
+        }
+      }
     }
 
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
     this.starlarkOptions.putAll(parsedOptions);
     this.scopes.putAll(scopeTypeMap);
+    this.onLeaveScopeValues.putAll(onLeaveScopeMap);
     return true;
   }
 
@@ -430,6 +442,10 @@ public class StarlarkOptionsParser {
 
   public ImmutableMap<String, Object> getDefaultValues() {
     return ImmutableMap.copyOf(this.buildSettingDefaults);
+  }
+
+  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
+    return ImmutableMap.copyOf(this.onLeaveScopeValues);
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {

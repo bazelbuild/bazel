@@ -185,6 +185,7 @@ public class BuildRequest implements OptionsProvider {
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
   private final Map<String, String> scopesAttributes;
+  private final Map<String, Object> onLeaveScopeValues;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -237,6 +238,7 @@ public class BuildRequest implements OptionsProvider {
                 });
     this.starlarkOptions = options.getStarlarkOptions();
     this.scopesAttributes = options.getScopesAttributes();
+    this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
@@ -275,6 +277,11 @@ public class BuildRequest implements OptionsProvider {
   @Override
   public Map<String, String> getScopesAttributes() {
     return scopesAttributes;
+  }
+
+  @Override
+  public Map<String, Object> getOnLeaveScopeValues() {
+    return onLeaveScopeValues;
   }
 
   @Override

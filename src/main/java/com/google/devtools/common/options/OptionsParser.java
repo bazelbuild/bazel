@@ -285,6 +285,7 @@ public class OptionsParser implements OptionsParsingResult {
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
   // scopes for starlark options
   private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
+  private final ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -306,6 +307,11 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableMap<String, String> getScopesAttributes() {
     return scopesAttributes;
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
+    return onLeaveScopeValues;
   }
 
   @Override

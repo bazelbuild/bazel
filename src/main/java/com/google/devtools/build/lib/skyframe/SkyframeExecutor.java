@@ -3620,6 +3620,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           @Override
+          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
+            return ImmutableMap.of();
+          }
+
+          @Override
           public ImmutableMap<String, Object> getExplicitStarlarkOptions(
               java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
