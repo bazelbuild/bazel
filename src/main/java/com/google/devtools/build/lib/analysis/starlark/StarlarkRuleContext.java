@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -88,6 +90,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1153,7 +1156,7 @@ public final class StarlarkRuleContext
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute");
     if (expandLocations) {
       command =
-          helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
+          helper.resolveCommandAndExpandLabels(command, attribute, /* allowDataInLabel= */ false);
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
@@ -1173,16 +1176,21 @@ public final class StarlarkRuleContext
                 "execution_requirements"));
     // TODO(b/234923262): Take exec_group into consideration instead of using the default
     // exec_group.
+    PlatformInfo executionPlatform = ruleContext.getExecutionPlatform();
     PathFragment shExecutable =
-        ShToolchain.getPathForPlatform(
-            ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
+        ShToolchain.getPathForPlatform(ruleContext.getConfiguration(), executionPlatform);
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionRequirements,
             shExecutable,
             String.format(".resolve_command_%d.script.sh", resolveCommandScriptCounter++));
-    List<String> argv = helper.buildCommandLine(command, inputs, constructor);
+    List<String> argv =
+        helper.buildCommandLine(
+            command,
+            inputs,
+            constructor,
+            getOsFromConstraints(executionPlatform).orElse(OS.getCurrent()));
     return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),

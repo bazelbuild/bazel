@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.OptionalInt;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,24 +33,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Some integration tests of genrule, including several specifically
- * addressing the treatment of very long command lines whose total
- * length in bytes exceeds CommandBasedConfiguredTarget.maxCommandLength.
+ * Some integration tests of genrule, including several specifically addressing the treatment of
+ * very long command lines whose total length in bytes exceeds
+ * CommandBasedConfiguredTarget.maxCommandLength.
  */
 @RunWith(JUnit4.class)
 public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
 
-  private int savedMaxCommandLength;
-
   @Before
-  public final void setMaxCommandLength() throws Exception  {
-    savedMaxCommandLength = CommandHelper.maxCommandLength;
-    CommandHelper.maxCommandLength = 40;
+  public final void setMaxCommandLength() {
+    CommandHelper.maxCommandLengthForTesting = OptionalInt.of(40);
   }
 
   @After
-  public final void restoreMaxCommandLength() throws Exception  {
-    CommandHelper.maxCommandLength = savedMaxCommandLength;
+  public final void unsetMaxCommandLength() {
+    CommandHelper.maxCommandLengthForTesting = OptionalInt.empty();
   }
 
   private void writeFiles() throws IOException {
@@ -122,8 +120,12 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
     assertThat(readContentAsLatin1String(output.getArtifact()))
         .isEqualTo("Larger than 40 characters............................\n");
 
-    Path script = output.getArtifact().getPath().getParentDirectory().getRelative(
-        "gen_large.genrule_script.sh");
+    Path script =
+        output
+            .getArtifact()
+            .getPath()
+            .getParentDirectory()
+            .getRelative("gen_large.genrule_script.sh");
     String scriptContents = getContents(script);
     assertThat(scriptContents).contains("#!/bin/bash\n");
     assertThat(scriptContents).contains("echo Larger than 40 characters");
@@ -146,8 +148,12 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
             "The number 0\nThe number 1\nThe number 2\nThe number 3\nThe number 4\n"
                 + "The number 5\nThe number 6\nThe number 7\nThe number 8\nThe number 9\n");
 
-    Path script = output.getArtifact().getPath().getParentDirectory().getRelative(
-        "gen_many_inputs.genrule_script.sh");
+    Path script =
+        output
+            .getArtifact()
+            .getPath()
+            .getParentDirectory()
+            .getRelative("gen_many_inputs.genrule_script.sh");
     String scriptContents = getContents(script);
     assertThat(scriptContents).contains("#!/bin/bash\n");
     assertThat(scriptContents)
@@ -170,8 +176,12 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
             "The number 0\nThe number 1\nThe number 2\nThe number 3\nThe number 4\n"
                 + "The number 5\nThe number 6\nThe number 7\nThe number 8\nThe number 9\n");
 
-    Path script = output.getArtifact().getPath().getParentDirectory().getRelative(
-        "gen_many_inputs2.genrule_script.sh");
+    Path script =
+        output
+            .getArtifact()
+            .getPath()
+            .getParentDirectory()
+            .getRelative("gen_many_inputs2.genrule_script.sh");
     String scriptContents = getContents(script);
     assertThat(scriptContents).contains("#!/bin/bash\n");
     assertThat(scriptContents).containsMatch("cat <<EOF");
@@ -275,7 +285,7 @@ public class GenRuleIntegrationTest extends BuildIntegrationTestCase {
     // Write a BUILD file that uses the toolchain type.
     write(
         "test/BUILD",
-        """
+"""
 
 genrule(
     name = "g",
@@ -306,7 +316,7 @@ genrule(
     // Write a BUILD file that uses the toolchain type.
     write(
         "test/BUILD",
-        """
+"""
 
 genrule(
     name = "g",
@@ -333,7 +343,7 @@ genrule(
     // Write a BUILD file that uses the toolchain type.
     write(
         "test/BUILD",
-        """
+"""
 
 genrule(
     name = "g",

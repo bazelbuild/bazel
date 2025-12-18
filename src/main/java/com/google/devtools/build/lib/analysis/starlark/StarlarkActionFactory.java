@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
@@ -621,6 +622,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
+      PlatformInfo executionPlatform = getExecutionPlatform(execGroupUnchecked, ruleContext);
       PathFragment shExecutable =
           ShToolchain.getPathForPlatform(
               ruleContext.getConfiguration(),
@@ -629,7 +631,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
       Artifact helperScript =
-          CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
+          CommandHelper.commandHelperScriptMaybe(
+              ruleContext,
+              command,
+              constructor,
+              getOsFromConstraints(executionPlatform).orElse(OS.getCurrent()));
       if (helperScript == null) {
         builder.setShellCommand(shExecutable, command, pad);
       } else {

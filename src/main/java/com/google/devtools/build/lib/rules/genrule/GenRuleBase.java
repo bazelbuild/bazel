@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -186,7 +188,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         PathFragment shExecutable =
             ShToolchain.getPathForPlatform(
                 ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
@@ -194,7 +195,12 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
     }
-    ImmutableList<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(
+            command,
+            inputs,
+            constructor,
+            getOsFromConstraints(ruleContext.getExecutionPlatform()).orElse(OS.getCurrent()));
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());

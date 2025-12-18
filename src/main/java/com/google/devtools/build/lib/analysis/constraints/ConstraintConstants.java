@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** Constants needed for use of the constraints system. */
 public final class ConstraintConstants {
@@ -69,7 +70,10 @@ public final class ConstraintConstants {
    * Returns the OS corresponding to the given platform's constraint collection based on the
    * contained platform constraint.
    */
-  public static Optional<OS> getOsFromConstraints(PlatformInfo platformInfo) {
+  public static Optional<OS> getOsFromConstraints(@Nullable PlatformInfo platformInfo) {
+    if (platformInfo == null) {
+      return Optional.empty();
+    }
     var osConstraintValue = platformInfo.constraints().get(OS_CONSTRAINT_SETTING);
     if (osConstraintValue == null) {
       return Optional.empty();
