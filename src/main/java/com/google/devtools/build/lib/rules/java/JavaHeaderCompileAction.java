@@ -136,7 +136,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   @Override
   protected void afterExecute(
       ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
-    SpawnResult spawnResult = Iterables.getOnlyElement(spawnResults);
+    // The first entry represents the successful execution, see SpawnStrategy#exec
+    SpawnResult spawnResult = spawnResults.get(0);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     try {
       Deps.Dependencies fullOutputDeps =
