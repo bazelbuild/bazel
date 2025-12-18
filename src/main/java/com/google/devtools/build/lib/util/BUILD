@@ -62,18 +62,6 @@ java_library(
 )
 
 java_library(
-    name = "process",
-    srcs = ["ProcessUtils.java"],
-    deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows:processes",
-    ],
-)
-
-java_library(
     name = "single_line_formatter",
     srcs = ["SingleLineFormatter.java"],
     deps = [
