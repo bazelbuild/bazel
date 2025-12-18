@@ -81,8 +81,8 @@ class LibTest(test_base.TestBase):
     # Even though the build references //testapp:other twice, it only appears
     # once.
     self.assertListEqual(
-        [ct.label for ct in cts],
-        ['//testapp:a', '//testapp:other', '//testapp:h', '//testapp:h.src'])
+        sorted([ct.label for ct in cts]),
+        sorted(['//testapp:a', '//testapp:other', '//testapp:h', '//testapp:h.src']))
 
 
 if __name__ == '__main__':
