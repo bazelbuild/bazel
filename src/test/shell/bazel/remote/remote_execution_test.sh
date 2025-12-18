@@ -582,6 +582,33 @@ EOF
   expect_log "2 processes: 1 internal, 1 local"
 }
 
+function test_local_fallback_if_remote_cache_unavailable() {
+  # Test that when --remote_local_fallback is set and remote_cache is unavailable when build starts, we fallback to
+  # not use remote cache. See https://github.com/bazelbuild/bazel/issues/13487.
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=local \
+      --remote_cache=grpc://noexist.invalid \
+      --incompatible_remote_local_fallback_for_remote_cache \
+      --remote_local_fallback \
+      --build_event_text_file=gen1.log \
+      --nobuild_event_text_file_path_conversion \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "2 processes: 1 internal, 1 local"
+}
+
 function test_local_fallback_if_remote_executor_unavailable() {
   # Test that when --remote_local_fallback is set and remote_executor is unavailable when build starts, we fallback to
   # local strategy. See https://github.com/bazelbuild/bazel/issues/13487.

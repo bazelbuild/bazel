@@ -189,10 +189,14 @@ final class RemoteSpawnCache implements SpawnCache {
           }
           throw createExecExceptionForCredentialHelperException(e);
         } catch (RemoteExecutionCapabilitiesException e) {
-          if (thisExecution != null) {
-            thisExecution.close();
+          boolean shouldLocalFallback =
+              options.remoteLocalFallbackForRemoteCache && options.remoteLocalFallback;
+          if (!shouldLocalFallback) {
+            if (thisExecution != null) {
+              thisExecution.close();
+            }
+            throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
           }
-          throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
         } catch (IOException e) {
           if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
             // Intentionally left blank
