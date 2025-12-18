@@ -301,7 +301,8 @@ public class RemoteExecutionService {
       }
       if (first && executionPlatform != null) {
         first = false;
-        OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+        OS executionOs =
+            ConstraintConstants.getOsFromConstraints(executionPlatform).orElse(OS.getCurrent());
         arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
       command.addArguments(internalToUnicode(arg));
