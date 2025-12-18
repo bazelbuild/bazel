@@ -2875,7 +2875,7 @@ public class RemoteExecutionServiceTest {
             .withOutputs("out")
             .withPlatform(
                 PlatformInfo.builder()
-                    .addConstraint(ConstraintConstants.OS_TO_CONSTRAINTS.get(executionOs))
+                    .addConstraint(ConstraintConstants.OS_TO_DEFAULT_CONSTRAINT_VALUE.get(executionOs))
                     .build())
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);

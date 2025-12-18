@@ -84,7 +84,8 @@ public final class TestTargetExecutionSettings {
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;
-    this.executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+    this.executionOs =
+        ConstraintConstants.getOsFromConstraints(executionPlatform).orElse(OS.getCurrent());
   }
 
   @Nullable
