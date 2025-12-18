@@ -162,6 +162,28 @@ public class ModOptions extends OptionsBase {
               + "text, json, graph")
   public OutputFormat outputFormat;
 
+  @Option(
+      name = "all_repos",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          """
+          For `mod show_repo`: display all repos in the entire workspace.
+          """)
+  public boolean allRepos;
+
+  @Option(
+      name = "all_visible_repos",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          """
+          For `mod show_repo`: display all repos visible to the chosen base module, under their apparent names.
+          """)
+  public boolean allVisibleRepos;
+
   /** Possible subcommands that can be specified for the `mod` command. */
   public enum ModSubcommand {
     DEPS(true),
