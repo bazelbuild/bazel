@@ -63,16 +63,6 @@ public interface ObjcConfigurationApi extends StarlarkValue {
   ImmutableList<String> getCoptsForCompilationMode();
 
   @StarlarkMethod(
-      name = "signing_certificate_name",
-      structField = true,
-      allowReturnNones = true,
-      doc =
-          "Returns the flag-supplied certificate name to be used in signing, or None if no such "
-              + "certificate was specified.")
-  @Nullable
-  String getSigningCertName();
-
-  @StarlarkMethod(
       name = "uses_device_debug_entitlements",
       structField = true,
       doc =
