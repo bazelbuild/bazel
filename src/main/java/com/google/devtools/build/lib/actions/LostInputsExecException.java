@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -33,8 +33,8 @@ import javax.annotation.Nullable;
  */
 public final class LostInputsExecException extends ExecException {
 
-  /** Maps lost input digests to their {@link ActionInput}. */
-  private final ImmutableMap<String, ActionInput> lostInputs;
+  /** Maps lost input digests to their {@link ActionInput}s. */
+  private final ImmutableSetMultimap<String, ActionInput> lostInputs;
 
   /**
    * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
@@ -48,17 +48,17 @@ public final class LostInputsExecException extends ExecException {
    */
   private final Optional<LostInputOwners> owners;
 
-  public LostInputsExecException(ImmutableMap<String, ActionInput> lostInputs) {
-    this(lostInputs, /* owners= */ Optional.empty(), /* cause= */ null);
+  public LostInputsExecException(ImmutableSetMultimap<String, ActionInput> lostInputs) {
+    this(lostInputs, /* owners= */ Optional.empty());
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, Optional<LostInputOwners> owners) {
+      ImmutableSetMultimap<String, ActionInput> lostInputs, Optional<LostInputOwners> owners) {
     this(lostInputs, owners, /* cause= */ null);
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs,
+      ImmutableSetMultimap<String, ActionInput> lostInputs,
       Optional<LostInputOwners> owners,
       @Nullable Throwable cause) {
     super("lost inputs with digests: " + String.join(",", lostInputs.keySet()), cause);
@@ -68,7 +68,7 @@ public final class LostInputsExecException extends ExecException {
   }
 
   @VisibleForTesting
-  public ImmutableMap<String, ActionInput> getLostInputs() {
+  public ImmutableSetMultimap<String, ActionInput> getLostInputs() {
     return lostInputs;
   }
 
@@ -91,19 +91,11 @@ public final class LostInputsExecException extends ExecException {
   }
 
   public LostInputsExecException combine(LostInputsExecException other) {
-    // Key collisions are expected when the two sources of the original exceptions shared knowledge
-    // of what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
-    // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
-    // throw a LostInputsExecException with the same information.
-    //
-    // In the case of shared artifacts, it is currently important that other's lost inputs take
-    // precedence over this exception's lost inputs.
-    // TODO: b/321128298 - This is untested and way too delicate. Improve it.
-    ImmutableMap<String, ActionInput> combinedLostInputs =
-        ImmutableMap.<String, ActionInput>builder()
+    ImmutableSetMultimap<String, ActionInput> combinedLostInputs =
+        ImmutableSetMultimap.<String, ActionInput>builder()
             .putAll(lostInputs)
             .putAll(other.lostInputs)
-            .buildKeepingLast();
+            .build();
     LostInputsExecException combined =
         new LostInputsExecException(
             combinedLostInputs, /* owners= */ Optional.empty(), /* cause= */ this);
