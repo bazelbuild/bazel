@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -79,6 +80,7 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.EmittedEventState;
@@ -87,7 +89,6 @@ import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
-import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -144,9 +145,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final AtomicInteger modifiedFilesDuringPreviousBuild = new AtomicInteger();
 
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
-
-  // Null before the first invocation or if the evaluating version cannot be computed.
-  @Nullable private IntVersion lastEvaluatedVersion;
 
   // Use delegation so that the underlying inconsistency receiver can be changed per-command without
   // recreating the evaluator.
@@ -267,6 +265,18 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean commandExecutes)
       throws InterruptedException, AbruptExitException {
     inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
+
+    if (diffAwarenessManager != null) {
+      for (Root pkgRoot : packageLocator.getPathEntries()) {
+        Optional<EvaluatingVersionDiff> evaluatingVersionDiff =
+            diffAwarenessManager.getEvaluatingVersionDiff(pkgRoot, options);
+        evaluatingVersionDiff.ifPresent(
+            diff ->
+                eventHandler.post(
+                    new BaselineClDiffEvent(diff.to().getVal() - diff.from().getVal())));
+      }
+    }
+
     if (evaluatorNeedsReset) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
@@ -304,13 +314,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
-    IntVersion priorLastEvaluatedVersion = lastEvaluatedVersion;
-    lastEvaluatedVersion = workspaceInfo != null ? workspaceInfo.getEvaluatingVersion() : null;
-    if (priorLastEvaluatedVersion != null && lastEvaluatedVersion != null) {
-      eventHandler.post(
-          new BaselineClDiffEvent(
-              workspaceInfo.getEvaluatingVersion().getVal() - priorLastEvaluatedVersion.getVal()));
-    }
     return workspaceInfo;
   }
 

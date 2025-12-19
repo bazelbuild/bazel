@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -25,8 +27,10 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -43,7 +47,7 @@ public final class DiffAwarenessManager {
 
   /** The unique key to retrieve a DiffAwarenessState. */
   @AutoValue
-  public abstract static class StateKey {
+  abstract static class StateKey {
     private static StateKey create(Root root, IgnoredSubdirectories ignoredPaths) {
       return new AutoValue_DiffAwarenessManager_StateKey(root, ignoredPaths);
     }
@@ -61,12 +65,18 @@ public final class DiffAwarenessManager {
 
   private static class DiffAwarenessState {
     private final DiffAwareness diffAwareness;
+
     /**
-     * The {@link View} that should be the baseline for the next {@link #getDiff} call, or
-     * {@code null} if the next {@link #getDiff} will be the first incremental one.
+     * The {@link View} that should be the baseline for the next {@link #getDiff} call, or {@code
+     * null} if the next {@link #getDiff} will be the first incremental one.
      */
-    @Nullable
-    private View baselineView;
+    @Nullable private View baselineView;
+
+    /**
+     * Cached new {@link View} from a call to {@link #getEvaluatingVersionDiff}, for the next {@link
+     * #getDiff} call.
+     */
+    @Nullable private View cachedNewView;
 
     private DiffAwarenessState(DiffAwareness diffAwareness, @Nullable View baselineView) {
       this.diffAwareness = diffAwareness;
@@ -97,6 +107,55 @@ public final class DiffAwarenessManager {
   }
 
   /**
+   * Represents old and new evaluating versions as per {@link
+   * WorkspaceInfoFromDiff#getEvaluatingVersion}.
+   */
+  record EvaluatingVersionDiff(IntVersion from, IntVersion to) {
+    EvaluatingVersionDiff {
+      checkNotNull(from);
+      checkNotNull(to);
+    }
+  }
+
+  /**
+   * Returns an {@link EvaluatingVersionDiff} corresponding to the current diff.
+   *
+   * <p>Returns an empty optional if there is no baseline view or if the views do not support
+   * evaluating versions.
+   */
+  Optional<EvaluatingVersionDiff> getEvaluatingVersionDiff(
+      Root pathEntry, OptionsProvider options) {
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, IgnoredSubdirectories.EMPTY, options);
+    if (diffAwarenessState == null || diffAwarenessState.baselineView == null) {
+      return Optional.empty();
+    }
+
+    WorkspaceInfoFromDiff baselineWorkspaceInfo =
+        diffAwarenessState.baselineView.getWorkspaceInfo();
+    if (baselineWorkspaceInfo == null) {
+      return Optional.empty();
+    }
+
+    View newView;
+    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
+      newView = diffAwarenessState.diffAwareness.getCurrentView(options);
+      diffAwarenessState.cachedNewView = newView;
+    } catch (BrokenDiffAwarenessException e) {
+      return Optional.empty();
+    }
+
+    WorkspaceInfoFromDiff newWorkspaceInfo = newView.getWorkspaceInfo();
+    if (newWorkspaceInfo == null) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        new EvaluatingVersionDiff(
+            baselineWorkspaceInfo.getEvaluatingVersion(), newWorkspaceInfo.getEvaluatingVersion()));
+  }
+
+  /**
    * Gets the set of changed files since the last call with this path entry, or {@code
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
@@ -112,12 +171,17 @@ public final class DiffAwarenessManager {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
-    View newView;
-    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
-      newView = diffAwareness.getCurrentView(options);
-    } catch (BrokenDiffAwarenessException e) {
-      handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
-      return BrokenProcessableModifiedFileSet.INSTANCE;
+
+    View newView = diffAwarenessState.cachedNewView;
+    if (newView == null) {
+      try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
+        newView = diffAwarenessState.diffAwareness.getCurrentView(options);
+      } catch (BrokenDiffAwarenessException e) {
+        handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
+        return BrokenProcessableModifiedFileSet.INSTANCE;
+      }
+    } else {
+      diffAwarenessState.cachedNewView = null;
     }
 
     View baselineView = diffAwarenessState.baselineView;
@@ -214,6 +278,7 @@ public final class DiffAwarenessManager {
       DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
       if (diffAwarenessState != null) {
         diffAwarenessState.baselineView = nextView;
+        diffAwarenessState.cachedNewView = null;
       }
     }
   }
