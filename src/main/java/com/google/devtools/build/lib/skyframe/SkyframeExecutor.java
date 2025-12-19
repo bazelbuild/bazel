@@ -3674,8 +3674,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
 
         DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-            diffAwarenessManager.getDiff(
-                eventHandler, getPathForModifiedFileSet(pathEntry), ignoredPaths, options);
+            diffAwarenessManager.getDiff(eventHandler, pathEntry, ignoredPaths, options);
         if (pkgRoots.size() == 1) {
           workspaceInfo = modifiedFileSet.getWorkspaceInfo();
           workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
@@ -3729,12 +3728,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     handleClientEnvironmentChanges();
     isCleanBuild = false;
     return workspaceInfo;
-  }
-
-  /** Returns the path under which to find the modified file set. */
-  @ForOverride
-  protected Root getPathForModifiedFileSet(Root root) {
-    return root;
   }
 
   /** Invalidates entries in the client environment. */
