@@ -117,6 +117,20 @@ public interface ImportantOutputHandler extends ActionContext {
       throws ImportantOutputException, InterruptedException;
 
   /**
+   * Informs this handler of a stdout or stderr file that is too large to display to the console and
+   * should instead be made available in file form.
+   *
+   * <p>The given paths is under the exec root and is backed by an {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action filesystem} if
+   * applicable.
+   *
+   * <p>Stdout and stderr files should never be lost because they are only accessed after a
+   * just-executed action.
+   */
+  void processTooLargeStdoutErr(Path stdoutErr)
+      throws ImportantOutputException, InterruptedException;
+
+  /**
    * Represents artifacts that need to be regenerated via action rewinding, optionally along with
    * their owners if known. If {@code owners} is present, the ownership information must be
    * complete.
