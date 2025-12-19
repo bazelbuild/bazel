@@ -20,7 +20,7 @@ load(
     "repository_exec_path",
 )
 load(":common/cc/cc_info.bzl", "create_compilation_context", "create_module_map")
-load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
+load(":common/cc/semantics.bzl", "STRIP_INCLUDE_PREFIX_APPLIES_TO_TEXTUAL_HEADERS", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
 _cc_common_internal = _builtins.internal.cc_common
@@ -454,7 +454,7 @@ def _init_cc_compilation_context(
         config,
         public_textual_headers,
         include_prefix,
-        strip_include_prefix,
+        strip_include_prefix if STRIP_INCLUDE_PREFIX_APPLIES_TO_TEXTUAL_HEADERS else None,
         label,
         binfiles_dir,
         non_module_map_headers,
