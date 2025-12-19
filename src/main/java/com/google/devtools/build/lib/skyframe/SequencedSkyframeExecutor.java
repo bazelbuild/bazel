@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildtool.BaselineClDiffEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -270,10 +269,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       for (Root pkgRoot : packageLocator.getPathEntries()) {
         Optional<EvaluatingVersionDiff> evaluatingVersionDiff =
             diffAwarenessManager.getEvaluatingVersionDiff(pkgRoot, options);
-        evaluatingVersionDiff.ifPresent(
-            diff ->
-                eventHandler.post(
-                    new BaselineClDiffEvent(diff.to().getVal() - diff.from().getVal())));
+        evaluatingVersionDiff.ifPresent(eventHandler::post);
       }
     }
 

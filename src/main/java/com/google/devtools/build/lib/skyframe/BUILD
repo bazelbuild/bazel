@@ -224,7 +224,6 @@ java_library(
         ":workspace_info_receiver",
         ":workspace_status_function",
         ":workspace_status_value",
-        "//src/main/java/com/google/devtools/build/lib:baseline-cl-diff-event",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",

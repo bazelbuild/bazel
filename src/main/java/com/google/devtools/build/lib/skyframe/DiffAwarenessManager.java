@@ -22,6 +22,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
@@ -110,10 +111,14 @@ public final class DiffAwarenessManager {
    * Represents old and new evaluating versions as per {@link
    * WorkspaceInfoFromDiff#getEvaluatingVersion}.
    */
-  record EvaluatingVersionDiff(IntVersion from, IntVersion to) {
-    EvaluatingVersionDiff {
+  public record EvaluatingVersionDiff(IntVersion from, IntVersion to) implements Postable {
+    public EvaluatingVersionDiff {
       checkNotNull(from);
       checkNotNull(to);
+    }
+
+    public long getNumericalDiff() {
+      return to.getVal() - from.getVal();
     }
   }
 
