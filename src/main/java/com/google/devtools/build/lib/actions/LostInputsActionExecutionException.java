@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -29,8 +29,8 @@ import javax.annotation.Nullable;
  */
 public final class LostInputsActionExecutionException extends ActionExecutionException {
 
-  /** Maps lost input digests to their {@link ActionInput}. */
-  private final ImmutableMap<String, ActionInput> lostInputs;
+  /** Maps lost input digests to their {@link ActionInput}s. */
+  private final ImmutableSetMultimap<String, ActionInput> lostInputs;
 
   /**
    * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
@@ -72,17 +72,17 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
 
   public LostInputsActionExecutionException(
       String message,
-      ImmutableMap<String, ActionInput> lostInputs,
+      ImmutableSetMultimap<String, ActionInput> lostInputs,
       Optional<LostInputOwners> owners,
       Action action,
       Exception cause,
       DetailedExitCode detailedExitCode) {
-    super(message, cause, action, /*catastrophe=*/ false, detailedExitCode);
+    super(message, cause, action, /* catastrophe= */ false, detailedExitCode);
     this.lostInputs = lostInputs;
     this.owners = owners;
   }
 
-  public ImmutableMap<String, ActionInput> getLostInputs() {
+  public ImmutableSetMultimap<String, ActionInput> getLostInputs() {
     return lostInputs;
   }
 

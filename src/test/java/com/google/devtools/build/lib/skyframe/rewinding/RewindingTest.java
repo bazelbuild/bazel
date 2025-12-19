@@ -286,6 +286,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void multipleLostInputsWithSameDigest_rewoundTogether() throws Exception {
+    helper.runMultipleLostInputsWithSameDigest_rewoundTogether();
+  }
+
+  @Test
   public void lostTopLevelOutputWithRewindingDisabled() throws Exception {
     helper.runLostTopLevelOutputWithRewindingDisabled();
   }
