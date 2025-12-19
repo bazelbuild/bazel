@@ -688,8 +688,11 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Enables type annotations and related syntax. Locations of files where these are allowed "
-              + "is further restricted by `--experimental_starlark_types_allowed_paths`.")
+          """
+          Enables type annotations and related syntax in .bzl files. Locations of files where \
+          these are allowed is further restricted by `--experimental_starlark_types_allowed_paths`.
+          Type syntax is never permitted in .scl files regardless of this flag.
+          """)
   public boolean experimentalStarlarkTypeSyntax;
 
   @Option(
