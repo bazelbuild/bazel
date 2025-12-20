@@ -29,6 +29,7 @@ java_test(
         "ResolverTest.java",
         "StarlarkFileTest.java",
         "SyntaxTests.java",  # (suite)
+        "TypeCheckerTest.java",
         "TypeResolverTest.java",
         "TypesTest.java",
     ],

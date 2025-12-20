@@ -36,4 +36,29 @@ public abstract class StarlarkType {
   public List<StarlarkType> getSupertypes() {
     return ImmutableList.of();
   }
+
+  /**
+   * Returns whether a value of type {@code t2} can be assigned to a value of type {@code t1}.
+   *
+   * <p>In gradual typing terms, {@code t2} must be a "consistent subtype of" {@code t1}. This means
+   * that there is a way to substitute zero or more occurrences of {@code Any} in both terms, such
+   * that {@code t2} becomes a subtype of {@code t1} in the ordinary sense.
+   *
+   * <p>The Python glossary uses the term "assignable [to/from]" for this relation, and
+   * "materialization" to refer to the process of substituting {@code Any}.
+   */
+  // TODO: #28043 - Add support for:
+  // - subtyping (list[int] <= Sequence[int])
+  // - covariance (Sequence[int] <= Sequence[object])
+  // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
+  // - transitive application of all of the above, including across unions
+  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
+    if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
+      return true;
+    }
+    if (t1.equals(t2)) {
+      return true;
+    }
+    return false;
+  }
 }

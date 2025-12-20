@@ -61,6 +61,7 @@ public final class Types {
   private static ImmutableMap<String, Object> makeTypeUniverse() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env //
+        .put("Any", ANY)
         .put("None", NONE)
         .put("bool", BOOL)
         .put("int", INT)

@@ -112,6 +112,9 @@ public final class Program {
       }
     }
 
+    // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
+    // enabled. Blocked on having the type checker tolerate all AST nodes.
+
     // Extract load statements.
     ImmutableList.Builder<String> loads = ImmutableList.builder();
     ImmutableList.Builder<Location> loadLocations = ImmutableList.builder();

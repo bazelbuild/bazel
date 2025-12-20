@@ -37,6 +37,7 @@ import net.starlark.java.types.Types.TupleType;
 import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
+// TODO: #28043 - Replace or reformulate these using static helpers in StarlarkType.
 public final class TypeChecker {
 
   private static boolean isTupleSubtypeOf(TupleType tuple1, TupleType tuple2) {

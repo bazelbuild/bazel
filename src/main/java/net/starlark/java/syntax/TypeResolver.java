@@ -37,7 +37,7 @@ import net.starlark.java.types.Types;
  *
  * <p>Only a file that has passed the Resolver without errors should be run through this visitor.
  */
-public class TypeResolver extends NodeVisitor {
+public final class TypeResolver extends NodeVisitor {
 
   // TODO: #27728 - Will be used when we support non-universal type symbols.
   private final Module module;
