@@ -92,12 +92,61 @@ public final class TypeChecker extends NodeVisitor {
       case FLOAT_LITERAL -> {
         return Types.FLOAT;
       }
+      case DOT -> {
+        // TODO: #27370 - Add support for field retrieval on types besides Any.
+        var dot = (DotExpression) expr;
+        StarlarkType objType = infer(dot.getObject());
+        if (objType.equals(Types.ANY)) {
+          return Types.ANY;
+        } else {
+          errorf(
+              dot.getDotLocation(),
+              "'%s' of type '%s' does not have field '%s'",
+              dot.getObject(),
+              objType,
+              dot.getField().getName());
+          return Types.ANY;
+        }
+      }
       default -> {
-        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr, dot,
-        // index, lambda, list, and unaryop expressions.
+        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr,
+        // index, lambda, list, slice, and unaryop expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }
+    }
+  }
+
+  /**
+   * Recursively typechecks the assignment of type {@code rhsType} to the target expression {@code
+   * lhs}.
+   *
+   * <p>The asymmetry of the parameter types comes from the fact that this helper recursively
+   * decomposes the LHS syntactically, whereas the RHS has already been fully evaluated to a type.
+   * For instance, {@code x, y = (1, 2)} and {@code x, y = my_pair} both trigger the same behavior
+   * in this method. Decomposing the LHS syntactically rather than by type is what allows {@code (x,
+   * y) = [1, 2]} to succeed, even though assignment of a list to a tuple type is illegal (as in
+   * {@code t : Tuple[int, int] = [1, 2]}).
+   */
+  private void assign(Expression lhs, StarlarkType rhsType) {
+    // infer() handles Identifier and DotExpression. The type for evaluating these expressions in a
+    // read context is the same as its type for assignment purposes.
+    StarlarkType lhsType = infer(lhs);
+
+    if (lhs.kind() == Expression.Kind.LIST_EXPR) {
+      // TODO: #28037 - support LHSs containing multiple targets (list expression), field
+      // assignments, and subscript assignments.
+      throw new UnsupportedOperationException(
+          "cannot typecheck assignment statements with multiple targets on the LHS");
+    }
+
+    if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
+      errorf(
+          lhs.getStartLocation(),
+          "cannot assign type '%s' to '%s' of type '%s'",
+          rhsType,
+          lhs,
+          lhsType);
     }
   }
 
@@ -116,21 +165,13 @@ public final class TypeChecker extends NodeVisitor {
       // TODO: #28037 - support this by validating that `lhs <op> rhs` would type check
       throw new UnsupportedOperationException("cannot typecheck augmented assignment statements");
     }
-    if (!(assignment.getLHS() instanceof Identifier id)) {
-      // TODO: #28037 - support LHSs containing multiple targets (list expression), field
-      // assignments, and subscript assignments.
-      throw new UnsupportedOperationException(
-          "cannot typecheck assignment statements with anything besides a single identifier on the"
-              + " LHS");
-    }
-    var lhsType = getType(id);
+
     // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
     // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as list[int]
     // instead of list[object].
     var rhsType = infer(assignment.getRHS());
-    if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
-      errorf(assignment, "cannot assign type '%s' to '%s'", rhsType, lhsType);
-    }
+
+    assign(assignment.getLHS(), rhsType);
   }
 
   @Override

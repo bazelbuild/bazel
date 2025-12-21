@@ -78,6 +78,13 @@ public final class TypeCheckerTest {
     assertContainsError(file.errors(), expectedError);
   }
 
+  /** Asserts that the given file has at least the specified errors. */
+  private static void assertContainsErrors(StarlarkFile file, String... errors) throws Exception {
+    for (var err : errors) {
+      assertContainsError(file.errors(), err);
+    }
+  }
+
   @Test
   public void assignment_simple() throws Exception {
     assertValid(
@@ -87,7 +94,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":2:1: cannot assign type 'str' to 'int'",
+        ":2:1: cannot assign type 'str' to 'x' of type 'int'",
         """
         x: int
         x = "abc"
@@ -97,7 +104,7 @@ public final class TypeCheckerTest {
   @Test
   public void canLookupIdentifierTypeOnRhs() throws Exception {
     assertInvalid(
-        ":3:1: cannot assign type 'bool' to 'int'",
+        ":3:1: cannot assign type 'bool' to 'x' of type 'int'",
         """
         x: int
         y: bool
@@ -107,21 +114,18 @@ public final class TypeCheckerTest {
 
   @Test
   public void primitiveTypesAreInferredFromLiteralsAndAreIncompatible() throws Exception {
-    assertInvalid(
-        ":1:1: cannot assign type 'str' to 'bool'",
-        """
-        x: bool = 'abc'
-        """);
-    assertInvalid(
-        ":1:1: cannot assign type 'int' to 'float'",
-        """
-        x: float = 123
-        """);
-    assertInvalid(
-        ":1:1: cannot assign type 'float' to 'None'",
-        """
-        x: None = 1.0
-        """);
+    var file =
+        typecheckFilePossiblyFailing(
+            """
+            x: bool = 'abc'
+            y: float = 123
+            z: None = 1.0
+            """);
+    assertContainsErrors(
+        file,
+        ":1:1: cannot assign type 'str' to 'x' of type 'bool'",
+        ":2:1: cannot assign type 'int' to 'y' of type 'float'",
+        ":3:1: cannot assign type 'float' to 'z' of type 'None'");
   }
 
   // TODO: #27728 - We should add a test that the types of universals, and in particular the
@@ -172,5 +176,39 @@ public final class TypeCheckerTest {
         B  # expression statement
         """);
     // TODO: #28037 - Check break/continue, once we support for and def statements
+  }
+
+  @Test
+  public void dotExpression() throws Exception {
+    // TODO: #27370 - Make this more interesting when we support struct types.
+    assertValid(
+        """
+        o: Any
+        x: int
+        x = o.f  # Any.f ==> Any
+        """);
+
+    assertInvalid(
+        ":2:2: 'x' of type 'int' does not have field 'f'",
+        """
+        x: int
+        x.f
+        """);
+  }
+
+  @Test
+  public void assignment_dot() throws Exception {
+    assertValid(
+        """
+        x: Any
+        x.f = 123
+        """);
+
+    assertInvalid(
+        ":2:2: 'x' of type 'str' does not have field 'f'",
+        """
+        x: str
+        x.f = 123
+        """);
   }
 }
