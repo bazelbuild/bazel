@@ -90,8 +90,9 @@ import net.starlark.java.eval.Printer;
  */
 @AutoCodec
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi, CommandLineItem {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
+
   /**
    * Do not use except in tests and in {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
@@ -300,5 +301,10 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
   @Override
   public void repr(Printer printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getExecPathString();
   }
 }
