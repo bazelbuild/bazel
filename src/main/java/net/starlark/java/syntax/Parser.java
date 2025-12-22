@@ -1063,12 +1063,7 @@ final class Parser {
     if (options.allowTypeSyntax()) {
       return true;
     } else {
-      syntaxError(
-          offset,
-          tokenKind,
-          tokenValue,
-          "type annotations are disallowed. Enable them with --experimental_starlark_type_syntax "
-              + "and/or --experimental_starlark_types_allowed_paths.");
+      syntaxError(offset, tokenKind, tokenValue, "type annotations are disallowed");
       return false;
     }
   }
