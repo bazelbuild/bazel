@@ -90,6 +90,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final DottedVersion watchosMinimumOsFlag;
   private final boolean preferMutualXcode;
   private final boolean includeXcodeExecRequirements;
+  private final boolean disableAppleFragment;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -113,6 +114,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.watchosMinimumOs);
     this.preferMutualXcode = options.preferMutualXcode;
     this.includeXcodeExecRequirements = options.includeXcodeExecutionRequirements;
+    this.disableAppleFragment = options.disableAppleFragment;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -168,6 +170,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> macosCpus();
 
     abstract ImmutableList<String> catalystCpus();
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableAppleFragment;
   }
 
   @Override

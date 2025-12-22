@@ -171,4 +171,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Whether to emit a strip action as part of objc linking.")
   public boolean incompatibleBuiltinObjcStripAction;
+
+  // Tracked in #28082.
+  @Option(
+      name = "incompatible_remove_ctx_objc_fragment",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Apple build flags are defined with Apple rules (in BUIILD files) and"
+              + " ctx.fragments.objc is undefined. This is a migration flag to move all Apple"
+              + " flags from core Bazel to Apple rules.")
+  public boolean disableObjcFragment;
 }
