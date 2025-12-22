@@ -209,7 +209,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "experimental_retain_test_configuration_across_testonly",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
