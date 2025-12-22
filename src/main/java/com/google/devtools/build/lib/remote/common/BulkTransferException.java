@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.remote.common;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -87,7 +87,7 @@ public class BulkTransferException extends IOException {
       return LostArtifacts.EMPTY;
     }
 
-    var byDigestBuilder = ImmutableMap.<String, ActionInput>builder();
+    var byDigestBuilder = ImmutableSetMultimap.<String, ActionInput>builder();
     for (var suppressed : getSuppressed()) {
       CacheNotFoundException e = (CacheNotFoundException) suppressed;
       var missingDigest = e.getMissingDigest();
@@ -113,7 +113,7 @@ public class BulkTransferException extends IOException {
       }
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
-    var byDigest = byDigestBuilder.buildKeepingLast();
+    var byDigest = byDigestBuilder.build();
     return new LostArtifacts(byDigest, Optional.empty());
   }
 

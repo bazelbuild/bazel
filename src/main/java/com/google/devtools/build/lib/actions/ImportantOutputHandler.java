@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
@@ -122,11 +122,11 @@ public interface ImportantOutputHandler extends ActionContext {
    * complete.
    */
   record LostArtifacts(
-      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
+      ImmutableSetMultimap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
 
     /** An empty instance of {@link LostArtifacts}. */
     public static final LostArtifacts EMPTY =
-        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
+        new LostArtifacts(ImmutableSetMultimap.of(), Optional.of(new LostInputOwners()));
 
     public LostArtifacts {
       checkNotNull(byDigest);
