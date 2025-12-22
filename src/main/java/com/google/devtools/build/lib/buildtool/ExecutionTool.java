@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -324,7 +325,8 @@ public class ExecutionTool {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(),
           skyframeBuilder.getActionInputPrefetcher(),
-          actionExecutionSalt);
+          actionExecutionSalt,
+          env.getOptions().getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =

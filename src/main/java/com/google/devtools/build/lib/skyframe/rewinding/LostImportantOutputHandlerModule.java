@@ -127,6 +127,11 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void processTooLargeStdoutErr(Path stdoutErr) {
+      throw new UnsupportedOperationException();
+    }
+
     private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs, InputMetadataProvider metadataProvider) {
       ImmutableSetMultimap.Builder<String, ActionInput> lost = ImmutableSetMultimap.builder();

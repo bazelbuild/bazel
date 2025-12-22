@@ -108,6 +108,9 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   @Override
   public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {}
 
+  @Override
+  public void processTooLargeStdoutErr(Path stdoutErr) {}
+
   private void ensureToplevelArtifacts(
       Iterable<Artifact> importantArtifacts, InputMetadataProvider metadataProvider)
       throws IOException, InterruptedException {
