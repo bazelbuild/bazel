@@ -178,6 +178,7 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
         "//command_line_option:experimental_include_xcode_execution_requirements",
         "//command_line_option:incompatible_enable_apple_toolchain_resolution",
         "//command_line_option:use_platforms_in_apple_crosstool_transition",
+        "//command_line_option:incompatible_remove_ctx_apple_fragment",
     ],
     outputs = [
         "//command_line_option:macos_minimum_os",
@@ -394,6 +395,7 @@ bazel_fragments["ObjcCommandLineOptions"] = fragment(
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
         "//command_line_option:incompatible_objc_alwayslink_by_default",
         "//command_line_option:incompatible_strip_executable_safely",
+        "//command_line_option:incompatible_remove_ctx_objc_fragment",
     ],
 )
 
