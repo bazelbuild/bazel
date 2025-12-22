@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
+import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -2906,6 +2907,10 @@ public class RemoteExecutionServiceTest {
             .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, twoF))
             .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, threeF))
             .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, fourF))
+            .withEnvironment(unicodeToInternal(one), "value1")
+            .withEnvironment(unicodeToInternal(two), "value2")
+            .withEnvironment(unicodeToInternal(three), "value3")
+            .withEnvironment(unicodeToInternal(four), "value4")
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -2918,6 +2923,13 @@ public class RemoteExecutionServiceTest {
             execRoot.getRelative(two).getPathString(),
             execRoot.getRelative(three).getPathString(),
             execRoot.getRelative(four).getPathString())
+        .inOrder();
+    assertThat(remoteAction.getCommand().getEnvironmentVariablesList())
+        .containsExactly(
+            Command.EnvironmentVariable.newBuilder().setName(one).setValue("value1").build(),
+            Command.EnvironmentVariable.newBuilder().setName(two).setValue("value2").build(),
+            Command.EnvironmentVariable.newBuilder().setName(three).setValue("value3").build(),
+            Command.EnvironmentVariable.newBuilder().setName(four).setValue("value4").build())
         .inOrder();
   }
 
