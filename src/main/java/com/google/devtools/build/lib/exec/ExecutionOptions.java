@@ -279,11 +279,17 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies desired output mode. Valid values are 'summary' to output only test status "
-              + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
-              + "for all tests and 'streamed' to output logs for all tests in real time "
-              + "(this will force tests to be executed locally one at a time regardless of "
-              + "--test_strategy value).")
+          """
+          Specifies desired output mode. Not to be confused with `--test_summary` which controls
+          the test summary printed on command completion.
+
+          Valid values are;
+          - `summary` (default) to print summaries for failed tests,
+          - `errors` to also print test logs for failed tests,
+          - `all` to print summaries and logs for all tests and
+          - `streamed` to output logs for all tests in real time (this will force tests to be
+            executed locally one at a time regardless of `--test_strategy` value).
+          """)
   public TestOutputFormat testOutput;
 
   @Option(
@@ -309,12 +315,18 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format of the test summary. Valid values are 'short' to print"
-              + " information only about tests executed, 'terse', to print information only about"
-              + " unsuccessful tests that were run, 'detailed' to print detailed information about"
-              + " failed test cases, 'testcase' to print summary in test case resolution, do not"
-              + " print detailed information about failed test cases and 'none' to omit the"
-              + " summary.")
+          """
+          Specifies the desired format of the test summary. Valid values are;
+          - `short` to list all tests that ran to completion.
+          - `short_uncached` to list tests that ran to completion, omitting cached tests.
+          - `terse` to list only failed and flaky tests.
+          - `detailed` to list tests that ran to completion and their test cases.
+          - `detailed_uncached` to list tests that ran to completion and their test cases,
+            omitting cached tests.
+          - `testcase` to print summary in test case resolution without detailed information about
+            failed test cases.
+          - `none` to omit the summary.
+          """)
   public TestSummaryFormat testSummary;
 
   @Option(
@@ -514,10 +526,24 @@ public class ExecutionOptions extends OptionsBase {
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
-    SUMMARY, // Provide summary output only.
-    ERRORS, // Print output from failed tests to the stderr after the test failure.
-    ALL, // Print output from all tests to the stderr after the test completion.
-    STREAMED; // Stream output for each test.
+    /**
+     * Provide summary output only.
+     * NOTE: Functionally this is `NONE`, as `--test_summary` controls the summary output.
+     */
+    SUMMARY,
+    /**
+     * Print output from failed tests to the stderr after the test failure.
+     */
+    ERRORS,
+    /**
+     * Print output from all tests to the stderr after the test completion.
+     */
+    ALL,
+    /**
+     * Stream output from tests as they run.
+     * Forces tests to be executed sequentially and locally.
+     */
+    STREAMED;
 
     /** Converts to {@link TestOutputFormat}. */
     public static class Converter extends EnumConverter<TestOutputFormat> {
@@ -529,13 +555,35 @@ public class ExecutionOptions extends OptionsBase {
 
   /** An enum for specifying different formatting styles of test summaries. */
   public enum TestSummaryFormat {
-    SHORT, // Print information only about tests.
-    TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
-    DETAILED, // Print information only about failed test cases.
-    NONE, // Do not print summary.
-    TESTCASE; // Print summary in test case resolution, do not print detailed information about
-
-    // failed test cases.
+    /**
+     * Show all tests that can to completion, but not individual test cases.
+     */
+    SHORT,
+    /**
+     * Like "SHORT", but do not show tests that were cached.
+     */
+    SHORT_UNCACHED,
+    /**
+     * Like "SHORT", but even shorter: Only failed and flaky tests.
+     */
+    TERSE,
+    /**
+     * Show all tests (including tests that failed to build), their test cases, and a summary of
+     * all test cases (passed, skipped, failing).
+     */
+    DETAILED,
+    /**
+     * Like "DETAILED", but only for tests that were not cached.
+     */
+    DETAILED_UNCACHED,
+    /**
+     * Do not print summary.
+     */
+    NONE,
+    /**
+     * Summarize all test cases (passed, skipped, failing).
+     */
+    TESTCASE;
 
     /** Converts to {@link TestSummaryFormat}. */
     public static class Converter extends EnumConverter<TestSummaryFormat> {

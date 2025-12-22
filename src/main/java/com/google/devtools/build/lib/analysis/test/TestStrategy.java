@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -340,13 +341,18 @@ public abstract class TestStrategy implements TestActionContext {
     return digest.hexDigestAndReset().substring(0, 32);
   }
 
+  private static EnumSet<ExecutionOptions.TestSummaryFormat> PARSE_TEST_RESULT_FORMATS =
+      EnumSet.of(
+          ExecutionOptions.TestSummaryFormat.DETAILED,
+          ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED,
+          ExecutionOptions.TestSummaryFormat.TESTCASE);
+
   /** Parse a test result XML file into a {@link TestCase}. */
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if ((executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.DETAILED)
-        && (executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.TESTCASE)) {
+    if (!PARSE_TEST_RESULT_FORMATS.contains(executionOptions.testSummary)) {
       return null;
     }
 

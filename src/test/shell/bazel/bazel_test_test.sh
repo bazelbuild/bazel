@@ -782,6 +782,50 @@ function test_detailed_test_summary_for_passed_test() {
   expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
 }
 
+function test_detailed_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=detailed_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+  
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=detailed_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testNoArgument'
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
+}
+
+function test_short_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=short_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+  
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=short_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+}
+
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
