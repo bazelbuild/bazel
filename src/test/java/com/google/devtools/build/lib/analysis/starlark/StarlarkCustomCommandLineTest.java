@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -78,6 +79,8 @@ import org.junit.runner.RunWith;
 /** Tests for {@link StarlarkCustomCommandLine}. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkCustomCommandLineTest {
+
+  @TestParameter private boolean useNestedSet;
 
   private ArtifactRoot derivedRoot;
   private DerivedArtifact artifact1;
@@ -209,7 +212,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void argName(@TestParameter boolean useNestedSet) throws Exception {
+  public void argName() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, "one", "two", "three").setArgName("--arg"))
@@ -219,7 +222,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void terminateWith(@TestParameter boolean useNestedSet) throws Exception {
+  public void terminateWith() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, "one", "two", "three").setTerminateWith("end1"))
@@ -229,7 +232,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void formatEach(@TestParameter boolean useNestedSet) throws Exception {
+  public void formatEach() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, "one", "two", "three").setFormatEach("--arg=%s"))
@@ -239,7 +242,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void formatEachPathMapped(@TestParameter boolean useNestedSet) throws Exception {
+  public void formatEachPathMapped() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setFormatEach("--arg=%s"))
@@ -264,7 +267,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void beforeEach(@TestParameter boolean useNestedSet) throws Exception {
+  public void beforeEach() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, "one", "two", "three").setBeforeEach("b4"))
@@ -274,7 +277,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void beforeEachPathMapped(@TestParameter boolean useNestedSet) throws Exception {
+  public void beforeEachPathMapped() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setBeforeEach("b4"))
@@ -319,7 +322,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void joinWith(@TestParameter boolean useNestedSet) throws Exception {
+  public void joinWith() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, "one", "two", "three").setJoinWith("..."))
@@ -329,7 +332,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void joinWithPathMapped(@TestParameter boolean useNestedSet) throws Exception {
+  public void joinWithPathMapped() throws Exception {
     CommandLine commandLine =
         builder
             .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setJoinWith("..."))
@@ -354,7 +357,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void formatJoined(@TestParameter boolean useNestedSet) throws Exception {
+  public void formatJoined() throws Exception {
     CommandLine commandLine =
         builder
             .add(
@@ -370,7 +373,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void formatJoinedPathMapped(@TestParameter boolean useNestedSet) throws Exception {
+  public void formatJoinedPathMapped() throws Exception {
     CommandLine commandLine =
         builder
             .add(
@@ -405,7 +408,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void emptyVectorArg_omit(@TestParameter boolean useNestedSet) throws Exception {
+  public void emptyVectorArg_omit() throws Exception {
     CommandLine commandLine =
         builder
             .add("before")
@@ -420,7 +423,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void emptyVectorArg_noOmit(@TestParameter boolean useNestedSet) throws Exception {
+  public void emptyVectorArg_noOmit() throws Exception {
     CommandLine commandLine =
         builder
             .add("before")
@@ -436,12 +439,14 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void uniquifyPathMapped() throws Exception {
+    // NestedSet doesn't support mixed types.
+    assume().that(useNestedSet).isFalse();
+
     CommandLine commandLine =
         builder
             .add(
                 vectorArg(
-                        // NestedSet doesn't support mixed types.
-                        /* useNestedSet= */ false,
+                        useNestedSet,
                         artifact1,
                         artifact1,
                         artifact2,
@@ -468,7 +473,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void flagPerLine(@TestParameter boolean useNestedSet) throws Exception {
+  public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
             .recordArgStart()
@@ -490,7 +495,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void flagPerLinePathMapped(@TestParameter boolean useNestedSet) throws Exception {
+  public void flagPerLinePathMapped() throws Exception {
     CommandLine commandLine =
         builder
             .recordArgStart()
@@ -526,7 +531,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArg_treeArtifactMissingExpansion_fails(@TestParameter boolean useNestedSet) {
+  public void vectorArg_treeArtifactMissingExpansion_fails() {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
@@ -541,8 +546,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgAddToFingerprint_expandFileset_includesInDigest(
-      @TestParameter boolean useNestedSet) throws Exception {
+  public void vectorArgAddToFingerprint_expandFileset_includesInDigest() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
@@ -563,8 +567,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest(
-      @TestParameter boolean useNestedSet) throws Exception {
+  public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
     // The files won't be read so MISSING_FILE_MARKER will do
@@ -589,7 +592,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArg_expandFilesetMissingExpansion_fails(@TestParameter boolean useNestedSet) {
+  public void vectorArg_expandFilesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
@@ -606,8 +609,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_expandsTreeArtifact(@TestParameter boolean useNestedSet)
-      throws Exception {
+  public void vectorArgArguments_expandsTreeArtifact() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
@@ -630,8 +632,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_expandsFileset(@TestParameter boolean useNestedSet)
-      throws Exception {
+  public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
@@ -650,8 +651,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_treeArtifactMissingExpansion_fails(
-      @TestParameter boolean useNestedSet) {
+  public void vectorArgArguments_treeArtifactMissingExpansion_fails() {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
@@ -664,8 +664,8 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_manuallyExpandedTreeArtifactMissingExpansion_fails(
-      @TestParameter boolean useNestedSet) throws Exception {
+  public void vectorArgArguments_manuallyExpandedTreeArtifactMissingExpansion_fails()
+      throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
@@ -691,8 +691,7 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_filesetMissingExpansion_fails(
-      @TestParameter boolean useNestedSet) {
+  public void vectorArgArguments_filesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
@@ -705,8 +704,8 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_expandDirectoriesDisabled_manualExpansionReflectedInActionKey(
-      @TestParameter boolean useNestedSet) throws Exception {
+  public void vectorArgArguments_expandDirectoriesDisabled_manualExpansionReflectedInActionKey()
+      throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
@@ -764,8 +763,8 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void
-      vectorArgArguments_expandDirectoriesDisabled_noMapEach_expansionDoesNotAffectActionKey(
-          @TestParameter boolean useNestedSet) throws Exception {
+      vectorArgArguments_expandDirectoriesDisabled_noMapEach_expansionDoesNotAffectActionKey()
+          throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
@@ -815,8 +814,8 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void
-      vectorArgArguments_expandDirectoriesDisabled_noManualExpansion_expansionDoesNotAffectActionKey(
-          @TestParameter boolean useNestedSet) throws Exception {
+      vectorArgArguments_expandDirectoriesDisabled_noManualExpansion_expansionDoesNotAffectActionKey()
+          throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
