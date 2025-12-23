@@ -369,7 +369,7 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
       if (rdeLabel != null
-          && BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST.allows(
+          && !BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST.allows(
               rdeLabel.getPackageIdentifier())) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
