@@ -611,7 +611,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     # On macOS, if cpp_config.apple_generate_dsym is enabled
     # then a .dSYM file will be built along with the executable.
     dsym_file = None
-    if cpp_config.apple_generate_dsym:
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_dsym_file"):
         dsym_file = ctx.actions.declare_directory(
             "{name}.dSYM".format(
                 name = target_name,
