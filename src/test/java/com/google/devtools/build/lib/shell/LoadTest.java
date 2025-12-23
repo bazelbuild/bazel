@@ -34,6 +34,9 @@ import org.junit.runners.JUnit4;
 /** Tests {@link Command} execution under load. */
 @RunWith(JUnit4.class)
 public class LoadTest {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
 
   private File tempFile;
 

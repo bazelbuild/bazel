@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
@@ -305,6 +306,10 @@ public final class RemoteWorker {
     // was recently closed. I'm told upstream discussed this, but didn't want to keep information
     // about closed streams around.
     nettyLogger.setLevel(Level.SEVERE);
+
+    // Set the default subprocess factory to the Windows-specific implementation if the host OS is
+    // Windows. See Bazel.java for more details.
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
 
     FileSystem fs = getFileSystem();
     Path sandboxPath = null;

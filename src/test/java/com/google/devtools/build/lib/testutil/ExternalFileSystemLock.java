@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.runfiles.Runfiles;
@@ -27,6 +28,10 @@ import java.io.IOException;
  * <p>This is needed for testing because the JVM does not allow overlapping locks.
  */
 public class ExternalFileSystemLock implements AutoCloseable {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final String HELPER_PATH =
       "io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper"
           + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");

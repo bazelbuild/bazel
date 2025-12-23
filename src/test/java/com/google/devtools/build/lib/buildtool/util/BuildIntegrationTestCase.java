@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -187,6 +188,9 @@ import org.junit.Before;
  * <p>All integration tests are at least size medium.
  */
 public abstract class BuildIntegrationTestCase {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
 
   /** Thrown when an integration test case fails. */
   public static class IntegrationTestExecException extends ExecException {

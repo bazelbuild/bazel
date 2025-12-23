@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -37,6 +38,10 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CredentialHelperTest {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final PathFragment TEST_WORKSPACE_PATH =
       PathFragment.create(System.getenv("TEST_TMPDIR"));
   private static final PathFragment TEST_CREDENTIAL_HELPER_PATH =
