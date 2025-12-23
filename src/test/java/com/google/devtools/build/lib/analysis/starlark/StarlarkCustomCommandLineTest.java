@@ -215,8 +215,8 @@ public final class StarlarkCustomCommandLineTest {
   public void argName() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, "one", "two", "three").setArgName("--arg"))
-            .add(vectorArg(useNestedSet, "four").setArgName("--other_arg"))
+            .add(vectorArg("one", "two", "three").setArgName("--arg"))
+            .add(vectorArg("four").setArgName("--other_arg"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg", "one", "two", "three", "--other_arg", "four");
   }
@@ -225,8 +225,8 @@ public final class StarlarkCustomCommandLineTest {
   public void terminateWith() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, "one", "two", "three").setTerminateWith("end1"))
-            .add(vectorArg(useNestedSet, "four").setTerminateWith("end2"))
+            .add(vectorArg("one", "two", "three").setTerminateWith("end1"))
+            .add(vectorArg("four").setTerminateWith("end2"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "one", "two", "three", "end1", "four", "end2");
   }
@@ -235,8 +235,8 @@ public final class StarlarkCustomCommandLineTest {
   public void formatEach() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, "one", "two", "three").setFormatEach("--arg=%s"))
-            .add(vectorArg(useNestedSet, "four").setFormatEach("--other_arg=%s"))
+            .add(vectorArg("one", "two", "three").setFormatEach("--arg=%s"))
+            .add(vectorArg("four").setFormatEach("--other_arg=%s"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg=one", "--arg=two", "--arg=three", "--other_arg=four");
   }
@@ -245,10 +245,8 @@ public final class StarlarkCustomCommandLineTest {
   public void formatEachPathMapped() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setFormatEach("--arg=%s"))
-            .add(
-                vectorArg(useNestedSet, artifact1.getRoot(), artifact2.getRoot())
-                    .setFormatEach("--arg=%s"))
+            .add(vectorArg(artifact1, artifact2, artifact3).setFormatEach("--arg=%s"))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setFormatEach("--arg=%s"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -270,8 +268,8 @@ public final class StarlarkCustomCommandLineTest {
   public void beforeEach() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, "one", "two", "three").setBeforeEach("b4"))
-            .add(vectorArg(useNestedSet, "four").setBeforeEach("and"))
+            .add(vectorArg("one", "two", "three").setBeforeEach("b4"))
+            .add(vectorArg("four").setBeforeEach("and"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "b4", "one", "b4", "two", "b4", "three", "and", "four");
   }
@@ -280,12 +278,10 @@ public final class StarlarkCustomCommandLineTest {
   public void beforeEachPathMapped() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setBeforeEach("b4"))
-            .add(
-                vectorArg(useNestedSet, artifact1.getRoot(), artifact2.getRoot())
-                    .setBeforeEach("b4"))
-            .add(vectorArg(useNestedSet, artifact3).setBeforeEach("and"))
-            .add(vectorArg(useNestedSet, artifact3.getRoot()).setBeforeEach("and"))
+            .add(vectorArg(artifact1, artifact2, artifact3).setBeforeEach("b4"))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setBeforeEach("b4"))
+            .add(vectorArg(artifact3).setBeforeEach("and"))
+            .add(vectorArg(artifact3.getRoot()).setBeforeEach("and"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -325,8 +321,8 @@ public final class StarlarkCustomCommandLineTest {
   public void joinWith() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, "one", "two", "three").setJoinWith("..."))
-            .add(vectorArg(useNestedSet, "four").setJoinWith("n/a"))
+            .add(vectorArg("one", "two", "three").setJoinWith("..."))
+            .add(vectorArg("four").setJoinWith("n/a"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "one...two...three", "four");
   }
@@ -335,12 +331,10 @@ public final class StarlarkCustomCommandLineTest {
   public void joinWithPathMapped() throws Exception {
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setJoinWith("..."))
-            .add(
-                vectorArg(useNestedSet, artifact1.getRoot(), artifact2.getRoot())
-                    .setJoinWith("..."))
-            .add(vectorArg(useNestedSet, artifact3).setJoinWith("..."))
-            .add(vectorArg(useNestedSet, artifact3.getRoot()).setJoinWith("..."))
+            .add(vectorArg(artifact1, artifact2, artifact3).setJoinWith("..."))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setJoinWith("..."))
+            .add(vectorArg(artifact3).setJoinWith("..."))
+            .add(vectorArg(artifact3.getRoot()).setJoinWith("..."))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -360,14 +354,8 @@ public final class StarlarkCustomCommandLineTest {
   public void formatJoined() throws Exception {
     CommandLine commandLine =
         builder
-            .add(
-                vectorArg(useNestedSet, "one", "two", "three")
-                    .setJoinWith("...")
-                    .setFormatJoined("--arg=%s"))
-            .add(
-                vectorArg(useNestedSet, "four")
-                    .setJoinWith("n/a")
-                    .setFormatJoined("--other_arg=%s"))
+            .add(vectorArg("one", "two", "three").setJoinWith("...").setFormatJoined("--arg=%s"))
+            .add(vectorArg("four").setJoinWith("n/a").setFormatJoined("--other_arg=%s"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg=one...two...three", "--other_arg=four");
   }
@@ -377,21 +365,16 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(
-                vectorArg(useNestedSet, artifact1, artifact2, artifact3)
+                vectorArg(artifact1, artifact2, artifact3)
                     .setJoinWith("...")
                     .setFormatJoined("--arg=%s"))
             .add(
-                vectorArg(useNestedSet, artifact1.getRoot(), artifact2.getRoot())
+                vectorArg(artifact1.getRoot(), artifact2.getRoot())
                     .setJoinWith("...")
                     .setFormatJoined("--arg=%s"))
+            .add(vectorArg(artifact3).setJoinWith("...").setFormatJoined("--other_arg=%s"))
             .add(
-                vectorArg(useNestedSet, artifact3)
-                    .setJoinWith("...")
-                    .setFormatJoined("--other_arg=%s"))
-            .add(
-                vectorArg(useNestedSet, artifact3.getRoot())
-                    .setJoinWith("...")
-                    .setFormatJoined("--other_arg=%s"))
+                vectorArg(artifact3.getRoot()).setJoinWith("...").setFormatJoined("--other_arg=%s"))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -412,11 +395,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add("before")
-            .add(
-                vectorArg(useNestedSet)
-                    .omitIfEmpty(true)
-                    .setJoinWith(",")
-                    .setFormatJoined("--empty=%s"))
+            .add(vectorArg().omitIfEmpty(true).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "before", "after");
@@ -427,11 +406,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add("before")
-            .add(
-                vectorArg(useNestedSet)
-                    .omitIfEmpty(false)
-                    .setJoinWith(",")
-                    .setFormatJoined("--empty=%s"))
+            .add(vectorArg().omitIfEmpty(false).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "before", "--empty=", "after");
@@ -446,7 +421,6 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(
                 vectorArg(
-                        useNestedSet,
                         artifact1,
                         artifact1,
                         artifact2,
@@ -477,14 +451,14 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .recordArgStart()
-            .add(vectorArg(useNestedSet, "is", "line", "one").setArgName("--this"))
+            .add(vectorArg("is", "line", "one").setArgName("--this"))
             .recordArgStart()
-            .add(vectorArg(useNestedSet, "this", "is", "line", "two").setArgName("--and"))
+            .add(vectorArg("this", "is", "line", "two").setArgName("--and"))
             .recordArgStart()
             .add("--line_three")
             .add("single_arg")
             .recordArgStart()
-            .add(vectorArg(useNestedSet, "", "line", "four", "has", "no").setTerminateWith("flag"))
+            .add(vectorArg("", "line", "four", "has", "no").setTerminateWith("flag"))
             .build(/* flagPerLine= */ true, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -496,19 +470,20 @@ public final class StarlarkCustomCommandLineTest {
 
   @Test
   public void flagPerLinePathMapped() throws Exception {
+    // NestedSet doesn't support mixed types.
+    assume().that(useNestedSet).isFalse();
+
     CommandLine commandLine =
         builder
             .recordArgStart()
-            .add(vectorArg(useNestedSet, artifact1, artifact2, artifact3).setArgName("--this"))
+            .add(vectorArg(artifact1, artifact2, artifact3).setArgName("--this"))
             .recordArgStart()
-            .add(vectorArg(useNestedSet, artifact3, artifact2, artifact1).setArgName("--and"))
+            .add(vectorArg(artifact3, artifact2, artifact1).setArgName("--and"))
             .recordArgStart()
             .add("--line_three")
             .add("single_arg")
             .recordArgStart()
-            .add(
-                vectorArg(/* useNestedSet= */ false, "", artifact1, artifact2, artifact3)
-                    .setTerminateWith("flag"))
+            .add(vectorArg("", artifact1, artifact2, artifact3).setTerminateWith("flag"))
             .build(/* flagPerLine= */ true, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
@@ -535,7 +510,7 @@ public final class StarlarkCustomCommandLineTest {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, tree).setExpandDirectories(true))
+            .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     CommandLineExpansionException e =
@@ -550,7 +525,7 @@ public final class StarlarkCustomCommandLineTest {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, fileset).setExpandDirectories(true))
+            .add(vectorArg(fileset).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
@@ -578,7 +553,7 @@ public final class StarlarkCustomCommandLineTest {
 
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, tree).setExpandDirectories(true))
+            .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -596,7 +571,7 @@ public final class StarlarkCustomCommandLineTest {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, fileset).setExpandDirectories(true))
+            .add(vectorArg(fileset).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     CommandLineExpansionException e =
@@ -625,7 +600,7 @@ public final class StarlarkCustomCommandLineTest {
 
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, tree).setExpandDirectories(true))
+            .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
     assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
@@ -643,7 +618,7 @@ public final class StarlarkCustomCommandLineTest {
 
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, fileset).setExpandDirectories(true))
+            .add(vectorArg(fileset).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
 
@@ -655,7 +630,7 @@ public final class StarlarkCustomCommandLineTest {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, tree).setExpandDirectories(true))
+            .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     assertThrows(
@@ -670,7 +645,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(
-                vectorArg(useNestedSet, tree)
+                vectorArg(tree)
                     .setExpandDirectories(false)
                     .setLocation(Location.BUILTIN)
                     .setMapEach(
@@ -695,7 +670,7 @@ public final class StarlarkCustomCommandLineTest {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
-            .add(vectorArg(useNestedSet, fileset).setExpandDirectories(true))
+            .add(vectorArg(fileset).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     assertThrows(
@@ -722,7 +697,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(
-                vectorArg(useNestedSet, tree)
+                vectorArg(tree)
                     .setExpandDirectories(false)
                     .setLocation(Location.BUILTIN)
                     .setMapEach(
@@ -780,10 +755,7 @@ public final class StarlarkCustomCommandLineTest {
             .build();
     CommandLine commandLine =
         builder
-            .add(
-                vectorArg(useNestedSet, tree)
-                    .setExpandDirectories(false)
-                    .setLocation(Location.BUILTIN))
+            .add(vectorArg(tree).setExpandDirectories(false).setLocation(Location.BUILTIN))
             .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     var inputMetadataProviderBefore = new FakeActionInputFileCache();
@@ -832,7 +804,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(
-                vectorArg(useNestedSet, tree)
+                vectorArg(tree)
                     .setExpandDirectories(false)
                     .setLocation(Location.BUILTIN)
                     .setMapEach(
@@ -871,8 +843,8 @@ public final class StarlarkCustomCommandLineTest {
         .isEqualTo(fingerprintAfter.hexDigestAndReset());
   }
 
-  private static VectorArg.Builder vectorArg(boolean useNestedSet, Object... elems) {
-    if (useNestedSet) {
+  private VectorArg.Builder vectorArg(Object... elems) {
+    if (this.useNestedSet) {
       Class<?> commonType;
       if (Arrays.stream(elems).allMatch(FileApi.class::isInstance)) {
         commonType = FileApi.class;
