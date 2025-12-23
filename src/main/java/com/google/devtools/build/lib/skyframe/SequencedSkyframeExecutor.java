@@ -269,7 +269,18 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       for (Root pkgRoot : packageLocator.getPathEntries()) {
         Optional<EvaluatingVersionDiff> evaluatingVersionDiff =
             diffAwarenessManager.getEvaluatingVersionDiff(pkgRoot, options);
-        evaluatingVersionDiff.ifPresent(eventHandler::post);
+        if (evaluatingVersionDiff.isPresent()) {
+          EvaluatingVersionDiff versionDiff = evaluatingVersionDiff.get();
+          eventHandler.post(versionDiff);
+          if (!evaluatorNeedsReset
+              && diffCheckNotificationOptions.isPresent()
+              && !diffCheckNotificationOptions
+                  .get()
+                  .allowDiffCheck(versionDiff, eventHandler, options)) {
+            evaluatorNeedsReset = true;
+            needGcAfterResettingEvaluator = true;
+          }
+        }
       }
     }
 

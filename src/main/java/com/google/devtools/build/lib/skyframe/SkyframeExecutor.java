@@ -196,6 +196,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.AdditionalPostAnalysisDepsRequestedAndAvailable;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -541,7 +542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicInteger analysisCount = new AtomicInteger();
 
-  private final Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions;
+  protected final Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions;
 
   private boolean isCleanBuild = true;
 
@@ -4740,8 +4741,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Multisets.copyHighestCountFirst(counts);
   }
 
-  /** Defines configuration for the progress message shown during a slow diff check. */
+  /**
+   * Defines configuration for the diff checking and the progress message shown during a slow diff
+   * check.
+   */
   public interface DiffCheckNotificationOptions {
+
+    /**
+     * Whether to allow a diff check for the given {@link EvaluatingVersionDiff}. A return of false
+     * results in starting with a fresh Skyframe graph instead of an incremental build.
+     */
+    boolean allowDiffCheck(
+        EvaluatingVersionDiff versionDiff, EventHandler eventHandler, OptionsProvider options);
+
     String getStatusMessage();
 
     Duration getStatusUpdateDelay();
