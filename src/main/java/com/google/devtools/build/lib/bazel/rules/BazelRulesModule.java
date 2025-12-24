@@ -1022,6 +1022,16 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean legacyLocalFallback;
+
+    @Deprecated
+    @Option(
+      name = "incompatible_repo_env_ignores_action_env",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "No-op.")
+  public boolean repoEnvIgnoresActionEnv;
   }
 
   @Override
