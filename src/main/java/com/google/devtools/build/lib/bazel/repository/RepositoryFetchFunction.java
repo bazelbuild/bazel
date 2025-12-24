@@ -68,6 +68,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -146,6 +147,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
+    // While checking whether a particular repo candidate (either the current contents under the
+    // external directory or a candidate repo in the local repo contents cache) is up-to-date, this
+    // holds opaque intermediate state. Reset to null after each candidate.
+    @Nullable DigestWriter.RepoDirectoryState.Indeterminate indeterminateState;
+    // The candidate repos in the local repo contents cache that still have to be checked.
+    @Nullable ArrayDeque<CandidateRepo> candidateRepos;
     @Nullable RemoteRepoContentsCache.State remoteRepoContentsCacheState;
   }
 
@@ -219,9 +226,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
 
       if (shouldUseCachedRepoContents(env, repoDefinition)) {
+        var state = env.getState(State::new);
         // Make sure marker file is up-to-date; correctly describes the current repository state
-        var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(env);
-        if (repoState == null) {
+        var repoState =
+            digestWriter.areRepositoryAndMarkerFileConsistent(env, state.indeterminateState);
+        if (repoState instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
+          state.indeterminateState = intermediateState;
           return null;
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
@@ -231,12 +241,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
-          for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
+          if (state.candidateRepos == null) {
+            state.candidateRepos =
+                new ArrayDeque<>(
+                    repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash));
+          }
+          for (var it = state.candidateRepos.iterator(); it.hasNext(); ) {
+            CandidateRepo candidate = it.next();
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
-                    env, candidate.recordedInputsFile());
-            if (repoState == null) {
+                    env, candidate.recordedInputsFile(), state.indeterminateState);
+            if (repoState
+                instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
+              state.indeterminateState = intermediateState;
               return null;
             }
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
@@ -248,11 +265,14 @@ public final class RepositoryFetchFunction implements SkyFunction {
               return new RepositoryDirectoryValue.Success(
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
+            // Reset for the next candidate.
+            state.indeterminateState = null;
+            // Remove from the state so that we don't check it again on a restart.
+            it.remove();
           }
         }
 
         if (remoteRepoContentsCache != null) {
-          var state = env.getState(State::new);
           if (state.remoteRepoContentsCacheState == null) {
             state.remoteRepoContentsCacheState = remoteRepoContentsCache.newState();
           }
@@ -382,9 +402,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
         return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
       }
 
+      var state = env.getState(State::new);
       DigestWriter.RepoDirectoryState vendoredRepoState =
-          digestWriter.areRepositoryAndMarkerFileConsistent(env, vendorMarker);
-      if (vendoredRepoState == null) {
+          digestWriter.areRepositoryAndMarkerFileConsistent(
+              env, vendorMarker, state.indeterminateState);
+      if (vendoredRepoState
+          instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
+        state.indeterminateState = intermediateState;
         return null;
       }
       // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
