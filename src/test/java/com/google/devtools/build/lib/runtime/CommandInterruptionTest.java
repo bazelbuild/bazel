@@ -381,7 +381,7 @@ public final class CommandInterruptionTest {
   @Before
   public void setUp() throws Exception {
     executor = Executors.newSingleThreadExecutor();
-    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
+    Profiler.setTraceProfilerService(new TraceProfilerServiceImpl());
     Scratch scratch = new Scratch();
     isTestShuttingDown = new AtomicBoolean(false);
     String productName = TestConstants.PRODUCT_NAME;
@@ -429,21 +429,21 @@ public final class CommandInterruptionTest {
   // These tests are basically testing the functionality of the dummy command.
   @Test
   public void sendingExitCodeToTestCommandResultsInExitWithThatStatus() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     command.requestExitWith(DetailedExitCode.success());
     command.assertFinishedWith(DetailedExitCode.success());
   }
 
   @Test
   public void interruptingTestCommandMakesItExitWithInterruptedStatus() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     command.interrupt();
     command.assertFinishedWith(UNEXPECTED_INTERRUPTION);
   }
 
   @Test
   public void commandIgnoresFirstInterruptionWhenExpectingInterruption() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ true);
     command.interrupt();
     command.assertNotFinishedYet();
     command.requestExitWith(DetailedExitCode.success());
@@ -452,7 +452,7 @@ public final class CommandInterruptionTest {
 
   @Test
   public void commandExitsWithInterruptedAfterInterruptionCountExceeded() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ true);
     command.interrupt();
     command.assertNotFinishedYet();
     command.interrupt();
@@ -462,7 +462,7 @@ public final class CommandInterruptionTest {
   // These tests get into the meat of actual abrupt exits.
   @Test
   public void exitForbidsNullException() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     try {
       command.getModuleEnvironment().exit(null);
       throw new AssertionError("It shouldn't be allowed to pass null to exit()!");
@@ -475,14 +475,14 @@ public final class CommandInterruptionTest {
 
   @Test
   public void callingExitOnceInterruptsAndOverridesExitCode() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
     command.assertFinishedWith(NO_TEST_TARGETS_CODE);
   }
 
   @Test
   public void callingExitSecondTimeNeitherInterruptsNorReOverridesExitCode() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ true);
     command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
     command.assertNotFinishedYet();
     command.getModuleEnvironment().exit(new AbruptExitException(OPTIONS_FAILURE));
@@ -493,7 +493,7 @@ public final class CommandInterruptionTest {
 
   @Test
   public void abruptExitCodesDontOverrideInfrastructureFailures() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
+    CommandState command = snooze.runIn(executor, dispatcher, /* expectInterruption= */ true);
     command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
     command.assertNotFinishedYet();
     command.requestExitWith(CRASH);
@@ -502,11 +502,11 @@ public final class CommandInterruptionTest {
 
   @Test
   public void callingExitAfterCommandCompletesDoesNothing() throws Exception {
-    CommandState firstCommand = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+    CommandState firstCommand = snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     firstCommand.requestExitWith(DetailedExitCode.success());
     firstCommand.assertFinishedWith(DetailedExitCode.success());
     CommandState newCommandOnSameThread =
-        snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
+        snooze.runIn(executor, dispatcher, /* expectInterruption= */ false);
     firstCommand.assertOnSameThreadAs(newCommandOnSameThread);
     firstCommand.getModuleEnvironment().exit(new AbruptExitException(OPTIONS_FAILURE));
     newCommandOnSameThread.assertNotFinishedYet();

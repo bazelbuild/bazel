@@ -251,7 +251,7 @@ public abstract class BuildIntegrationTestCase {
     events.setFailFast(false);
 
     // Must initialize manually because we never call globalInit() on modules/services.
-    Profiler.setTraceProfilerServiceForTesting(profilerService);
+    Profiler.setTraceProfilerService(profilerService);
 
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.

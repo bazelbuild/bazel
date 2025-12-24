@@ -48,7 +48,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
-    return new UnixFileSystem(digestHashFunction, /*hashAttributeName=*/ "");
+    return new UnixFileSystem(digestHashFunction, /* hashAttributeName= */ "");
   }
 
   @Override
@@ -200,7 +200,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
         TraceProfilerService mock = mock(TraceProfilerService.class);
         when(mock.isActive()).thenReturn(true);
         when(mock.isProfiling(any(ProfilerTask.class))).thenReturn(true);
-        Profiler.setTraceProfilerServiceForTesting(mock);
+        Profiler.setTraceProfilerService(mock);
       }
       this.enabled = enabled;
     }
@@ -208,7 +208,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     @Override
     public void close() {
       if (enabled) {
-        Profiler.setTraceProfilerServiceForTesting(null);
+        Profiler.setTraceProfilerService(null);
       }
     }
   }

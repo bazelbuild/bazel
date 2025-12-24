@@ -55,6 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",

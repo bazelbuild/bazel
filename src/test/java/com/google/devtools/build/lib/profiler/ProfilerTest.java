@@ -63,7 +63,7 @@ public final class ProfilerTest {
 
   @BeforeClass
   public static void setUp() {
-    Profiler.setTraceProfilerServiceForTesting(new TraceProfilerServiceImpl());
+    Profiler.setTraceProfilerService(new TraceProfilerServiceImpl());
     BlazeClock.setClock(clock);
   }
 
