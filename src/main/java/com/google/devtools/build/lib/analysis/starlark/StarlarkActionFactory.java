@@ -1043,7 +1043,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!getRuleContext().getConfiguration().allowMapDirectory()) {
       throw Starlark.errorf(
           "actions.map_directory() is an experimental API and is subjected to change. "
-              + "Please set the flag --experimental_starlark_action_templates_api to enable it.");
+              + "Please set the flag --experimental_allow_map_directory to enable it.");
     }
     context.checkMutable("actions.map_directory");
 
