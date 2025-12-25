@@ -153,14 +153,20 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testStructureRcOptionsAndConfigs_invalidCommand() throws Exception {
-    BlazeOptionHandler.structureRcOptionsAndConfigs(
-        eventHandler,
-        Arrays.asList("rc1", "rc2"),
-        Arrays.asList(new ClientOptions.OptionOverride(0, "c1", "a")),
-        ImmutableSet.of("build"));
-    assertThat(eventHandler.getEvents())
-        .contains(
-            Event.warn("while reading option defaults file 'rc1':\n  invalid command name 'c1'."));
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () ->
+                BlazeOptionHandler.structureRcOptionsAndConfigs(
+                    eventHandler,
+                    Arrays.asList("rc1", "rc2"),
+                    Arrays.asList(new ClientOptions.OptionOverride(0, "c1", "a")),
+                    ImmutableSet.of("build")));
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes()).isEmpty();
+    assertThat(e)
+        .hasMessageThat()
+        .contains("while reading option defaults file 'rc1':\n  invalid command name 'c1'.");
   }
 
   @Test
