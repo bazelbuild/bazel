@@ -203,8 +203,7 @@ public class RemoteSpawnCacheTest {
       }
 
       @Override
-      public SortedMap<PathFragment, ActionInput> getInputMapping(
-          PathFragment baseDirectory, boolean willAccessRepeatedly) {
+      public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
         return new SpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
