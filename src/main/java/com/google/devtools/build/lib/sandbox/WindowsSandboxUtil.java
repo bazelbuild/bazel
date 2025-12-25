@@ -107,7 +107,7 @@ public final class WindowsSandboxUtil {
     private Path stdoutPath;
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
-    private Map<PathFragment, Path> readableFilesAndDirectories = new TreeMap<>();
+    private Set<Path> readableFilesAndDirectories = ImmutableSet.of();
     private Set<Path> inaccessiblePaths = ImmutableSet.of();
     private boolean useDebugMode = false;
     private List<String> commandArguments = ImmutableList.of();
@@ -166,7 +166,7 @@ public final class WindowsSandboxUtil {
     /** Sets the files or directories to make readable for the sandboxed process, if any. */
     @CanIgnoreReturnValue
     public CommandLineBuilder setReadableFilesAndDirectories(
-        Map<PathFragment, Path> readableFilesAndDirectories) {
+        Set<Path> readableFilesAndDirectories) {
       this.readableFilesAndDirectories = readableFilesAndDirectories;
       return this;
     }
@@ -213,7 +213,7 @@ public final class WindowsSandboxUtil {
       for (Path writablePath : writableFilesAndDirectories) {
         commandLineBuilder.add("-w", writablePath.getPathString());
       }
-      for (Path readablePath : readableFilesAndDirectories.values()) {
+      for (Path readablePath : readableFilesAndDirectories) {
         commandLineBuilder.add("-r", readablePath.getPathString());
       }
       for (Path writablePath : inaccessiblePaths) {

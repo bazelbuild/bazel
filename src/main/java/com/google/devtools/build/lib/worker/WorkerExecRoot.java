@@ -67,7 +67,7 @@ final class WorkerExecRoot {
         ImmutableSet.of(),
         inputsToCreate,
         dirsToCreate,
-        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        Iterables.concat(workerFiles, inputs.files().keySet(), inputs.symlinks().keySet()),
         outputs);
 
     // If we have information about the previous contents of the sandbox, update it to reflect
@@ -111,15 +111,15 @@ final class WorkerExecRoot {
         throw new InterruptedException();
       }
       Path key = dir.getRelative(fragment);
-      if (inputs.getFiles().containsKey(fragment)) {
-        Path fileDest = inputs.getFiles().get(fragment);
+      if (inputs.files().containsKey(fragment)) {
+        Path fileDest = inputs.files().get(fragment);
         if (fileDest != null) {
           key.createSymbolicLink(fileDest);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }
-      } else if (inputs.getSymlinks().containsKey(fragment)) {
-        PathFragment symlinkDest = inputs.getSymlinks().get(fragment);
+      } else if (inputs.symlinks().containsKey(fragment)) {
+        PathFragment symlinkDest = inputs.symlinks().get(fragment);
         if (symlinkDest != null) {
           key.createSymbolicLink(symlinkDest);
         }
