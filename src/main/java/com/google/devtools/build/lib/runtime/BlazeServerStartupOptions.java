@@ -234,6 +234,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "server when the system is low on free RAM. Linux and MacOS only.")
   public boolean shutdownOnLowSysMem;
 
+  @Deprecated
   @Option(
       name = "batch",
       defaultValue = "false",
