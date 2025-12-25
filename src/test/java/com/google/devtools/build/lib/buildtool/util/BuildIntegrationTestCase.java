@@ -543,7 +543,7 @@ public abstract class BuildIntegrationTestCase {
     return DigestHashFunction.SHA256;
   }
 
-  protected Path createTestRoot(FileSystem fileSystem) {
+  protected Path createTestRoot(FileSystem fileSystem) throws IOException {
     return TestUtils.createUniqueTmpDir(fileSystem);
   }
 
