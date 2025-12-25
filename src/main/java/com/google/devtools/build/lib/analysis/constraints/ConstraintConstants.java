@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.common.collect.ImmutableBiMap;
-import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OS;
+import java.util.Map;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** Constants needed for use of the constraints system. */
 public final class ConstraintConstants {
@@ -26,52 +30,55 @@ public final class ConstraintConstants {
   public static final String ENVIRONMENT_RULE = "environment";
 
   private static final ConstraintSettingInfo OS_CONSTRAINT_SETTING =
-      ConstraintSettingInfo.create(
-          Label.parseCanonicalUnchecked("@platforms//os:os"));
+      ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("@platforms//os:os"));
 
   public static final ConstraintSettingInfo CPU_CONSTRAINT_SETTING =
-      ConstraintSettingInfo.create(
-          Label.parseCanonicalUnchecked("@platforms//cpu:cpu"));
+      ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("@platforms//cpu:cpu"));
 
   // Standard mapping between OS and the corresponding platform constraints.
-  public static final ImmutableBiMap<OS, ConstraintValueInfo> OS_TO_CONSTRAINTS =
-      ImmutableBiMap.of(
+  private static final ImmutableMap<ConstraintValueInfo, OS> CONSTRAINT_VALUE_TO_OS =
+      ImmutableMap.of(
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:linux")),
           OS.LINUX,
           ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:linux")),
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:osx")),
           OS.DARWIN,
           ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:osx")),
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:macos")),
+          OS.DARWIN,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:windows")),
           OS.WINDOWS,
           ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:windows")),
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:freebsd")),
           OS.FREEBSD,
           ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:freebsd")),
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:openbsd")),
           OS.OPENBSD,
           ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:openbsd")),
-          OS.UNKNOWN,
-          ConstraintValueInfo.create(
-              OS_CONSTRAINT_SETTING,
-              Label.parseCanonicalUnchecked("@platforms//os:none")));
+              OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:none")),
+          OS.UNKNOWN);
+
+  @VisibleForTesting
+  public static final ImmutableMap<OS, ConstraintValueInfo> OS_TO_DEFAULT_CONSTRAINT_VALUE =
+      CONSTRAINT_VALUE_TO_OS.entrySet().stream()
+          .collect(
+              ImmutableMap.toImmutableMap(Map.Entry::getValue, Map.Entry::getKey, (a, b) -> a));
 
   /**
-   * Returns the OS corresponding to the given constraint collection based on the contained platform
-   * constraint.
+   * Returns the OS corresponding to the given platform's constraint collection based on the
+   * contained platform constraint.
    */
-  public static OS getOsFromConstraints(ConstraintCollection constraintCollection) {
-    if (!constraintCollection.has(OS_CONSTRAINT_SETTING)) {
-      return OS.getCurrent();
+  public static Optional<OS> getOsFromConstraints(@Nullable PlatformInfo platformInfo) {
+    if (platformInfo == null) {
+      return Optional.empty();
     }
-    return OS_TO_CONSTRAINTS
-        .inverse()
-        .getOrDefault(constraintCollection.get(OS_CONSTRAINT_SETTING), OS.getCurrent());
+    var osConstraintValue = platformInfo.constraints().get(OS_CONSTRAINT_SETTING);
+    if (osConstraintValue == null) {
+      return Optional.empty();
+    }
+    return Optional.ofNullable(CONSTRAINT_VALUE_TO_OS.get(osConstraintValue));
   }
 
   // No-op constructor to keep this from being instantiated.
