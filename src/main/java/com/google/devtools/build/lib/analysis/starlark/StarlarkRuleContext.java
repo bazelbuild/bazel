@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1153,7 +1154,7 @@ public final class StarlarkRuleContext
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute");
     if (expandLocations) {
       command =
-          helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
+          helper.resolveCommandAndExpandLabels(command, attribute, /* allowDataInLabel= */ false);
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
@@ -1208,6 +1209,22 @@ public final class StarlarkRuleContext
               + " instead of calling ctx.resolve_tools.\n"
               + "Use --noincompatible_disallow_ctx_resolve_tools to temporarily disable this"
               + " check.");
+    }
+  }
+
+  @Override
+  public Label packageRelativeLabel(Object input) throws EvalException {
+    if (input instanceof Label inputLabel) {
+      return inputLabel;
+    }
+    try {
+      return Label.parseWithPackageContext(
+          (String) input,
+          Label.PackageContext.of(
+              ruleContext.getLabel().getPackageIdentifier(),
+              ruleContext.getRule().getPackageMetadata().repositoryMapping()));
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label in ctx.package_relative_label: %s", e.getMessage());
     }
   }
 
