@@ -1214,6 +1214,7 @@ public final class StarlarkRuleContext
 
   @Override
   public Label packageRelativeLabel(Object input) throws EvalException {
+    checkMutable("package_relative_label");
     if (input instanceof Label inputLabel) {
       return inputLabel;
     }
