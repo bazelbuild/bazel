@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
 import com.google.common.collect.ImmutableMultimap;
@@ -83,6 +84,27 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
                   .addScopeType(scopedFlag, scopeType)
                   .addOnLeaveScopeValue(scopedFlag, onLeaveScopeValue)
               : fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
+
+      if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        // handling custom exec case with scope "exec:--<another_flag_name>".
+        // For example: --python_launcher=--host_python_launcher
+        // have the --<another_flag_name> flag default value in the target config but also make sure
+        // that it won't propagate to the exec config by setting the scope to "target".
+        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.scopeType().substring(7));
+        Target anotherFlagTarget = getTarget(env, anotherFlag, scopedFlag.getPackageIdentifier());
+        if (anotherFlagTarget == null) {
+          return null;
+        }
+
+        if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
+          fullyResolvedBuildOptionsBuilder =
+              fullyResolvedBuildOptionsBuilder.addStarlarkOption(
+                  anotherFlag,
+                  anotherFlagTarget
+                      .getAssociatedRule()
+                      .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+        }
+      }
     }
 
     // get PROJECT.scl files for each scoped flag that is not universal
@@ -202,7 +224,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   @Nullable
   private Object getOnleaveScopeValue(Target target) {
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
-    if (!attrs.has("on_leave_scope")) {
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
       // do nothing if on_leave_scope is not set.
       return null;
     }

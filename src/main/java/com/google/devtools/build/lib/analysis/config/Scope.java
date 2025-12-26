@@ -24,6 +24,8 @@ import javax.annotation.Nullable;
  * Scope.ScopeDefinition}.
  */
 public class Scope {
+  public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
+
   /** Type of supported scopes. */
   @AutoCodec
   public record ScopeType(String scopeType) {

@@ -262,7 +262,12 @@ public final class FunctionTransitionUtil {
       if (scopeType.equals(Scope.ScopeType.UNIVERSAL)) {
         ans.put(entry);
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
-        // Don't propagate this flag.
+        Object onLeaveScopeValue = options.getOnLeaveScopeValues().get(entry.getKey());
+        if (onLeaveScopeValue != null) {
+          // if on_leave_scope is set, propagate to exec config with this value.
+          ans.put(entry.getKey(), onLeaveScopeValue);
+        }
+        // else Don't propagate this flag.
       } else if (customPropagatingFlags.contains(entry.getKey().getUnambiguousCanonicalForm())) {
         ans.put(entry);
       } else if (customPropagatingFlagPatterns.stream()
@@ -275,8 +280,32 @@ public final class FunctionTransitionUtil {
                           pattern.substring(
                               0, pattern.lastIndexOf(CustomFlagConverter.SUBPACKAGES_SUFFIX))))) {
         ans.put(entry);
+      } else if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.substring(7));
+        if (starlarkOptions.containsKey(anotherFlag)) {
+          ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
+        } else {
+          boolean found = false;
+          for (FragmentOptions fragment : options.getNativeOptions()) {
+            Map<String, Object> nativeOptions = fragment.asMap();
+            if (nativeOptions.containsKey(anotherFlag.getUnambiguousCanonicalForm())) {
+              ans.put(entry.getKey(), nativeOptions.get(anotherFlag.getUnambiguousCanonicalForm()));
+              found = true;
+              break;
+            }
+          }
+          // if the flag is not found in both starlark and the native options, it's an error.
+          if (!found) {
+            throw new IllegalStateException(
+                "Flag "
+                    + anotherFlag
+                    + " is not found in the starlark options or native options. It should be one of"
+                    + " them.");
+          }
+        }
       }
     }
+
     return ans.buildOrThrow();
   }
 

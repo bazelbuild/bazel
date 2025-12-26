@@ -183,7 +183,9 @@ public final class BuildConfigurationKeyProducer<C>
           this.postPlatformProcessedOptions.getScopeTypeMap().get(entry.getKey());
       // scope is null is applicable for cases where a transition applies starlark flags that are
       // not already part of the baseline configuration.
-      if (scopeType == null || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+      if (scopeType == null
+          || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)
+          || scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         flagsWithIncompleteScopeInfo.add(entry.getKey());
       }
     }
