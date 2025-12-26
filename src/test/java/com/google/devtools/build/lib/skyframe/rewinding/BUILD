@@ -64,7 +64,6 @@ java_test(
     name = "RewindingTest",
     srcs = ["RewindingTest.java"],
     shard_count = 12,
-    tags = ["no_windows"],  # BuildIntegrationTestCase isn't fully compatible with Windows.
     deps = [
         ":rewinding_tests_helper",
         "//src/main/java/com/google/devtools/build/lib:runtime",
