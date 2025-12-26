@@ -622,6 +622,58 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
+  def testCtxPackageRelativeLabel(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name="foo")',
+        'bazel_dep(name="bar")',
+        'local_path_override(module_name="bar",path="bar")',
+      ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+      'defs.bzl',
+      [
+        'def _my_rule_impl(ctx):',
+        '  print("1st: " + str(ctx.package_relative_label(":bleb")))',
+        '  print("2nd: " + str(ctx.package_relative_label('
+        + '"//bleb:bleb")))',
+        '  print("3rd: " + str(ctx.package_relative_label('
+        + '"@bleb//bleb:bleb")))',
+        '  print("4th: " + str(ctx.package_relative_label("//bleb")))',
+        '  print("5th: " + str(ctx.package_relative_label('
+        + '"@@bleb//bleb:bleb")))',
+        '  print("6th: " + str(ctx.package_relative_label(Label('
+        + '"//bleb"))))',
+        'my_rule = rule(_my_rule_impl)',
+        ],
+    )
+
+    self.ScratchFile(
+      'bar/MODULE.bazel',
+      [
+        'module(name="bar")',
+        'bazel_dep(name="foo", repo_name="bleb")',
+      ],
+    )
+    self.ScratchFile(
+      'bar/quux/BUILD',
+      [
+        'load("@bleb//:defs.bzl", "my_rule")',
+        'my_rule(name="book")',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('1st: @@bar+//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar+//bleb:bleb', stderr)
+    self.assertIn('3rd: @@//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar+//bleb:bleb', stderr)
+    self.assertIn('5th: @@bleb//bleb:bleb', stderr)
+    self.assertIn('6th: @@//bleb:bleb', stderr)
+
   def testArchiveWithArchiveType(self):
     # make the archive without the .zip extension
     self.main_registry.createShModule(
