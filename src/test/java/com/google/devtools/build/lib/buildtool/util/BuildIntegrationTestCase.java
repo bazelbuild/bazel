@@ -407,10 +407,11 @@ public abstract class BuildIntegrationTestCase {
   @After
   public final void cleanUp() throws Exception {
     try {
-      doCleanup();
+      
     } finally {
       getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
     }
+    doCleanup();
   }
 
   private void doCleanup() throws Exception {
@@ -543,8 +544,8 @@ public abstract class BuildIntegrationTestCase {
     return DigestHashFunction.SHA256;
   }
 
-  protected Path createTestRoot(FileSystem fileSystem) throws IOException {
-    return TestUtils.createUniqueTmpDir(fileSystem);
+  protected Path createTestRoot(FileSystem fileSystem) {
+    return fileSystem.getPath(TestUtils.tmpDir())
   }
 
   // This is only here to support HaskellNonIntegrationTest. You should not call or override this
