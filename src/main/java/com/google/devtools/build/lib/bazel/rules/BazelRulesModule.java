@@ -47,6 +47,22 @@ public final class BazelRulesModule extends BlazeModule {
   public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_enable_apple_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleUseToolchainResolution;
+
+    @Option(
+        name = "experimental_objc_provider_from_linked",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean objcProviderFromLinked;
+
+    @Option(
         name = "build_python_zip",
         defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

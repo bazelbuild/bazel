@@ -33,8 +33,6 @@ def _get_prefixed_apple_cpu(platform_type, apple_cpus):
         return apple_cpus.tvos_cpus[0]
     if platform_type == PLATFORM_TYPE.macos:
         return apple_cpus.macos_cpus[0]
-    if platform_type == PLATFORM_TYPE.catalyst:
-        return apple_cpus.catalyst_cpus[0]
     fail("Unsupported platform type %s" % platform_type)
 
 def _get_single_arch_platform(apple_config):
