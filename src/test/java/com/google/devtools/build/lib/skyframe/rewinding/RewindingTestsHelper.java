@@ -1981,32 +1981,30 @@ public class RewindingTestsHelper {
 
     if (buildRunfileManifests()) {
       assertThat(rewoundKeys).hasSize(5);
-      int i = 0;
-      while (i < 4) {
+      boolean sourceManifestActionSeen = false;
+      for (int i = 0; i < 4; i++) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
         String actionLabel = actionKey.getLabel().getCanonicalForm();
-        i++;
         if (actionLabel.equals("//test:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//test:tool", /* index= */ 2);
-              i++;
-              break;
-            default:
-              fail(
-                  String.format(
-                      "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                      actionKey, rewoundKeys));
+            // SymlinkAction
+            case 0 -> {}
+            case 1 -> sourceManifestActionSeen = true;
+            // SymlinkTreeAction
+            case 2 -> assertThat(sourceManifestActionSeen).isTrue();
+            default ->
+                fail(
+                    String.format(
+                        "Unexpected action index. actionKey: %s, rewoundKeys: %s",
+                        actionKey, rewoundKeys));
           }
         } else {
           assertThat(actionLabel).isEqualTo("//test:rule1");
         }
       }
 
-      assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
+      assertActionKey(rewoundKeys.get(4), "//test:tool", /* index= */ 3);
     } else {
       assertThat(rewoundKeys).hasSize(3);
       int i = 0;
