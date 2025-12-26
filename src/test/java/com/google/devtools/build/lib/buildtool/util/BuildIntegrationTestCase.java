@@ -545,7 +545,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected Path createTestRoot(FileSystem fileSystem) {
-    return fileSystem.getPath(TestUtils.tmpDir())
+    return fileSystem.getPath(TestUtils.tmpDir());
   }
 
   // This is only here to support HaskellNonIntegrationTest. You should not call or override this
