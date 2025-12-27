@@ -141,6 +141,7 @@ public final class BlazeDirectories {
   }
 
   /** Returns working directory of the server. */
+  @Nullable
   public Path getWorkingDirectory() {
     return workspace;
   }
