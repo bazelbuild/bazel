@@ -106,8 +106,6 @@ public final class MockObjcSupport {
       argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     }
 
-    argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
-
     return argsBuilder.build();
   }
 
