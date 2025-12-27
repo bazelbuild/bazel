@@ -81,8 +81,7 @@ public class StandaloneModule extends BlazeModule {
             env.getLocalResourceManager(),
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
-            ProcessWrapper.fromCommandEnvironment(env),
-            RunfilesTreeUpdater.forCommandEnvironment(env));
+            ProcessWrapper.fromCommandEnvironment(env));
 
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

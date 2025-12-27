@@ -29,18 +29,23 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -364,6 +369,93 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertOnlyOutputContent("//a:remote", "remote.txt", "remote");
     assertOnlyOutputContent("//a:local", "local.txt", "remotelocal");
+  }
+
+  @Test
+  public void intermediateOutputsAreToolsForLocalActions_prefetchIntermediateOutputs()
+      throws Exception {
+    // Test that a remote-only output that's a tool used in a local action is downloaded lazily
+    // before executing the local action and has its runfiles tree created.
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            helper = ctx.actions.declare_file(ctx.label.name + "_helper.sh")
+            ctx.actions.run_shell(
+                outputs = [helper],
+                command = \"""echo '#!/bin/sh
+        echo remote' > $1 && chmod +x $1\""",
+                arguments = [helper.path],
+            )
+            out = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = \"""echo '#!/bin/sh
+        [ -f $0.runfiles/{runfiles_dir}/{main} ] || exit 1
+        $0.runfiles/{runfiles_dir}/{helper} > $1' > $1 && chmod +x $1\""".format(
+                    runfiles_dir = ctx.workspace_name,
+                    main = out.short_path,
+                    helper = helper.short_path,
+                ),
+                arguments = [out.path],
+            )
+            return DefaultInfo(
+                executable = out,
+                runfiles = ctx.runfiles(files = [helper]),
+            )
+
+        make_tool = rule(implementation = _impl)
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "make_tool")
+        make_tool(
+            name = "remote",
+        )
+
+        genrule(
+            name = "local",
+            tools = [":remote"],
+            outs = ["local.txt"],
+            cmd = "$(location :remote) $@ && echo -n local >> $@",
+            tags = ["no-remote"],
+        )
+        """);
+
+    buildTarget("//a:remote");
+    waitDownloads();
+    assertOutputsDoNotExist("//a:remote");
+    var targetRunfilesDir = getOutputPath("a/remote.sh.runfiles");
+    assertThat(targetRunfilesDir.isDirectory()).isTrue();
+    assertThat(targetRunfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST");
+
+    buildTarget("//a:local");
+    waitDownloads();
+
+    // The tool is only downloaded and has its runfiles symlinks created in the exec configuration,
+    // not in the target configuration.
+    assertOutputsDoNotExist("//a:remote");
+    assertThat(targetRunfilesDir.isDirectory()).isTrue();
+    assertThat(targetRunfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST");
+
+    var execTarget =
+        getAllConfiguredTargets().stream()
+            .filter(target -> target.getLabel().equals(Label.parseCanonicalUnchecked("//a:remote")))
+            .filter(
+                target -> target.getConfigurationKey().getOptions().get(CoreOptions.class).isExec)
+            .findFirst()
+            .get();
+    var execOutput = execTarget.get(DefaultInfo.PROVIDER).getExecutable();
+    assertThat(execOutput.getPath().exists()).isTrue();
+    var execRunfilesDir = execOutput.getPath().getParentDirectory().getChild("remote.sh.runfiles");
+    assertThat(execRunfilesDir.isDirectory()).isTrue();
+    assertThat(execRunfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST");
+
+    assertOnlyOutputContent("//a:local", "local.txt", "remote\nlocal");
   }
 
   @Test

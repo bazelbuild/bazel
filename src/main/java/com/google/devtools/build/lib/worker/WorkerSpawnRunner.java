@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
@@ -67,7 +64,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -99,7 +95,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
-  private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final WorkerProcessMetricsCollector metricsCollector;
@@ -111,14 +106,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ResourceManager resourceManager,
-      RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
-    this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
@@ -177,19 +170,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format(
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
-      try (var s = Profiler.instance().profile("updateRunfiles")) {
-        List<RunfilesTree> runfilesTrees = new ArrayList<>();
-        for (ActionInput toolFile : spawn.getToolFiles().toList()) {
-          if ((toolFile instanceof Artifact) && ((Artifact) toolFile).isRunfilesTree()) {
-            runfilesTrees.add(
-                context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
-          }
-        }
-        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
-      }
-
-      InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
-
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
@@ -210,7 +190,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
               .setInputFiles(inputFiles.getFiles().size() + inputFiles.getSymlinks().size());
       response =
           execInWorker(
-              spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
+              spawn,
+              key,
+              context,
+              inputFiles,
+              outputs,
+              flagFiles,
+              context.getInputMetadataProvider(),
+              spawnMetrics);
 
       FileOutErr outErr = context.getFileOutErr();
       response.getOutputBytes().writeTo(outErr.getErrorStream());
