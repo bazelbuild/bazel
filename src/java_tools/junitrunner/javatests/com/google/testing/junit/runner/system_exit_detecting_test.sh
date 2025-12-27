@@ -61,8 +61,10 @@ function test_prints_stack_trace_on_system_exit() {
   # We expect the output to be a stack trace that ends with the main method of
   # ProgramThatCallsSystemExit. We use sed to avoid hardcoding the exact line
   # numbers in the stack trace.
-  sed -i 's/:[0-9][0-9]*/:XXX/' "${output_file}"
-  diff -u "${output_file}" "${EXPECTED_STACK_FILE}" || \
+  sed -i.bak 's/:[0-9][0-9]*/:XXX/' "${output_file}"
+  # Filter out JAVA_TOOL_OPTIONS message that the JDK may print to stderr
+  grep -v "^Picked up JAVA_TOOL_OPTIONS:" "${output_file}" > "${output_file}.filtered"
+  diff -u "${output_file}.filtered" "${EXPECTED_STACK_FILE}" || \
     fail "Stack trace does not match expected stack trace"
 }
 
