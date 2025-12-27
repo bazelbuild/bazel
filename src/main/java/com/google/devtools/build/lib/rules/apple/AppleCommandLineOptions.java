@@ -167,6 +167,19 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + " selected via xcode-select.")
   public boolean preferMutualXcode;
 
+  // Tracked in #28081.
+  @Option(
+      name = "incompatible_remove_ctx_apple_fragment",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Apple build flags are defined with Apple rules (in BUIILD files) and"
+              + " ctx.fragments.apple is undefined. This is a migration flag to move all Apple"
+              + " flags from core Bazel to Apple rules.")
+  public boolean disableAppleFragment;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.11";
