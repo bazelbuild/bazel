@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -43,7 +42,8 @@ public class BazelProtoCommon implements StarlarkValue {
       useStarlarkThread = true,
       documented = false)
   public boolean getDefineProtoToolchains(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    BuiltinRestriction.failIfCalledOutsideAllowlist(
+        thread, BuiltinRestriction.Allowlist.BUILTINS_ONLY);
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
@@ -52,7 +52,8 @@ public class BazelProtoCommon implements StarlarkValue {
   @StarlarkMethod(name = "external_proto_infos", useStarlarkThread = true, documented = false)
   public StarlarkList<StarlarkProvider> getExternalProtoInfos(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    BuiltinRestriction.failIfCalledOutsideAllowlist(
+        thread, BuiltinRestriction.Allowlist.BUILTINS_ONLY);
     return externalProtoInfos;
   }
 
