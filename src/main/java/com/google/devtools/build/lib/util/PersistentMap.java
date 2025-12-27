@@ -200,6 +200,8 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
       journal.drainTo(keys);
       writeEntries(journalOut, keys);
       journalOut.flush();
+      journalOut.close();
+      journalOut = null;
     } catch (IOException e) {
       this.deferredIOFailure = e.getMessage() + " during journal append";
     }
