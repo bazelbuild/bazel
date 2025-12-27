@@ -91,9 +91,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     addOptions(
         "--rewind_lost_inputs",
         // Disable build rewinding.
-        "--experimental_remote_cache_eviction_retries=0",
-        // TODO: Add support for concurrent rewinding to Bazel.
-        "--jobs=1");
+        "--experimental_remote_cache_eviction_retries=0");
   }
 
   @Override
