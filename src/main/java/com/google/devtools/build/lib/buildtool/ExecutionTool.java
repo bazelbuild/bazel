@@ -559,10 +559,7 @@ public class ExecutionTool {
     }
 
     if (buildCompleted) {
-      System.err.println("nonCatastrophicFinalizations");
       saveActionCache(actionCache);
-    } else {
-      System.err.println("skipped saveActionCache");
     }
 
     BuildResultListener buildResultListener = env.getBuildResultListener();
