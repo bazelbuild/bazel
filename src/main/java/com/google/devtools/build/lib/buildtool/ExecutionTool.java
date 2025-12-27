@@ -491,6 +491,10 @@ public class ExecutionTool {
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;
       throw e;
+    } catch (InterruptedException e) {
+      System.err.println("interrupted");
+      e.printStackTrace();
+      throw e;
     } catch (Error | RuntimeException e) {
       catastrophe = e;
     } finally {
@@ -561,6 +565,8 @@ public class ExecutionTool {
     if (buildCompleted) {
       System.err.println("nonCatastrophicFinalizations");
       saveActionCache(actionCache);
+    } else {
+      System.err.println("skipped saveActionCache");
     }
 
     BuildResultListener buildResultListener = env.getBuildResultListener();
@@ -651,7 +657,7 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
