@@ -193,6 +193,11 @@ java_binary(
     runtime_deps = [":proguard_import"],
 )
 
+alias(
+    name = "proguard_whitelister",
+    actual = ":proguard_allowlister.par",
+)
+
 java_import(
     name = "TestRunner",
     jars = ["TestRunner.jar"],
