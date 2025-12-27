@@ -80,6 +80,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Override
+  protected ImmutableList<String> getStartupOptions() {
+    // Some tests require the ability to create symlinks on Windows.
+    return OS.getCurrent() == OS.WINDOWS
+        ? ImmutableList.of("--windows_enable_symlinks")
+        : ImmutableList.of();
+  }
+
+  @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
