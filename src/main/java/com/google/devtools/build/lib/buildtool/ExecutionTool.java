@@ -491,10 +491,6 @@ public class ExecutionTool {
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;
       throw e;
-    } catch (InterruptedException e) {
-      System.err.println("interrupted");
-      e.printStackTrace();
-      throw e;
     } catch (Error | RuntimeException e) {
       catastrophe = e;
     } finally {
