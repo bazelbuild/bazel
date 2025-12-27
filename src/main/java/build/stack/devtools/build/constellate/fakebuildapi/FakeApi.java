@@ -15,9 +15,9 @@
 package build.stack.devtools.build.constellate.fakebuildapi;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
-import build.stack.devtools.build.constellate.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import build.stack.devtools.build.constellate.fakebuildapi.config.FakeConfigGlobalLibrary;
 import build.stack.devtools.build.constellate.fakebuildapi.config.FakeConfigStarlarkCommon;
 import build.stack.devtools.build.constellate.fakebuildapi.repository.FakeRepositoryModule;
@@ -76,7 +76,7 @@ public final class FakeApi {
     Starlark.addMethods(
         env, new FakeStarlarkRuleFunctionsApi(rules, providers, aspects, macros)); // e.g. rule func
     env.put("attr", new FakeStarlarkAttrModuleApi());
-    env.put("struct", new FakeStructProviderApi());
+    env.put("struct", StructProvider.STRUCT);
     env.put("native", new FakeStarlarkNativeModuleApi(nativeRules));
     new ConfigBootstrap(
         new FakeConfigStarlarkCommon(), //

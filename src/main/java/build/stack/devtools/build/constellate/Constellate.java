@@ -294,14 +294,22 @@ public class Constellate {
             parsedLabel = Label.parseCanonical("//" + label.getPackageName() + ":" + loadLabelStr);
           }
 
+          String repoName = parsedLabel.getRepository().getName();
+          String pkgName = parsedLabel.getPackageName();
+          String targetName = parsedLabel.getName();
+
+          logger.atFine().log("Parsed load label '%s' -> repo='%s', pkg='%s', name='%s'",
+              loadLabelStr, repoName, pkgName, targetName);
+
           StarlarkProtos.Label protoLabel = StarlarkProtos.Label.newBuilder()
-              .setRepo(parsedLabel.getRepository().getName())
-              .setPkg(parsedLabel.getPackageName())
-              .setName(parsedLabel.getName())
+              .setRepo(repoName)
+              .setPkg(pkgName)
+              .setName(targetName)
               .build();
           loadStmtBuilder.setLabel(protoLabel);
         } catch (LabelSyntaxException e) {
           // If label parsing fails, create a Label with just the name field
+          logger.atWarning().withCause(e).log("Failed to parse load label: %s", loadLabelStr);
           loadStmtBuilder.setLabel(StarlarkProtos.Label.newBuilder()
               .setName(loadLabelStr)
               .build());
@@ -1449,6 +1457,9 @@ public class Constellate {
     Map<String, Object> predeclaredSymbols = new HashMap<>();
     predeclaredSymbols.putAll(initialEnv);
 
+    // Add Label constructor if not already present
+    addLabelConstructor(predeclaredSymbols);
+
     Resolver.Module predeclaredResolver = new Resolver.Module() {
       @Override
       public Scope resolve(String name) {
@@ -2031,6 +2042,57 @@ public class Constellate {
 
     // Return immutable map for thread safety in worker processes
     return ImmutableMap.copyOf(nativeRules);
+  }
+
+  /**
+   * Adds a Label constructor to the predeclared symbols, replacing any existing stub.
+   * This allows Starlark code to call Label("foo.bzl") with package-relative labels.
+   */
+  private static void addLabelConstructor(Map<String, Object> predeclaredSymbols) {
+    // Replace any existing Label (e.g., FakeDeepStructure) with our proper implementation
+    predeclaredSymbols.put("Label", new StarlarkCallable() {
+      @Override
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException {
+        if (args.size() != 1) {
+          throw Starlark.errorf("Label() takes exactly 1 argument (%d given)", args.size());
+        }
+
+        String labelStr = Starlark.str(args.get(0), thread.getSemantics());
+
+        // Get the current module's label from the BazelModuleContext
+        BazelModuleContext moduleContext;
+        try {
+          moduleContext = BazelModuleContext.ofInnermostBzlOrFail(thread, "Label");
+        } catch (EvalException e) {
+          // Fallback: try to parse as canonical label if we can't get module context
+          try {
+            return Label.parseCanonical(labelStr);
+          } catch (LabelSyntaxException ex) {
+            throw Starlark.errorf("Label: %s", ex.getMessage());
+          }
+        }
+
+        Label currentLabel = moduleContext.label();
+        try {
+          // Handle absolute labels (starting with // or @)
+          if (labelStr.startsWith("//") || labelStr.startsWith("@")) {
+            return Label.parseCanonical(labelStr);
+          }
+
+          // Handle relative labels - resolve against current package
+          // Relative labels like "foo.bzl" or ":foo.bzl" are in the current package
+          String targetName = labelStr.startsWith(":") ? labelStr.substring(1) : labelStr;
+          return Label.create(currentLabel.getPackageIdentifier(), targetName);
+        } catch (LabelSyntaxException e) {
+          throw Starlark.errorf("Label: %s", e.getMessage());
+        }
+      }
+
+      @Override
+      public String getName() {
+        return "Label";
+      }
+    });
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {

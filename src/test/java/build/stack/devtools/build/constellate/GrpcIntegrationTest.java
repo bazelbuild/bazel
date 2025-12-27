@@ -1510,4 +1510,67 @@ public class GrpcIntegrationTest {
     assertTrue("Should find aliased lib_func symbol", foundLibFunc);
     assertTrue("Should find aliased lib_prov symbol", foundLibProv);
   }
+
+  @Test
+  public void testExternalRepositoryLabels() throws Exception {
+    // Test that external repository labels in load statements are parsed correctly
+    String label = "//src/test/java/build/stack/devtools/build/constellate/testdata:external_repo_labels_test.bzl";
+
+    ModuleInfoRequest request = ModuleInfoRequest.newBuilder()
+        .setTargetFileLabel(label)
+        .build();
+
+    Module response = blockingStub.moduleInfo(request);
+
+    assertNotNull("Response should not be null", response);
+    assertTrue("Should have load statements", response.getLoadCount() > 0);
+
+    // Find the load statement for @bazel_features//:features.bzl
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt bazelFeaturesLoad = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.getLabel().getName().equals("features.bzl")) {
+        bazelFeaturesLoad = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should find @bazel_features//:features.bzl load statement", bazelFeaturesLoad);
+    assertTrue("Load statement should have Label", bazelFeaturesLoad.hasLabel());
+
+    // Verify the Label proto fields are populated correctly
+    build.stack.starlark.v1beta1.StarlarkProtos.Label labelProto = bazelFeaturesLoad.getLabel();
+    assertEquals("Repository should be 'bazel_features'", "bazel_features", labelProto.getRepo());
+    assertEquals("Package should be empty (root package)", "", labelProto.getPkg());
+    assertEquals("Name should be 'features.bzl'", "features.bzl", labelProto.getName());
+
+    // Find the load statement for @rules_go//go:def.bzl
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt rulesGoLoad = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.getLabel().getName().equals("def.bzl") && stmt.getLabel().getPkg().equals("go")) {
+        rulesGoLoad = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should find @rules_go//go:def.bzl load statement", rulesGoLoad);
+    build.stack.starlark.v1beta1.StarlarkProtos.Label rulesGoLabelProto = rulesGoLoad.getLabel();
+    assertEquals("Repository should be 'rules_go'", "rules_go", rulesGoLabelProto.getRepo());
+    assertEquals("Package should be 'go'", "go", rulesGoLabelProto.getPkg());
+    assertEquals("Name should be 'def.bzl'", "def.bzl", rulesGoLabelProto.getName());
+
+    // Find the load statement for local repository (should have empty repo)
+    build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt localLoad = null;
+    for (build.stack.starlark.v1beta1.StarlarkProtos.LoadStmt stmt : response.getLoadList()) {
+      if (stmt.getLabel().getName().equals("load_test_lib.bzl")) {
+        localLoad = stmt;
+        break;
+      }
+    }
+
+    assertNotNull("Should find local load statement", localLoad);
+    build.stack.starlark.v1beta1.StarlarkProtos.Label localLabelProto = localLoad.getLabel();
+    assertEquals("Local repository should be empty string", "", localLabelProto.getRepo());
+    assertEquals("Package should be testdata package", "src/test/java/build/stack/devtools/build/constellate/testdata", localLabelProto.getPkg());
+    assertEquals("Name should be 'load_test_lib.bzl'", "load_test_lib.bzl", localLabelProto.getName());
+  }
 }
