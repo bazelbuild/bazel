@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -80,9 +81,18 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Override
+  protected ImmutableList<String> getStartupOptions() {
+    // Some tests require the ability to create symlinks on Windows.
+    return OS.getCurrent() == OS.WINDOWS
+        ? ImmutableList.of("--windows_enable_symlinks")
+        : ImmutableList.of();
+  }
+
+  @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
+        "--enable_runfiles",
         "--spawn_strategy=standalone",
         "--noexperimental_merged_skyframe_analysis_execution",
         "--rewind_lost_inputs",

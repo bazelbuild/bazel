@@ -650,7 +650,7 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
