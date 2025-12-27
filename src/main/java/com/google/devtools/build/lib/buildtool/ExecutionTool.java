@@ -559,6 +559,7 @@ public class ExecutionTool {
     }
 
     if (buildCompleted) {
+      System.err.println("nonCatastrophicFinalizations");
       saveActionCache(actionCache);
     }
 

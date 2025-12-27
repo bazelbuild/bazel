@@ -188,6 +188,7 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
 
   /** Flushes the in-memory journal to disk. */
   public synchronized void flushJournal() {
+    new Throwable(journalFile + " flush").printStackTrace();
     try {
       if (journalOut == null) {
         // Append to a preexisting journal file, which may have been left around after the last
@@ -272,6 +273,9 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
    *     last save().
    */
   private synchronized long save(boolean fullSave) throws IOException {
+    new Throwable(
+            journalFile + " fullSave: " + fullSave + " shouldKeepJournal(): " + shouldKeepJournal())
+        .printStackTrace();
     /* Report a previously failing I/O operation. */
     if (deferredIOFailure != null) {
       try {
@@ -282,6 +286,7 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     }
     if (!fullSave && shouldKeepJournal()) {
       flushJournal();
+      System.err.println("Closing " + journalFile);
       journalOut.close();
       journalOut = null;
     } else {
@@ -295,6 +300,7 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
         mapTemp.delete();
       }
       clearJournal();
+      System.err.println("Deleting " + journalFile);
       journalFile.delete();
     }
     return journalSize() + cacheSize();
