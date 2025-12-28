@@ -30,25 +30,6 @@ starlark_doc_extract(
 )
 
 starlark_doc_extract(
-    name = "cc_proto_library_bzl",
-    src = "@com_google_protobuf//bazel:cc_proto_library_bzl",
-    visibility = ["//visibility:public"],
-    # deps = [
-    #     "@com_google_protobuf//bazel:cc_proto_library_bzl",
-    #     "@com_google_protobuf//bazel:java_lite_proto_library_bzl",
-    #     "@com_google_protobuf//bazel:java_proto_library_bzl",
-    #     "@com_google_protobuf//bazel:proto_library_bzl",
-    #     "@com_google_protobuf//bazel:py_proto_library_bzl",
-    #     "@com_google_protobuf//bazel/toolchains:proto_lang_toolchain_bzl",
-    #     "@com_google_protobuf//bazel/toolchains:proto_toolchain_bzl",
-    #     "@rules_cc//cc/common",
-    #     "@rules_cc//cc/toolchains:toolchain_rules",
-    #     "@rules_java//java/common:proguard_spec_info_bzl",
-    #     "@rules_java//java/private:proto_support",
-    # ],
-)
-
-starlark_doc_extract(
     name = "gen_be_java_stardoc_proto",
     src = "java.bzl",
     visibility = ["//visibility:public"],

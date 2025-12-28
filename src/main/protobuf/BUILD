@@ -384,9 +384,7 @@ package_group(
 proto_library(
     name = "stardoc_output_proto",
     srcs = ["stardoc_output.proto"],
-    visibility = [
-        ":stardoc_output_users",
-    ],
+    visibility = [":stardoc_output_users"],
 )
 
 java_proto_library(
