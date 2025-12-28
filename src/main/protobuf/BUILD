@@ -372,16 +372,21 @@ package_group(
         "//src/main/java/com/google/devtools/build/docgen/...",
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract/...",
+        "//src/main/java/build/stack/starlark/v1beta1/...",
         "//src/test/java/com/google/devtools/build/docgen/...",
         "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
         "//src/test/java/com/google/devtools/build/lib/starlarkdocextract/...",
+        "//src/main/java/build/stack/devtools/build/constellate/...",
+        "//src/test/java/build/stack/devtools/build/constellate/...",
     ],
 )
 
 proto_library(
     name = "stardoc_output_proto",
     srcs = ["stardoc_output.proto"],
-    visibility = [":stardoc_output_users"],
+    visibility = [
+        ":stardoc_output_users",
+    ],
 )
 
 java_proto_library(

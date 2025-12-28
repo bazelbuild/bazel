@@ -1,0 +1,242 @@
+syntax = "proto3";
+
+// build.stack.starlark.v1 contains a protocol for representing Starlark modules
+// and services for querying them.
+package build.stack.starlark.v1beta1;
+
+import "src/main/protobuf/stardoc_output.proto";
+
+option java_package = "build.stack.starlark.v1beta1";
+option java_outer_classname = "StarlarkProtos";
+option go_package = "github.com/stackb/bezel/build/stack/starlark/v1beta1";
+
+// ModuleCategory corresponds to corresponds to
+// StarlarkDocumentationCategory.java.
+enum ModuleCategory {
+    MODULE_CATEGORY_UNKNOWN = 0;
+    CONFIGURATION_FRAGMENT = 1;
+    PROVIDER = 2;
+    BUILTIN = 3;
+    TOP_LEVEL_TYPE = 4;
+    NONE = 5;
+    CORE = 6;
+    LOAD = 7;
+}
+
+message Position {
+    int32 line = 1;
+    int32 character = 2;
+}
+
+message SymbolLocation {
+    Position start = 1;
+    Position end = 2;
+    string name = 3;
+}
+
+// The Module represents all documentation for a single Starlark file.
+message Module {
+    // the module name
+    string name = 1;
+    // the module category - corresponds to StarlarkDocumentationCategory.java.
+    ModuleCategory category = 2;
+    // Reserved field for removed ModuleInfo - all info now in typed wrapper fields below
+    reserved 3;
+    reserved "info";
+    // the module filename, as an absolute path
+    string filename = 4;
+    // the symbol locations
+    repeated SymbolLocation symbol_location = 5;
+    // additional global scalars (string, int, bool)
+    // Only includes public symbols (not starting with _) to reduce proto size
+    map<string,Value> global = 6;
+    // load statements
+    repeated LoadStmt load = 7;
+    // repository rules with locations
+    repeated RepositoryRule repository_rule = 8;
+    // module extensions with locations
+    repeated ModuleExtension module_extension = 9;
+    // macros with locations
+    repeated Macro macro = 10;
+    // extraction errors (e.g., malformed docstrings for individual symbols)
+    repeated string error = 11;
+    // functions with locations and wrapper info
+    repeated Function function = 12;
+    // the docstring present at the top of the input Starlark file
+    string module_docstring = 13;
+    // rules with locations
+    repeated Rule rule = 14;
+    // providers with locations
+    repeated Provider provider = 15;
+    // aspects with locations
+    repeated Aspect aspect = 16;
+    // rule macros - functions that wrap private rules
+    repeated RuleMacro rule_macro = 17;
+}
+
+message Label {
+    string repo = 1;
+    string pkg = 2;
+    string name = 3;
+    // version optionally narrows augments the repo to a specific version
+    string version = 4;
+}
+
+message LoadSymbol {
+    string from = 1;
+    string to = 2;
+    SymbolLocation location = 3;
+}
+
+message LoadStmt {
+    Label label = 1;
+    repeated LoadSymbol symbol = 2;
+    SymbolLocation location = 3;
+}
+
+message Rule {
+    stardoc_output.RuleInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Aspect {
+    stardoc_output.AspectInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Attribute {
+    stardoc_output.AttributeInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message Provider {
+    stardoc_output.ProviderInfo info = 1;
+    SymbolLocation location = 2;
+    repeated ProviderField field = 3;
+}
+
+message ProviderField {
+    stardoc_output.ProviderFieldInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message Function {
+    stardoc_output.StarlarkFunctionInfo info = 1;
+    SymbolLocation location = 2;
+    repeated FunctionParam param = 3;
+    // Names of rules, aspects, and macros that this function calls.
+    // This identifies "wrapper functions" (traditional Bazel macros) - functions
+    // that primarily forward arguments to underlying rules or other macros.
+    repeated string calls_rule_or_macro = 4;
+    // Names of rules, aspects, and macros that receive **kwargs from this function.
+    // This is a more specific indicator of the primary wrapping relationship.
+    // For example, if `def my_macro(**kwargs): my_rule(**kwargs)`, then
+    // forwards_kwargs_to will contain "my_rule".
+    repeated string forwards_kwargs_to = 5;
+    // Names of rules, aspects, and macros that receive the 'name' parameter from this function.
+    // This provides a stronger signal for wrapper function detection by tracking explicit
+    // name parameter forwarding. For example, if `def my_macro(name, **kwargs): my_rule(name=name, **kwargs)`,
+    // then forwards_name_to will contain "my_rule". This includes cases where name is used in
+    // expressions like `name=name + "_suffix"` (still references the name parameter).
+    repeated string forwards_name_to = 6;
+}
+
+message FunctionParam {
+    stardoc_output.FunctionParamInfo info = 1;
+    SymbolLocation location = 2;
+}
+
+message Value {
+    SymbolLocation location = 1;
+    oneof value {
+        string string = 2;
+        int64 int = 3;
+        bool bool = 4;
+        MacroFunction macro = 5;
+        ValueList list = 6;
+    };
+}
+
+message ValueList {
+    repeated Value value = 1;
+}
+
+message MacroFunction {
+    repeated string kwargs_receiver = 1;
+}
+
+message RepositoryRule {
+    stardoc_output.RepositoryRuleInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message ModuleExtension {
+    stardoc_output.ModuleExtensionInfo info = 1;
+    SymbolLocation location = 2;
+    repeated ModuleExtensionTagClass tag_class = 3;
+}
+
+message ModuleExtensionTagClass {
+    stardoc_output.ModuleExtensionTagClassInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+message Macro {
+    stardoc_output.MacroInfo info = 1;
+    SymbolLocation location = 2;
+    repeated Attribute attribute = 3;
+}
+
+// RuleMacro is the case wherein a function forwards name and or kwargs to a
+// rule. This is the familiar "macro" pattern, where "macro()" is now a first
+// class citizen.
+message RuleMacro {
+    // function is the entrypoint callable (src)
+    Function function = 1;
+    // rule is the final resolved rule (dst)
+    Rule rule = 2;
+    // symbol is a list of resolved symbols that the function called, but not as
+    // kwargs or name.
+    repeated string symbol = 3;
+    // loads represents the load statement that were used to resolve rule.
+    repeated LoadStmt loads = 4;
+}
+
+// ModuleRequest is a request for module information.
+message ModuleInfoRequest {
+    // target_file_label corresponds to the stardoc_binary --input argument.  Inputs are
+    // typically bazel labels pointing to .bzl files, such as those used in load
+    // statements.
+    string target_file_label = 1;
+    // Reserved field numbers for removed workspace-related fields that were never used
+    reserved 2, 8, 9;
+    reserved "workspace_name", "workspace_cwd", "workspace_output_base";
+    // rel is the relative path of the package from the current workspace.  This is
+    // needed for interpreting relative labels like `:utils.bzl`
+    string rel = 3;
+    // --symbol
+    repeated string symbol_names = 4;
+    // dep_roots are directory paths where files should be searched
+    repeated string dep_roots = 5;
+    // the builtins path for StarlarkSemantics
+    string builtins_bzl_path = 6;
+    // the content of the module to evaluate
+    string module_content = 7;
+}
+
+message PingRequest { }
+
+message PingResponse { }
+
+
+// Starlark is a service that provides starlark language information.
+service Starlark {
+    // ModuleInfo services requests for ModuleInfo.
+    rpc ModuleInfo(ModuleInfoRequest) returns (Module) {}
+    // Ping allows connectivity checks
+    rpc Ping(PingRequest) returns (PingResponse) {}
+}

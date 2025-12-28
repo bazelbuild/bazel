@@ -1,0 +1,36 @@
+# load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
+
+package(
+    default_visibility = [
+        "//src/main/java/build/stack/devtools/build/constellate:__subpackages__",
+        "//src/test/java/build/stack/devtools/build/constellate:__subpackages__",
+    ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
+proto_library(
+    name = "starlark_proto",
+    srcs = ["starlark.proto"],
+    deps = ["//src/main/protobuf:stardoc_output_proto"],
+)
+
+java_proto_library(
+    name = "starlark_java_proto",
+    deps = [":starlark_proto"],
+)
+
+java_grpc_library(
+    name = "starlark_java_grpc",
+    srcs = [":starlark_proto"],
+    deps = [
+        ":starlark_java_proto",
+        "//src/main/protobuf:stardoc_output_java_proto",
+    ],
+)
