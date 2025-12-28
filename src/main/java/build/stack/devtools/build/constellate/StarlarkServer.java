@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Rule
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 
 import build.stack.devtools.build.constellate.rendering.ProtoRenderer;
-import build.stack.devtools.build.constellate.Constellate;
-import build.stack.devtools.build.constellate.Constellate.StarlarkEvaluationException;
+import build.stack.devtools.build.constellate.StarlarkEvaluator;
+import build.stack.devtools.build.constellate.StarlarkEvaluator.StarlarkEvaluationException;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -115,7 +115,8 @@ final class StarlarkServer extends StarlarkImplBase {
             return;
         } catch (LabelSyntaxException | IllegalArgumentException e) {
             // Invalid input from client - label format or request parameters
-            logger.atInfo().withCause(e).log("Invalid argument in ModuleInfo request: %s", request.getTargetFileLabel());
+            logger.atInfo().withCause(e).log("Invalid argument in ModuleInfo request: %s",
+                    request.getTargetFileLabel());
             moduleObserver.onError(StatusUtils.invalidArgumentError(e));
             return;
         } catch (java.nio.file.NoSuchFileException | java.io.FileNotFoundException e) {
@@ -125,7 +126,8 @@ final class StarlarkServer extends StarlarkImplBase {
             return;
         } catch (StarlarkEvaluationException | EvalException e) {
             // User's Starlark code has syntax or runtime errors
-            logger.atInfo().withCause(e).log("Starlark evaluation error in ModuleInfo request: %s", request.getTargetFileLabel());
+            logger.atInfo().withCause(e).log("Starlark evaluation error in ModuleInfo request: %s",
+                    request.getTargetFileLabel());
             moduleObserver.onError(StatusUtils.invalidArgumentError(e));
             return;
         } catch (IOException e) {
@@ -135,7 +137,8 @@ final class StarlarkServer extends StarlarkImplBase {
             return;
         } catch (Exception e) {
             // Unknown/unexpected errors
-            logger.atWarning().withCause(e).log("Unexpected error in ModuleInfo request: %s", request.getTargetFileLabel());
+            logger.atWarning().withCause(e).log("Unexpected error in ModuleInfo request: %s",
+                    request.getTargetFileLabel());
             moduleObserver.onError(StatusUtils.internalError(e));
             return;
         }
@@ -178,11 +181,11 @@ final class StarlarkServer extends StarlarkImplBase {
             }
         } catch (LabelSyntaxException e) {
             throw new LabelSyntaxException(
-                String.format(
-                    "Invalid target file label '%s' in ModuleInfoRequest (rel='%s'): %s",
-                    targetFileLabelString,
-                    request.getRel(),
-                    e.getMessage()));
+                    String.format(
+                            "Invalid target file label '%s' in ModuleInfoRequest (rel='%s'): %s",
+                            targetFileLabelString,
+                            request.getRel(),
+                            e.getMessage()));
         }
 
         ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
@@ -204,7 +207,8 @@ final class StarlarkServer extends StarlarkImplBase {
         StarlarkFileAccessor fileAccessor = new FilesystemFileAccessor();
         if (!Strings.isNullOrEmpty(request.getModuleContent())) {
             // Use HybridFileAccessor to provide in-memory content for target file
-            // We need to compute the file path that Constellate will use to resolve the label
+            // We need to compute the file path that Constellate will use to resolve the
+            // label
             // The path is derived from the label's path fragment
             String workspaceRoot = targetFileLabel.getWorkspaceRootForStarlarkOnly(semantics);
             String targetFilePath;
@@ -216,21 +220,19 @@ final class StarlarkServer extends StarlarkImplBase {
                 targetFilePath = workspaceRoot + "/" + targetFileLabel.toPathFragment().toString();
             }
             fileAccessor = new HybridFileAccessor(
-                targetFilePath,
-                request.getModuleContent(),
-                fileAccessor
-            );
+                    targetFilePath,
+                    request.getModuleContent(),
+                    fileAccessor);
         }
 
         try {
-            Constellate constellate = new Constellate(semantics, fileAccessor, depRoots);
+            StarlarkEvaluator evaluator = new StarlarkEvaluator(semantics, fileAccessor, depRoots);
 
-            Path labelPath = constellate.pathOfLabel(targetFileLabel);
-            // FIXME(labelPath will die on relative labels!)
-            ParserInput input = constellate.getInputSource(labelPath.toString());
+            Path labelPath = evaluator.pathOfLabel(targetFileLabel);
+            ParserInput input = evaluator.getInputSource(labelPath.toString());
             module.setFilename(input.getFile());
 
-            constellate.eval(
+            evaluator.eval(
                     input,
                     targetFileLabel,
                     ruleInfoMap,
@@ -244,7 +246,7 @@ final class StarlarkServer extends StarlarkImplBase {
                     module,
                     globals);
 
-        } catch (Constellate.StarlarkEvaluationException exception) {
+        } catch (StarlarkEvaluator.StarlarkEvaluationException exception) {
             exception.printStackTrace();
             System.err.println("Starlark documentation generation failed: " + exception.getMessage());
             throw exception;
@@ -313,11 +315,14 @@ final class StarlarkServer extends StarlarkImplBase {
     }
 
     /**
-     * Populates wrapper messages (Rule, Provider, Aspect, RepositoryRule, ModuleExtension, Macro) in the
-     * Module builder by combining entity info from ProtoRenderer with SymbolLocation data.
+     * Populates wrapper messages (Rule, Provider, Aspect, RepositoryRule,
+     * ModuleExtension, Macro) in the
+     * Module builder by combining entity info from ProtoRenderer with
+     * SymbolLocation data.
      *
      * <p>
-     * Wrapper messages provide location information for IDE features like go-to-definition.
+     * Wrapper messages provide location information for IDE features like
+     * go-to-definition.
      */
     private void populateWrapperMessages(Module.Builder module, ProtoRenderer renderer) {
         // Build a map of symbol names to locations for quick lookup

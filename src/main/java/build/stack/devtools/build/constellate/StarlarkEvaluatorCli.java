@@ -15,9 +15,10 @@ import java.util.Collections;
 /**
  * Command-line interface for constellate tool.
  *
- * Evaluates a Starlark file and extracts documentation as a ModuleInfo protobuf.
+ * Evaluates a Starlark file and extracts documentation as a ModuleInfo
+ * protobuf.
  */
-public final class ConstellateCli {
+public final class StarlarkEvaluatorCli {
 
   /** CLI options for constellate. */
   public static class Options {
@@ -73,11 +74,11 @@ public final class ConstellateCli {
 
     // Run constellate
     System.out.println("Evaluating: " + opts.input);
-    Constellate constellate = new Constellate(
+    StarlarkEvaluator evaluator = new StarlarkEvaluator(
         semanticsOptions.toStarlarkSemantics(),
         fileAccessor);
 
-    ModuleInfo moduleInfo = constellate.run(label, Collections.emptyMap());
+    ModuleInfo moduleInfo = evaluator.run(label, Collections.emptyMap());
 
     // Write output
     try (FileOutputStream fos = new FileOutputStream(opts.output)) {
@@ -96,5 +97,6 @@ public final class ConstellateCli {
     }
   }
 
-  private ConstellateCli() {}
+  private StarlarkEvaluatorCli() {
+  }
 }

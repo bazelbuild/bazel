@@ -6,9 +6,9 @@ filegroup(
 )
 
 java_test(
-    name = "ConstellateTest",
+    name = "StarlarkEvaluatorTest",
     size = "small",
-    srcs = ["ConstellateTest.java"],
+    srcs = ["StarlarkEvaluatorTest.java"],
     data = ["//src/test/java/build/stack/devtools/build/constellate/testdata"],
     deps = [
         "//src/main/java/build/stack/devtools/build/constellate:constellate_lib",

@@ -40,7 +40,7 @@ public class DebugTest {
     StarlarkSemantics semantics = semanticsOptions.toStarlarkSemantics();
 
     // Create constellate
-    Constellate constellate = new Constellate(
+    StarlarkEvaluator evaluator = new StarlarkEvaluator(
         semantics,
         new FilesystemFileAccessor(),
         /* depRoots= */ ImmutableList.of());
@@ -65,7 +65,7 @@ public class DebugTest {
     build.stack.starlark.v1beta1.StarlarkProtos.Module.Builder moduleBuilder = build.stack.starlark.v1beta1.StarlarkProtos.Module
         .newBuilder();
 
-    Module module = constellate.eval(
+    Module module = evaluator.eval(
         input,
         label,
         ruleInfoMap,

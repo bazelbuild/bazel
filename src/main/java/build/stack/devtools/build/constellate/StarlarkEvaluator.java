@@ -133,7 +133,7 @@ import net.starlark.java.types.StarlarkType;
  * supplied, outputs documentation for all exported symbols in the target
  * Starlark file.
  */
-public class Constellate {
+public class StarlarkEvaluator {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // eventHandler is used to replay events when we get a compile error.
@@ -173,13 +173,14 @@ public class Constellate {
 
   // Native rules loaded from bundled binary protos at class initialization time
   // Maps rule name -> RuleInfo for native Bazel rules (genrule, filegroup, etc.)
-  // Static to avoid reloading on every Constellate instance (worker process optimization)
+  // Static to avoid reloading on every Constellate instance (worker process
+  // optimization)
   private static final Map<String, RuleInfo> NATIVE_RULES = loadNativeRulesFromResources();
 
   // Maximum retries per file to prevent infinite loops
   private static final int MAX_RETRIES_PER_FILE = 10;
 
-  public Constellate(StarlarkSemantics semantics, StarlarkFileAccessor fileAccessor,
+  public StarlarkEvaluator(StarlarkSemantics semantics, StarlarkFileAccessor fileAccessor,
       List<String> depRoots) {
     this.semantics = semantics;
     this.fileAccessor = fileAccessor;
@@ -320,8 +321,10 @@ public class Constellate {
         Location loadEndLoc = loadStmt.getEndLocation();
         StarlarkProtos.SymbolLocation loadSymbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
             .setName("load")
-            .setStart(StarlarkProtos.Position.newBuilder().setLine(loadLoc.line()).setCharacter(loadLoc.column()).build())
-            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loadEndLoc.line()).setCharacter(loadEndLoc.column()).build())
+            .setStart(
+                StarlarkProtos.Position.newBuilder().setLine(loadLoc.line()).setCharacter(loadLoc.column()).build())
+            .setEnd(StarlarkProtos.Position.newBuilder().setLine(loadEndLoc.line()).setCharacter(loadEndLoc.column())
+                .build())
             .build();
         loadStmtBuilder.setLocation(loadSymbolLocation);
 
@@ -334,8 +337,10 @@ public class Constellate {
               .setTo(binding.getLocalName().getName())
               .setLocation(StarlarkProtos.SymbolLocation.newBuilder()
                   .setName(binding.getLocalName().getName())
-                  .setStart(StarlarkProtos.Position.newBuilder().setLine(bindingLoc.line()).setCharacter(bindingLoc.column()).build())
-                  .setEnd(StarlarkProtos.Position.newBuilder().setLine(bindingEndLoc.line()).setCharacter(bindingEndLoc.column()).build())
+                  .setStart(StarlarkProtos.Position.newBuilder().setLine(bindingLoc.line())
+                      .setCharacter(bindingLoc.column()).build())
+                  .setEnd(StarlarkProtos.Position.newBuilder().setLine(bindingEndLoc.line())
+                      .setCharacter(bindingEndLoc.column()).build())
                   .build())
               .build();
           loadStmtBuilder.addSymbol(loadSymbol);
@@ -419,7 +424,8 @@ public class Constellate {
     // go_transition_wrapper=go_binary)
     ImmutableListMultimap.Builder<String, Collection<String>> calledWithKwargs = ImmutableListMultimap.builder();
 
-    // calledWithName tracks rules/macros that receive the 'name' parameter from a function.
+    // calledWithName tracks rules/macros that receive the 'name' parameter from a
+    // function.
     // This provides stronger signal for wrapper function detection. For example, if
     // `def my_macro(name, **kwargs): my_rule(name=name, **kwargs)`, we store
     // mapping [my_rule<String>, my_macro<String>].
@@ -641,7 +647,8 @@ public class Constellate {
         try {
           repositoryRuleInfoMap.put(envEntry.getKey(), repositoryRuleInfo);
         } catch (IllegalArgumentException e) {
-          logger.atWarning().log("Duplicate repository_rule definition for '%s' in %s (keeping first definition). Error: %s",
+          logger.atWarning().log(
+              "Duplicate repository_rule definition for '%s' in %s (keeping first definition). Error: %s",
               envEntry.getKey(), label, e.getMessage());
         }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
@@ -671,7 +678,8 @@ public class Constellate {
         try {
           moduleExtensionInfoMap.put(envEntry.getKey(), moduleExtensionInfo);
         } catch (IllegalArgumentException e) {
-          logger.atWarning().log("Duplicate module_extension definition for '%s' in %s (keeping first definition). Error: %s",
+          logger.atWarning().log(
+              "Duplicate module_extension definition for '%s' in %s (keeping first definition). Error: %s",
               envEntry.getKey(), label, e.getMessage());
         }
         StarlarkProtos.SymbolLocation symbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
@@ -701,8 +709,7 @@ public class Constellate {
     // Collect current rule names to avoid duplicates
     for (RuleInfoWrapper wrapper : ruleInfoList) {
       if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
-        PostAssignHookAssignableIdentifier ident =
-          (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
+        PostAssignHookAssignableIdentifier ident = (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
         currentRuleNames.add(ident.getAssignedName());
       }
     }
@@ -710,8 +717,8 @@ public class Constellate {
     for (Module loadedModule : imports.values()) {
       for (Map.Entry<String, Object> entry : loadedModule.getGlobals().entrySet()) {
         if (entry.getValue() instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
-          FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier ruleIdent =
-            (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) entry.getValue();
+          FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier ruleIdent = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) entry
+              .getValue();
           String ruleName = entry.getKey();
 
           // Skip if this rule is already in our current module
@@ -723,8 +730,8 @@ public class Constellate {
           // Look through ruleInfoList for a matching rule by the identifier
           for (RuleInfoWrapper wrapper : ruleInfoList) {
             if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
-              PostAssignHookAssignableIdentifier ident =
-                (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
+              PostAssignHookAssignableIdentifier ident = (PostAssignHookAssignableIdentifier) wrapper
+                  .getIdentifierFunction();
               if (ident.getAssignedName().equals(ruleName)) {
                 RuleInfo ruleInfo = wrapper.getRuleInfo().build();
                 try {
@@ -741,14 +748,17 @@ public class Constellate {
       }
     }
 
-    // Second pass: analyze functions to detect calls to rules/aspects/macros (wrapper functions)
-    // This must be done after all rules/aspects/macros have been added to their respective maps
+    // Second pass: analyze functions to detect calls to rules/aspects/macros
+    // (wrapper functions)
+    // This must be done after all rules/aspects/macros have been added to their
+    // respective maps
     ImmutableMap<String, RuleInfo> builtRuleInfoMap = ruleInfoMap.build();
     ImmutableMap<String, AspectInfo> builtAspectInfoMap = aspectInfoMap.build();
     ImmutableMap<String, MacroInfo> builtMacroInfoMap = macroInfoMap.build();
     ImmutableMap<String, StarlarkFunction> builtUserFunctionMap = userDefinedFunctionMap.build();
 
-    // Build inverted map: functionName -> [rules/macros that receive **kwargs from this function]
+    // Build inverted map: functionName -> [rules/macros that receive **kwargs from
+    // this function]
     // calledWithKwargs maps ruleName -> [functionNames], we need to invert it
     ImmutableListMultimap<String, Collection<String>> builtCalledWithKwargs = calledWithKwargs.build();
     Map<String, List<String>> functionToKwargsTargets = new HashMap<>();
@@ -759,7 +769,8 @@ public class Constellate {
       }
     }
 
-    // Build inverted map: functionName -> [rules/macros that receive 'name' parameter from this function]
+    // Build inverted map: functionName -> [rules/macros that receive 'name'
+    // parameter from this function]
     // calledWithName maps ruleName -> [functionNames], we need to invert it
     ImmutableListMultimap<String, Collection<String>> builtCalledWithName = calledWithName.build();
     Map<String, List<String>> functionToNameTargets = new HashMap<>();
@@ -799,8 +810,10 @@ public class Constellate {
 
       // Check if this function should be a RuleMacro:
       // - Function forwards kwargs or name to a rule
-      // - The target is a rule in our rule map OR in the ruleInfoList OR a native rule
-      // Note: We don't restrict to private rules (_) - real-world macros often wrap public rules too
+      // - The target is a rule in our rule map OR in the ruleInfoList OR a native
+      // rule
+      // Note: We don't restrict to private rules (_) - real-world macros often wrap
+      // public rules too
       String wrappedRuleName = null;
       for (String target : kwargsTargets) {
         if (builtRuleInfoMap.containsKey(target)) {
@@ -818,15 +831,16 @@ public class Constellate {
         // Also check if there's a wrapper for this rule (might be from a loaded module)
         for (RuleInfoWrapper wrapper : ruleInfoList) {
           if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
-            PostAssignHookAssignableIdentifier ident =
-              (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
+            PostAssignHookAssignableIdentifier ident = (PostAssignHookAssignableIdentifier) wrapper
+                .getIdentifierFunction();
             if (ident.getAssignedName().equals(target)) {
               wrappedRuleName = target;
               break;
             }
           }
         }
-        if (wrappedRuleName != null) break;
+        if (wrappedRuleName != null)
+          break;
       }
       // NOTE: We don't check nameTargets here for RuleMacro classification.
       // Almost every function passes 'name' through, so that would be too broad.
@@ -834,7 +848,8 @@ public class Constellate {
 
       if (wrappedRuleName != null) {
         // This is a RuleMacro - convert it
-        // We need to create both Function and Rule wrappers, then link them in RuleMacro
+        // We need to create both Function and Rule wrappers, then link them in
+        // RuleMacro
         ruleMacroFunctionNames.add(functionName);
         try {
           StarlarkFunctionInfo functionInfo = FunctionUtil.fromNameAndFunction(functionName, userDefinedFunction);
@@ -844,12 +859,13 @@ public class Constellate {
             String nativeRuleName = wrappedRuleName.substring("native.".length());
             ruleInfo = NATIVE_RULES.get(nativeRuleName);
           }
-          // If still not found, try to find it in ruleInfoList (might be from a loaded module)
+          // If still not found, try to find it in ruleInfoList (might be from a loaded
+          // module)
           if (ruleInfo == null) {
             for (RuleInfoWrapper wrapper : ruleInfoList) {
               if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
-                PostAssignHookAssignableIdentifier ident =
-                  (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
+                PostAssignHookAssignableIdentifier ident = (PostAssignHookAssignableIdentifier) wrapper
+                    .getIdentifierFunction();
                 if (ident.getAssignedName().equals(wrappedRuleName)) {
                   // Get the builder and ensure the rule name is set before building
                   RuleInfo.Builder ruleInfoBuilder = wrapper.getRuleInfo();
@@ -869,8 +885,10 @@ public class Constellate {
           Location funcLoc = userDefinedFunction.getLocation();
           StarlarkProtos.SymbolLocation funcSymbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
               .setName(functionName)
-              .setStart(StarlarkProtos.Position.newBuilder().setLine(funcLoc.line()).setCharacter(funcLoc.column()).build())
-              .setEnd(StarlarkProtos.Position.newBuilder().setLine(funcLoc.line()).setCharacter(funcLoc.column()).build())
+              .setStart(
+                  StarlarkProtos.Position.newBuilder().setLine(funcLoc.line()).setCharacter(funcLoc.column()).build())
+              .setEnd(
+                  StarlarkProtos.Position.newBuilder().setLine(funcLoc.line()).setCharacter(funcLoc.column()).build())
               .build();
 
           // Create Function wrapper
@@ -888,13 +906,16 @@ public class Constellate {
           // Find the rule's location from the rule wrapper list
           boolean foundRuleLocation = false;
           for (RuleInfoWrapper ruleWrapper : ruleInfoList) {
-            String ruleWrapperName = ((PostAssignHookAssignableIdentifier) ruleWrapper.getIdentifierFunction()).getAssignedName();
+            String ruleWrapperName = ((PostAssignHookAssignableIdentifier) ruleWrapper.getIdentifierFunction())
+                .getAssignedName();
             if (ruleWrapperName.equals(wrappedRuleName)) {
               Location ruleLoc = ruleWrapper.getLocation();
               StarlarkProtos.SymbolLocation ruleSymbolLocation = StarlarkProtos.SymbolLocation.newBuilder()
                   .setName(wrappedRuleName)
-                  .setStart(StarlarkProtos.Position.newBuilder().setLine(ruleLoc.line()).setCharacter(ruleLoc.column()).build())
-                  .setEnd(StarlarkProtos.Position.newBuilder().setLine(ruleLoc.line()).setCharacter(ruleLoc.column()).build())
+                  .setStart(StarlarkProtos.Position.newBuilder().setLine(ruleLoc.line()).setCharacter(ruleLoc.column())
+                      .build())
+                  .setEnd(StarlarkProtos.Position.newBuilder().setLine(ruleLoc.line()).setCharacter(ruleLoc.column())
+                      .build())
                   .build();
               ruleBuilder.setLocation(ruleSymbolLocation);
               foundRuleLocation = true;
@@ -1062,7 +1083,8 @@ public class Constellate {
           try {
             ruleInfoMap.put(caller, ruleInfo.build());
           } catch (IllegalArgumentException e) {
-            logger.atWarning().log("Duplicate macro/rule definition for '%s' (from rule %s via %s) (keeping first definition). Error: %s",
+            logger.atWarning().log(
+                "Duplicate macro/rule definition for '%s' (from rule %s via %s) (keeping first definition). Error: %s",
                 caller, name, function.getName(), e.getMessage());
           }
           logger.atFine().log("global macro %s (rule from %s, called by %s)", caller, name, function.getName());
@@ -1109,7 +1131,8 @@ public class Constellate {
                     Object resolved = resolveFunctionIdentifier(userDefinedFunction, ident);
                     if (resolved instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
                       FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier ruleIdent = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) resolved;
-                      logger.atFine().log("Function %s forwards **kwargs to rule %s", globalName, ruleIdent.getAssignedName());
+                      logger.atFine().log("Function %s forwards **kwargs to rule %s", globalName,
+                          ruleIdent.getAssignedName());
                       calledWithKwargs.put(ruleIdent.getAssignedName(), ImmutableList.of(globalName));
                     } else if (resolved != null) {
                       logger.atFine().log("Function %s forwards **kwargs to %s", globalName, ident.getName());
@@ -1117,7 +1140,8 @@ public class Constellate {
                     } else {
                       // Couldn't resolve the identifier (likely from a loaded module)
                       // Add it by name and hope we can match it later
-                      logger.atFine().log("Function %s forwards **kwargs to unresolved symbol %s (likely loaded)", globalName, ident.getName());
+                      logger.atFine().log("Function %s forwards **kwargs to unresolved symbol %s (likely loaded)",
+                          globalName, ident.getName());
                       calledWithKwargs.put(ident.getName(), ImmutableList.of(globalName));
                     }
                   } catch (InterruptedException iEx) {
@@ -1151,7 +1175,8 @@ public class Constellate {
               // Check if the value references the 'name' parameter
               if (referencesNameParameter(value)) {
                 logger.atFine().log("Found name parameter forwarding at %s: %s", arg.getStartLocation(), value);
-                // Find the parent call expression to identify which rule/macro receives the name
+                // Find the parent call expression to identify which rule/macro receives the
+                // name
                 for (int i = stack.size() - 1; i >= 0; i--) {
                   Node parent = stack.get(i);
                   if (parent instanceof CallExpression) {
@@ -1163,14 +1188,16 @@ public class Constellate {
                         Object resolved = resolveFunctionIdentifier(userDefinedFunction, ident);
                         if (resolved instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
                           FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier ruleIdent = (FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) resolved;
-                          logger.atFine().log("Function %s forwards name to rule %s", globalName, ruleIdent.getAssignedName());
+                          logger.atFine().log("Function %s forwards name to rule %s", globalName,
+                              ruleIdent.getAssignedName());
                           calledWithName.put(ruleIdent.getAssignedName(), ImmutableList.of(globalName));
                         } else if (resolved != null) {
                           logger.atFine().log("Function %s forwards name to %s", globalName, ident.getName());
                           calledWithName.put(ident.getName(), ImmutableList.of(globalName));
                         } else {
                           // Couldn't resolve the identifier (likely from a loaded module)
-                          logger.atFine().log("Function %s forwards name to unresolved symbol %s (likely loaded)", globalName, ident.getName());
+                          logger.atFine().log("Function %s forwards name to unresolved symbol %s (likely loaded)",
+                              globalName, ident.getName());
                           calledWithName.put(ident.getName(), ImmutableList.of(globalName));
                         }
                       } catch (InterruptedException iEx) {
@@ -1202,7 +1229,8 @@ public class Constellate {
 
       /**
        * Checks if an expression references the 'name' parameter.
-       * This includes direct references (name) and expressions using name (name + "_suffix").
+       * This includes direct references (name) and expressions using name (name +
+       * "_suffix").
        */
       boolean referencesNameParameter(Expression expr) {
         if (expr instanceof Identifier) {
@@ -1291,7 +1319,8 @@ public class Constellate {
         // Handle Identifier calls (regular rules/macros)
         if (callTarget instanceof Identifier) {
           Identifier targetIdent = (Identifier) callTarget;
-          logger.atFine().log("Found name parameter forwarding to %s at %s", targetIdent.getName(), call.getStartLocation());
+          logger.atFine().log("Found name parameter forwarding to %s at %s", targetIdent.getName(),
+              call.getStartLocation());
           try {
             Object resolved = resolveFunctionIdentifier(userDefinedFunction, targetIdent);
             if (resolved instanceof FakeStarlarkRuleFunctionsApi.RuleDefinitionIdentifier) {
@@ -1303,7 +1332,8 @@ public class Constellate {
               calledWithName.put(targetIdent.getName(), ImmutableList.of(globalName));
             } else {
               // Couldn't resolve the identifier (likely from a loaded module)
-              logger.atFine().log("Function %s forwards name to unresolved symbol %s (likely loaded)", globalName, targetIdent.getName());
+              logger.atFine().log("Function %s forwards name to unresolved symbol %s (likely loaded)", globalName,
+                  targetIdent.getName());
               calledWithName.put(targetIdent.getName(), ImmutableList.of(globalName));
             }
           } catch (Exception e) {
@@ -1662,8 +1692,10 @@ public class Constellate {
           boolean isNew = missingSymbols.add(trackingKey);
 
           if (isNew) {
-            logger.atWarning().log("Missing symbol '%s' from file '%s' in %s (retry %d/%d, %d total missing), adding stub and retrying",
-                missingInfo.symbol, missingInfo.filename, label, retryCount + 1, MAX_RETRIES_PER_FILE, missingSymbols.size());
+            logger.atWarning().log(
+                "Missing symbol '%s' from file '%s' in %s (retry %d/%d, %d total missing), adding stub and retrying",
+                missingInfo.symbol, missingInfo.filename, label, retryCount + 1, MAX_RETRIES_PER_FILE,
+                missingSymbols.size());
 
             // Check if we're making progress (discovering new missing symbols)
             int currentMissingCount = missingSymbols.size();
@@ -1715,7 +1747,8 @@ public class Constellate {
             break; // Fall through to normal error handling
           }
         } else {
-          // Not a missing symbol error, or max retries reached - fall through to normal error handling
+          // Not a missing symbol error, or max retries reached - fall through to normal
+          // error handling
           if (retryCount >= MAX_RETRIES_PER_FILE) {
             logger.atWarning().log("Max retries (%d) reached for %s, giving up", MAX_RETRIES_PER_FILE, label);
           }
@@ -1761,7 +1794,8 @@ public class Constellate {
         // Get the top-level label (first element in pending set)
         Label topLevelLabel = pending.isEmpty() ? null : pending.iterator().next();
 
-        // For transitive loads (not the top-level file), ignore all "does not contain symbol" errors
+        // For transitive loads (not the top-level file), ignore all "does not contain
+        // symbol" errors
         // to allow best-effort extraction of the top-level file
         if (topLevelLabel != null && !label.equals(topLevelLabel)) {
           shouldIgnore = true;
@@ -1769,7 +1803,7 @@ public class Constellate {
         } else {
           // For the top-level file, only ignore known deprecated symbols
           String[] deprecatedSymbols = {
-              "use_cc_toolchain",  // Renamed/removed in rules_cc
+              "use_cc_toolchain", // Renamed/removed in rules_cc
               // Add other deprecated symbols here as needed
           };
 
@@ -1786,7 +1820,8 @@ public class Constellate {
       if (shouldIgnore) {
         logger.atWarning().log("Ignoring error in %s: %s", label, ignoreReason);
         // Keep the partially-evaluated module - it may have some successful definitions
-        // The module object already exists and may contain globals that were set before the error
+        // The module object already exists and may contain globals that were set before
+        // the error
         logger.atFine().log("Continuing with partial evaluation of %s (has %d globals)",
             label, module.getGlobals().size());
       } else {
@@ -1847,7 +1882,8 @@ public class Constellate {
   }
 
   /**
-   * Extracts the missing symbol info from a "does not contain symbol" error message.
+   * Extracts the missing symbol info from a "does not contain symbol" error
+   * message.
    * Error format: "file 'X' does not contain symbol 'Y'"
    * Returns null if the message doesn't match this format.
    */
@@ -1987,7 +2023,8 @@ public class Constellate {
    * These protos are generated from Build Encyclopedia entry points and bundled
    * into the JAR during build.
    *
-   * Called once at class initialization time and cached in NATIVE_RULES static field.
+   * Called once at class initialization time and cached in NATIVE_RULES static
+   * field.
    * Returns an immutable map for thread safety in worker processes.
    *
    * @return Immutable map of rule name to RuleInfo for all native Bazel rules
@@ -1997,24 +2034,24 @@ public class Constellate {
 
     // List of resource paths for native rule protos (bundled in JAR)
     String[] resourcePaths = {
-      "/main/starlark/docgen/gen_be_java_stardoc_proto.binaryproto",
-      "/main/starlark/docgen/gen_be_cpp_stardoc_proto.binaryproto",
-      "/main/starlark/docgen/gen_be_python_stardoc_proto.binaryproto",
-      "/main/starlark/docgen/gen_be_proto_stardoc_proto.binaryproto",
-      "/main/starlark/docgen/gen_be_shell_stardoc_proto.binaryproto",
-      "/main/starlark/docgen/gen_be_objc_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_java_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_cpp_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_python_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_proto_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_shell_stardoc_proto.binaryproto",
+        "/main/starlark/docgen/gen_be_objc_stardoc_proto.binaryproto",
     };
 
     for (String resourcePath : resourcePaths) {
-      try (java.io.InputStream stream = Constellate.class.getResourceAsStream(resourcePath)) {
+      try (java.io.InputStream stream = StarlarkEvaluator.class.getResourceAsStream(resourcePath)) {
         if (stream == null) {
           logger.atFine().log("Native rule proto resource not found: %s", resourcePath);
           continue;
         }
 
         // Parse binary proto from resource
-        com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo moduleInfo =
-            com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo.parseFrom(
+        com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo moduleInfo = com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo
+            .parseFrom(
                 stream,
                 com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
 
@@ -2027,7 +2064,8 @@ public class Constellate {
           if (ruleName.contains(".")) {
             String shortName = ruleName.substring(ruleName.lastIndexOf('.') + 1);
             nativeRules.put(shortName, ruleInfo);
-            logger.atFine().log("Loaded native rule from resource %s: %s (short: %s)", resourcePath, ruleName, shortName);
+            logger.atFine().log("Loaded native rule from resource %s: %s (short: %s)", resourcePath, ruleName,
+                shortName);
           } else {
             logger.atFine().log("Loaded native rule from resource %s: %s", resourcePath, ruleName);
           }
@@ -2045,11 +2083,14 @@ public class Constellate {
   }
 
   /**
-   * Adds a Label constructor to the predeclared symbols, replacing any existing stub.
-   * This allows Starlark code to call Label("foo.bzl") with package-relative labels.
+   * Adds a Label constructor to the predeclared symbols, replacing any existing
+   * stub.
+   * This allows Starlark code to call Label("foo.bzl") with package-relative
+   * labels.
    */
   private static void addLabelConstructor(Map<String, Object> predeclaredSymbols) {
-    // Replace any existing Label (e.g., FakeDeepStructure) with our proper implementation
+    // Replace any existing Label (e.g., FakeDeepStructure) with our proper
+    // implementation
     predeclaredSymbols.put("Label", new StarlarkCallable() {
       @Override
       public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException {
@@ -2242,7 +2283,8 @@ public class Constellate {
       // Get the function body statements via the public accessor
       net.starlark.java.syntax.Resolver.Function resolverFn = fn.getResolverFunction();
       if (resolverFn == null) {
-        // Some functions (e.g., built-in or wrapped functions) may not have a resolver function
+        // Some functions (e.g., built-in or wrapped functions) may not have a resolver
+        // function
         logger.atFine().log("Function %s has no resolver function (likely built-in or wrapped)", fn.getName());
         return calledNames;
       }
@@ -2251,7 +2293,8 @@ public class Constellate {
 
       // Walk through each statement looking for call expressions
       for (net.starlark.java.syntax.Statement stmt : body) {
-        findCallsInStatement(stmt, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+        findCallsInStatement(stmt, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules,
+            calledNames);
       }
     } catch (Exception e) {
       // If we can't analyze the function, just return empty list
@@ -2324,14 +2367,16 @@ public class Constellate {
         String name = ((Identifier) callTarget).getName();
 
         // Check if this name is a rule, aspect, or macro
-        boolean isRuleOrMacro = ruleInfoMap.containsKey(name) || aspectInfoMap.containsKey(name) || macroInfoMap.containsKey(name);
+        boolean isRuleOrMacro = ruleInfoMap.containsKey(name) || aspectInfoMap.containsKey(name)
+            || macroInfoMap.containsKey(name);
 
-        // Also check ruleInfoList for rules from loaded modules that might not be in the map
+        // Also check ruleInfoList for rules from loaded modules that might not be in
+        // the map
         if (!isRuleOrMacro) {
           for (RuleInfoWrapper wrapper : ruleInfoList) {
             if (wrapper.getIdentifierFunction() instanceof PostAssignHookAssignableIdentifier) {
-              PostAssignHookAssignableIdentifier ident =
-                (PostAssignHookAssignableIdentifier) wrapper.getIdentifierFunction();
+              PostAssignHookAssignableIdentifier ident = (PostAssignHookAssignableIdentifier) wrapper
+                  .getIdentifierFunction();
               if (ident.getAssignedName().equals(name)) {
                 isRuleOrMacro = true;
                 break;
@@ -2365,19 +2410,25 @@ public class Constellate {
       // Also check arguments for nested calls
       for (Argument arg : call.getArguments()) {
         if (arg instanceof Argument.Positional) {
-          findCallsInExpression(((Argument.Positional) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+          findCallsInExpression(((Argument.Positional) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap,
+              ruleInfoList, nativeRules, calledNames);
         } else if (arg instanceof Argument.Keyword) {
-          findCallsInExpression(((Argument.Keyword) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+          findCallsInExpression(((Argument.Keyword) arg).getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap,
+              ruleInfoList, nativeRules, calledNames);
         }
       }
     } else if (expr instanceof net.starlark.java.syntax.ListExpression) {
       for (Expression elem : ((net.starlark.java.syntax.ListExpression) expr).getElements()) {
-        findCallsInExpression(elem, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+        findCallsInExpression(elem, fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules,
+            calledNames);
       }
     } else if (expr instanceof net.starlark.java.syntax.DictExpression) {
-      for (net.starlark.java.syntax.DictExpression.Entry entry : ((net.starlark.java.syntax.DictExpression) expr).getEntries()) {
-        findCallsInExpression(entry.getKey(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
-        findCallsInExpression(entry.getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules, calledNames);
+      for (net.starlark.java.syntax.DictExpression.Entry entry : ((net.starlark.java.syntax.DictExpression) expr)
+          .getEntries()) {
+        findCallsInExpression(entry.getKey(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules,
+            calledNames);
+        findCallsInExpression(entry.getValue(), fn, ruleInfoMap, aspectInfoMap, macroInfoMap, ruleInfoList, nativeRules,
+            calledNames);
       }
     }
     // We could extend this to handle other expression types as needed

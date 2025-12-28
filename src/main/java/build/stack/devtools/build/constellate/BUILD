@@ -14,12 +14,12 @@ filegroup(
 )
 
 java_library(
-    name = "constellate_lib",
+    name = "evaluator_lib",
     srcs = [
-        "Constellate.java",
         "FilesystemFileAccessor.java",
         "HybridFileAccessor.java",
         "RealObjectEnhancer.java",
+        "StarlarkEvaluator.java",
         "StarlarkFileAccessor.java",
         "SystemOutEventHandler.java",
     ],
@@ -72,7 +72,7 @@ java_library(
         "StatusUtils.java",
     ],
     deps = [
-        ":constellate_lib",
+        ":evaluator_lib",
         "//src/main/java/build/stack/devtools/build/constellate/rendering",
         "//src/main/java/build/stack/starlark/v1beta1:starlark_java_grpc",
         "//src/main/java/build/stack/starlark/v1beta1:starlark_java_proto",

@@ -33,10 +33,9 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link Constellate}. */
 @RunWith(JUnit4.class)
-public class ConstellateTest {
+public class StarlarkEvaluatorTest {
 
-  private static final String TEST_DATA_DIR =
-      "src/test/java/build/stack/devtools/build/constellate/testdata";
+  private static final String TEST_DATA_DIR = "src/test/java/build/stack/devtools/build/constellate/testdata";
 
   /**
    * Helper class to hold entity info collections for test assertions.
@@ -71,34 +70,89 @@ public class ConstellateTest {
       this.moduleDocstring = moduleDocstring;
     }
 
-    public int getRuleInfoCount() { return ruleInfos.size(); }
-    public java.util.List<RuleInfo> getRuleInfoList() { return ruleInfos; }
-    public RuleInfo getRuleInfo(int i) { return ruleInfos.get(i); }
+    public int getRuleInfoCount() {
+      return ruleInfos.size();
+    }
 
-    public int getProviderInfoCount() { return providerInfos.size(); }
-    public java.util.List<ProviderInfo> getProviderInfoList() { return providerInfos; }
-    public ProviderInfo getProviderInfo(int i) { return providerInfos.get(i); }
+    public java.util.List<RuleInfo> getRuleInfoList() {
+      return ruleInfos;
+    }
 
-    public int getFuncInfoCount() { return funcInfos.size(); }
-    public java.util.List<StarlarkFunctionInfo> getFuncInfoList() { return funcInfos; }
+    public RuleInfo getRuleInfo(int i) {
+      return ruleInfos.get(i);
+    }
 
-    public int getAspectInfoCount() { return aspectInfos.size(); }
-    public java.util.List<AspectInfo> getAspectInfoList() { return aspectInfos; }
-    public AspectInfo getAspectInfo(int i) { return aspectInfos.get(i); }
+    public int getProviderInfoCount() {
+      return providerInfos.size();
+    }
 
-    public int getRepositoryRuleInfoCount() { return repositoryRuleInfos.size(); }
-    public java.util.List<RepositoryRuleInfo> getRepositoryRuleInfoList() { return repositoryRuleInfos; }
-    public RepositoryRuleInfo getRepositoryRuleInfo(int i) { return repositoryRuleInfos.get(i); }
+    public java.util.List<ProviderInfo> getProviderInfoList() {
+      return providerInfos;
+    }
 
-    public int getModuleExtensionInfoCount() { return moduleExtensionInfos.size(); }
-    public java.util.List<ModuleExtensionInfo> getModuleExtensionInfoList() { return moduleExtensionInfos; }
-    public ModuleExtensionInfo getModuleExtensionInfo(int i) { return moduleExtensionInfos.get(i); }
+    public ProviderInfo getProviderInfo(int i) {
+      return providerInfos.get(i);
+    }
 
-    public int getMacroInfoCount() { return macroInfos.size(); }
-    public java.util.List<MacroInfo> getMacroInfoList() { return macroInfos; }
-    public MacroInfo getMacroInfo(int i) { return macroInfos.get(i); }
+    public int getFuncInfoCount() {
+      return funcInfos.size();
+    }
 
-    public String getModuleDocstring() { return moduleDocstring; }
+    public java.util.List<StarlarkFunctionInfo> getFuncInfoList() {
+      return funcInfos;
+    }
+
+    public int getAspectInfoCount() {
+      return aspectInfos.size();
+    }
+
+    public java.util.List<AspectInfo> getAspectInfoList() {
+      return aspectInfos;
+    }
+
+    public AspectInfo getAspectInfo(int i) {
+      return aspectInfos.get(i);
+    }
+
+    public int getRepositoryRuleInfoCount() {
+      return repositoryRuleInfos.size();
+    }
+
+    public java.util.List<RepositoryRuleInfo> getRepositoryRuleInfoList() {
+      return repositoryRuleInfos;
+    }
+
+    public RepositoryRuleInfo getRepositoryRuleInfo(int i) {
+      return repositoryRuleInfos.get(i);
+    }
+
+    public int getModuleExtensionInfoCount() {
+      return moduleExtensionInfos.size();
+    }
+
+    public java.util.List<ModuleExtensionInfo> getModuleExtensionInfoList() {
+      return moduleExtensionInfos;
+    }
+
+    public ModuleExtensionInfo getModuleExtensionInfo(int i) {
+      return moduleExtensionInfos.get(i);
+    }
+
+    public int getMacroInfoCount() {
+      return macroInfos.size();
+    }
+
+    public java.util.List<MacroInfo> getMacroInfoList() {
+      return macroInfos;
+    }
+
+    public MacroInfo getMacroInfo(int i) {
+      return macroInfos.get(i);
+    }
+
+    public String getModuleDocstring() {
+      return moduleDocstring;
+    }
   }
 
   private TestModuleInfo evaluateFile(String filename) throws Exception {
@@ -107,17 +161,15 @@ public class ConstellateTest {
     assertTrue("Test file not found: " + testFile, Files.exists(testFile));
 
     // Create parser options
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
     StarlarkSemantics semantics = semanticsOptions.toStarlarkSemantics();
 
     // Create constellate
-    Constellate constellate =
-        new Constellate(
-            semantics,
-            new FilesystemFileAccessor(),
-            /* depRoots= */ ImmutableList.of());
+    StarlarkEvaluator evaluator = new StarlarkEvaluator(
+        semantics,
+        new FilesystemFileAccessor(),
+        /* depRoots= */ ImmutableList.of());
 
     // Create label for the test file
     Label label = Label.parseCanonicalUnchecked("//test:" + filename);
@@ -136,10 +188,10 @@ public class ConstellateTest {
     // Parse and evaluate
     ParserInput input = ParserInput.fromLatin1(Files.readAllBytes(testFile), filename);
 
-    build.stack.starlark.v1beta1.StarlarkProtos.Module.Builder moduleBuilder =
-        build.stack.starlark.v1beta1.StarlarkProtos.Module.newBuilder();
+    build.stack.starlark.v1beta1.StarlarkProtos.Module.Builder moduleBuilder = build.stack.starlark.v1beta1.StarlarkProtos.Module
+        .newBuilder();
 
-    constellate.eval(
+    evaluator.eval(
         input,
         label,
         ruleInfoMap,
@@ -181,7 +233,8 @@ public class ConstellateTest {
 
     assertNotNull(moduleInfo);
 
-    // Should have at least 1 function (may also capture implementation functions starting with _)
+    // Should have at least 1 function (may also capture implementation functions
+    // starting with _)
     assertTrue(
         "Should have at least 1 function, got " + moduleInfo.getFuncInfoCount(),
         moduleInfo.getFuncInfoCount() >= 1);
@@ -246,11 +299,14 @@ public class ConstellateTest {
     assertEquals("Should have 4 parameters", 4, myFunc.getParameterCount());
     // Verify parameter roles are correctly identified
     boolean hasOrdinary = false, hasKwargs = false;
-    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo param : myFunc.getParameterList()) {
-      if (param.getRole() == com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY) {
+    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo param : myFunc
+        .getParameterList()) {
+      if (param
+          .getRole() == com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY) {
         hasOrdinary = true;
       }
-      if (param.getRole() == com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS) {
+      if (param
+          .getRole() == com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS) {
         hasKwargs = true;
       }
     }
@@ -281,7 +337,8 @@ public class ConstellateTest {
     // ProviderFieldInfo - should have "value" and "count" fields
     assertTrue("MyInfoProvider should have field documentation", myInfo.getFieldInfoCount() >= 2);
     boolean hasValueField = false, hasCountField = false;
-    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo field : myInfo.getFieldInfoList()) {
+    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo field : myInfo
+        .getFieldInfoList()) {
       if (field.getName().equals("value")) {
         hasValueField = true;
         assertTrue("value field should have docstring", field.getDocString().length() > 0);
@@ -295,10 +352,13 @@ public class ConstellateTest {
     assertTrue("Should have 'count' field", hasCountField);
 
     // ProviderInfo.init - BLOCKED BY FAKE API
-    // TODO: Provider init callback extraction requires real StarlarkProvider objects,
-    // which are not available when using fake API. This is a known architectural limitation.
+    // TODO: Provider init callback extraction requires real StarlarkProvider
+    // objects,
+    // which are not available when using fake API. This is a known architectural
+    // limitation.
     // See STARDOC_PROTO_COVERAGE.md for details.
-    // assertFalse("MyInfoProvider init should NOT be extracted (fake API limitation)", myInfo.hasInit());
+    // assertFalse("MyInfoProvider init should NOT be extracted (fake API
+    // limitation)", myInfo.hasInit());
 
     // Check SimpleProvider - without init
     ProviderInfo simpleProvider = null;
@@ -335,7 +395,8 @@ public class ConstellateTest {
     // AttributeInfo - should have "value" and "deps" attributes
     assertTrue("my_rule should have attributes", myRule.getAttributeCount() >= 2);
     boolean hasValueAttr = false, hasDepsAttr = false;
-    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo attr : myRule.getAttributeList()) {
+    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo attr : myRule
+        .getAttributeList()) {
       if (attr.getName().equals("value")) {
         hasValueAttr = true;
         assertEquals("value should be STRING type",
@@ -351,21 +412,26 @@ public class ConstellateTest {
             com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType.LABEL_LIST,
             attr.getType());
         assertTrue("deps should have docstring", attr.getDocString().length() > 0);
-        // TODO: AttributeInfo.provider_name_group extraction requires real Attribute objects,
+        // TODO: AttributeInfo.provider_name_group extraction requires real Attribute
+        // objects,
         // which are not available when using fake API. This is a known limitation.
         // See STARDOC_PROTO_COVERAGE.md for details.
-        // assertTrue("deps should have provider requirements", attr.getProviderNameGroupCount() > 0);
+        // assertTrue("deps should have provider requirements",
+        // attr.getProviderNameGroupCount() > 0);
       }
     }
     assertTrue("Should have 'value' attribute", hasValueAttr);
     assertTrue("Should have 'deps' attribute", hasDepsAttr);
 
     // RuleInfo.advertised_providers - BLOCKED BY FAKE API
-    // TODO: Advertised providers extraction requires real StarlarkRuleFunction objects,
-    // which are not available when using fake API. This is a known architectural limitation.
+    // TODO: Advertised providers extraction requires real StarlarkRuleFunction
+    // objects,
+    // which are not available when using fake API. This is a known architectural
+    // limitation.
     // See STARDOC_PROTO_COVERAGE.md for details.
-    // assertFalse("my_rule advertised_providers should NOT be extracted (fake API limitation)",
-    //     myRule.hasAdvertisedProviders());
+    // assertFalse("my_rule advertised_providers should NOT be extracted (fake API
+    // limitation)",
+    // myRule.hasAdvertisedProviders());
 
     // ===== ASPECTS =====
     assertTrue(
@@ -393,7 +459,8 @@ public class ConstellateTest {
 
     // Verify aspect has aspect_param attribute
     boolean hasAspectParam = false;
-    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo attr : myAspect.getAttributeList()) {
+    for (com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo attr : myAspect
+        .getAttributeList()) {
       if (attr.getName().equals("aspect_param")) {
         hasAspectParam = true;
         assertTrue("aspect_param should have docstring", attr.getDocString().length() > 0);
