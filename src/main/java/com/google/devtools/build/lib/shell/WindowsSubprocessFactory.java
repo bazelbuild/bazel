@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.shell;
 
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsProcesses;
@@ -35,8 +38,15 @@ import javax.annotation.Nullable;
 public class WindowsSubprocessFactory implements SubprocessFactory {
   public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
 
+  public static void maybeInstallWindowsSubprocessFactory() {
+    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
+      SubprocessBuilder.setDefaultSubprocessFactory(INSTANCE);
+    }
+  }
+
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
+    Preconditions.checkState(OS.getCurrent() == OS.WINDOWS);
     List<String> argv = Lists.transform(builder.getArgv(), StringEncoding::internalToPlatform);
 
     // DO NOT quote argv0, createProcess will do it for us.

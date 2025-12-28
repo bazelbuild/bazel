@@ -15,11 +15,10 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -91,18 +90,12 @@ public final class Profiler implements TraceProfilerService {
    * forwarded to this {@link TraceProfilerService}.
    */
   public static void setTraceProfilerService(TraceProfilerService traceProfilerService) {
+    // We want to apply this check for the shell integration tests to catch if the profiler is
+    // accidentally set twice in presubmit.
     checkState(
-        Profiler.traceProfilerService == null,
+        Profiler.traceProfilerService == null
+            || (TestType.isInTest() && TestType.getTestType() != TestType.SHELL_INTEGRATION),
         "setTraceProfilerService must not be called multiple times");
-    Profiler.traceProfilerService = traceProfilerService;
-  }
-
-  /**
-   * Same as {@link #setTraceProfilerService}, except that it may be called more than once for
-   * testing purposes.
-   */
-  @VisibleForTesting
-  public static void setTraceProfilerServiceForTesting(TraceProfilerService traceProfilerService) {
     Profiler.traceProfilerService = traceProfilerService;
   }
 
@@ -197,8 +190,7 @@ public final class Profiler implements TraceProfilerService {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
-      boolean collectTaskHistograms,
-      LocalResourceCollector localResourceCollector)
+      boolean collectTaskHistograms)
       throws IOException {
     if (traceProfilerService == null) {
       throw new IllegalStateException("cannot call start before setTraceProfilerService");
@@ -212,12 +204,11 @@ public final class Profiler implements TraceProfilerService {
         recordAllDurations,
         clock,
         execStartTimeNanos,
-        slimProfile,
-        includePrimaryOutput,
-        includeTargetLabel,
-        includeConfiguration,
-        collectTaskHistograms,
-        localResourceCollector);
+        /* slimProfile= */ slimProfile,
+        /* includePrimaryOutput= */ includePrimaryOutput,
+        /* includeTargetLabel= */ includeTargetLabel,
+        /* includeConfiguration= */ includeConfiguration,
+        /* collectTaskHistograms= */ collectTaskHistograms);
   }
 
   @Override
@@ -291,6 +282,13 @@ public final class Profiler implements TraceProfilerService {
   public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
     if (traceProfilerService != null) {
       traceProfilerService.registerCounterSeriesCollector(collector);
+    }
+  }
+
+  @Override
+  public void unregisterCounterSeriesCollector(CounterSeriesCollector collector) {
+    if (traceProfilerService != null) {
+      traceProfilerService.unregisterCounterSeriesCollector(collector);
     }
   }
 

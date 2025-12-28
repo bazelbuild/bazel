@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -76,6 +77,10 @@ import org.mockito.Mockito;
 /** Test StandaloneSpawnStrategy. */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
   private static final String CMD_EXE = getWinSystemBinary("cmd.exe");
 

@@ -108,11 +108,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   public void addRepoNameUsage(
       String repoName, String how, ImmutableList<StarlarkThread.CallStackEntry> stack)
       throws EvalException {
-    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, stack));
+    RepoNameUsage incoming = new RepoNameUsage(how, stack);
+    RepoNameUsage collision = repoNameUsages.put(repoName, incoming);
     if (collision != null) {
       throw Starlark.errorf(
-          "The repo name '%s' is already being used %s at %s",
-          repoName, collision.how(), collision.location());
+          "The repo name '%s' cannot be defined %s at %s as it is already defined %s at %s",
+          repoName, incoming.how(), incoming.location(), collision.how(), collision.location());
     }
   }
 
@@ -150,8 +151,21 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  List<ModuleExtensionUsageBuilder> getExtensionUsageBuilders() {
-    return extensionUsageBuilders;
+  ModuleExtensionUsageBuilder getOrCreateExtensionUsageBuilder(
+      String extensionBzlFile, String extensionName, boolean isolate) {
+    // Isolated extensions have to always get a new builder, non-isolated ones have to reuse an
+    // existing one if it exists so that they all contribute usages to the same row in a table.
+    if (!isolate) {
+      for (var builder : extensionUsageBuilders) {
+        if (builder.isForExtension(extensionBzlFile, extensionName)) {
+          return builder;
+        }
+      }
+    }
+    var newBuilder =
+        new ModuleExtensionUsageBuilder(this, extensionBzlFile, extensionName, isolate);
+    extensionUsageBuilders.add(newBuilder);
+    return newBuilder;
   }
 
   static class ModuleExtensionUsageBuilder {
@@ -188,7 +202,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       proxyBuilders.add(builder);
     }
 
-    boolean isForExtension(String extensionBzlFile, String extensionName) {
+    private boolean isForExtension(String extensionBzlFile, String extensionName) {
       return this.extensionBzlFile.equals(extensionBzlFile)
           && this.extensionName.equals(extensionName)
           && !this.isolate;

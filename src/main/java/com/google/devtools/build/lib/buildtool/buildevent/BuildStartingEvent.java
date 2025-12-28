@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.JavaVersionInfo;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -109,6 +110,13 @@ public abstract class BuildStartingEvent implements BuildEvent {
 
   @Override
   public final BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+    Runtime.Version version = Runtime.version();
+    JavaVersionInfo javaVersionInfo =
+        JavaVersionInfo.newBuilder()
+            .setJavaVersion(version.toString())
+            .setJavaMajorVersion(version.feature())
+            .setJavaMinorVersion(version.interim())
+            .build();
     BuildEventStreamProtos.BuildStarted.Builder started =
         BuildEventStreamProtos.BuildStarted.newBuilder()
             .setUuid(request().getId().toString())
@@ -120,7 +128,8 @@ public abstract class BuildStartingEvent implements BuildEvent {
             .setServerPid(ProcessHandle.current().pid())
             .setWorkingDirectory(pwd())
             .setHost(NetUtil.getCachedShortHostName())
-            .setUser(UserUtils.getUserName());
+            .setUser(UserUtils.getUserName())
+            .setJavaVersionInfo(javaVersionInfo);
     if (workspace() != null) {
       started.setWorkspaceDirectory(workspace());
     }

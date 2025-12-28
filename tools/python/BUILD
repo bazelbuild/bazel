@@ -11,6 +11,14 @@ filegroup(
 )
 
 filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "private/py_test_alias.bzl",
+    ],
+    visibility = ["//tools:__pkg__"],
+)
+
+filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
         "//tools/python/runfiles:embedded_tools",

@@ -67,6 +67,8 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -230,6 +232,7 @@ public final class SkyframeActionExecutor {
   private InputMetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   private String actionExecutionSalt;
+  private int maxStdoutErrBytes;
 
   /** These variables are nulled out between executions. */
   @Nullable private ProgressSupplier progressSupplier;
@@ -1002,11 +1005,13 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       DiscoveredModulesPruner discoveredModulesPruner,
-      String actionExecutionSalt) {
+      String actionExecutionSalt,
+      int maxStdoutErrBytes) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.actionExecutionSalt = actionExecutionSalt;
+    this.maxStdoutErrBytes = maxStdoutErrBytes;
   }
 
   /**
@@ -1842,10 +1847,39 @@ public final class SkyframeActionExecutor {
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
       eventHandler.handle(prefixEvent.withProcessOutput(new ActionOutputEventData(outErrBuffer)));
+      informImportantOutputHandlerIfNecessary(outErrBuffer);
     } else {
       eventHandler.handle(prefixEvent);
     }
     return true;
+  }
+
+  /**
+   * Promotes stdout/err into important outputs when they are too large to display on the console.
+   *
+   * <p>When they are too large, the UI event handler prints their path instead of their contents.
+   * Promoting them to important outputs ensures that the user can access the file at the printed
+   * path.
+   */
+  private void informImportantOutputHandlerIfNecessary(FileOutErr outErr) {
+    var importantOutputHandler = executorEngine.getContext(ImportantOutputHandler.class);
+    if (importantOutputHandler == null) {
+      return;
+    }
+    try {
+      if (outErr.outSize() > maxStdoutErrBytes) {
+        importantOutputHandler.processTooLargeStdoutErr(outErr.getOutputPath());
+      }
+      if (outErr.errSize() > maxStdoutErrBytes) {
+        importantOutputHandler.processTooLargeStdoutErr(outErr.getErrorPath());
+      }
+    } catch (IOException | ImportantOutputException e) {
+      logger.atWarning().withCause(e).log(
+          "Failure informing important output handler of stdout/stderr");
+    } catch (InterruptedException e) {
+      logger.atInfo().log("Informing important output handler of stdout/stderr");
+      Thread.currentThread().interrupt();
+    }
   }
 
   private static void reportActionExecution(
@@ -1932,10 +1966,10 @@ public final class SkyframeActionExecutor {
   }
 
   /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */
-  private static class ActionOutputEventData implements Event.ProcessOutput {
+  private static final class ActionOutputEventData implements Event.ProcessOutput {
     private final FileOutErr fileOutErr;
 
-    private ActionOutputEventData(FileOutErr fileOutErr) {
+    ActionOutputEventData(FileOutErr fileOutErr) {
       this.fileOutErr = fileOutErr;
     }
 

@@ -19,13 +19,16 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
@@ -98,9 +101,44 @@ public final class FingerprintValueService implements KeyValueWriter {
     this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
   }
 
+  /**
+   * Serializes a {@link SkyKey}, concatenates it with the {@link FrontierNodeVersion}, computes the
+   * fingerprint, and returns the {@link PackedFingerprint}.
+   */
+  public static PackedFingerprint computeFingerprint(
+      FingerprintValueService fingerprintValueService,
+      ObjectCodecs codecs,
+      SkyKey key,
+      FrontierNodeVersion nodeVersion)
+      throws InterruptedException, SerializationException {
+    ListenableFuture<SerializationResult<ByteString>> serializedKey =
+        codecs.serializeMemoizedAsync(fingerprintValueService, key, null);
+
+    ListenableFuture<PackedFingerprint> fingerprintFuture =
+        Futures.transform(
+            serializedKey,
+            k ->
+                fingerprintValueService.fingerprint(
+                    nodeVersion.concat(k.getObject().toByteArray())),
+            // Keys are hopefully small enough that it's reasonable to not spawn off a separate task
+            directExecutor());
+
+    try {
+      return fingerprintFuture.get();
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), SerializationException.class);
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public void shutdown() {
+    store.shutdown();
+  }
+
   /** Delegates to {@link FingerprintValueStore#put}. */
   @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+    int serializedBytesLength = serializedBytes.length;
     Instant before = Instant.now();
     WriteStatus putStatus = store.put(fingerprint, serializedBytes);
     if (jsonLogWriter == null) {
@@ -114,7 +152,7 @@ public final class FingerprintValueService implements KeyValueWriter {
             entry.addField("start", before);
             entry.addField("end", Instant.now());
             entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
-            entry.addField("valueSize", serializedBytes.length);
+            entry.addField("valueSize", serializedBytesLength);
             if (e != null) {
               entry.addField("exception", e.getMessage());
             }

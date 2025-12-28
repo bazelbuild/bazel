@@ -1,0 +1,26 @@
+# https://developers.google.com/gemini-code-assist/docs/customize-gemini-behavior-github
+
+# Example boolean flag, potentially for enabling non-essential features.
+have_fun: false
+
+# Configuration for code review features.
+code_review:
+  # Whether to disable all code review functionality.
+  disable: false
+  # The minimum severity level for comments to be generated or shown (e.g., LOW, MEDIUM, HIGH, CRITICAL).
+  comment_severity_threshold: HIGH
+  # The maximum number of review comments to generate. -1 means no limit.
+  max_review_comments: -1
+  # Settings specifically for when a pull request is opened.
+  pull_request_opened:
+    # Whether to offer help when a PR is opened.
+    help: false
+    # Whether to generate a summary for the PR.
+    summary: false
+    # Whether to automatically trigger a code review on PR open.
+    code_review: true
+    # Whether to include draft pull requests in the review process.
+    include_drafts: false
+
+# A list of glob patterns for files or directories to ignore.
+ignore_patterns: []

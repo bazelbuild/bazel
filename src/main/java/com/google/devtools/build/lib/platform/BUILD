@@ -15,8 +15,9 @@ java_library(
     name = "sleep_prevention_module",
     srcs = ["SleepPreventionModule.java"],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//third_party:guava",
     ],
 )
@@ -28,10 +29,12 @@ java_library(
         "SystemSuspensionModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//third_party:flogger",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -43,11 +46,13 @@ java_library(
         "SystemThermalModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:flogger",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -59,10 +64,12 @@ java_library(
         "SystemDiskSpaceModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//third_party:flogger",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -74,11 +81,13 @@ java_library(
         "SystemLoadAdvisoryModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:flogger",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -89,8 +98,11 @@ java_library(
         "SystemMemoryPressureModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         ":system_memory_pressure_monitor",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//third_party:guava",
     ],
 )
 
@@ -101,8 +113,8 @@ java_library(
         "SystemMemoryPressureMonitor.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//third_party:flogger",
         "//third_party:jsr305",
     ],
@@ -115,11 +127,36 @@ java_library(
         "SystemCPUSpeedModule.java",
     ],
     deps = [
+        ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+# IJ
+java_library(
+    name = "platform_native_deps_service",
+    srcs = [
+        "PlatformNativeDepsService.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
+        "//third_party:error_prone_annotations",
+    ],
+)
+
+# SC-only
+java_library(
+    name = "platform_native_deps_service_impl",
+    srcs = [
+        "PlatformNativeDepsServiceImpl.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/jni",
     ],
 )

@@ -45,6 +45,7 @@
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/mapped_file.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/zip_headers.h"
@@ -67,7 +68,11 @@ OutputJar::OutputJar(Options* options)
       spring_schemas_("META-INF/spring.schemas"),
       protobuf_meta_handler_("protobuf.meta", false),
       manifest_("META-INF/MANIFEST.MF"),
-      build_properties_("build-data.properties") {
+      build_properties_("build-data.properties"),
+      log4j2_plugin_dat_combiner_(
+          "META-INF/org/apache/logging/log4j/core/"
+          "config/plugins/Log4j2Plugins.dat",
+          options->no_duplicates) {
   known_members_.reserve(options->EstimateFileCount());
 
   known_members_.emplace(spring_handlers_.filename(),
@@ -77,6 +82,8 @@ OutputJar::OutputJar(Options* options)
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
+  known_members_.emplace(log4j2_plugin_dat_combiner_.filename(),
+                         EntryInfo{&log4j2_plugin_dat_combiner_});
 }
 
 static std::string Basename(const std::string& path) {

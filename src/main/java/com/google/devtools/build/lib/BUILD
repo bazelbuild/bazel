@@ -126,15 +126,6 @@ java_library(
 )
 
 java_library(
-    name = "baseline-cl-diff-event",
-    srcs = ["buildtool/BaselineClDiffEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
-    ],
-)
-
-java_library(
     name = "buildtool/symlink_forest",
     srcs = ["buildtool/SymlinkForest.java"],
     deps = [
@@ -331,7 +322,6 @@ java_library(
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
-            "buildtool/BaselineCLDiffEvent.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/BlazeService.java",
@@ -351,7 +341,6 @@ java_library(
         ],
     ),
     deps = [
-        ":baseline-cl-diff-event",
         ":build-request-options",
         ":buildtool/symlink_forest",
         ":keep-going-option",
@@ -533,6 +522,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_metadata_writer",
+        "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -550,7 +540,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:memory_accountant",
         "//src/main/java/com/google/devtools/build/lib/util:object_graph_traverser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
         "//src/main/java/com/google/devtools/build/lib/util:shallow_object_size_computer",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",

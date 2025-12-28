@@ -16,7 +16,6 @@ package net.starlark.java.eval;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
@@ -25,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPOutputStream;
@@ -163,7 +163,7 @@ final class CpuProfiler {
   }
 
   /** Records a profile event. */
-  void addEvent(int ticks, ImmutableList<Debug.Frame> stack) {
+  void addEvent(int ticks, List<? extends Debug.Frame> stack) {
     pprof.writeEvent(ticks, stack);
   }
 
@@ -289,12 +289,12 @@ final class CpuProfiler {
       }
     }
 
-    synchronized void writeEvent(int ticks, ImmutableList<Debug.Frame> stack) {
+    synchronized void writeEvent(int ticks, List<? extends Debug.Frame> stack) {
       if (this.error == null) {
         try {
           ByteArrayOutputStream sample = new ByteArrayOutputStream();
           writeLong(sample, SAMPLE_VALUE, ticks * period.toNanos() / 1000L);
-          for (Debug.Frame fr : stack.reverse()) {
+          for (Debug.Frame fr : stack.reversed()) {
             writeLong(sample, SAMPLE_LOCATION_ID, getLocationID(fr));
           }
           writeByteArray(gz, PROFILE_SAMPLE, sample.toByteArray());

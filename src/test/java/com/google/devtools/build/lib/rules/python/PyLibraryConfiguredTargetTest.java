@@ -46,18 +46,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
-  public void versionPy3ByDefault() throws Exception {
-    scratch.file(
-        "pkg/BUILD", //
-        getPyLoad("py_library"),
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
   public void filesToBuild() throws Exception {
     scratch.file(
         "pkg/BUILD", //

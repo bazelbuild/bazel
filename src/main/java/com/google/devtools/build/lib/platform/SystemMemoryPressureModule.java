@@ -14,13 +14,25 @@
 
 package com.google.devtools.build.lib.platform;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 
 /** Responsible for registering the current reporter with the SystemMemoryPressureMonitor. */
 public final class SystemMemoryPressureModule extends BlazeModule {
 
   public SystemMemoryPressureModule() {}
+
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    SystemMemoryPressureMonitor.getInstance()
+        .registerJniService(checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class)));
+  }
 
   @Override
   public synchronized void beforeCommand(CommandEnvironment env) {

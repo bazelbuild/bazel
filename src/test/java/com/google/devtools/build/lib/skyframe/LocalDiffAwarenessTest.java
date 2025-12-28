@@ -62,7 +62,9 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
   @Before
   public final void initializeSettings() throws Exception {
-    LocalDiffAwareness.Factory factory = new LocalDiffAwareness.Factory(ImmutableList.<String>of());
+    LocalDiffAwareness.Factory factory =
+        new LocalDiffAwareness.Factory(
+            ImmutableList.<String>of(), new FsEventsNativeDepsServiceImpl());
     // Make sure all test functions have their own directory to test
     testCaseRoot = testRoot.getChild(name.getMethodName());
     testCaseRoot.createDirectoryAndParents();

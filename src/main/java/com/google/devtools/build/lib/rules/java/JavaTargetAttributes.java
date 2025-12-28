@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,12 +39,6 @@ import javax.annotation.Nullable;
  */
 public class JavaTargetAttributes {
 
-  private static void checkJar(Artifact classPathEntry) {
-    if (!JavaSemantics.JAR.matches(classPathEntry.getFilename())) {
-      throw new IllegalArgumentException("not a jar file: " + classPathEntry.prettyPrint());
-    }
-  }
-
   /** A builder class for JavaTargetAttributes. */
   public static class Builder {
 
@@ -54,20 +49,16 @@ public class JavaTargetAttributes {
     // stuck with Set.
     private final List<Artifact> sourceFiles = new ArrayList<>();
 
-    private final NestedSetBuilder<Artifact> runtimeClassPath = NestedSetBuilder.naiveLinkOrder();
-
     private final NestedSetBuilder<Artifact> compileTimeClassPathBuilder =
         NestedSetBuilder.naiveLinkOrder();
 
     private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
     private ImmutableList<Artifact> sourcePath = ImmutableList.of();
-    private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
     private JavaPluginInfo plugins = JavaPluginInfo.empty(JavaPluginInfo.PROVIDER);
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
-    private final ImmutableList.Builder<Artifact> messages = ImmutableList.builder();
     private final List<Artifact> sourceJars = new ArrayList<>();
 
     private final ImmutableList.Builder<Artifact> classPathResources = ImmutableList.builder();
@@ -84,8 +75,6 @@ public class JavaTargetAttributes {
         NestedSetBuilder.stableOrder();
     private Label targetLabel;
     @Nullable private String injectingRuleKind;
-
-    private final NestedSetBuilder<Artifact> excludedArtifacts = NestedSetBuilder.naiveLinkOrder();
 
     private boolean prependDirectJars = true;
 
@@ -112,21 +101,7 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addRuntimeClassPathEntry(Artifact classPathEntry) {
-      Preconditions.checkArgument(!built);
-      checkJar(classPathEntry);
-      runtimeClassPath.add(classPathEntry);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addRuntimeClassPathEntries(NestedSet<Artifact> classPathEntries) {
-      Preconditions.checkArgument(!built);
-      runtimeClassPath.addTransitive(classPathEntries);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
+    @VisibleForTesting
     public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
       compileTimeClassPathBuilder.addTransitive(entries);
@@ -235,13 +210,6 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addMessages(Collection<Artifact> messages) {
-      Preconditions.checkArgument(!built);
-      this.messages.addAll(messages);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addResource(PathFragment execPath, Artifact resource) {
       Preconditions.checkArgument(!built);
       this.resources.put(execPath, resource);
@@ -290,15 +258,12 @@ public class JavaTargetAttributes {
               : compileTimeClassPathBuilder.build();
       return new JavaTargetAttributes(
           ImmutableSet.copyOf(sourceFiles),
-          runtimeClassPath.build(),
           compileTimeClassPath,
           bootClassPath,
           sourcePath,
-          nativeLibraries.build(),
           plugins,
           ImmutableMap.copyOf(resources),
           resourceJars.build(),
-          messages.build(),
           ImmutableList.copyOf(sourceJars),
           classPathResources.build(),
           additionalOutputs.build(),
@@ -307,7 +272,6 @@ public class JavaTargetAttributes {
           compileTimeDependencyArtifacts.build(),
           targetLabel,
           injectingRuleKind,
-          excludedArtifacts.build(),
           strictJavaDeps);
     }
 
@@ -327,19 +291,16 @@ public class JavaTargetAttributes {
 
   private final ImmutableSet<Artifact> sourceFiles;
 
-  private final NestedSet<Artifact> runtimeClassPath;
   private final NestedSet<Artifact> compileTimeClassPath;
 
   private final BootClassPathInfo bootClassPath;
   private final ImmutableList<Artifact> sourcePath;
-  private final ImmutableList<Artifact> nativeLibraries;
 
   private final JavaPluginInfo plugins;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
   private final NestedSet<Artifact> resourceJars;
 
-  private final ImmutableList<Artifact> messages;
   private final ImmutableList<Artifact> sourceJars;
 
   private final ImmutableList<Artifact> classPathResources;
@@ -352,21 +313,17 @@ public class JavaTargetAttributes {
   private final Label targetLabel;
   @Nullable private final String injectingRuleKind;
 
-  private final NestedSet<Artifact> excludedArtifacts;
   private final StrictDepsMode strictJavaDeps;
 
   /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
       ImmutableSet<Artifact> sourceFiles,
-      NestedSet<Artifact> runtimeClassPath,
       NestedSet<Artifact> compileTimeClassPath,
       BootClassPathInfo bootClassPath,
       ImmutableList<Artifact> sourcePath,
-      ImmutableList<Artifact> nativeLibraries,
       JavaPluginInfo plugins,
       ImmutableMap<PathFragment, Artifact> resources,
       NestedSet<Artifact> resourceJars,
-      ImmutableList<Artifact> messages,
       ImmutableList<Artifact> sourceJars,
       ImmutableList<Artifact> classPathResources,
       ImmutableSet<Artifact> additionalOutputs,
@@ -375,27 +332,22 @@ public class JavaTargetAttributes {
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
       @Nullable String injectingRuleKind,
-      NestedSet<Artifact> excludedArtifacts,
       StrictDepsMode strictJavaDeps) {
     this.sourceFiles = sourceFiles;
-    this.runtimeClassPath = runtimeClassPath;
     this.directJars = directJars;
     this.headerCompilationDirectJars = headerCompilationDirectJars;
     this.compileTimeClassPath = compileTimeClassPath;
     this.bootClassPath = bootClassPath;
     this.sourcePath = sourcePath;
-    this.nativeLibraries = nativeLibraries;
     this.plugins = plugins;
     this.resources = resources;
     this.resourceJars = resourceJars;
-    this.messages = messages;
     this.sourceJars = sourceJars;
     this.classPathResources = classPathResources;
     this.additionalOutputs = additionalOutputs;
     this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
     this.targetLabel = targetLabel;
     this.injectingRuleKind = injectingRuleKind;
-    this.excludedArtifacts = excludedArtifacts;
     this.strictJavaDeps = strictJavaDeps;
   }
 
@@ -407,15 +359,12 @@ public class JavaTargetAttributes {
             .build();
     return new JavaTargetAttributes(
         sourceFiles,
-        runtimeClassPath,
         compileTimeClassPath,
         bootClassPath,
         sourcePath,
-        nativeLibraries,
         plugins,
         resources,
         resourceJars,
-        messages,
         sourceJars,
         classPathResources,
         additionalOutputs,
@@ -424,7 +373,6 @@ public class JavaTargetAttributes {
         compileTimeDependencyArtifacts,
         targetLabel,
         injectingRuleKind,
-        excludedArtifacts,
         strictJavaDeps);
   }
 
@@ -450,10 +398,6 @@ public class JavaTargetAttributes {
 
   public NestedSet<Artifact> getResourceJars() {
     return resourceJars;
-  }
-
-  public List<Artifact> getMessages() {
-    return messages;
   }
 
   public ImmutableList<Artifact> getClassPathResources() {
@@ -482,13 +426,6 @@ public class JavaTargetAttributes {
 
   public ImmutableSet<Artifact> getSourceFiles() {
     return sourceFiles;
-  }
-
-  public boolean hasResources() {
-    return !resources.isEmpty()
-        || !messages.isEmpty()
-        || !classPathResources.isEmpty()
-        || !resourceJars.isEmpty();
   }
 
   public Label getTargetLabel() {

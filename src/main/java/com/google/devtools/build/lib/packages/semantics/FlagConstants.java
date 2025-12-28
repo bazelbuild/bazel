@@ -44,4 +44,8 @@ class FlagConstants {
       "+incompatible_package_group_has_public_syntax";
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
       "+incompatible_fix_package_group_reporoot_syntax";
+
+  public static final String DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = "true";
+  public static final String DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION_NAME =
+      "+incompatible_enable_proto_toolchain_resolution";
 }

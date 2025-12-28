@@ -65,8 +65,15 @@ public class DigestHashFunction {
     }
   }
 
-  public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
-  public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
+  public static final DigestHashFunction SHA1;
+  public static final DigestHashFunction SHA256;
+
+  static {
+    SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1", "sha1");
+    SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256", "sha256");
+    register(Hashing.sha384(), "SHA-384", "SHA384", "sha384");
+    register(Hashing.sha512(), "SHA-512", "SHA512", "sha512");
+  }
 
   private final HashFunction hashFunction;
   private final DigestLength digestLength;
@@ -196,5 +203,13 @@ public class DigestHashFunction {
 
   public static ImmutableSet<DigestHashFunction> getPossibleHashFunctions() {
     return ImmutableSet.copyOf(hashFunctionRegistry.values());
+  }
+
+  public static HashFunction getHashFunctionFromName(String hashName) {
+    var digestHashFunction = hashFunctionRegistry.get(hashName);
+    if (digestHashFunction == null) {
+      throw new IllegalArgumentException("Hash function " + hashName + " is not registered.");
+    }
+    return digestHashFunction.getHashFunction();
   }
 }

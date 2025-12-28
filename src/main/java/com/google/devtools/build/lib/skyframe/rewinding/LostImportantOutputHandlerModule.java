@@ -20,7 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -127,9 +127,14 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void processTooLargeStdoutErr(Path stdoutErr) {
+      throw new UnsupportedOperationException();
+    }
+
     private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs, InputMetadataProvider metadataProvider) {
-      ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
+      ImmutableSetMultimap.Builder<String, ActionInput> lost = ImmutableSetMultimap.builder();
       LostInputOwners owners = new LostInputOwners();
       for (OutputAndOwner outputAndOwner : expand(outputs, metadataProvider)) {
         ActionInput output = outputAndOwner.output;
@@ -148,7 +153,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
           owners.addOwner(output, owner);
         }
       }
-      return new LostArtifacts(lost.buildKeepingLast(), Optional.of(owners));
+      return new LostArtifacts(lost.build(), Optional.of(owners));
     }
 
     private static ImmutableList<OutputAndOwner> expand(

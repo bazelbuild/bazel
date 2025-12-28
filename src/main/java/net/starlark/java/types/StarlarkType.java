@@ -20,16 +20,45 @@ import java.util.List;
 /**
  * Base class for all Starlark types.
  *
- * <p>Tracking issue: https://github.com/bazelbuild/bazel/issues/22935
+ * <p>Starlark typing is an experimental feature under development. See the tracking issue:
+ * https://github.com/bazelbuild/bazel/issues/27370
  */
 public abstract class StarlarkType {
+
   /**
    * Returns the list of supertypes of this type.
    *
    * <p>Preferred order is from the most specific to the least specific supertype. But if that is
    * not possible, the order can be arbitrary.
    */
+  // TODO: #27370 - Add getSubtypes(), with the semantics that the actual subtype relation is the
+  // union of these two methods.
   public List<StarlarkType> getSupertypes() {
     return ImmutableList.of();
+  }
+
+  /**
+   * Returns whether a value of type {@code t2} can be assigned to a value of type {@code t1}.
+   *
+   * <p>In gradual typing terms, {@code t2} must be a "consistent subtype of" {@code t1}. This means
+   * that there is a way to substitute zero or more occurrences of {@code Any} in both terms, such
+   * that {@code t2} becomes a subtype of {@code t1} in the ordinary sense.
+   *
+   * <p>The Python glossary uses the term "assignable [to/from]" for this relation, and
+   * "materialization" to refer to the process of substituting {@code Any}.
+   */
+  // TODO: #28043 - Add support for:
+  // - subtyping (list[int] <= Sequence[int])
+  // - covariance (Sequence[int] <= Sequence[object])
+  // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
+  // - transitive application of all of the above, including across unions
+  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
+    if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
+      return true;
+    }
+    if (t1.equals(t2)) {
+      return true;
+    }
+    return false;
   }
 }

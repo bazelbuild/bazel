@@ -21,7 +21,6 @@ java_library(
     srcs = ["RepositoryResolvedEvent.java"],
     deps = [
         ":repo_definition",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
@@ -130,7 +129,6 @@ java_library(
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -167,10 +165,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",

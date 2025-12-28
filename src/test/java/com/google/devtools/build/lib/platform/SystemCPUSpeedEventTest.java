@@ -60,7 +60,8 @@ public final class SystemCPUSpeedEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(eventListener)
-        .addBlazeModule(new SystemCPUSpeedModule());
+        .addBlazeModule(new SystemCPUSpeedModule())
+        .addBlazeService(new PlatformNativeDepsServiceImpl());
   }
 
   @Test

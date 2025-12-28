@@ -148,7 +148,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "incompatible_exclude_starlark_flags_from_exec_config",
       oldName = "experimental_exclude_starlark_flags_from_exec_config",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

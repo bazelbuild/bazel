@@ -1558,10 +1558,10 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
     setFailFast(false);
     parseStatement("def f(a: int): pass");
-    assertContainsError("syntax error at ':': type annotations are disallowed.");
+    assertContainsError("syntax error at ':': type annotations are disallowed");
     events.clear();
     parseStatement("def f[T](): pass");
-    assertContainsError("syntax error at '[': type annotations are disallowed.");
+    assertContainsError("syntax error at '[': type annotations are disallowed");
   }
 
   @Test

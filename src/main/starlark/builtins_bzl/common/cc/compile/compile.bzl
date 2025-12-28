@@ -243,9 +243,6 @@ def compile(
 
     if module_interfaces and not feature_configuration.is_enabled("cpp_modules"):
         fail("to use C++20 Modules, the feature cpp_modules must be enabled")
-    if module_interfaces and len(module_interfaces) > 1:
-        fail("module_interfaces must be a list of files with exactly one file " +
-             "due to implementation limitation. see https://github.com/bazelbuild/bazel/pull/22553")
 
     language_normalized = "c++" if language == None else language
     language_normalized = language_normalized.replace("+", "p").upper()

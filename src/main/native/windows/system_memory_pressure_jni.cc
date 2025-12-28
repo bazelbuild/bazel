@@ -21,26 +21,25 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    registerMemoryPressureNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerJNI(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerMemoryPressureNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
   // Currently not implemented.
   // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-creatememoryresourcenotification
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
- * Method:    systemMemoryPressure
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    systemMemoryPressureNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressure(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemMemoryPressureNative(
+    JNIEnv* env, jclass) {
   // Currently not implemented.
   return 0;
 }
-

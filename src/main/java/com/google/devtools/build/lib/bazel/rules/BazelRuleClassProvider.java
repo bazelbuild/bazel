@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
@@ -296,9 +294,6 @@ public class BazelRuleClassProvider {
 
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationFragment(PythonConfiguration.class);
-          builder.addConfigurationFragment(BazelPythonConfiguration.class);
-
           // This symbol is overridden by exports.bzl
           builder.addBzlToplevel(
               "py_internal",

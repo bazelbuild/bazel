@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -43,6 +45,47 @@ public final class BazelRulesModule extends BlazeModule {
    * AllCommandGraveyardOptions}.
    */
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "build_python_zip",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public TriState buildPythonZip;
+
+    @Option(
+        name = "incompatible_default_to_explicit_init_py",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDefaultToExplicitInitPy;
+
+    @Option(
+        name = "python_native_rules_allowlist",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "Deprecated. No-op.")
+    public Label nativeRulesAllowlist;
+
+    @Option(
+        name = "incompatible_python_disallow_native_rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disallowNativeRules;
+
+    @Option(
+        name = "incompatible_remove_ctx_py_fragment",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disablePyFragment;
 
     @Option(
         name = "incompatible_use_python_toolchains",
@@ -124,9 +167,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help =
-            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
-                + "CROSSTOOL fields.")
+        help = "Deprecated. No-op.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
     @Option(
@@ -307,7 +348,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+        help = "Deprecated. No-op.")
     public boolean requireJavaPluginInfo;
 
     @Option(
@@ -356,6 +397,22 @@ public final class BazelRulesModule extends BlazeModule {
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
   public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+    @Option(
+        name = "python_path",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public String pythonPath;
+
+    @Option(
+        name = "experimental_python_import_all_repositories",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPythonImportAllRepositories;
+
     @Option(
         name = "python_top",
         defaultValue = "",

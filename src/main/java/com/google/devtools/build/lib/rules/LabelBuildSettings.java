@@ -22,9 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -92,8 +90,8 @@ public final class LabelBuildSettings {
         .add(
             attr("scope", STRING)
                 .value("universal")
-                .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
-                .allowedValues(new AllowedValueSet(Scope.ScopeType.allowedAttributeValues())))
+                .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+        .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)

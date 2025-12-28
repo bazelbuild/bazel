@@ -29,8 +29,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -248,11 +248,11 @@ public class RewindingTestsHelper {
 
   public final ExecResult createLostInputsExecException(
       ActionExecutionContext context, ImmutableList<ActionInput> lostInputs) throws IOException {
-    ImmutableMap.Builder<String, ActionInput> builder = ImmutableMap.builder();
+    ImmutableSetMultimap.Builder<String, ActionInput> builder = ImmutableSetMultimap.builder();
     for (ActionInput lostInput : lostInputs) {
       builder.put(getHexDigest(lostInput, context), lostInput);
     }
-    return ExecResult.ofException(new LostInputsExecException(builder.buildOrThrow()));
+    return ExecResult.ofException(new LostInputsExecException(builder.build()));
   }
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
@@ -653,7 +653,8 @@ public class RewindingTestsHelper {
           (spawn, context) -> {
             intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
             return ExecResult.ofException(
-                new LostInputsExecException(ImmutableMap.of("fakedigest/10", intermediate.get())));
+                new LostInputsExecException(
+                    ImmutableSetMultimap.of("fakedigest/10", intermediate.get())));
           });
     }
 
@@ -763,13 +764,13 @@ public class RewindingTestsHelper {
       addSpawnShim(
           "Executing genrule //test:consume_" + target,
           (spawn, context) -> {
-            ImmutableMap.Builder<String, ActionInput> inputMapBuilder = ImmutableMap.builder();
+            ImmutableSetMultimap.Builder<String, ActionInput> inputMap =
+                ImmutableSetMultimap.builder();
             for (int e = 1; e <= target; e++) {
               ActionInput input = SpawnInputUtils.getInputWithName(spawn, "out_" + e + ".txt");
-              inputMapBuilder.put("fake_digest_" + target + "_" + e, input);
+              inputMap.put("fake_digest_" + target + "_" + e, input);
             }
-            ImmutableMap<String, ActionInput> inputMap = inputMapBuilder.buildOrThrow();
-            return ExecResult.ofException(new LostInputsExecException(inputMap));
+            return ExecResult.ofException(new LostInputsExecException(inputMap.build()));
           });
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -2804,6 +2805,26 @@ public class RewindingTestsHelper {
     assertThat(rewoundKeys).containsExactly(Artifact.key(depPcm.get()));
     assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
         .hasCount("Compiling foo/dep.cppmap", 2);
+  }
+
+  public final void runMultipleLostInputsWithSameDigest_rewoundTogether() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        """
+        genrule(name = "top", srcs = [":dep1", ":dep2"], outs = ["top.out"], cmd = "echo top >$@")
+        genrule(name = "dep1", outs = ["dep1.out"], cmd = "echo dep > $@")
+        genrule(name = "dep2", outs = ["dep2.out"], cmd = "echo dep > $@")
+        """);
+    addSpawnShim(
+        "Executing genrule //foo:top",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "dep1.out", "dep2.out"));
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+
+    testCase.buildTarget("//foo:top");
+
+    verifyAllSpawnShimsConsumed();
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:dep1", "//foo:dep2");
+    assertThat(recorder.getActionRewoundEvents()).hasSize(1);
   }
 
   public final void runLostTopLevelOutputWithRewindingDisabled() throws Exception {

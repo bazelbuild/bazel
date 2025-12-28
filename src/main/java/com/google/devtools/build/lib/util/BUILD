@@ -53,14 +53,11 @@ java_library(
 )
 
 java_library(
-    name = "process",
-    srcs = ["ProcessUtils.java"],
+    name = "file_channels",
+    srcs = ["FileChannels.java"],
+    add_exports = ["java.base/sun.nio.ch"],
     deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows:processes",
+        "//third_party:flogger",
     ],
 )
 

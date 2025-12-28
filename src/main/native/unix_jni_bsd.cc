@@ -53,11 +53,6 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
-                     int flags) {
-  return fstatat(dirfd, name, statbuf, flags);
-}
-
 uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
                                StatTimes t) {
   switch (t) {

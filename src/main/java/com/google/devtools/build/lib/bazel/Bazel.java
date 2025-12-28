@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModul
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -105,10 +106,17 @@ public final class Bazel {
   @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
   public static final ImmutableList<BlazeService> BAZEL_SERVICES =
       ImmutableList.of(
+          new com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl(),
+          new com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
-          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
+          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
+          new com.google.devtools.build.lib.unix.ProcessUtilsServiceImpl());
 
   public static void main(String[] args) {
+    // Sets the default subprocess factory to the Windows-specific implementation if the host OS is
+    // Windows. We do this in Bazel.java to make sure that the global state is set before the first
+    // use of SubprocessBuilder.
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
     BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
   }

@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
 /**
@@ -53,7 +54,55 @@ import javax.annotation.Nullable;
  * #fingerprintValueService} store. The status of these uploads may be observed through {@link
  * #createFutureToBlockWritingOn} and {@link SerializationResult#getFutureToBlockWritesOn}.
  */
-abstract class SharedValueSerializationContext extends MemoizingSerializationContext {
+public abstract class SharedValueSerializationContext extends MemoizingSerializationContext {
+  /**
+   * Counters for the progress of serialization.
+   *
+   * <p>This is intended to be saved in the trace profile, but cannot itself be a {@code
+   * CounterSeriesCollector}. See {@code SelectedEntrySerializer.SerializationStatus.collect()} to
+   * see why.
+   */
+  public static class Counters {
+    private Counters() {}
+
+    private final AtomicLong bytesWaitingForFuturePuts = new AtomicLong();
+    private final AtomicLong bytesWaitingForUpload = new AtomicLong();
+    private final AtomicLong bytesUploaded = new AtomicLong();
+    private final AtomicLong objectsWaitingForSerialization = new AtomicLong();
+    private final AtomicLong objectsWaitingForFuturePuts = new AtomicLong();
+    private final AtomicLong objectsWaitingForUpload = new AtomicLong();
+    private final AtomicLong objectsUploaded = new AtomicLong();
+
+    public long getBytesWaitingForFuturePuts() {
+      return bytesWaitingForFuturePuts.get();
+    }
+
+    public long getBytesWaitingForUpload() {
+      return bytesWaitingForUpload.get();
+    }
+
+    public long getBytesUploaded() {
+      return bytesUploaded.get();
+    }
+
+    public long getObjectsWaitingForSerialization() {
+      return objectsWaitingForSerialization.get();
+    }
+
+    public long getObjectsWaitingForFuturePuts() {
+      return objectsWaitingForFuturePuts.get();
+    }
+
+    public long getObjectsWaitingForUpload() {
+      return objectsWaitingForUpload.get();
+    }
+
+    public long getObjectsUploaded() {
+      return objectsUploaded.get();
+    }
+  }
+
+  public static final Counters COUNTERS = new Counters();
 
   /** Size of serialized shared value after which we will compress the node. */
   public static final int COMPRESSION_THRESHOLD_IN_BYTES = 1024;
@@ -233,6 +282,8 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       CodedOutputStream codedOut,
       SettableFuture<PutOperation> putOperation)
       throws IOException, SerializationException {
+    COUNTERS.objectsWaitingForSerialization.incrementAndGet();
+
     byte[] childBytes; // bytes of serialized child, maybe containing placeholders
     // This is initially populated with the `futuresToWriteBlockingOn` of the child.
     ArrayList<WriteStatus> childWriteStatuses;
@@ -263,15 +314,31 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     }
 
     if (childFuturePuts == null) {
-      childBytes = maybeCompressBytes(childBytes);
       // There are no deferred bytes so `childBytes` is complete. Starts the upload.
+
+      childBytes = maybeCompressBytes(childBytes);
+
+      long childBytesCount = childBytes.length; // Do not hold on to the bytes
+      COUNTERS.objectsWaitingForSerialization.decrementAndGet();
+      COUNTERS.objectsWaitingForUpload.incrementAndGet();
+      COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
+
       PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
-      childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
+      WriteStatus writeStatus = fingerprintValueService.put(fingerprint, childBytes);
+      writeStatus.addListener(
+          () -> {
+            COUNTERS.objectsWaitingForUpload.decrementAndGet();
+            COUNTERS.objectsUploaded.incrementAndGet();
+            COUNTERS.bytesWaitingForUpload.addAndGet(-childBytesCount);
+            COUNTERS.bytesUploaded.addAndGet(childBytesCount);
+          },
+          directExecutor());
+      childWriteStatuses.add(writeStatus);
 
-      WriteStatus writeStatus = sparselyAggregateWriteStatuses(childWriteStatuses);
-      putOperation.set(new PutOperation(fingerprint, writeStatus));
-      addFutureToBlockWritingOn(writeStatus);
+      WriteStatus aggregateWriteStatus = sparselyAggregateWriteStatuses(childWriteStatuses);
+      putOperation.set(new PutOperation(fingerprint, aggregateWriteStatus));
+      addFutureToBlockWritingOn(aggregateWriteStatus);
       return;
     }
 
@@ -312,6 +379,11 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
         Collection<FuturePut> childFuturePuts) {
       super(childWriteStatuses, childBytes, childFuturePuts, ForkJoinPool.commonPool());
       this.fingerprintValueService = fingerprintValueService;
+
+      COUNTERS.objectsWaitingForSerialization.decrementAndGet();
+      COUNTERS.objectsWaitingForFuturePuts.incrementAndGet();
+      COUNTERS.bytesWaitingForFuturePuts.addAndGet(childBytes.length);
+
       signalSubclassReady();
     }
 
@@ -319,8 +391,25 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     protected PutOperation getValue() {
       // All placeholders are filled-in. Starts the upload.
       byte[] maybeCompressedBytes = maybeCompressBytes(childBytes);
+      long childBytesCount = maybeCompressedBytes.length; // Do not hold on to the array
+
+      COUNTERS.objectsWaitingForFuturePuts.decrementAndGet();
+      COUNTERS.objectsWaitingForUpload.incrementAndGet();
+      COUNTERS.bytesWaitingForFuturePuts.addAndGet(-childBytes.length);
+      COUNTERS.bytesWaitingForUpload.addAndGet(childBytesCount);
+
       PackedFingerprint fingerprint = fingerprintValueService.fingerprint(maybeCompressedBytes);
-      childWriteStatuses.add(fingerprintValueService.put(fingerprint, maybeCompressedBytes));
+      WriteStatus writeStatus = fingerprintValueService.put(fingerprint, maybeCompressedBytes);
+      writeStatus.addListener(
+          () -> {
+            COUNTERS.objectsWaitingForUpload.decrementAndGet();
+            COUNTERS.objectsUploaded.incrementAndGet();
+            COUNTERS.bytesWaitingForUpload.addAndGet(-childBytesCount);
+            COUNTERS.bytesUploaded.addAndGet(childBytesCount);
+          },
+          directExecutor());
+      childWriteStatuses.add(writeStatus);
+      childBytes = null; // Do not hold on to the bytes longer than needed
       return new PutOperation(fingerprint, childWriteStatuses.build());
     }
   }
@@ -415,8 +504,10 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
     @Override
     protected SerializationResult<ByteString> getValue() {
-      return SerializationResult.create(
-          ByteString.copyFrom(childBytes), childWriteStatuses.build());
+      var result =
+          SerializationResult.create(ByteString.copyFrom(childBytes), childWriteStatuses.build());
+      childBytes = null;
+      return result;
     }
   }
 
@@ -451,7 +542,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
   }
 
   private abstract static class ResolveFuturePuts<T> extends QuiescingFuture<T> {
-    final byte[] childBytes;
+    byte[] childBytes;
     final SparseAggregateWriteStatusBuilder childWriteStatuses =
         new SparseAggregateWriteStatusBuilder();
 

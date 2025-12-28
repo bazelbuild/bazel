@@ -211,7 +211,7 @@ java_test(
     jvm_flags = [
         "-Djava.lang.Thread.allowVirtualThreads=true",
     ],
-    shard_count = 2,
+    shard_count = 3,
     deps = [
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",

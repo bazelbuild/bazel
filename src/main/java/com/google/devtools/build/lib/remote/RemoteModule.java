@@ -736,27 +736,11 @@ public final class RemoteModule extends BlazeModule {
         }
       }
 
-      RemoteExecutionClient remoteExecutor;
-      if (remoteOptions.remoteExecutionKeepalive) {
-        RemoteRetrier execRetrier =
-            new RemoteRetrier(
-                remoteOptions,
-                RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, // Handle NOT_FOUND internally
-                retryScheduler,
-                circuitBreaker);
-        remoteExecutor =
-            new ExperimentalGrpcRemoteExecutor(
-                remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
-      } else {
-        RemoteRetrier execRetrier =
-            new RemoteRetrier(
-                remoteOptions,
-                RemoteRetrier.GRPC_RESULT_CLASSIFIER,
-                retryScheduler,
-                circuitBreaker);
-        remoteExecutor =
-            new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
-      }
+      RemoteRetrier execRetrier =
+          new RemoteRetrier(
+              remoteOptions, RemoteRetrier.GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
+      RemoteExecutionClient remoteExecutor =
+          new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       execChannel.release();
       RemoteExecutionCache remoteCache =
           new RemoteExecutionCache(
@@ -869,10 +853,6 @@ public final class RemoteModule extends BlazeModule {
                 ServerCapabilitiesRequirement.NONE);
       }
 
-      Downloader fallbackDownloader = null;
-      if (remoteOptions.remoteDownloaderLocalFallback) {
-        fallbackDownloader = env.getHttpDownloader();
-      }
       remoteDownloader =
           new GrpcRemoteDownloader(
               buildRequestId,
@@ -884,7 +864,8 @@ public final class RemoteModule extends BlazeModule {
               digestUtil.getDigestFunction(),
               remoteOptions,
               verboseFailures,
-              fallbackDownloader);
+              env.getHttpDownloader(),
+              remoteOptions.remoteDownloaderLocalFallback);
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
@@ -1196,7 +1177,7 @@ public final class RemoteModule extends BlazeModule {
     // cached local actions don't need it.
     // TODO(chiwang): Solve this with build/action rewinding instead. The main difficulty is that if
     // no remote options are set, we lack a prefetcher and cannot trigger rewinding.
-    fp.addBoolean(remoteOptions.isRemoteCacheEnabled());
+    fp.addBoolean(remoteOptions != null && remoteOptions.isRemoteCacheEnabled());
 
     // The default exec properties may affect how a spawn is remotely executed without affecting the
     // action key. In practice, only spawns with no execution platform or whose execution platform

@@ -298,7 +298,7 @@ def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchai
     return cc_common.create_linker_input(
         owner = linker_input.owner,
         libraries = depset(direct = new_libraries_to_link),
-        user_link_flags = depset(direct = linker_input.user_link_flags),
+        user_link_flags = linker_input.user_link_flags,
         additional_inputs = depset(direct = linker_input.additional_inputs),
     )
 
@@ -1130,7 +1130,7 @@ The <code>cc_shared_library</code> implementation will use the list of
 current target's <code>dynamic_deps</code>) to decide which <code>cc_libraries</code> in
 the transitive <code>deps</code> should not be linked in because they are already provided
 by a different <code>cc_shared_library</code>.
-        """,
+        """ + semantics.dynamic_deps_extra_docs,
     ),
     "_deps_analyzed_by_graph_structure_aspect": attr.label_list(
         providers = [CcInfo],

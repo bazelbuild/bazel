@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
 import com.google.common.collect.ImmutableMultimap;
@@ -64,18 +65,46 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     LinkedHashMap<Label, Scope> scopes = new LinkedHashMap<>();
     for (Label scopedFlag : key.getFlagsWithIncompleteScopeInfo()) {
       Scope.ScopeType scopeType = key.getBuildOptions().getScopeTypeMap().get(scopedFlag);
+      Object onLeaveScopeValue = key.getBuildOptions().getOnLeaveScopeValues().get(scopedFlag);
       if (scopeType == null) {
-        scopeType = getScopeType(env, scopedFlag, scopedFlag.getPackageIdentifier());
-        if (scopeType == null) {
+        Target target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
+        if (target == null) {
           return null;
         }
+        scopeType = getScopeType(target);
+        onLeaveScopeValue = getOnleaveScopeValue(target);
       }
       scopes.put(scopedFlag, new Scope(scopeType, null));
 
       // this is needed because the final BuildOptions used to create the BuildConfigurationKey
       // needs to have the scopeType set for all starlark flags.
       fullyResolvedBuildOptionsBuilder =
-          fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
+          onLeaveScopeValue != null
+              ? fullyResolvedBuildOptionsBuilder
+                  .addScopeType(scopedFlag, scopeType)
+                  .addOnLeaveScopeValue(scopedFlag, onLeaveScopeValue)
+              : fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
+
+      if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        // handling custom exec case with scope "exec:--<another_flag_name>".
+        // For example: --python_launcher=--host_python_launcher
+        // have the --<another_flag_name> flag default value in the target config but also make sure
+        // that it won't propagate to the exec config by setting the scope to "target".
+        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.scopeType().substring(7));
+        Target anotherFlagTarget = getTarget(env, anotherFlag, scopedFlag.getPackageIdentifier());
+        if (anotherFlagTarget == null) {
+          return null;
+        }
+
+        if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
+          fullyResolvedBuildOptionsBuilder =
+              fullyResolvedBuildOptionsBuilder.addStarlarkOption(
+                  anotherFlag,
+                  anotherFlagTarget
+                      .getAssociatedRule()
+                      .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+        }
+      }
     }
 
     // get PROJECT.scl files for each scoped flag that is not universal
@@ -160,9 +189,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     return projectFiles.build();
   }
 
-  @Nullable
-  private Scope.ScopeType getScopeType(
-      Environment env, Label label, PackageIdentifier packageIdentifier)
+  private Target getTarget(Environment env, Label label, PackageIdentifier packageIdentifier)
       throws BuildOptionsScopeFunctionException, InterruptedException {
     PackageContext packageContext = PackageContext.of(packageIdentifier, RepositoryMapping.EMPTY);
     SkyframeTargetLoader targetLoader = new SkyframeTargetLoader(env, packageContext);
@@ -178,6 +205,11 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       return null;
     }
 
+    return target;
+  }
+
+  private Scope.ScopeType getScopeType(Target target) {
+
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
     if (!attrs.has("scope", Type.STRING)
         // TODO: https://github.com/bazelbuild/bazel/issues/26909 - Honor the rule's actual
@@ -187,6 +219,19 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
     return new Scope.ScopeType(attrs.get("scope", Type.STRING));
+  }
+
+  @Nullable
+  private Object getOnleaveScopeValue(Target target) {
+    var attrs = RawAttributeMapper.of(target.getAssociatedRule());
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+      // do nothing if on_leave_scope is not set.
+      return null;
+    }
+
+    return attrs.get(
+        "on_leave_scope",
+        target.getAssociatedRule().getRuleClassObject().getBuildSetting().getType());
   }
 
   /**

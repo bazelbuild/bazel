@@ -726,9 +726,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
-            "implementation of the extension '@@//:extension.bzl%lockfile_ext' "
-            'or one of its transitive .bzl files has changed. Please run'
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because the'
+            " implementation of the extension '@@//:extension.bzl%lockfile_ext'"
+            ' or one of its transitive .bzl files has changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
@@ -914,11 +914,11 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
-            ' environment variables the extension'
-            " '@@//:extension.bzl%lockfile_ext' depends"
-            ' on (or their values) have changed. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because an input'
+            " to the extension '@@//:extension.bzl%lockfile_ext' changed:"
+            " environment variable SET_ME changed: 'High in sky' -> 'Down to"
+            " earth'. Please run `bazel mod deps --lockfile_mode=update` to"
+            ' update your lockfile.'
         ),
         stderr,
     )
@@ -2175,9 +2175,9 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       self.assertIn('//:ext.bzl%ext', lockfile['moduleExtensions'])
       extension = lockfile['moduleExtensions']['//:ext.bzl%ext']['general']
-      self.assertIn('recordedRepoMappingEntries', extension)
-      extension['recordedRepoMappingEntries'].append(
-          ['_unknown_source_repo', 'other_name', 'bar+']
+      self.assertIn('recordedInputs', extension)
+      extension['recordedInputs'].append(
+          'REPO_MAPPING:_unknown_source_repo,other_name bar+'
       )
 
     with open(self.Path('MODULE.bazel.lock'), 'w') as f:
@@ -2979,7 +2979,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=drw', stderr)
     self.assertIn(
-        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
+        'ERROR: MODULE.bazel.lock is no longer up-to-date because the'
         " extension '@@//:extension.bzl%lockfile_ext' has changed its facts:"
         ' {"hello": {"hash": "olh"}, "world": {"hash": "drw"}} != {"hello":'
         ' {"hash": "olleh"}, "world": {"hash": "dlrow"}}',
@@ -3092,6 +3092,65 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('hello: hash=olh', stderr)
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=drw', stderr)
+
+  def testMultipleExtensionsWithFacts(self):
+    """Test that multiple extensions with facts don't cause ClassCastException.
+
+    Regression test for the bug where ImmutableSortedMap.copyOf() was called
+    without a comparator on ModuleExtensionId keys. This would cause a
+    ClassCastException when there were multiple extensions with facts, as
+    ModuleExtensionId does not implement Comparable.
+    """
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext_a = use_extension("extension_a.bzl", "ext_a")',
+            'use_repo(ext_a, "repo_a")',
+            'ext_b = use_extension("extension_b.bzl", "ext_b")',
+            'use_repo(ext_b, "repo_b")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension_a.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _ext_a_impl(ctx):',
+            '    repo_rule(name = "repo_a")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"ext_a_fact": "value_a"},',
+            '    )',
+            'ext_a = module_extension(implementation = _ext_a_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'extension_b.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _ext_b_impl(ctx):',
+            '    repo_rule(name = "repo_b")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = False,',
+            '        facts = {"ext_b_fact": "value_b"},',
+            '    )',
+            'ext_b = module_extension(implementation = _ext_b_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@repo_a//:all', '@repo_b//:all'])
+    stderr = ''.join(stderr)
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+
+    self.assertIn('facts', lockfile)
+    facts = lockfile['facts']
+    self.assertEqual(len(facts), 2)
 
 
 if __name__ == '__main__':

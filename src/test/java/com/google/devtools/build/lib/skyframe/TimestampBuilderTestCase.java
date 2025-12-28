@@ -249,7 +249,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         cache,
         ActionInputPrefetcher.NONE,
         DiscoveredModulesPruner.DEFAULT,
-        /* actionExecutionSalt= */ "");
+        /* actionExecutionSalt= */ "",
+        /* maxStdoutErrBytes= */ Integer.MAX_VALUE);
 
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(

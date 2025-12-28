@@ -210,6 +210,15 @@ Dependencies that are only made available to the C++ linker command.
 </p>
 """,
     ),
+    "additional_compiler_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+        doc = """
+Any additional files you might want to pass to the compiler command line, such as sanitizer
+ignorelists, for example. Files specified here can then be used in copts with the
+$(location) function.
+""",
+    ),
     "win_def_file": attr.label(
         allow_single_file = [".def"],
         doc = """

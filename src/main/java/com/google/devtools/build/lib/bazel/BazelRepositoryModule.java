@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.VendorCommand;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
@@ -74,7 +75,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterPars
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -138,7 +137,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private boolean fetchDisabled = false;
-  private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private FileSystem filesystem;
@@ -433,8 +432,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(
-                env.getWorkspace(), repoOptions.downloaderConfig, env.getReporter());
+            UrlRewriter.getDownloaderUrlRewriter(env.getWorkspace(), repoOptions.downloaderConfigs);
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -500,7 +498,7 @@ public class BazelRepositoryModule extends BlazeModule {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.
         // We use a LinkedHashMap to preserve the iteration order.
-        Map<RepositoryName, PathFragment> overrideMap = new LinkedHashMap<>();
+        Map<String, PathFragment> overrideMap = new LinkedHashMap<>();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
           if (override.path().isEmpty()) {
             overrideMap.remove(override.repositoryName());
@@ -509,7 +507,7 @@ public class BazelRepositoryModule extends BlazeModule {
           String repoPath = getAbsolutePath(override.path(), env);
           overrideMap.put(override.repositoryName(), PathFragment.create(repoPath));
         }
-        ImmutableMap<RepositoryName, PathFragment> newOverrides = ImmutableMap.copyOf(overrideMap);
+        ImmutableMap<String, PathFragment> newOverrides = ImmutableMap.copyOf(overrideMap);
         if (!Maps.difference(overrides, newOverrides).areEqual()) {
           overrides = newOverrides;
         }
@@ -719,7 +717,7 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(RepositoryMappingFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),

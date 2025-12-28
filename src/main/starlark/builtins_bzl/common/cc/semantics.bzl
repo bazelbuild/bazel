@@ -211,6 +211,7 @@ semantics = struct(
     validate_cc_compile_call = _validate_cc_compile_call,
     needs_include_validation = _needs_include_validation,
     extra_exec_groups = {},
+    dynamic_deps_extra_docs = "",
     stamp_extra_docs = "",
     malloc_docs = """
  Override the default dependency on malloc.

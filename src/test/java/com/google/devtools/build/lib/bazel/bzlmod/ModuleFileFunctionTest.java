@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -178,7 +177,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
@@ -206,6 +205,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
         "bazel_dep(name='ddd',version='3.0',repo_name=None)",
+        "bazel_dep(name='ggg',repo_name='gee')",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
         "register_execution_platforms('//my:platform', '//my:platform2')",
         "flag_alias(name = 'native_flag1', starlark_flag = '//my:starlark_label1')",
@@ -233,6 +233,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
+                .addDep("gee", createModuleKey("ggg", ""))
                 .addFlagAlias("native_flag1", "@aaa//my:starlark_label1")
                 .addFlagAlias("native_flag2", "@aaa//my:starlark_label2")
                 .addNodepDep(createModuleKey("ddd", "3.0"))
@@ -252,10 +253,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 new ArchiveRepoSpecBuilder()
                     .setUrls(ImmutableList.of("https://hello.com/world.zip"))
                     .build()));
-    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoNameLookup())
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName())
         .containsExactly(
             RepositoryName.create("eee+"), "eee",
             RepositoryName.create("ggg+"), "ggg");
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName())
+        .containsExactly("ggg", "gee");
   }
 
   @Test
@@ -280,7 +283,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .build());
     assertThat(rootModuleFileValue.overrides()).isEmpty();
-    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoNameLookup()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName()).isEmpty();
   }
 
   @Test
@@ -522,7 +526,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
-    assertContainsEvent("The repo name 'foo' is already being used");
+    assertContainsEvent("The repo name 'foo' cannot be defined");
+    assertContainsEvent("as it is already defined");
   }
 
   @Test
@@ -1144,8 +1149,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
 
-    assertContainsEvent(
-        "The repo name 'mymod' is already being used as the current module name at");
+    assertContainsEvent("The repo name 'mymod' cannot be defined");
+    assertContainsEvent("as it is already defined as the current module name");
   }
 
   @Test
@@ -1491,7 +1496,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
+    assertContainsEvent("The repo name 'bbb' cannot be defined");
+    assertContainsEvent("as it is already defined as the module's own repo name");
   }
 
   @Test

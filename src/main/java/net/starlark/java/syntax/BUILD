@@ -64,6 +64,7 @@ java_library(
         "TokenKind.java",
         "TypeAliasStatement.java",
         "TypeApplication.java",
+        "TypeChecker.java",
         "TypeResolver.java",
         "UnaryOperatorExpression.java",
         "VarStatement.java",

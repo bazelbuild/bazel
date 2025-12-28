@@ -21,6 +21,7 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -29,6 +30,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
@@ -442,12 +444,14 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // that don't point to real files.
   rc_files = internal::DedupeBlazercPaths(rc_files);
 
+  const std::optional<SemVer>& sem_ver = SemVer::Parse(build_label_);
   std::set<std::string> read_files_canonical_paths;
   // Parse these potential files, in priority order;
   for (const std::string& top_level_bazelrc_path : rc_files) {
     std::unique_ptr<RcFile> parsed_rc;
-    blaze_exit_code::ExitCode parse_rcfile_exit_code = ParseRcFile(
-        workspace_layout, workspace, top_level_bazelrc_path, &parsed_rc, error);
+    blaze_exit_code::ExitCode parse_rcfile_exit_code =
+        ParseRcFile(workspace_layout, workspace, top_level_bazelrc_path,
+                    build_label_, sem_ver, &parsed_rc, error);
     if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
       return parse_rcfile_exit_code;
     }
@@ -488,19 +492,32 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
+                                      const std::string& build_label,
+                                      const std::optional<SemVer>& sem_ver,
                                       std::unique_ptr<RcFile>* result_rc_file,
                                       std::string* error) {
   assert(!rc_file_path.empty());
   assert(result_rc_file != nullptr);
 
   RcFile::ParseError parse_error;
-  std::unique_ptr<RcFile> parsed_file = RcFile::Parse(
-      rc_file_path, workspace_layout, workspace, &parse_error, error);
+  std::unique_ptr<RcFile> parsed_file =
+      RcFile::Parse(rc_file_path, workspace_layout, workspace, build_label,
+                    sem_ver, &parse_error, error);
   if (parsed_file == nullptr) {
     return internal::ParseErrorToExitCode(parse_error);
   }
   *result_rc_file = std::move(parsed_file);
   return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
+                                      const std::string& workspace,
+                                      const std::string& rc_file_path,
+                                      std::unique_ptr<RcFile>* result_rc_file,
+                                      std::string* error) {
+  return ParseRcFile(workspace_layout, workspace, rc_file_path,
+                      /*build_label=*/"", /*sem_ver=*/std::nullopt,
+                      result_rc_file, error);
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
@@ -670,7 +687,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
                                   blaze_util::ConvertPath(option.source_path)));
     ++cur_index;
   }
-  EnsurePythonPathOption(&result);
+
   for (const auto& option : blazerc_options) {
     result.push_back(
         absl::StrCat("--default_override=", rcfile_index[option.source_path],

@@ -213,6 +213,83 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
+  public void exec_localOnlySpawn_noneCanExec_fails() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder().withMnemonic("ThisMnemonic1").withOwnerPrimaryOutput(output1).build();
+    Spawn postProcessingSpawn =
+        new SpawnBuilder().withMnemonic("ThatMnemonic2").withOwnerPrimaryOutput(output2).build();
+
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.LOCAL_EXECUTION_ONLY, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(spawn)).thenReturn(Optional.of(postProcessingSpawn));
+    SandboxedSpawnStrategy local = createMockSpawnStrategy(false);
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+    assertThat(thrown)
+        .hasMessageThat()
+        .isEqualTo(
+            "Spawn is not executable in local: No usable dynamic_local_strategy found (and remote"
+                + " execution disabled) for action ThisMnemonic1. Post-Processing Spawn is not"
+                + " executable in local: No usable dynamic_local_strategy found (and remote"
+                + " execution disabled) for action ThatMnemonic2. ");
+    assertThat(thrown).hasMessageThat().doesNotContain("dynamic_remote_strategy");
+    verifyNoInteractions(remote);
+  }
+
+  @Test
+  public void exec_localOnlySpawnWithNonExecutablePostProcessingSpawn_doesNotExecLocalSpawn()
+      throws Exception {
+    Spawn spawn =
+        new SpawnBuilder().withMnemonic("ThisMnemonic1").withOwnerPrimaryOutput(output1).build();
+    Spawn postProcessingSpawn =
+        new SpawnBuilder().withMnemonic("ThatMnemonic2").withOwnerPrimaryOutput(output2).build();
+
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.LOCAL_EXECUTION_ONLY, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(spawn)).thenReturn(Optional.of(postProcessingSpawn));
+
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getFileOutErr()).thenReturn(new TestFileOutErr());
+    when(actionExecutionContext.getContext(DynamicStrategyRegistry.class))
+        .thenReturn(
+            new DynamicStrategyRegistry() {
+              @Override
+              public ImmutableList<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(
+                  Spawn spawn, DynamicMode dynamicMode) {
+                if (spawn.getMnemonic().equals("ThisMnemonic1")) {
+                  return ImmutableList.of(local);
+                }
+                return ImmutableList.of();
+              }
+
+              @Override
+              public void notifyUsedDynamic(ActionContextRegistry actionContextRegistry) {}
+            });
+    when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+
+    assertThat(thrown)
+        .hasMessageThat()
+        .isEqualTo(
+            "Post-Processing Spawn is not executable in local: No usable dynamic_local_strategy"
+                + " found (and remote execution disabled) for action ThatMnemonic2. ");
+    assertThat(thrown).hasMessageThat().doesNotContain("dynamic_remote_strategy");
+  }
+
+  @Test
   public void exec_failedLocalSpawn_doesNotExecLocalPostProcessingSpawn() throws Exception {
     testExecFailedLocalSpawnDoesNotExecLocalPostProcessingSpawn(
         new SpawnResult.Builder()
@@ -256,6 +333,7 @@ public class DynamicSpawnStrategyUnitTest {
     assertThat(results).containsExactly(failedResult);
     assertThat(localSpawnCaptor.getAllValues()).containsExactly(spawn);
     verify(remote, never()).exec(any(), any(), any());
+    verifyNoInteractions(postProcessingSpawn);
   }
 
   @Test
@@ -560,6 +638,7 @@ public class DynamicSpawnStrategyUnitTest {
     assertThat(results).containsExactly(SUCCESSFUL_SPAWN_RESULT);
     // Never runs anything as it says it can't execute anything at all.
     verify(local, never()).exec(any(), any(), any());
+    verifyNoInteractions(postProcessingSpawn);
   }
 
   @Test
@@ -591,6 +670,33 @@ public class DynamicSpawnStrategyUnitTest {
         .containsExactly(spawn, postProcessingSpawn)
         .inOrder();
     verify(remote, never()).exec(any(), any(), any());
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_noneCanExec_fails() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder().withMnemonic("ThisMnemonic1").withOwnerPrimaryOutput(output1).build();
+    Spawn postProcessingSpawn =
+        new SpawnBuilder().withMnemonic("ThatMnemonic2").withOwnerPrimaryOutput(output2).build();
+
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    when(mockGetPostProcessingSpawn.apply(spawn)).thenReturn(Optional.of(postProcessingSpawn));
+    SandboxedSpawnStrategy local = createMockSpawnStrategy(false);
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy(false);
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+    assertThat(thrown)
+        .hasMessageThat()
+        .isEqualTo(
+            "Spawn is not executable in local: No usable dynamic_local_strategy or"
+                + " dynamic_remote_strategy found for action ThisMnemonic1. Post-Processing Spawn"
+                + " is not executable in local: No usable dynamic_local_strategy or"
+                + " dynamic_remote_strategy found for action ThatMnemonic2. ");
   }
 
   private DynamicSpawnStrategy createDynamicSpawnStrategy(

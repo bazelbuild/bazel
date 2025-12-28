@@ -180,8 +180,7 @@ public interface TraceProfilerService extends BlazeService {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean includeConfiguration,
-      boolean collectTaskHistograms,
-      LocalResourceCollector localResourceCollector)
+      boolean collectTaskHistograms)
       throws IOException;
 
   /**
@@ -240,6 +239,8 @@ public interface TraceProfilerService extends BlazeService {
   void completeTask(long startTimeNanos, ProfilerTask type, String description);
 
   void registerCounterSeriesCollector(CounterSeriesCollector collector);
+
+  void unregisterCounterSeriesCollector(CounterSeriesCollector collector);
 
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   void logCounters(

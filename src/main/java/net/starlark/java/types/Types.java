@@ -17,6 +17,7 @@ package net.starlark.java.types;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +61,7 @@ public final class Types {
   private static ImmutableMap<String, Object> makeTypeUniverse() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env //
+        .put("Any", ANY)
         .put("None", NONE)
         .put("bool", BOOL)
         .put("int", INT)
@@ -206,6 +208,11 @@ public final class Types {
       @Nullable StarlarkType varargsType,
       @Nullable StarlarkType kwargsType,
       StarlarkType returns) {
+    Preconditions.checkArgument(
+        parameterNames.size() == parameterTypes.size(),
+        "%s != %s",
+        parameterNames.size(),
+        parameterTypes.size());
     return new AutoValue_Types_GeneralCallableType(
         parameterNames,
         parameterTypes,
@@ -241,7 +248,10 @@ public final class Types {
    * <p>Special parameters {@code *args} and {@code **kwargs} are stored separately. If they are
    * absent, they are set to {@code null}.
    *
-   * <p>Mandatory parameters (parameters without default values) are stored as a set.
+   * <p>Mandatory parameters (non-special parameters without default values) are stored as an
+   * ordered set.
+   *
+   * <p>The return type is marked as Any if not annotated.
    */
   public abstract static class CallableType extends StarlarkType {
 

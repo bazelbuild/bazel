@@ -34,7 +34,7 @@ load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "cre
 load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
-load(":common/cc/link/lto_backends.bzl", "create_lto_backend_artifacts")
+load(":common/cc/link/lto_backends.bzl", "create_lto_backend_artifacts", "setup_common_lto_variables")
 load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "create_cc_toolchain_config_info")
 load(":common/cc/toolchain_config/configure_features.bzl", "configure_features")
 
@@ -590,6 +590,9 @@ def _create_lto_backend_artifacts(
         should_create_per_object_debug_info,
         argv):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+
+    build_variables, additional_inputs = setup_common_lto_variables(cc_toolchain, feature_configuration)
+
     return create_lto_backend_artifacts(
         actions = actions or ctx.actions,
         bitcode_file = bitcode_file,
@@ -599,6 +602,8 @@ def _create_lto_backend_artifacts(
         cc_toolchain = cc_toolchain,
         use_pic = use_pic,
         should_create_per_object_debug_info = should_create_per_object_debug_info,
+        build_variables = build_variables,
+        additional_inputs = additional_inputs,
         argv = argv,
     )
 
@@ -718,6 +723,10 @@ def _cc_toolchain_variables(*, vars):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_internal.cc_toolchain_variables(vars = vars)
 
+def _register_swig_action(*args, **kwargs):
+    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.register_swig_action(*args, **kwargs)
+
 def _internal_exports():
     _cc_internal.check_private_api(allowlist = [
         ("", "third_party/bazel_rules/rules_cc"),
@@ -788,6 +797,7 @@ cc_common = struct(
     cc_toolchain_features = _cc_toolchain_features,
     solib_symlink_action = _solib_symlink_action,
     cc_toolchain_variables = _cc_toolchain_variables,
+    register_swig_action = _register_swig_action,
 )
 
 # LINT.ThenChange(@rules_cc//cc/private/cc_common.bzl:forked_exports)

@@ -38,11 +38,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     analysisMock.pySupport().setup(mockToolsConfig);
   }
 
-  /** Retrieves the Python version of a configured target. */
-  protected PythonVersion getPythonVersion(ConfiguredTarget ct) {
-    return getConfiguration(ct).getOptions().get(PythonOptions.class).getPythonVersion();
-  }
-
   @Test
   public void goodSrcsVersionValue() throws Exception {
     scratch.file(
@@ -54,17 +49,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'])");
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();
-  }
-
-  @Test
-  public void versionIs3IfUnspecified() throws Exception {
-    scratch.file(
-        "pkg/BUILD", //
-        bzlLoad,
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
   @Test

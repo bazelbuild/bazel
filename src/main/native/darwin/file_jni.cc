@@ -42,41 +42,6 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
-                     int flags) {
-  char dirPath[PATH_MAX2];  // Have enough room for relative path
-
-  // No fstatat under darwin, simulate it
-  if (flags != 0) {
-    // We don't support any flags
-    errno = ENOSYS;
-    return -1;
-  }
-  if (strlen(name) == 0 || name[0] == '/') {
-    // Absolute path, simply stat
-    return portable_stat(name, statbuf);
-  }
-  // Relative path, construct an absolute path
-  if (fcntl(dirfd, F_GETPATH, dirPath) == -1) {
-    return -1;
-  }
-  int l = strlen(dirPath);
-  if (dirPath[l - 1] != '/') {
-    // dirPath is twice the PATH_MAX size, we always have room for the extra /
-    dirPath[l] = '/';
-    dirPath[l + 1] = 0;
-    l++;
-  }
-  strncat(dirPath, name, PATH_MAX2 - l - 1);
-  char *newpath = realpath(dirPath, nullptr);  // this resolve the relative path
-  if (newpath == nullptr) {
-    return -1;
-  }
-  int r = portable_stat(newpath, statbuf);
-  free(newpath);
-  return r;
-}
-
 uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
                                StatTimes t) {
   switch (t) {

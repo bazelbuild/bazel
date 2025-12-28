@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,120 +25,6 @@ import org.junit.runners.JUnit4;
 /** Bazel-specific tests for {@code py_binary}. */
 @RunWith(JUnit4.class)
 public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
-
-  private static final String TOOLCHAIN_TYPE =
-      TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
-
-  private static String join(String... lines) {
-    return String.join("\n", lines);
-  }
-
-  // TODO(brandjon): Move generic toolchain tests that don't access legacy behavior to
-  // PyExecutableConfiguredtargetTestBase. Asserting on the chosen PyRuntimeInfo is problematic to
-  // do at analysis time though. It's easier in this test because we know the PythonSemantics is
-  // BazelPythonSemantics.
-
-  /**
-   * Creates a custom toolchain at //toolchains:custom that has the given lines in its rule
-   * implementation function.
-   */
-  private void defineCustomToolchain(String... lines) throws Exception {
-    String indentedBody;
-    if (lines.length == 0) {
-      indentedBody = "    pass";
-    } else {
-      indentedBody = "    " + join(lines).replace("\n", "\n    ");
-    }
-    scratch.file(
-        "toolchains/rules.bzl",
-        getPyLoad("PyRuntimeInfo"),
-        "def _custom_impl(ctx):",
-        indentedBody,
-        "custom = rule(",
-        "    implementation = _custom_impl",
-        ")");
-    scratch.file(
-        "toolchains/BUILD",
-        "load(':rules.bzl', 'custom')",
-        "custom(",
-        "    name = 'custom',",
-        ")",
-        "toolchain(",
-        "    name = 'custom_toolchain',",
-        "    toolchain = ':custom',",
-        "    toolchain_type = '" + TOOLCHAIN_TYPE + "',",
-        ")");
-  }
-
-  /**
-   * Defines a py_binary target at //pkg:pybin, configures it to use the custom toolchain
-   * //toolchains:custom, and attempts to retrieve it with {@link #getConfiguredTarget}.
-   */
-  private void analyzePyBinaryTargetUsingCustomToolchain() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "pybin",
-            srcs = ["pybin.py"],
-            python_version = "PY3",
-        )
-        """);
-    useConfiguration("--extra_toolchains=//toolchains:custom_toolchain");
-    getConfiguredTarget("//pkg:pybin");
-  }
-
-  @Test
-  public void toolchainInfoFieldIsMissing() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    defineCustomToolchain("return platform_common.ToolchainInfo()", "");
-    analyzePyBinaryTargetUsingCustomToolchain();
-    assertContainsEvent(Pattern.compile("py3_runtime.*missing"));
-  }
-
-  @Test
-  public void toolchainInfoFieldHasBadVersion() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    defineCustomToolchain(
-        "return platform_common.ToolchainInfo(",
-        "    py3_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python3',",
-        // python_version is erroneously set to PY2 for the PY3 field.
-        "        python_version = 'PY2'),",
-        ")");
-    analyzePyBinaryTargetUsingCustomToolchain();
-    assertContainsEvent(Pattern.compile("py3_runtime.*python_version.*got.*PY2"));
-  }
-
-  @Test
-  public void explicitInitPy_CanBeGloballyEnabled() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        join(
-            "py_binary(", //
-            "    name = 'foo',",
-            "    srcs = ['foo.py'],",
-            ")"));
-    useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
-  }
-
-  @Test
-  public void explicitInitPy_CanBeSelectivelyEnabled() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        join(
-            "py_binary(", //
-            "    name = 'foo',",
-            "    srcs = ['foo.py'],",
-            "    legacy_create_init = False,",
-            ")"));
-    useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
-  }
 
   @Test
   public void packageNameCanHaveHyphen() throws Exception {
@@ -154,27 +38,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     assertThat(getConfiguredTarget("//pkg-hyphenated:foo")).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void srcsPackageNameCanHaveHyphen() throws Exception {
-    scratch.file(
-        "pkg-hyphenated/BUILD", //
-        "exports_files(['bar.py'])");
-    scratch.file(
-        "otherpkg/BUILD",
-        getPyLoad("py_binary"),
-        """
-        py_binary(
-            name = "foo",
-            srcs = [
-                "foo.py",
-                "//pkg-hyphenated:bar.py",
-            ],
-        )
-        """);
-    assertThat(getConfiguredTarget("//otherpkg:foo")).isNotNull();
     assertNoEvents();
   }
 }

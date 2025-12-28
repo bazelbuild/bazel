@@ -18,6 +18,7 @@ java_library(
         ["*.java"],
         exclude = [
             "SettableFutureKeyedValue.java",
+            "TaskDeduplicator.java",
             "ThreadSafety.java",
         ],
     ),
@@ -39,4 +40,14 @@ java_library(
     name = "settable_future_keyed_value",
     srcs = ["SettableFutureKeyedValue.java"],
     deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "task_deduplicator",
+    srcs = ["TaskDeduplicator.java"],
+    deps = [
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

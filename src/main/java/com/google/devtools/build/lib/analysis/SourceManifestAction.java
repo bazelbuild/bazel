@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.Runfiles.RunfilesConflictReceiver;
@@ -82,6 +84,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       new CharEscaperBuilder().addEscape('\n', "\\n").addEscape('\\', "\\b").toEscaper();
 
   private final Artifact repoMappingManifest;
+
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
@@ -205,7 +208,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   @VisibleForTesting
   public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(repoMappingManifest));
+    writeFile(
+        out, runfiles.getRunfilesInputs(repoMappingManifest), /* inputMetadataProvider= */ null);
   }
 
   /**
@@ -265,7 +269,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
               .build();
       throw new UserExecException(failureDetail);
     }
-    return out -> writeFile(out, runfilesInputs);
+    return out -> writeFile(out, runfilesInputs, ctx.getInputMetadataProvider());
   }
 
   @Override
@@ -278,9 +282,14 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    *
    * @param out is the message stream to write errors to.
    * @param output The actual mapping of the output manifest.
+   * @param inputMetadataProvider The input metadata provider if available.
    * @throws IOException
    */
-  private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
+  private void writeFile(
+      OutputStream out,
+      Map<PathFragment, Artifact> output,
+      @Nullable InputMetadataProvider inputMetadataProvider)
+      throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     sortedManifest.sort(ENTRY_COMPARATOR);
@@ -290,7 +299,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       if (artifact == null) {
         symlinkTarget = null;
       } else if (artifact.isSymlink()) {
-        symlinkTarget = artifact.getPath().readSymbolicLink();
+        if (inputMetadataProvider != null) {
+          FileArtifactValue metadata =
+              checkNotNull(
+                  inputMetadataProvider.getInputMetadata(artifact),
+                  "missing metadata for %s",
+                  artifact);
+          symlinkTarget =
+              PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget());
+        } else {
+          symlinkTarget = artifact.getPath().readSymbolicLink();
+        }
       } else {
         symlinkTarget = artifact.getPath().asFragment();
       }

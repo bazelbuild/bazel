@@ -14,7 +14,7 @@ filegroup(
 java_library(
     name = "collect_local_resource_usage",
     srcs = [
-        "CollectLocalResourceUsage.java",
+        "LocalResourceUsageCollectors.java",
     ],
     deps = [
         ":network_metrics_collector",
@@ -29,9 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -43,7 +41,6 @@ java_library(
         "AutoProfiler.java",
         "CounterSeriesCollector.java",
         "CounterSeriesTask.java",
-        "LocalResourceCollector.java",
         "MemoryProfiler.java",
         "ProfilePhase.java",
         "Profiler.java",
@@ -58,6 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",
@@ -77,6 +75,7 @@ java_library(
         "JsonTraceFileWriter.java",
         "MetricData.java",
         "PredicateBasedStatRecorder.java",
+        "ResourceCollector.java",
         "SingleStatRecorder.java",
         "TaskData.java",
         "ThreadMetadata.java",

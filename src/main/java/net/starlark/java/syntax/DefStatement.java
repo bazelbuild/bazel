@@ -22,10 +22,10 @@ public final class DefStatement extends Statement {
 
   private final int defOffset;
   private final Identifier identifier;
-  private final ImmutableList<Identifier> typeParameters;
+  private final ImmutableList<Identifier> typeParameters; // No type params => empty list
   private final ImmutableList<Statement> body; // non-empty if well formed
   private final ImmutableList<Parameter> parameters;
-  @Nullable private final Expression returnType;
+  @Nullable private final Expression returnType; // No return type => null
 
   // set by resolver
   @Nullable private Resolver.Function resolved;

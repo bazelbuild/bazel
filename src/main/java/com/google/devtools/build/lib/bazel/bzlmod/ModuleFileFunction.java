@@ -570,7 +570,11 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
-    ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup =
+    ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName =
+        module.getDeps().entrySet().stream()
+            .filter(dep -> overrides.get(dep.getValue().name()) instanceof NonRegistryOverride)
+            .collect(toImmutableMap(dep -> dep.getValue().name(), Map.Entry::getKey));
+    ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
             .keySet()
             .stream()
@@ -587,7 +591,11 @@ public class ModuleFileFunction implements SkyFunction {
                     .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
             .collect(toImmutableSet());
     return new RootModuleFileValue(
-        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup, moduleFilePaths);
+        module,
+        overrides,
+        nonRegistryOverrideCanonicalRepoToModuleName,
+        nonRegistryOverrideModuleToRepoName,
+        moduleFilePaths);
   }
 
   private static ModuleThreadContext execModuleFile(
@@ -630,8 +638,8 @@ public class ModuleFileFunction implements SkyFunction {
             }
           });
 
-      injectRepos(injectedRepositories, context, thread);
       compiledRootModuleFile.runOnThread(thread);
+      injectRepos(injectedRepositories, context, thread);
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
@@ -650,8 +658,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
     // Use the innate extension backing use_repo_rule.
     ModuleExtensionUsageBuilder usageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context,
+        context.getOrCreateExtensionUsageBuilder(
             "//:MODULE.bazel",
             "@bazel_tools//tools/build_defs/repo:local.bzl local_repository",
             /* isolate= */ false);
@@ -678,7 +685,6 @@ public class ModuleFileFunction implements SkyFunction {
           "by --inject_repository",
           thread.getCallStack());
     }
-    context.getExtensionUsageBuilders().add(usageBuilder);
   }
 
   /**

@@ -25,8 +25,9 @@ import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
@@ -151,7 +152,7 @@ public final class ActionRewindStrategy {
   public RewindPlanResult prepareRewindPlanForLostTopLevelOutputs(
       TopLevelActionLookupKeyWrapper failedKey,
       Set<SkyKey> failedKeyDeps,
-      ImmutableMap<String, ActionInput> lostOutputsByDigest,
+      ImmutableSetMultimap<String, ActionInput> lostOutputsByDigest,
       LostInputOwners owners,
       Environment env)
       throws ActionRewindException, InterruptedException {
@@ -216,7 +217,7 @@ public final class ActionRewindStrategy {
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
-    ImmutableMap<String, ActionInput> lostInputsByDigest = e.getLostInputs();
+    ImmutableSetMultimap<String, ActionInput> lostInputsByDigest = e.getLostInputs();
     checkRewindingEnabled(lostInputsByDigest, LostType.INPUT, env.getListener());
 
     ImmutableList<LostInputRecord> lostInputRecords = createLostInputRecords(lostInputsByDigest);
@@ -277,7 +278,7 @@ public final class ActionRewindStrategy {
   }
 
   private void checkRewindingEnabled(
-      ImmutableMap<String, ActionInput> lostArtifacts,
+      ImmutableSetMultimap<String, ActionInput> lostArtifacts,
       LostType lostType,
       ExtendedEventHandler listener)
       throws ActionRewindException {
@@ -290,7 +291,7 @@ public final class ActionRewindStrategy {
       // Bazel's remote module of the lost inputs.
       listener.post(new LostInputsEvent(lostArtifacts.keySet()));
       throw new FallbackToBuildRewindingException(
-          lostArtifacts.entrySet().stream()
+          lostArtifacts.entries().stream()
               .limit(MAX_LOST_INPUTS_RECORDED)
               .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
               .collect(
@@ -308,7 +309,7 @@ public final class ActionRewindStrategy {
   private RewindPlanResult prepareRewindPlan(
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
-      ImmutableMap<String, ActionInput> lostInputsByDigest,
+      ImmutableSetMultimap<String, ActionInput> lostInputsByDigest,
       LostInputOwners owners,
       Environment env,
       ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind)
@@ -462,7 +463,7 @@ public final class ActionRewindStrategy {
   private void checkIfTopLevelOutputLostTooManyTimes(
       TopLevelActionLookupKeyWrapper failedKey,
       ImmutableList<LostInputRecord> currentAttemptLostOutputRecords,
-      ImmutableMap<String, ActionInput> lostOutputsByDigest)
+      ImmutableSetMultimap<String, ActionInput> lostOutputsByDigest)
       throws ActionRewindException {
     lostOutputsCount.addAndGet(currentAttemptLostOutputRecords.size());
 
@@ -477,12 +478,15 @@ public final class ActionRewindStrategy {
       String digest = lostInputRecord.lostInputDigest();
       int losses = historyForThisTopLevelKey.add(lostInputRecord, /* occurrences= */ 1) + 1;
       if (losses > MAX_REPEATED_LOST_INPUTS) {
-        ActionInput output = lostOutputsByDigest.get(digest);
+        ActionInput lostOutput =
+            Iterables.find(
+                lostOutputsByDigest.get(digest),
+                lost -> lost.getExecPathString().equals(lostInputRecord.lostInputPath));
         ActionRewindException e =
             new GenericActionRewindException(
                 String.format(
                     "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
-                    prettyPrint(output), digest, MAX_REPEATED_LOST_INPUTS),
+                    prettyPrint(lostOutput), digest, MAX_REPEATED_LOST_INPUTS),
                 ActionRewinding.Code.LOST_OUTPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
@@ -513,7 +517,7 @@ public final class ActionRewindStrategy {
       ActionLookupData failedKey,
       Action failedAction,
       ImmutableList<LostInputRecord> currentAttemptLostInputRecords,
-      ImmutableMap<String, ActionInput> lostInputsByDigest)
+      ImmutableSetMultimap<String, ActionInput> lostInputsByDigest)
       throws ActionRewindException {
     lostInputsCount.addAndGet(currentAttemptLostInputRecords.size());
 
@@ -544,12 +548,15 @@ public final class ActionRewindStrategy {
         // This ensures coalesced shared actions aren't orphaned.
         skyframeActionExecutor.prepareForRewinding(
             failedKey, failedAction, /* depsToRewind= */ ImmutableList.of());
-
+        ActionInput lostInput =
+            Iterables.find(
+                lostInputsByDigest.get(digest),
+                lost -> lost.getExecPathString().equals(lostInputRecord.lostInputPath));
         String message =
             String.format(
                 "lost input too many times (#%s) for the same action. lostInput: %s, "
                     + "lostInput digest: %s, failedAction: %.10000s",
-                losses, lostInputsByDigest.get(digest), digest, failedAction);
+                losses, lostInput, digest, failedAction);
         ActionRewindException e =
             new GenericActionRewindException(
                 message, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
@@ -565,8 +572,8 @@ public final class ActionRewindStrategy {
   }
 
   private static ImmutableList<LostInputRecord> createLostInputRecords(
-      ImmutableMap<String, ActionInput> lostInputsByDigest) {
-    return lostInputsByDigest.entrySet().stream()
+      ImmutableSetMultimap<String, ActionInput> lostInputsByDigest) {
+    return lostInputsByDigest.entries().stream()
         .map(e -> new LostInputRecord(e.getKey(), e.getValue().getExecPathString()))
         .collect(toImmutableList());
   }

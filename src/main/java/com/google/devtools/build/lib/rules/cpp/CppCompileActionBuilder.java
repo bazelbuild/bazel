@@ -80,22 +80,11 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   // New fields need to be added to the copy constructor.
 
-  /** Creates a builder from a rule and configuration. */
+  /** Creates a builder from an owner and a configuration. */
   public CppCompileActionBuilder(
-      ActionConstructionContext actionConstructionContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      String cppToolchainType) {
+      ActionOwner owner, CcToolchainProvider ccToolchain, BuildConfigurationValue configuration) {
 
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner =
-          actionConstructionContext.getActionOwner(
-              Label.parseCanonicalUnchecked(cppToolchainType).toString());
-    }
-
-    this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
+    this.owner = owner;
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -104,16 +93,25 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.ccToolchain = ccToolchain;
   }
 
-  /**
-   * Creates a builder that is a copy of another builder.
-   */
+  /** Creates a builder from a rule and a configuration. */
+  public CppCompileActionBuilder(
+      ActionConstructionContext actionConstructionContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfigurationValue configuration,
+      String cppToolchainType) {
+
+    this(getActionOwner(actionConstructionContext, cppToolchainType), ccToolchain, configuration);
+  }
+
+  /** Creates a builder that is a copy of another builder. */
   public CppCompileActionBuilder(CppCompileActionBuilder other) {
     this.owner = other.owner;
     this.shareable = other.shareable;
     this.featureConfiguration = other.featureConfiguration;
     this.sourceFile = other.sourceFile;
-    this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(other.mandatoryInputsBuilder.build());
+    this.mandatoryInputsBuilder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(other.mandatoryInputsBuilder.build());
     this.additionalIncludeScanningRoots = new ArrayList<>();
     this.additionalIncludeScanningRoots.addAll(other.additionalIncludeScanningRoots);
     this.outputFile = other.outputFile;
@@ -137,6 +135,18 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.moduleFiles = other.moduleFiles;
     this.modmapFile = other.modmapFile;
     this.modmapInputFile = other.modmapInputFile;
+  }
+
+  static ActionOwner getActionOwner(
+      ActionConstructionContext actionConstructionContext, String cppToolchainType) {
+    ActionOwner actionOwner = null;
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
+      actionOwner =
+          actionConstructionContext.getActionOwner(
+              Label.parseCanonicalUnchecked(cppToolchainType).toString());
+    }
+    return actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
   }
 
   @CanIgnoreReturnValue

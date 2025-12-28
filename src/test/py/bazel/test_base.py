@@ -110,10 +110,14 @@ class TestBase(absltest.TestCase):
       if TestBase.IsWindows():
         # Use a specific Python toolchain on Windows to avoid blowing up the
         # size of py_binary and py_test which slowed down tests significantly.
-        # Use @@rules_python+//python/runtime_env_toolchains:all when WORKSPACE
-        # is fully removed.
         # pylint: disable=line-too-long
-        f.write('common --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain\n')
+        f.write(
+            'common'
+            ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
+        )
+        python_exe = shutil.which('python.exe').replace('\\', '/')
+        if python_exe:
+          f.write(f'common --python_path="{python_exe}"\n')
 
     # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
     # tests from accessing BCR

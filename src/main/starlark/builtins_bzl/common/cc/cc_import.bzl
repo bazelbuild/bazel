@@ -143,9 +143,16 @@ def _cc_import_impl(ctx):
             alwayslink = ctx.attr.alwayslink,
         )
 
+        link_flags = []
+        if static_library and cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "warn_backrefs_defined"):
+            link_flags.append(
+                "-Wl,--warn-backrefs-exclude=*{}*".format(static_library.short_path),
+            )
+        link_flags.extend(ctx.attr.linkopts)
+
         linker_input = cc_common.create_linker_input(
             libraries = depset([library_to_link]),
-            user_link_flags = depset(ctx.attr.linkopts),
+            user_link_flags = depset(link_flags),
             owner = ctx.label,
         )
 

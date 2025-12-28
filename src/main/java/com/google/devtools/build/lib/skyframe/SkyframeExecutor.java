@@ -119,7 +119,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -197,6 +196,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.AdditionalPostAnalysisDepsRequestedAndAvailable;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -542,7 +542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicInteger analysisCount = new AtomicInteger();
 
-  private final Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions;
+  protected final Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions;
 
   private boolean isCleanBuild = true;
 
@@ -1018,9 +1018,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void configureActionExecutor(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      String actionExecutionSalt) {
+      String actionExecutionSalt,
+      int maxStdoutErrBytes) {
     skyframeActionExecutor.configure(
-        fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT, actionExecutionSalt);
+        fileCache,
+        actionInputPrefetcher,
+        DiscoveredModulesPruner.DEFAULT,
+        actionExecutionSalt,
+        maxStdoutErrBytes);
   }
 
   @ForOverride
@@ -2093,19 +2098,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
-      // Wrap loading failed exceptions
-      if (e != null && e instanceof NoSuchThingException noSuchThingException) {
-        e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
-      } else if (e == null && !error.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
-        e =
-            new InvalidConfigurationException(
+      switch (e) {
+        case InvalidConfigurationException invalidConfigurationException ->
+            throw invalidConfigurationException;
+        case DetailedException detailedException ->
+            throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
+        case null, default -> {
+          if (e == null && !error.getCycleInfo().isEmpty()) {
+            cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
+            throw new InvalidConfigurationException(
                 "cannot load build configuration because of this cycle", Code.CYCLE);
+          }
+          throw new IllegalStateException(
+              "Unknown error during configuration creation evaluation", e);
+        }
       }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
     }
 
     // Prepare and return the results.
@@ -3219,26 +3226,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
-          // LINT.IfChange
           "build_python_zip",
           "@@rules_python+//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
           "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
-
-  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
 
   /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
       ImmutableMap.of(
-          // LINT.IfChange
           "python_path",
           "@@rules_python+//python/config_settings:python_path",
           "experimental_python_import_all_repositories",
           "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
-
-  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPythonConfiguration.java)
 
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
@@ -3247,64 +3248,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * command line flags to canonical Starlark flags.
    *
    * @param eventHandler handler for Skyframe events
-   * @param ensurePyAliases If true, add Python-specific flag aliases even if they're not defined in
-   *     {@code rules_python}'s {@code MODULE.bazel}
-   * @param ensureBazelPyAliases if true, add Bazel Python-specific flag aliases even if they're not
-   *     defined in {@code rules_python}'s {@code MODULE.bazel}
    */
-  public Map<String, String> getFlagAliases(
-      ExtendedEventHandler eventHandler, boolean ensurePyAliases, boolean ensureBazelPyAliases)
+  public Map<String, String> getFlagAliases(ExtendedEventHandler eventHandler)
       throws InterruptedException {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-
-    // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
-    // alias definitions straight fromrules_python's MODULE.bazel.
-    com.google.devtools.build.lib.bazel.bzlmod.Version minBazelVersionForPythonAliases = null;
-    try {
-      // rules_python at this version or older disables Python flag aliases. These versions don't
-      // support Starlark flags. As of this comment the latest rules_python release is 1.6.3.
-      // 1.6.100 isn't a real version but provides a convenient threshold below 1.7.0. We don't make
-      // 1.7.0 the baseline to permit 1.7.0-rc1 or other prereleases.
-      minBazelVersionForPythonAliases =
-          com.google.devtools.build.lib.bazel.bzlmod.Version.parse("1.6.100");
-    } catch (ParseException e) {
-      throw new IllegalStateException("Hard-coded rules_python version should always parse.", e);
-    }
-
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
       aliasesMap.putAll(flagAliases);
-
       if (!module.getKey().name().equals("rules_python")) {
         continue;
       }
-
-      // Don't apply hard-coded aliases for python version < 1.6.100
-      // Don't apply hard-coded aliases for python version > 1.6.100 and rules_python uses
-      // MODULE.bazel aliases
-      boolean isAllowedVersion =
-          module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0
-              || !module.getValue().getVersion().toString().startsWith("1.");
-      if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty()) {
+      // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
+      if (!module.getValue().getFlagAliases().isEmpty()) {
         continue;
       }
-
-      if (ensurePyAliases) {
-        // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-        PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
-      if (ensureBazelPyAliases) {
-        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
+      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+      PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
 
       return ImmutableMap.copyOf(aliasesMap);
     }
@@ -3657,6 +3626,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           @Override
+          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
+            return ImmutableMap.of();
+          }
+
+          @Override
           public ImmutableMap<String, Object> getExplicitStarlarkOptions(
               java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
@@ -3706,8 +3680,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
 
         DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-            diffAwarenessManager.getDiff(
-                eventHandler, getPathForModifiedFileSet(pathEntry), ignoredPaths, options);
+            diffAwarenessManager.getDiff(eventHandler, pathEntry, ignoredPaths, options);
         if (pkgRoots.size() == 1) {
           workspaceInfo = modifiedFileSet.getWorkspaceInfo();
           workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
@@ -3761,12 +3734,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     handleClientEnvironmentChanges();
     isCleanBuild = false;
     return workspaceInfo;
-  }
-
-  /** Returns the path under which to find the modified file set. */
-  @ForOverride
-  protected Root getPathForModifiedFileSet(Root root) {
-    return root;
   }
 
   /** Invalidates entries in the client environment. */
@@ -4774,8 +4741,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Multisets.copyHighestCountFirst(counts);
   }
 
-  /** Defines configuration for the progress message shown during a slow diff check. */
+  /**
+   * Defines configuration for the diff checking and the progress message shown during a slow diff
+   * check.
+   */
   public interface DiffCheckNotificationOptions {
+
+    /**
+     * Whether to allow a diff check for the given {@link EvaluatingVersionDiff}. A return of false
+     * results in starting with a fresh Skyframe graph instead of an incremental build.
+     */
+    boolean allowDiffCheck(
+        EvaluatingVersionDiff versionDiff, EventHandler eventHandler, OptionsProvider options);
+
     String getStatusMessage();
 
     Duration getStatusUpdateDelay();

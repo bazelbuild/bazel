@@ -105,10 +105,15 @@ public final class Program {
       throw new SyntaxError.Exception(file.errors());
     }
 
-    TypeResolver.resolveFile(file, env);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
+    if (file.getOptions().resolveTypeSyntax()) {
+      TypeResolver.annotateFile(file, env);
+      if (!file.ok()) {
+        throw new SyntaxError.Exception(file.errors());
+      }
     }
+
+    // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
+    // enabled. Blocked on having the type checker tolerate all AST nodes.
 
     // Extract load statements.
     ImmutableList.Builder<String> loads = ImmutableList.builder();

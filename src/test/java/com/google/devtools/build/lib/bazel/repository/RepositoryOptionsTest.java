@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOv
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOverrideConverter;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverrideConverter;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Rule;
@@ -44,21 +43,21 @@ public class RepositoryOptionsTest {
   @Test
   public void testOverrideConverter() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar"));
   }
 
   @Test
   public void testOverridePathWithEqualsSign() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar=/baz");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar=/baz"));
   }
 
   @Test
   public void testOverridePathWithTilde() throws Exception {
     RepositoryOverride actual = converter.convert("foo=~/bar");
-    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.repositoryName()).isEqualTo("foo");
     assertThat(PathFragment.create(actual.path()))
         .isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
   }

@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -32,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
@@ -51,6 +53,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
+        "@maven//:org_apache_commons_commons_lang3",
     ],
 )
 

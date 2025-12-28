@@ -230,8 +230,8 @@ public final class SkyValueRetriever {
           case InitialQuery unused:
             {
               PackedFingerprint cacheKey =
-                  SkyKeySerializationHelper.computeFingerprint(
-                      codecs, fingerprintValueService, key, frontierNodeVersion);
+                  FingerprintValueService.computeFingerprint(
+                      fingerprintValueService, codecs, key, frontierNodeVersion);
               retrievalContext.setStart(Instant.now());
               retrievalContext.setCacheKey(cacheKey);
               ListenableFuture<?> responseFuture;

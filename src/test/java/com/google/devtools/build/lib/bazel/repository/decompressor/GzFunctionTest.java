@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assume.assumeFalse;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -130,9 +128,6 @@ public class GzFunctionTest {
 
     @Test
     public void setLastModifiedTime() throws IOException {
-      // TODO(pcloudy): Fix this test in Blaze.
-      assumeFalse(
-          "Skipping setLastModifiedTime test in Blaze environment.", PRODUCT_NAME.equals("blaze"));
       FileSystem testFs = TestArchiveDescriptor.getFileSystem();
       com.google.devtools.build.lib.vfs.Path tmpDir = TestUtils.createUniqueTmpDir(testFs);
       File testFile = new File(tmpDir.getPathFile(), "test_file");
@@ -155,14 +150,8 @@ public class GzFunctionTest {
         fn.setFileAttributes(decompressorStream, testFs.getPath(testFile.getCanonicalPath()));
       }
 
-      // There was an error in Apache Commons Compress where the time was improperly divided by
-      // 1000, thus losing 3 digits of precision. This replicates that wrong behavior until we
-      // upgrade the Apache Commons Compress library to 1.28. At which point, you can replace
-      // hackExpectedTimeSeconds below with unixTimeSeconds.
-      // See https://github.com/apache/commons-compress/pull/624
-      long hackExpectedTimeSeconds = unixTimeSeconds / 1000 * 1000;
       // Time should be in epoch milliseconds.
-      assertThat(testFile.lastModified()).isEqualTo(hackExpectedTimeSeconds * 1000);
+      assertThat(testFile.lastModified()).isEqualTo(unixTimeSeconds * 1000);
     }
   }
 }

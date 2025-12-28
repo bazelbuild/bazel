@@ -224,7 +224,6 @@ java_library(
         ":workspace_info_receiver",
         ":workspace_status_function",
         ":workspace_status_value",
-        "//src/main/java/com/google/devtools/build/lib:baseline-cl-diff-event",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",
@@ -296,7 +295,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_function",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:unloaded_toolchain_contexts_inputs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
@@ -1395,6 +1393,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:flogger",
@@ -1789,9 +1788,9 @@ java_library(
     deps = [
         ":broken_diff_awareness_exception",
         ":diff_awareness",
+        ":fs_events_native_deps_service",
         ":incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -2468,6 +2467,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2562,6 +2562,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
@@ -2573,7 +2574,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -3336,5 +3336,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "fs_events_native_deps_service",
+    srcs = ["FsEventsNativeDepsService.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+)
+
+java_library(
+    name = "fs_events_native_deps_service_impl",
+    srcs = ["FsEventsNativeDepsServiceImpl.java"],
+    deps = [
+        ":fs_events_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/jni",
     ],
 )

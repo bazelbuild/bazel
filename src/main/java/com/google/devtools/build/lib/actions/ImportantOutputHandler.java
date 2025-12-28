@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
@@ -117,16 +117,30 @@ public interface ImportantOutputHandler extends ActionContext {
       throws ImportantOutputException, InterruptedException;
 
   /**
+   * Informs this handler of a stdout or stderr file that is too large to display to the console and
+   * should instead be made available in file form.
+   *
+   * <p>The given paths is under the exec root and is backed by an {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action filesystem} if
+   * applicable.
+   *
+   * <p>Stdout and stderr files should never be lost because they are only accessed after a
+   * just-executed action.
+   */
+  void processTooLargeStdoutErr(Path stdoutErr)
+      throws ImportantOutputException, InterruptedException;
+
+  /**
    * Represents artifacts that need to be regenerated via action rewinding, optionally along with
    * their owners if known. If {@code owners} is present, the ownership information must be
    * complete.
    */
   record LostArtifacts(
-      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
+      ImmutableSetMultimap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
 
     /** An empty instance of {@link LostArtifacts}. */
     public static final LostArtifacts EMPTY =
-        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
+        new LostArtifacts(ImmutableSetMultimap.of(), Optional.of(new LostInputOwners()));
 
     public LostArtifacts {
       checkNotNull(byDigest);

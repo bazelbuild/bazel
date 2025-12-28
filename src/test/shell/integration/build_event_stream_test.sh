@@ -1693,3 +1693,14 @@ EOF
 }
 
 run_suite "Integration tests for the build event stream"
+
+function test_java_version_info_in_build_started() {
+  mkdir -p a
+  touch a/BUILD
+  bazel build --nobuild //a:all --build_event_text_file=bep.txt \
+    >/dev/null 2>&1 || fail "build failed"
+  assert_contains "java_version_info {" bep.txt
+  assert_contains 'java_version: ".+"' bep.txt
+  assert_contains "java_major_version: [0-9]+" bep.txt
+  assert_contains "java_minor_version: [0-9]+" bep.txt
+}

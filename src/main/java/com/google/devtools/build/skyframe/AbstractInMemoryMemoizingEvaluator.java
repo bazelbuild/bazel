@@ -26,6 +26,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -35,6 +36,7 @@ import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -509,5 +511,12 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public void cleanupLatestTopLevelEvaluations() {
     latestTopLevelEvaluations = new HashSet<>();
+  }
+
+  @Override
+  public void postLoggingStats(ExtendedEventHandler eventHandler) {
+    EvaluationStats evaluationStats = progressReceiver.aggregateAndReset();
+    eventHandler.post(
+        new SkyframeGraphStatsEvent(getInMemoryGraph().valuesSize(), evaluationStats));
   }
 }

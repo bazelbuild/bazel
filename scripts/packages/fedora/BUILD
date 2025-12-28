@@ -19,5 +19,6 @@ pkg_rpm(
         "//scripts/zsh_completion:_bazel",
     ],
     spec_file = "bazel.spec",
+    tags = ["manual"],
     version_file = "//scripts/packages:version.txt",
 )

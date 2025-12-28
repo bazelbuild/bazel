@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreload
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -208,7 +209,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               ExecutionOptions.class,
               KeepStateAfterBuildOption.class,
               KeepGoingOption.class,
-              PackageOptions.class)
+              PackageOptions.class,
+              UiOptions.class)
           .build();
   private final Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
   private QueryTransitivePackagePreloader visitor;
@@ -864,8 +866,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action action2 =
         new MissingOutputAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -946,8 +947,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // is running. This way, both actions will check the action cache beforehand and try to update
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1077,8 +1077,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1214,8 +1213,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action action2 =
         new TreeArtifactAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2, children);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1329,8 +1327,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionTemplate<DummyAction> template2 =
         new DummyActionTemplate(baseOutput, sharedOutput2, ActionOwner.SYSTEM_ACTION_OWNER);
     ActionLookupValue shared2Ct = createActionLookupValue(template2, shared2);
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1657,8 +1654,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(slowAction, lc2),
             null,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1789,8 +1785,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(action2, lc2),
             null,
             NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
-    skyframeExecutor.configureActionExecutor(
-        /* fileCache= */ null, ActionInputPrefetcher.NONE, /* actionExecutionSalt= */ "");
+    configureActionExecutor();
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
@@ -2728,5 +2723,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             options,
             /* commandName= */ "build",
             /* commandExecutes= */ true);
+  }
+
+  private void configureActionExecutor() {
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        /* actionExecutionSalt= */ "",
+        /* maxStdoutErrBytes= */ 999);
   }
 }

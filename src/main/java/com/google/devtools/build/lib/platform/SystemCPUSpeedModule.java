@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.platform;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -26,28 +30,23 @@ import javax.annotation.concurrent.GuardedBy;
 public final class SystemCPUSpeedModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  static {
-    JniLoader.loadJni();
-  }
-
   @GuardedBy("this")
   @Nullable
   private Reporter reporter;
 
-  private native void registerJNI();
+  private PlatformNativeDepsService service;
 
-  private static native int cpuSpeed();
-
-  public SystemCPUSpeedModule() {
-    if (JniLoader.isJniAvailable()) {
-      registerJNI();
-    }
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
+    service.registerCPUSpeedJni(this::cpuSpeedCallback);
   }
 
   @Override
   public synchronized void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
-    int startingSpeed = cpuSpeed();
+    int startingSpeed = service.cpuSpeed();
     if (startingSpeed < 100) {
       cpuSpeedCallback(startingSpeed);
     }

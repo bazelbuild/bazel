@@ -14,12 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.DiffCheckNotificationOptions;
+import com.google.devtools.common.options.OptionsProvider;
 import java.time.Duration;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
@@ -44,6 +47,12 @@ public class BazelSkyframeExecutorConstants {
 
   public static final DiffCheckNotificationOptions DIFF_CHECK_NOTIFICATION_OPTIONS =
       new DiffCheckNotificationOptions() {
+        @Override
+        public boolean allowDiffCheck(
+            EvaluatingVersionDiff versionDiff, EventHandler eventHandler, OptionsProvider options) {
+          return true;
+        }
+
         @Override
         public String getStatusMessage() {
           return "Checking for file changes...";

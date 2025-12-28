@@ -162,9 +162,11 @@ def _test_output_groups_impl(env, target):
     subject.output_group("linkopts").contains_exactly([path_prefix + "_linkopts.txt"])
 
     # RUNTIMES_LINKOPTS is modified by copybara on export.
-    RUNTIMES_LINKOPTS = []
+    RUNTIMES_LINKOPTS = [
+    ]
 
-    subject.action_generating(path_prefix + "_linkopts.txt").content().split("\n").contains_exactly([
+    # TODO(b/468045626): switch back to contains_exactly once rules_cc is released.
+    subject.action_generating(path_prefix + "_linkopts.txt").content().split("\n").contains_at_least([
         "dep_1_arg_1",
         "dep_1_arg_2",
         "dep_1_arg_1",

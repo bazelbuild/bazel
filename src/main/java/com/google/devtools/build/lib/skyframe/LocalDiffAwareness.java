@@ -76,14 +76,18 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
     private final ImmutableList<String> excludedNetworkFileSystemsPrefixes;
+    private final FsEventsNativeDepsService fsEventsNativeDepsService;
 
     /**
      * Creates a new factory; the file system watcher may not work on all file systems, particularly
      * for network file systems. The prefix list can be used to exclude known paths that point to
      * network file systems.
      */
-    public Factory(ImmutableList<String> excludedNetworkFileSystemsPrefixes) {
+    public Factory(
+        ImmutableList<String> excludedNetworkFileSystemsPrefixes,
+        FsEventsNativeDepsService fsEventsNativeDepsService) {
       this.excludedNetworkFileSystemsPrefixes = excludedNetworkFileSystemsPrefixes;
+      this.fsEventsNativeDepsService = fsEventsNativeDepsService;
     }
 
     @Override
@@ -108,7 +112,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(watchRoot, ignoredPaths);
+        return new MacOSXFsEventsDiffAwareness(watchRoot, ignoredPaths, fsEventsNativeDepsService);
       }
 
       return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);

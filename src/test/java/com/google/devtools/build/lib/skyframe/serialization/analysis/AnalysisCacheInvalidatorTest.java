@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
-import com.google.devtools.build.lib.skyframe.serialization.SkyKeySerializationHelper;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
@@ -82,8 +81,8 @@ public final class AnalysisCacheInvalidatorTest {
   public void lookupKeysToInvalidate_cacheHit_returnsEmptySet() throws Exception {
     TrivialKey key = new TrivialKey("hit_key");
     PackedFingerprint fingerprint =
-        SkyKeySerializationHelper.computeFingerprint(
-            objectCodecs, fingerprintService, key, frontierNodeVersion);
+        FingerprintValueService.computeFingerprint(
+            fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     // Simulate a cache hit by returning a non-empty response.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
@@ -110,8 +109,8 @@ public final class AnalysisCacheInvalidatorTest {
   public void lookupKeysToInvalidate_cacheMiss_returnsKey() throws Exception {
     TrivialKey key = new TrivialKey("miss_key");
     PackedFingerprint fingerprint =
-        SkyKeySerializationHelper.computeFingerprint(
-            objectCodecs, fingerprintService, key, frontierNodeVersion);
+        FingerprintValueService.computeFingerprint(
+            fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     // Simulate a cache miss by returning an empty response.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
@@ -140,11 +139,11 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey missKey = new TrivialKey("miss_key_mixed");
 
     PackedFingerprint hitFingerprint =
-        SkyKeySerializationHelper.computeFingerprint(
-            objectCodecs, fingerprintService, hitKey, frontierNodeVersion);
+        FingerprintValueService.computeFingerprint(
+            fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
     PackedFingerprint missFingerprint =
-        SkyKeySerializationHelper.computeFingerprint(
-            objectCodecs, fingerprintService, missKey, frontierNodeVersion);
+        FingerprintValueService.computeFingerprint(
+            fingerprintService, objectCodecs, missKey, frontierNodeVersion);
 
     // Simulate a cache hit _and_ miss for looking up multiple keys.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(hitFingerprint.toBytes())))
@@ -253,8 +252,8 @@ public final class AnalysisCacheInvalidatorTest {
       throws Exception {
     TrivialKey key = new TrivialKey("key");
     PackedFingerprint packedFingerprint =
-        SkyKeySerializationHelper.computeFingerprint(
-            objectCodecs, fingerprintService, key, frontierNodeVersion);
+        FingerprintValueService.computeFingerprint(
+            fingerprintService, objectCodecs, key, frontierNodeVersion);
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(packedFingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.EMPTY));
 

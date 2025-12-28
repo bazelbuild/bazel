@@ -20,12 +20,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.bazel.Blake3HashFunction;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -41,24 +40,20 @@ public class DownloadCache {
 
   /** The types of cache keys used. */
   public enum KeyType {
-    SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
-    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256()),
-    SHA384("SHA-384", "\\p{XDigit}{96}", "sha384", Hashing.sha384()),
-    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512()),
-    BLAKE3("BLAKE3", "\\p{XDigit}{64}", "blake3", Blake3HashFunction.INSTANCE);
+    SHA1("SHA-1", "\\p{XDigit}{40}", "sha1"),
+    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256"),
+    SHA384("SHA-384", "\\p{XDigit}{96}", "sha384"),
+    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512"),
+    BLAKE3("BLAKE3", "\\p{XDigit}{64}", "blake3");
 
     private final String stringRepr;
     private final String regexp;
     private final String hashName;
 
-    @SuppressWarnings("ImmutableEnumChecker")
-    private final HashFunction hashFunction;
-
-    KeyType(String stringRepr, String regexp, String hashName, HashFunction hashFunction) {
+    KeyType(String stringRepr, String regexp, String hashName) {
       this.stringRepr = stringRepr;
       this.regexp = regexp;
       this.hashName = hashName;
-      this.hashFunction = hashFunction;
     }
 
     public boolean isValid(@Nullable String checksum) {
@@ -70,11 +65,12 @@ public class DownloadCache {
     }
 
     public Hasher newHasher() {
-      return hashFunction.newHasher();
+      return getHashFunction().newHasher();
     }
 
     public HashFunction getHashFunction() {
-      return hashFunction;
+      // stringRepr is the canonical name for the hash function. See {@link DigestHashFunction}.
+      return DigestHashFunction.getHashFunctionFromName(stringRepr);
     }
 
     public String getHashName() {
@@ -385,7 +381,10 @@ public class DownloadCache {
       throws IOException, InterruptedException {
     // Attempt to use the fast digest if the hash function of the filesystem
     // matches `keyType` and it's available.
-    if (path.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.hashFunction)) {
+    if (path.getFileSystem()
+        .getDigestFunction()
+        .getHashFunction()
+        .equals(keyType.getHashFunction())) {
       byte[] digest = path.getFastDigest();
       if (digest != null) {
         return BaseEncoding.base16().lowerCase().encode(digest);

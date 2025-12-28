@@ -100,9 +100,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "experimental_remote_execution_keepalive",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to use keepalive for remote execution calls.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean remoteExecutionKeepalive;
 
   @Option(
@@ -282,6 +282,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
       help =
           "Whether to fall back to standalone local execution strategy if remote execution fails.")
   public boolean remoteLocalFallback;
+
+  @Option(
+      name = "incompatible_remote_local_fallback_for_remote_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether --remote_local_fallback applies to --remote_cache.")
+  public boolean remoteLocalFallbackForRemoteCache;
 
   @Deprecated
   @Option(

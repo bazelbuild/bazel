@@ -49,6 +49,7 @@ public final class OutputFormatters {
       case JSON -> jsonFormatter;
       case GRAPH -> graphvizFormatter;
       case null -> throw new IllegalArgumentException("Output format cannot be null.");
+      default -> throw new IllegalArgumentException("Unsupported output format: " + format);
     };
   }
 

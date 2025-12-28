@@ -207,6 +207,11 @@ public final class RepositoryName {
     }
   }
 
+  /** Returns true if the given name cannot possibly be a canonical repository name. */
+  public static boolean isApparent(String name) {
+    return !name.isEmpty() && !name.contains("+");
+  }
+
   /** Returns the bare repository name without the leading "{@literal @}". */
   public String getName() {
     return name;

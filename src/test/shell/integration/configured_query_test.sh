@@ -339,13 +339,13 @@ cc_library(
 )
 
 config_setting(
-    name = "py_reading_condition",
-    values = {"build_python_zip": "1"})
+    name = "shell_executable_condition",
+    values = {"shell_executable": "foo"})
 
 cc_library(
     name = "cclib_with_select",
     srcs = select({
-        ":py_reading_condition": ["version1.cc"],
+        ":shell_executable_condition": ["version1.cc"],
         "//conditions:default": ["version2.cc"],
     })
 )
@@ -355,12 +355,12 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
-  assert_contains "//$pkg:cclib .*PythonOptions" output
+  assert_contains "//$pkg:cclib .*ShellConfiguration\$Options" output
 
-  assert_contains "//$pkg:py_reading_condition .*PythonOptions" output
+  assert_contains "//$pkg:shell_executable_condition .*ShellConfiguration\$Options" output
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
-  assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
+  assert_contains "//$pkg:cclib_with_select .*ShellConfiguration\$Options" output
 }
 
 function test_show_transitive_config_fragments_alias() {
@@ -546,9 +546,8 @@ cc_library(
 )
 
 config_setting(
-    name = "py_reading_condition",
+    name = "shell_executable_condition",
     values = {
-      "build_python_zip": "1",
       "shell_executable": "foo"
     }
 )
@@ -556,7 +555,7 @@ config_setting(
 cc_library(
     name = "cclib_with_select",
     srcs = select({
-        ":py_reading_condition": ["version1.cc"],
+        ":shell_executable_condition": ["version1.cc"],
         "//conditions:default": ["version2.cc"],
     })
 )
@@ -566,13 +565,11 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
-  assert_not_contains "//$pkg:cclib .*PythonOptions" output
+  assert_not_contains "//$pkg:cclib .*ShellConfiguration\$Options" output
 
-  assert_contains "//$pkg:py_reading_condition .*PythonOptions" output
-  assert_contains "//$pkg:py_reading_condition .*ShellConfiguration\$Options" output
+  assert_contains "//$pkg:shell_executable_condition .*ShellConfiguration\$Options" output
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
-  assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
   assert_contains "//$pkg:cclib_with_select .*ShellConfiguration\$Options" output
 }
 
