@@ -23,6 +23,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -90,13 +91,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl;
-import com.google.devtools.build.lib.profiler.TraceProfilerService;
-import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
@@ -229,7 +227,6 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
-  private static final TraceProfilerService profilerService = new TraceProfilerServiceImpl();
 
   @Nullable private UncaughtExceptionHandler oldExceptionHandler;
 
@@ -249,9 +246,6 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
-
-    // Must initialize manually because we never call globalInit() on modules/services.
-    Profiler.setTraceProfilerService(profilerService);
 
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
@@ -399,8 +393,12 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void runPriorToBeforeMethods() throws Exception {
-    // Allows tests such as SkyframeIntegrationInvalidationTest to execute code before all @Before
-    // methods are being run.
+    // In production, these are essentially the first thing we do when setting up a new
+    // BlazeRuntime. The idea is for them to be run early enough during the server startup.
+    // For tests, we have to do this here in order to mimic this behavior.
+    for (BlazeService service : getBlazeServices()) {
+      service.globalInit();
+    }
   }
 
   @After
@@ -613,6 +611,11 @@ public abstract class BuildIntegrationTestCase {
     return new NoOpConnectivityModule();
   }
 
+  /** Gets the list of Blaze services to be added to the runtime. */
+  protected ImmutableList<BlazeService> getBlazeServices() {
+    return BAZEL_SERVICES;
+  }
+
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     OptionsParser startupOptionsParser =
         OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
@@ -631,9 +634,10 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(new CredentialModule())
-            .addBlazeService(new SystemNetworkStatsServiceImpl())
-            .addBlazeService(profilerService);
+            .addBlazeModule(new CredentialModule());
+    for (BlazeService service : getBlazeServices()) {
+      builder.addBlazeService(service);
+    }
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())

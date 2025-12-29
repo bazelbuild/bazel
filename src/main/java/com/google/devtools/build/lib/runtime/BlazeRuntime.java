@@ -1859,6 +1859,24 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     @CanIgnoreReturnValue
+    public <T extends BlazeService> Builder overrideBlazeServiceForTesting(
+        Class<T> clazz, BlazeService blazeService) {
+      var index = -1;
+      for (var i = 0; i < blazeServices.size(); i++) {
+        if (clazz.isInstance(blazeServices.get(i))) {
+          index = i;
+          break;
+        }
+      }
+      if (index == -1) {
+        blazeServices.add(blazeService);
+      } else {
+        blazeServices.set(index, blazeService);
+      }
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setInstanceId(UUID id) {
       instanceId = id;
       return this;

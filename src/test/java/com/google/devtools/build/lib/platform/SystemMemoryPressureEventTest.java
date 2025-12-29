@@ -68,8 +68,7 @@ public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCas
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(eventListener)
-        .addBlazeModule(new SystemMemoryPressureModule())
-        .addBlazeService(new PlatformNativeDepsServiceImpl());
+        .addBlazeModule(new SystemMemoryPressureModule());
   }
 
   @Test

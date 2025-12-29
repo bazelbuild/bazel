@@ -61,8 +61,7 @@ public final class SystemDiskSpaceEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(eventListener)
-        .addBlazeModule(new SystemDiskSpaceModule())
-        .addBlazeService(new PlatformNativeDepsServiceImpl());
+        .addBlazeModule(new SystemDiskSpaceModule());
   }
 
   @Test
