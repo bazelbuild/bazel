@@ -1716,7 +1716,7 @@ public class BuildTool {
                 skycacheMetadataParams.getBazelVersion(),
                 eventHandler,
                 () -> bailedOut = true);
-        }
+      }
     }
 
     /**
@@ -1785,6 +1785,7 @@ public class BuildTool {
                     getSkyValueVersion(),
                     listener.getClientId(),
                     eventHandler);
+            analysisCacheInvalidator = localRef;
           }
         }
       }
