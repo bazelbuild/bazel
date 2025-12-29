@@ -34,6 +34,13 @@ bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
+bazel_dep(name = "toolchains_llvm_bootstrapped")
+git_override(
+    module_name = "toolchains_llvm_bootstrapped",
+    commit = "28d7af5a41bc3f87944896d4e4ab51504f9b6218",
+    remote = "https://github.com/cerisier/toolchains_llvm_bootstrapped",
+)
+
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.7")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
@@ -141,9 +148,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:log:1.5.2",
         "com.dylibso.chicory:runtime:1.5.2",
         "com.dylibso.chicory:wasm:1.5.2",
-        "com.dylibso.chicory:log:1.5.2",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -455,10 +462,15 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
 register_execution_platforms("//:default_host_platform")
 
-register_toolchains("@rules_python//python:autodetecting_toolchain")
-
-register_toolchains("@local_config_winsdk//:all")
-
-register_toolchains("//src/main/res:empty_rc_toolchain")
-
-register_toolchains("@graalvm_ce_toolchains//:gvm")
+register_toolchains(
+    "//src/main/res:empty_rc_toolchain",
+    "@graalvm_ce_toolchains//:gvm",
+    "@local_config_winsdk//:all",
+    "@rules_python//python:autodetecting_toolchain",
+    "@toolchains_llvm_bootstrapped//toolchain:linux_x86_64_to_linux_x86_64",
+    "@toolchains_llvm_bootstrapped//toolchain:linux_x86_64_to_linux_aarch64",
+    "@toolchains_llvm_bootstrapped//toolchain:linux_aarch64_to_linux_x86_64",
+    "@toolchains_llvm_bootstrapped//toolchain:linux_aarch64_to_linux_aarch64",
+    "@toolchains_llvm_bootstrapped//toolchain:macos_aarch64_to_linux_x86_64",
+    "@toolchains_llvm_bootstrapped//toolchain:macos_aarch64_to_linux_aarch64",
+)
