@@ -65,9 +65,11 @@ public class LocalExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "When true, make the process-wrapper propagate SIGTERMs (used by the dynamic scheduler "
-              + "to stop process trees) to the subprocesses themselves, giving them the grace "
-              + "period in --local_termination_grace_seconds before forcibly sending a SIGKILL.")
+          """
+          When true, make the process-wrapper propagate `SIGTERM`s (used by the dynamic scheduler
+          to stop process trees) to the subprocesses themselves, giving them the grace
+          period in `--local_termination_grace_seconds` before forcibly sending a `SIGKILL`.
+          """)
   public boolean processWrapperGracefulSigterm;
 
   @Option(
@@ -76,11 +78,13 @@ public class LocalExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Number of times to retry a local action when we detect that it crashed. This exists "
-              + "to workaround a bug in OSXFUSE which is tickled by the use of the dynamic "
-              + "scheduler and --experimental_local_lockfree_output due to constant process "
-              + "churn. The bug can be triggered by a cancelled process that ran *before* the "
-              + "process we are trying to run, introducing corruption in its file reads.")
+          """
+          Number of times to retry a local action when we detect that it crashed. This exists
+          to workaround a bug in OSXFUSE which is tickled by the use of the dynamic
+          scheduler and `--experimental_local_lockfree_output` due to constant process
+          churn. The bug can be triggered by a cancelled process that ran *before* the
+          process we are trying to run, introducing corruption in its file reads.
+          """)
   public int localRetriesOnCrash;
 
   public Duration getLocalSigkillGraceSeconds() {
