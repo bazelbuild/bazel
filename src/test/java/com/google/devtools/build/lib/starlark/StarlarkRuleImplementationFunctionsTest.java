@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -924,7 +925,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void resolveCommandScript() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "s = 'a' * " + CommandHelper.maxCommandLength + 1,
+        "s = 'a' * " + CommandHelper.maxCommandLength(OS.getCurrent()) + 1,
         "inputs, argv, _ = ruleContext.resolve_command(command = s)");
 
     @SuppressWarnings("unchecked")
@@ -943,8 +944,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void multipleResolveCommandScripts_noConflict() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "s1 = '1' * " + CommandHelper.maxCommandLength + 1,
-        "s2 = '2' * " + CommandHelper.maxCommandLength + 1,
+        "s1 = '1' * " + CommandHelper.maxCommandLength(OS.getCurrent()) + 1,
+        "s2 = '2' * " + CommandHelper.maxCommandLength(OS.getCurrent()) + 1,
         "inputs1, argv1, _ = ruleContext.resolve_command(command = s1)",
         "inputs2, argv2, __ = ruleContext.resolve_command(command = s2)");
 
@@ -972,7 +973,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void resolveCommandScript_namingNotDependantOnCommand() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "s = '1' * " + CommandHelper.maxCommandLength + 1,
+        "s = '1' * " + CommandHelper.maxCommandLength(OS.getCurrent()) + 1,
         "result1 = ruleContext.resolve_command(command = s)");
     var result1 = ev.lookup("result1");
 
@@ -980,7 +981,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     // different command.
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "s = '2' * " + CommandHelper.maxCommandLength + 1,
+        "s = '2' * " + CommandHelper.maxCommandLength(OS.getCurrent()) + 1,
         "result2 = ruleContext.resolve_command(command = s)");
     var result2 = ev.lookup("result2");
 
