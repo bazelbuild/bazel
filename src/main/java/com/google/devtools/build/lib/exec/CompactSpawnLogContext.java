@@ -324,6 +324,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     }
   }
 
+  private static boolean isTestRunnerSpawnMnemonic(String mnemonic) {
+    return TEST_RUNNER_MNEMONIC.equals(mnemonic)
+        || TEST_COVERAGE_POST_PROCESSING_MNEMONIC.equals(mnemonic);
+  }
+
   /**
    * Logs the inputs.
    *
@@ -339,7 +344,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         inputMetadataProvider,
         fileSystem,
         /* shared= */ false,
-        "TestRunner".equals(spawn.getMnemonic()));
+        isTestRunnerSpawnMnemonic(spawn.getMnemonic()));
   }
 
   /**
@@ -356,7 +361,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         inputMetadataProvider,
         fileSystem,
         /* shared= */ true,
-        "TestRunner".equals(spawn.getMnemonic()));
+        isTestRunnerSpawnMnemonic(spawn.getMnemonic()));
   }
 
   /**

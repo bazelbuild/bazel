@@ -37,6 +37,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test_runner_action_constants",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
