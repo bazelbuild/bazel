@@ -141,6 +141,17 @@ public final class RunfilesSupport {
           RunfileSymlinksMode.CREATE);
     }
 
+    @VisibleForTesting
+    public RunfilesTreeImpl(PathFragment execPath, Runfiles runfiles, boolean cacheMapping) {
+      this(
+          execPath,
+          runfiles,
+          /* repoMappingManifest= */ null,
+          /* buildRunfileLinks= */ false,
+          cacheMapping,
+          RunfileSymlinksMode.CREATE);
+    }
+
     @Override
     public PathFragment getExecPath() {
       return execPath;
