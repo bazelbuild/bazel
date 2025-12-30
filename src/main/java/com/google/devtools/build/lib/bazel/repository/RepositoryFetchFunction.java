@@ -238,6 +238,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           return new RepositoryDirectoryValue.Success(
               Root.fromPath(repoRoot), excludeRepoFromVendoring);
         }
+        state.indeterminateState = null;
 
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
