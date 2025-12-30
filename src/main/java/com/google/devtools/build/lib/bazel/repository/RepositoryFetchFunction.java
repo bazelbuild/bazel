@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
+import com.google.devtools.build.lib.bazel.repository.DigestWriter.RepoDirectoryState;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
@@ -150,7 +151,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // While checking whether a particular repo candidate (either the current contents under the
     // external directory or a candidate repo in the local repo contents cache) is up-to-date, this
     // holds opaque intermediate state. Reset to null after each candidate.
-    @Nullable DigestWriter.RepoDirectoryState.Indeterminate indeterminateState;
+    @Nullable RepoDirectoryState.Indeterminate indeterminateState;
     // The candidate repos in the local repo contents cache that still have to be checked.
     @Nullable ArrayDeque<CandidateRepo> candidateRepos;
     @Nullable RemoteRepoContentsCache.State remoteRepoContentsCacheState;
@@ -230,15 +231,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState =
             digestWriter.areRepositoryAndMarkerFileConsistent(env, state.indeterminateState);
-        if (repoState instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
-          state.indeterminateState = intermediateState;
-          return null;
+        switch (repoState) {
+          case RepoDirectoryState.Indeterminate intermediateState -> {
+            state.indeterminateState = intermediateState;
+            return null;
+          }
+          case RepoDirectoryState.UpToDate ignored -> {
+            return new RepositoryDirectoryValue.Success(
+                Root.fromPath(repoRoot), excludeRepoFromVendoring);
+          }
+          case RepoDirectoryState.OutOfDate ignored -> state.indeterminateState = null;
         }
-        if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-          return new RepositoryDirectoryValue.Success(
-              Root.fromPath(repoRoot), excludeRepoFromVendoring);
-        }
-        state.indeterminateState = null;
 
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
@@ -252,24 +255,28 @@ public final class RepositoryFetchFunction implements SkyFunction {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile(), state.indeterminateState);
-            if (repoState
-                instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
-              state.indeterminateState = intermediateState;
-              return null;
-            }
-            if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-              if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
-                  == null) {
+            switch (repoState) {
+              case RepoDirectoryState.Indeterminate intermediateState -> {
+                state.indeterminateState = intermediateState;
                 return null;
               }
-              candidate.touch();
-              return new RepositoryDirectoryValue.Success(
-                  Root.fromPath(repoRoot), excludeRepoFromVendoring);
+              case RepoDirectoryState.UpToDate ignored -> {
+                if (setupOverride(
+                        candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
+                    == null) {
+                  return null;
+                }
+                candidate.touch();
+                return new RepositoryDirectoryValue.Success(
+                    Root.fromPath(repoRoot), excludeRepoFromVendoring);
+              }
+              case RepoDirectoryState.OutOfDate ignored -> {
+                // Reset for the next candidate.
+                state.indeterminateState = null;
+                // Remove from the state so that we don't check it again on a restart.
+                it.remove();
+              }
             }
-            // Reset for the next candidate.
-            state.indeterminateState = null;
-            // Remove from the state so that we don't check it again on a restart.
-            it.remove();
           }
         }
 
@@ -404,20 +411,19 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
 
       var state = env.getState(State::new);
-      DigestWriter.RepoDirectoryState vendoredRepoState =
+      RepoDirectoryState vendoredRepoState =
           digestWriter.areRepositoryAndMarkerFileConsistent(
               env, vendorMarker, state.indeterminateState);
-      if (vendoredRepoState
-          instanceof DigestWriter.RepoDirectoryState.Indeterminate intermediateState) {
+      if (vendoredRepoState instanceof RepoDirectoryState.Indeterminate intermediateState) {
         state.indeterminateState = intermediateState;
         return null;
       }
       // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
       // is used.
-      if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.UpToDate
+      if (vendoredRepoState instanceof RepoDirectoryState.UpToDate
           || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env)
               && RepositoryDirectoryValue.FETCH_DISABLED.get(env))) {
-        if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.OutOfDate(String reason)) {
+        if (vendoredRepoState instanceof RepoDirectoryState.OutOfDate(String reason)) {
           env.getListener()
               .handle(
                   Event.warn(
@@ -440,8 +446,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
                             + " be fetched into the external cache and used. To update the repo"
                             + " in the vendor directory, run the bazel vendor command",
                         repositoryName.getName(),
-                        ((DigestWriter.RepoDirectoryState.OutOfDate) vendoredRepoState).reason())));
+                        ((RepoDirectoryState.OutOfDate) vendoredRepoState).reason())));
       }
+      state.indeterminateState = null;
     } else if (vendorFile.pinnedRepos().contains(repositoryName)) {
       throw new RepositoryFunctionException(
           new IOException(
