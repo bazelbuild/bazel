@@ -30,7 +30,7 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true
   )
   public List<List<String>> multipleStringsKeptInGroups;
@@ -40,7 +40,7 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true
   )
   public List<String> multipleStringsConcatenated; // Not List<List<String>>
@@ -50,7 +50,7 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
     defaultValue = "a,b,c",
     converter = CommaSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public List<String> multipleStringsSingleMention;
 }

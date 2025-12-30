@@ -479,11 +479,12 @@ public class BuildRequestOptions extends OptionsBase {
               + " which can be found by walking up the target's packagge path. See b/324126745.")
   public boolean enforceProjectConfigs;
 
+  @Deprecated
   @Option(
       name = "experimental_skyframe_error_handling_refactor",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
       effectTags = {OptionEffectTag.NO_OP},
       help =
           "Used solely for the safe rollout of simplifying Skyframe error handling. This will be"
