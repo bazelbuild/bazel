@@ -65,9 +65,6 @@ public class ArFunction implements Decompressor {
             ByteStreams.copy(arStream, out);
           }
           filePath.chmod(entry.getMode());
-          // entry.getLastModified() appears to be in seconds, so we need to convert
-          // it into milliseconds for setLastModifiedTime
-          filePath.setLastModifiedTime(entry.getLastModified() * 1000L);
         }
         if (Thread.interrupted()) {
           throw new InterruptedException();

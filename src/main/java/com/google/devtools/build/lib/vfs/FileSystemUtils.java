@@ -412,6 +412,11 @@ public class FileSystemUtils {
       // backed by files.
       in.transferTo(out);
     }
+    // TODO: Since RepositoryFetchFunction now overwrites mtimes, the old setLastModifiedTime calls in
+    //  com.google.devtools.build.lib.bazel.repository packages was removed. But what about this generic
+    //  FileSystemUtils.copyFile? Why is it transferring mtime from source to destination? This
+    //  behavior doesn’t seem to match typical Linux file copy semantics. Presumably, the other changes
+    //  in this commit would function correctly whether or not this behavior remains unchanged.
     to.setLastModifiedTime(stat.getLastModifiedTime());
     int perms = stat.getPermissions();
     if (perms != -1) {
@@ -914,6 +919,54 @@ public class FileSystemUtils {
         parentDir.createDirectoryAndParents();
       }
       originalPath.createHardLink(linkPath);
+    }
+  }
+
+  /**
+   * Updates the last modified time (mtime) of the given path if it differs from the last change time (ctime).
+   *
+   * The mtime is normally changed automatically whenever file content is changed, but the mtime could be manipulated
+   * and calling this method ensures that potentially manipulated mtimes are updated and made trustworthy as source for
+   * detecting changes. It is useful to call this method after extracting archives containing files with synthetic
+   * mtimes.
+   *
+   * Many files created by Bazel have identical mtime and ctime. Since ctime cannot easily be faked and is updated
+   * whenever mtime changes, identical times typically indicate that mtime is trustworthy, and therefore does not
+   * require updating. Not changing mtime when it already is trustworthy avoids unnecessary file system operations.
+   * It could perhaps also avoid triggering change detection when not needed.
+   *
+   * Note that modifying mtime has the side effect of also updating ctime, so after this operation the mtime and ctime
+   * may still differ.
+   *
+   * @param path the file path whose modified time may be updated.
+   * @param stat the file status containing mtime and ctime information; may be null and the function is then a no-op.
+   * @throws IOException if updating mtime fails (TODO consider how this exception should be propagated)
+   */
+  public static void updateModifiedTimeIfOtherThanChangeTime(Path path, @Nullable FileStatus stat) throws IOException {
+    if (stat != null && stat.getLastModifiedTime() != stat.getLastChangeTime()) {
+      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    }
+  }
+
+  public static void updateModifiedTimeIfOtherThanChangeTime(Path path) throws IOException {
+    updateModifiedTimeIfOtherThanChangeTime(path, path.statIfFound(Symlinks.NOFOLLOW));
+  }
+
+  public static void updateModifiedTimeIfOtherThanChangeTimeRecursively(Path path) throws IOException {
+    // TODO Consider if the following statements are correct or not.
+    // Not following symlinks to avoid touching timestamps of files potentially not created by bazel.
+    // If a symlink is pointing to an absolute paths outside of Bazel's control, then the
+    // underlying file can anyway not be declared as input file to actions, so detecting such
+    // changes by modified time is less critical.
+    // In addition, skipping symlinks prevents visiting the same file multiple times and eliminates the
+    // risk of infinite recursion.
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+    updateModifiedTimeIfOtherThanChangeTime(path, stat);
+    // TODO Should this method continue with remaining children when an update fails with IOException?
+    if (stat != null && stat.isDirectory() && !stat.isSymbolicLink()) {
+      for (Path child : path.getDirectoryEntries()) {
+        updateModifiedTimeIfOtherThanChangeTimeRecursively(child);
+      }
     }
   }
 }
