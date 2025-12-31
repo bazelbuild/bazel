@@ -1701,3 +1701,32 @@ cc_toolchain_config = rule(
     provides = [CcToolchainConfigInfo],
     executable = True,
 )
+
+def _default_test_runner_func(ctx, binary_info, processed_environment):
+    return [
+        DefaultInfo(
+            executable = binary_info.executable,
+            files = binary_info.files,
+            runfiles = binary_info.runfiles,
+        ),
+        RunEnvironmentInfo(
+            environment = processed_environment,
+            inherited_environment = ctx.attr.env_inherit,
+        ),
+    ]
+
+def _default_test_runner_impl(_ctx):
+    return [
+        platform_common.ToolchainInfo(
+            cc_test_info = struct(
+                get_runner = struct(
+                    args = {},
+                    func = _default_test_runner_func,
+                ),
+                linkopts = [],
+                linkstatic = False,
+            ),
+        ),
+    ]
+
+default_test_runner = rule(_default_test_runner_impl)
