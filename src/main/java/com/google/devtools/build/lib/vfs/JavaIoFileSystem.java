@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -28,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.AccessMode;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -54,11 +53,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
       new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
-  private final Clock clock;
-
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
-    this.clock = new JavaClock();
   }
 
   @Override
@@ -432,69 +428,88 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
    */
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    java.nio.file.Path nioPath = getNioPath(path);
-    final BasicFileAttributes attributes;
     try {
-      attributes =
-          Files.readAttributes(nioPath, BasicFileAttributes.class, linkOpts(followSymlinks));
+      return new JavaIoFileStatus(
+          Files.readAttributes(
+              getNioPath(path), BasicFileAttributes.class, linkOpts(followSymlinks)));
     } catch (IOException e) {
       throw translateNioToIoException(path, e);
     }
-    FileStatus status =
-        new FileStatus() {
-          @Override
-          public boolean isFile() {
-            return attributes.isRegularFile() || isSpecialFile();
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            return attributes.isOther();
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return attributes.isDirectory();
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            return attributes.isSymbolicLink();
-          }
-
-          @Override
-          public long getSize() {
-            return attributes.size();
-          }
-
-          @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
-          }
-
-          @Override
-          public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
-          }
-
-          @Override
-          public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
-          }
-        };
-
-    return status;
   }
 
   @Override
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
-      return stat(path, followSymlinks);
-    } catch (FileNotFoundException e) {
+      java.nio.file.Path nioPath = getNioPath(path);
+      BasicFileAttributes attributes =
+          nioPath
+              .getFileSystem()
+              .provider()
+              .readAttributesIfExists(nioPath, BasicFileAttributes.class, linkOpts(followSymlinks));
+      if (attributes == null) {
+        return null;
+      }
+      return new JavaIoFileStatus(attributes);
+    } catch (IOException e) {
+      // A parent of the path is not a directory, which means that the path doesn't exist.
+      if (e instanceof FileSystemException fse && "Not a directory".equals(fse.getReason())) {
+        return null;
+      }
+      throw translateNioToIoException(path, e);
+    }
+  }
+
+  @Override
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+    try {
+      return statIfFound(path, followSymlinks);
+    } catch (IOException e) {
       return null;
+    }
+  }
+
+  private record JavaIoFileStatus(BasicFileAttributes attributes) implements FileStatus {
+    @Override
+    public boolean isFile() {
+      return attributes.isRegularFile() || isSpecialFile();
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return attributes.isOther();
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return attributes.isDirectory();
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return attributes.isSymbolicLink();
+    }
+
+    @Override
+    public long getSize() {
+      return attributes.size();
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      return attributes.lastModifiedTime().toMillis();
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      // This is the best we can do with Java NIO...
+      return attributes.lastModifiedTime().toMillis();
+    }
+
+    @Override
+    public long getNodeId() {
+      // TODO(bazel-team): Consider making use of attributes.fileKey().
+      return -1;
     }
   }
 
