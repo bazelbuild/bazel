@@ -245,13 +245,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    // Windows does not have a notion of read-only directories.
-    // See https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants.
-    // JavaIoFileSystem#setWritable(dir, true) would throw, so reimplement it here as a no-op.
-    if (isDirectory(path, /* followSymlinks= */ true)) {
-      return;
+    // Windows does not have a notion of read-only directories, for which the readonly flag is
+    // ignored.
+    // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+    try {
+      Files.setAttribute(getNioPath(path), "dos:readonly", writable);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
-    super.setWritable(path, writable);
   }
 
   /**

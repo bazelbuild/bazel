@@ -1765,7 +1765,12 @@ public abstract class FileSystemTest {
   public void testSetExecutableOnDirectory() throws Exception {
     setExecutable(xNonEmptyDirectory, false);
 
-    IOException e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.isWritable());
+    IOException e;
+    e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.isWritable());
+    assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
+    e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.isReadable());
+    assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
+    e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.isExecutable());
     assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
   }
 
