@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -140,9 +140,10 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     Path file = getNioPath(path);
     final DosFileAttributes attributes;
     try {
-      attributes = getAttribs(file, followSymlinks);
+      attributes = Files.readAttributes(
+          file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
     } catch (IOException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      throw translateNioToIoException(path, e);
     }
 
     FileStatus status =
@@ -249,7 +250,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     // ignored.
     // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
     try {
-      Files.setAttribute(getNioPath(path), "dos:readonly", writable);
+      Files.setAttribute(getNioPath(path), "dos:readonly", !writable);
     } catch (IOException e) {
       throw translateNioToIoException(path, e);
     }
@@ -279,8 +280,4 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return WindowsFileOperations.isSymlinkOrJunction(file.toString());
   }
 
-  private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
-      throws IOException {
-    return Files.readAttributes(file, DosFileAttributes.class, symlinkOpts(followSymlinks));
-  }
 }

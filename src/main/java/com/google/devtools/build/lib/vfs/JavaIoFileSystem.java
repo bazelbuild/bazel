@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -35,7 +34,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
+import java.nio.file.attribute.FileTime;
 import java.util.Collection;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -86,22 +85,19 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    File file = getIoFile(path);
-    String[] entries;
     long startTime = Profiler.instance().nanoTimeMaybe();
-    try {
-      entries = file.list();
-      if (entries == null) {
-        if (file.exists()) {
-          throw new IOException(path + ERR_NOT_A_DIRECTORY);
-        } else {
-          throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-        }
-      }
+    java.nio.file.Path nioPath = getNioPath(path);
+    try (Stream<java.nio.file.Path> entries = Files.list(nioPath)) {
+      return entries
+          .map(entry -> StringEncoding.platformToInternal(entry.getFileName().toString()))
+          .collect(toImmutableList());
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
+    } catch (UncheckedIOException e) {
+      throw translateNioToIoException(path, e.getCause());
     } finally {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, nioPath.toString());
     }
-    return Lists.transform(Arrays.asList(entries), StringEncoding::platformToInternal);
   }
 
   @Override
@@ -387,12 +383,14 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    File file = getIoFile(path);
+    java.nio.file.Path nioPath = getNioPath(path);
     long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      return stat(path, followSymlinks).getLastModifiedTime();
+      return Files.getLastModifiedTime(nioPath, linkOpts(followSymlinks)).toMillis();
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } finally {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, nioPath.toString());
     }
   }
 
@@ -402,16 +400,14 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    File file = getIoFile(path);
-    if (!file.setLastModified(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime)) {
-      if (!file.exists()) {
-        throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-      } else if (!file.getParentFile().canWrite()) {
-        throw new FileAccessException(path.getParentDirectory() + ERR_PERMISSION_DENIED);
-      } else {
-        throw new FileAccessException(path + ERR_PERMISSION_DENIED);
-      }
+    try {
+      Files.setLastModifiedTime(
+          getNioPath(path),
+          newTime == Path.NOW_SENTINEL_TIME
+              ? FileTime.fromMillis(System.currentTimeMillis())
+              : FileTime.fromMillis(newTime));
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
   }
 
@@ -441,8 +437,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
     try {
       attributes =
           Files.readAttributes(nioPath, BasicFileAttributes.class, linkOpts(followSymlinks));
-    } catch (java.nio.file.FileSystemException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
     FileStatus status =
         new FileStatus() {
@@ -494,25 +490,21 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   @Nullable
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException e) {
-      // JavaIoFileSystem#stat (incorrectly) only throws FileNotFoundException (because it calls
-      // #getLastModifiedTime, which can only throw a FileNotFoundException), so we always hit this
-      // codepath. Thus, this method will incorrectly not throw an exception for some filesystem
-      // errors.
       return null;
-    } catch (IOException e) {
-      // If this codepath is ever hit, then this method should be rewritten to properly distinguish
-      // between not-found exceptions and others.
-      throw new IllegalStateException(e);
     }
   }
 
   @Override
   public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
+    try {
+      Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
+    }
   }
 }
