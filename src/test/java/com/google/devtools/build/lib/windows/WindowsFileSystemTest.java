@@ -472,13 +472,13 @@ public class WindowsFileSystemTest {
 
     assertWritable(dir);
     dir.setWritable(false); // no-op
-    assertNotWritable(dir);
+    assertWritable(dir);
     dir.setWritable(true); // no-op
     assertWritable(dir);
 
     assertWritable(dirViaJunction);
     dirViaJunction.setWritable(false); // no-op
-    assertNotWritable(dirViaJunction);
+    assertWritable(dirViaJunction);
     dirViaJunction.setWritable(true); // no-op
     assertWritable(dirViaJunction);
 

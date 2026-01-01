@@ -164,7 +164,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
       return new WindowsFileStatus(attributes, followSymlinks, nioPath);
     } catch (IOException e) {
-      // A parent of the path is not a directory, which means that the path doesn't exist.
+      // A parent of the path is not a directory, which means that the path doesn't exist - but the
+      // JDK reports this as a separate exception.
+      // https://bugs.openjdk.org/browse/JDK-8374441
       if (e instanceof FileSystemException fse && "Not a directory".equals(fse.getReason())) {
         return null;
       }
@@ -315,8 +317,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
     @Override
     public int getPermissions() {
-      // Files on Windows are implicitly readable and executable.
-      return 0555 | (attributes.isReadOnly() ? 0 : 0200);
+      // Files and directories on Windows are implicitly readable and executable, directories are
+      // also implicitly writable.
+      return 0555 | (attributes.isReadOnly() && !attributes.isDirectory() ? 0 : 0200);
     }
   }
 }
