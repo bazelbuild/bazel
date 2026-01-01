@@ -1203,15 +1203,11 @@ EOF
   touch x.sh
   chmod +x x.sh
 
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log && fail "expected failure"
+  bazel test //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
 
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log || fail "expected success"
+  bazel test //:x  &> $TEST_log || fail "expected success"
 }
 
 function test_premature_exit_file_checked() {
