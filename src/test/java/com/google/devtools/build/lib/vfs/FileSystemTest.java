@@ -290,6 +290,13 @@ public abstract class FileSystemTest {
     assertThat(nonDir.getRelative("file").statIfFound()).isNull();
   }
 
+  @Test
+  public void testStatIfFoundReturnsNullForUnresolvedSymlink() throws Exception {
+    Path foo = absolutize("foo");
+    foo.createSymbolicLink(PathFragment.create("hi"));
+    assertThat(foo.statIfFound()).isNull();
+  }
+
   // The following tests check the handling of the current working directory.
   @Test
   public void testCreatePathRelativeToWorkingDirectory() {
