@@ -261,6 +261,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         DosFileAttributes attributes, boolean followSymlinks, java.nio.file.Path nioPath) {
       this.attributes = attributes;
       this.followSymlinks = followSymlinks;
+      if (followSymlinks) {
+        isSymbolicLink = false;
+      }
       this.nioPath = nioPath;
     }
 
@@ -284,10 +287,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
     @Override
     public boolean isSymbolicLink() {
-      if (isSymbolicLink == null) {
-        isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
+      Boolean localIsSymbolicLink = isSymbolicLink;
+      if (localIsSymbolicLink == null) {
+        isSymbolicLink = fileIsSymbolicLink(nioPath);
+        localIsSymbolicLink = isSymbolicLink;
       }
-      return isSymbolicLink;
+      return localIsSymbolicLink;
     }
 
     @Override
