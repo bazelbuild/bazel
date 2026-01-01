@@ -210,6 +210,7 @@ final class ExecutionServer extends ExecutionImplBase {
               resp =
                   ExecuteResponse.newBuilder()
                       .setStatus(StatusUtils.internalErrorStatus(e))
+                      .setMessage(Throwables.getStackTraceAsString(e))
                       .build();
             }
             responseObserver.onNext(
@@ -428,7 +429,7 @@ final class ExecutionServer extends ExecutionImplBase {
           errStatus =
               Status.newBuilder()
                   .setCode(Code.FAILED_PRECONDITION.getNumber())
-                  .setMessage(e.getMessage())
+                  .setMessage(Throwables.getStackTraceAsString(e))
                   .build();
         }
       }
