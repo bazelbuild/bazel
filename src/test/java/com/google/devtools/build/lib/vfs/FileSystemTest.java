@@ -1920,6 +1920,7 @@ public abstract class FileSystemTest {
     dir.getChild("dir_link").createSymbolicLink(dir.getChild("dir"));
     dir.getChild("looping_link").createSymbolicLink(dir.getChild("looping_link"));
     dir.getChild("dangling_link").createSymbolicLink(testFS.getPath("/does_not_exist"));
+    FileSystemUtils.createEmptyFile(dir.getChild("NUL"));
 
     assertThat(dir.getDirectoryEntries())
         .containsExactly(
@@ -1928,7 +1929,8 @@ public abstract class FileSystemTest {
             dir.getChild("file_link"),
             dir.getChild("dir_link"),
             dir.getChild("looping_link"),
-            dir.getChild("dangling_link"));
+            dir.getChild("dangling_link"),
+            dir.getChild("NUL"));
 
     assertThat(dir.readdir(Symlinks.NOFOLLOW))
         .containsExactly(
@@ -1937,7 +1939,8 @@ public abstract class FileSystemTest {
             new Dirent("file_link", Dirent.Type.SYMLINK),
             new Dirent("dir_link", Dirent.Type.SYMLINK),
             new Dirent("looping_link", Dirent.Type.SYMLINK),
-            new Dirent("dangling_link", Dirent.Type.SYMLINK));
+            new Dirent("dangling_link", Dirent.Type.SYMLINK),
+            new Dirent("NUL", Dirent.Type.FILE));
 
     assertThat(dir.readdir(Symlinks.FOLLOW))
         .containsExactly(
@@ -1946,7 +1949,8 @@ public abstract class FileSystemTest {
             new Dirent("file_link", Dirent.Type.FILE),
             new Dirent("dir_link", Dirent.Type.DIRECTORY),
             new Dirent("looping_link", Dirent.Type.UNKNOWN),
-            new Dirent("dangling_link", Dirent.Type.UNKNOWN));
+            new Dirent("dangling_link", Dirent.Type.UNKNOWN),
+            new Dirent("NUL", Dirent.Type.FILE));
   }
 
   @Test
