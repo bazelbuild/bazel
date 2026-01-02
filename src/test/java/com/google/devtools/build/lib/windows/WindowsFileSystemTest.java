@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.TruthJUnit.assume;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
@@ -518,6 +520,14 @@ public class WindowsFileSystemTest {
             .toLowerCase(Locale.ROOT);
     validateGetTypeConsistency(scratchRoot, entry, normalizedEntry);
     validateGetTypeConsistency(scratchRoot, normalizedEntry, entry);
+  }
+
+  @Test
+  public void testStatIfFoundOnUnresolvedSymlink() throws Exception {
+    Path foo = testUtil.createVfsPath(fs, "foo");
+    foo.createSymbolicLink(PathFragment.create("hi"));
+    assertThat(foo.statIfFound(Symlinks.NOFOLLOW)).isNotNull();
+    assertThat(foo.statIfFound(Symlinks.FOLLOW)).isNull();
   }
 
   private void validateGetTypeConsistency(Path baseDir, String entryToCreate, String entryToCheck)
