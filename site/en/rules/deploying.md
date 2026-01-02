@@ -58,7 +58,8 @@ For example, when writing new rules for the (make-believe)
       BUILD
       runfiles.mocs
     BUILD
-    defs.bzl
+    mockascript_library.bzl
+    mockascript_binary.bzl
   tests/
     BUILD
     some_test.sh
@@ -96,16 +97,17 @@ of your ruleset, and the API users should expect.
 ### Rules
 
 Often times there will be multiple rules provided by your repository. Create a
-directory named by the language and provide an entry point - `defs.bzl` file
-exporting all rules (also include a `BUILD` file so the directory is a package).
-For `rules_mockascript` that means there will be a directory named
-`mockascript`, and a `BUILD` file and a `defs.bzl` file inside:
+directory named by the language and provide your public rules and macros in
+individual `.bzl` files. This keeps your definitions granular and allows users
+to avoid loading every symbol if they only need a subset. Also include a `BUILD`
+file so the directory is a package.
 
 ```
 /
   mockascript/
     BUILD
-    defs.bzl
+    mockascript_binary.bzl
+    mockascript_library.bzl
 ```
 
 ### Constraints
@@ -122,7 +124,8 @@ directory structure will look like this:
     constraints/
       BUILD
     BUILD
-    defs.bzl
+    mockascript_binary.bzl
+    mockascript_library.bzl
 ```
 
 Please read
