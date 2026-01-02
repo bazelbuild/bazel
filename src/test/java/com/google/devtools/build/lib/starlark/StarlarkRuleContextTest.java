@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
@@ -2792,8 +2793,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testAbstractActionInterface() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     scratch.file(
         "test/rules.bzl",
         "load('//test:providers.bzl', 'AInfo')",
@@ -2838,8 +2838,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreatedActions() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -2927,8 +2926,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_no_rule_outputs_param=false");
+    setBuildLanguageOptions("--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
@@ -4998,5 +4996,40 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     var result = ((StarlarkInfo) myTarget.get(myProviderKey)).getValue("result");
     // Dependencies output path should have `-opt` after the transition.
     ((Iterable<?>) result).forEach(s -> assertThat(s.toString()).contains("-opt/"));
+  }
+
+  @Test
+  public void testPackageRelativeLabel() throws Exception {
+    scratch.file("rules/BUILD");
+    scratch.file(
+        "rules/rules.bzl",
+        """
+        MyProvider = provider()
+
+        def _impl(ctx):
+            return MyProvider(result = ctx.package_relative_label(":some_target"))
+
+        my_rule = rule(
+          implementation = _impl,
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//rules:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+        )
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test:my_target");
+    Provider.Key myProviderKey =
+        new StarlarkProvider.Key(
+            keyForBuild(Label.create(PackageIdentifier.createInMainRepo("rules"), "rules.bzl")),
+            "MyProvider");
+    var result = (Label) ((StarlarkInfo) myTarget.get(myProviderKey)).getValue("result");
+    assertThat(result).isEqualTo(Label.parseCanonicalUnchecked("//test:some_target"));
   }
 }
