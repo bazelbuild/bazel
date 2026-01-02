@@ -22,12 +22,11 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -72,8 +71,16 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
   }
 
   @Override
-  protected void copyFile(Path source, Path target) throws IOException {
-    hardLinkRecursive(source, target);
+  protected void materializeRegularFile(Path source, Path target) throws IOException {
+    try {
+      source.createHardLink(target);
+    } catch (IOException e) {
+      if (sandboxDebug) {
+        logger.atInfo().log(
+            "File %s could not be hardlinked, file will be copied instead.", source);
+      }
+      FileSystemUtils.copyRegularFile(source, target);
+    }
   }
 
   /**
@@ -82,33 +89,24 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
    * be made instead. Throws IllegalArgumentException if source path is a subdirectory of target
    * path.
    */
-  private void hardLinkRecursive(Path source, Path target) throws IOException {
-    FileStatus stat = source.stat(Symlinks.NOFOLLOW);
-
-    if (stat.isSymbolicLink()) {
-      source = source.resolveSymbolicLinks();
-      stat = source.stat();
+  @Override
+  protected void materializeDirectory(Path source, Path target) throws IOException {
+    if (source.startsWith(target)) {
+      throw new IllegalArgumentException(source + " is a subdirectory of " + target);
     }
-
-    if (stat.isFile()) {
-      try {
-        source.createHardLink(target);
-      } catch (IOException e) {
-        if (sandboxDebug) {
-          logger.atInfo().log(
-              "File %s could not be hardlinked, file will be copied instead.", source);
-        }
-        FileSystemUtils.copyFile(source, target);
+    target.createDirectory();
+    for (Dirent entry : source.readdir(Symlinks.FOLLOW)) {
+      Path fromPath = source.getChild(entry.getName());
+      Path toPath = target.getChild(entry.getName());
+      Dirent.Type type = entry.getType();
+      if (type == Dirent.Type.SYMLINK) {
+        fromPath = fromPath.resolveSymbolicLinks();
+        type = fromPath.stat().isDirectory() ? Dirent.Type.DIRECTORY : Dirent.Type.FILE;
       }
-    } else if (stat.isDirectory()) {
-      if (source.startsWith(target)) {
-        throw new IllegalArgumentException(source + " is a subdirectory of " + target);
-      }
-      target.createDirectory();
-      Collection<Path> entries = source.getDirectoryEntries();
-      for (Path entry : entries) {
-        Path toPath = target.getChild(entry.getBaseName());
-        hardLinkRecursive(entry, toPath);
+      if (type == Dirent.Type.FILE) {
+        materializeFile(fromPath, toPath);
+      } else {
+        materializeDirectory(fromPath, toPath);
       }
     }
   }

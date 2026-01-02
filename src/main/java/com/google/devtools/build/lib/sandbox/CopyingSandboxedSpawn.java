@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -68,13 +66,13 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
   }
 
   @Override
-  protected void copyFile(Path source, Path target) throws IOException {
-    FileStatus stat = source.stat(Symlinks.NOFOLLOW);
-    if (stat.isSymbolicLink() || stat.isFile()) {
-      FileSystemUtils.copyFile(source, target);
-    } else if (stat.isDirectory()) {
-      target.createDirectory();
-      FileSystemUtils.copyTreesBelow(source, target);
-    }
+  protected void materializeFile(Path source, Path target) throws IOException {
+    FileSystemUtils.copyRegularFile(source, target);
+  }
+
+  @Override
+  protected void materializeDirectory(Path source, Path target) throws IOException {
+    target.createDirectory();
+    FileSystemUtils.copyTreesBelow(source, target);
   }
 }
