@@ -35,7 +35,21 @@ import javax.annotation.Nullable;
  */
 public class ProxyHelper {
 
+  // Lock for thread-safe authenticator setup. The Authenticator is a JVM-wide singleton,
+  // so we use double-checked locking to ensure it's only set once.
+  private static final Object AUTHENTICATOR_LOCK = new Object();
+  private static volatile boolean authenticatorSet = false;
+
   private final Map<String, String> env;
+
+  /**
+   * Resets the static authenticator state. This is intended for testing only.
+   */
+  static void resetAuthenticatorForTesting() {
+    synchronized (AUTHENTICATOR_LOCK) {
+      authenticatorSet = false;
+    }
+  }
 
   /**
    * Creates new instance.
@@ -52,9 +66,14 @@ public class ProxyHelper {
    * `https_proxy` and `http_proxy` system properties are set.
    *
    * @param requestedUrl remote resource that may need to be retrieved through a proxy
+   * @return ProxyInfo containing the proxy and optional credentials
    */
-  public Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
+  public ProxyInfo createProxyIfNeeded(URL requestedUrl) throws IOException {
     String proxyAddress = null;
+    String proxyUserProperty = null;
+    String proxyPasswordProperty = null;
+
+    // Check no_proxy/NO_PROXY environment variables
     String noProxyUrl = env.get("no_proxy");
     if (Strings.isNullOrEmpty(noProxyUrl)) {
       noProxyUrl = env.get("NO_PROXY");
@@ -66,17 +85,46 @@ public class ProxyHelper {
         if (noProxyUrlArray[i].startsWith(".")) {
           // This entry applies to sub-domains only.
           if (requestedHost.endsWith(noProxyUrlArray[i])) {
-            return Proxy.NO_PROXY;
+            return ProxyInfo.NO_PROXY;
           }
         } else {
           // This entry applies to the literal hostname and sub-domains.
           if (requestedHost.equals(noProxyUrlArray[i])
               || requestedHost.endsWith("." + noProxyUrlArray[i])) {
-            return Proxy.NO_PROXY;
+            return ProxyInfo.NO_PROXY;
           }
         }
       }
     }
+
+    // Check http.nonProxyHosts system property (Java standard, uses | separator and * wildcards)
+    String nonProxyHosts = System.getProperty("http.nonProxyHosts");
+    if (!Strings.isNullOrEmpty(nonProxyHosts)) {
+      String requestedHost = requestedUrl.getHost();
+      for (String pattern : nonProxyHosts.split("\\|")) {
+        pattern = pattern.trim();
+        if (pattern.isEmpty()) {
+          continue;
+        }
+        if (pattern.startsWith("*")) {
+          // Wildcard at start: *.example.com matches foo.example.com
+          if (requestedHost.endsWith(pattern.substring(1))) {
+            return ProxyInfo.NO_PROXY;
+          }
+        } else if (pattern.endsWith("*")) {
+          // Wildcard at end: example.* matches example.com
+          if (requestedHost.startsWith(pattern.substring(0, pattern.length() - 1))) {
+            return ProxyInfo.NO_PROXY;
+          }
+        } else {
+          // Exact match
+          if (requestedHost.equals(pattern)) {
+            return ProxyInfo.NO_PROXY;
+          }
+        }
+      }
+    }
+
     if (HttpUtils.isProtocol(requestedUrl, "https")) {
       proxyAddress =
           Stream.of(
@@ -95,6 +143,9 @@ public class ProxyHelper {
               .filter(Objects::nonNull)
               .findFirst()
               .orElse(null);
+      // Check for credentials in system properties
+      proxyUserProperty = System.getProperty("https.proxyUser");
+      proxyPasswordProperty = System.getProperty("https.proxyPassword");
     } else if (HttpUtils.isProtocol(requestedUrl, "http")) {
       proxyAddress =
           Stream.of(
@@ -113,22 +164,46 @@ public class ProxyHelper {
               .filter(Objects::nonNull)
               .findFirst()
               .orElse(null);
+      // Check for credentials in system properties
+      proxyUserProperty = System.getProperty("http.proxyUser");
+      proxyPasswordProperty = System.getProperty("http.proxyPassword");
     }
-    return createProxy(proxyAddress);
+    return createProxyInfo(proxyAddress, proxyUserProperty, proxyPasswordProperty);
   }
 
   /**
    * This method takes a proxyAddress as a String (ex.
-   * http://userId:password@proxyhost.domain.com:8000) and sets JVM arguments for http and https
-   * proxy as well as returns a java.net.Proxy object for optional use.
+   * http://userId:password@proxyhost.domain.com:8000) and returns a ProxyInfo containing the
+   * proxy configuration and optional authentication credentials.
    *
    * @param proxyAddress The fully qualified address of the proxy server
-   * @return Proxy
-   * @throws IOException
+   * @return ProxyInfo containing the proxy and optional credentials
+   * @throws IOException if the proxy address is invalid
    */
-  public static Proxy createProxy(@Nullable String proxyAddress) throws IOException {
+  public static ProxyInfo createProxy(@Nullable String proxyAddress) throws IOException {
+    return createProxyInfo(proxyAddress, null, null);
+  }
+
+  /**
+   * This method creates a ProxyInfo from either a proxy address URL (which may contain embedded
+   * credentials) or from separate credential parameters (typically from system properties).
+   *
+   * <p>Credentials in the proxy address URL take precedence over separately provided credentials.
+   *
+   * @param proxyAddress The proxy address, optionally containing embedded credentials
+   * @param systemPropertyUser Username from system property (http.proxyUser/https.proxyUser)
+   * @param systemPropertyPassword Password from system property
+   *     (http.proxyPassword/https.proxyPassword)
+   * @return ProxyInfo containing the proxy and optional credentials
+   * @throws IOException if the proxy address is invalid
+   */
+  public static ProxyInfo createProxyInfo(
+      @Nullable String proxyAddress,
+      @Nullable String systemPropertyUser,
+      @Nullable String systemPropertyPassword)
+      throws IOException {
     if (Strings.isNullOrEmpty(proxyAddress)) {
-      return Proxy.NO_PROXY;
+      return ProxyInfo.NO_PROXY;
     }
 
     // Here there be dragons.
@@ -141,8 +216,8 @@ public class ProxyHelper {
 
     final String protocol = matcher.group(1);
     final String idAndPassword = matcher.group(2);
-    final String username = matcher.group(3);
-    final String password = matcher.group(4);
+    final String urlUsername = matcher.group(3);
+    final String urlPassword = matcher.group(4);
     final String hostname = matcher.group(5);
     final String portRaw = matcher.group(6);
 
@@ -174,23 +249,96 @@ public class ProxyHelper {
       }
     }
 
+    Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
+
+    // Determine credentials: URL credentials take precedence over system properties
+    String username = urlUsername;
+    String password = urlPassword;
+
     if (username != null) {
       if (password == null) {
         throw new IOException("No password given for proxy " + cleanProxyAddress);
       }
-
-      // We need to make sure the proxy password is not url encoded; some special characters in
+      // We need to make sure the proxy credentials are not url encoded; some special characters in
       // proxy passwords require url encoding for shells and other tools to properly consume.
-      final String decodedPassword = URLDecoder.decode(password, "UTF-8");
-      Authenticator.setDefault(
-          new Authenticator() {
-            @Override
-            public PasswordAuthentication getPasswordAuthentication() {
-              return new PasswordAuthentication(username, decodedPassword.toCharArray());
-            }
-          });
+      username = URLDecoder.decode(username, "UTF-8");
+      password = URLDecoder.decode(password, "UTF-8");
+    } else if (systemPropertyUser != null && systemPropertyPassword != null) {
+      // Fall back to system property credentials
+      username = systemPropertyUser;
+      password = systemPropertyPassword;
     }
 
-    return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
+    // If credentials are provided, also set up Java's Authenticator for HTTPS proxy support.
+    // For HTTPS connections through HTTP proxies (CONNECT tunneling), Java's HttpURLConnection
+    // handles the CONNECT request internally and won't use Proxy-Authorization header we set.
+    // Instead, it uses the Authenticator mechanism. We also enable Basic auth tunneling by
+    // clearing the disabled schemes (by default, Basic auth is disabled for HTTPS tunneling).
+    if (username != null && password != null) {
+      // Use double-checked locking to ensure thread-safe, one-time setup of the global
+      // Authenticator. The first caller with credentials wins. This is safe because Bazel
+      // typically uses a single proxy configuration for all downloads.
+      if (!authenticatorSet) {
+        synchronized (AUTHENTICATOR_LOCK) {
+          if (!authenticatorSet) {
+            final String finalUsername = username;
+            final String finalPassword = password;
+            // Capture the previous authenticator to delegate non-proxy auth requests to it.
+            // This preserves existing behavior for server authentication (e.g., .netrc).
+            final Authenticator previousAuthenticator = Authenticator.getDefault();
+            Authenticator.setDefault(
+                new Authenticator() {
+                  @Override
+                  public PasswordAuthentication getPasswordAuthentication() {
+                    // Only provide credentials for proxy authentication.
+                    if (getRequestorType() == RequestorType.PROXY) {
+                      return new PasswordAuthentication(finalUsername, finalPassword.toCharArray());
+                    }
+                    // Delegate non-proxy auth to previous authenticator (if any).
+                    // This preserves existing behavior for server authentication.
+                    if (previousAuthenticator != null) {
+                      return previousAuthenticator.requestPasswordAuthenticationInstance(
+                          getRequestingHost(),
+                          getRequestingSite(),
+                          getRequestingPort(),
+                          getRequestingProtocol(),
+                          getRequestingPrompt(),
+                          getRequestingScheme(),
+                          getRequestingURL(),
+                          getRequestorType());
+                    }
+                    return null;
+                  }
+                });
+            // Enable Basic authentication for HTTPS tunneling through HTTP proxies.
+            // By default, Java disables Basic auth for tunneling
+            // (jdk.http.auth.tunneling.disabledSchemes defaults to "Basic").
+            enableBasicAuthTunneling();
+            authenticatorSet = true;
+          }
+        }
+      }
+    }
+
+    return new ProxyInfo(proxy, username, password);
+  }
+
+  /**
+   * Enables Basic authentication for HTTPS tunneling through HTTP proxies.
+   *
+   * <p>By default, Java disables Basic authentication for HTTPS proxy tunneling for security
+   * reasons (the {@code jdk.http.auth.tunneling.disabledSchemes} system property defaults to
+   * "Basic"). This method clears that restriction to allow authenticated proxies to work with
+   * HTTPS URLs.
+   *
+   * <p>This is necessary because most enterprise proxies use Basic authentication, and without
+   * this setting, HTTPS downloads through authenticated proxies will fail with 407 errors.
+   *
+   * <p>Note: This modifies a JVM-wide setting. If the user has explicitly set this property,
+   * their setting will be preserved.
+   */
+  private static void enableBasicAuthTunneling() {
+    // Use putIfAbsent for thread-safe modification. Only modify if not already set by the user.
+    System.getProperties().putIfAbsent("jdk.http.auth.tunneling.disabledSchemes", "");
   }
 }
