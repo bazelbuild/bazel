@@ -27,14 +27,15 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -47,17 +48,25 @@ import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 /** Unit tests for {@link WindowsFileSystem}. */
-@RunWith(TestParameterInjector.class)
 @TestSpec(supportedOs = OS.WINDOWS)
-public class WindowsFileSystemTest {
+public class WindowsFileSystemTest extends SymlinkAwareFileSystemTest {
   @TestParameter boolean createSymbolicLinks;
 
   private WindowsFileSystem fs;
   private Path scratchRoot;
   private WindowsTestUtil testUtil;
+
+  @Override
+  protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
+    return new WindowsFileSystem(digestHashFunction, createSymbolicLinks);
+  }
+
+  @Override
+  public void destroyFileSystem(FileSystem fileSystem) {
+    // Nothing.
+  }
 
   @Before
   public void createScratchDir() throws Exception {

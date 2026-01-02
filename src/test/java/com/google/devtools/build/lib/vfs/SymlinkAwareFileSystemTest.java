@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -280,7 +281,11 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   public void testResolveSymbolicLinksENOENT() {
     if (testFS.supportsSymbolicLinksNatively(xDanglingLink.asFragment())) {
       IOException e = assertThrows(IOException.class, () -> xDanglingLink.resolveSymbolicLinks());
-      assertThat(e).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
+      assertThat(e)
+          .hasMessageThat()
+          .endsWith(
+              xNothing.getPathString().replace('/', File.separatorChar)
+                  + " (No such file or directory)");
     }
   }
 
@@ -329,18 +334,25 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     FileNotFoundException fnfe =
         assertThrows(FileNotFoundException.class, () -> xNothing.readSymbolicLink());
-    assertThat(fnfe).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
+    assertThat(fnfe)
+        .hasMessageThat()
+        .endsWith(
+            xNothing.getPathString().replace('/', File.separatorChar)
+                + " (No such file or directory)");
   }
 
   @Test
-  public void testCannotCreateSymbolicLinkWithReadOnlyParent()
-      throws IOException {
+  public void testCannotCreateSymbolicLinkWithReadOnlyParent() throws IOException {
     xEmptyDirectory.setWritable(false);
     Path xChildOfReadonlyDir = xEmptyDirectory.getChild("x");
     if (testFS.supportsSymbolicLinksNatively(xChildOfReadonlyDir.asFragment())) {
       IOException e =
           assertThrows(IOException.class, () -> xChildOfReadonlyDir.createSymbolicLink(xNothing));
-      assertThat(e).hasMessageThat().endsWith(xChildOfReadonlyDir + " (Permission denied)");
+      assertThat(e)
+          .hasMessageThat()
+          .endsWith(
+              xChildOfReadonlyDir.getPathString().replace('/', File.separatorChar)
+                  + " (Permission denied)");
     }
   }
 
@@ -361,7 +373,9 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
           assertThrows(FileNotFoundException.class, someLink::resolveSymbolicLinks);
       assertThat(e)
           .hasMessageThat()
-          .endsWith(newPath.getParentDirectory() + " (No such file or directory)");
+          .endsWith(
+              newPath.getParentDirectory().getPathString().replace('/', File.separatorChar)
+                  + " (No such file or directory)");
     }
   }
 
@@ -386,7 +400,10 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   public void testCreateSymbolicLinkWhereDirectoryAlreadyExists() {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xEmptyDirectory, xFile));
-    assertThat(e).hasMessageThat().endsWith(xEmptyDirectory + " (File exists)");
+    assertThat(e)
+        .hasMessageThat()
+        .endsWith(
+            xEmptyDirectory.getPathString().replace('/', File.separatorChar) + " (File exists)");
     assertThat(xEmptyDirectory.isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 
@@ -394,14 +411,19 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   public void testCreateSymbolicLinkWhereFileAlreadyExists() {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xFile, xEmptyDirectory));
-    assertThat(e).hasMessageThat().endsWith(xFile + " (File exists)");
+    assertThat(e)
+        .hasMessageThat()
+        .endsWith(xFile.getPathString().replace('/', File.separatorChar) + " (File exists)");
     assertThat(xFile.isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 
   @Test
   public void testCreateSymbolicLinkWhereDanglingSymlinkAlreadyExists() {
     IOException e = assertThrows(IOException.class, () -> createSymbolicLink(xDanglingLink, xFile));
-    assertThat(e).hasMessageThat().endsWith(xDanglingLink + " (File exists)");
+    assertThat(e)
+        .hasMessageThat()
+        .endsWith(
+            xDanglingLink.getPathString().replace('/', File.separatorChar) + " (File exists)");
     assertThat(xDanglingLink.isSymbolicLink()).isTrue(); // still a symbolic link
     assertThat(xDanglingLink.isDirectory()).isFalse(); // link still dangles
   }
@@ -410,7 +432,10 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   public void testCreateSymbolicLinkWhereSymlinkAlreadyExists() {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xLinkToDirectory, xNothing));
-    assertThat(e).hasMessageThat().endsWith(xLinkToDirectory + " (File exists)");
+    assertThat(e)
+        .hasMessageThat()
+        .endsWith(
+            xLinkToDirectory.getPathString().replace('/', File.separatorChar) + " (File exists)");
     assertThat(xLinkToDirectory.isSymbolicLink()).isTrue(); // still a symbolic link
     assertThat(xLinkToDirectory.isDirectory()).isTrue(); // link still points to dir
   }
