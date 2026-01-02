@@ -569,7 +569,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch x86_64");
   }
 
@@ -615,7 +614,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch arm64");
   }
 
@@ -1137,18 +1135,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsForDebugLegacyFlags() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, true);
-  }
-
-  @Test
   public void testCompilationActionsForDebug() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, false);
-  }
-
-  @Test
-  public void testClangCoptsForDebugModeWithoutGlib() throws Exception {
-    checkClangCoptsForDebugModeWithoutGlib(RULE_TYPE);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG);
   }
 
   @Test
@@ -1156,22 +1144,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
-    scratch.file("x/a.m");
-    RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
-
-    assertThat(compileAction("//x:x", "a.o").getArguments()).doesNotContain("-DDEBUG=1");
-  }
-
-  @Test
-  public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=dbg",
-        "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--compilation_mode=dbg");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1180,13 +1153,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsForOptimizedLegacyFlags() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, true);
-  }
-
-  @Test
   public void testCompilationActionsForOptimized() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, false);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT);
   }
 
   @Test
@@ -1194,8 +1162,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--compilation_mode=opt");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1323,7 +1290,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
                 .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
-                .addAll(FASTBUILD_COPTS)
                 .add("-iquote", ".")
                 .add("-iquote", OUTPUTDIR)
                 .add("-include", "objc/some.pch")

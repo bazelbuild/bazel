@@ -813,12 +813,10 @@ swift_binary = rule(
             compilation_mode_copts = ctx.fragments.objc.copts_for_current_compilation_mode
             ios_simulator_device = ctx.fragments.objc.ios_simulator_device
             ios_simulator_version = ctx.fragments.objc.ios_simulator_version
-            signing_certificate_name = ctx.fragments.objc.signing_certificate_name
             return MyInfo(
                 compilation_mode_copts = compilation_mode_copts,
                 ios_simulator_device = ios_simulator_device,
                 ios_simulator_version = str(ios_simulator_version),
-                signing_certificate_name = signing_certificate_name,
             )
 
         swift_binary = rule(
@@ -841,66 +839,18 @@ swift_binary = rule(
         """);
 
     useConfiguration(
-        "--incompatible_avoid_hardcoded_objc_compilation_flags=false",
         "--compilation_mode=opt",
         "--ios_simulator_device='iPhone 6'",
-        "--ios_simulator_version=8.4",
-        "--ios_signing_cert_name='Apple Developer'");
+        "--ios_simulator_version=8.4");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    @SuppressWarnings("unchecked")
-    List<String> compilationModeCopts = (List<String>) myInfo.getValue("compilation_mode_copts");
     Object iosSimulatorDevice = myInfo.getValue("ios_simulator_device");
     Object iosSimulatorVersion = myInfo.getValue("ios_simulator_version");
-    Object signingCertificateName = myInfo.getValue("signing_certificate_name");
 
-    assertThat(compilationModeCopts).containsExactlyElementsIn(ObjcConfiguration.OPT_COPTS);
     assertThat(iosSimulatorDevice).isEqualTo("'iPhone 6'");
     assertThat(iosSimulatorVersion).isEqualTo("8.4");
-    assertThat(signingCertificateName).isEqualTo("'Apple Developer'");
-  }
-
-  @Test
-  public void testSigningCertificateNameCanReturnNone() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/objc_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def my_rule_impl(ctx):
-            signing_certificate_name = ctx.fragments.objc.signing_certificate_name
-            return MyInfo(
-                signing_certificate_name = str(signing_certificate_name),
-            )
-
-        my_rule = rule(
-            implementation = my_rule_impl,
-            fragments = ["objc"],
-        )
-        """);
-
-    scratch.file("test_starlark/objc_starlark/a.m");
-    scratch.file(
-        "test_starlark/objc_starlark/BUILD",
-        """
-        load("//test_starlark/rule:objc_rules.bzl", "my_rule")
-
-        package(default_visibility = ["//visibility:public"])
-
-        my_rule(
-            name = "my_target",
-        )
-        """);
-
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/objc_starlark:my_target");
-
-    Object signingCertificateName =
-        getMyInfoFromTarget(starlarkTarget).getValue("signing_certificate_name");
-    assertThat(signingCertificateName).isEqualTo("None");
   }
 
   @Test
