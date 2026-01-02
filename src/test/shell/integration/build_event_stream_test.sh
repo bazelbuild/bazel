@@ -1653,31 +1653,32 @@ EOF
 }
 
 function test_glob_filesystem_operation_cost() {
-  mkdir -p foo foo/c
-  touch foo/a
-  touch foo/b
-  touch foo/c/c.txt
-  mkdir foo/d
-  for dir in foo/d/1 foo/d/2 foo/d/1/1 foo/d/1/2 foo/d/2/1 foo/d/2/2
+  local p="test_glob_filesystem_operation_cost"
+  mkdir -p "$p" "$p/c"
+  touch "$p/a"
+  touch "$p/b"
+  touch "$p/c/c.txt"
+  mkdir "$p/d"
+  for subdir in d/1 d/2 d/1/1 d/1/2 d/2/1 d/2/2
   do
+    local dir="$p/$subdir"
     mkdir -p "$dir"
     touch "$dir/a.txt"
     touch "$dir/b.txt"
     touch "$dir/c.txt"
   done
-  cat > foo/BUILD <<'EOF'
-# These two glob calls share the same filesystem operation of readdir(foo).
-# Since foo has 5 dirents, this operation has cost 1+5 = 6.
+  cat > "$p/BUILD" <<'EOF'
+# These two glob calls share the same filesystem operation of readdir(p).
+# Since that directory has 5 dirents, this operation has cost 1+5 = 6.
 glob(["*a"])
 glob(["*b"])
 
-# This will do a direct stat of foo/c/c.txt, so it has cost 1.
+# This will do a direct stat of p/c/c.txt, so it has cost 1.
 glob(["c/c.txt"])
 
-# This will do a readdir on each recursive subdir of d. 3 dirs of those 5
-# dirents each (foo/d, foo/d/1, and foo/d/2) and 4 dirs of those have 3 dirents
-# each (foo/d/1/1, foo/d/1/2, foo/d/2/1, foo/d/2/2). So this glob has cost
-# 3*(1+5) + 4*(1+3) = 34.
+# This will do a readdir on each recursive subdir of d. 3 dirs of those (d, d/1,
+# and d/2) have 5 dirents each and 4 dirs of those (d/1/1, d/1/2, d/2/1, d/2/2)
+# have 3 dirents each . So this glob has cost 3*(1+5) + 4*(1+3) = 34.
 glob(["d/**"])
 
 # Therefore the total glob filesystem operation cost is 6 + 1 + 34 = 41.
@@ -1687,9 +1688,9 @@ EOF
     --nobuild \
     --build_event_json_file=bep.json \
     --experimental_publish_package_metrics_in_bep \
-    //foo:BUILD
+    "//$p:BUILD"
   cp bep.json "$TEST_log" || fail "cp failed"
-  expect_log '"packageLoadMetrics":\[{"name":"foo"[^}]*"globFilesystemOperationCost":"41"'
+  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
 
 run_suite "Integration tests for the build event stream"
