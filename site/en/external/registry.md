@@ -115,6 +115,19 @@ field, which defaults to `archive`.
         underlying `git_repository` repo rule: `remote`, `commit`,
         `shallow_since`, `tag`, `init_submodules`, `verbose`, and
         `strip_prefix`.
+    *   `patches`: A JSON object containing patch files to apply to the
+        cloned repository. The patch files are located under the
+        `/modules/$MODULE/$VERSION/patches` directory. The keys are the
+        patch file names, and the values are the integrity checksum of
+        the patch files. The patches are applied after cloning the repository.
+    *   `patch_strip`: A number; the same as the `--strip` argument of Unix
+        `patch`.
+    *   `overlay`: A JSON object containing overlay files to apply to the
+        cloned repository. The overlay files are located under the
+        `/modules/$MODULE/$VERSION/overlay` directory. The keys are the
+        relative paths where the files should be placed, and the values are
+        the integrity checksum of the overlay files. The overlays are applied
+        before the patch files.
 *   If `type` is `local_path`, this module version is backed by a
     [`local_repository`](/rules/lib/repo/local#local_repository) repo rule;
     it's symlinked to a directory on local disk. It supports the following
