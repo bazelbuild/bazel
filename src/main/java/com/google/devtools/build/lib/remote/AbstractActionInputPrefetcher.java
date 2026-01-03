@@ -78,7 +78,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
 
-  @Nullable private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  @Nullable protected final ActionOutputDirectoryHelper outputDirectoryHelper;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -107,6 +107,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final class DirectoryTracker {
     private final ConcurrentHashMap<Path, DirectoryState> directoryStateMap =
         new ConcurrentHashMap<>();
+
+    public void clear() {
+      directoryStateMap.clear();
+    }
 
     /**
      * Marks a directory as temporarily writable.
@@ -140,8 +144,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.TEMPORARILY_WRITABLE
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.TEMPORARILY_WRITABLE
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Already writable, but must potentially upgrade from temporary to permanent.
               return newState == DirectoryState.PERMANENTLY_WRITABLE ? newState : oldState;
             }
@@ -177,8 +182,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.OUTPUT_PERMISSIONS
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.OUTPUT_PERMISSIONS
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Either the output permissions have already been set, or we're not changing the
               // permissions ever again.
               return oldState;
@@ -254,6 +260,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
+
+  protected abstract boolean forceRefetch(Path path);
 
   /**
    * Downloads file to the given path via its metadata.
@@ -604,7 +612,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -612,7 +620,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        forceRefetch(finalPath));
   }
 
   private void finalizeDownload(
@@ -689,7 +698,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         symlink.linkPath(),
         Completable.defer(
             () -> {
@@ -698,7 +707,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               symlink.linkPath().delete();
               symlink.linkPath().createSymbolicLink(symlink.targetPath());
               return Completable.complete();
-            }));
+            }),
+        forceRefetch(symlink.linkPath));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -735,7 +745,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote()) {
+      if (!canDownloadFile(output.getPath(), metadata)) {
         continue;
       }
 
