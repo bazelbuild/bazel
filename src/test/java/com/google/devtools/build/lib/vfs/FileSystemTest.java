@@ -34,6 +34,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -156,14 +157,16 @@ public abstract class FileSystemTest {
       throw new IOException("trying to remove files outside of the testdata directory");
     }
     // Some tests change permissions on directories, so override them.
-    Files.setPosixFilePermissions(
-        directoryToRemove,
-        Sets.union(
-            Files.getPosixFilePermissions(directoryToRemove),
-            ImmutableSet.of(
-                PosixFilePermission.OWNER_READ,
-                PosixFilePermission.OWNER_WRITE,
-                PosixFilePermission.OWNER_EXECUTE)));
+    if (OS.getCurrent() != OS.WINDOWS) {
+      Files.setPosixFilePermissions(
+          directoryToRemove,
+          Sets.union(
+              Files.getPosixFilePermissions(directoryToRemove),
+              ImmutableSet.of(
+                  PosixFilePermission.OWNER_READ,
+                  PosixFilePermission.OWNER_WRITE,
+                  PosixFilePermission.OWNER_EXECUTE)));
+    }
 
     java.nio.file.Path[] entries;
     try (var entriesStream = Files.list(directoryToRemove)) {
