@@ -208,6 +208,7 @@ java_library(
     name = "file_dependency_key_support",
     srcs = ["FileDependencyKeySupport.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:file_invalidation_data_java_proto",
