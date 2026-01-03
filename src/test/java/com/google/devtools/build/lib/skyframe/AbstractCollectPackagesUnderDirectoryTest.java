@@ -318,6 +318,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 getExtraSkyFunctions(),
                 SyscallCache.NO_CACHE,
                 /* allowExternalRepositories= */ false,
+                /* repoContentsCachePathSupplier= */ () -> null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(

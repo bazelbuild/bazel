@@ -122,7 +122,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         ExternalFilesHelper.createForTesting(
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
     evaluator =

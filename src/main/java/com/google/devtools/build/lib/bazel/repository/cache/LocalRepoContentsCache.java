@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
@@ -115,9 +116,10 @@ public final class LocalRepoContentsCache {
   }
 
   /** Returns the list of candidate repos for the given predeclared input hash. */
-  public ImmutableList<CandidateRepo> getCandidateRepos(String predeclaredInputHash) {
+  public ImmutableList<CandidateRepo> getCandidateRepos(
+      RepositoryName repoName, String predeclaredInputHash) {
     Preconditions.checkState(path != null);
-    Path entryDir = path.getRelative(predeclaredInputHash);
+    Path entryDir = path.getRelative(computeEntryDir(repoName, predeclaredInputHash));
     try {
       // Prefer more recently used cache entries over older ones. They're more likely to be
       // up-to-date; plus, if a repo is force-fetched, we want to use the new repo instead of always
@@ -149,17 +151,16 @@ public final class LocalRepoContentsCache {
     return trashDir;
   }
 
-  /**
-   * Moves a freshly fetched repo into the contents cache.
-   *
-   * @return the repo dir in the contents cache.
-   */
-  public Path moveToCache(
-      Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
+  /** Moves a freshly fetched repo into the contents cache. */
+  public void moveToCache(
+      Path fetchedRepoDir,
+      Path fetchedRepoMarkerFile,
+      RepositoryName repoName,
+      String predeclaredInputHash)
       throws IOException {
     Preconditions.checkState(path != null);
 
-    Path entryDir = path.getRelative(predeclaredInputHash);
+    Path entryDir = path.getRelative(computeEntryDir(repoName, predeclaredInputHash));
     String uniqueEntryName = UUID.randomUUID().toString();
     Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
     Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
@@ -168,6 +169,10 @@ public final class LocalRepoContentsCache {
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
     // Move the fetched marker file to a temp location, so that if following operations fail, both
     // the fetched repo and the cache locations are considered out-of-date.
+    // It is important for correctness that we do *not* keep the marker file around at its original
+    // location, even after successfully moving the repo into the cache: If the cache is deleted,
+    // then a different repo could have been fetched into the target directory of the symlink
+    // created below.
     Path temporaryMarker = ensureTrashDir().getChild(UUID.randomUUID().toString());
     FileSystemUtils.moveFile(fetchedRepoMarkerFile, temporaryMarker);
     // Now perform the move, and afterwards, restore the marker file.
@@ -181,7 +186,11 @@ public final class LocalRepoContentsCache {
     // Set up a symlink at the original fetched repo dir path.
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
-    return cacheRepoDir;
+  }
+
+  private static String computeEntryDir(RepositoryName repoName, String predeclaredInputHash) {
+    // Keep in sync with ExternalFilesHelper#getRepositoryName
+    return repoName.getName() + '-' + predeclaredInputHash;
   }
 
   public void acquireSharedLock() throws IOException, InterruptedException {

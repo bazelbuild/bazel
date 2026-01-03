@@ -231,7 +231,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
+              repoContentsCache.getCandidateRepos(
+                  repositoryName, digestWriter.predeclaredInputHash)) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile());
@@ -285,11 +286,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
         if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
           if (repoContentsCache.isEnabled()) {
             // This repo is eligible for the repo contents cache.
-            Path cachedRepoDir;
             try {
-              cachedRepoDir =
-                  repoContentsCache.moveToCache(
-                      repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
+              repoContentsCache.moveToCache(
+                  repoRoot,
+                  digestWriter.markerPath,
+                  repositoryName,
+                  digestWriter.predeclaredInputHash);
             } catch (IOException e) {
               throw new RepositoryFunctionException(
                   new IOException(
@@ -297,16 +299,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
                           .formatted(repositoryName, e.getMessage()),
                       e),
                   Transience.TRANSIENT);
-            }
-            // Don't forget to register a FileValue on the cache repo dir, so that we know to
-            // refetch
-            // if the cache entry gets GC'd from under us.
-            if (env.getValue(
-                    FileValue.key(
-                        RootedPath.toRootedPath(
-                            Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-                == null) {
-              return null;
             }
           }
           if (remoteRepoContentsCache != null) {
