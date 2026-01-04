@@ -45,6 +45,7 @@ import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -117,7 +118,8 @@ public final class CanonicalizeCommand implements BlazeCommand {
         name = "flag_clash_canary",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP})
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public boolean flagClashCanary;
 
     @Option(
@@ -125,6 +127,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         expansion = {"--flag_clash_canary=1"})
     public Void flagClashCanaryExpander1;
 
@@ -133,6 +136,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         expansion = {"--flag_clash_canary=0"})
     public Void flagClashCanaryExpander2;
   }

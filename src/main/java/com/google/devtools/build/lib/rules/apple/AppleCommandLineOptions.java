@@ -34,12 +34,13 @@ import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
+  @Deprecated
   @Option(
       name = "experimental_objc_provider_from_linked",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")

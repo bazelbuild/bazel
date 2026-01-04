@@ -99,6 +99,7 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
+  @Deprecated
   @Option(
       name = "crosstool_top",
       defaultValue = "@bazel_tools//tools/cpp:toolchain",
@@ -107,6 +108,7 @@ public class CppOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.NO_OP,
       },
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op flag. Will be removed in a future release.")
   public Label crosstoolTop;
 
@@ -319,6 +321,7 @@ public class CppOptions extends FragmentOptions {
       converter = LabelConverter.class)
   public Label customMalloc;
 
+  @Deprecated
   @Option(
       name = "legacy_whole_archive",
       defaultValue = "true",
@@ -760,30 +763,33 @@ public class CppOptions extends FragmentOptions {
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public boolean dontEnableHostNonhost;
 
+  @Deprecated
   @Option(
       name = "incompatible_make_thinlto_command_lines_standalone",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public boolean useStandaloneLtoIndexingCommandLines;
 
+  @Deprecated
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public boolean requireCtxInConfigureFeatures;
 
+  @Deprecated
   @Option(
       name = "incompatible_validate_top_level_header_inclusions",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public boolean validateTopLevelHeaderInclusions;
 

@@ -310,4 +310,34 @@ public class OptionProcessorTest {
         .withErrorContaining(
             "Can't set an option to be both an expansion option and have implicit requirements.");
   }
+
+  @Test
+  public void deprecatedAttributeWithoutMetadataTagIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedAttributeWithoutMetadataTag.java"))
+        .processedWith(new OptionProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options annotated with @Deprecated must have metadata tag DEPRECATED.");
+  }
+
+  @Test
+  public void deprecatedMetadataTagWithoutAttributeIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedMetadataTagWithoutAttribute.java"))
+        .processedWith(new OptionProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options with metadata tag DEPRECATED must be annotated with @Deprecated.");
+  }
+
+  @Test
+  public void noopWithoutReasonIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NoopWithoutReason.java"))
+        .processedWith(new OptionProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "No-op options must be annotated with @Deprecated, or have metadata tag HIDDEN or INTERNAL.");
+  }
 }

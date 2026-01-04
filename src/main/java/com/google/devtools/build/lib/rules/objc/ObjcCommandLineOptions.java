@@ -148,7 +148,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
 
