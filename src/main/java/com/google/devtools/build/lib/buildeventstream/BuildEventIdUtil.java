@@ -95,8 +95,9 @@ public final class BuildEventIdUtil {
     return BuildEventId.newBuilder().setWorkspace(workspaceConfigId).build();
   }
 
-  static BuildEventId fetchId(String url) {
-    BuildEventId.FetchId fetchId = BuildEventId.FetchId.newBuilder().setUrl(url).build();
+  static BuildEventId fetchId(String url, BuildEventId.FetchId.Downloader downloader) {
+    BuildEventId.FetchId fetchId =
+        BuildEventId.FetchId.newBuilder().setUrl(url).setDownloader(downloader).build();
     return BuildEventId.newBuilder().setFetch(fetchId).build();
   }
 
