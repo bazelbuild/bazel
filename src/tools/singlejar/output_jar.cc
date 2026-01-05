@@ -84,6 +84,13 @@ OutputJar::OutputJar(Options* options)
                          EntryInfo{&protobuf_meta_handler_});
   known_members_.emplace(log4j2_plugin_dat_combiner_.filename(),
                          EntryInfo{&log4j2_plugin_dat_combiner_});
+
+  size_t estimated_cen_size = 22 + (options->EstimateFileCount() * 128);
+  cen_ = reinterpret_cast<uint8_t*>(malloc(estimated_cen_size));
+  if (!cen_) {
+    diag_err(1, "Cannot allocate %zu bytes", estimated_cen_size);
+  }
+  cen_capacity_ = estimated_cen_size;
 }
 
 static std::string Basename(const std::string& path) {
@@ -335,6 +342,7 @@ OutputJar::~OutputJar() {
   if (file_) {
     diag_warnx("%s:%d: Close() should be called first", __FILE__, __LINE__);
   }
+  free(cen_);
 }
 
 // Try to perform I/O in units of this size.
@@ -937,6 +945,7 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, off64_t lh_pos,
 
 uint8_t* OutputJar::ReserveCdr(size_t chunk_size) {
   if (cen_size_ + chunk_size > cen_capacity_) {
+    // TODO: b/460101200 - Consider exponential growth here instead of linear.
     cen_capacity_ += 1000000;
     cen_ = reinterpret_cast<uint8_t*>(realloc(cen_, cen_capacity_));
     if (!cen_) {
@@ -1016,7 +1025,8 @@ bool OutputJar::Close() {
   if (!WriteBytes(cen_, cen_size_)) {
     diag_err(1, "%s:%d: Cannot write central directory", __FILE__, __LINE__);
   }
-  free(cen_);
+  // We could free cen_ here, but we wait for the destructor.
+  // That lets us avoid doing the work entirely if we don't call the destructor.
 
 #ifdef __linux__
   if (!fallocate_failed_) {
@@ -1032,9 +1042,8 @@ bool OutputJar::Close() {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, path());
   }
   file_ = nullptr;
-  // Free the buffer only after fclose(); stdio may flush data from the
-  // buffer on close.
-  buffer_.reset();
+  // We could reset buffer_ here, but we wait for the destructor.
+  // Compare how we don't free cen_ above.
 
   if (options_->verbose) {
     fprintf(stderr, "Wrote %s with %d entries", path(), entries_);
