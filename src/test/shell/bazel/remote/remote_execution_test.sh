@@ -3256,7 +3256,6 @@ EOF
 
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
@@ -3264,7 +3263,6 @@ EOF
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
 }
