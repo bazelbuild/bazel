@@ -227,6 +227,7 @@ public class JarHelper {
           outEntry.setCrc(0);
           out.putNextEntry(outEntry);
         } else {
+          int storageMethod = name.equals("protobuf.meta") ? JarEntry.STORED : this.storageMethod;
           outEntry.setMethod(storageMethod);
           if (storageMethod == JarEntry.STORED) {
             // ZipFile requires us to calculate the CRC-32 for any STORED entry.
