@@ -261,6 +261,18 @@ public class UploadManifest {
           statFollow = file.statIfFound(Symlinks.FOLLOW);
         } catch (FileSymlinkLoopException e) {
           // Treat a looping symlink as a dangling symlink.
+        } catch (IOException e) {
+          // Execute "dir /a " + file and add the output to the exception message.
+          ProcessBuilder pb =
+              new ProcessBuilder("cmd.exe", "/c", "dir", "/a", file.getPathString());
+          pb.redirectErrorStream(true);
+          Process process = pb.start();
+          String processOutput = new String(process.getInputStream().readAllBytes());
+          String message =
+              String.format(
+                  "Failed to resolve symlink %s. 'dir /a %s' returned: %s",
+                  file, file.getPathString(), processOutput);
+          throw new IOException(message, e);
         }
         if (statFollow == null) {
           // Symlink uploaded as a symlink. Report it as a file since we don't know any better.

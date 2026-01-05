@@ -264,7 +264,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             ctx.actions.run_shell(
                 inputs = [],
                 outputs = [out],
-                command = "ln -s hello $1",
+                command = "ln -s hello $1 && file $1 && ls -lah $1 && touch hello",
                 arguments = [out.path],
                 use_default_shell_env = True,
             )
