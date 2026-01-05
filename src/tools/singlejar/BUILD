@@ -269,6 +269,7 @@ cc_test(
         ":options",
         ":token_stream",
         "//src/main/cpp/util",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -312,6 +313,7 @@ cc_test(
         ":port",
         ":test_util",
         "//src/main/cpp/util",
+        "@abseil-cpp//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -477,6 +479,7 @@ cc_library(
     deps = [
         ":diag",
         ":token_stream",
+        "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
 
@@ -497,6 +500,7 @@ cc_library(
         ":port",
         "//src/main/cpp/util",
         "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/strings",
         "@zlib",
     ],
 )
@@ -520,6 +524,7 @@ cc_library(
         ":diag",
         ":mapped_file",
         "//src/main/cpp/util",
+        "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
 

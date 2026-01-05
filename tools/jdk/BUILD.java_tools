@@ -532,6 +532,7 @@ cc_library(
     deps = [
         ":diag",
         ":token_stream",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 
@@ -554,6 +555,7 @@ cc_library(
         ":options",
         ":singlejar_port",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
         "@zlib",
     ],
 )
@@ -567,6 +569,7 @@ cc_library(
         ":diag",
         ":filesystem",
         ":mapped_file",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 

@@ -53,25 +53,11 @@ class OutputJar {
   // Return jar path.
   const char* path() const { return options_->output_jar.c_str(); }
   // True if an entry with given name have not been added to this archive.
-  bool NewEntry(const std::string& entry_name) {
+  bool NewEntry(std::string_view entry_name) {
     return known_members_.count(entry_name) == 0;
   }
 
   virtual bool IncludeEntry(std::string_view file_name);
-
- protected:
-  // The purpose  of these two tiny utility methods is to avoid creating a
-  // std::string instance (which always involves allocating an object on the
-  // heap) when we just need to check that a sequence of bytes in memory has
-  // given prefix or suffix.
-  static bool begins_with(const char* str, size_t n, const char* head) {
-    const size_t n_head = strlen(head);
-    return n >= n_head && !strncmp(str, head, n_head);
-  }
-  static bool ends_with(const char* str, size_t n, const char* tail) {
-    const size_t n_tail = strlen(tail);
-    return n >= n_tail && !strncmp(str + n - n_tail, tail, n_tail);
-  }
 
  private:
   // Open output jar.
@@ -85,7 +71,7 @@ class OutputJar {
   // Write META_INF/ entry (the first entry on output).
   void WriteMetaInf();
   // Write a directory entry.
-  void WriteDirEntry(const std::string& name, const uint8_t* extra_fields,
+  void WriteDirEntry(std::string_view name, const uint8_t* extra_fields,
                      const uint16_t n_extra_fields);
   // Create output Central Directory Header for the given input entry and
   // append it to CEN (Central Directory) buffer.

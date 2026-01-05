@@ -28,6 +28,7 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/mapped_file.h"
+#include "absl/container/flat_hash_set.h"
 
 /*
  * Tokenize command line containing indirect command line arguments.
@@ -235,7 +236,8 @@ class ArgTokenStream {
   // If a current token is --OPTION, insert all subsequent tokens up to the
   // next option to the OPTARGS set, proceed to the next option and return
   // true.
-  bool MatchAndSet(const char* option, std::set<std::string>* optargs) {
+  bool MatchAndSet(const char* option,
+                   absl::flat_hash_set<std::string>* optargs) {
     if (token_ != option) {
       return false;
     }
