@@ -234,7 +234,7 @@ public final class StrippingPathMapper implements PathMapper {
             "--directData",
             "--data",
             "--resources",
-            "--mergeeManifests",
+            "--mergeManifests",
             "--library",
             "-i",
             "--input");
