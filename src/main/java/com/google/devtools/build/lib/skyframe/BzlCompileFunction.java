@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -187,13 +189,11 @@ public class BzlCompileFunction implements SkyFunction {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
 
-    List<String> typeSyntaxAllowlist =
-        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
-    boolean typeSyntaxAllowlistMatchesPath =
-        !key.isBuildPrelude() // annotations in prelude not allowed (it has null key.label)
-            && (typeSyntaxAllowlist.isEmpty()
-                || typeSyntaxAllowlist.stream()
-                    .anyMatch(s -> key.label.getCanonicalForm().startsWith(s)));
+    boolean useTypeSyntax = shouldUseTypeSyntax(semantics, key);
+    // Type checking requires the syntax flag to be enabled, though technically it shouldn't matter
+    // to semantics if unannotated code is considered untyped.
+    boolean doTypeChecking =
+        useTypeSyntax && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
 
     FileOptions options =
         FileOptions.builder()
@@ -209,11 +209,8 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
-            .allowTypeSyntax(
-                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
-                    && typeSyntaxAllowlistMatchesPath)
-            .tolerateInvalidTypeExpressions(
-                !semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING))
+            .allowTypeSyntax(useTypeSyntax)
+            .tolerateInvalidTypeExpressions(!doTypeChecking)
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 
@@ -236,11 +233,59 @@ public class BzlCompileFunction implements SkyFunction {
       Program prog = Program.compileFile(file, module);
       return BzlCompileValue.withProgram(prog, digest);
     } catch (SyntaxError.Exception ex) {
-      Event.replayEventsOn(env.getListener(), ex.errors());
+      addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);
       return BzlCompileValue.noFile(
           "compilation of module '%s'%s failed",
           key.label.toPathFragment(),
           StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
+  }
+
+  /**
+   * Whether the file should permit type syntax (annotations, etc.) based on flags and the type of
+   * file.
+   */
+  private static boolean shouldUseTypeSyntax(StarlarkSemantics semantics, BzlCompileValue.Key key) {
+    boolean typeSyntaxFlag =
+        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
+    List<String> allowlist =
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
+
+    boolean okFiletype =
+        // annotations in prelude not allowed (it has null key.label)
+        !key.isBuildPrelude()
+            // annotations in SCL now allowed (not yet compatible with Go-Starlark interpreter)
+            && !key.isSclDialect();
+
+    if (typeSyntaxFlag && okFiletype) {
+      if (allowlist.isEmpty()
+          || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Replays the syntax errors from a file onto an event handler, adding more context if necessary.
+   */
+  private static void addSyntaxErrorsToListener(
+      EventHandler handler, List<SyntaxError> errors, BzlCompileValue.Key key) {
+    Event.replayEventsOn(handler, errors);
+    // If type annotations are disallowed, it could either be because the required flags aren't
+    // enabled or because the filetype disallows it.
+    for (var err : errors) {
+      if (err.message().contains(": type annotations are disallowed")) {
+        Location fileLoc = Location.fromFile(err.location().file());
+        String explanation =
+            key.isSclDialect()
+                ? "Type annotations are not permitted in .scl files."
+                : """
+                Type annotations syntax can be enabled with --experimental_starlark_type_syntax \
+                and/or --experimental_starlark_types_allowed_paths.\
+                """;
+        handler.handle(Event.error(fileLoc, explanation));
+      }
     }
   }
 

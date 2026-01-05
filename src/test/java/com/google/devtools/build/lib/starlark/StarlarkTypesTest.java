@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,14 +52,25 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         """);
     scratch.file("test/BUILD", "load(':foo.bzl', 'f')");
 
-    AssertionError e = assertThrows(AssertionError.class, () -> getTarget("//test:BUILD"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            """
-            syntax error at ':': type annotations are disallowed. Enable them with \
-            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
-            """);
+    checkLoadingPhaseError("//test:BUILD", "syntax error at ':': type annotations are disallowed");
+    assertContainsEvent(
+        "Type annotations syntax can be enabled with --experimental_starlark_type_syntax and/or"
+            + " --experimental_starlark_types_allowed_paths.");
+  }
+
+  @Test
+  public void experimentalStarlarkTypes_prohibitedInSclRegardlessOfFlag() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file(
+        "test/foo.scl",
+        """
+        def f(a: int):
+          pass\
+        """);
+    scratch.file("test/BUILD", "load(':foo.scl', 'f')");
+
+    checkLoadingPhaseError("//test:BUILD", "syntax error at ':': type annotations are disallowed");
+    assertContainsEvent("Type annotations are not permitted in .scl files.");
   }
 
   @Test
@@ -78,14 +86,10 @@ public class StarlarkTypesTest extends BuildViewTestCase {
         """);
     scratch.file("test/BUILD", "load(':foo.bzl', 'f')");
 
-    AssertionError e = assertThrows(AssertionError.class, () -> getTarget("//test:BUILD"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            """
-            syntax error at ':': type annotations are disallowed. Enable them with \
-            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
-            """);
+    checkLoadingPhaseError("//test:BUILD", "syntax error at ':': type annotations are disallowed");
+    assertContainsEvent(
+        "Type annotations syntax can be enabled with --experimental_starlark_type_syntax and/or"
+            + " --experimental_starlark_types_allowed_paths.");
   }
 
   @Test
