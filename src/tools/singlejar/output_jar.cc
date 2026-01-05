@@ -93,7 +93,8 @@ OutputJar::OutputJar(Options* options)
   cen_capacity_ = estimated_cen_size;
 }
 
-static std::string Basename(const std::string& path) {
+namespace {
+std::string Basename(const std::string& path) {
   size_t pos = path.rfind('/');
   if (pos == std::string::npos) {
     return path;
@@ -101,6 +102,25 @@ static std::string Basename(const std::string& path) {
     return std::string(path, pos + 1);
   }
 }
+
+bool ShouldCompress(std::string_view file_name, const Options* options,
+                    bool compress_by_default) {
+  if (!compress_by_default) {
+    return false;
+  }
+  if (options->nocompress_suffixes.empty()) {
+    return true;
+  }
+  for (const auto& suffix : options->nocompress_suffixes) {
+    if (file_name.length() >= suffix.size() &&
+        file_name.compare(file_name.length() - suffix.size(), suffix.size(),
+                          suffix) == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+}  // namespace
 
 size_t OutputJar::WriteNoLock(const void* buffer, size_t count) {
   EnsureCapacity(count);
@@ -300,18 +320,8 @@ int OutputJar::Doit() {
 
   // Then classpath resources.
   for (auto& classpath_resource : classpath_resources_) {
-    bool do_compress = compress;
-    if (do_compress && !options_->nocompress_suffixes.empty()) {
-      for (auto& suffix : options_->nocompress_suffixes) {
-        auto entry_name = classpath_resource->filename();
-        if (entry_name.length() >= suffix.size() &&
-            !entry_name.compare(entry_name.length() - suffix.size(),
-                                suffix.size(), suffix)) {
-          do_compress = false;
-          break;
-        }
-      }
-    }
+    bool do_compress =
+        ShouldCompress(classpath_resource->filename(), options_, compress);
 
     // Add parent directory entries.
     size_t pos = classpath_resource->filename().find('/');
@@ -553,19 +563,10 @@ bool OutputJar::AddJar(int jar_path_index) {
     if (is_file) {
       bool input_compressed =
           jar_entry->compression_method() != Z_NO_COMPRESSION;
-      bool output_compressed =
+      bool output_compressed = ShouldCompress(
+          std::string_view(file_name, file_name_length), options_,
           options_->force_compression ||
-          (options_->preserve_compression && input_compressed);
-      if (output_compressed && !options_->nocompress_suffixes.empty()) {
-        for (auto& suffix : options_->nocompress_suffixes) {
-          if (file_name_length >= suffix.size() &&
-              !strncmp(file_name + file_name_length - suffix.size(),
-                       suffix.c_str(), suffix.size())) {
-            output_compressed = false;
-            break;
-          }
-        }
-      }
+              (options_->preserve_compression && input_compressed));
       if (input_compressed != output_compressed) {
         Concatenator combiner(jar_entry->file_name_string());
         if (!combiner.Merge(jar_entry, lh)) {
@@ -968,15 +969,19 @@ bool OutputJar::Close() {
     return true;
   }
 
+  auto write_concatenator_entry = [&](Concatenator* concatenator) {
+    WriteEntry(concatenator->OutputEntry(ShouldCompress(
+        concatenator->filename(), options_, options_->force_compression)));
+  };
   for (auto& service_handler : service_handlers_) {
-    WriteEntry(service_handler->OutputEntry(options_->force_compression));
+    write_concatenator_entry(service_handler.get());
   }
   for (auto& extra_combiner : extra_combiners_) {
     WriteEntry(extra_combiner->OutputEntry(options_->force_compression));
   }
-  WriteEntry(spring_handlers_.OutputEntry(options_->force_compression));
-  WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
-  WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
+  write_concatenator_entry(&spring_handlers_);
+  write_concatenator_entry(&spring_schemas_);
+  write_concatenator_entry(&protobuf_meta_handler_);
   WriteEntry(
       log4j2_plugin_dat_combiner_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
