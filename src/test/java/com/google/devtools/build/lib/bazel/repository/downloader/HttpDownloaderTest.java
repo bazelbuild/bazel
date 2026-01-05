@@ -128,11 +128,52 @@ public class HttpDownloaderTest {
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void downloadFrom1UrlOk_specialCharInBasename() throws IOException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      Path resultingFile =
+          download(
+              downloadManager,
+              Collections.singletonList(
+                  new URL(String.format("http://localhost:%d/arch:ve.zip", server.getLocalPort()))),
+              Collections.emptyMap(),
+              Collections.emptyMap(),
+              Optional.empty(),
+              "testCanonicalId",
+              Optional.of("zip"),
+              fs.getPath(workingDir.newFolder().getAbsolutePath()),
+              Collections.emptyMap(),
+              "testRepo");
+
+      assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("hello");
+      assertThat(resultingFile.asFragment().getFileExtension()).isEqualTo("zip");
+      assertThat(resultingFile.asFragment().getBaseName()).doesNotContain(":");
     }
   }
 
@@ -194,7 +235,6 @@ public class HttpDownloaderTest {
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
@@ -263,7 +303,6 @@ public class HttpDownloaderTest {
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
@@ -334,7 +373,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             outputFile,
-            eventHandler,
             Collections.emptyMap(),
             "testRepo");
         fail("Should have thrown");
@@ -679,7 +717,6 @@ public class HttpDownloaderTest {
                 "testCanonicalId",
                 Optional.empty(),
                 fs.getPath(workingDir.newFile().getAbsolutePath()),
-                eventHandler,
                 ImmutableMap.of(),
                 "testRepo"));
 
@@ -722,7 +759,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -771,7 +807,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -816,7 +851,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -865,7 +899,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -883,7 +916,6 @@ public class HttpDownloaderTest {
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
