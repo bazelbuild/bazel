@@ -1715,6 +1715,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         blazeModules.add(new DummyMetricsModule());
       }
       for (BlazeModule module : blazeModules) {
+        module.blazeServicesAvailable(ImmutableList.copyOf(blazeServices));
+      }
+      for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,
             BlazeVersionInfo.instance(),

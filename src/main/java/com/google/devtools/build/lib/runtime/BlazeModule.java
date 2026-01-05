@@ -153,8 +153,15 @@ public abstract class BlazeModule implements OptionsSupplier {
   }
 
   /**
-   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and {@link
-   * #getFileSystem}.
+   * Called to provide the list of available Blaze services to the module.
+   *
+   * <p>This is called after {@link #getFileSystem} and before {@link #blazeStartup}.
+   */
+  public void blazeServicesAvailable(Iterable<BlazeService> blazeServices) {}
+
+  /**
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, {@link
+   * #getFileSystem}, and {@link #blazeServicesAvailable}.
    *
    * @param startupOptions the server's startup options
    * @param versionInfo the Bazel version currently running
