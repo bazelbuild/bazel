@@ -489,7 +489,7 @@ sh_test(
     timeout = "long",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
-    shard_count = 2,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 
