@@ -16,25 +16,27 @@ import ssl
 import socket
 import datetime
 import sys
-import json
+import yaml
 import os
 import certifi
 
 # Configuration defaults
-WARNING_DAYS = 21
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../config/ssl_domains.json')
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../config/ssl_domains.yaml')
 
-def load_domains():
+def load_config():
     try:
         with open(CONFIG_PATH, 'r') as f:
-            return json.load(f)
+            return yaml.safe_load(f)
     except FileNotFoundError:
         print(f"Error: Config file not found at {CONFIG_PATH}")
         sys.exit(1)
+    except yaml.YAMLError as exc:
+        print(f"Error parsing YAML config: {exc}")
+        sys.exit(1)
 
-def check_domains(domains):
+def check_domains(domains, warning_days):
     failed_domains = []
-    print(f"Checking {len(domains)} domains (Threshold: < {WARNING_DAYS} days)...\n")
+    print(f"Checking {len(domains)} domains (Threshold: < {warning_days} days)...\n")
     print(f"{'DOMAIN':<30} | {'DAYS LEFT':<10} | {'STATUS'}")
     print("-" * 60)
 
@@ -51,7 +53,7 @@ def check_domains(domains):
                     days_left = (expires_dt - datetime.datetime.now(datetime.timezone.utc)).days
 
                     status = "✅ OK"
-                    if days_left < WARNING_DAYS:
+                    if days_left < warning_days:
                         status = "❌ EXPIRING SOON"
                         failed_domains.append(f"{domain} ({days_left} days left)")
 
@@ -63,8 +65,15 @@ def check_domains(domains):
     return failed_domains
 
 if __name__ == "__main__":
-    domains = load_domains()
-    failures = check_domains(domains)
+    config = load_config()
+    domains = config.get('domains', [])
+    warning_days = config.get('warning_days', 21)
+    
+    if not domains:
+        print("Error: No domains found in config.")
+        sys.exit(1)
+
+    failures = check_domains(domains, warning_days)
 
     if failures:
         summary = "\n".join([f"- {d}" for d in failures])
