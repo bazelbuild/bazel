@@ -1,0 +1,47 @@
+name: SSL Certificate Monitor
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-ssl-certs:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout code so we can access the script and config file
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      # 2. Run the decoupled script
+      - name: Run SSL Check
+        id: check_script
+        run: python .github/scripts/check_ssl.py
+
+      # 3. Handle failure (same as before)
+      - name: Create Issue on Failure
+        if: failure()
+        uses: dacbd/create-issue-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: 🚨 Urgent: SSL Certificates Expiring
+          labels: breakage, P0, team-OSS
+          body: |
+            ### SSL Certificate Warning
+
+            The automated monitor has detected SSL issues.
+
+            Please check the **[Workflow Run Log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})** for details.
+
+            **Action Required:**
+            1. Check `.github/config/ssl_domains.json` to verify the domain list.
+            2. Renew the certificates.
