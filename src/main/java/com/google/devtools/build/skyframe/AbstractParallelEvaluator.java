@@ -466,10 +466,14 @@ abstract class AbstractParallelEvaluator {
         try (var s =
             Profiler.instance()
                 .profile(ProfilerTask.SKYFUNCTION, skyKey.functionName().getName())) {
+          String originalThreadName = Thread.currentThread().getName();
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
+            Thread.currentThread()
+                .setName(String.format("%s-%s", originalThreadName, skyKey.toString()));
             value = skyFunction.compute(skyKey, env);
           } finally {
+            Thread.currentThread().setName(originalThreadName);
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
           }
         } catch (SkyFunctionException builderException) {
