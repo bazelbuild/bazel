@@ -1693,15 +1693,19 @@ EOF
   expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
 
-run_suite "Integration tests for the build event stream"
-
 function test_java_version_info_in_build_started() {
   mkdir -p a
   touch a/BUILD
   bazel build --nobuild //a:all --build_event_text_file=bep.txt \
     >/dev/null 2>&1 || fail "build failed"
   assert_contains "java_version_info {" bep.txt
-  assert_contains 'java_version: ".+"' bep.txt
-  assert_contains "java_major_version: [0-9]+" bep.txt
-  assert_contains "java_minor_version: [0-9]+" bep.txt
+  assert_contains 'java_version: ".\+"' bep.txt
+  assert_contains "java_major_version: [0-9]\+" bep.txt
+  if grep -sq 'java_version: "[0-9]\+\\.[1-9]' bep.txt; then
+    # Due to proto default values, java_minor_version will be set in the BEP
+    # textproto file only if the minor version is not 0.
+    assert_contains "java_minor_version: [0-9]\+" bep.txt
+  fi
 }
+
+run_suite "Integration tests for the build event stream"
