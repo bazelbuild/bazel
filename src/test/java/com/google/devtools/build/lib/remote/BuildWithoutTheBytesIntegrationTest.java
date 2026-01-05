@@ -72,7 +72,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     if (OS.getCurrent() == OS.WINDOWS) {
       // Force MSYS `ln -s` to create a (possibly dangling) native symlink or junction.
       // The default behavior is to require the target path to exist and make a deep copy.
-      addOptions("--action_env=MSYS=winsymlinks:native");
+      addOptions("--action_env=MSYS=winsymlinks:nativestrict");
     }
   }
 
