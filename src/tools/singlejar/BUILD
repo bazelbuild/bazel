@@ -294,6 +294,9 @@ cc_test(
         "//conditions:default": ["-DJAR_TOOL_PATH=\\\"$(JAVABASE_ROOTPATH)/bin/jar\\\""],
     }),
     data = [
+        "data/log4j2_plugins_set_1.jar",
+        "data/log4j2_plugins_set_2.jar",
+        "data/log4j2_plugins_set_result.dat",
         ":data1",
         ":data2",
         ":stored_jar",

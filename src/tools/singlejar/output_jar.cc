@@ -968,6 +968,8 @@ bool OutputJar::Close() {
   WriteEntry(spring_handlers_.OutputEntry(options_->force_compression));
   WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
   WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
+  WriteEntry(
+      log4j2_plugin_dat_combiner_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
   off64_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||

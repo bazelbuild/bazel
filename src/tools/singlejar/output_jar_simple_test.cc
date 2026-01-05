@@ -14,6 +14,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <fstream>
+#include <ios>
+#include <memory>
+#include <sstream>
 #include <vector>
 
 // Must be included before anything else.
@@ -906,6 +911,39 @@ TEST_F(OutputJarSimpleTest, Services) {
       "handler1\n"
       "handler2\n",
       GetEntryContents(out_path, "META-INF/spring.handlers"));
+}
+
+// The files named
+// META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat are
+// properly merged.
+TEST_F(OutputJarSimpleTest, Log4j2PluginDat) {
+  string log4j2_plugins_set1_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_1.jar");
+  string log4j2_plugins_set2_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_2.jar");
+
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--sources", log4j2_plugins_set1_path,
+                          log4j2_plugins_set2_path});
+
+  string result_dat_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_result.dat");
+  std::ifstream ifs(result_dat_path, std::ios::binary);
+  ASSERT_TRUE(ifs.is_open());
+  std::stringstream buffer;
+  buffer << ifs.rdbuf();
+  std::string expected_content = buffer.str();
+  ifs.close();
+  ASSERT_FALSE(expected_content.empty());
+
+  EXPECT_EQ(
+      expected_content,
+      GetEntryContents(out_path,
+                       "META-INF/org/apache/logging/log4j/core/config/plugins/"
+                       "Log4j2Plugins.dat"));
 }
 
 // Test that in the absence of the compression option all the plain files in
