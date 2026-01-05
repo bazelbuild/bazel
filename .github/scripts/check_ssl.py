@@ -12,80 +12,130 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ssl
-import socket
+"""Script to monitor SSL certificate expiration for Bazel domains."""
+
 import datetime
-import sys
-import yaml
+import json
 import os
+import socket
+import ssl
+import sys
+from typing import Dict, List, Optional, Tuple
+
 import certifi
+import yaml
 
-# Configuration defaults
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../config/ssl_domains.yaml')
+# Constants
+DEFAULT_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "../config/ssl_domains.yaml"
+)
+DEFAULT_WARNING_DAYS = 21
+HTTPS_PORT = 443
+SOCKET_TIMEOUT_SECONDS = 5
 
-def load_config():
-    try:
-        with open(CONFIG_PATH, 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        print(f"Error: Config file not found at {CONFIG_PATH}")
-        sys.exit(1)
-    except yaml.YAMLError as exc:
-        print(f"Error parsing YAML config: {exc}")
-        sys.exit(1)
 
-def check_domains(domains, warning_days):
-    failed_domains = []
-    print(f"Checking {len(domains)} domains (Threshold: < {warning_days} days)...\n")
-    print(f"{'DOMAIN':<30} | {'DAYS LEFT':<10} | {'STATUS'}")
-    print("-" * 60)
+class SSLMonitor:
+    """Class to manage and check SSL certificate expirations."""
 
-    context = ssl.create_default_context(cafile=certifi.where())
+    def __init__(self, config_path: str = DEFAULT_CONFIG_PATH):
+        self.config_path = config_path
+        self.config = self._load_config()
+        self.warning_days = self.config.get("warning_days", DEFAULT_WARNING_DAYS)
+        self.domains = self.config.get("domains", [])
+        self.context = ssl.create_default_context(cafile=certifi.where())
 
-    for domain in domains:
+    def _load_config(self) -> Dict:
+        """Loads the YAML configuration file."""
+        if not os.path.exists(self.config_path):
+            print(f"Error: Config file not found at {self.config_path}")
+            sys.exit(1)
+
         try:
-            with socket.create_connection((domain, 443), timeout=5) as sock:
-                with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                    cert = ssock.getpeercert()
-                    expires_str = cert['notAfter']
-                    # The format returned by getpeercert() is '%b %d %H:%M:%S %Y GMT'
-                    expires_dt = datetime.datetime.strptime(expires_str, '%b %d %H:%M:%S %Y GMT').replace(tzinfo=datetime.timezone.utc)
-                    days_left = (expires_dt - datetime.datetime.now(datetime.timezone.utc)).days
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                return config if isinstance(config, dict) else {}
+        except yaml.YAMLError as exc:
+            print(f"Error parsing YAML config: {exc}")
+            sys.exit(1)
 
-                    status = "✅ OK"
-                    if days_left < warning_days:
-                        status = "❌ EXPIRING SOON"
-                        failed_domains.append(f"{domain} ({days_left} days left)")
+    def get_days_until_expiration(self, domain: str) -> int:
+        """Connects to the domain and retrieves days until certificate expiration."""
+        with socket.create_connection(
+            (domain, HTTPS_PORT), timeout=SOCKET_TIMEOUT_SECONDS
+        ) as sock:
+            with self.context.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+                if not cert:
+                    raise ValueError(f"No certificate found for {domain}")
 
-                    print(f"{domain:<30} | {days_left:<10} | {status}")
-        except Exception as e:
-            print(f"{domain:<30} | {'ERROR':<10} | 🚨 {str(e)}")
-            failed_domains.append(f"{domain} ({str(e)})")
+                expires_str = cert["notAfter"]
+                # Format: '%b %d %H:%M:%S %Y GMT' (e.g., 'Mar 26 20:13:28 2026 GMT')
+                expires_dt = datetime.datetime.strptime(
+                    expires_str, "%b %d %H:%M:%S %Y GMT"
+                ).replace(tzinfo=datetime.timezone.utc)
+                
+                delta = expires_dt - datetime.datetime.now(datetime.timezone.utc)
+                return delta.days
 
-    return failed_domains
+    def check_all(self) -> List[str]:
+        """Checks all configured domains and prints the status."""
+        failed_domains = []
+        print(f"Checking {len(self.domains)} domains (Threshold: < {self.warning_days} days)...\n")
+        print(f"{'DOMAIN':<35} | {'DAYS LEFT':<10} | {'STATUS'}")
+        print("-" * 65)
 
-if __name__ == "__main__":
-    config = load_config()
-    domains = config.get('domains', [])
-    warning_days = config.get('warning_days', 21)
+        for domain in self.domains:
+            try:
+                days_left = self.get_days_until_expiration(domain)
+                status = "✅ OK"
+                if days_left < self.warning_days:
+                    status = "❌ EXPIRING SOON"
+                    failed_domains.append(f"{domain} ({days_left} days left)")
+                print(f"{domain:<35} | {days_left:<10} | {status}")
+            except Exception as e:
+                # Catch broad exceptions to ensure we try all domains
+                error_msg = str(e)
+                print(f"{domain:<35} | {'ERROR':<10} | 🚨 {error_msg}")
+                failed_domains.append(f"{domain} ({error_msg})")
+
+        return failed_domains
+
+
+def report_failures(failures: List[str]):
+    """Reports failures to stdout and GitHub Step Summary if available."""
+    if not failures:
+        print("\nAll certificates look good.")
+        return
+
+    summary = "\n".join([f"- {d}" for d in failures])
     
-    if not domains:
+    # GitHub Action specific summary
+    if "GITHUB_STEP_SUMMARY" in os.environ:
+        try:
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+                fh.write("### 🚨 SSL Certificates Expiring Soon or Failing\n")
+                fh.write(summary + "\n")
+        except IOError as e:
+            print(f"Warning: Could not write to GITHUB_STEP_SUMMARY: {e}")
+
+    print("\nCRITICAL ISSUES FOUND:")
+    print(summary)
+    sys.exit(1)
+
+
+def main():
+    if not os.path.exists(DEFAULT_CONFIG_PATH):
+        # Allow checking via CLI if we ever want to extend this
+        pass
+
+    monitor = SSLMonitor()
+    if not monitor.domains:
         print("Error: No domains found in config.")
         sys.exit(1)
 
-    failures = check_domains(domains, warning_days)
+    failures = monitor.check_all()
+    report_failures(failures)
 
-    if failures:
-        summary = "\n".join([f"- {d}" for d in failures])
 
-        # Write to GITHUB_STEP_SUMMARY only if running in GitHub Actions
-        if 'GITHUB_STEP_SUMMARY' in os.environ:
-            with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as fh:
-                print("### 🚨 SSL Certificates Expiring Soon", file=fh)
-                print(summary, file=fh)
-
-        print("\nCRITICAL ISSUES FOUND:")
-        print(summary)
-        sys.exit(1)
-
-    print("\nAll certificates look good.")
+if __name__ == "__main__":
+    main()
