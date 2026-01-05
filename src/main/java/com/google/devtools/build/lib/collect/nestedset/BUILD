@@ -85,6 +85,7 @@ java_library(
 java_library(
     name = "fingerprint_cache",
     srcs = [
+        "DigestDeduper.java",
         "DigestMap.java",
         "NestedSetFingerprintCache.java",
     ],
@@ -94,5 +95,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.BytesSink;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestLength;
@@ -65,13 +66,13 @@ final class DigestMap {
   }
 
   /** Finds the digest for the corresponding key and adds it to the passed fingerprint. */
-  boolean readDigest(Object key, Fingerprint fingerprint) {
+  boolean readDigest(Object key, BytesSink bytesSink) {
     Table table = this.table; // Read once for duration of method
     int index = findKey(table, key);
     if (index >= 0) {
       int offset = index * this.digestLength.getDigestMaximumLength();
       int digestLength = this.digestLength.getDigestLength(table.bytes, offset);
-      fingerprint.addBytes(table.bytes, offset, digestLength);
+      bytesSink.acceptBytes(table.bytes, offset, digestLength);
       return true;
     }
     return false;
@@ -101,7 +102,7 @@ final class DigestMap {
    * @param digest The fingerprint to insert. This will reset the fingerprint instance.
    * @param readTo A fingerprint to read the just-added fingerprint into.
    */
-  void insertAndReadDigest(Object key, Fingerprint digest, Fingerprint readTo) {
+  void insertAndReadDigest(Object key, Fingerprint digest, BytesSink readTo) {
     // Check if we have to resize the table first and do that under write lock
     // We assume that we are going to insert an item. If we do not do this, multiple
     // threads could race and all think they do not need to resize, then some get stuck
@@ -129,7 +130,11 @@ final class DigestMap {
     // This can be done outside of the read lock since the slot is immutable once inserted
     int offset = index * this.digestLength.getDigestMaximumLength();
     int digestLength = this.digestLength.getDigestLength(table.bytes, offset);
-    readTo.addBytes(table.bytes, offset, digestLength);
+    readTo.acceptBytes(table.bytes, offset, digestLength);
+  }
+
+  int getMaxDigestLength() {
+    return digestLength.getDigestMaximumLength();
   }
 
   // Inserts a key into the passed table and returns the index.

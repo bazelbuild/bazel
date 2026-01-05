@@ -227,6 +227,7 @@ java_library(
     name = "util",
     srcs = [
         "AnsiStrippingOutputStream.java",
+        "BytesSink.java",
         "CPU.java",
         "ClassName.java",
         "DependencySet.java",

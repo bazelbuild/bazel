@@ -39,7 +39,7 @@ public class ActionKeyContext {
       CommandLineItem.ExceptionlessMapFn<? super T> mapFn,
       Fingerprint fingerprint,
       NestedSet<T> nestedSet) {
-    nestedSetFingerprintCache.addNestedSetToFingerprint(mapFn, fingerprint, nestedSet);
+    nestedSetFingerprintCache.addNestedSetToFingerprintExceptionless(mapFn, fingerprint, nestedSet);
   }
 
   public static <T> String describeNestedSetFingerprint(
