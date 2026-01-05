@@ -331,7 +331,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
             // UUID-named directory and thus the FileStateValue above will always be missing from
             // Skyframe. After the restart, the repo will either encounter the just created cache
             // entry as a candidate or will create a new one if it got GC'd in the meantime.
-            throw new IllegalStateException("Not reached");
+            throw new IllegalStateException(
+                "FileStateValue unexpectedly present for " + cachedRepoDir);
           }
           if (remoteRepoContentsCache != null) {
             remoteRepoContentsCache.addToCache(

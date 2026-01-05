@@ -39,9 +39,6 @@ class RepoContentsCacheTest(test_base.TestBase):
         ],
     )
 
-  def checkExternalRepositoryFiles(self):
-    return os.getenv('CHECK_EXTERNAL_REPOSITORY_FILES') == 'True'
-
   def hasCacheEntry(self):
     for l1 in os.listdir(self.repo_contents_cache):
       l1_path = os.path.join(self.repo_contents_cache, l1)
@@ -100,10 +97,14 @@ class RepoContentsCacheTest(test_base.TestBase):
     target_path = os.readlink(repo_dir)
     real_target_path = os.path.realpath(target_path)
     real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
-    self.assertIn(
-        pathlib.Path(real_repo_contents_cache),
-        list(pathlib.Path(real_target_path).parents),
-    )
+    for parent in pathlib.Path(real_target_path).parents:
+      if parent.samefile(real_repo_contents_cache):
+        break
+    else:
+      self.fail(
+          'repo target dir %s is not in the repo contents cache %s'
+          % (real_target_path, real_repo_contents_cache)
+      )
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
