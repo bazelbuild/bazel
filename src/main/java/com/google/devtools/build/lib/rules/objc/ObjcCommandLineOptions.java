@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import java.util.List;
 
 /** Command-line options for building Objective-C targets. */
 public class ObjcCommandLineOptions extends FragmentOptions {
@@ -58,39 +56,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean runMemleaks;
 
   @Option(
-    name = "experimental_objc_fastbuild_options",
-    defaultValue = "-O0,-DDEBUG=1",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Uses these strings as objc fastbuild compiler options."
-  )
-  public List<String> fastbuildOptions;
-
-  @Option(
-    name = "ios_signing_cert_name",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help =
-        "Certificate name to use for iOS signing. If not set will fall back to provisioning "
-            + "profile. May be the certificate's keychain identity preference or (substring) of "
-            + "the certificate's common name, as per codesign's man page (SIGNING IDENTITIES)."
-  )
-  public String iosSigningCertName;
-
-  @Option(
-    name = "objc_debug_with_GLIBCXX",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help =
-        "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
-            + " GLIBCXX_DEBUG_PEDANTIC and GLIBCPP_CONCEPT_CHECKS."
-  )
-  public boolean debugWithGlibcxx;
-
-  @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -100,22 +65,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "when signing."
   )
   public boolean deviceDebugEntitlements;
-
-  @Option(
-      name = "incompatible_avoid_hardcoded_objc_compilation_flags",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
-              + " set in the crosstool are still applied.")
-  public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
   @Option(
       name = "incompatible_disallow_sdk_frameworks_attributes",
@@ -138,19 +87,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           "If true, make the default value true for alwayslink attributes in objc_library and"
               + " objc_import.")
   public boolean incompatibleObjcAlwayslinkByDefault;
-
-  /** @deprecated delete when we are sure it's not used anywhere. */
-  @Deprecated
-  @Option(
-      name = "incompatible_disable_native_apple_binary_rule",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {
-        OptionEffectTag.EAGERNESS_TO_EXIT,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean incompatibleDisableNativeAppleBinaryRule;
 
   @Option(
       name = "incompatible_strip_executable_safely",
