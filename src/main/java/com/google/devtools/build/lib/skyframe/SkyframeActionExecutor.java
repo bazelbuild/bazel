@@ -1877,7 +1877,7 @@ public final class SkyframeActionExecutor {
       logger.atWarning().withCause(e).log(
           "Failure informing important output handler of stdout/stderr");
     } catch (InterruptedException e) {
-      logger.atInfo().log("Informing important output handler of stdout/stderr");
+      logger.atInfo().log("Interrupted while informing important output handler of stdout/stderr");
       Thread.currentThread().interrupt();
     }
   }
