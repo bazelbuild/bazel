@@ -23,9 +23,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -71,6 +68,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
@@ -261,16 +259,21 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     recordedInputs.put(input, value);
   }
 
-  protected void getValueAndRecordInput(RepoRecordedInput input)
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String getValueAndRecordInput(RepoRecordedInput input)
       throws InterruptedException, NeedsSkyframeRestartException, IOException {
     var maybeValue = input.getValue(env, directories);
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
-    switch (maybeValue) {
+    return switch (maybeValue) {
       case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
-      case MaybeValue.Valid(String value) -> recordInputWithValue(input, value);
-    }
+      case MaybeValue.Valid(String value) -> {
+        recordInputWithValue(input, value);
+        yield value;
+      }
+    };
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -1488,16 +1491,12 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
-    // establish a SkyKey dependency relationship.
     try {
-      getValueAndRecordInput(new RepoRecordedInput.EnvVar(name));
+      String value = getValueAndRecordInput(new RepoRecordedInput.EnvVar(name));
+      return value != null ? value : nullIfNone(defaultValue, String.class);
     } catch (IOException e) {
       throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
-    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
-    recordInput(entry.getKey());
-    return entry.getValue().orElseGet(() -> nullIfNone(defaultValue, String.class));
   }
 
   @StarlarkMethod(
