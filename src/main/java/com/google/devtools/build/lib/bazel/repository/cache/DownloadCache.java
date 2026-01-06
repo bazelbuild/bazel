@@ -246,8 +246,6 @@ public class DownloadCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     fileWriter.writeTo(tmpName);
-    // Avoid corruption to the cache entry in case it is hardlinked elsewhere.
-    tmpName.setWritable(false);
     try {
       tmpName.renameTo(cacheValue);
     } catch (FileAccessException e) {
