@@ -42,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -58,8 +57,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
-  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
@@ -68,11 +67,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   public SingleExtensionEvalFunction(
       BlazeDirectories directories,
-      Supplier<Map<String, String>> repoEnvironmentSupplier,
-      Supplier<Map<String, String>> clientEnvironmentSupplier) {
+      Supplier<ImmutableMap<String, String>> repoEnvSupplier,
+      Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier) {
     this.directories = directories;
-    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.repoEnvSupplier = repoEnvSupplier;
+    this.modifiedClientEnvSupplier = modifiedClientEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -123,8 +122,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 starlarkSemantics,
                 env,
                 directories,
-                repoEnvironmentSupplier,
-                clientEnvironmentSupplier,
+                repoEnvSupplier.get(),
+                modifiedClientEnvSupplier.get(),
                 timeoutScaling,
                 processWrapper,
                 repositoryRemoteExecutor,
