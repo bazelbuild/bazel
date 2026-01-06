@@ -39,16 +39,22 @@ public final class Types {
   // TODO(ilist@): constructed types should probably be interned. In some cases it might help
   // to precompute and memoize StarlarkTypes.getSupertypes.
 
-  // Internal type used as a guard for a missing type annotations (for now).
+  /**
+   * The Dynamic type of gradual typing; compatible with any other type, but not related by
+   * subtyping to any other type.
+   */
   public static final StarlarkType ANY = new Any();
+
+  /** The top type of the type hierarchy. */
+  public static final StarlarkType OBJECT = new ObjectType();
 
   // Primitive types
   public static final StarlarkType NONE = new None();
+
   public static final StarlarkType BOOL = new Bool();
   public static final StarlarkType INT = new Int();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new Str();
-  public static final StarlarkType OBJECT = new ObjectType();
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -62,6 +68,7 @@ public final class Types {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env //
         .put("Any", ANY)
+        .put("object", OBJECT)
         .put("None", NONE)
         .put("bool", BOOL)
         .put("int", INT)

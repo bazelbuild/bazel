@@ -109,9 +109,44 @@ public final class TypeChecker extends NodeVisitor {
           return Types.ANY;
         }
       }
+      case INDEX -> {
+        var index = (IndexExpression) expr;
+        StarlarkType objType = infer(index.getObject());
+        StarlarkType keyType = infer(index.getKey());
+
+        // TODO: #28037 - Support indexing lists and tuples.
+        // TODO: #28043 - Broaden list to Sequence and dict to Mapping, once we have better type
+        // hierarchy support in the static type machinery.
+        if (objType.equals(Types.ANY)) {
+          return Types.ANY;
+        } else if (objType instanceof Types.TupleType tupleType) {
+          throw new UnsupportedOperationException("cannot typecheck index expression on a tuple");
+        } else if (objType instanceof Types.ListType listType) {
+          throw new UnsupportedOperationException("cannot typecheck index expression on a list");
+        } else if (objType instanceof Types.DictType dictType) {
+          if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
+            errorf(
+                index.getLbracketLocation(),
+                "'%s' of type '%s' requires key type '%s', but got '%s'",
+                index.getObject(),
+                objType,
+                dictType.getKeyType(),
+                keyType);
+            // Fall through to returning the value type.
+          }
+          return dictType.getValueType();
+        } else {
+          errorf(
+              index.getLbracketLocation(),
+              "cannot index '%s' of type '%s'",
+              index.getObject(),
+              objType);
+          return Types.ANY;
+        }
+      }
       default -> {
         // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr,
-        // index, lambda, list, slice, and unaryop expressions.
+        // lambda, list, slice, and unaryop expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }

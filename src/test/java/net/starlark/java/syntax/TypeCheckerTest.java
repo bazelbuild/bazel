@@ -188,4 +188,103 @@ public final class TypeCheckerTest {
         s.f = 123
         """);
   }
+
+  @Test
+  public void infer_index_nonIndexable() throws Exception {
+    assertInvalid(
+        ":2:2: cannot index 'n' of type 'int'",
+        """
+        n: int
+        n["abc"]
+        """);
+
+    // Any doesn't save us from doing a bad operation on a non-Any type.
+    assertInvalid(
+        ":3:2: cannot index 'n' of type 'int'",
+        """
+        n: int
+        a: Any
+        n[a]
+        """);
+  }
+
+  @Test
+  public void assignment_index_nonIndexable() throws Exception {
+    assertInvalid(
+        ":2:2: cannot index 'n' of type 'int'",
+        """
+        n: int
+        n["abc"] = 123
+        """);
+  }
+
+  @Test
+  public void infer_index_any() throws Exception {
+    assertTypeGivenDecls("a[123]", Types.ANY, "a: Any");
+  }
+
+  @Test
+  public void assign_index_any() throws Exception {
+    assertValid(
+        """
+        a: Any
+        a["abc"] = 123
+        """);
+  }
+
+  @Test
+  public void infer_index_dict() throws Exception {
+    // Exact key type match.
+    assertTypeGivenDecls("d['abc']", Types.INT, "d: dict[str, int]");
+    // Match based on subtyping.
+    assertTypeGivenDecls("d[s]", Types.INT, "d: dict[object, int]; s: str");
+    // Bypass key type constraint using Any.
+    assertTypeGivenDecls("d[a]", Types.INT, "d: dict[str, int]; a: Any");
+
+    assertInvalid(
+        ":2:2: 'd' of type 'dict[str, int]' requires key type 'str', but got 'int'",
+        """
+        d: dict[str, int]
+        d[123]
+        """);
+  }
+
+  @Test
+  public void assignment_index_dict() throws Exception {
+    assertValid(
+        """
+        # Exact match.
+        d1: dict[str, int]
+        d1["abc"] = 123
+
+        # Subtyping match.
+        d2: dict[object, int]
+        d2["abc"] = 123
+
+        # Any match.
+        a: Any
+        d1["abc"] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'str' to 'd["abc"]' of type 'int'\
+        """,
+        """
+        d: dict[str, int]
+        d["abc"] = "abc"
+        """);
+
+    // This failure is through the infer() code path, also exercised in the test case above.
+    assertInvalid(
+        """
+        :2:2: 'd' of type 'dict[str, int]' requires key type 'str', but got 'int'\
+        """,
+        """
+        d: dict[str, int]
+        d[123] = 123
+        """);
+  }
+
+  // TODO: #28037 - Indexing of lists, tuples, and strings
 }
