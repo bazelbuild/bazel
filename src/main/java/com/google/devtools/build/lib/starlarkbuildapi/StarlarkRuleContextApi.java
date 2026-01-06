@@ -676,7 +676,11 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           <p><i>Usage note:</i> The difference between this function and \
           <a href='../builtins/Label.html#Label'>Label()</a></code> is \
           that <code>Label()</code> uses the context of the package of the <code>.bzl</code> file \
-          that called it, not the package of the target currently being analyzed.""",
+          that called it, not the package of the target currently being analyzed. This function \
+          has the same behavior as <a href='../toplevel/native.html#package_relative_label'>
+          <code>native.package_relative_label()</code></a>, which cannot be used in a rule or
+          aspect implementation function.
+          """,
       parameters = {
         @Param(
             name = "input",
