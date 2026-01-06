@@ -566,6 +566,24 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertNotIn('WARNING', '\n'.join(stderr))
 
+    # Delete the entire repo contents cache and fetch again with a different path: not cached
+    # Avoid access denied on Windows due to files being read-only by moving to
+    # a different location instead.
+    os.rename(repo_contents_cache, repo_contents_cache + '_deleted_again')
+    _, _, stderr = self.RunBazel(
+      [
+        'build',
+        '@my_repo//:haha',
+      ]
+      + extra_args + [
+        '--repo_contents_cache=%s' % repo_contents_cache + '2',
+      ],
+      cwd=workspace,
+      )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+
   def testRepoContentsCacheDeleted_withCheckExternalRepositoryFiles(self):
     self.doTestRepoContentsCacheDeleted(checkExternalRepositoryFiles=True)
 
