@@ -19,7 +19,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.LexerTest.assertContainsError;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ObjectArrays;
 import net.starlark.java.syntax.Resolver.Module;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,12 +48,11 @@ public final class TypeCheckerTest {
   }
 
   /**
-   * Parses, resolve, and type-resolves a file, then statically typechecks it.
+   * Parses, resolve, and type-resolves a file, without typechecking it.
    *
-   * <p>Asserts that steps before typechecking succeeded, but the typechecking itself may fail. The
-   * resulting errors are available in the returned {@code StarlarkFile}.
+   * <p>Returns a file without errors or else asserts failure.
    */
-  private StarlarkFile typecheckFilePossiblyFailing(String... lines) throws Exception {
+  private StarlarkFile prepareFile(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
@@ -59,7 +61,17 @@ public final class TypeCheckerTest {
     assertNoErrors("resolving", file);
     TypeResolver.annotateFile(file, module);
     assertNoErrors("type-resolving", file);
+    return file;
+  }
 
+  /**
+   * Statically typechecks a program.
+   *
+   * <p>Asserts that steps before typechecking succeeded, but the typechecking itself may fail. The
+   * resulting errors are available in the returned {@code StarlarkFile}.
+   */
+  private StarlarkFile typecheckFilePossiblyFailing(String... lines) throws Exception {
+    StarlarkFile file = prepareFile(lines);
     TypeChecker.check(file);
     return file;
   }
@@ -78,54 +90,43 @@ public final class TypeCheckerTest {
     assertContainsError(file.errors(), expectedError);
   }
 
-  /** Asserts that the given file has at least the specified errors. */
-  private static void assertContainsErrors(StarlarkFile file, String... errors) throws Exception {
-    for (var err : errors) {
-      assertContainsError(file.errors(), err);
-    }
+  /**
+   * Returns the inferred type of an expression, given zero or more {@code var} declarations for
+   * identifiers appearing within the expression.
+   */
+  private StarlarkType inferTypeGivenDecls(String expr, String... decls) throws Exception {
+    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
+    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    return TypeChecker.inferTypeOf(resolvedExpr);
+  }
+
+  /**
+   * Asserts that the inferred type of an expression is equal to the expected type, given zero or
+   * more {@code var} declarations for identifiers appearing within the expression.
+   */
+  private void assertTypeGivenDecls(String expr, StarlarkType expected, String... decls)
+      throws Exception {
+    StarlarkType actual = inferTypeGivenDecls(expr, decls);
+    assertThat(actual).isEqualTo(expected);
   }
 
   @Test
-  public void assignment_simple() throws Exception {
-    assertValid(
-        """
-        x: int
-        x = 123
-        """);
+  public void infer_identifier() throws Exception {
+    assertTypeGivenDecls("x", Types.INT, "x: int");
+  }
 
-    assertInvalid(
-        ":2:1: cannot assign type 'str' to 'x' of type 'int'",
-        """
-        x: int
-        x = "abc"
-        """);
+  // TODO: #27370 - The real behavior we want is that an unannotated variable has an inferred type
+  // if it is a non-parameter local variable in typed code, and Any type otherwise.
+  @Test
+  public void unannotatedVarIsAnyType() throws Exception {
+    assertTypeGivenDecls("x", Types.ANY, "x = 'ignored'");
   }
 
   @Test
-  public void canLookupIdentifierTypeOnRhs() throws Exception {
-    assertInvalid(
-        ":3:1: cannot assign type 'bool' to 'x' of type 'int'",
-        """
-        x: int
-        y: bool
-        x = y
-        """);
-  }
-
-  @Test
-  public void primitiveTypesAreInferredFromLiteralsAndAreIncompatible() throws Exception {
-    var file =
-        typecheckFilePossiblyFailing(
-            """
-            x: bool = 'abc'
-            y: float = 123
-            z: None = 1.0
-            """);
-    assertContainsErrors(
-        file,
-        ":1:1: cannot assign type 'str' to 'x' of type 'bool'",
-        ":2:1: cannot assign type 'int' to 'y' of type 'float'",
-        ":3:1: cannot assign type 'float' to 'z' of type 'None'");
+  public void infer_literals() throws Exception {
+    assertTypeGivenDecls("'abc'", Types.STR);
+    assertTypeGivenDecls("123", Types.INT);
+    assertTypeGivenDecls("1.0", Types.FLOAT);
   }
 
   // TODO: #27728 - We should add a test that the types of universals, and in particular the
@@ -134,36 +135,16 @@ public final class TypeCheckerTest {
   // universal environment is not available to the syntax/ package.
 
   @Test
-  public void anyIsCompatibleInEitherDirection() throws Exception {
+  public void assignment_simple() throws Exception {
     assertValid(
         """
-        x: int
-        y: Any
-        x = y
+        n: int = 123
         """);
-    assertValid(
-        """
-        x: Any
-        y: int
-        x = y
-        """);
-    assertValid(
-        """
-        x: Any
-        y: Any
-        x = y
-        """);
-  }
 
-  // TODO: #27370 - The real behavior we want is that an unannotated variable has an inferred type
-  // if it is a non-parameter local variable in typed code, and Any type otherwise.
-  @Test
-  public void unannotatedVarIsAnyType() throws Exception {
-    assertValid(
+    assertInvalid(
+        ":1:1: cannot assign type 'str' to 'n' of type 'int'",
         """
-        x: int
-        y = "ignored"
-        x = y
+        n: int = "abc"
         """);
   }
 
@@ -179,20 +160,16 @@ public final class TypeCheckerTest {
   }
 
   @Test
-  public void dotExpression() throws Exception {
+  public void infer_dot() throws Exception {
     // TODO: #27370 - Make this more interesting when we support struct types.
-    assertValid(
-        """
-        o: Any
-        x: int
-        x = o.f  # Any.f ==> Any
-        """);
+
+    assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
 
     assertInvalid(
-        ":2:2: 'x' of type 'int' does not have field 'f'",
+        ":2:2: 'n' of type 'int' does not have field 'f'",
         """
-        x: int
-        x.f
+        n: int
+        n.f
         """);
   }
 
@@ -200,15 +177,15 @@ public final class TypeCheckerTest {
   public void assignment_dot() throws Exception {
     assertValid(
         """
-        x: Any
-        x.f = 123
+        o: Any
+        o.f = 123
         """);
 
     assertInvalid(
-        ":2:2: 'x' of type 'str' does not have field 'f'",
+        ":2:2: 's' of type 'str' does not have field 'f'",
         """
-        x: str
-        x.f = 123
+        s: str
+        s.f = 123
         """);
   }
 }

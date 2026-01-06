@@ -56,6 +56,9 @@ public abstract class StarlarkType {
     if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
       return true;
     }
+    if (t1.equals(Types.OBJECT)) {
+      return true;
+    }
     if (t1.equals(t2)) {
       return true;
     }

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +28,46 @@ import org.junit.runners.JUnit4;
 // TODO: #27370 - Move this to match whichever package Types.java is going to live in.
 @RunWith(JUnit4.class)
 public class TypesTest {
+
+  /** Asserts {@code t1} is assignable to {@code t2}. */
+  private static void assertLt(StarlarkType t1, StarlarkType t2) {
+    assertThat(StarlarkType.assignableFrom(t2, t1)).isTrue();
+  }
+
+  /** Asserts {@code t1} is *not* assignable to {@code t2}. */
+  private static void assertNotLt(StarlarkType t1, StarlarkType t2) {
+    assertThat(StarlarkType.assignableFrom(t2, t1)).isFalse();
+  }
+
+  @Test
+  public void assignability_reflexivity() {
+    assertLt(Types.INT, Types.INT);
+    assertLt(Types.ANY, Types.ANY);
+    assertLt(Types.OBJECT, Types.OBJECT);
+  }
+
+  @Test
+  public void assignability_anyPassesEitherDirection() {
+    assertLt(Types.INT, Types.ANY);
+    assertLt(Types.ANY, Types.INT);
+  }
+
+  @Test
+  public void assignability_objectIsTop() {
+    assertLt(Types.INT, Types.OBJECT);
+    assertNotLt(Types.OBJECT, Types.INT);
+    assertLt(Types.ANY, Types.OBJECT);
+    assertLt(Types.OBJECT, Types.ANY);
+  }
+
+  @Test
+  public void assignability_primitiveTypesAreIncompatible() {
+    assertNotLt(Types.INT, Types.STR);
+    assertNotLt(Types.INT, Types.FLOAT); // unlike Python
+    assertNotLt(Types.STR, Types.FLOAT);
+    assertNotLt(Types.BOOL, Types.INT); // unlike Python
+    assertNotLt(Types.NONE, Types.STR);
+  }
 
   @Test
   public void callable_toSignatureString() {

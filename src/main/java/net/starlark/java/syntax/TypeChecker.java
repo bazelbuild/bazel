@@ -16,6 +16,7 @@ package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
@@ -115,6 +116,24 @@ public final class TypeChecker extends NodeVisitor {
             String.format("cannot typecheck %s expression", expr.kind()));
       }
     }
+  }
+
+  /**
+   * Infers the type of an expression.
+   *
+   * <p>The expression must have already been resolved and type-resolved, i.e. type information must
+   * be present in the identifiers' bindings.
+   *
+   * @throws SyntaxError.Exception if a static type error is present in the expression
+   */
+  static StarlarkType inferTypeOf(Expression expr) throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeChecker tc = new TypeChecker(errors);
+    StarlarkType result = tc.infer(expr);
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(tc.errors);
+    }
+    return result;
   }
 
   /**
