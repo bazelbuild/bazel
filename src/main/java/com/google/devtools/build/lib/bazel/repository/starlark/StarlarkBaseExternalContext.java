@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -212,7 +213,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // apparent repo names to canonical repo names. See #20721 for why this is necessary.
     this.repoMappingRecorder =
         (fromRepo, apparentRepoName, canonicalRepoName) ->
-            manuallyRecordInput(
+            recordInputWithValue(
                 new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
                 canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
   }
@@ -251,7 +252,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void manuallyRecordInput(RepoRecordedInput input, @Nullable String value) {
+  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"
@@ -260,13 +261,16 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     recordedInputs.put(input, value);
   }
 
-  protected void recordInput(RepoRecordedInput input)
+  protected void getValueAndRecordInput(RepoRecordedInput input)
       throws InterruptedException, NeedsSkyframeRestartException, IOException {
     var maybeValue = input.getValue(env, directories);
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
-    manuallyRecordInput(input, maybeValue.unwrap());
+    switch (maybeValue) {
+      case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
+      case MaybeValue.Valid(String value) -> recordInputWithValue(input, value);
+    }
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -1484,9 +1488,12 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    var nameAndValue = RepositoryEnvironmentFunction.getEnvironmentView(env, ImmutableSet.of(name));
-    if (nameAndValue == null) {
-      throw new NeedsSkyframeRestartException();
+    // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
+    // establish a SkyKey dependency relationship.
+    try {
+      getValueAndRecordInput(new RepoRecordedInput.EnvVar(name));
+    } catch (IOException e) {
+      throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
     var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
     recordInput(entry.getKey());
@@ -1655,7 +1662,7 @@ the same path on case-insensitive filesystems.
       return;
     }
     try {
-      recordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1668,7 +1675,7 @@ the same path on case-insensitive filesystems.
       return;
     }
     try {
-      recordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

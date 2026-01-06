@@ -565,7 +565,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       return;
     }
     try {
-      recordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

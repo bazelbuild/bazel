@@ -141,7 +141,12 @@ public class DigestWriter {
     }
   }
 
-  public static Optional<List<RepoRecordedInput.WithValue>> readMarkerFile(
+  /**
+   * Returns a list of recorded inputs with their values parsed from the given marker file if the
+   * predeclared input hash matches, or {@code Optional.empty()} if the hash doesn't match or any
+   * error occurs during parsing.
+   */
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 

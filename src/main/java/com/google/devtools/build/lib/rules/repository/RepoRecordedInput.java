@@ -212,13 +212,13 @@ public abstract sealed class RepoRecordedInput {
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
-    if (wrappedNewValue instanceof MaybeValue.Invalid(String reason)) {
-      return Optional.of(reason);
-    }
-    String newValue = ((MaybeValue.Valid) wrappedNewValue).value();
-    return Objects.equals(oldValue, newValue)
-        ? Optional.empty()
-        : Optional.of(reasonForChange(oldValue, newValue));
+    return switch (wrappedNewValue) {
+      case MaybeValue.Invalid(String reason) -> Optional.of(reason);
+      case MaybeValue.Valid(String newValue) ->
+          Objects.equals(oldValue, newValue)
+              ? Optional.empty()
+              : Optional.of(describeChange(oldValue, newValue));
+    };
   }
 
   @Override
@@ -276,30 +276,16 @@ public abstract sealed class RepoRecordedInput {
    * be null), or an invalid value with a reason (e.g. due to I/O failure).
    */
   public sealed interface MaybeValue {
-    MaybeValue UNDECIDED = new MaybeValue.Invalid("values missing");
+    MaybeValue VALUES_MISSING = new MaybeValue.Invalid("values missing");
 
-    record Valid(@Nullable String value) implements MaybeValue {
-      @Nullable
-      @Override
-      public String unwrap() {
-        return value;
-      }
-    }
+    record Valid(@Nullable String value) implements MaybeValue {}
 
-    record Invalid(String reason) implements MaybeValue {
-      @Override
-      public String unwrap() throws IOException {
-        throw new IOException(reason);
-      }
-    }
-
-    @Nullable
-    String unwrap() throws IOException;
+    record Invalid(String reason) implements MaybeValue {}
   }
 
   /**
-   * Returns the current value of this input, which may be null, or an empty Optional if the value
-   * is known to be invalid.
+   * Returns the current value of this input, which may be null, wrapped in a {@link
+   * MaybeValue.Valid}, or a {@link MaybeValue.Invalid} if the value is known to be invalid.
    *
    * <p>The method can request Skyframe evaluations, and if any values are missing, this method can
    * return any value and will be reinvoked after a Skyframe restart.
@@ -308,10 +294,9 @@ public abstract sealed class RepoRecordedInput {
       throws InterruptedException;
 
   /**
-   * Returns a human-readable reason for why the value changed from {@code oldValue} to {@code
-   * newValue}.
+   * Returns a human-readable description of the change from {@code oldValue} to {@code newValue}.
    */
-  protected abstract String reasonForChange(String oldValue, String newValue);
+  protected abstract String describeChange(String oldValue, String newValue);
 
   /**
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
@@ -514,7 +499,7 @@ public abstract sealed class RepoRecordedInput {
       try {
         var fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
         if (fileValue == null) {
-          return MaybeValue.UNDECIDED;
+          return MaybeValue.VALUES_MISSING;
         }
         return new MaybeValue.Valid(
             fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
@@ -524,7 +509,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       return "file info or contents of %s changed".formatted(path);
     }
   }
@@ -609,13 +594,13 @@ public abstract sealed class RepoRecordedInput {
       var skyKey = getSkyKey(directories);
       var directoryListingValue = (DirectoryListingValue) env.getValue(skyKey);
       if (directoryListingValue == null) {
-        return MaybeValue.UNDECIDED;
+        return MaybeValue.VALUES_MISSING;
       }
       return new MaybeValue.Valid(directoryListingValueToMarkerValue(directoryListingValue));
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       return "directory entries of %s changed".formatted(path);
     }
   }
@@ -696,7 +681,7 @@ public abstract sealed class RepoRecordedInput {
         var directoryTreeDigestValue =
             (DirectoryTreeDigestValue) env.getValueOrThrow(skyKey, IOException.class);
         if (directoryTreeDigestValue == null) {
-          return MaybeValue.UNDECIDED;
+          return MaybeValue.VALUES_MISSING;
         }
         return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
       } catch (IOException e) {
@@ -706,7 +691,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       return "directory tree at %s changed".formatted(path);
     }
   }
@@ -782,18 +767,18 @@ public abstract sealed class RepoRecordedInput {
         throws InterruptedException {
       var value = (EnvironmentVariableValue) env.getValue(getSkyKey(directories));
       if (value == null) {
-        return MaybeValue.UNDECIDED;
+        return MaybeValue.VALUES_MISSING;
       }
       return new MaybeValue.Valid(value.value());
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       return "environment variable %s changed: %s -> %s"
           .formatted(
               name,
-              oldValue == null ? "" : "'%s'".formatted(oldValue),
-              newValue == null ? "" : "'%s'".formatted(newValue));
+              oldValue == null ? "<unset>" : "'%s'".formatted(oldValue),
+              newValue == null ? "<unset>" : "'%s'".formatted(newValue));
     }
   }
 
@@ -882,7 +867,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       return "canonical name for @%s in %s changed: %s -> %s"
           .formatted(
               apparentName,
@@ -942,7 +927,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public String reasonForChange(String oldValue, String newValue) {
+    public String describeChange(String oldValue, String newValue) {
       throw new UnsupportedOperationException(
           "the value for this sentinel input is always invalid");
     }
