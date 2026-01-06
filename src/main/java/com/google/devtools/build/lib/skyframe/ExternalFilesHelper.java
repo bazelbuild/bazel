@@ -274,7 +274,7 @@ public class ExternalFilesHelper {
     var repoContentsCachePath = repoContentsCachePathSupplier.get();
     if (repoContentsCachePath != null
         && rootedPath.asPath().startsWith(repoContentsCachePath)
-        && rootedPath.asPath().relativeTo(repoContentsCachePath).isSingleSegment()) {
+        && !rootedPath.asPath().relativeTo(repoContentsCachePath).isMultiSegment()) {
       return FileType.REPO_CONTENTS_CACHE_DIRS;
     }
     // The outputBase may be null if we're not actually running a build.
