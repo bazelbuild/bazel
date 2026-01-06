@@ -14,23 +14,16 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -67,34 +60,6 @@ public class RepositoryUtils {
     // And now for the file
     Root packageRoot = pkgLookupValue.getRoot();
     return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
-  }
-
-  /**
-   * Returns the values of the environment variables in the given set as an immutable map while
-   * registering them as dependencies.
-   */
-  @Nullable
-  public static ImmutableSortedMap<String, Optional<String>> getEnvVarValues(
-      Environment env, Set<String> keys) throws InterruptedException {
-    Map<String, Optional<String>> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
-    if (environ == null) {
-      return null;
-    }
-    Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
-    if (repoEnvOverride == null) {
-      return null;
-    }
-
-    // Only depend on --repo_env values that are specified in keys.
-    ImmutableMap.Builder<String, Optional<String>> repoEnv = ImmutableMap.builder();
-    repoEnv.putAll(environ);
-    for (String key : keys) {
-      String value = repoEnvOverride.get(key);
-      if (value != null) {
-        repoEnv.put(key, Optional.of(value));
-      }
-    }
-    return ImmutableSortedMap.copyOf(repoEnv.buildKeepingLast());
   }
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {

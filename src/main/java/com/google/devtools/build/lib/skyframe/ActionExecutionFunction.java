@@ -232,9 +232,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       ImmutableMap.Builder<String, String> builder =
           ImmutableMap.builderWithExpectedSize(clientEnvironmentVariablesSet.size());
       for (SkyKey depKey : depKeys) {
-        ClientEnvironmentValue envValue = (ClientEnvironmentValue) clientEnvLookup.get(depKey);
-        if (envValue.getValue() != null) {
-          builder.put((String) depKey.argument(), envValue.getValue());
+        EnvironmentVariableValue envValue = (EnvironmentVariableValue) clientEnvLookup.get(depKey);
+        if (envValue.value() != null) {
+          builder.put((String) depKey.argument(), envValue.value());
         }
       }
       clientEnv = builder.buildOrThrow();

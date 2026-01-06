@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -59,8 +58,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> repoEnvVariables,
-      Map<String, String> clientEnvVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> modifiedClientEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -76,8 +75,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         workingDirectory,
         directories,
         env,
-        repoEnvVariables,
-        clientEnvVariables,
+        repoEnv,
+        modifiedClientEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
@@ -91,7 +90,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
     // Record inputs to the extension that are known prior to evaluation.
     RepoRecordedInput.EnvVar.wrap(staticEnvVars)
-        .forEach((input, value) -> recordInput(input, value.orElse(null)));
+        .forEach((input, value) -> recordInputWithValue(input, value.orElse(null)));
     repoMappingRecorder.record(staticRepoMappingEntries);
   }
 

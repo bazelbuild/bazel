@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
+import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -37,7 +38,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
-class DigestWriter {
+public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -122,8 +123,12 @@ class DigestWriter {
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
       var recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+      if (recordedInputValues.isEmpty()) {
+        return new RepoDirectoryState.OutOfDate(
+            "Bazel version, flags, repo rule definition or attributes changed");
+      }
       Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
+          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues.get());
       if (env.valuesMissing()) {
         return null;
       }
@@ -136,7 +141,12 @@ class DigestWriter {
     }
   }
 
-  private static ImmutableList<RepoRecordedInput.WithValue> readMarkerFile(
+  /**
+   * Returns a list of recorded inputs with their values parsed from the given marker file if the
+   * predeclared input hash matches, or {@code Optional.empty()} if the hash doesn't match or any
+   * error occurs during parsing.
+   */
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -150,37 +160,34 @@ class DigestWriter {
         if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
-          return ImmutableList.of(
-              new RepoRecordedInput.WithValue(
-                  new NeverUpToDateRepoRecordedInput(
-                      "Bazel version, flags, repo rule definition or attributes changed"),
-                  ""));
+          return Optional.empty();
         }
         firstLineVerified = true;
       } else {
         var inputAndValue = RepoRecordedInput.WithValue.parse(line);
         if (inputAndValue.isEmpty()) {
           // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
+          return Optional.empty();
         }
         recordedInputValues.add(inputAndValue.get());
       }
     }
     if (!firstLineVerified) {
-      return PARSE_FAILURE;
+      return Optional.empty();
     }
-    return recordedInputValues.build();
+    return Optional.of(recordedInputValues.build());
   }
 
   @Nullable
   static String computePredeclaredInputHash(
       Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
-    var unsortedEnviron = RepositoryUtils.getEnvVarValues(env, repoDefinition.repoRule().environ());
-    if (unsortedEnviron == null) {
+    var environ =
+        RepositoryEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
+    if (environ == null) {
       return null;
     }
-    var environ = RepoRecordedInput.EnvVar.wrap(unsortedEnviron);
+    var environInputs = RepoRecordedInput.EnvVar.wrap(environ);
     var fp =
         new Fingerprint()
             .addInt(MARKER_FILE_VERSION)
@@ -192,8 +199,8 @@ class DigestWriter {
             .addString(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
                     repoDefinition.attrValues()));
-    fp.addInt(environ.size());
-    environ.forEach(
+    fp.addInt(environInputs.size());
+    environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
     fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
     repoDefinition
