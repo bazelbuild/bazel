@@ -1865,8 +1865,7 @@ public class RuleContext extends TargetContext
     private void validateDirectPrerequisiteType(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
 
-      if (prerequisite.getRuleClassObject() != null
-          && prerequisite.getRuleClassObject().isMaterializerRule()) {
+      if (prerequisite.isMaterializerRule()) {
         // Materializer rules pass along other targets, so don't check their providers.
         return;
       }

@@ -243,7 +243,8 @@ final class PrerequisitesProducer
                   filteredAspects,
                   configuredTargets[0].getTargetAdvertisedProviders(),
                   configuredTargets[0].getTargetLabel(),
-                  configuredTargets[0].getRuleClassObject(),
+                  configuredTargets[0].getRuleDefinitionEnvironmentLabel(),
+                  configuredTargets[0].getRuleClass(),
                   configuredTargets[0].getOnlyTagsAttribute(),
                   configuredTargets[0].getLocation(),
                   parameters.eventHandler());

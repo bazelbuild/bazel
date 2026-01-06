@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
@@ -1806,7 +1807,8 @@ materializer_rule_with_doc(
 
     update("//:materializer_rule_with_doc");
     ConfiguredTargetAndData target = getConfiguredTargetAndData("//:materializer_rule_with_doc");
-    assertThat(target.getRuleClassObject().getStarlarkDocumentation())
+    assertThat(
+            ((Rule) target.getTargetForTesting()).getRuleClassObject().getStarlarkDocumentation())
         .isEqualTo("This is a doc string");
   }
 

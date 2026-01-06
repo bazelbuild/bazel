@@ -446,7 +446,7 @@ final class DependencyProducer
       // Skip non-materializer rules.
       // Footnote: Iff the first dependency is a materializer rule, then they all should be, since
       // this loop is iterating over the same target under different configurations.
-      if (dep.getRuleClassObject() == null || !dep.getRuleClassObject().isMaterializerRule()) {
+      if (!dep.isMaterializerRule()) {
         materializedTargetsCount++;
         continue;
       }
@@ -468,7 +468,7 @@ final class DependencyProducer
       // Check that this materializer is in a label_list attribute. Since materializers can return
       // a variable number of targets, they cannot go into single-label-typed attributes.
       if (attribute != null
-          && dep.getRuleClassObject().isMaterializerRule()
+          && dep.isMaterializerRule()
           && attribute.getType() != BuildType.LABEL_LIST) {
         sink.acceptDependencyError(
             DependencyError.of(

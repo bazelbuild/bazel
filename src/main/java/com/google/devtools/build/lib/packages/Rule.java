@@ -765,13 +765,28 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   /** Returns only the `tags` attribute value. */
+  @Override
   public ImmutableList<String> getOnlyTagsAttribute() {
     Attribute tagsAttribute = ruleClass.getAttributeProvider().getAttributeByName("tags");
+    if (tagsAttribute == null) {
+      return ImmutableList.of();
+    }
     Type<?> attrType = tagsAttribute.getType();
     String name = tagsAttribute.getName();
     // This enforces the expectation that taggable attributes are non-configurable.
     Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
     return ImmutableList.copyOf(attrType.toTagSet(value, name));
+  }
+
+  @Override
+  public boolean isMaterializerRule() {
+    return ruleClass.isMaterializerRule();
+  }
+
+  @Override
+  @Nullable // null if the rule is native
+  public Label getRuleDefinitionEnvironmentLabel() {
+    return ruleClass.getRuleDefinitionEnvironmentLabel();
   }
 
   @Override
@@ -881,7 +896,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
         getLabel(),
         getDeprecationWarning(),
         isTestOnly(),
-        getTestTimeout());
+        getTestTimeout(),
+        getOnlyTagsAttribute());
   }
 
   @VisibleForSerialization // (private) allows RuleDataCodec visibility
@@ -895,6 +911,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
     @Nullable private final String deprecationWarning;
     private final boolean isTestOnly;
     @Nullable private final TestTimeout testTimeout;
+    private final ImmutableList<String> onlyTagsAttribute;
 
     @VisibleForSerialization // (private) allows RuleDataCodec visibility
     RuleData(
@@ -904,7 +921,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
         Label label,
         @Nullable String deprecationWarning,
         boolean isTestOnly,
-        @Nullable TestTimeout testTimeout) {
+        @Nullable TestTimeout testTimeout,
+        ImmutableList<String> onlyTagsAttribute) {
       this.ruleClassData = ruleClassData;
       this.location = location;
       this.ruleTags = ruleTags;
@@ -912,6 +930,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
       this.deprecationWarning = deprecationWarning;
       this.isTestOnly = isTestOnly;
       this.testTimeout = testTimeout;
+      this.onlyTagsAttribute = onlyTagsAttribute;
     }
 
     RuleClassData getRuleClassData() {
@@ -965,6 +984,11 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
 
     @Override
+    public boolean isMaterializerRule() {
+      return ruleClassData.isMaterializerRule();
+    }
+
+    @Override
     public boolean isForDependencyResolution() {
       return ruleClassData.isDependencyResolutionRule();
     }
@@ -981,6 +1005,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
 
     @Override
+    public ImmutableList<String> getOnlyTagsAttribute() {
+      return onlyTagsAttribute;
+    }
+
+    @Override
+    @Nullable // null if the rule is native
+    public Label getRuleDefinitionEnvironmentLabel() {
+      return ruleClassData.getRuleDefinitionEnvironmentLabel();
+    }
+
+    @Override
     public boolean equals(Object obj) {
       if (!(obj instanceof RuleData that)) {
         return false;
@@ -990,7 +1025,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
           && label.equals(that.label)
           && Objects.equals(deprecationWarning, that.deprecationWarning)
           && isTestOnly == that.isTestOnly
-          && Objects.equals(testTimeout, that.testTimeout);
+          && Objects.equals(testTimeout, that.testTimeout)
+          && Objects.equals(onlyTagsAttribute, that.onlyTagsAttribute);
     }
 
     @Override
@@ -1009,6 +1045,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
           .add("deprecationWarning", deprecationWarning)
           .add("isTestOnly", isTestOnly)
           .add("testTimeout", testTimeout)
+          .add("onlyTagsAttribute", onlyTagsAttribute)
           .toString();
     }
   }
