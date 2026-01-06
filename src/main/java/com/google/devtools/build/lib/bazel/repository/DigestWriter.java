@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
+import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -176,11 +177,12 @@ class DigestWriter {
   static String computePredeclaredInputHash(
       Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
-    var unsortedEnviron = RepositoryUtils.getEnvVarValues(env, repoDefinition.repoRule().environ());
-    if (unsortedEnviron == null) {
+    var environ =
+        RepositoryEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
+    if (environ == null) {
       return null;
     }
-    var environ = RepoRecordedInput.EnvVar.wrap(unsortedEnviron);
+    var environInputs = RepoRecordedInput.EnvVar.wrap(environ);
     var fp =
         new Fingerprint()
             .addInt(MARKER_FILE_VERSION)
@@ -192,8 +194,8 @@ class DigestWriter {
             .addString(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
                     repoDefinition.attrValues()));
-    fp.addInt(environ.size());
-    environ.forEach(
+    fp.addInt(environInputs.size());
+    environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
     fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
     repoDefinition

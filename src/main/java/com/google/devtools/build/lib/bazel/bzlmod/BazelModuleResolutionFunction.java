@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
+import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -79,8 +79,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelModuleResolutionFunctionException, InterruptedException {
-    ClientEnvironmentValue allowedYankedVersionsFromEnv =
-        (ClientEnvironmentValue)
+    EnvironmentVariableValue allowedYankedVersionsFromEnv =
+        (EnvironmentVariableValue)
             env.getValue(ClientEnvironmentFunction.key(BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
     if (allowedYankedVersionsFromEnv == null) {
       return null;
@@ -90,7 +90,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     try {
       allowedYankedVersions =
           YankedVersionsUtil.parseAllowedYankedVersions(
-              allowedYankedVersionsFromEnv.getValue(),
+              allowedYankedVersionsFromEnv.value(),
               Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);

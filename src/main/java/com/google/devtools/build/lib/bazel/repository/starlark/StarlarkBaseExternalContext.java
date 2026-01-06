@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -158,8 +159,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final Path workingDirectory;
   protected final BlazeDirectories directories;
   protected final Environment env;
-  protected final ImmutableMap<String, String> repoEnvVariables;
-  protected final ImmutableMap<String, String> clientEnvVariables;
+  protected final ImmutableMap<String, String> repoEnv;
+  protected final ImmutableMap<String, String> modifiedClientEnv;
   private final StarlarkOS osObject;
   protected final DownloadManager downloadManager;
   protected final double timeoutScaling;
@@ -180,8 +181,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> repoEnvVariables,
-      Map<String, String> clientEnvVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> modifiedClientEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -192,9 +193,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.workingDirectory = workingDirectory;
     this.directories = directories;
     this.env = env;
-    this.repoEnvVariables = ImmutableMap.copyOf(repoEnvVariables);
-    this.clientEnvVariables = ImmutableMap.copyOf(clientEnvVariables);
-    this.osObject = new StarlarkOS(this.repoEnvVariables);
+    this.repoEnv = repoEnv;
+    this.modifiedClientEnv = modifiedClientEnv;
+    this.osObject = new StarlarkOS(this.repoEnv);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
@@ -836,7 +837,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              clientEnvVariables,
+              modifiedClientEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
@@ -1087,7 +1088,7 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              clientEnvVariables,
+              modifiedClientEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe
@@ -1475,18 +1476,13 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
-    // establish a SkyKey dependency relationship.
-    var nameAndValue = RepositoryUtils.getEnvVarValues(env, ImmutableSet.of(name));
+    var nameAndValue = RepositoryEnvironmentFunction.getEnvironmentView(env, ImmutableSet.of(name));
     if (nameAndValue == null) {
-      return null;
+      throw new NeedsSkyframeRestartException();
     }
-    // However, to account for --repo_env we take the value from `this.repoEnvVariables`.
-    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
     var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
-    String envVarValue = repoEnvVariables.get(name);
-    recordInput(entry.getKey(), envVarValue);
-    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
+    recordInput(entry.getKey(), entry.getValue().orElse(null));
+    return entry.getValue().orElseGet(() -> nullIfNone(defaultValue, String.class));
   }
 
   @StarlarkMethod(
@@ -1995,7 +1991,7 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            Maps.filterKeys(repoEnvVariables, k -> !removeRepoEnvVariables.contains(k)),
+            Maps.filterKeys(repoEnv, k -> !removeRepoEnvVariables.contains(k)),
             forceRepoEnvVariables,
             workingDirectory.getPathString(),
             quiet,
@@ -2293,7 +2289,7 @@ func(
 
   @Nullable
   private StarlarkPath findCommandOnPath(String program) throws IOException {
-    String pathEnvVariable = repoEnvVariables.get("PATH");
+    String pathEnvVariable = repoEnv.get("PATH");
     if (pathEnvVariable == null) {
       return null;
     }

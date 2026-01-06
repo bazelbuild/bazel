@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
@@ -132,9 +131,9 @@ public class BazelRepositoryModule extends BlazeModule {
       ImmutableMap.of();
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
-  private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
+  private final MutableSupplier<ImmutableMap<String, String>> repoEnvSupplier =
       new MutableSupplier<>();
-  private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
+  private final MutableSupplier<ImmutableMap<String, String>> modifiedClientEnvironmentSupplier =
       new MutableSupplier<>();
   private boolean fetchDisabled = false;
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
@@ -158,9 +157,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private RepoSpecFunction repoSpecFunction;
   private YankedVersionsFunction yankedVersionsFunction;
 
-  private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
+  private final VendorCommand vendorCommand = new VendorCommand(modifiedClientEnvironmentSupplier);
   private final RegistryFactoryImpl registryFactory =
-      new RegistryFactoryImpl(clientEnvironmentSupplier);
+      new RegistryFactoryImpl(modifiedClientEnvironmentSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -208,20 +207,17 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
-    if ("bazel".equals(runtime.getProductName())) {
-      builder.allowExternalRepositories(true);
-    }
+    builder.allowExternalRepositories(true);
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
-            repoEnvironmentSupplier,
-            clientEnvironmentSupplier,
+            repoEnvSupplier,
+            modifiedClientEnvironmentSupplier,
             directories,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(
-            directories, repoEnvironmentSupplier, clientEnvironmentSupplier);
+            directories, repoEnvSupplier, modifiedClientEnvironmentSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules();
@@ -284,13 +280,8 @@ public class BazelRepositoryModule extends BlazeModule {
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
-    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (commandOptions.useStrictRepoEnv) {
-      repoEnvironmentSupplier.set(env.getRepoEnvFromOptions());
-    } else {
-      repoEnvironmentSupplier.set(env.getRepoEnv());
-    }
-    clientEnvironmentSupplier.set(env.getRepoEnv());
+    repoEnvSupplier.set(ImmutableMap.copyOf(env.getRepoEnv()));
+    modifiedClientEnvironmentSupplier.set(ImmutableMap.copyOf(env.getModifiedClientEnv()));
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
 
@@ -717,6 +708,7 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
+        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, repoEnvSupplier.get()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),

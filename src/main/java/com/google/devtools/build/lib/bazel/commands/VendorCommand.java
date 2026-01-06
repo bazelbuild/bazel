@@ -111,12 +111,12 @@ import javax.annotation.Nullable;
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
 
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier;
   @Nullable private VendorManager vendorManager = null;
   @Nullable private DownloadManager downloadManager;
 
-  public VendorCommand(Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  public VendorCommand(Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier) {
+    this.modifiedClientEnvSupplier = modifiedClientEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -383,7 +383,7 @@ public final class VendorCommand implements BlazeCommand {
           vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
-                  url, clientEnvironmentSupplier.get(), checksum));
+                  url, modifiedClientEnvSupplier.get(), checksum));
         } catch (IOException e) {
           throw new IOException(
               String.format(
