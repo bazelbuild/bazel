@@ -37,7 +37,7 @@ jobs:
           cat ssl_output.txt
 
       - name: Manage SSL Issue on Failure
-        if: env.SSL_CHECK_FAILED == "true"
+        if: env.SSL_CHECK_FAILED == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -89,7 +89,7 @@ jobs:
             }
 
       - name: Fail workflow if SSL issues found
-        if: env.SSL_CHECK_FAILED == "true"
+        if: env.SSL_CHECK_FAILED == 'true'
         run: |
           echo "SSL check failed. See script output and created/updated GitHub issue."
           exit 1
