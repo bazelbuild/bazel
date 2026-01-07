@@ -2,8 +2,13 @@ name: SSL Certificate Monitor
 
 on:
   schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch:
+    - cron: "0 8 * * *"  # Runs daily at 08:00 UTC
+  workflow_dispatch:      # Allows manual trigger
+  pull_request:           # Validates changes to the monitor itself
+    paths:
+      - ".github/workflows/ssl-monitor.yml"
+      - ".github/scripts/check_ssl.py"
+      - ".github/config/ssl_domains.yaml"
 
 permissions:
   contents: read
@@ -13,35 +18,78 @@ jobs:
   check-ssl-certs:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout code so we can access the script and config file
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.11"
 
-      # 2. Run the decoupled script
+      - name: Install dependencies
+        run: pip install PyYAML certifi
+
       - name: Run SSL Check
         id: check_script
-        run: python .github/scripts/check_ssl.py
+        run: |
+          # Capture output to a file and set a flag if the script fails
+          python .github/scripts/check_ssl.py > ssl_output.txt 2>&1 || echo "SSL_CHECK_FAILED=true" >> $GITHUB_ENV
+          cat ssl_output.txt
 
-      # 3. Handle failure (same as before)
-      - name: Create Issue on Failure
-        if: failure()
-        uses: dacbd/create-issue-action@v1
+      - name: Manage SSL Issue on Failure
+        if: env.SSL_CHECK_FAILED == "true"
+        uses: actions/github-script@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: 🚨 Urgent: SSL Certificates Expiring
-          labels: breakage, P0, team-OSS
-          body: |
-            ### SSL Certificate Warning
+          script: |
+            const fs = require("fs");
+            const output = fs.readFileSync("ssl_output.txt", "utf8");
+            const title = "🚨 Urgent: SSL Certificates Expiring";
 
-            The automated monitor has detected SSL issues.
+            // Find existing open issues created by this workflow
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              creator: "github-actions[bot]"
+            });
 
-            Please check the **[Workflow Run Log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})** for details.
+            const existingIssue = issues.data.find(i => i.title === title);
+            const body = [
+              "### SSL Certificate Warning",
+              "",
+              "The automated monitor has detected SSL issues.",
+              "",
+              "#### Details:",
+              "```",
+              output,
+              "```",
+              "",
+              "**Action Required:**",
+              "1. Check `.github/config/ssl_domains.yaml` to verify the domain list.",
+              "2. Renew the certificates.",
+              "",
+              `[Workflow Run Log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            ].join("\n");
 
-            **Action Required:**
-            1. Check `.github/config/ssl_domains.json` to verify the domain list.
-            2. Renew the certificates.
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: "SSL check failed again. Latest status:\n\n" + body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ["breakage", "P0", "team-OSS"]
+              });
+            }
+
+      - name: Fail workflow if SSL issues found
+        if: env.SSL_CHECK_FAILED == "true"
+        run: |
+          echo "SSL check failed. See script output and created/updated GitHub issue."
+          exit 1
