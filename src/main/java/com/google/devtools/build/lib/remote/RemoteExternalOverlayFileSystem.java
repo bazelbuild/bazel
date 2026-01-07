@@ -26,7 +26,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -68,6 +68,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -78,16 +79,6 @@ import javax.annotation.Nullable;
  * memory in the {@link RemoteExternalFileSystem}.
  */
 public final class RemoteExternalOverlayFileSystem extends FileSystem {
-
-  @Override
-  public boolean isFilePathCaseSensitive() {
-    return nativeFs.isFilePathCaseSensitive();
-  }
-
-  @Override
-  public FileSystem getHostFileSystem() {
-    return nativeFs.getHostFileSystem();
-  }
 
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
@@ -189,31 +180,54 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.evaluator = null;
   }
 
-  public void injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
-      throws IOException {
+  /**
+   * Injects the given remote contents, possibly prefetching some files, and returns true on
+   * success.
+   */
+  public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
+      throws IOException, InterruptedException {
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
+    var repoDir = externalDirectory.getChild(repo.getName());
+    var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
-        externalFs, externalDirectory.getChild(repo.getName()), remoteContents.getRoot(), childMap);
+        externalFs, repoDir, remoteContents.getRoot(), childMap, filesToPrefetch::add);
+    try {
+      // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
+      // would be more efficient.
+      prefetch(filesToPrefetch);
+    } catch (BulkTransferException e) {
+      if (e.allCausedByCacheNotFoundException()) {
+        // The cache has lost the .bzl files, which should be treated just like a cache miss.
+        externalFs.deleteTree(repoDir);
+        return false;
+      }
+      throw e;
+    }
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
     nativeFs.createDirectoryAndParents(externalDirectory.getChild(repo.getName()));
     // Keep the marker file contents in memory so that it can be written out when the repo is
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
+    return true;
   }
 
   private static void injectRecursively(
       RemoteExternalFileSystem fs,
       PathFragment path,
       Directory dir,
-      ImmutableMap<Digest, Directory> childMap)
+      ImmutableMap<Digest, Directory> childMap,
+      Consumer<PathFragment> filesToPrefetch)
       throws IOException {
     fs.createDirectoryAndParents(path);
     for (var file : dir.getFilesList()) {
       var filePath = path.getRelative(unicodeToInternal(file.getName()));
+      if (shouldPrefetch(filePath)) {
+        filesToPrefetch.accept(filePath);
+      }
       fs.injectFile(
           filePath,
           FileArtifactValue.RemoteFileArtifactValue.create(
@@ -238,7 +252,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap);
+      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch);
     }
   }
 
@@ -276,22 +290,15 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var remoteRepo = externalFs.getPath(repoPath);
     var walkResult = walk(remoteRepo);
     for (var directory : walkResult.directories()) {
-      nativeFs.getPath(directory.asFragment()).createDirectory();
+      nativeFs.getPath(directory).createDirectory();
     }
-    var unused =
-        getFromFuture(
-            inputPrefetcher.prefetchFiles(
-                /* action= */ null,
-                Iterables.transform(
-                    walkResult.files(), path -> ActionInputHelper.fromPath(path.asFragment())),
-                actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
-                ActionInputPrefetcher.Priority.CRITICAL,
-                ActionInputPrefetcher.Reason.INPUTS));
+    prefetch(walkResult.files());
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target. A symlink may have already been created as an input to an action.
     for (var remoteSymlink : walkResult.symlinks()) {
-      var nativeSymlink = nativeFs.getPath(remoteSymlink.asFragment());
-      FileSystemUtils.ensureSymbolicLink(nativeSymlink, remoteSymlink.readSymbolicLink());
+      var nativeSymlink = nativeFs.getPath(remoteSymlink);
+      FileSystemUtils.ensureSymbolicLink(
+          nativeSymlink, externalFs.getPath(remoteSymlink).readSymbolicLink());
     }
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
@@ -304,7 +311,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     markerFileSibling.renameTo(markerFile);
   }
 
-  private record WalkResult(List<Path> files, List<Path> symlinks, List<Path> directories) {}
+  private void prefetch(List<PathFragment> paths) throws IOException, InterruptedException {
+    var unused =
+        getFromFuture(
+            inputPrefetcher.prefetchFiles(
+                /* action= */ null,
+                Lists.transform(paths, ActionInputHelper::fromPath),
+                actionInput -> externalFs.getMetadata(actionInput.getExecPath()),
+                ActionInputPrefetcher.Priority.CRITICAL,
+                ActionInputPrefetcher.Reason.INPUTS));
+  }
+
+  private record WalkResult(
+      List<PathFragment> files, List<PathFragment> symlinks, List<PathFragment> directories) {}
 
   private static WalkResult walk(Path root) throws IOException {
     var result = new WalkResult(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
@@ -316,15 +335,35 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     for (var dirent : root.readdir(Symlinks.NOFOLLOW)) {
       var fromChild = root.getChild(dirent.getName());
       switch (dirent.getType()) {
-        case FILE -> result.files.add(fromChild);
-        case SYMLINK -> result.symlinks.add(fromChild);
+        case FILE -> result.files.add(fromChild.asFragment());
+        case SYMLINK -> result.symlinks.add(fromChild.asFragment());
         case DIRECTORY -> {
-          result.directories.add(fromChild);
+          result.directories.add(fromChild.asFragment());
           walk(fromChild, result);
         }
         default -> throw new IOException("Unsupported file type: " + dirent);
       }
     }
+  }
+
+  /** Whether the file with the given path should be materialized eagerly when injecting a repo. */
+  private static boolean shouldPrefetch(PathFragment path) {
+    // .bzl files are typically small and the loads between them can form complex DAGs that can only
+    // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
+    // cache requests.
+    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
+    // fetched anyway.
+    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+  }
+
+  @Override
+  public FileSystem getHostFileSystem() {
+    return nativeFs.getHostFileSystem();
+  }
+
+  @Override
+  public boolean isFilePathCaseSensitive() {
+    return nativeFs.isFilePathCaseSensitive();
   }
 
   // Always mirror tree deletions to the underlying native file system to support bazel clean and
@@ -603,6 +642,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
     @Override
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+      if (shouldPrefetch(path)) {
+        return nativeFs.getInputStream(path);
+      }
       var relativePath = path.relativeTo(externalDirectory);
       var info =
           (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
