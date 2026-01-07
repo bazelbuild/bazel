@@ -92,7 +92,7 @@ class SSLMonitor:
                     status = "❌ EXPIRING SOON"
                     failed_domains.append(f"{domain} ({days_left} days left)")
                 print(f"{domain:<35} | {days_left:<10} | {status}")
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 # Catch broad exceptions to ensure we try all domains
                 error_msg = str(e)
                 print(f"{domain:<35} | {'ERROR':<10} | 🚨 {error_msg}")
@@ -124,9 +124,6 @@ def report_failures(failures: List[str]):
 
 
 def main():
-    if not os.path.exists(DEFAULT_CONFIG_PATH):
-        # Allow checking via CLI if we ever want to extend this
-        pass
 
     monitor = SSLMonitor()
     if not monitor.domains:
