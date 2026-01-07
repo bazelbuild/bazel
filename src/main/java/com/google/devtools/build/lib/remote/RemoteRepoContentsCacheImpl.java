@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -93,6 +94,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private final String commandId;
   private final boolean acceptCached;
   private final boolean uploadLocalResults;
+  private final boolean verboseFailures;
   private final DigestUtil digestUtil;
   private final Action baseAction;
 
@@ -101,12 +103,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String buildRequestId,
       String commandId,
       boolean acceptCached,
-      boolean uploadLocalResults) {
+      boolean uploadLocalResults,
+      boolean verboseFailures) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.cache = cache;
     this.acceptCached = acceptCached;
     this.uploadLocalResults = uploadLocalResults;
+    this.verboseFailures = verboseFailures;
     this.digestUtil = cache.digestUtil;
     this.baseAction =
         Action.newBuilder()
@@ -142,7 +146,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       reporter.handle(
           Event.warn(
               "Failed to read marker file repo %s, skipping: %s"
-                  .formatted(repoName, e.getMessage())));
+                  .formatted(repoName, maybeGetStackTrace(e))));
     }
     var action = buildAction(predeclaredInputHash);
     var actionKey = new ActionKey(digestUtil.compute(action));
@@ -168,12 +172,28 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       reporter.handle(
           Event.warn(
               "Failed to upload repo contents to remote cache for repo %s: %s"
-                  .formatted(repoName, e.getMessage())));
+                  .formatted(repoName, maybeGetStackTrace(e))));
     }
   }
 
   @Override
   public boolean lookupCache(
+      RepositoryName repoName,
+      Path repoDir,
+      String predeclaredInputHash,
+      ExtendedEventHandler reporter)
+      throws IOException, InterruptedException {
+    try {
+      return doLookupCache(repoName, repoDir, predeclaredInputHash, reporter);
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to look up repo %s in the remote repo contents cache: %s"
+              .formatted(repoName, maybeGetStackTrace(e)),
+          e);
+    }
+  }
+
+  private boolean doLookupCache(
       RepositoryName repoName,
       Path repoDir,
       String predeclaredInputHash,
@@ -236,7 +256,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       markerFileContent = new String(markerFileContentFuture.get(), StandardCharsets.ISO_8859_1);
       repoDirectoryContent = repoDirectoryContentFuture.get();
     } catch (ExecutionException e) {
-      throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
+      throw new IllegalStateException(
+          "waitForBulkTransfer should have thrown: " + maybeGetStackTrace(e));
     }
     var markerFileLines =
         Splitter.on('\n')
@@ -282,6 +303,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return baseAction.toBuilder()
         .setSalt(ByteString.copyFrom(StringUnsafe.getByteArray(predeclaredInputHash)))
         .build();
+  }
+
+  private String maybeGetStackTrace(Exception e) {
+    return verboseFailures ? Throwables.getStackTraceAsString(e) : e.getMessage();
   }
 
   private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
