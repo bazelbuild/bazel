@@ -14,6 +14,7 @@
 package net.starlark.java.syntax;
 
 import java.math.BigInteger;
+import javax.annotation.Nullable;
 
 /** Syntax node for an int literal. */
 public final class IntLiteral extends Expression {
@@ -21,6 +22,12 @@ public final class IntLiteral extends Expression {
   private final int tokenOffset;
   private final Number value; // = Integer | Long | BigInteger
 
+  /**
+   * Constructs an IntLiteral.
+   *
+   * <p>{@code value} must be either an Integer or Long or BigInteger, and the smallest type capable
+   * of exactly representing the number must be used.
+   */
   IntLiteral(FileLocations locs, String raw, int tokenOffset, Number value) {
     super(locs, Kind.INT_LITERAL);
     this.raw = raw;
@@ -34,6 +41,15 @@ public final class IntLiteral extends Expression {
    */
   public Number getValue() {
     return value;
+  }
+
+  /**
+   * Returns the value denoted by this literal as an Integer, or null if it can't be represented
+   * exactly.
+   */
+  @Nullable
+  public Integer getIntValueExact() {
+    return value instanceof Integer intValue ? intValue : null;
   }
 
   /** Returns the raw source text of the literal. */

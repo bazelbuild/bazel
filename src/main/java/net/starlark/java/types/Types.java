@@ -370,6 +370,8 @@ public final class Types {
   }
 
   /** Constructs a union type. */
+  // TODO: #28043 - Seems more appropriate to use List<StarlarkType> for the param and let this
+  // factory method take care of deduplication. For the moment we have a convenience overload below.
   public static StarlarkType union(ImmutableSet<StarlarkType> types) {
     ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
     // Unions are flattened
@@ -390,6 +392,10 @@ public final class Types {
       throw new IllegalArgumentException("Empty union!");
     }
     return new AutoValue_Types_UnionType(subtypes);
+  }
+
+  public static StarlarkType union(List<StarlarkType> types) {
+    return union(ImmutableSet.copyOf(types));
   }
 
   /**

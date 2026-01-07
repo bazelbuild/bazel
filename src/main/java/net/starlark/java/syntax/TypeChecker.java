@@ -121,43 +121,7 @@ public final class TypeChecker extends NodeVisitor {
         }
       }
       case INDEX -> {
-        var index = (IndexExpression) expr;
-        StarlarkType objType = infer(index.getObject());
-        StarlarkType keyType = infer(index.getKey());
-
-        // TODO: #28043 - Broaden list to Sequence and dict to Mapping, once we have better type
-        // hierarchy support in the static type machinery.
-        if (objType.equals(Types.ANY)) {
-          return Types.ANY;
-        } else if (objType instanceof Types.TupleType tupleType) {
-          // TODO: #28037 - Support indexing tuples.
-          throw new UnsupportedOperationException("cannot typecheck index expression on a tuple");
-        } else if (objType instanceof Types.ListType listType) {
-          errorIfKeyNotInt(index, objType, keyType); // fall through on error
-          return listType.getElementType();
-        } else if (objType instanceof Types.DictType dictType) {
-          if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
-            errorf(
-                index.getLbracketLocation(),
-                "'%s' of type '%s' requires key type '%s', but got '%s'",
-                index.getObject(),
-                objType,
-                dictType.getKeyType(),
-                keyType);
-            // Fall through to returning the value type.
-          }
-          return dictType.getValueType();
-        } else if (objType.equals(Types.STR)) {
-          errorIfKeyNotInt(index, objType, keyType); // fall through on error
-          return Types.STR;
-        } else {
-          errorf(
-              index.getLbracketLocation(),
-              "cannot index '%s' of type '%s'",
-              index.getObject(),
-              objType);
-          return Types.ANY;
-        }
+        return inferIndex((IndexExpression) expr);
       }
       default -> {
         // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr,
@@ -165,6 +129,74 @@ public final class TypeChecker extends NodeVisitor {
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }
+    }
+  }
+
+  private StarlarkType inferIndex(IndexExpression index) {
+    Expression obj = index.getObject();
+    Expression key = index.getKey();
+    StarlarkType objType = infer(obj);
+    StarlarkType keyType = infer(key);
+
+    if (objType.equals(Types.ANY)) {
+      return Types.ANY;
+
+    } else if (objType instanceof Types.TupleType tupleType) {
+      errorIfKeyNotInt(index, objType, keyType);
+      var elementTypes = tupleType.getElementTypes();
+      StarlarkType resultType = null;
+      // Project out the type of the specific component if we can statically determine the index.
+      // TODO: #28037 - Consider allowing more complicated static expressions, e.g. unary
+      // (minus sign) and binary operators on integers.
+      if (key.kind() == Expression.Kind.INT_LITERAL) {
+        Integer i = ((IntLiteral) key).getIntValueExact();
+        if (i != null) {
+          if (0 <= i && i < elementTypes.size()) {
+            resultType = elementTypes.get(i);
+          } else {
+            errorf(
+                index.getLbracketLocation(),
+                "'%s' of type '%s' is indexed by integer %s, which is out-of-range",
+                obj,
+                objType,
+                i);
+            // Don't complain about uses of the result type when we don't even know what result type
+            // the user wanted.
+            return Types.ANY;
+          }
+        }
+      }
+      if (resultType == null) {
+        resultType = Types.union(elementTypes);
+      }
+      return resultType;
+
+      // TODO: #28043 - Broaden from List to Sequence once we have better type hierarchy support.
+    } else if (objType instanceof Types.ListType listType) {
+      errorIfKeyNotInt(index, objType, keyType); // fall through on error
+      return listType.getElementType();
+
+      // TODO: #28043 - Broaden from Dict to Mapping once we have better type hierarchy support.
+    } else if (objType instanceof Types.DictType dictType) {
+      if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
+        errorf(
+            index.getLbracketLocation(),
+            "'%s' of type '%s' requires key type '%s', but got '%s'",
+            obj,
+            objType,
+            dictType.getKeyType(),
+            keyType);
+        // Fall through to returning the value type.
+      }
+      return dictType.getValueType();
+
+    } else if (objType.equals(Types.STR)) {
+      errorIfKeyNotInt(index, objType, keyType); // fall through on error
+      return Types.STR;
+
+    } else {
+      errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
+      return Types.ANY;
     }
   }
 

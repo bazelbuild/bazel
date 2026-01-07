@@ -296,7 +296,7 @@ public final class TypeCheckerTest {
         ":2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'",
         """
         arr: list[str]
-        arr['abc']
+        arr["abc"]
         """);
   }
 
@@ -346,7 +346,7 @@ public final class TypeCheckerTest {
         ":2:2: 's' of type 'str' must be indexed by an integer, but got 'str'",
         """
         s: str
-        s['abc']
+        s["abc"]
         """);
   }
 
@@ -389,5 +389,61 @@ public final class TypeCheckerTest {
         """);
   }
 
-  // TODO: #28037 Support indexing of tuples.
+  @Test
+  public void infer_index_tuple() throws Exception {
+    // Statically knowable index in-range.
+    assertTypeGivenDecls("t[1]", Types.STR, "t: tuple[int, str, bool]");
+
+    // Index can't be statically determined.
+    StarlarkType unionType = Types.union(Types.INT, Types.STR, Types.BOOL);
+    assertTypeGivenDecls("t[n]", unionType, "t: tuple[int, str, bool]; n: int");
+    assertTypeGivenDecls("t[a]", unionType, "t: tuple[int, str, bool]; a: Any");
+    // TODO: #28037 - Add negative indices here, once we support unary expressions.
+
+    // Bad index type.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' must be indexed by an integer, but got 'str'",
+        """
+        t: tuple[int, str, bool]
+        t["abc"]
+        """);
+
+    // Statically knowable index out-of-range.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' is indexed by integer 3, which is out-of-range",
+        """
+        t: tuple[int, str, bool]
+        t[3]
+        """);
+  }
+
+  @Test
+  public void assignment_index_tuple() throws Exception {
+    // Tuple mutation is illegal, but not currently a static error if there's no type mismatch.
+    // TODO: #28037 - Fail static type checking on assignments to immutable values.
+    assertValid(
+        """
+        # Normal case.
+        t: tuple[int, str, bool]
+        t[1] = "abc"
+
+        # Any as index.
+        # This is a particularly nonsensical assignment that nonetheless passes the checker.
+        a: Any
+        u: int | str | bool
+        t[a] = u
+
+        # Any as value.
+        t[1] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 't[1]' of type 'str'\
+        """,
+        """
+        t: tuple[int, str, bool]
+        t[1] = 123
+        """);
+  }
 }
