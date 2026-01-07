@@ -316,6 +316,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 == null) {
               return null;
             }
+            // This is never reached: the repo dir in the repo contents cache is created under a new
+            // UUID-named directory and thus the FileValue above will always be missing from
+            // Skyframe. After the restart, the repo will either encounter the just created cache
+            // entry as a candidate or will create a new one if it got GC'd in the meantime.
+            throw new IllegalStateException(
+                "FileStateValue unexpectedly present for " + cachedRepoDir);
           }
         }
         return new RepositoryDirectoryValue.Success(
