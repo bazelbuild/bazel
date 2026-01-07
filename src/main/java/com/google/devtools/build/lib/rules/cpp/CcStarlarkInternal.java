@@ -17,7 +17,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +66,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -88,6 +92,25 @@ import net.starlark.java.eval.Tuple;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  // Avoid repeated parsing of allowlists, which previously accounted a non-negligible percentage
+  // of Bazel analysis CPU time (~1%). Also enables caching by identity in BuiltinRestriction.
+  private static final LoadingCache<Object, ImmutableList<BuiltinRestriction.AllowlistEntry>>
+      ALLOWLIST_CACHE =
+          Caffeine.newBuilder()
+              // We don't expect more than one allowlist per core ruleset.
+              .initialCapacity(4)
+              .weakKeys()
+              .build(
+                  allowlistObject ->
+                      Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
+                          // TODO(bazel-team): Avoid unchecked indexing and casts on values
+                          // obtained from Starlark, even though it is allowlisted.
+                          .map(
+                              p ->
+                                  BuiltinRestriction.allowlistEntry(
+                                      (String) p.get(0), (String) p.get(1)))
+                          .collect(toImmutableList()));
 
   @StarlarkMethod(
       name = "check_private_api",
@@ -122,13 +145,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       return;
     }
     BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
-    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
-        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
-            // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
-            // Starlark, even though it is allowlisted.
-            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
-            .collect(toImmutableList());
-    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+    try {
+      BuiltinRestriction.failIfModuleOutsideAllowlist(
+          bazelModuleContext, ALLOWLIST_CACHE.get(allowlistObject));
+    } catch (CompletionException e) {
+      // Thrown by ALLOWLIST_CACHE.
+      Throwables.throwIfInstanceOf(e.getCause(), EvalException.class);
+      throw new IllegalStateException("Unexpected exception type", e);
+    }
   }
 
   /** Wraps a dictionary of build variables into CcToolchainVariables. */
