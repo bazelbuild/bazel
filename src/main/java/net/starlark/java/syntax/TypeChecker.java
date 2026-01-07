@@ -63,6 +63,17 @@ public final class TypeChecker extends NodeVisitor {
     return type != null ? type : Types.ANY;
   }
 
+  private void errorIfKeyNotInt(IndexExpression index, StarlarkType objType, StarlarkType keyType) {
+    if (!StarlarkType.assignableFrom(Types.INT, keyType)) {
+      errorf(
+          index.getLbracketLocation(),
+          "'%s' of type '%s' must be indexed by an integer, but got '%s'",
+          index.getObject(),
+          objType,
+          keyType);
+    }
+  }
+
   /**
    * Infers the type of an expression from a bottom-up traversal, relying on type information stored
    * in identifier bindings by the {@link TypeResolver}.
@@ -114,15 +125,16 @@ public final class TypeChecker extends NodeVisitor {
         StarlarkType objType = infer(index.getObject());
         StarlarkType keyType = infer(index.getKey());
 
-        // TODO: #28037 - Support indexing lists and tuples.
         // TODO: #28043 - Broaden list to Sequence and dict to Mapping, once we have better type
         // hierarchy support in the static type machinery.
         if (objType.equals(Types.ANY)) {
           return Types.ANY;
         } else if (objType instanceof Types.TupleType tupleType) {
+          // TODO: #28037 - Support indexing tuples.
           throw new UnsupportedOperationException("cannot typecheck index expression on a tuple");
         } else if (objType instanceof Types.ListType listType) {
-          throw new UnsupportedOperationException("cannot typecheck index expression on a list");
+          errorIfKeyNotInt(index, objType, keyType); // fall through on error
+          return listType.getElementType();
         } else if (objType instanceof Types.DictType dictType) {
           if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
             errorf(
@@ -135,6 +147,9 @@ public final class TypeChecker extends NodeVisitor {
             // Fall through to returning the value type.
           }
           return dictType.getValueType();
+        } else if (objType.equals(Types.STR)) {
+          errorIfKeyNotInt(index, objType, keyType); // fall through on error
+          return Types.STR;
         } else {
           errorf(
               index.getLbracketLocation(),
@@ -223,6 +238,9 @@ public final class TypeChecker extends NodeVisitor {
     // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
     // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as list[int]
     // instead of list[object].
+    // TODO: #28037 - Consider rejecting the assignment if the LHS is read-only, e.g. an index
+    // expression of a string. This would require either an ad hoc check here in this method, or
+    // else passing back from infer() more detailed information than just the StarlarkType.
     var rhsType = infer(assignment.getRHS());
 
     assign(assignment.getLHS(), rhsType);

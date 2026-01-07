@@ -286,5 +286,108 @@ public final class TypeCheckerTest {
         """);
   }
 
-  // TODO: #28037 - Indexing of lists, tuples, and strings
+  @Test
+  public void infer_index_list() throws Exception {
+    assertTypeGivenDecls("arr[123]", Types.STR, "arr: list[str]");
+
+    assertTypeGivenDecls("arr[a]", Types.STR, "arr: list[str]; a: Any");
+
+    assertInvalid(
+        ":2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'",
+        """
+        arr: list[str]
+        arr['abc']
+        """);
+  }
+
+  @Test
+  public void assignment_index_list() throws Exception {
+    assertValid(
+        """
+        # Normal case.
+        arr: list[str]
+        arr[123] = "abc"
+
+        # Any as index.
+        a: Any
+        arr[a] = "abc"
+
+        # Any as value.
+        arr[123] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 'arr[123]' of type 'str'\
+        """,
+        """
+        arr: list[str]
+        arr[123] = 456
+        """);
+
+    // This failure is through the infer() code path, also exercised in the test case above.
+    assertInvalid(
+        """
+        :2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'\
+        """,
+        """
+        arr: list[str]
+        arr["abc"] = "xyz"
+        """);
+  }
+
+  @Test
+  public void infer_index_str() throws Exception {
+    assertTypeGivenDecls("s[123]", Types.STR, "s: str");
+
+    assertTypeGivenDecls("s[a]", Types.STR, "s: str; a: Any");
+
+    assertInvalid(
+        ":2:2: 's' of type 'str' must be indexed by an integer, but got 'str'",
+        """
+        s: str
+        s['abc']
+        """);
+  }
+
+  @Test
+  public void assignment_index_str() throws Exception {
+    // Strings are immutable, so any assignment to an index expression of a string will fail
+    // dynamically. But it's not currently a static error, if the types are correct.
+    // TODO: #28037 - Fail static type checking on assignments to immutable values.
+    assertValid(
+        """
+        # Normal case.
+        s: str
+        s[123] = "abc"
+
+        # Any as index.
+        a: Any
+        s[a] = "abc"
+
+        # Any as value.
+        s[123] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 's[123]' of type 'str'\
+        """,
+        """
+        s: str
+        s[123] = 456
+        """);
+
+    // This failure is through the infer() code path, also exercised in the test case above.
+    assertInvalid(
+        """
+        :2:2: 's' of type 'str' must be indexed by an integer, but got 'str'\
+        """,
+        """
+        s: str
+        s["abc"] = "xyz"
+        """);
+  }
+
+  // TODO: #28037 Support indexing of tuples.
 }
