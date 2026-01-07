@@ -26,6 +26,13 @@ public class StoredEventHandler implements ExtendedEventHandler {
   private final List<Postable> posts = new ArrayList<>();
   private boolean hasErrors;
 
+  /** Returns the events and clears the internal storage. */
+  public synchronized ImmutableList<Event> getAndClearEvents() {
+    ImmutableList<Event> eventsCopy = ImmutableList.copyOf(events);
+    clear();
+    return eventsCopy;
+  }
+
   public synchronized ImmutableList<Event> getEvents() {
     return ImmutableList.copyOf(events);
   }
@@ -38,7 +45,6 @@ public class StoredEventHandler implements ExtendedEventHandler {
   public synchronized boolean isEmpty() {
     return events.isEmpty() && posts.isEmpty();
   }
-
 
   @Override
   public synchronized void handle(Event e) {
@@ -57,9 +63,7 @@ public class StoredEventHandler implements ExtendedEventHandler {
     Postable.replayPostsOn(eventHandler, posts);
   }
 
-  /**
-   * Returns whether any of the events on this objects were errors.
-   */
+  /** Returns whether any of the events on this objects were errors. */
   public synchronized boolean hasErrors() {
     return hasErrors;
   }
