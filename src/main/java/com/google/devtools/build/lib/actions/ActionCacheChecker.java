@@ -518,7 +518,7 @@ public class ActionCacheChecker {
     }
 
     if (!inputsKnown) {
-      action.updateInputs(actionInputs);
+      action.updateDiscoveredInputs(actionInputs);
     }
 
     // Inject cached output metadata if we have an action cache hit.

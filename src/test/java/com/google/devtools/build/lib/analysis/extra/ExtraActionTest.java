@@ -189,7 +189,7 @@ public class ExtraActionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testUpdateInputsNotPassedToShadowedAction() throws Exception {
+  public void testUpdateDiscoveredInputsNotPassedToShadowedAction() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     ArtifactRoot src = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
@@ -213,8 +213,8 @@ public class ExtraActionTest extends FoundationTestCase {
             ImmutableMap.of(),
             "Executing extra action bla bla",
             "bla bla");
-    extraAction.updateInputs(NestedSetBuilder.create(Order.STABLE_ORDER, extraIn, discoveredIn));
-    verify(shadowedAction, Mockito.never()).updateInputs(ArgumentMatchers.any());
+    extraAction.updateDiscoveredInputs(NestedSetBuilder.create(Order.STABLE_ORDER, extraIn, discoveredIn));
+    verify(shadowedAction, Mockito.never()).updateDiscoveredInputs(ArgumentMatchers.any());
   }
 
   @Test
@@ -260,7 +260,7 @@ public class ExtraActionTest extends FoundationTestCase {
     ensureMemoizedIsInitializedIsSet(extraAction);
     String originalStructure = dumpStructureWithEquivalenceReduction(extraAction);
 
-    extraAction.updateInputs(
+    extraAction.updateDiscoveredInputs(
         NestedSetBuilder.create(Order.STABLE_ORDER, extraInput, discoveredInput));
 
     new SerializationTester(extraAction)

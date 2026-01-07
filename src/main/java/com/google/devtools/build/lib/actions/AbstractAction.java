@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +51,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -78,11 +76,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   public static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
 
   private final ActionOwner owner;
-
-  // The variable inputs is non-final only so that actions that discover their inputs can modify it.
-  // Access through getInputs() in case it's overridden.
-  @GuardedBy("this")
-  private NestedSet<Artifact> inputs;
+  private final NestedSet<Artifact> analysisTimeInputs;
 
   /**
    * To save memory, this is either an {@link Artifact} for actions with a single output, or a
@@ -92,14 +86,18 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   @VisibleForSerialization protected final Object rawOutputs;
 
   protected AbstractAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
-    this(owner, inputs, singletonOrArray(outputs));
+      ActionOwner owner,
+      NestedSet<Artifact> analysisTimeInputs,
+      Iterable<? extends Artifact> outputs) {
+    this(owner, analysisTimeInputs, singletonOrArray(outputs));
   }
 
   /** Constructor for serialization. */
-  protected AbstractAction(ActionOwner owner, NestedSet<Artifact> inputs, Object rawOutputs) {
+  @VisibleForSerialization
+  protected AbstractAction(
+      ActionOwner owner, NestedSet<Artifact> analysisTimeInputs, Object rawOutputs) {
     this.owner = checkNotNull(owner);
-    this.inputs = checkNotNull(inputs);
+    this.analysisTimeInputs = checkNotNull(analysisTimeInputs);
     this.rawOutputs = checkNotNull(rawOutputs);
   }
 
@@ -120,24 +118,30 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
+  public final NestedSet<Artifact> getAnalysisTimeInputs() {
+    return analysisTimeInputs;
+  }
+
+  @Override
   public final boolean inputsKnown() {
-    if (!discoversInputs()) {
-      return true;
-    }
-    synchronized (this) {
-      return inputsDiscovered();
-    }
+    return !discoversInputs() || getDiscoveredInputs() != null;
   }
 
   /**
    * {@inheritDoc}
    *
    * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, {@link
-   * #setInputsDiscovered} and {@link #getOriginalInputs} by actions that do input discovery.
+   * #setDiscoveredInputs} and {@link #getAnalysisTimeInputs} by actions that do input discovery.
    */
   @Override
   public boolean discoversInputs() {
     return false;
+  }
+
+  @Nullable
+  @Override
+  public NestedSet<Artifact> getDiscoveredInputs() {
+    throw new IllegalStateException("Not an input-discovering action: " + this);
   }
 
   @Override
@@ -145,60 +149,6 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("Not an input-discovering action: " + this);
-  }
-
-  @Override
-  public final void resetDiscoveredInputs() {
-    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
-    if (!inputsKnown()) {
-      return;
-    }
-    synchronized (this) {
-      inputs = getOriginalInputs();
-      setInputsDiscovered(false);
-    }
-  }
-
-  /**
-   * Returns true if inputs have been discovered.
-   *
-   * <p>The value returned reflects the most recent call to {@link #setInputsDiscovered}. If {@link
-   * #setInputsDiscovered} has never been called, returns false.
-   *
-   * <p>This method is used instead of a {@code boolean} field in this class in order to save memory
-   * for actions which do not discover inputs.
-   */
-  @ForOverride
-  @GuardedBy("this")
-  protected boolean inputsDiscovered() {
-    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
-  }
-
-  /**
-   * Informs input-discovering actions about their discovery state so that they can correctly
-   * implement {@link #inputsDiscovered}.
-   */
-  @ForOverride
-  @GuardedBy("this")
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
-    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
-  }
-
-  @Override
-  public NestedSet<Artifact> getOriginalInputs() {
-    checkState(!discoversInputs(), "Must be overridden by input-discovering action");
-    return getInputs();
-  }
-
-  @Override
-  public NestedSet<Artifact> getAllowedDerivedInputs() {
-    throw new IllegalStateException(
-        "Must be overridden for action that may have unknown inputs: " + this);
-  }
-
-  @Override
-  public NestedSet<Artifact> getSchedulingDependencies() {
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**
@@ -212,10 +162,23 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
-    this.inputs = inputs;
-    setInputsDiscovered(true);
+  public void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
+    throw new IllegalStateException("Not an input-discovering action: " + this);
+  }
+
+  @Override
+  public final void resetDiscoveredInputs() {
+    throw new IllegalStateException("Not an input-discovering action: " + this);
+  }
+
+  @Override
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
+    throw new IllegalStateException("Not an input-discovering action: " + this);
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    throw new IllegalStateException("Not an input-discovering action: " + this);
   }
 
   @Override
@@ -224,8 +187,14 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public synchronized NestedSet<Artifact> getInputs() {
-    return inputs;
+  public final NestedSet<Artifact> getInputs() {
+    if (!discoversInputs() || getDiscoveredInputs() == null) {
+      return getMandatoryInputs();
+    }
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(getMandatoryInputs())
+        .addTransitive(getDiscoveredInputs())
+        .build();
   }
 
   public ActionEnvironment getEnvironment() {
@@ -289,11 +258,9 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Nullable
-  private Artifact getOriginalPrimaryInput() {
-    // The default behavior is to return the first input artifact of the original input list (before
-    // input discovery).
-    // Call through the method, not the field, because it may be overridden.
-    return getFirstOrNull(getOriginalInputs());
+  private Artifact getAnalysisTimePrimaryInput() {
+    // Return the first input artifact of the original input list (before input discovery).
+    return getFirstOrNull(analysisTimeInputs);
   }
 
   @Nullable
@@ -314,7 +281,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
-    return getInputs();
+    return analysisTimeInputs;
   }
 
   @Override
@@ -392,10 +359,10 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
       progressMessage =
           progressMessage.replace("%{output}", getPrimaryOutput().getRootRelativePathString());
     }
-    if (progressMessage.contains("%{input}") && getOriginalPrimaryInput() != null) {
+    if (progressMessage.contains("%{input}") && getAnalysisTimePrimaryInput() != null) {
       progressMessage =
           progressMessage.replace(
-              "%{input}", getOriginalPrimaryInput().getRootRelativePathString());
+              "%{input}", getAnalysisTimePrimaryInput().getRootRelativePathString());
     }
     return progressMessage;
   }
@@ -465,7 +432,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     }
 
     for (PathFragment path : additionalPathOutputsToDelete) {
-      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+      deleteOutput(execRoot.getRelative(path), /* root= */ null);
     }
 
     for (PathFragment path : directoryOutputsToDelete) {

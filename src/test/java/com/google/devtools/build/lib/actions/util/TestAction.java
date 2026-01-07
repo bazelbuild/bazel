@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.AbstractInputDiscoveringAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -41,11 +42,10 @@ import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /**
- * A dummy action for testing.  Its execution runs the specified
- * Runnable or Callable, which is defined by the test case,
- * and touches all the output files.
+ * A dummy action for testing. Its execution runs the specified Runnable or Callable, which is
+ * defined by the test case, and touches all the output files.
  */
-public class TestAction extends AbstractAction {
+public class TestAction extends AbstractInputDiscoveringAction {
 
   @SerializationConstant public static final Runnable NO_EFFECT = () -> {};
 
@@ -95,17 +95,12 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  protected boolean inputsDiscovered() {
-    return inputsDiscovered;
-  }
-
-  @Override
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
+  protected void setDiscoveredInputs(boolean inputsDiscovered) {
     this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     return mandatoryInputs;
   }
 
@@ -120,7 +115,7 @@ public class TestAction extends AbstractAction {
     NestedSet<Artifact> discoveredInputs =
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
-    updateInputs(
+    updateDiscoveredInputs(
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(discoveredInputs)
@@ -137,8 +132,8 @@ public class TestAction extends AbstractAction {
       // This is used, e.g., to test Blaze behavior when action has missing
       // input artifacts but still is successfully executed.
       if (!artifact.getPath().exists()) {
-        throw new IllegalStateException("action's input file does not exist: "
-            + artifact.getPath());
+        throw new IllegalStateException(
+            "action's input file does not exist: " + artifact.getPath());
       }
     }
 
@@ -188,6 +183,5 @@ public class TestAction extends AbstractAction {
     public DummyAction(Artifact input, Artifact output) {
       this(NestedSetBuilder.create(Order.STABLE_ORDER, input), output);
     }
-
   }
 }

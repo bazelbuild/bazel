@@ -143,12 +143,7 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  protected boolean inputsDiscovered() {
-    return inputsDiscovered;
-  }
-
-  @Override
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
+  protected void setDiscoveredInputs(boolean inputsDiscovered) {
     this.inputsDiscovered = inputsDiscovered;
   }
 
@@ -247,13 +242,13 @@ public final class LtoBackendAction extends SpawnAction {
     // Convert the import set of paths to the set of bitcode file artifacts.
     // Throws an error if there is any path in the importset that is not pat of any artifact
     NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet, actionExecutionContext);
-    updateInputs(
+    updateDiscoveredInputs(
         NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     return mandatoryInputs;
   }
 

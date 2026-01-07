@@ -323,17 +323,12 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
-    public NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getAnalysisTimeInputs() {
       return allStarlarkActionInputs;
     }
 
     @Override
-    protected boolean inputsDiscovered() {
-      return inputsDiscovered;
-    }
-
-    @Override
-    protected void setInputsDiscovered(boolean inputsDiscovered) {
+    protected void setDiscoveredInputs(boolean inputsDiscovered) {
       this.inputsDiscovered = inputsDiscovered;
     }
 
@@ -360,7 +355,7 @@ public class StarlarkAction extends SpawnAction {
         if (inputFilesForExtraAction == null) {
           return null;
         }
-        updateInputs(
+        updateDiscoveredInputs(
             createInputs(
                 shadowedActionObj.getInputs(), inputFilesForExtraAction, allStarlarkActionInputs));
         return NestedSetBuilder.wrap(
@@ -368,7 +363,7 @@ public class StarlarkAction extends SpawnAction {
       }
       // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
       // removed might now be needed.
-      updateInputs(allStarlarkActionInputs);
+      updateDiscoveredInputs(allStarlarkActionInputs);
       return allStarlarkActionInputs;
     }
 
@@ -436,7 +431,7 @@ public class StarlarkAction extends SpawnAction {
             e,
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
       }
-      updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
+      updateDiscoveredInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
     }
 
     @Override

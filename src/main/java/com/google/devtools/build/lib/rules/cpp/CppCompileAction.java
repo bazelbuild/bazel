@@ -518,12 +518,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  protected boolean inputsDiscovered() {
-    return inputsDiscovered;
-  }
-
-  @Override
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
+  protected void setDiscoveredInputs(boolean inputsDiscovered) {
     this.inputsDiscovered = inputsDiscovered;
   }
 
@@ -730,7 +725,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public final NestedSet<Artifact> getOriginalInputs() {
+  public final NestedSet<Artifact> getAnalysisTimeInputs() {
     return mandatoryInputs;
   }
 
@@ -1226,7 +1221,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (discoveredInputs != null) {
         inputsBuilder.addTransitive(discoveredInputs);
       }
-      super.updateInputs(inputsBuilder.build());
+      super.updateDiscoveredInputs(inputsBuilder.build());
     }
   }
 
@@ -1286,15 +1281,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * action cache hit.
    */
   @Override
-  public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    super.updateInputs(inputs);
+  public synchronized void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
+    super.updateDiscoveredInputs(discoveredInputs);
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
         && !isCpp20ModuleCompilationAction(actionName)) {
       discoveredModules =
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
               Iterables.filter(
-                  inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+                  discoveredInputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
     }
   }
 

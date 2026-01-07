@@ -132,26 +132,23 @@ public interface Action extends ActionExecutionMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Returns true iff action must be executed regardless of its current state.
-   * Default implementation can be overridden by some actions that might be
-   * executed unconditionally under certain circumstances - e.g., if caching of
-   * test results is not requested, this method could be used to force test
-   * execution even if all dependencies are up-to-date.
+   * Returns true iff action must be executed regardless of its current state. Default
+   * implementation can be overridden by some actions that might be executed unconditionally under
+   * certain circumstances - e.g., if caching of test results is not requested, this method could be
+   * used to force test execution even if all dependencies are up-to-date.
    *
-   * <p>Note, it is <b>very</b> important not to abuse this method, since it
-   * completely overrides dependency checking. Any use of this method must
-   * be carefully reviewed and proved to be necessary.
+   * <p>Note, it is <b>very</b> important not to abuse this method, since it completely overrides
+   * dependency checking. Any use of this method must be carefully reviewed and proved to be
+   * necessary.
    *
-   * <p>Note that the definition of {@link #isVolatile} depends on the
-   * definition of this method, so be sure to consider both methods together
-   * when making changes.
+   * <p>Note that the definition of {@link #isVolatile} depends on the definition of this method, so
+   * be sure to consider both methods together when making changes.
    */
   boolean executeUnconditionally();
 
   /**
-   * Returns true if it's ever possible that {@link #executeUnconditionally}
-   * could evaluate to true during the lifetime of this instance, false
-   * otherwise.
+   * Returns true if it's ever possible that {@link #executeUnconditionally} could evaluate to true
+   * during the lifetime of this instance, false otherwise.
    */
   boolean isVolatile();
 
@@ -159,11 +156,11 @@ public interface Action extends ActionExecutionMetadata {
    * Runs input discovery on this action.
    *
    * <p>May only be called if {@link #discoversInputs} returns true. Returns the set of input
-   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
-   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
-   * during action execution, probably by keeping state in the action instance and using a custom
-   * action execution context and for {@link #updateInputs} to be called during the execution of the
-   * action.
+   * artifacts that were not known at analysis time. May also call {@link #updateDiscoveredInputs};
+   * if it doesn't, the action itself must arrange for the newly discovered artifacts to be
+   * available during action execution, probably by keeping state in the action instance and using a
+   * custom action execution context and for {@link #updateDiscoveredInputs} to be called during the
+   * execution of the action.
    *
    * <p>Since keeping state within an action is bad, don't do that unless there is a very good
    * reason to do so.
@@ -209,11 +206,9 @@ public interface Action extends ActionExecutionMetadata {
    * <p>In addition to being called from action implementations, it is also called by {@link
    * ActionCacheChecker} when an action is loaded from the on-disk action cache.
    */
-  void updateInputs(NestedSet<Artifact> inputs);
+  void updateDiscoveredInputs(NestedSet<Artifact> inputs);
 
-  /**
-   * Returns true if the output should bypass output filtering. This is used for test actions.
-   */
+  /** Returns true if the output should bypass output filtering. This is used for test actions. */
   boolean showsOutputUnconditionally();
 
   /**

@@ -209,7 +209,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getAnalysisTimeInputs() {
       return actionExecutionMetadata.getInputs();
     }
 
