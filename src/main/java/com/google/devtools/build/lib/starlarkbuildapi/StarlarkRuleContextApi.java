@@ -330,11 +330,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       // TODO(cparsons): Look into flipping this to true.
       documented = false,
       parameters = {
-        @Param(
-            name = "option",
-            positional = true,
-            named = false,
-            doc = "The string to split."),
+        @Param(name = "option", positional = true, named = false, doc = "The string to split."),
       })
   Sequence<String> tokenize(String optionString) throws EvalException;
 
@@ -664,4 +660,32 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc = "List of tools (list of targets)."),
       })
   Tuple resolveTools(Sequence<?> tools) throws EvalException;
+
+  @StarlarkMethod(
+      name = "package_relative_label",
+      doc =
+          """
+          Converts the input string into a <a href='../builtins/Label.html'>Label</a> object, in \
+          the context of the package of the target currently being analyzed. If the input is \
+          already a <code>Label</code>, it is returned unchanged.<p>The result of this function is \
+          the same <code>Label</code> value as would be produced by passing the given string to a \
+          label-valued attribute of the rule and accessing the corresponding \
+          <a href='../builtins/Target.html#label><code>label</code></a> field.
+          <p><i>Usage note:</i> The difference between this function and \
+          <a href='../builtins/Label.html#Label'>Label()</a></code> is \
+          that <code>Label()</code> uses the context of the package of the <code>.bzl</code> file \
+          that called it, not the package of the target currently being analyzed. This function \
+          has the same behavior as <a href='../toplevel/native.html#package_relative_label'>
+          <code>native.package_relative_label()</code></a>, which cannot be used in a rule or
+          aspect implementation function.
+          """,
+      parameters = {
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
+      })
+  Label packageRelativeLabel(Object input) throws EvalException;
 }
