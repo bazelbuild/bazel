@@ -762,7 +762,8 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.remoteInstanceName,
             remoteOptions.remoteAcceptCached,
-            remoteOptions.remoteUploadLocalResults));
+            remoteOptions.remoteUploadLocalResults,
+            verboseFailures));
     if (env.getDirectories().getOutputBase().getFileSystem()
         instanceof RemoteExternalOverlayFileSystem remoteFs) {
       remoteFs.beforeCommand(
