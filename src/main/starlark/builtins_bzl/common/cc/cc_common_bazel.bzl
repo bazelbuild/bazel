@@ -62,11 +62,13 @@ def _implementation_deps_allowed_by_allowlist(*, ctx):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
+_INTERNAL_EXPORTS_ALLOWLIST = [
+    ("", "third_party/bazel_rules/rules_cc"),
+    ("rules_cc", ""),
+]
+
 def _internal_exports():
-    _cc_internal.check_private_api(allowlist = [
-        ("", "third_party/bazel_rules/rules_cc"),
-        ("rules_cc", ""),
-    ])
+    _cc_internal.check_private_api(allowlist = _INTERNAL_EXPORTS_ALLOWLIST)
     return _cc_internal
 
 cc_common = struct(

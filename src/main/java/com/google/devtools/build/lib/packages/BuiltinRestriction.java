@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -117,9 +120,9 @@ public final class BuiltinRestriction {
       return new AutoValue_BuiltinRestriction_AllowlistEntry(apparentRepoName, packagePrefix);
     }
 
-    final boolean allows(Label label) {
-      return reposMatch(apparentRepoName(), label.getRepository())
-          && label.getPackageFragment().startsWith(packagePrefix());
+    final boolean allows(PackageIdentifier packageIdentifier) {
+      return reposMatch(apparentRepoName(), packageIdentifier.getRepository())
+          && packageIdentifier.getPackageFragment().startsWith(packagePrefix());
     }
 
     private static boolean reposMatch(String allowedName, RepositoryName givenName) {
@@ -186,19 +189,32 @@ public final class BuiltinRestriction {
    */
   public static void failIfLabelOutsideAllowlist(Label label, Collection<AllowlistEntry> allowlist)
       throws EvalException {
-    if (isNotAllowed(label, allowlist)) {
+    if (isNotAllowed(label.getPackageIdentifier(), allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
 
+  private static final LoadingCache<
+          Collection<AllowlistEntry>, LoadingCache<PackageIdentifier, Boolean>>
+      IS_NOT_ALLOWED_CACHE =
+          Caffeine.newBuilder()
+              .initialCapacity(5)
+              .weakKeys()
+              .build(
+                  allowlist ->
+                      Caffeine.newBuilder()
+                          .weakKeys()
+                          .build(pkgId -> allowlist.stream().noneMatch(e -> e.allows(pkgId))));
+
   /**
-   * Returns true if the given {@link Label} is not within both 1) the builtins repository, or 2) a
-   * package or subpackage of an entry in the given allowlist.
+   * Returns true if the given {@link PackageIdentifier} is not within both 1) the builtins
+   * repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
-  public static boolean isNotAllowed(Label label, Collection<AllowlistEntry> allowlist) {
-    if (label.getRepository().getName().equals("_builtins")) {
+  public static boolean isNotAllowed(
+      PackageIdentifier packageIdentifier, Collection<AllowlistEntry> allowlist) {
+    if (packageIdentifier.getRepository().getName().equals("_builtins")) {
       return false;
     }
-    return allowlist.stream().noneMatch(e -> e.allows(label));
+    return IS_NOT_ALLOWED_CACHE.get(allowlist).get(packageIdentifier);
   }
 }

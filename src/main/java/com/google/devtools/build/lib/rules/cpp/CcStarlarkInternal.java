@@ -98,8 +98,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   private static final LoadingCache<Object, ImmutableList<BuiltinRestriction.AllowlistEntry>>
       ALLOWLIST_CACHE =
           Caffeine.newBuilder()
-              // We don't expect more than one allowlist per core ruleset.
-              .initialCapacity(4)
+              .initialCapacity(5)
               .weakKeys()
               .build(
                   allowlistObject ->
