@@ -48,6 +48,9 @@ public final class Types {
   /** The top type of the type hierarchy. */
   public static final StarlarkType OBJECT = new ObjectType();
 
+  /** The bottom type of the type hierarchy. */
+  public static final StarlarkType NEVER = new NeverType();
+
   // Primitive types
   public static final StarlarkType NONE = new None();
 
@@ -117,6 +120,23 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof ObjectType;
+    }
+  }
+
+  private static final class NeverType extends StarlarkType {
+    @Override
+    public String toString() {
+      return "Never";
+    }
+
+    @Override
+    public int hashCode() {
+      return NeverType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof NeverType;
     }
   }
 
@@ -389,7 +409,7 @@ public final class Types {
     if (subtypes.size() == 1) {
       return subtypes.iterator().next();
     } else if (subtypes.isEmpty()) {
-      throw new IllegalArgumentException("Empty union!");
+      return Types.NEVER;
     }
     return new AutoValue_Types_UnionType(subtypes);
   }

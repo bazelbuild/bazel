@@ -123,9 +123,27 @@ public final class TypeChecker extends NodeVisitor {
       case INDEX -> {
         return inferIndex((IndexExpression) expr);
       }
+      case LIST_EXPR -> {
+        var list = (ListExpression) expr;
+        List<StarlarkType> elementTypes = new ArrayList<>();
+        for (Expression element : list.getElements()) {
+          elementTypes.add(infer(element));
+        }
+        return Types.list(Types.union(elementTypes));
+      }
+      case DICT_EXPR -> {
+        var dict = (DictExpression) expr;
+        List<StarlarkType> keyTypes = new ArrayList<>();
+        List<StarlarkType> valueTypes = new ArrayList<>();
+        for (var entry : dict.getEntries()) {
+          keyTypes.add(infer(entry.getKey()));
+          valueTypes.add(infer(entry.getValue()));
+        }
+        return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
+      }
       default -> {
-        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr,
-        // lambda, list, slice, and unaryop expressions.
+        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional,
+        // lambda, slice, and unaryop expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }

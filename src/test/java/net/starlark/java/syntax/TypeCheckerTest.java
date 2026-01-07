@@ -446,4 +446,30 @@ public final class TypeCheckerTest {
         t[1] = 123
         """);
   }
+
+  @Test
+  public void infer_dict() throws Exception {
+    // Empty case.
+    assertTypeGivenDecls("{}", Types.dict(Types.NEVER, Types.NEVER));
+
+    // Homogeneous case.
+    assertTypeGivenDecls("{'a': 1, 'b': 2}", Types.dict(Types.STR, Types.INT));
+
+    // Heterogeneous case.
+    StarlarkType unionType = Types.union(Types.STR, Types.INT);
+    assertTypeGivenDecls("{'a': 'abc', 1: 123}", Types.dict(unionType, unionType));
+  }
+
+  @Test
+  public void infer_list() throws Exception {
+    // Empty case.
+    assertTypeGivenDecls("[]", Types.list(Types.NEVER));
+
+    // Homogeneous case.
+    assertTypeGivenDecls("[1, 2, 3]", Types.list(Types.INT));
+
+    // Heterogeneous case.
+    StarlarkType unionType = Types.union(Types.INT, Types.STR);
+    assertTypeGivenDecls("[1, 'a']", Types.list(unionType));
+  }
 }
