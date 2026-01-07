@@ -51,7 +51,9 @@ class BazelRepoMappingTest(test_base.TestBase):
             'common --verbose_failures',
             # Set an explicit Java language version
             'common --java_language_version=8',
+            'common --java_runtime_version=11',
             'common --tool_java_language_version=8',
+            'common --tool_java_runtime_version=11',
             'common --lockfile_mode=update',
         ],
     )

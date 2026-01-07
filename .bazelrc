@@ -43,7 +43,9 @@ build:windows --host_cxxopt=/std:c++17
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
+build --java_runtime_version=remotejdk_11
 build --tool_java_language_version=11
+build --tool_java_runtime_version=remotejdk_11
 
 # Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
 build --incompatible_enable_cc_toolchain_resolution

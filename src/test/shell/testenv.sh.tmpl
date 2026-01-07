@@ -88,13 +88,6 @@ BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
-# Java
-if [[ $PLATFORM =~ msys ]]; then
-  jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
-else
-  jdk_dir="${TEST_SRCDIR}/local_jdk"
-fi
-
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
@@ -220,8 +213,6 @@ bazel_root="${TEST_TMPDIR}/root"
 rm -rf "${bazel_root}"
 mkdir -p "${bazel_root}"
 
-bazel_javabase="${jdk_dir}"
-
 log_info "bazel binary is at $PATH_TO_BAZEL_WRAPPER"
 
 # Here we unset variable that were set by the invoking Blaze instance
@@ -244,6 +235,15 @@ function try_with_timeout() {
     fi
     sleep 1
   done
+}
+
+function setup_localjdk_javabase() {
+  if [[ $PLATFORM =~ msys ]]; then
+    jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
+  else
+    jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
+  fi
+  bazel_javabase="${jdk_dir}"
 }
 
 function setup_bazelrc() {
@@ -348,6 +348,12 @@ EOF
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  fi
+
+  if is_darwin; then
+    echo "Add flags to prefer ipv6 network"
+    echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
+    echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
   fi
 }
 

@@ -788,7 +788,7 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query //... &>"$TEST_log" \
+  bazel query --noannounce_rc //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -816,7 +816,7 @@ EOF
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query @a//... &>"$TEST_log" \
+  bazel query --noannounce_rc @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"

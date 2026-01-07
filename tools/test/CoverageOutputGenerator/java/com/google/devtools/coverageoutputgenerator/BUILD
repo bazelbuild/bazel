@@ -1,3 +1,4 @@
+load("//tools:build_defs.bzl", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
@@ -10,6 +11,12 @@ licenses(["notice"])  # Apache 2.0
 
 java_binary(
     name = "all_lcov_merger_tools",
+    javacopts = [
+        "-source %s -target %s -Xlint:-options" % (
+            MINIMUM_JAVA_RUNTIME_VERSION,
+            MINIMUM_JAVA_RUNTIME_VERSION,
+        ),
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [":lcov_merger_lib"],
 )

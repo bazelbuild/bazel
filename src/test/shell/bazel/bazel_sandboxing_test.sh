@@ -38,6 +38,10 @@ cat >>$TEST_TMPDIR/bazelrc <<'EOF'
 # we want to make sure that this explicitly fails when the strategy is not available on the system
 # running the test.
 build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
+build --java_language_version=11
+build --java_runtime_version=remotejdk_11
+build --tool_java_language_version=11
+build --tool_java_runtime_version=remotejdk_11
 EOF
 
 function set_up {
@@ -359,7 +363,7 @@ function setup_network_tests() {
   local socket_dir
   socket_dir="$(mktemp -d /tmp/test.XXXXXX)" || fail "mktemp failed"
   local socket="${socket_dir}/socket"
-  python $python_server --unix_socket="${socket}" always file_to_serve &
+  python3 $python_server --unix_socket="${socket}" always file_to_serve &
   local pid="${!}"
 
   trap "kill_nc || true; kill '${pid}' || true; rm -f '${socket}'; rmdir '${socket_dir}'" EXIT
@@ -383,7 +387,7 @@ genrule(
 genrule(
   name = "loopback",
   outs = [ "loopback.txt" ],
-  cmd = "python $python_server always $(pwd)/file_to_serve >port.txt & "
+  cmd = "python3 $python_server always $(pwd)/file_to_serve >port.txt & "
       + "pid=\$\$!; "
       + "while ! grep started port.txt; do sleep 1; done; "
       + "port=\$\$(head -n 1 port.txt); "
@@ -437,8 +441,8 @@ function check_network_ok() {
     # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
     set +u
 
-    bazel build "${@}" "pkg:${target}" &>$TEST_log \
-      || fail "'${target}' could not access the network"
+    bazel build --sandbox_add_mount_pair=/tmp "${@}" "pkg:${target}" \
+      &>$TEST_log || fail "'${target}' could not access the network"
   )
 }
 
@@ -452,7 +456,7 @@ function check_network_not_ok() {
     # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
     set +u
 
-    bazel build "${@}" "pkg:${target}" &> $TEST_log \
+    bazel build --sandbox_add_mount_pair=/tmp "${@}" "pkg:${target}" &> $TEST_log \
       && fail "'${target}' trying to use network succeeded but should have failed" || true
   )
   [[ ! -f "${BAZEL_GENFILES_DIR}/pkg/${target}.txt" ]] \
@@ -475,7 +479,7 @@ function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
   case "$(uname -s)" in
-    Linux)
+    [Ll]inux)
       # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
       # within the network namespace... but that doesn't seem to be the case.
       check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
@@ -890,7 +894,7 @@ EOF
   chmod +x pkg/tmp_test.sh
 
   touch "${temp_dir}/file"
-  bazel test //pkg:tmp_test \
+  bazel test //pkg:tmp_test --sandbox_add_mount_pair=/tmp \
     --test_output=errors &>$TEST_log || fail "Expected test to pass"
 }
 
@@ -965,7 +969,7 @@ touch "${temp_dir}/file"
 EOF
   chmod +x pkg/tmp_test.sh
 
-  bazel test //pkg:tmp_test \
+  bazel test //pkg:tmp_test --sandbox_add_mount_pair=/tmp \
     --test_output=errors &>$TEST_log || fail "Expected test to pass"
   [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
 }

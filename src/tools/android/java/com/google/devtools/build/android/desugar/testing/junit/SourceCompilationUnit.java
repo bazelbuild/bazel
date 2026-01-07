@@ -67,11 +67,19 @@ public final class SourceCompilationUnit {
     Path compilationStdOut = Files.createTempFile("compilation_stdout_", ".txt");
     Path compilationStdErr = Files.createTempFile("compilation_stderr_", ".txt");
     Path compiledRootDir = Files.createTempDirectory("compilation_prodout_");
-    ImmutableList<String> javacOptions =
+    ImmutableList.Builder<String> javacOptionsBuilder =
         ImmutableList.<String>builder()
             .addAll(customJavacOptions)
-            .add("-d " + compiledRootDir)
-            .build();
+            .add("-d " + compiledRootDir);
+
+    // Avoid throwing errors due to compiler warnings described in:
+    // https://issues.apache.org/jira/browse/MCOMPILER-548
+    javacOptionsBuilder.add(
+        compiler.isSupportedOption("-proc:full") != -1 ?
+            "-proc:full" :
+            "-Xlint:-options");
+
+    ImmutableList<String> javacOptions = javacOptionsBuilder.build();
     final List<Path> compiledFiles;
     try (OutputStream stdOutStream = Files.newOutputStream(compilationStdOut);
         OutputStream stdErrStream = Files.newOutputStream(compilationStdErr)) {

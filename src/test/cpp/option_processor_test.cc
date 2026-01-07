@@ -15,6 +15,8 @@
 #include "src/main/cpp/option_processor.h"
 
 #include <memory>
+#include <vector>
+#include <string>
 
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze_util.h"
@@ -24,6 +26,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
@@ -100,9 +103,13 @@ class OptionProcessorTest : public ::testing::Test {
 };
 
 TEST_F(OptionProcessorTest, CanParseOptions) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "command",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "command",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -121,10 +128,10 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(1),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
@@ -135,9 +142,13 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
 }
 
 TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "help",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "help",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -156,10 +167,10 @@ TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(1),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
@@ -196,9 +207,12 @@ TEST_F(OptionProcessorTest, CanParseEmptyArgs) {
 }
 
 TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--nobatch", "--host_jvm_args=MyParam", "--host_jvm_args", "42"};
+  const std::vector<std::string> args = {"bazel",
+                                         "--nobatch",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--host_jvm_args",
+                                         "42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))
@@ -218,12 +232,10 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
   EXPECT_EQ("42",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[2]);
 #else   // ! (defined(_WIN32) || defined(__CYGWIN__))
-  ASSERT_EQ(size_t(2),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
-  EXPECT_EQ("42",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+  std::vector<std::string> expectedStartupOptions = {"MyParam", "42"};
+  EXPECT_THAT(
+    option_processor_->GetParsedStartupOptions()->host_jvm_args,
+    testing::ContainerEq(expectedStartupOptions));
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
   EXPECT_EQ("", option_processor_->GetCommand());

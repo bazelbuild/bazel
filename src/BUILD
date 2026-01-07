@@ -2,8 +2,14 @@
 
 load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
+load(
+    ":release_archive.bzl",
+    "MINIMUM_JAVA_RUNTIME_VERSION",
+    "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION",
+    "release_archive",
+    "transitioned_java_version_filegroup",
+)
 load(":rule_size_test.bzl", "rule_size_test")
-load("//src:release_archive.bzl", "release_archive")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -540,18 +546,34 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-JAVA_TOOLS_DEPLOY_JARS = [
-    "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-]
+transitioned_java_version_filegroup(
+    name = "minimum_java_runtime_tools",
+    java_language_version = MINIMUM_JAVA_RUNTIME_VERSION,
+    srcs = [
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+transitioned_java_version_filegroup(
+    name = "minimum_java_compilation_runtime_tools",
+    java_language_version = MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS,
+    srcs = [
+        ":minimum_java_compilation_runtime_tools",
+        ":minimum_java_runtime_tools",
+    ],
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )

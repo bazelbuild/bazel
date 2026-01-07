@@ -28,25 +28,35 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Run cleanup-related tasks during idle periods in the server.
- * idle() and busy() must be called in that order, and only once.
+ * Run cleanup-related tasks during idle periods in the server. idle() and busy() must be called in
+ * that order, and only once.
  */
-class IdleServerTasks {
-  private final ScheduledThreadPoolExecutor executor;
+final class IdleServerTasks {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  enum IdleServerCleanupStrategy {
+    EAGER(0),
+    DELAYED(10);
+
+    private final long delaySeconds;
+
+    IdleServerCleanupStrategy(long delaySeconds) {
+      this.delaySeconds = delaySeconds;
+    }
+  }
+
+  private final ScheduledThreadPoolExecutor executor;
 
   /** Must be called from the main thread. */
   public IdleServerTasks() {
-    this.executor = new ScheduledThreadPoolExecutor(
-        1,
-        new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
+    this.executor =
+        new ScheduledThreadPoolExecutor(
+            1, new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
   }
 
-  /**
-   * Called when the server becomes idle. Should not block, but may invoke
-   * new threads.
-   */
-  public void idle() {
+  /** Called when the server becomes idle. Should not block, but may invoke new threads. */
+  public void idle(IdleServerCleanupStrategy cleanupStrategy) {
     Preconditions.checkState(!executor.isShutdown());
 
     @SuppressWarnings("unused")
@@ -66,7 +76,7 @@ class IdleServerTasks {
                   StringUtilities.prettyPrintBytes(before.getCommitted()),
                   StringUtilities.prettyPrintBytes(after.getCommitted()));
             },
-            10,
+            cleanupStrategy.delaySeconds,
             TimeUnit.SECONDS);
   }
 
