@@ -656,7 +656,7 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertDictEqual(
         {
-            '@bazel_tools': 'builtin or overridden repo',
+            '@bazel_tools': 'bazel_tools',
             '@foo1': 'foo+1.0',
             '@foo2': 'foo+2.0',
             '@ext': 'ext+',
@@ -677,12 +677,13 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertDictEqual(
         {
-            '@bazel_tools': 'builtin or overridden repo',
+            '@bazel_tools': 'bazel_tools',
             '@foo': 'foo+2.0',
             '@bar_from_foo2': 'bar+',
             '@ext_mod': 'ext+',
             '@my_repo3': 'ext++ext+repo3',
             '@my_repo4': 'ext++ext+repo4',
+            '@local_config_platform': 'local_config_platform'
         },
         parsed,
     )
