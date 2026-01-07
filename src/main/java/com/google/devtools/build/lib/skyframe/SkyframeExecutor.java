@@ -1017,9 +1017,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void configureActionExecutor(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      String actionExecutionSalt) {
+      String actionExecutionSalt,
+      int maxStdoutErrBytes) {
     skyframeActionExecutor.configure(
-        fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT, actionExecutionSalt);
+        fileCache,
+        actionInputPrefetcher,
+        DiscoveredModulesPruner.DEFAULT,
+        actionExecutionSalt,
+        maxStdoutErrBytes);
   }
 
   @ForOverride
