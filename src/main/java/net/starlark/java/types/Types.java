@@ -204,7 +204,7 @@ public final class Types {
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Float;
+      return obj instanceof FloatType;
     }
   }
 

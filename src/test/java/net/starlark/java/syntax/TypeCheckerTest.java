@@ -472,4 +472,40 @@ public final class TypeCheckerTest {
     StarlarkType unionType = Types.union(Types.INT, Types.STR);
     assertTypeGivenDecls("[1, 'a']", Types.list(unionType));
   }
+
+  @Test
+  public void infer_unary_operator() throws Exception {
+    StarlarkType numeric = Types.union(Types.INT, Types.FLOAT);
+
+    // NOT is always boolean.
+    assertTypeGivenDecls("not x", Types.BOOL, "x: bool");
+    assertTypeGivenDecls("not x", Types.BOOL, "x: Any");
+    assertTypeGivenDecls("not x", Types.BOOL, "x: list[int] | str");
+
+    // The remaining unary operators preserve the type of their operand.
+    assertTypeGivenDecls("-i", Types.INT, "i: int");
+    assertTypeGivenDecls("-42", Types.INT);
+    assertTypeGivenDecls("-x", Types.FLOAT, "x: float");
+    assertTypeGivenDecls("-99.9", Types.FLOAT);
+    assertTypeGivenDecls("-x", Types.INT, "x: int");
+    assertTypeGivenDecls("-x", Types.ANY, "x: Any");
+    assertTypeGivenDecls("-x", numeric, "x: int | float");
+
+    assertTypeGivenDecls("+i", Types.INT, "i: int");
+    assertTypeGivenDecls("+42", Types.INT);
+    assertTypeGivenDecls("+x", Types.FLOAT, "x: float");
+    assertTypeGivenDecls("+99.9", Types.FLOAT);
+    assertTypeGivenDecls("+x", Types.ANY, "x: Any");
+    assertTypeGivenDecls("+x", numeric, "x: int | float");
+
+    assertTypeGivenDecls("~i", Types.INT, "i: int");
+    assertTypeGivenDecls("~1", Types.INT);
+    assertTypeGivenDecls("~x", Types.ANY, "x: Any");
+
+    // Unsupported operations.
+    assertInvalid(":1:1: operator '-' cannot be applied to type 'str'", "-'hello'");
+    assertInvalid(":1:1: operator '+' cannot be applied to type 'str'", "+'hello'");
+    assertInvalid(":1:1: operator '~' cannot be applied to type 'str'", "~'hello'");
+    assertInvalid(":1:15: operator '-' cannot be applied to type 'str|int'", "x: str | int; -x");
+  }
 }

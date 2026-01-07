@@ -141,13 +141,44 @@ public final class TypeChecker extends NodeVisitor {
         }
         return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
       }
+      case UNARY_OPERATOR -> {
+        var unop = (UnaryOperatorExpression) expr;
+        if (unop.getOperator() == TokenKind.NOT) {
+          // NOT always returns a boolean (even if applied to Any or unions).
+          return Types.BOOL;
+        }
+        StarlarkType xType = infer(unop.getX());
+        if (xType.equals(Types.ANY)
+            || ((unop.getOperator() == TokenKind.MINUS || unop.getOperator() == TokenKind.PLUS)
+                && isNumeric(xType))
+            || (unop.getOperator() == TokenKind.TILDE && xType.equals(Types.INT))) {
+          // Unary operators other than NOT preserve the type of their operand.
+          return xType;
+        }
+        errorf(
+            unop.getStartLocation(),
+            "operator '%s' cannot be applied to type '%s'",
+            unop.getOperator(),
+            xType);
+        return Types.ANY;
+      }
       default -> {
-        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional,
-        // lambda, slice, and unaryop expressions.
+        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, lambda, and
+        // slice expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }
     }
+  }
+
+  private static boolean isNumeric(StarlarkType type) {
+    if (type.equals(Types.INT) || type.equals(Types.FLOAT)) {
+      return true;
+    }
+    if (type instanceof Types.UnionType unionType) {
+      return unionType.getTypes().stream().allMatch(TypeChecker::isNumeric);
+    }
+    return false;
   }
 
   private StarlarkType inferIndex(IndexExpression index) {
