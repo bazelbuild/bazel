@@ -268,12 +268,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                   repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
             }
           } catch (IOException e) {
-            throw new RepositoryFunctionException(
-                new IOException(
-                    "error looking up repo %s in remote repo contents cache: %s"
-                        .formatted(repositoryName, e.getMessage()),
-                    e),
-                Transience.TRANSIENT);
+            env.getListener()
+                .handle(
+                    Event.warn(
+                        "Remote repo contents cache lookup failed for %s: %s"
+                            .formatted(repositoryName, e.getMessage())));
           }
         }
       }

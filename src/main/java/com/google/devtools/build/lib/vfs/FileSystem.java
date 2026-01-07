@@ -88,16 +88,6 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the underlying host file system, resolving through any overlays.
-   *
-   * <p>For composite file systems that overlay one file system on top of another, this returns the
-   * innermost "real" file system. The default implementation returns {@code this}.
-   */
-  public FileSystem getHostFileSystem() {
-    return this;
-  }
-
-  /**
    * Returns whether or not the FileSystem supports modifications of files and file entries.
    *
    * <p>Returns true if FileSystem supports the following:
