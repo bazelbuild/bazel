@@ -1,6 +1,7 @@
 warning_days: 21
 domains:
   - bcr.bazel.build
+  - registry.bazel.build
   - be.bazel.build
   - blog.bazel.build
   - ci.bazel.build
