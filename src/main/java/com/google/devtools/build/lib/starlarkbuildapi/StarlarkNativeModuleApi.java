@@ -292,7 +292,10 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " supplied by the BUILD file to a <code>Label</code> object. (There is no way to"
               + " convert a string to a <code>Label</code> in the context of a package other than"
               + " the BUILD file or the calling .bzl file. For that reason, outer macros should"
-              + " always prefer to pass Label objects to inner macros rather than label strings.)",
+              + " always prefer to pass Label objects to inner macros rather than label strings.)"
+              + "<a href='ctx.html#package_relative_label'><code>ctx.package_relative_label()"
+              + "</code></a> provides the same functionality within a rule or aspect implementation"
+              + " function.",
       parameters = {
         @Param(
             name = "input",
