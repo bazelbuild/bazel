@@ -1,4 +1,4 @@
-warning_days: 80
+warning_days: 21
 domains:
   - bcr.bazel.build
   - registry.bazel.build
