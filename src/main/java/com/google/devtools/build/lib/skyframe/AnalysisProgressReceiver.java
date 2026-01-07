@@ -68,17 +68,17 @@ public class AnalysisProgressReceiver {
   public String getProgressString() {
     String progress = "" + configuredTargetsCompleted + " ";
     progress += (configuredTargetsCompleted.get() != 1) ? "targets" : "target";
+    progress += " configured";
     if (configuredTargetsDownloaded.get() > 0) {
       progress += " (" + configuredTargetsDownloaded + " remote cache hits)";
     }
     if (configuredAspectsCompleted.get() > 0) {
-      progress += " and " + configuredAspectsCompleted + " ";
-      progress += (configuredAspectsCompleted.get() != 1) ? "aspects" : "aspect";
+      progress += ", " + configuredAspectsCompleted + " ";
+      progress += (configuredAspectsCompleted.get() != 1) ? "aspect applications" : "aspect application";
       if (configuredAspectsDownloaded.get() > 0) {
         progress += " (" + configuredAspectsDownloaded + " remote cache hits)";
       }
     }
-    progress += " configured";
     return progress;
   }
 }
