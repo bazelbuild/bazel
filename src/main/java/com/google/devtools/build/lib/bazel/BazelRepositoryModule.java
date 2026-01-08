@@ -249,6 +249,7 @@ public class BazelRepositoryModule extends BlazeModule {
           SkyframeExecutorRepositoryHelpersHolder.create(
               new RepositoryDirectoryDirtinessChecker()));
     }
+    builder.setRepoContentsCachePathSupplier(repositoryCache.getRepoContentsCache()::getPath);
 
     // Create the repository function everything flows through.
     repositoryDelegatorFunction =
