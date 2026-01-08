@@ -392,6 +392,7 @@ py_test(
     name = "repo_contents_cache_test",
     size = "large",
     srcs = ["bzlmod/repo_contents_cache_test.py"],
+    shard_count = 4,
     tags = ["requires-network"],
     deps = [
         ":bzlmod_test_utils",
