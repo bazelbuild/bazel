@@ -358,20 +358,12 @@ public class CommandEnvironment {
         switch (envVar) {
           case Converters.EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.put(name, value);
-              repoEnvFromOptions.put(name, value);
-            }
           }
           case Converters.EnvVar.Inherit(String name) -> {
             visibleActionEnv.add(name);
           }
           case Converters.EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.remove(name);
-              repoEnvFromOptions.remove(name);
-            }
           }
         }
       }
@@ -988,9 +980,7 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the repository environment created from the client environment, {@code --repo_env}, and
-   * {@code --action_env=NAME=VALUE} (when {@code
-   * --incompatible_repo_env_ignores_action_env=false}).
+   * Returns the repository environment created from the client environment and {@code --repo_env}.
    */
   public Map<String, String> getRepoEnv() {
     return Collections.unmodifiableMap(repoEnv);

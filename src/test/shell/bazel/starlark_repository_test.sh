@@ -580,37 +580,6 @@ function environ_invalidation_test_template() {
   assert_equals 6 $(cat "${execution_file}")
 }
 
-function environ_invalidation_action_env_test_template() {
-  local startup_flag="${1-}"
-  local command_flag="--noincompatible_repo_env_ignores_action_env"
-  setup_starlark_repository
-
-  # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
-  local execution_file="$(setup_invalidation_test)"
-
-  # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
-      || fail "Failed to build"
-  expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
-  assert_equals 1 $(cat "${execution_file}")
-
-  # Test with changing using --action_env
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
-  assert_equals 2 $(cat "${execution_file}")
-}
-
 function test_starlark_repository_environ_invalidation() {
   environ_invalidation_test_template
 }
@@ -618,14 +587,6 @@ function test_starlark_repository_environ_invalidation() {
 # Same test as previous but with server restart between each invocation
 function test_starlark_repository_environ_invalidation_batch() {
   environ_invalidation_test_template --batch
-}
-
-function test_starlark_repository_environ_invalidation_action_env() {
-  environ_invalidation_action_env_test_template
-}
-
-function test_starlark_repository_environ_invalidation_action_env_batch() {
-  environ_invalidation_action_env_test_template --batch
 }
 
 # Test invalidation based on change to the bzl files
@@ -3011,94 +2972,6 @@ EOF
   CLIENT_ENV_PRESENT=value1 CLIENT_ENV_REMOVED=value2 \
    bazel build \
     --repo_env=REPO_ENV_PRESENT=value3 --repo_env=REPO_ENV_REMOVED=value4 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_repo_env_ignores_action_env_off() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if vars.get("ACTION_ENV_PRESENT") != "value1":
-    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  bazel build \
-    --noincompatible_repo_env_ignores_action_env \
-    --action_env=ACTION_ENV_PRESENT=value1 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_repo_env_ignores_action_env_on() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if "ACTION_ENV_REMOVED" in vars:
-    fail("ACTION_ENV_REMOVED should not be in the environment")
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  bazel build \
-    --incompatible_repo_env_ignores_action_env \
-    --action_env=ACTION_ENV_REMOVED=value1 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_strict_vars() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if vars.get("CLIENT_ENV_PRESENT") != "value1":
-    fail("CLIENT_ENV_PRESENT has wrong value: " + vars.get("CLIENT_ENV_PRESENT"))
-  if "CLIENT_ENV_REMOVED" in vars:
-    fail("CLIENT_ENV_REMOVED should not be in the environment")
-  if vars.get("REPO_ENV_PRESENT") != "value3":
-    fail("REPO_ENV_PRESENT has wrong value: " + vars.get("REPO_ENV_PRESENT"))
-  if "PATH" not in vars:
-    fail("PATH should be in the environment")
-  if ctx.os.name.startswith("windows") and "PATHEXT" not in vars:
-    fail("PATHEXT should be in the environment (on Windows)")
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  CLIENT_ENV_PRESENT=value1 CLIENT_ENV_REMOVED=value2 PATHEXT=".COM;.EXE;.BAT;.CMD;"\
-  bazel build \
-    --experimental_strict_repo_env \
-    --repo_env=CLIENT_ENV_PRESENT \
-    --repo_env=REPO_ENV_PRESENT=value3 \
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
