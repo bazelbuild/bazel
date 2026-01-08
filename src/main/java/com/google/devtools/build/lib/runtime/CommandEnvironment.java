@@ -119,8 +119,8 @@ public class CommandEnvironment {
   private final ImmutableMap<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
-  private final Map<String, String> modifiedClientEnv = new TreeMap<>();
-  private final Map<String, String> repoEnv = new TreeMap<>();
+  private final ImmutableMap<String, String> modifiedClientEnv;
+  private final ImmutableMap<String, String> repoEnv;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -339,11 +339,12 @@ public class CommandEnvironment {
                 ? buildRequestIdOverride
                 : UUID.randomUUID().toString();
 
-    this.repoEnv.putAll(
-        commandOptions.useStrictRepoEnv
-            ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
-            : clientEnv);
-    this.modifiedClientEnv.putAll(clientEnv);
+    var repoEnvBuilder =
+        new TreeMap<>(
+            commandOptions.useStrictRepoEnv
+                ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
+                : clientEnv);
+    var modifiedClientEnvBuilder = new TreeMap<>(clientEnv);
 
     // TODO: This only needs to check for loads() rather than analyzes() due to
     //  the effect of --action_env on the repository env. Revert back to
@@ -356,8 +357,8 @@ public class CommandEnvironment {
           case Converters.EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.put(name, value);
-              modifiedClientEnv.put(name, value);
+              repoEnvBuilder.put(name, value);
+              modifiedClientEnvBuilder.put(name, value);
             }
           }
           case Converters.EnvVar.Inherit(String name) -> {
@@ -366,8 +367,8 @@ public class CommandEnvironment {
           case Converters.EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.remove(name);
-              modifiedClientEnv.remove(name);
+              repoEnvBuilder.remove(name);
+              modifiedClientEnvBuilder.remove(name);
             }
           }
         }
@@ -395,19 +396,21 @@ public class CommandEnvironment {
           if (bazelWorkspace != null) {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
-          repoEnv.put(name, value);
-          modifiedClientEnv.put(name, value);
+          repoEnvBuilder.put(name, value);
+          modifiedClientEnvBuilder.put(name, value);
         }
         case Converters.EnvVar.Inherit(String name) -> {
-          repoEnv.put(name, clientEnv.get(name));
-          modifiedClientEnv.put(name, clientEnv.get(name));
+          repoEnvBuilder.put(name, clientEnv.get(name));
+          modifiedClientEnvBuilder.put(name, clientEnv.get(name));
         }
         case Converters.EnvVar.Unset(String name) -> {
-          repoEnv.remove(name);
-          modifiedClientEnv.remove(name);
+          repoEnvBuilder.remove(name);
+          modifiedClientEnvBuilder.remove(name);
         }
       }
     }
+    this.repoEnv = ImmutableMap.copyOf(repoEnvBuilder);
+    this.modifiedClientEnv = ImmutableMap.copyOf(modifiedClientEnvBuilder);
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
 
@@ -991,8 +994,8 @@ public class CommandEnvironment {
    * such as e.g. downloader or credential helper configuration. It agrees with it with {@code
    * --noexperimental_strict_repo_env}.
    */
-  public Map<String, String> getModifiedClientEnv() {
-    return Collections.unmodifiableMap(modifiedClientEnv);
+  public ImmutableMap<String, String> getModifiedClientEnv() {
+    return modifiedClientEnv;
   }
 
   /**
@@ -1002,8 +1005,8 @@ public class CommandEnvironment {
    * --repo_env}, and {@code --action_env=NAME=VALUE} when {@code
    * --incompatible_repo_env_ignores_action_env=false}.
    */
-  public Map<String, String> getRepoEnv() {
-    return Collections.unmodifiableMap(repoEnv);
+  public ImmutableMap<String, String> getRepoEnv() {
+    return repoEnv;
   }
 
   /** Returns the file cache to use during this build. */

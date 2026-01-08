@@ -45,7 +45,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",

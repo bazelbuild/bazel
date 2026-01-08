@@ -177,9 +177,9 @@ java_library(
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
         ":recursive_pkg_value",
+        ":repo_environment_function",
         ":repo_file_function",
         ":repo_package_args_function",
-        ":repository_environment_function",
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":rule_configured_target_value",
@@ -1060,6 +1060,7 @@ java_library(
     name = "environment_variable_value",
     srcs = ["EnvironmentVariableValue.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:autocodec-annotation",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
@@ -3356,8 +3357,8 @@ java_library(
 )
 
 java_library(
-    name = "repository_environment_function",
-    srcs = ["RepositoryEnvironmentFunction.java"],
+    name = "repo_environment_function",
+    srcs = ["RepoEnvironmentFunction.java"],
     deps = [
         ":environment_variable_value",
         ":precomputed_value",

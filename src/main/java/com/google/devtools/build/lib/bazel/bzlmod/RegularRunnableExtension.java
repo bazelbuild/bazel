@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -179,7 +179,7 @@ final class RegularRunnableExtension implements RunnableExtension {
     }
 
     ImmutableMap<String, Optional<String>> staticEnvVars =
-        RepositoryEnvironmentFunction.getEnvironmentView(
+        RepoEnvironmentFunction.getEnvironmentView(
             env, ImmutableSet.copyOf(extension.envVariables()));
     if (staticEnvVars == null) {
       return null;

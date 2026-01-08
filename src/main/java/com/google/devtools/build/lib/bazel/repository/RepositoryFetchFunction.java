@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -560,7 +560,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
     StarlarkCallable function = repoDefinition.repoRule().impl();
     ImmutableMap<String, Optional<String>> envVarValues =
-        RepositoryEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
+        RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
     if (envVarValues == null) {
       return null;
     }

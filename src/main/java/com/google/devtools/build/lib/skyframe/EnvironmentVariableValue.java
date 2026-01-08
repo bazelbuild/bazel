@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
@@ -23,4 +24,5 @@ import javax.annotation.Nullable;
  *
  * @param value the value in the client environment or null if unset in the environment.
  */
+@AutoCodec
 public record EnvironmentVariableValue(@Nullable String value) implements SkyValue {}

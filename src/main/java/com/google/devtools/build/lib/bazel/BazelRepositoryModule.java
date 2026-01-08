@@ -280,8 +280,8 @@ public class BazelRepositoryModule extends BlazeModule {
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
-    repoEnvSupplier.set(ImmutableMap.copyOf(env.getRepoEnv()));
-    modifiedClientEnvironmentSupplier.set(ImmutableMap.copyOf(env.getModifiedClientEnv()));
+    repoEnvSupplier.set(env.getRepoEnv());
+    modifiedClientEnvironmentSupplier.set(env.getModifiedClientEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
 

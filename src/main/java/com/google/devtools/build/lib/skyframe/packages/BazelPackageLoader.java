@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -185,7 +185,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(
-                  SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE, new RepositoryEnvironmentFunction())
+                  SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE, new RepoEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)

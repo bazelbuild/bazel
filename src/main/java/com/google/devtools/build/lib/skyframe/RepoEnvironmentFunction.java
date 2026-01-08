@@ -30,11 +30,11 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Skyframe function that provides the effective value for a repository environment variable. This
- * will be the value from the repo environment as constructed in CommandEnvironment, which includes
- * values from --repo_env and, unless --experimental_strict_repo_env is set, the client environment.
+ * Skyframe function that provides the effective value for an environment variable in the context of
+ * repository rules and module extensions. This will be the value from the repo environment as
+ * provided by {@link com.google.devtools.build.lib.runtime.CommandEnvironment#getRepoEnv()}.
  */
-public final class RepositoryEnvironmentFunction implements SkyFunction {
+public final class RepoEnvironmentFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Map<String, String> repoEnv = PrecomputedValue.REPO_ENV.get(env);
@@ -84,7 +84,7 @@ public final class RepositoryEnvironmentFunction implements SkyFunction {
   @Nullable
   public static ImmutableSortedMap<String, Optional<String>> getEnvironmentView(
       Environment env, Set<String> keys) throws InterruptedException {
-    var skyKeys = Collections2.transform(keys, RepositoryEnvironmentFunction::key);
+    var skyKeys = Collections2.transform(keys, RepoEnvironmentFunction::key);
     SkyframeLookupResult values = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;

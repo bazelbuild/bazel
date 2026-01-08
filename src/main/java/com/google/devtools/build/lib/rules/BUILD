@@ -182,7 +182,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:environment_variable_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",

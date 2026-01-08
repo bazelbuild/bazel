@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -178,7 +178,7 @@ class DigestWriter {
       Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
     var environ =
-        RepositoryEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
+        RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
     if (environ == null) {
       return null;
     }

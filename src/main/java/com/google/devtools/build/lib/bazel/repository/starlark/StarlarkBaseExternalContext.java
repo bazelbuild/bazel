@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skyframe.RepositoryEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -1476,7 +1476,7 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    var nameAndValue = RepositoryEnvironmentFunction.getEnvironmentView(env, ImmutableSet.of(name));
+    var nameAndValue = RepoEnvironmentFunction.getEnvironmentView(env, ImmutableSet.of(name));
     if (nameAndValue == null) {
       throw new NeedsSkyframeRestartException();
     }
