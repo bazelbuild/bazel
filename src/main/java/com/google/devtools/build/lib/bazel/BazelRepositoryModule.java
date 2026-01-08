@@ -208,10 +208,8 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
-    if ("bazel".equals(runtime.getProductName())) {
-      builder.allowExternalRepositories(true);
-    }
+    builder.allowExternalRepositories(true);
+    builder.setRepoContentsCachePathSupplier(repositoryCache.getRepoContentsCache()::getPath);
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
