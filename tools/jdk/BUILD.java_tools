@@ -395,6 +395,7 @@ cc_library(
         ":diag",
         ":options",
         ":output_jar",
+        "@re2",
         "@zlib",
     ],
     alwayslink = 1,
@@ -556,6 +557,7 @@ cc_library(
         ":singlejar_port",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
+        "@re2",
         "@zlib",
     ],
 )

@@ -501,6 +501,7 @@ cc_library(
         "//src/main/cpp/util",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/strings",
+        "@re2",
         "@zlib",
     ],
 )

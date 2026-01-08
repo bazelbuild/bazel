@@ -40,7 +40,8 @@ class Options {
         warn_duplicate_resources(false),
         check_desugar_deps(false),
         multi_release(false),
-        no_strip_module_info(false) {}
+        no_strip_module_info(false),
+        exclude_pattern("") {}
 
   virtual ~Options() {}
 
@@ -83,6 +84,7 @@ class Options {
   std::string hermetic_java_home;
   std::vector<std::string> add_exports;
   std::vector<std::string> add_opens;
+  std::string exclude_pattern;
 
  protected:
   /*

@@ -208,6 +208,7 @@ public class BazelRepositoryModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.allowExternalRepositories(true);
+    builder.setRepoContentsCachePathSupplier(repositoryCache.getRepoContentsCache()::getPath);
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(

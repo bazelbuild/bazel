@@ -592,6 +592,10 @@ function add_zlib() {
   add_bazel_dep "zlib" "$1"
 }
 
+function add_re2() {
+  add_bazel_dep "re2" "$1"
+}
+
 function add_protobuf() {
   protobuf_version=$(get_version_from_default_lock_file "protobuf")
   abseil_version=$(get_version_from_default_lock_file "abseil-cpp")
