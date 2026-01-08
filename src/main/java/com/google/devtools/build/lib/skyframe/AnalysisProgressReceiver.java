@@ -66,19 +66,27 @@ public class AnalysisProgressReceiver {
    * targets and aspects configured so far.
    */
   public String getProgressString() {
-    String progress = "" + configuredTargetsCompleted + " ";
-    progress += (configuredTargetsCompleted.get() != 1) ? "targets" : "target";
-    if (configuredTargetsDownloaded.get() > 0) {
-      progress += " (" + configuredTargetsDownloaded + " remote cache hits)";
+    StringBuilder sb = new StringBuilder();
+
+    long targets = configuredTargetsCompleted.get();
+    sb.append(targets).append(targets == 1 ? " target" : " targets").append(" configured");
+
+    long downloadedTargets = configuredTargetsDownloaded.get();
+    if (downloadedTargets > 0) {
+      sb.append(" (").append(downloadedTargets).append(" remote cache hits)");
     }
-    if (configuredAspectsCompleted.get() > 0) {
-      progress += " and " + configuredAspectsCompleted + " ";
-      progress += (configuredAspectsCompleted.get() != 1) ? "aspects" : "aspect";
-      if (configuredAspectsDownloaded.get() > 0) {
-        progress += " (" + configuredAspectsDownloaded + " remote cache hits)";
+
+    long aspects = configuredAspectsCompleted.get();
+    if (aspects > 0) {
+      sb.append(", ")
+          .append(aspects)
+          .append(aspects == 1 ? " aspect application" : " aspect applications");
+      long downloadedAspects = configuredAspectsDownloaded.get();
+      if (downloadedAspects > 0) {
+        sb.append(" (").append(downloadedAspects).append(" remote cache hits)");
       }
     }
-    progress += " configured";
-    return progress;
+
+    return sb.toString();
   }
 }

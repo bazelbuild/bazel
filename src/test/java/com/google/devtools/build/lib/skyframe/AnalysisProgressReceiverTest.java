@@ -49,12 +49,12 @@ public class AnalysisProgressReceiverTest {
     progress.doneDownloadedConfiguredTarget();
     String progressString1 = progress.getProgressString();
 
-    assertThat(progressString1).contains("1 target (1 remote cache hits) configured");
+    assertThat(progressString1).contains("1 target configured (1 remote cache hits)");
 
     progress.doneConfigureTarget();
     String progressString2 = progress.getProgressString();
 
-    assertThat(progressString2).contains("2 targets (1 remote cache hits) configured");
+    assertThat(progressString2).contains("2 targets configured (1 remote cache hits)");
   }
 
   @Test
@@ -64,14 +64,14 @@ public class AnalysisProgressReceiverTest {
     String progressString1 = progress.getProgressString();
 
     assertWithMessage("One configured aspect should be visible in progress.")
-        .that(progressString1.contains("0 targets and 1 aspect configured"))
+        .that(progressString1.contains("0 targets configured, 1 aspect application"))
         .isTrue();
 
     progress.doneConfigureAspect();
     String progressString2 = progress.getProgressString();
 
     assertWithMessage("Two configured aspects should be visible in progress.")
-        .that(progressString2.contains("0 targets and 2 aspects configured"))
+        .that(progressString2.contains("0 targets configured, 2 aspect applications"))
         .isTrue();
   }
 
@@ -81,13 +81,14 @@ public class AnalysisProgressReceiverTest {
     progress.doneDownloadedConfiguredAspect();
     String progressString1 = progress.getProgressString();
 
-    assertThat(progressString1).contains("0 targets and 1 aspect (1 remote cache hits) configured");
+    assertThat(progressString1)
+        .contains("0 targets configured, 1 aspect application (1 remote cache hits)");
 
     progress.doneConfigureAspect();
     String progressString2 = progress.getProgressString();
 
     assertThat(progressString2)
-        .contains("0 targets and 2 aspects (1 remote cache hits) configured");
+        .contains("0 targets configured, 2 aspect applications (1 remote cache hits)");
   }
 
   @Test
@@ -104,7 +105,7 @@ public class AnalysisProgressReceiverTest {
     progress.doneConfigureAspect();
     String progressString3 = progress.getProgressString();
 
-    assertThat(progressString3).contains("1 target and 1 aspect configured");
+    assertThat(progressString3).contains("1 target configured, 1 aspect application");
   }
 
   @Test
