@@ -31,6 +31,8 @@
 #include <string>
 #include <string_view>
 
+#include "re2/re2.h"
+
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -73,7 +75,8 @@ OutputJar::OutputJar(Options* options)
       log4j2_plugin_dat_combiner_(
           "META-INF/org/apache/logging/log4j/core/"
           "config/plugins/Log4j2Plugins.dat",
-          options->no_duplicates) {
+          options->no_duplicates),
+      exclude_pattern_(std::make_unique<RE2>(options->exclude_pattern)) {
   known_members_.reserve(options->EstimateFileCount());
 
   known_members_.emplace(spring_handlers_.filename(),
@@ -816,7 +819,15 @@ void OutputJar::WriteMetaInf() {
   WriteDirEntry(path, extra_fields, n_extra_fields);
 }
 
-bool OutputJar::IncludeEntry(std::string_view file_name) { return true; }
+bool OutputJar::IncludeEntry(std::string_view file_name) {
+  if (exclude_pattern_->pattern().empty()) {
+    return true;
+  }
+  if (RE2::FullMatch(file_name, *exclude_pattern_)) {
+    return false;
+  }
+  return true;
+}
 
 // Writes a directory entry with the given name and extra fields.
 void OutputJar::WriteDirEntry(std::string_view name,

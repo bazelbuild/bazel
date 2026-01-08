@@ -32,6 +32,7 @@
 #include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/options.h"
 #include "absl/container/flat_hash_map.h"
+#include "re2/re2.h"
 
 /*
  * Jar file we are writing.
@@ -57,7 +58,7 @@ class OutputJar {
     return known_members_.count(entry_name) == 0;
   }
 
-  virtual bool IncludeEntry(std::string_view file_name);
+  bool IncludeEntry(std::string_view file_name);
 
  private:
   // Open output jar.
@@ -136,6 +137,7 @@ class OutputJar {
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;
   std::vector<std::unique_ptr<Concatenator> > classpath_resources_;
   std::vector<std::unique_ptr<Combiner> > extra_combiners_;
+  std::unique_ptr<RE2> exclude_pattern_;
 };
 
 #endif  //   SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
