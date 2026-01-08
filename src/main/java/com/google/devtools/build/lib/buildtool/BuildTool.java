@@ -450,14 +450,18 @@ public class BuildTool {
         env.ensureBuildInfoPosted();
 
         // Log stats and sync state even on failure.
-        if (analysisCachingDeps != null && !analysisCachingDeps.bailedOut()) {
-          logAnalysisCachingStats(analysisCachingDeps);
-          RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
-          if (logWriter != null) {
-            logWriter.close();
-            if (logWriter.hadErrors()) {
-              env.getReporter()
-                  .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
+        if (analysisCachingDeps != null) {
+          if (analysisCachingDeps.bailedOut()) {
+            reportOnlyBailOutReason(analysisCachingDeps);
+          } else {
+            logAnalysisCachingStats(analysisCachingDeps);
+            RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
+            if (logWriter != null) {
+              logWriter.close();
+              if (logWriter.hadErrors()) {
+                env.getReporter()
+                    .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
+              }
             }
           }
         }
@@ -1033,6 +1037,14 @@ public class BuildTool {
             ? null
             : dependenciesProvider.getAnalysisCacheClient().getStats();
     env.getRemoteAnalysisCachingEventListener().recordServiceStats(fvsStats, raccStats);
+  }
+
+  private void reportOnlyBailOutReason(
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
+    Preconditions.checkNotNull(dependenciesProvider);
+    RemoteAnalysisCacheClient.Stats raccStats =
+        dependenciesProvider.getAnalysisCacheClient().getStats();
+    env.getRemoteAnalysisCachingEventListener().recordServiceStats(/* fvsStats= */ null, raccStats);
   }
 
   /**
