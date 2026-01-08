@@ -58,6 +58,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setUpMocks() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution=false");
     useConfiguration(
         "--proto_compiler=//proto:compiler",
         "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
