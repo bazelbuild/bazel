@@ -74,10 +74,8 @@ public final class LtoBackendAction extends SpawnAction {
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
   private static final String MNEMONIC = "CcLtoBackendCompile";
 
-  private final NestedSet<Artifact> mandatoryInputs;
   private final BitcodeFiles bitcodeFiles;
   private final Artifact imports;
-  private boolean inputsDiscovered = false;
 
   public LtoBackendAction(
       ActionOwner owner,
@@ -100,7 +98,6 @@ public final class LtoBackendAction extends SpawnAction {
         "LTO Backend Compile %{output}",
         MNEMONIC,
         OutputPathsMode.OFF);
-    mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),
         "Either both or neither bitcodeFiles and imports files should be null");
@@ -132,7 +129,6 @@ public final class LtoBackendAction extends SpawnAction {
         "LTO Backend Compile %{output}",
         MNEMONIC,
         OutputPathsMode.OFF);
-    this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
     this.imports = imports;
   }
@@ -140,11 +136,6 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public boolean discoversInputs() {
     return imports != null;
-  }
-
-  @Override
-  protected void setDiscoveredInputs(boolean inputsDiscovered) {
-    this.inputsDiscovered = inputsDiscovered;
   }
 
   /**
@@ -203,7 +194,6 @@ public final class LtoBackendAction extends SpawnAction {
     return bitcodeInputs.build();
   }
 
-  @Nullable
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
@@ -242,14 +232,8 @@ public final class LtoBackendAction extends SpawnAction {
     // Convert the import set of paths to the set of bitcode file artifacts.
     // Throws an error if there is any path in the importset that is not pat of any artifact
     NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet, actionExecutionContext);
-    updateDiscoveredInputs(
-        NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
+    updateDiscoveredInputs(bitcodeInputSet);
     return bitcodeInputSet;
-  }
-
-  @Override
-  public NestedSet<Artifact> getAnalysisTimeInputs() {
-    return mandatoryInputs;
   }
 
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
@@ -258,11 +242,6 @@ public final class LtoBackendAction extends SpawnAction {
             .setMessage(message)
             .setLtoAction(LtoAction.newBuilder().setCode(detailedCode))
             .build());
-  }
-
-  @Override
-  public NestedSet<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
   }
 
   @Override
@@ -283,9 +262,6 @@ public final class LtoBackendAction extends SpawnAction {
       throw new AssertionError("LtoBackendAction command line expansion cannot fail", e);
     }
     fp.addString(getMnemonic());
-    for (Artifact input : mandatoryInputs.toList()) {
-      fp.addPath(input.getExecPath());
-    }
     if (imports != null) {
       bitcodeFiles.addToFingerprint(fp);
       fp.addPath(imports.getExecPath());

@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.AbstractInputDiscoveringAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -63,9 +62,7 @@ public class TestAction extends AbstractInputDiscoveringAction {
   }
 
   protected final Callable<Void> effect;
-  private final NestedSet<Artifact> mandatoryInputs;
   private final ImmutableList<Artifact> optionalInputs;
-  private boolean inputsDiscovered = false;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
@@ -79,14 +76,8 @@ public class TestAction extends AbstractInputDiscoveringAction {
   public TestAction(
       Callable<Void> effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     super(NULL_ACTION_OWNER, mandatoryArtifacts(inputs), outputs);
-    this.mandatoryInputs = getInputs();
     this.optionalInputs = optionalArtifacts(inputs);
     this.effect = effect;
-  }
-
-  @Override
-  public NestedSet<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
   }
 
   @Override
@@ -95,18 +86,8 @@ public class TestAction extends AbstractInputDiscoveringAction {
   }
 
   @Override
-  protected void setDiscoveredInputs(boolean inputsDiscovered) {
-    this.inputsDiscovered = inputsDiscovered;
-  }
-
-  @Override
-  public NestedSet<Artifact> getAnalysisTimeInputs() {
-    return mandatoryInputs;
-  }
-
-  @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
-    return NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, optionalInputs);
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, optionalInputs);
   }
 
   @Override
@@ -115,11 +96,7 @@ public class TestAction extends AbstractInputDiscoveringAction {
     NestedSet<Artifact> discoveredInputs =
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
-    updateDiscoveredInputs(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(mandatoryInputs)
-            .addTransitive(discoveredInputs)
-            .build());
+    updateDiscoveredInputs(discoveredInputs);
     return discoveredInputs;
   }
 

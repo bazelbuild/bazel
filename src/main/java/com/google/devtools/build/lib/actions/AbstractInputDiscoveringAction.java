@@ -25,7 +25,7 @@ public abstract class AbstractInputDiscoveringAction extends AbstractAction {
   }
 
   @Override
-  public final boolean discoversInputs() {
+  public boolean discoversInputs() {
     return true;
   }
 

@@ -229,7 +229,6 @@ public class StarlarkAction extends SpawnAction {
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
-    private boolean inputsDiscovered = false;
 
     EnhancedStarlarkAction(
         ActionOwner owner,
@@ -320,16 +319,6 @@ public class StarlarkAction extends SpawnAction {
     public boolean discoversInputs() {
       return unusedInputsList.isPresent()
           || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
-    }
-
-    @Override
-    public NestedSet<Artifact> getAnalysisTimeInputs() {
-      return allStarlarkActionInputs;
-    }
-
-    @Override
-    protected void setDiscoveredInputs(boolean inputsDiscovered) {
-      this.inputsDiscovered = inputsDiscovered;
     }
 
     @Override
@@ -431,7 +420,8 @@ public class StarlarkAction extends SpawnAction {
             e,
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
       }
-      updateDiscoveredInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
+      updateDiscoveredInputs(
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
     }
 
     @Override
