@@ -288,7 +288,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     public final PackageLoader build() {
       validate();
       externalFilesHelper =
-          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
+          ExternalFilesHelper.create(
+              pkgLocatorRef,
+              externalFileAction,
+              directories,
+              /* repoContentsCachePathSupplier= */ () -> null);
       return buildImpl();
     }
 
