@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -79,7 +78,7 @@ public class CompactPersistentActionCacheTest {
   private final EventHandler eventHandler = spy(EventHandler.class);
 
   @Before
-  public final void createFiles() throws Exception {
+  public final void createFiles() throws Exception  {
     execRoot = scratch.resolve("/output");
     cacheRoot = scratch.resolve("/cache_root");
     corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
@@ -232,7 +231,7 @@ public class CompactPersistentActionCacheTest {
 
     // Remove entries that discover inputs and flush the journal.
     cache.removeIf(Entry::discoversInputs);
-    assertIncrementalSave(cache);
+    assertFullSave();
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
     for (int i = 0; i < 100; i++) {
@@ -771,7 +770,6 @@ public class CompactPersistentActionCacheTest {
         /* clientEnv= */ ImmutableMap.of(),
         /* actionExecutionSalt= */ "",
         OutputPermissions.READONLY,
-        /* useArchivedTreeArtifacts= */ false,
-        discoversInputs ? new byte[DigestUtils.ESTIMATED_SIZE] : null);
+        /* useArchivedTreeArtifacts= */ false);
   }
 }
