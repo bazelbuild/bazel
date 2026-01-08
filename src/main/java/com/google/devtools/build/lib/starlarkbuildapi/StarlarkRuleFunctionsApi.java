@@ -1036,8 +1036,11 @@ declared.
               + " function, <code><a"
               + " href='../toplevel/native.html#package_relative_label'>native.package_relative_label()</a></code>,"
               + " converts the input into a <code>Label</code> in the context of the package"
-              + " currently being constructed. Use that function to mimic the string-to-label"
-              + " conversion that is automatically done by label-valued rule attributes.",
+              + " currently being constructed. For rule and aspect implementation functions, <a"
+              + " href='ctx.html#package_relative_label'><code>ctx.package_relative_label()</code></a>"
+              + " can be used for the same purpose. Use these functions to mimic the"
+              + " string-to-label conversion that is automatically done by label-valued rule"
+              + " attributes.",
       parameters = {
         @Param(
             name = "input",
