@@ -23,6 +23,8 @@ cc_test(
 cc_test(
     name = "hello-fail_test",
     srcs = ["hello-fail.cc"],
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
     deps = [":hello-lib"],
 )
 

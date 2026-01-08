@@ -23,9 +23,8 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 function get_tar_listing() {
   local input=$1
   local test_data="${TEST_DATA_DIR}/${input}"
-  # We strip unused prefixes rather than dropping "v" flag for tar, because we
-  # want to preserve symlink information.
-  tar tvf "${test_data}" | sed -e 's/^.*:00 //'
+  # Use tar tf to get just the file paths without metadata
+  tar tf "${test_data}"
 }
 
 function get_tar_verbose_listing() {
@@ -38,21 +37,21 @@ function get_tar_owner() {
   local input=$1
   local file=$2
   local test_data="${TEST_DATA_DIR}/${input}"
-  tar tvf "${test_data}" | grep "00 $file\$" | cut -d " " -f 2
+  tar tvf "${test_data}" | grep " $file\$" | awk '{print $2}'
 }
 
 function get_numeric_tar_owner() {
   local input=$1
   local file=$2
   local test_data="${TEST_DATA_DIR}/${input}"
-  tar --numeric-owner -tvf "${test_data}" | grep "00 $file\$" | cut -d " " -f 2
+  tar --numeric-owner -tvf "${test_data}" | grep " $file\$" | awk '{print $2}'
 }
 
 function get_tar_permission() {
   local input=$1
   local file=$2
   local test_data="${TEST_DATA_DIR}/${input}"
-  tar tvf "${test_data}" | fgrep "00 $file" | cut -d " " -f 1
+  tar tvf "${test_data}" | grep " $file\$" | awk '{print $1}'
 }
 
 function assert_content() {

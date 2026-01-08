@@ -33,6 +33,8 @@ java_test(
 java_test(
     name = "fail",
     srcs = ["Fail.java"],
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
     test_class = "com.example.myproject.Fail",
     deps = ["//third_party:junit4"],
 )
@@ -75,6 +77,8 @@ java_test(
 java_test(
     name = "resource-fail",
     srcs = glob(["Test*.java"]),
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
     test_class = "com.example.myproject.TestCustomGreeting",
     deps = [
         "//examples/java-native/src/main/java/com/example/myproject:hello-lib",
