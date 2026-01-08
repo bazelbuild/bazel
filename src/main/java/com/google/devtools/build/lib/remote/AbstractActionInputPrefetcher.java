@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -40,9 +41,11 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -79,6 +82,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final RemoteOutputChecker remoteOutputChecker;
 
   @Nullable private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -219,13 +223,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
-      OutputPermissions outputPermissions) {
+      OutputPermissions outputPermissions,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
@@ -276,7 +282,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
-   * <p>The {@code inputs} may not contain any unexpanded directories.
+   * <p>The {@code inputs} may not contain any unexpanded directories or runfiles artifacts.
    *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
@@ -291,13 +297,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority,
       Reason reason) {
     return prefetchFilesInterruptibly(
-        action, inputs, metadataProvider::getInputMetadata, priority, reason);
+        action,
+        inputs,
+        metadataProvider.getRunfilesTrees(),
+        metadataProvider::getInputMetadata,
+        priority,
+        reason);
   }
 
   /**
    * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
-   * <p>The {@code inputs} may not contain any unexpanded directories.
+   * <p>The {@code inputs} may not contain any unexpanded directories or runfiles artifacts.
    *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
@@ -311,6 +322,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public ListenableFuture<Void> prefetchFilesInterruptibly(
       @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
+      MetadataSupplier metadataSupplier,
+      Priority priority,
+      Reason reason) {
+    return prefetchFilesInterruptibly(
+        action, inputs, ImmutableList.of(), metadataSupplier, priority, reason);
+  }
+
+  @VisibleForTesting
+  private ListenableFuture<Void> prefetchFilesInterruptibly(
+      ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      ImmutableList<RunfilesTree> runfilesTrees,
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
@@ -332,7 +355,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       files.add(input);
     }
 
-    if (files.isEmpty()) {
+    if (files.isEmpty() && runfilesTrees.isEmpty()) {
       return immediateVoidFuture();
     }
 
@@ -351,6 +374,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         transfers.add(
             prefetchFile(
                 action, dirsWithOutputPermissions, metadataSupplier, file, priority, reason));
+      }
+    }
+
+    for (var runfilesTree : runfilesTrees) {
+      if (remoteOutputChecker.shouldDownloadOutput(
+          runfilesTree.getExecPath(), /* treeRootExecPath= */ null)) {
+        transfers.add(
+            Futures.submit(
+                () -> {
+                  runfilesTreeUpdater.updateRunfiles(ImmutableList.of(runfilesTree));
+                  return null;
+                },
+                directExecutor()));
       }
     }
 
