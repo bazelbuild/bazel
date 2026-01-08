@@ -137,10 +137,10 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    Path file = getNioPath(path);
+    Path nioPath = getNioPath(path);
     final DosFileAttributes attributes;
     try {
-      attributes = getAttribs(file, followSymlinks);
+      attributes = getAttribs(nioPath, followSymlinks);
     } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
@@ -171,7 +171,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           @Override
           public boolean isSymbolicLink() {
             if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
             }
             return isSymbolicLink;
           }

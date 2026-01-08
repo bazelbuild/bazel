@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -150,54 +151,34 @@ public class WindowsFileSystemTest {
 
     testUtil.createJunctions(junctions);
 
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/a").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/b").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrtpath/c").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/a").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/b").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longlinkpath/c").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/a").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/b").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longli~1/c").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/a").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/b").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbreviated/c").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/a").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/b").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "abbrev~1/c").toPath()))
-        .isTrue();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/a").toPath()))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "shrtpath/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "shrtpath/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "shrtpath/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longlinkpath/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longlinkpath/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longlinkpath/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longli~1/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longli~1/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longli~1/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbreviated/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbreviated/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbreviated/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbrev~1/a"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbrev~1/b"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "abbrev~1/c"))).isTrue();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "control/a"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "control/b"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "control/c"))).isFalse();
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "shrttrgt/file1.txt")))
         .isFalse();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/b").toPath()))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longtargetpath/file2.txt")))
         .isFalse();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "control/c").toPath()))
-        .isFalse();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "shrttrgt/file1.txt").toPath()))
-        .isFalse();
-    assertThat(
-            WindowsFileSystem.isSymlinkOrJunction(
-                new File(root, "longtargetpath/file2.txt").toPath()))
-        .isFalse();
-    assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longta~1/file2.txt").toPath()))
+    assertThat(WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "longta~1/file2.txt")))
         .isFalse();
 
     assertThrows(
         FileNotFoundException.class,
-        () -> WindowsFileSystem.isSymlinkOrJunction(new File(root, "non-existent").toPath()));
+        () -> WindowsFileSystem.isSymlinkOrJunction(Paths.get(root, "non-existent")));
 
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
