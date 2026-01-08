@@ -14,7 +14,9 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import json
 import os
+import pathlib
 import tempfile
 import time
 
@@ -54,6 +56,18 @@ class RepoContentsCacheTest(test_base.TestBase):
       time.sleep(0.5)
     self.fail('repo contents cache still not empty after 5 seconds')
 
+  def repoDir(self, repo_name, cwd=None):
+    _, stdout, _ = self.RunBazel(['info', 'output_base'], cwd=cwd)
+    self.assertLen(stdout, 1)
+    output_base = stdout[0].strip()
+
+    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''], cwd=cwd)
+    self.assertLen(stdout, 1)
+    mapping = json.loads(stdout[0])
+    canonical_repo_name = mapping[repo_name]
+
+    return output_base + '/external/' + canonical_repo_name
+
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -76,6 +90,21 @@ class RepoContentsCacheTest(test_base.TestBase):
     # First fetch: not cached
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    # Verify that the repo directory under the output base is a symlink or
+    # junction into the repo contents cache.
+    repo_dir = self.repoDir('my_repo')
+    self.assertTrue(os.path.islink(repo_dir) or os.path.isjunction(repo_dir))
+    target_path = os.readlink(repo_dir)
+    real_target_path = os.path.realpath(target_path)
+    real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
+    for parent in pathlib.Path(real_target_path).parents:
+      if parent.samefile(real_repo_contents_cache):
+        break
+    else:
+      self.fail(
+          'repo target dir %s is not in the repo contents cache %s'
+          % (real_target_path, real_repo_contents_cache)
+      )
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
@@ -295,7 +324,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_singleServer_gcAfterCacheMiss(self):
     self.ScratchFile(
@@ -328,7 +359,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_multipleServers(self):
     module_bazel_lines = [
@@ -383,13 +416,17 @@ class RepoContentsCacheTest(test_base.TestBase):
         ],
         cwd=dir_a,
     )
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
     # GC'd while B's server is alive (after B's earlier cache hit):
     # not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
@@ -451,6 +488,109 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.assertIn('.-> @@+repo+foo', stderr)
     self.assertIn('|   @@+repo+bar', stderr)
     self.assertIn('`-- @@+repo+foo', stderr)
+
+  def doTestRepoContentsCacheDeleted(self, check_external_repository_files):
+    repo_contents_cache = self.ScratchDir('repo_contents_cache')
+    workspace = self.ScratchDir('workspace')
+    extra_args = [
+        '--experimental_check_external_repository_files=%s'
+        % str(check_external_repository_files).lower(),
+        '--repo_contents_cache=%s' % repo_contents_cache,
+    ]
+
+    self.ScratchFile(
+        'workspace/MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('workspace/BUILD.bazel')
+    self.ScratchFile(
+        'workspace/repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@my_repo//:haha',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Second fetch: cached
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@my_repo//:haha',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Delete the entire repo contents cache and fetch again: not cached
+    # Avoid access denied on Windows due to files being read-only by moving to
+    # a different location instead.
+    os.rename(repo_contents_cache, repo_contents_cache + '_deleted')
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@my_repo//:haha',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+
+    # Second fetch after deletion: cached
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@my_repo//:haha',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertNotIn('WARNING', '\n'.join(stderr))
+
+    # Delete the entire repo contents cache and fetch again with a different
+    # path: not cached
+    # Avoid access denied on Windows due to files being read-only by moving to
+    # a different location instead.
+    os.rename(repo_contents_cache, repo_contents_cache + '_deleted_again')
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@my_repo//:haha',
+        ]
+        + extra_args
+        + [
+            '--repo_contents_cache=%s' % repo_contents_cache + '2',
+        ],
+        cwd=workspace,
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+
+  def testRepoContentsCacheDeleted_withCheckExternalRepositoryFiles(self):
+    self.doTestRepoContentsCacheDeleted(check_external_repository_files=True)
+
+  def testRepoContentsCacheDeleted_withoutCheckExternalRepositoryFiles(self):
+    self.doTestRepoContentsCacheDeleted(check_external_repository_files=False)
 
 
 if __name__ == '__main__':

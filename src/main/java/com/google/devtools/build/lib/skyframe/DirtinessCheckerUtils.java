@@ -161,7 +161,7 @@ public class DirtinessCheckerUtils {
     private static boolean isCacheableType(FileType fileType) {
       return switch (fileType) {
         case INTERNAL, EXTERNAL, BUNDLED -> true;
-        case EXTERNAL_REPO, OUTPUT -> false;
+        case EXTERNAL_REPO, OUTPUT, REPO_CONTENTS_CACHE_DIRS -> false;
       };
     }
   }
