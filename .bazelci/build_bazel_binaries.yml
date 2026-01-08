@@ -1,5 +1,6 @@
 ---
 platforms:
+  # This task actually runs Rocky Linux 8 (OpenJDK 11, gcc 10.2.1)
   centos7_java11_devtoolset10:
     build_targets:
       - "//src:bazel"
@@ -14,7 +15,7 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-  ubuntu2004:
+  ubuntu2004_java11:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -22,7 +23,7 @@ platforms:
       - "-c"
       - "opt"
   macos:
-    xcode_version: "13.0"
+    xcode_version: "16.2.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -30,7 +31,7 @@ platforms:
       - "-c"
       - "opt"
   macos_arm64:
-    xcode_version: "13.0"
+    xcode_version: "16.2.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
