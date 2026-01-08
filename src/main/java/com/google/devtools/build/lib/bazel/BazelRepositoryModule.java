@@ -133,7 +133,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<ImmutableMap<String, String>> repoEnvSupplier =
       new MutableSupplier<>();
-  private final MutableSupplier<ImmutableMap<String, String>> modifiedClientEnvironmentSupplier =
+  private final MutableSupplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier =
       new MutableSupplier<>();
   private boolean fetchDisabled = false;
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
@@ -157,9 +157,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private RepoSpecFunction repoSpecFunction;
   private YankedVersionsFunction yankedVersionsFunction;
 
-  private final VendorCommand vendorCommand = new VendorCommand(modifiedClientEnvironmentSupplier);
+  private final VendorCommand vendorCommand = new VendorCommand(nonstrictRepoEnvSupplier);
   private final RegistryFactoryImpl registryFactory =
-      new RegistryFactoryImpl(modifiedClientEnvironmentSupplier);
+      new RegistryFactoryImpl(nonstrictRepoEnvSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -212,12 +212,12 @@ public class BazelRepositoryModule extends BlazeModule {
     repositoryFetchFunction =
         new RepositoryFetchFunction(
             repoEnvSupplier,
-            modifiedClientEnvironmentSupplier,
+            nonstrictRepoEnvSupplier,
             directories,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(
-            directories, repoEnvSupplier, modifiedClientEnvironmentSupplier);
+            directories, repoEnvSupplier, nonstrictRepoEnvSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules();
@@ -281,7 +281,7 @@ public class BazelRepositoryModule extends BlazeModule {
     this.vendorCommand.setDownloadManager(downloadManager);
 
     repoEnvSupplier.set(env.getRepoEnv());
-    modifiedClientEnvironmentSupplier.set(env.getModifiedClientEnv());
+    nonstrictRepoEnvSupplier.set(env.getNonstrictRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
 

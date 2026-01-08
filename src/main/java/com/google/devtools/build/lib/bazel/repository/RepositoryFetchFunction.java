@@ -89,7 +89,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final LocalRepoContentsCache repoContentsCache;
   private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
-  private final Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private DownloadManager downloadManager;
@@ -100,11 +100,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   public RepositoryFetchFunction(
       Supplier<ImmutableMap<String, String>> repoEnvSupplier,
-      Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier,
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier,
       BlazeDirectories directories,
       LocalRepoContentsCache repoContentsCache) {
     this.repoEnvSupplier = repoEnvSupplier;
-    this.modifiedClientEnvSupplier = modifiedClientEnvSupplier;
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -604,7 +604,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 ignoredSubdirectories.asIgnoredSubdirectories(),
                 env,
                 repoEnvSupplier.get(),
-                ImmutableMap.copyOf(modifiedClientEnvSupplier.get()),
+                ImmutableMap.copyOf(nonstrictRepoEnvSupplier.get()),
                 downloadManager,
                 timeoutScaling,
                 processWrapper,

@@ -119,8 +119,8 @@ public class CommandEnvironment {
   private final ImmutableMap<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
-  private final ImmutableMap<String, String> modifiedClientEnv;
   private final ImmutableMap<String, String> repoEnv;
+  private final ImmutableMap<String, String> nonstrictRepoEnv;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -344,7 +344,7 @@ public class CommandEnvironment {
             commandOptions.useStrictRepoEnv
                 ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
                 : clientEnv);
-    var modifiedClientEnvBuilder = new TreeMap<>(clientEnv);
+    var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
 
     // TODO: This only needs to check for loads() rather than analyzes() due to
     //  the effect of --action_env on the repository env. Revert back to
@@ -358,7 +358,7 @@ public class CommandEnvironment {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
               repoEnvBuilder.put(name, value);
-              modifiedClientEnvBuilder.put(name, value);
+              nonstrictRepoEnvBuilder.put(name, value);
             }
           }
           case Converters.EnvVar.Inherit(String name) -> {
@@ -368,7 +368,7 @@ public class CommandEnvironment {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
               repoEnvBuilder.remove(name);
-              modifiedClientEnvBuilder.remove(name);
+              nonstrictRepoEnvBuilder.remove(name);
             }
           }
         }
@@ -397,20 +397,20 @@ public class CommandEnvironment {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
           repoEnvBuilder.put(name, value);
-          modifiedClientEnvBuilder.put(name, value);
+          nonstrictRepoEnvBuilder.put(name, value);
         }
         case Converters.EnvVar.Inherit(String name) -> {
           repoEnvBuilder.put(name, clientEnv.get(name));
-          modifiedClientEnvBuilder.put(name, clientEnv.get(name));
+          nonstrictRepoEnvBuilder.put(name, clientEnv.get(name));
         }
         case Converters.EnvVar.Unset(String name) -> {
           repoEnvBuilder.remove(name);
-          modifiedClientEnvBuilder.remove(name);
+          nonstrictRepoEnvBuilder.remove(name);
         }
       }
     }
     this.repoEnv = ImmutableMap.copyOf(repoEnvBuilder);
-    this.modifiedClientEnv = ImmutableMap.copyOf(modifiedClientEnvBuilder);
+    this.nonstrictRepoEnv = ImmutableMap.copyOf(nonstrictRepoEnvBuilder);
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
 
@@ -987,26 +987,40 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the full client environment modified by {@code --repo_env}, and {@code
-   * --action_env=NAME=VALUE} when {@code --incompatible_repo_env_ignores_action_env=false}.
+   * Returns the environment for repository rules and module extensions, which is constructed as
+   * follows:
    *
-   * <p>Use this rather than {@link #getRepoEnv} for inherently local and non-hermetic operations
-   * such as e.g. downloader or credential helper configuration. It agrees with it with {@code
-   * --noexperimental_strict_repo_env}.
-   */
-  public ImmutableMap<String, String> getModifiedClientEnv() {
-    return modifiedClientEnv;
-  }
-
-  /**
-   * Returns the environment for repository rules and module extensions, which is based on the full
-   * client environment (with --noexperimental_strict_repo_env) or only specific variables from it
-   * (with --experimental_strict_repo_env: PATH and on Windows PATHEXT), and modified by {@code
-   * --repo_env}, and {@code --action_env=NAME=VALUE} when {@code
-   * --incompatible_repo_env_ignores_action_env=false}.
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
+   *       Windows only, {@code PATHEXT} are kept;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
    */
   public ImmutableMap<String, String> getRepoEnv() {
     return repoEnv;
+  }
+
+  /**
+   * Returns the environment for inherently local, non-hermetic operations associated with
+   * repository rules and module extensions, such as credential helpers. It is constructed as
+   * follows:
+   *
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
+   *
+   * <p>This differs from {@link #getRepoEnv()} in that it does not apply {@code
+   * --experimental_strict_repo_env}, and thus always includes the full client environment as a
+   * base.
+   */
+  public ImmutableMap<String, String> getNonstrictRepoEnv() {
+    return nonstrictRepoEnv;
   }
 
   /** Returns the file cache to use during this build. */

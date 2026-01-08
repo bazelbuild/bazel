@@ -58,7 +58,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
-  private final Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
@@ -68,10 +68,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   public SingleExtensionEvalFunction(
       BlazeDirectories directories,
       Supplier<ImmutableMap<String, String>> repoEnvSupplier,
-      Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier) {
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
     this.directories = directories;
     this.repoEnvSupplier = repoEnvSupplier;
-    this.modifiedClientEnvSupplier = modifiedClientEnvSupplier;
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -123,7 +123,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 env,
                 directories,
                 repoEnvSupplier.get(),
-                modifiedClientEnvSupplier.get(),
+                nonstrictRepoEnvSupplier.get(),
                 timeoutScaling,
                 processWrapper,
                 repositoryRemoteExecutor,

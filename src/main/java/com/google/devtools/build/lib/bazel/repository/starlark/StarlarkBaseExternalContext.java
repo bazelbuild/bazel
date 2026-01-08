@@ -160,7 +160,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final BlazeDirectories directories;
   protected final Environment env;
   protected final ImmutableMap<String, String> repoEnv;
-  protected final ImmutableMap<String, String> modifiedClientEnv;
+  protected final ImmutableMap<String, String> nonstrictRepoEnv;
   private final StarlarkOS osObject;
   protected final DownloadManager downloadManager;
   protected final double timeoutScaling;
@@ -182,7 +182,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       BlazeDirectories directories,
       Environment env,
       ImmutableMap<String, String> repoEnv,
-      ImmutableMap<String, String> modifiedClientEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -194,7 +194,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.directories = directories;
     this.env = env;
     this.repoEnv = repoEnv;
-    this.modifiedClientEnv = modifiedClientEnv;
+    this.nonstrictRepoEnv = nonstrictRepoEnv;
     this.osObject = new StarlarkOS(this.repoEnv);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
@@ -837,7 +837,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              modifiedClientEnv,
+              nonstrictRepoEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
@@ -1088,7 +1088,7 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              modifiedClientEnv,
+              nonstrictRepoEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe

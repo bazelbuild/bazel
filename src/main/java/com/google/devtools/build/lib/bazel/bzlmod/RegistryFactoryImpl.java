@@ -28,10 +28,10 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
-  public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> modifiedClientEnvSupplier) {
-    this.modifiedClientEnvSupplier = modifiedClientEnvSupplier;
+  public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   @Override
@@ -74,7 +74,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
     }
     return new IndexRegistry(
         uri,
-        modifiedClientEnvSupplier.get(),
+        nonstrictRepoEnvSupplier.get(),
         knownFileHashes,
         knownFileHashesMode,
         previouslySelectedYankedVersions,

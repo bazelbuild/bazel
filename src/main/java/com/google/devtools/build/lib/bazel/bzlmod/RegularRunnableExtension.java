@@ -72,7 +72,7 @@ final class RegularRunnableExtension implements RunnableExtension {
   private final ImmutableMap<String, Optional<String>> staticEnvVars;
   private final BlazeDirectories directories;
   private final ImmutableMap<String, String> repoEnv;
-  private final ImmutableMap<String, String> modifiedClientEnv;
+  private final ImmutableMap<String, String> nonstrictRepoEnv;
   private final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   @Nullable private final RepositoryRemoteExecutor repositoryRemoteExecutor;
@@ -84,7 +84,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       ImmutableMap<String, Optional<String>> staticEnvVars,
       BlazeDirectories directories,
       ImmutableMap<String, String> repoEnv,
-      ImmutableMap<String, String> modifiedClientEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
@@ -94,7 +94,7 @@ final class RegularRunnableExtension implements RunnableExtension {
     this.staticEnvVars = staticEnvVars;
     this.directories = directories;
     this.repoEnv = repoEnv;
-    this.modifiedClientEnv = modifiedClientEnv;
+    this.nonstrictRepoEnv = nonstrictRepoEnv;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.repositoryRemoteExecutor = repositoryRemoteExecutor;
@@ -143,7 +143,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       Environment env,
       BlazeDirectories directories,
       ImmutableMap<String, String> repoEnv,
-      ImmutableMap<String, String> modifiedClientEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
@@ -190,7 +190,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         staticEnvVars,
         directories,
         repoEnv,
-        modifiedClientEnv,
+        nonstrictRepoEnv,
         timeoutScaling,
         processWrapper,
         repositoryRemoteExecutor,
@@ -356,7 +356,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         directories,
         env,
         repoEnv,
-        modifiedClientEnv,
+        nonstrictRepoEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
