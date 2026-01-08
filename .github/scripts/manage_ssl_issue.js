@@ -26,7 +26,9 @@ module.exports = async ({github, context}) => {
     "1. Check `.github/config/ssl_domains.yaml` to verify the domain list.",
     "2. Renew the certificates.",
     "",
-    `[Workflow Run Log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+    `[Workflow Run Log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+    "",
+    "cc: @bazelbuild/bazel-oss"
   ].join("\n");
 
   if (existingIssue) {
@@ -42,7 +44,7 @@ module.exports = async ({github, context}) => {
       repo: context.repo.repo,
       title: title,
       body: body,
-      labels: ["breakage", "P0", "team-OSS"]
+      labels: ["breakage", "P0", "team-OSS", "infrastructure"]
     });
   }
 }
