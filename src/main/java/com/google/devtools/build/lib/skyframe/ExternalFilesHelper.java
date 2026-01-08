@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Common utilities for dealing with paths outside the package roots. */
@@ -45,6 +46,7 @@ public class ExternalFilesHelper {
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
+  private final Supplier<Path> repoContentsCachePathSupplier;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
 
@@ -61,31 +63,52 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(
+            pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /* maxNumExternalFilesToLog= */ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePathSupplier,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories) {
+    return createForTesting(
+        pkgLocator,
+        externalFileAction,
+        directories,
+        /* repoContentsCachePathSupplier= */ () -> null);
+  }
+
+  public static ExternalFilesHelper createForTesting(
+      AtomicReference<PathPackageLocator> pkgLocator,
+      ExternalFileAction externalFileAction,
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePathSupplier,
         // These log lines are mostly spam during unit and integration tests.
         /* maxNumExternalFilesToLog= */ 0);
   }
@@ -155,6 +178,20 @@ public class ExternalFilesHelper {
      * RepositoryDirectoryValue is computed.
      */
     EXTERNAL_REPO,
+
+    /**
+     * The directory containing the repo contents cache entries as well as direct children
+     * corresponding to individual predeclared input hashes. These directories are created by Bazel
+     * but may be deleted when users delete the entire repo contents cache.
+     *
+     * <p>These files' handling differs from EXTERNAL_REPO as they are never modified after they are
+     * created and don't live under the external directory, as well as from EXTERNAL as they
+     * can be recreated by Bazel after diff detection.
+     *
+     * <p>The contents of these directories are considered EXTERNAL as they carry UUID names
+     * and are thus never reused.
+     */
+    REPO_CONTENTS_CACHE_DIRS,
   }
 
   /**
@@ -200,7 +237,11 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePathSupplier,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -233,6 +274,12 @@ public class ExternalFilesHelper {
     if (packageLocator.getPathEntries().contains(rootedPath.getRoot())) {
       return FileType.INTERNAL;
     }
+    var repoContentsCachePath = repoContentsCachePathSupplier.get();
+    if (repoContentsCachePath != null
+        && rootedPath.asPath().startsWith(repoContentsCachePath)
+        && !rootedPath.asPath().relativeTo(repoContentsCachePath).isMultiSegment()) {
+      return FileType.REPO_CONTENTS_CACHE_DIRS;
+    }
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
@@ -263,6 +310,7 @@ public class ExternalFilesHelper {
     switch (fileType) {
       case BUNDLED:
       case INTERNAL:
+      case REPO_CONTENTS_CACHE_DIRS:
         break;
       case EXTERNAL:
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
@@ -287,14 +335,12 @@ public class ExternalFilesHelper {
 
   /**
    * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding repo so
-   * that if the repo definition changes, the File/DirectoryStateValue will be re-evaluated.
+   * that if the repo is refetched, the {File,DirectoryListing}StateValue's of files underneath will
+   * be re-evaluated.
    *
-   * <p>Note that: - We don't add a dependency on the parent directory at the package root boundary,
-   * so the only transitive dependencies from files inside the package roots to external files are
-   * through symlinks. So the upwards transitive closure of external files is small. - The only way
-   * other than external repositories for external source files to get into the skyframe graph in the
-   * first place is through symlinks outside the package roots, which we neither want to encourage
-   * nor optimize for since it is not common. So the set of external files is small.
+   * <p>Note that we don't add a dependency on the parent directory at the package root boundary, so
+   * the only transitive dependencies from files inside the package roots to external files are
+   * through symlinks. So the upwards transitive closure of external files is small.
    */
   private void addExternalFilesDependencies(RootedPath rootedPath, Environment env)
       throws InterruptedException {
