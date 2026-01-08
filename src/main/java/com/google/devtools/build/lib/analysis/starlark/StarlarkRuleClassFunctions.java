@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
@@ -236,17 +235,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .build())
           .build();
 
-  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API =
-      ImmutableSet.of(
-          allowlistEntry("", "initializer_testing"),
-          allowlistEntry("", "extend_rule_testing"),
-          allowlistEntry("", "subrule_testing"));
+  public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API =
+      BuiltinRestriction.Allowlist.of(
+          ImmutableSet.of(
+              allowlistEntry("", "initializer_testing"),
+              allowlistEntry("", "extend_rule_testing"),
+              allowlistEntry("", "subrule_testing")));
 
-  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
-      ImmutableSet.of(
-          allowlistEntry("", "initializer_testing/builtins"),
-          allowlistEntry("", "third_party/bazel_rules/rules_cc"),
-          allowlistEntry("rules_cc", ""));
+  public static final BuiltinRestriction.Allowlist ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
+      BuiltinRestriction.Allowlist.of(
+          ImmutableSet.of(
+              allowlistEntry("", "initializer_testing/builtins"),
+              allowlistEntry("", "third_party/bazel_rules/rules_cc"),
+              allowlistEntry("rules_cc", "")));
 
   private static final String COMMON_ATTRIBUTES_NAME = "common";
 
@@ -1836,9 +1837,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               // allow setting private attributes from initializers in builtins
               Label definitionLabel = currentRuleClass.getRuleDefinitionEnvironmentLabel();
               BuiltinRestriction.failIfLabelOutsideAllowlist(
-                  definitionLabel,
-                  targetDefinitionContext.getMainRepoMapping(),
-                  ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
+                  definitionLabel, ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
             }
             String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;
             Attribute attr =
