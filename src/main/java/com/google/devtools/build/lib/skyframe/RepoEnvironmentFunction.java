@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -32,20 +30,16 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Skyframe function that provides the effective value for a client environment variable. This will
- * either be the value coming from the default client environment, or the value coming from the
- * --action_env flag, if the variable's value is explicitly set.
+ * Skyframe function that provides the effective value for an environment variable in the context of
+ * repository rules and module extensions. This will be the value from the repo environment as
+ * provided by {@link com.google.devtools.build.lib.runtime.CommandEnvironment#getRepoEnv()}.
  */
-public final class ActionEnvironmentFunction implements SkyFunction {
-  @Nullable
+public final class RepoEnvironmentFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    Map<String, String> actionEnv = PrecomputedValue.ACTION_ENV.get(env);
+    Map<String, String> repoEnv = PrecomputedValue.REPO_ENV.get(env);
     String key = (String) skyKey.argument();
-    if (actionEnv.containsKey(key) && actionEnv.get(key) != null) {
-      return new EnvironmentVariableValue(actionEnv.get(key));
-    }
-    return env.getValue(ClientEnvironmentFunction.key(key));
+    return new EnvironmentVariableValue(repoEnv.get(key));
   }
 
   /** Returns the SkyKey to invoke this function for the environment variable {@code variable}. */
@@ -74,7 +68,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.ACTION_ENVIRONMENT_VARIABLE;
+      return SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE;
     }
 
     @Override
@@ -88,22 +82,18 @@ public final class ActionEnvironmentFunction implements SkyFunction {
    * if and only if some dependencies from Skyframe still need to be resolved.
    */
   @Nullable
-  public static ImmutableMap<String, Optional<String>> getEnvironmentView(
+  public static ImmutableSortedMap<String, Optional<String>> getEnvironmentView(
       Environment env, Set<String> keys) throws InterruptedException {
-    var skyframeKeys = keys.stream().map(ActionEnvironmentFunction::key).collect(toImmutableSet());
-    SkyframeLookupResult values = env.getValuesAndExceptions(skyframeKeys);
+    var skyKeys = Collections2.transform(keys, RepoEnvironmentFunction::key);
+    SkyframeLookupResult values = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
-    ImmutableMap.Builder<String, Optional<String>> result =
-        ImmutableMap.builderWithExpectedSize(skyframeKeys.size());
-    for (SkyKey key : skyframeKeys) {
-      EnvironmentVariableValue value = (EnvironmentVariableValue) values.get(key);
+    var result = ImmutableSortedMap.<String, Optional<String>>naturalOrder();
+    for (var key : skyKeys) {
+      var value = (EnvironmentVariableValue) values.get(key);
       if (value == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "ClientEnvironmentValue " + key + " was missing, this should never happen"));
         return null;
       }
       result.put(key.argument().toString(), Optional.ofNullable(value.value()));

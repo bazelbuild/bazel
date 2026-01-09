@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
+import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -629,17 +629,14 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      return ActionEnvironmentFunction.key(name);
+      return RepoEnvironmentFunction.key(name);
     }
 
     @Override
     public Optional<String> isOutdated(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
-      String v = PrecomputedValue.REPO_ENV.get(env).get(name);
-      if (v == null) {
-        v = ((ClientEnvironmentValue) env.getValue(getSkyKey(directories))).getValue();
-      }
+      String v = ((EnvironmentVariableValue) env.getValue(getSkyKey(directories))).value();
       // Note that `oldValue` can be null if the env var was not set.
       if (!Objects.equals(oldValue, v)) {
         return Optional.of(

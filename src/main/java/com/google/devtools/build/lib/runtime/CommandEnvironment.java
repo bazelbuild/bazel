@@ -21,7 +21,9 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
@@ -101,6 +103,9 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This class is non-final for mocking purposes. DO NOT extend it in production code.
  */
 public class CommandEnvironment {
+  private static final ImmutableSet<String> ALWAYS_INHERITED_REPO_ENV =
+      OS.getCurrent() == OS.WINDOWS ? ImmutableSet.of("PATH", "PATHEXT") : ImmutableSet.of("PATH");
+
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
@@ -114,8 +119,8 @@ public class CommandEnvironment {
   private final ImmutableMap<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
-  private final Map<String, String> repoEnv = new TreeMap<>();
-  private final Map<String, String> repoEnvFromOptions = new TreeMap<>();
+  private final ImmutableMap<String, String> repoEnv;
+  private final ImmutableMap<String, String> nonstrictRepoEnv;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
@@ -334,19 +339,12 @@ public class CommandEnvironment {
                 ? buildRequestIdOverride
                 : UUID.randomUUID().toString();
 
-    this.repoEnv.putAll(clientEnv);
-
-    Set<String> defaultRepoEnvInherited = new TreeSet<>();
-    defaultRepoEnvInherited.add("PATH");
-    if (OS.getCurrent() == OS.WINDOWS) {
-      defaultRepoEnvInherited.add("PATHEXT");
-    }
-    for (String name : defaultRepoEnvInherited) {
-      String value = clientEnv.get(name);
-      if (value != null) {
-        this.repoEnvFromOptions.put(name, value);
-      }
-    }
+    var repoEnvBuilder =
+        new TreeMap<>(
+            commandOptions.useStrictRepoEnv
+                ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
+                : clientEnv);
+    var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
 
     // TODO: This only needs to check for loads() rather than analyzes() due to
     //  the effect of --action_env on the repository env. Revert back to
@@ -359,8 +357,8 @@ public class CommandEnvironment {
           case Converters.EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.put(name, value);
-              repoEnvFromOptions.put(name, value);
+              repoEnvBuilder.put(name, value);
+              nonstrictRepoEnvBuilder.put(name, value);
             }
           }
           case Converters.EnvVar.Inherit(String name) -> {
@@ -369,8 +367,8 @@ public class CommandEnvironment {
           case Converters.EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-              repoEnv.remove(name);
-              repoEnvFromOptions.remove(name);
+              repoEnvBuilder.remove(name);
+              nonstrictRepoEnvBuilder.remove(name);
             }
           }
         }
@@ -398,19 +396,21 @@ public class CommandEnvironment {
           if (bazelWorkspace != null) {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
-          repoEnv.put(name, value);
-          repoEnvFromOptions.put(name, value);
+          repoEnvBuilder.put(name, value);
+          nonstrictRepoEnvBuilder.put(name, value);
         }
         case Converters.EnvVar.Inherit(String name) -> {
-          repoEnv.put(name, clientEnv.get(name));
-          repoEnvFromOptions.put(name, clientEnv.get(name));
+          repoEnvBuilder.put(name, clientEnv.get(name));
+          nonstrictRepoEnvBuilder.put(name, clientEnv.get(name));
         }
         case Converters.EnvVar.Unset(String name) -> {
-          repoEnv.remove(name);
-          repoEnvFromOptions.remove(name);
+          repoEnvBuilder.remove(name);
+          nonstrictRepoEnvBuilder.remove(name);
         }
       }
     }
+    this.repoEnv = ImmutableMap.copyOf(repoEnvBuilder);
+    this.nonstrictRepoEnv = ImmutableMap.copyOf(nonstrictRepoEnvBuilder);
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
 
@@ -854,7 +854,6 @@ public class CommandEnvironment {
                 packageLocator,
                 commandId,
                 clientEnv,
-                repoEnvFromOptions,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,
@@ -987,21 +986,40 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the repository environment created from the client environment, {@code --repo_env}, and
-   * {@code --action_env=NAME=VALUE} (when {@code
-   * --incompatible_repo_env_ignores_action_env=false}).
+   * Returns the environment for repository rules and module extensions, which is constructed as
+   * follows:
+   *
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
+   *       Windows only, {@code PATHEXT} are kept;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
    */
-  public Map<String, String> getRepoEnv() {
-    return Collections.unmodifiableMap(repoEnv);
+  public ImmutableMap<String, String> getRepoEnv() {
+    return repoEnv;
   }
 
   /**
-   * Returns the repository environment created from specific client environment variables ({@code
-   * PATH} and on Windows {@code PATH_EXT}), {@code --repo_env}, and {@code --action_env=NAME=VALUE}
-   * (when {@code --incompatible_repo_env_ignores_action_env=false}).
+   * Returns the environment for inherently local, non-hermetic operations associated with
+   * repository rules and module extensions, such as credential helpers. It is constructed as
+   * follows:
+   *
+   * <ul>
+   *   <li>the client environment as the base;
+   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
+   *       applied on top of that;
+   *   <li>finally, {@code --repo_env} is applied on top of that.
+   * </ul>
+   *
+   * <p>This differs from {@link #getRepoEnv()} in that it does not apply {@code
+   * --experimental_strict_repo_env}, and thus always includes the full client environment as a
+   * base.
    */
-  public Map<String, String> getRepoEnvFromOptions() {
-    return Collections.unmodifiableMap(repoEnvFromOptions);
+  public ImmutableMap<String, String> getNonstrictRepoEnv() {
+    return nonstrictRepoEnv;
   }
 
   /** Returns the file cache to use during this build. */

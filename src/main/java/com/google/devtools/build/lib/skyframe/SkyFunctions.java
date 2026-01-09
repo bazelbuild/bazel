@@ -25,6 +25,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("CLIENT_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createHermetic("ACTION_ENVIRONMENT_VARIABLE");
+  public static final SkyFunctionName REPOSITORY_ENVIRONMENT_VARIABLE =
+      SkyFunctionName.createHermetic("REPOSITORY_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.createNonHermetic("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING =
