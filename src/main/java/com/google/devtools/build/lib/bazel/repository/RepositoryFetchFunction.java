@@ -233,7 +233,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState =
             digestWriter.areRepositoryAndMarkerFileConsistent(env, state.indeterminateState);
-        System.err.println(repositoryName + ": " + repoState);
         switch (repoState) {
           case RepoDirectoryState.Indeterminate intermediateState -> {
             state.indeterminateState = intermediateState;
