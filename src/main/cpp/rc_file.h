@@ -55,6 +55,12 @@ class RcFile {
       std::string* error_text, ReadFileFn read_file = &ReadFileDefault,
       CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
 
+  // Command -> all options for that command (in order of appearance).
+  using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
+
+  static std::unique_ptr<RcFile> Create(
+      std::vector<std::string> canonical_rcfile_paths, OptionMap options);
+
   // Movable and copyable.
   RcFile(const RcFile&) = default;
   RcFile(RcFile&&) = default;
@@ -66,8 +72,6 @@ class RcFile {
     return canonical_rcfile_paths_;
   }
 
-  // Command -> all options for that command (in order of appearance).
-  using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
   const OptionMap& options() const { return options_; }
 
  private:

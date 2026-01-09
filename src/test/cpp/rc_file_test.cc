@@ -38,14 +38,18 @@
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
+using ::testing::AllOf;
 using ::testing::ContainsRegex;
 using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::MatchesRegex;
 using ::testing::Optional;
+using ::testing::Pair;
 using ::testing::Pointee;
+using ::testing::UnorderedElementsAre;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "NUL";
@@ -1089,6 +1093,25 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
       "unnecessarily imported earlier.\n");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
+
+TEST(RcFileCreateTest, CreatesRcFileSuccessfully) {
+  std::vector<std::string> paths = {"/path/to/rc1", "/path/to/rc2"};
+  RcFile::OptionMap options;
+  options["build"].push_back({"--foo", 0});
+  options["test"].push_back({"--bar", 1});
+
+  std::unique_ptr<RcFile> rc_file = RcFile::Create(paths, options);
+
+  ASSERT_NE(rc_file, nullptr);
+  EXPECT_EQ(rc_file->canonical_source_paths(), paths);
+  EXPECT_THAT(
+      rc_file->options(),
+      UnorderedElementsAre(
+          Pair("build", ElementsAre(AllOf(Field(&RcOption::option, "--foo"),
+                                          Field(&RcOption::source_index, 0)))),
+          Pair("test", ElementsAre(AllOf(Field(&RcOption::option, "--bar"),
+                                         Field(&RcOption::source_index, 1))))));
+}
 
 TEST(BazelVersionMatchesCondition_Tilde, VersionFullSemanticVersion) {
   std::string error_text;

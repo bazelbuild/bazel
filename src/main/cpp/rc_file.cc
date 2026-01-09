@@ -82,6 +82,14 @@ const LazyRE2 kBazelVersionCmpOp = {R"((<=?|>=?|==|!=|~)(\S+))"};
                canonicalize_path);
 }
 
+std::unique_ptr<RcFile> RcFile::Create(
+    std::vector<std::string> canonical_rcfile_paths, OptionMap options) {
+  auto rc_file = absl::WrapUnique(new RcFile());
+  rc_file->canonical_rcfile_paths_ = std::move(canonical_rcfile_paths);
+  rc_file->options_ = std::move(options);
+  return rc_file;
+}
+
 RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                                      const std::string& workspace,
                                      const WorkspaceLayout& workspace_layout,
