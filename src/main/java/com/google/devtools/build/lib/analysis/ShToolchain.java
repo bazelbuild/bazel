@@ -50,9 +50,8 @@ public final class ShToolchain {
     }
 
     return Optional.ofNullable(platformInfo)
-        .flatMap(ConstraintConstants::getOsFromConstraints)
+        .map(ConstraintConstants::getOsFromConstraintsOrHost)
         .flatMap(ShellConfiguration::getShellExecutable)
-        .or(() -> ShellConfiguration.getShellExecutable(OS.getCurrent()))
         .or(() -> ShellConfiguration.getShellExecutable(OS.UNKNOWN))
         .orElseThrow();
   }

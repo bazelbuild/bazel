@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
@@ -1386,7 +1386,7 @@ public class RuleContext extends TargetContext
 
   /** Returns true if the execution platform of the default exec group is Windows. */
   public boolean isDefaultExecGroupExecutingOnWindows() {
-    return getOsFromConstraints(getExecutionPlatform()).orElse(OS.getCurrent()) == OS.WINDOWS;
+    return getOsFromConstraintsOrHost(getExecutionPlatform()) == OS.WINDOWS;
   }
 
   /**

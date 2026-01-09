@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
@@ -201,8 +201,7 @@ public final class TestActionBuilder {
     ActionOwner actionOwner =
         getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
     boolean isExecutedOnWindows =
-        getOsFromConstraints(actionOwner.getExecutionPlatform()).orElse(OS.getCurrent())
-            == OS.WINDOWS;
+        getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(

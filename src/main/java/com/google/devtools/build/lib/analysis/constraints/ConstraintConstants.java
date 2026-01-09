@@ -67,14 +67,12 @@ public final class ConstraintConstants {
 
   /**
    * Returns the OS corresponding to the given platform's constraint collection based on the
-   * contained platform constraint.
+   * contained platform constraint, falling back to the host platform if none is found.
    */
-  public static Optional<OS> getOsFromConstraints(PlatformInfo platformInfo) {
-    var osConstraintValue = platformInfo.constraints().get(OS_CONSTRAINT_SETTING);
-    if (osConstraintValue == null) {
-      return Optional.empty();
-    }
-    return Optional.ofNullable(CONSTRAINT_VALUE_TO_OS.get(osConstraintValue));
+  public static OS getOsFromConstraintsOrHost(PlatformInfo platformInfo) {
+    return Optional.ofNullable(platformInfo.constraints().get(OS_CONSTRAINT_SETTING))
+        .flatMap(osConstraint -> Optional.ofNullable(CONSTRAINT_VALUE_TO_OS.get(osConstraint)))
+        .orElseGet(OS::getCurrent);
   }
 
   // No-op constructor to keep this from being instantiated.

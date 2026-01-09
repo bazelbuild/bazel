@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,7 +28,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -84,8 +85,7 @@ public final class TestTargetExecutionSettings {
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;
-    this.executionOs =
-        ConstraintConstants.getOsFromConstraints(executionPlatform).orElse(OS.getCurrent());
+    this.executionOs = getOsFromConstraintsOrHost(executionPlatform);
   }
 
   @Nullable
