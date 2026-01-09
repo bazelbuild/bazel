@@ -38,7 +38,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:tidy",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:vendor",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",

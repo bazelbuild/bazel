@@ -357,7 +357,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           packageLocator,
           UUID.randomUUID(),
           ImmutableMap.of(),
-          ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),

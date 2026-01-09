@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -69,7 +70,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -89,8 +89,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   private final BlazeDirectories directories;
   private final LocalRepoContentsCache repoContentsCache;
-  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> repoEnvSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private DownloadManager downloadManager;
@@ -100,12 +100,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
   @Nullable private SyscallCache syscallCache;
 
   public RepositoryFetchFunction(
-      Supplier<Map<String, String>> repoEnvironmentSupplier,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
+      Supplier<ImmutableMap<String, String>> repoEnvSupplier,
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier,
       BlazeDirectories directories,
       LocalRepoContentsCache repoContentsCache) {
-    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.repoEnvSupplier = repoEnvSupplier;
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -585,7 +585,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
     StarlarkCallable function = repoDefinition.repoRule().impl();
     ImmutableMap<String, Optional<String>> envVarValues =
-        RepositoryUtils.getEnvVarValues(env, repoDefinition.repoRule().environ());
+        RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
     if (envVarValues == null) {
       return null;
     }
@@ -628,8 +628,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 outputDirectory,
                 ignoredSubdirectories.asIgnoredSubdirectories(),
                 env,
-                ImmutableMap.copyOf(repoEnvironmentSupplier.get()),
-                ImmutableMap.copyOf(clientEnvironmentSupplier.get()),
+                repoEnvSupplier.get(),
+                ImmutableMap.copyOf(nonstrictRepoEnvSupplier.get()),
                 downloadManager,
                 timeoutScaling,
                 processWrapper,

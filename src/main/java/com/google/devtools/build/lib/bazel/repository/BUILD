@@ -70,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -138,14 +139,11 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
