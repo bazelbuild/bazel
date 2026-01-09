@@ -158,7 +158,9 @@ class HttpConnector {
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
-          throw new UnrecoverableHttpException(message);
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
         } catch (IllegalArgumentException e) {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());
