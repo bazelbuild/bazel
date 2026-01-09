@@ -221,7 +221,6 @@ tasks:
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
       - "-//src/test/java/com/google/devtools/build/android/..."
-      
   windows:
     shards: 4
     batch_commands:
@@ -251,7 +250,6 @@ tasks:
       - "//src:embedded_tools_size_test"
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
-      - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
       - "//src/test/java/com/google/devtools/common/options/..."
@@ -293,7 +291,6 @@ tasks:
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
       - "-//src/test/java/com/google/devtools/build/android/..."
-
   rbe_ubuntu1804:
     platform: ubuntu1804
     name: "RBE"
@@ -348,11 +345,10 @@ tasks:
       # The CI infrastructure no longer supports these tests.
       - "-//src/test/shell/bazel/android/..."
       - "-//src/test/java/com/google/devtools/build/android/..."
-
   kythe_ubuntu2004:
     index_flags:
-    - "--define=kythe_corpus=github.com/bazelbuild/bazel"
-    index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
+      - "--define=kythe_corpus=github.com/bazelbuild/bazel"
+    index_targets_query: 'kind("cc_(binary|library|test|proto_library) rule", ...) union kind("java_(binary|import|library|plugin|test|proto_library) rule", ...) union kind("proto_library rule", ...)'
     index_upload_policy: Always
     index_upload_gcs: False
   docs_ubuntu1804:
