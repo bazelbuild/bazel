@@ -112,7 +112,6 @@ java_library(
         ":cached_bzl_load_value_and_deps",
         ":cached_bzl_load_value_and_deps_builder_factory",
         ":client_environment_function",
-        ":client_environment_value",
         ":collect_packages_under_directory_function",
         ":collect_packages_under_directory_value",
         ":collect_targets_in_package_function",
@@ -132,6 +131,7 @@ java_library(
         ":directory_listing_function",
         ":directory_listing_state_value",
         ":directory_tree_digest_function",
+        ":environment_variable_value",
         ":ephemeral_check_if_output_consumed",
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
@@ -176,6 +176,7 @@ java_library(
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
         ":recursive_pkg_value",
+        ":repo_environment_function",
         ":repo_file_function",
         ":repo_package_args_function",
         ":repository_mapping_function",
@@ -445,7 +446,7 @@ java_library(
     srcs = ["ActionEnvironmentFunction.java"],
     deps = [
         ":client_environment_function",
-        ":client_environment_value",
+        ":environment_variable_value",
         ":precomputed_value",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -1047,7 +1048,7 @@ java_library(
     name = "client_environment_function",
     srcs = ["ClientEnvironmentFunction.java"],
     deps = [
-        ":client_environment_value",
+        ":environment_variable_value",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -1057,9 +1058,10 @@ java_library(
 )
 
 java_library(
-    name = "client_environment_value",
-    srcs = ["ClientEnvironmentValue.java"],
+    name = "environment_variable_value",
+    srcs = ["EnvironmentVariableValue.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
@@ -3336,5 +3338,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "repo_environment_function",
+    srcs = ["RepoEnvironmentFunction.java"],
+    deps = [
+        ":environment_variable_value",
+        ":precomputed_value",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
