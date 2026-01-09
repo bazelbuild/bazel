@@ -71,9 +71,6 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
 
   private final LinkedBlockingQueue<K> journal;
 
-  @GuardedBy("this")
-  private MapCodec<K, V>.Writer journalOut;
-
   /**
    * If non-null, contains the message from an {@code IOException} thrown by a previously failed
    * write. This error is deferred until the next call to a method which is able to throw an
@@ -188,17 +185,13 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
 
   /** Flushes the in-memory journal to disk. */
   public synchronized void flushJournal() {
-    try {
-      if (journalOut == null) {
-        // Append to a preexisting journal file, which may have been left around after the last
-        // save() because shouldKeepJournal() was true.
-        journalOut = codec.createWriter(journalFile, version, /* overwrite= */ false);
-      }
+    // Append to a preexisting journal file, which may have been left around after the last save()
+    // because shouldKeepJournal() was true.
+    try (var journalOut = codec.createWriter(journalFile, version, /* overwrite= */ false)) {
       // Journal may have duplicates, we can ignore them.
       LinkedHashSet<K> keys = Sets.newLinkedHashSetWithExpectedSize(journal.size());
       journal.drainTo(keys);
       writeEntries(journalOut, keys);
-      journalOut.flush();
     } catch (IOException e) {
       this.deferredIOFailure = e.getMessage() + " during journal append";
     }
@@ -282,8 +275,6 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     }
     if (!fullSave && shouldKeepJournal()) {
       flushJournal();
-      journalOut.close();
-      journalOut = null;
     } else {
       Path mapTemp =
           mapFile.getRelative(FileSystemUtils.replaceExtension(mapFile.asFragment(), ".tmp"));
@@ -318,12 +309,8 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     return false;
   }
 
-  private synchronized void clearJournal() throws IOException {
+  private synchronized void clearJournal() {
     journal.clear();
-    if (journalOut != null) {
-      journalOut.close();
-      journalOut = null;
-    }
   }
 
   /**
