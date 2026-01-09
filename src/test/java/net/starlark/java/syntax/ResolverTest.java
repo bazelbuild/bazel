@@ -14,7 +14,8 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static net.starlark.java.syntax.LexerTest.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.moduleWithPredeclared;
 
 import com.google.common.base.Joiner;
 import java.util.List;
@@ -34,7 +35,7 @@ public class ResolverTest {
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    Resolver.resolveFile(file, Resolver.moduleWithPredeclared("pre"));
+    Resolver.resolveFile(file, moduleWithPredeclared("pre"));
     return file;
   }
 

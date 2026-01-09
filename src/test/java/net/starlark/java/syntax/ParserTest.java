@@ -39,7 +39,7 @@ public final class ParserTest {
   private FileOptions fileOptions = FileOptions.DEFAULT;
 
   private SyntaxError assertContainsError(String expectedMessage) {
-    return LexerTest.assertContainsError(events, expectedMessage);
+    return TestUtils.assertContainsError(events, expectedMessage);
   }
 
   private void setFailFast(boolean failFast) {
@@ -2179,7 +2179,7 @@ public final class ParserTest {
   @Test
   public void testParseFileStackOverflow() throws Exception {
     StarlarkFile file = StarlarkFile.parse(veryDeepExpression());
-    SyntaxError ex = LexerTest.assertContainsError(file.errors(), "internal error: stack overflow");
+    SyntaxError ex = TestUtils.assertContainsError(file.errors(), "internal error: stack overflow");
     assertThat(ex.message()).contains("parseDictEntry"); // includes stack
     assertThat(ex.message()).contains("Please report the bug");
     assertThat(ex.message()).contains("include the text of foo.star"); // includes file name
@@ -2189,7 +2189,7 @@ public final class ParserTest {
   public void testParseExpressionStackOverflow() throws Exception {
     SyntaxError.Exception ex =
         assertThrows(SyntaxError.Exception.class, () -> Expression.parse(veryDeepExpression()));
-    SyntaxError err = LexerTest.assertContainsError(ex.errors(), "internal error: stack overflow");
+    SyntaxError err = TestUtils.assertContainsError(ex.errors(), "internal error: stack overflow");
     assertThat(err.message()).contains("parseDictEntry"); // includes stack
     assertThat(err.message())
         .contains("while parsing Starlark expression <<{{{{"); // includes expression

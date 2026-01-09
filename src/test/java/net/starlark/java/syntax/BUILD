@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -11,6 +11,17 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "TestUtils",
+    srcs = ["TestUtils.java"],
+    visibility = ["//src/test/java/net/starlark/java:__subpackages__"],
+    deps = [
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
+        "//third_party:guava",
+    ],
 )
 
 # SyntaxTests tests the Starlark parser/resolver.
@@ -34,6 +45,7 @@ java_test(
         "TypesTest.java",
     ],
     deps = [
+        ":TestUtils",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/java/net/starlark/java/types",
         "//third_party:guava",

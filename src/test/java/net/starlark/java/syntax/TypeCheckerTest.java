@@ -16,7 +16,7 @@ package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static net.starlark.java.syntax.LexerTest.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ObjectArrays;
@@ -56,7 +56,7 @@ public final class TypeCheckerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
-    Module module = Resolver.moduleWithPredeclared();
+    Module module = TestUtils.moduleWithPredeclared();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
     TypeResolver.annotateFile(file, module);

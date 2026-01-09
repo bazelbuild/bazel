@@ -17,7 +17,6 @@ package net.starlark.java.syntax;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -442,29 +441,6 @@ public final class Resolver extends NodeVisitor {
         this(message, /* candidates= */ null);
       }
     }
-  }
-
-  // A simple implementation of the Module for testing.
-  // It defines only the predeclared names---no "universal" names (e.g. None)
-  // or initially-defined globals (as happens in a REPL).
-  // Realistically, most clients will use an eval.Module.
-  // TODO(adonovan): move into test/ tree.
-  public static Module moduleWithPredeclared(String... names) {
-    ImmutableSet<String> predeclared = ImmutableSet.copyOf(names);
-    return new Module() {
-      @Override
-      public Scope resolve(String name) throws Undefined {
-        if (predeclared.contains(name)) {
-          return Scope.PREDECLARED;
-        }
-        throw new Undefined(String.format("name '%s' is not defined", name), predeclared);
-      }
-
-      @Override
-      public StarlarkType resolveType(String name) throws Undefined {
-        throw new Undefined("moduleWithPredeclared does not support types");
-      }
-    };
   }
 
   /**

@@ -16,7 +16,7 @@ package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static net.starlark.java.syntax.LexerTest.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public class TypeResolverTest {
     Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
     // TODO: #27728 - When type resolution can consider non-universal types, use a better mock
     // module here that supports evalType().
-    return TypeResolver.evalTypeExpression(typeExpr, Resolver.moduleWithPredeclared());
+    return TypeResolver.evalTypeExpression(typeExpr, TestUtils.moduleWithPredeclared());
   }
 
   /**
@@ -51,7 +51,7 @@ public class TypeResolverTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.ok()).isTrue();
-    Module module = Resolver.moduleWithPredeclared();
+    Module module = TestUtils.moduleWithPredeclared();
     Resolver.resolveFile(file, module);
     assertThat(file.ok()).isTrue();
     TypeResolver.annotateFile(file, module);
