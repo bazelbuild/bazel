@@ -62,6 +62,11 @@ public final class CacheNotFoundException extends IOException {
     return execPath;
   }
 
+  @Nullable
+  public String getFilename() {
+    return filename;
+  }
+
   @Override
   public String getMessage() {
     String message =
