@@ -63,6 +63,17 @@ public final class TypeChecker extends NodeVisitor {
     return type != null ? type : Types.ANY;
   }
 
+  private void errorIfKeyNotInt(IndexExpression index, StarlarkType objType, StarlarkType keyType) {
+    if (!StarlarkType.assignableFrom(Types.INT, keyType)) {
+      errorf(
+          index.getLbracketLocation(),
+          "'%s' of type '%s' must be indexed by an integer, but got '%s'",
+          index.getObject(),
+          objType,
+          keyType);
+    }
+  }
+
   /**
    * Infers the type of an expression from a bottom-up traversal, relying on type information stored
    * in identifier bindings by the {@link TypeResolver}.
@@ -110,46 +121,131 @@ public final class TypeChecker extends NodeVisitor {
         }
       }
       case INDEX -> {
-        var index = (IndexExpression) expr;
-        StarlarkType objType = infer(index.getObject());
-        StarlarkType keyType = infer(index.getKey());
-
-        // TODO: #28037 - Support indexing lists and tuples.
-        // TODO: #28043 - Broaden list to Sequence and dict to Mapping, once we have better type
-        // hierarchy support in the static type machinery.
-        if (objType.equals(Types.ANY)) {
-          return Types.ANY;
-        } else if (objType instanceof Types.TupleType tupleType) {
-          throw new UnsupportedOperationException("cannot typecheck index expression on a tuple");
-        } else if (objType instanceof Types.ListType listType) {
-          throw new UnsupportedOperationException("cannot typecheck index expression on a list");
-        } else if (objType instanceof Types.DictType dictType) {
-          if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
-            errorf(
-                index.getLbracketLocation(),
-                "'%s' of type '%s' requires key type '%s', but got '%s'",
-                index.getObject(),
-                objType,
-                dictType.getKeyType(),
-                keyType);
-            // Fall through to returning the value type.
-          }
-          return dictType.getValueType();
-        } else {
-          errorf(
-              index.getLbracketLocation(),
-              "cannot index '%s' of type '%s'",
-              index.getObject(),
-              objType);
-          return Types.ANY;
+        return inferIndex((IndexExpression) expr);
+      }
+      case LIST_EXPR -> {
+        var list = (ListExpression) expr;
+        List<StarlarkType> elementTypes = new ArrayList<>();
+        for (Expression element : list.getElements()) {
+          elementTypes.add(infer(element));
         }
+        return Types.list(Types.union(elementTypes));
+      }
+      case DICT_EXPR -> {
+        var dict = (DictExpression) expr;
+        List<StarlarkType> keyTypes = new ArrayList<>();
+        List<StarlarkType> valueTypes = new ArrayList<>();
+        for (var entry : dict.getEntries()) {
+          keyTypes.add(infer(entry.getKey()));
+          valueTypes.add(infer(entry.getValue()));
+        }
+        return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
+      }
+      case UNARY_OPERATOR -> {
+        var unop = (UnaryOperatorExpression) expr;
+        if (unop.getOperator() == TokenKind.NOT) {
+          // NOT always returns a boolean (even if applied to Any or unions).
+          return Types.BOOL;
+        }
+        StarlarkType xType = infer(unop.getX());
+        if (xType.equals(Types.ANY)
+            || ((unop.getOperator() == TokenKind.MINUS || unop.getOperator() == TokenKind.PLUS)
+                && isNumeric(xType))
+            || (unop.getOperator() == TokenKind.TILDE && xType.equals(Types.INT))) {
+          // Unary operators other than NOT preserve the type of their operand.
+          return xType;
+        }
+        errorf(
+            unop.getStartLocation(),
+            "operator '%s' cannot be applied to type '%s'",
+            unop.getOperator(),
+            xType);
+        return Types.ANY;
       }
       default -> {
-        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, dict_expr,
-        // lambda, list, slice, and unaryop expressions.
+        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, lambda, and
+        // slice expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }
+    }
+  }
+
+  private static boolean isNumeric(StarlarkType type) {
+    if (type.equals(Types.INT) || type.equals(Types.FLOAT)) {
+      return true;
+    }
+    if (type instanceof Types.UnionType unionType) {
+      return unionType.getTypes().stream().allMatch(TypeChecker::isNumeric);
+    }
+    return false;
+  }
+
+  private StarlarkType inferIndex(IndexExpression index) {
+    Expression obj = index.getObject();
+    Expression key = index.getKey();
+    StarlarkType objType = infer(obj);
+    StarlarkType keyType = infer(key);
+
+    if (objType.equals(Types.ANY)) {
+      return Types.ANY;
+
+    } else if (objType instanceof Types.TupleType tupleType) {
+      errorIfKeyNotInt(index, objType, keyType);
+      var elementTypes = tupleType.getElementTypes();
+      StarlarkType resultType = null;
+      // Project out the type of the specific component if we can statically determine the index.
+      // TODO: #28037 - Consider allowing more complicated static expressions, e.g. unary
+      // (minus sign) and binary operators on integers.
+      if (key.kind() == Expression.Kind.INT_LITERAL) {
+        Integer i = ((IntLiteral) key).getIntValueExact();
+        if (i != null) {
+          if (0 <= i && i < elementTypes.size()) {
+            resultType = elementTypes.get(i);
+          } else {
+            errorf(
+                index.getLbracketLocation(),
+                "'%s' of type '%s' is indexed by integer %s, which is out-of-range",
+                obj,
+                objType,
+                i);
+            // Don't complain about uses of the result type when we don't even know what result type
+            // the user wanted.
+            return Types.ANY;
+          }
+        }
+      }
+      if (resultType == null) {
+        resultType = Types.union(elementTypes);
+      }
+      return resultType;
+
+      // TODO: #28043 - Broaden from List to Sequence once we have better type hierarchy support.
+    } else if (objType instanceof Types.ListType listType) {
+      errorIfKeyNotInt(index, objType, keyType); // fall through on error
+      return listType.getElementType();
+
+      // TODO: #28043 - Broaden from Dict to Mapping once we have better type hierarchy support.
+    } else if (objType instanceof Types.DictType dictType) {
+      if (!StarlarkType.assignableFrom(dictType.getKeyType(), keyType)) {
+        errorf(
+            index.getLbracketLocation(),
+            "'%s' of type '%s' requires key type '%s', but got '%s'",
+            obj,
+            objType,
+            dictType.getKeyType(),
+            keyType);
+        // Fall through to returning the value type.
+      }
+      return dictType.getValueType();
+
+    } else if (objType.equals(Types.STR)) {
+      errorIfKeyNotInt(index, objType, keyType); // fall through on error
+      return Types.STR;
+
+    } else {
+      errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
+      return Types.ANY;
     }
   }
 
@@ -223,6 +319,9 @@ public final class TypeChecker extends NodeVisitor {
     // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
     // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as list[int]
     // instead of list[object].
+    // TODO: #28037 - Consider rejecting the assignment if the LHS is read-only, e.g. an index
+    // expression of a string. This would require either an ad hoc check here in this method, or
+    // else passing back from infer() more detailed information than just the StarlarkType.
     var rhsType = infer(assignment.getRHS());
 
     assign(assignment.getLHS(), rhsType);

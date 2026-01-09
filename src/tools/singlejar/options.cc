@@ -62,7 +62,8 @@ bool Options::ParseToken(ArgTokenStream* tokens) {
       tokens->MatchAndSet("--add_exports", &add_exports) ||
       tokens->MatchAndSet("--add_opens", &add_opens) ||
       tokens->MatchAndSet("--output_jar_creator", &output_jar_creator) ||
-      tokens->MatchAndSet("--no_strip_module_info", &no_strip_module_info)) {
+      tokens->MatchAndSet("--no_strip_module_info", &no_strip_module_info) ||
+      tokens->MatchAndSet("--exclude_pattern", &exclude_pattern)) {
     return true;
   } else if (tokens->MatchAndSet("--build_info_file", &optarg)) {
     build_info_files.push_back(optarg);

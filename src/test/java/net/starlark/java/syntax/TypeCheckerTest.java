@@ -16,7 +16,7 @@ package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static net.starlark.java.syntax.LexerTest.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ObjectArrays;
@@ -56,7 +56,7 @@ public final class TypeCheckerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
-    Module module = Resolver.moduleWithPredeclared();
+    Module module = TestUtils.moduleWithPredeclared();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
     TypeResolver.annotateFile(file, module);
@@ -286,5 +286,226 @@ public final class TypeCheckerTest {
         """);
   }
 
-  // TODO: #28037 - Indexing of lists, tuples, and strings
+  @Test
+  public void infer_index_list() throws Exception {
+    assertTypeGivenDecls("arr[123]", Types.STR, "arr: list[str]");
+
+    assertTypeGivenDecls("arr[a]", Types.STR, "arr: list[str]; a: Any");
+
+    assertInvalid(
+        ":2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'",
+        """
+        arr: list[str]
+        arr["abc"]
+        """);
+  }
+
+  @Test
+  public void assignment_index_list() throws Exception {
+    assertValid(
+        """
+        # Normal case.
+        arr: list[str]
+        arr[123] = "abc"
+
+        # Any as index.
+        a: Any
+        arr[a] = "abc"
+
+        # Any as value.
+        arr[123] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 'arr[123]' of type 'str'\
+        """,
+        """
+        arr: list[str]
+        arr[123] = 456
+        """);
+
+    // This failure is through the infer() code path, also exercised in the test case above.
+    assertInvalid(
+        """
+        :2:4: 'arr' of type 'list[str]' must be indexed by an integer, but got 'str'\
+        """,
+        """
+        arr: list[str]
+        arr["abc"] = "xyz"
+        """);
+  }
+
+  @Test
+  public void infer_index_str() throws Exception {
+    assertTypeGivenDecls("s[123]", Types.STR, "s: str");
+
+    assertTypeGivenDecls("s[a]", Types.STR, "s: str; a: Any");
+
+    assertInvalid(
+        ":2:2: 's' of type 'str' must be indexed by an integer, but got 'str'",
+        """
+        s: str
+        s["abc"]
+        """);
+  }
+
+  @Test
+  public void assignment_index_str() throws Exception {
+    // Strings are immutable, so any assignment to an index expression of a string will fail
+    // dynamically. But it's not currently a static error, if the types are correct.
+    // TODO: #28037 - Fail static type checking on assignments to immutable values.
+    assertValid(
+        """
+        # Normal case.
+        s: str
+        s[123] = "abc"
+
+        # Any as index.
+        a: Any
+        s[a] = "abc"
+
+        # Any as value.
+        s[123] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 's[123]' of type 'str'\
+        """,
+        """
+        s: str
+        s[123] = 456
+        """);
+
+    // This failure is through the infer() code path, also exercised in the test case above.
+    assertInvalid(
+        """
+        :2:2: 's' of type 'str' must be indexed by an integer, but got 'str'\
+        """,
+        """
+        s: str
+        s["abc"] = "xyz"
+        """);
+  }
+
+  @Test
+  public void infer_index_tuple() throws Exception {
+    // Statically knowable index in-range.
+    assertTypeGivenDecls("t[1]", Types.STR, "t: tuple[int, str, bool]");
+
+    // Index can't be statically determined.
+    StarlarkType unionType = Types.union(Types.INT, Types.STR, Types.BOOL);
+    assertTypeGivenDecls("t[n]", unionType, "t: tuple[int, str, bool]; n: int");
+    assertTypeGivenDecls("t[a]", unionType, "t: tuple[int, str, bool]; a: Any");
+    // TODO: #28037 - Add negative indices here, once we support unary expressions.
+
+    // Bad index type.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' must be indexed by an integer, but got 'str'",
+        """
+        t: tuple[int, str, bool]
+        t["abc"]
+        """);
+
+    // Statically knowable index out-of-range.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' is indexed by integer 3, which is out-of-range",
+        """
+        t: tuple[int, str, bool]
+        t[3]
+        """);
+  }
+
+  @Test
+  public void assignment_index_tuple() throws Exception {
+    // Tuple mutation is illegal, but not currently a static error if there's no type mismatch.
+    // TODO: #28037 - Fail static type checking on assignments to immutable values.
+    assertValid(
+        """
+        # Normal case.
+        t: tuple[int, str, bool]
+        t[1] = "abc"
+
+        # Any as index.
+        # This is a particularly nonsensical assignment that nonetheless passes the checker.
+        a: Any
+        u: int | str | bool
+        t[a] = u
+
+        # Any as value.
+        t[1] = a
+        """);
+
+    assertInvalid(
+        """
+        :2:1: cannot assign type 'int' to 't[1]' of type 'str'\
+        """,
+        """
+        t: tuple[int, str, bool]
+        t[1] = 123
+        """);
+  }
+
+  @Test
+  public void infer_dict() throws Exception {
+    // Empty case.
+    assertTypeGivenDecls("{}", Types.dict(Types.NEVER, Types.NEVER));
+
+    // Homogeneous case.
+    assertTypeGivenDecls("{'a': 1, 'b': 2}", Types.dict(Types.STR, Types.INT));
+
+    // Heterogeneous case.
+    StarlarkType unionType = Types.union(Types.STR, Types.INT);
+    assertTypeGivenDecls("{'a': 'abc', 1: 123}", Types.dict(unionType, unionType));
+  }
+
+  @Test
+  public void infer_list() throws Exception {
+    // Empty case.
+    assertTypeGivenDecls("[]", Types.list(Types.NEVER));
+
+    // Homogeneous case.
+    assertTypeGivenDecls("[1, 2, 3]", Types.list(Types.INT));
+
+    // Heterogeneous case.
+    StarlarkType unionType = Types.union(Types.INT, Types.STR);
+    assertTypeGivenDecls("[1, 'a']", Types.list(unionType));
+  }
+
+  @Test
+  public void infer_unary_operator() throws Exception {
+    StarlarkType numeric = Types.union(Types.INT, Types.FLOAT);
+
+    // NOT is always boolean.
+    assertTypeGivenDecls("not x", Types.BOOL, "x: bool");
+    assertTypeGivenDecls("not x", Types.BOOL, "x: Any");
+    assertTypeGivenDecls("not x", Types.BOOL, "x: list[int] | str");
+
+    // The remaining unary operators preserve the type of their operand.
+    assertTypeGivenDecls("-i", Types.INT, "i: int");
+    assertTypeGivenDecls("-42", Types.INT);
+    assertTypeGivenDecls("-x", Types.FLOAT, "x: float");
+    assertTypeGivenDecls("-99.9", Types.FLOAT);
+    assertTypeGivenDecls("-x", Types.INT, "x: int");
+    assertTypeGivenDecls("-x", Types.ANY, "x: Any");
+    assertTypeGivenDecls("-x", numeric, "x: int | float");
+
+    assertTypeGivenDecls("+i", Types.INT, "i: int");
+    assertTypeGivenDecls("+42", Types.INT);
+    assertTypeGivenDecls("+x", Types.FLOAT, "x: float");
+    assertTypeGivenDecls("+99.9", Types.FLOAT);
+    assertTypeGivenDecls("+x", Types.ANY, "x: Any");
+    assertTypeGivenDecls("+x", numeric, "x: int | float");
+
+    assertTypeGivenDecls("~i", Types.INT, "i: int");
+    assertTypeGivenDecls("~1", Types.INT);
+    assertTypeGivenDecls("~x", Types.ANY, "x: Any");
+
+    // Unsupported operations.
+    assertInvalid(":1:1: operator '-' cannot be applied to type 'str'", "-'hello'");
+    assertInvalid(":1:1: operator '+' cannot be applied to type 'str'", "+'hello'");
+    assertInvalid(":1:1: operator '~' cannot be applied to type 'str'", "~'hello'");
+    assertInvalid(":1:15: operator '-' cannot be applied to type 'str|int'", "x: str | int; -x");
+  }
 }

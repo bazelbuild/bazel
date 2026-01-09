@@ -37,5 +37,7 @@ py_test(
 py_test(
     name = "fail",
     srcs = ["fail.py"],
+    # Intentional failure for demonstration purposes.
+    tags = ["manual"],
     deps = [":lib"],
 )

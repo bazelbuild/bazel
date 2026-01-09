@@ -18,20 +18,7 @@ tasks:
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/compliance/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
+      - "//..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -83,19 +70,7 @@ tasks:
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
+      - "//..."
     include_json_profile:
       - build
       - test
@@ -136,19 +111,7 @@ tasks:
     test_flags:
       - "--config=ci-linux"
     test_targets:
-      - "//scripts/..."
-      - "//src/java_tools/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
+      - "//..."
     include_json_profile:
       - build
       - test
@@ -169,21 +132,11 @@ tasks:
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
     test_targets:
-      - "//scripts/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
+      - "//..."
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
+      - "-//src/main/starlark/tests/builtins_bzl:cc_builtin_tests"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of the Bazel repo.
@@ -216,18 +169,7 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
-      - "//scripts/..."
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/..."
-      - "//src/tools/execlog/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//src/tools/workspacelog/..."
-      - "//third_party/ijar/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/python/..."
-      - "//tools/bash/..."
-      - "//tools/test/..."
+      - "//..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
@@ -255,7 +197,6 @@ tasks:
       - "//src/test/java/com/google/devtools/common/options/..."
       - "//src/test/native/windows/..."
       - "//src/test/py/bazel/..."
-      - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
       - "//src/tools/one_version/..."

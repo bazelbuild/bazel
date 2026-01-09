@@ -15,12 +15,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
 import javax.annotation.Nullable;
@@ -29,32 +26,25 @@ import javax.annotation.Nullable;
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public final class AggregatedSpawnMetrics {
 
-  public static final AggregatedSpawnMetrics EMPTY = new AggregatedSpawnMetrics(ImmutableMap.of());
+  public static final AggregatedSpawnMetrics EMPTY =
+      new AggregatedSpawnMetrics(null, null, null, null);
 
-  /** Static holder for lazy initialization. */
-  private static class EmptyMetrics {
-    /**
-     * Map with empty {@link SpawnMetrics}.
-     *
-     * <p>This is useful for {@link #getMetrics(SpawnMetrics.ExecKind)} where we need to return an
-     * empty {@link SpawnMetrics} with the correct {@link SpawnMetrics.ExecKind}.
-     */
-    private static final ImmutableMap<SpawnMetrics.ExecKind, SpawnMetrics> INSTANCE =
-        createEmptyMetrics();
+  // Note that we are using fields instead of e.g. a map of SpawnMetrics to avoid the map overhead.
+  // While this results in a bit more boilerplate code, it is worth the memory savings.
+  @Nullable private final SpawnMetrics remoteMetrics;
+  @Nullable private final SpawnMetrics localMetrics;
+  @Nullable private final SpawnMetrics workerMetrics;
+  @Nullable private final SpawnMetrics otherMetrics;
 
-    private static final ImmutableMap<SpawnMetrics.ExecKind, SpawnMetrics> createEmptyMetrics() {
-      EnumMap<SpawnMetrics.ExecKind, SpawnMetrics> map = new EnumMap<>(SpawnMetrics.ExecKind.class);
-      for (SpawnMetrics.ExecKind kind : SpawnMetrics.ExecKind.values()) {
-        map.put(kind, SpawnMetrics.Builder.forExec(kind).build());
-      }
-      return Maps.immutableEnumMap(map);
-    }
-  }
-
-  private final ImmutableMap<SpawnMetrics.ExecKind, SpawnMetrics> metricsMap;
-
-  private AggregatedSpawnMetrics(ImmutableMap<SpawnMetrics.ExecKind, SpawnMetrics> metricsMap) {
-    this.metricsMap = metricsMap;
+  private AggregatedSpawnMetrics(
+      @Nullable SpawnMetrics remoteMetrics,
+      @Nullable SpawnMetrics localMetrics,
+      @Nullable SpawnMetrics workerMetrics,
+      @Nullable SpawnMetrics otherMetrics) {
+    this.remoteMetrics = remoteMetrics;
+    this.localMetrics = localMetrics;
+    this.workerMetrics = workerMetrics;
+    this.otherMetrics = otherMetrics;
   }
 
   /**
@@ -63,7 +53,20 @@ public final class AggregatedSpawnMetrics {
    * <p>There will be at most one {@link SpawnMetrics} object per {@link SpawnMetrics.ExecKind}.
    */
   public ImmutableCollection<SpawnMetrics> getAllMetrics() {
-    return metricsMap.values();
+    ImmutableList.Builder<SpawnMetrics> metrics = ImmutableList.builder();
+    if (remoteMetrics != null) {
+      metrics.add(remoteMetrics);
+    }
+    if (localMetrics != null) {
+      metrics.add(localMetrics);
+    }
+    if (workerMetrics != null) {
+      metrics.add(workerMetrics);
+    }
+    if (otherMetrics != null) {
+      metrics.add(otherMetrics);
+    }
+    return metrics.build();
   }
 
   /**
@@ -72,11 +75,14 @@ public final class AggregatedSpawnMetrics {
    * <p>This will never return {@code null}, but the {@link SpawnMetrics} can be empty.
    */
   public SpawnMetrics getMetrics(SpawnMetrics.ExecKind kind) {
-    @Nullable SpawnMetrics metrics = metricsMap.get(kind);
-    if (metrics == null) {
-      return EmptyMetrics.INSTANCE.get(kind);
-    }
-    return metrics;
+    SpawnMetrics result =
+        switch (kind) {
+          case REMOTE -> remoteMetrics;
+          case LOCAL -> localMetrics;
+          case WORKER -> workerMetrics;
+          case OTHER -> otherMetrics;
+        };
+    return result != null ? result : SpawnMetrics.Builder.forExec(kind).build();
   }
 
   /**
@@ -93,19 +99,31 @@ public final class AggregatedSpawnMetrics {
    * the duration ones and taking the maximum for the non-duration ones.
    */
   public AggregatedSpawnMetrics sumDurationsMaxOther(SpawnMetrics other) {
-    SpawnMetrics existing = getMetrics(other.execKind());
+    SpawnMetrics.ExecKind kind = other.execKind();
+    SpawnMetrics existing = getMetrics(kind);
     SpawnMetrics.Builder builder =
-        SpawnMetrics.Builder.forExec(other.execKind())
+        SpawnMetrics.Builder.forExec(kind)
             .addDurations(existing)
             .addDurations(other)
             .maxNonDurations(existing)
             .maxNonDurations(other);
 
+    SpawnMetrics newMetric = builder.build();
+
+    SpawnMetrics newRemoteMetrics = remoteMetrics;
+    SpawnMetrics newLocalMetrics = localMetrics;
+    SpawnMetrics newWorkerMetrics = workerMetrics;
+    SpawnMetrics newOtherMetrics = otherMetrics;
+
+    switch (kind) {
+      case REMOTE -> newRemoteMetrics = newMetric;
+      case LOCAL -> newLocalMetrics = newMetric;
+      case WORKER -> newWorkerMetrics = newMetric;
+      case OTHER -> newOtherMetrics = newMetric;
+    }
+
     return new AggregatedSpawnMetrics(
-        ImmutableMap.<SpawnMetrics.ExecKind, SpawnMetrics>builder()
-            .putAll(metricsMap)
-            .put(other.execKind(), builder.build())
-            .buildKeepingLast());
+        newRemoteMetrics, newLocalMetrics, newWorkerMetrics, newOtherMetrics);
   }
 
   /**
@@ -116,8 +134,17 @@ public final class AggregatedSpawnMetrics {
    */
   public int getTotalDuration(Function<SpawnMetrics, Integer> extract) {
     int result = 0;
-    for (SpawnMetrics metric : metricsMap.values()) {
-      result += extract.apply(metric);
+    if (remoteMetrics != null) {
+      result += extract.apply(remoteMetrics);
+    }
+    if (localMetrics != null) {
+      result += extract.apply(localMetrics);
+    }
+    if (workerMetrics != null) {
+      result += extract.apply(workerMetrics);
+    }
+    if (otherMetrics != null) {
+      result += extract.apply(otherMetrics);
     }
     return result;
   }
@@ -130,8 +157,17 @@ public final class AggregatedSpawnMetrics {
    */
   public long getMaxNonDuration(long initialValue, ToLongFunction<SpawnMetrics> extract) {
     long result = initialValue;
-    for (SpawnMetrics metric : metricsMap.values()) {
-      result = Long.max(result, extract.applyAsLong(metric));
+    if (remoteMetrics != null) {
+      result = Long.max(result, extract.applyAsLong(remoteMetrics));
+    }
+    if (localMetrics != null) {
+      result = Long.max(result, extract.applyAsLong(localMetrics));
+    }
+    if (workerMetrics != null) {
+      result = Long.max(result, extract.applyAsLong(workerMetrics));
+    }
+    if (otherMetrics != null) {
+      result = Long.max(result, extract.applyAsLong(otherMetrics));
     }
     return result;
   }
@@ -146,16 +182,17 @@ public final class AggregatedSpawnMetrics {
 
   /** Builder for {@link AggregatedSpawnMetrics}. */
   public static class Builder {
-
-    private final EnumMap<SpawnMetrics.ExecKind, SpawnMetrics.Builder> builderMap =
-        new EnumMap<>(SpawnMetrics.ExecKind.class);
+    @Nullable private SpawnMetrics.Builder remoteMetricsBuilder;
+    @Nullable private SpawnMetrics.Builder localMetricsBuilder;
+    @Nullable private SpawnMetrics.Builder workerMetricsBuilder;
+    @Nullable private SpawnMetrics.Builder otherMetricsBuilder;
 
     public AggregatedSpawnMetrics build() {
-      EnumMap<SpawnMetrics.ExecKind, SpawnMetrics> map = new EnumMap<>(SpawnMetrics.ExecKind.class);
-      for (Map.Entry<SpawnMetrics.ExecKind, SpawnMetrics.Builder> entry : builderMap.entrySet()) {
-        map.put(entry.getKey(), entry.getValue().build());
-      }
-      return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
+      return new AggregatedSpawnMetrics(
+          remoteMetricsBuilder != null ? remoteMetricsBuilder.build() : null,
+          localMetricsBuilder != null ? localMetricsBuilder.build() : null,
+          workerMetricsBuilder != null ? workerMetricsBuilder.build() : null,
+          otherMetricsBuilder != null ? otherMetricsBuilder.build() : null);
     }
 
     @CanIgnoreReturnValue
@@ -195,7 +232,33 @@ public final class AggregatedSpawnMetrics {
     }
 
     private SpawnMetrics.Builder getBuilder(SpawnMetrics.ExecKind kind) {
-      return builderMap.computeIfAbsent(kind, SpawnMetrics.Builder::forExec);
+      switch (kind) {
+        case REMOTE -> {
+          if (remoteMetricsBuilder == null) {
+            remoteMetricsBuilder = SpawnMetrics.Builder.forRemoteExec();
+          }
+          return remoteMetricsBuilder;
+        }
+        case LOCAL -> {
+          if (localMetricsBuilder == null) {
+            localMetricsBuilder = SpawnMetrics.Builder.forLocalExec();
+          }
+          return localMetricsBuilder;
+        }
+        case WORKER -> {
+          if (workerMetricsBuilder == null) {
+            workerMetricsBuilder = SpawnMetrics.Builder.forWorkerExec();
+          }
+          return workerMetricsBuilder;
+        }
+        case OTHER -> {
+          if (otherMetricsBuilder == null) {
+            otherMetricsBuilder = SpawnMetrics.Builder.forOtherExec();
+          }
+          return otherMetricsBuilder;
+        }
+      }
+      throw new IllegalArgumentException("Unknown ExecKind: " + kind);
     }
   }
 }

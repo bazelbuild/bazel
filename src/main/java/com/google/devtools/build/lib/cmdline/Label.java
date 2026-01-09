@@ -566,6 +566,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " containing an apparent repo name. Prefer <a"
               + " href=\"#same_package_label\"><code>Label.same_package_label()</code></a>, <a"
               + " href=\"../toplevel/native.html#package_relative_label\"><code>native.package_relative_label()</code></a>,"
+              + " <a href=\"ctx.html#package_relative_label\"><code>ctx.package_relative_label()</code></a>,"
               + " or <a href=\"#Label\"><code>Label()</code></a> instead.<p>Resolves a label that"
               + " is either absolute (starts with <code>//</code>) or relative to the current"
               + " package. If this label is in a remote repository, the argument will be resolved"

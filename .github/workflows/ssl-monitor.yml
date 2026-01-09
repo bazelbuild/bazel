@@ -1,0 +1,52 @@
+name: SSL Certificate Monitor
+
+on:
+  schedule:
+    - cron: "0 8 * * *"  # Runs daily at 08:00 UTC
+  workflow_dispatch:      # Allows manual trigger
+  pull_request:           # Validates changes to the monitor itself
+    paths:
+      - ".github/workflows/ssl-monitor.yml"
+      - ".github/scripts/check_ssl.py"
+      - ".github/scripts/manage_ssl_issue.js"
+      - ".github/config/ssl_domains.yaml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-ssl-certs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyYAML certifi
+
+      - name: Run SSL Check
+        id: check_script
+        run: |
+          # Capture output to a file and set a flag if the script fails
+          python .github/scripts/check_ssl.py > ssl_output.txt 2>&1 || echo "SSL_CHECK_FAILED=true" >> $GITHUB_ENV
+          cat ssl_output.txt
+
+      - name: Manage SSL Issue on Failure
+        if: env.SSL_CHECK_FAILED == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const script = require('./.github/scripts/manage_ssl_issue.js')
+            await script({github, context})
+
+      - name: Fail workflow if SSL issues found
+        if: env.SSL_CHECK_FAILED == 'true'
+        run: |
+          echo "SSL check failed. See script output and created/updated GitHub issue."
+          exit 1

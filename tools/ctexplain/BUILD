@@ -75,7 +75,7 @@ py_test(
 
 py_test(
     name = "bazel_api_test",
-    size = "small",
+    size = "large",
     srcs = ["bazel_api_test.py"],
     python_version = "PY3",
     deps = [

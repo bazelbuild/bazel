@@ -48,6 +48,9 @@ public final class Types {
   /** The top type of the type hierarchy. */
   public static final StarlarkType OBJECT = new ObjectType();
 
+  /** The bottom type of the type hierarchy. */
+  public static final StarlarkType NEVER = new NeverType();
+
   // Primitive types
   public static final StarlarkType NONE = new None();
 
@@ -120,6 +123,23 @@ public final class Types {
     }
   }
 
+  private static final class NeverType extends StarlarkType {
+    @Override
+    public String toString() {
+      return "Never";
+    }
+
+    @Override
+    public int hashCode() {
+      return NeverType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof NeverType;
+    }
+  }
+
   private static final class None extends StarlarkType {
     @Override
     public String toString() {
@@ -184,7 +204,7 @@ public final class Types {
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Float;
+      return obj instanceof FloatType;
     }
   }
 
@@ -370,6 +390,8 @@ public final class Types {
   }
 
   /** Constructs a union type. */
+  // TODO: #28043 - Seems more appropriate to use List<StarlarkType> for the param and let this
+  // factory method take care of deduplication. For the moment we have a convenience overload below.
   public static StarlarkType union(ImmutableSet<StarlarkType> types) {
     ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
     // Unions are flattened
@@ -387,9 +409,13 @@ public final class Types {
     if (subtypes.size() == 1) {
       return subtypes.iterator().next();
     } else if (subtypes.isEmpty()) {
-      throw new IllegalArgumentException("Empty union!");
+      return Types.NEVER;
     }
     return new AutoValue_Types_UnionType(subtypes);
+  }
+
+  public static StarlarkType union(List<StarlarkType> types) {
+    return union(ImmutableSet.copyOf(types));
   }
 
   /**

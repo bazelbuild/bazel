@@ -20,9 +20,9 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
-import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TestUtils;
 
 /**
  * Examples of typical API usage of the Starlark interpreter.<br>
@@ -90,7 +90,7 @@ final class Examples {
 
     // Compile the program, with additional predeclared environment bindings.
     // TODO(adonovan): supply Starlark.UNIVERSE somehow.
-    Program prog = Program.compileFile(file, Resolver.moduleWithPredeclared("zero", "square"));
+    Program prog = Program.compileFile(file, TestUtils.moduleWithPredeclared("zero", "square"));
 
     // . . .
 

@@ -54,6 +54,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
   private final boolean alwayslinkByDefault;
   private final boolean stripExecutableSafely;
   private final boolean builtinObjcStripAction;
+  private final boolean disableObjcFragment;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -68,6 +69,12 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
     this.stripExecutableSafely = objcOptions.incompatibleStripExecutableSafely;
     this.builtinObjcStripAction = objcOptions.incompatibleBuiltinObjcStripAction;
+    this.disableObjcFragment = objcOptions.disableObjcFragment;
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableObjcFragment;
   }
 
   /**

@@ -69,8 +69,8 @@ genrule(
     cmd = 'touch \$@'
 )
 EOF
-    INCREMENTAL_ANALYSIS_LOGLINE="Analy[sz]ed target //$pkg:top (0 packages loaded)"
-    NONINCREMENTAL_ANALYSIS_LOGLINE="Analy[sz]ed target //$pkg:top ([1-9][0-9]* packages loaded)"
+    INCREMENTAL_ANALYSIS_LOGLINE="Analy[sz]ed target //$pkg:top (0 packages loaded, [0-9]* targets configured)"
+    NONINCREMENTAL_ANALYSIS_LOGLINE="Analy[sz]ed target //$pkg:top ([1-9][0-9]* packages loaded, [0-9]* targets configured)"
 }
 
 # Test that the execution is not repeated, test to validate the test case
