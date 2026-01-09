@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.collect.RecencyMap;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,6 +118,8 @@ public class DynamicExecutionModule extends BlazeModule {
     }
     localAndWorkerStrategies.put("", defaultLocalStrategies.build());
 
+    // this is not inserting in expected order
+    // also apparently no builtin java class uses the last insertion (which to be fair, is terrible for performance)
     for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
       localAndWorkerStrategies.put(entry);
       throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
@@ -127,7 +129,7 @@ public class DynamicExecutionModule extends BlazeModule {
 
   private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)
       throws AbruptExitException {
-    Map<String, List<String>> strategies = new HashMap<>(); // Needed to dedup
+    RecencyMap<String, List<String>> strategies = new RecencyMap<>(); // Needed to dedup
     for (Map.Entry<String, List<String>> e : options.dynamicRemoteStrategy) {
       throwIfContainsDynamic(e.getValue(), "--dynamic_remote_strategy");
       strategies.put(e.getKey(), e.getValue());
