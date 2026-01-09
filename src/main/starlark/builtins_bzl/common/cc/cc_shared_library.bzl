@@ -298,7 +298,7 @@ def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchai
     return cc_common.create_linker_input(
         owner = linker_input.owner,
         libraries = depset(direct = new_libraries_to_link),
-        user_link_flags = depset(direct = linker_input.user_link_flags),
+        user_link_flags = linker_input.user_link_flags,
         additional_inputs = depset(direct = linker_input.additional_inputs),
     )
 
