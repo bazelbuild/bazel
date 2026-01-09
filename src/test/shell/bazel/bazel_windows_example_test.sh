@@ -232,7 +232,7 @@ function create_tmp_drive() {
   for X in {A..Z}
   do
     TMP_DRIVE=${X}
-    subst ${TMP_DRIVE}: ${TMP_DRIVE_PATH} >NUL || TMP_DRIVE=""
+    subst ${TMP_DRIVE}: ${TMP_DRIVE_PATH} >/dev/null || TMP_DRIVE=""
     if [ -n "${TMP_DRIVE}" ]; then
       break
     fi

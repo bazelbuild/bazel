@@ -335,6 +335,7 @@ public class IncrementalPackageRoots implements PackageRoots {
   }
 
   private static void throwAbruptExitException(Exception e) throws AbruptExitException {
+    e.printStackTrace();
     throw new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
