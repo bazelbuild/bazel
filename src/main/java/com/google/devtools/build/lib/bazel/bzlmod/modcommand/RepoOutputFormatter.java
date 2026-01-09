@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
+import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -31,11 +32,13 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.List;
 
 /** Outputs repository definitions for {@code mod show_repo}. */
 public class RepoOutputFormatter {
   private static final JsonFormat.Printer jsonPrinter =
       JsonFormat.printer().omittingInsignificantWhitespace();
+  private static final Splitter PCT_SPLITTER = Splitter.on('%').limit(2);
 
   private final PrintWriter printer;
   private final OutputStream outputStream;
@@ -96,9 +99,15 @@ public class RepoOutputFormatter {
       Build.Rule rulePb = targetPb.getRule();
 
       Build.Repository.Builder pbBuilder = Build.Repository.newBuilder();
-      pbBuilder.setCanonicalName(rulePb.getName());
-      pbBuilder.setRepoRuleName(rulePb.getRuleClass());
-      pbBuilder.setRepoRuleBzlLabel(internalToUnicode(repoRule.getRuleClassObject().getKey()));
+      pbBuilder.setCanonicalName(internalToUnicode(repoRule.getName()));
+      pbBuilder.setRepoRuleName(internalToUnicode(repoRule.getRuleClassObject().getName()));
+
+      // ruleKey is "@@//:foo.bzl%name", while repo_rule_bzl_label should just be "@@//:foo.bzl".
+      String ruleKey = repoRule.getRuleClassObject().getKey();
+      List<String> ruleKeyParts = PCT_SPLITTER.splitToList(ruleKey);
+      if (ruleKeyParts.size() >= 2) {
+        pbBuilder.setRepoRuleBzlLabel(internalToUnicode(ruleKeyParts.get(0)));
+      }
 
       // TODO: record and print the call stack for the repo definition itself?
 
@@ -111,9 +120,14 @@ public class RepoOutputFormatter {
       }
 
       for (Build.Attribute attr : rulePb.getAttributeList()) {
-        if (attr.getName().equals("_original_name")
+        if (attr.getName().equals("name")
             && attr.getType() == Build.Attribute.Discriminator.STRING) {
-          pbBuilder.setOriginalName(attr.getStringValue());
+          continue;
+        } else if (attr.getName().equals("$original_name")
+            && attr.getType() == Build.Attribute.Discriminator.STRING) {
+          if (!attr.getStringValue().isEmpty()) {
+            pbBuilder.setOriginalName(attr.getStringValue());
+          }
           continue;
         }
         pbBuilder.addAttribute(attr);

@@ -452,48 +452,6 @@ class ModCommandTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
-  def testShowExtensionUseRepoRule(self):
-    _, stdout, _ = self.RunBazel(
-        [
-            'mod',
-            'show_extension',
-            (
-                '@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
-                ' http_file'
-            ),
-        ],
-        rstrip=True,
-    )
-    self.assertRegex(
-        stdout.pop(5),
-        r'^## Usage in bar@2\.0 from .*MODULE\.bazel:15$',
-    )
-    self.assertListEqual(
-        stdout,
-        [
-            (
-                '## @@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
-                ' http_file:'
-            ),
-            '',
-            'Fetched repositories:',
-            '  - file (imported by bar@2.0)',
-            '',
-            # pop(5)
-            (
-                'http_file ='
-                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
-                ' "http_file")'
-            ),
-            (
-                'http_file(name="file",'
-                ' integrity="sha256-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN/20=",'
-                ' url="https://example.com/")'
-            ),
-            '',
-        ],
-    )
-
   def testShowModuleAndExtensionReposFromBaseModuleJson(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -539,25 +497,13 @@ class ModCommandTest(test_base.TestBase):
                 'apparentName': '@bar_from_foo2',
                 'attribute': [
                     {
-                        'name': 'strip_prefix',
-                        'type': 'STRING',
-                        'stringValue': '',
-                        'explicitlySpecified': True,
-                        'nodep': False,
-                    },
-                    {
-                        'name': 'remote_file_urls',
-                        'type': 'STRING_LIST_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
                         'name': 'remote_file_integrity',
                         'type': 'STRING_DICT',
                         'explicitlySpecified': True,
                     },
                     {
-                        'name': 'remote_patches',
-                        'type': 'STRING_DICT',
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
                         'explicitlySpecified': True,
                     },
                     {
@@ -566,14 +512,23 @@ class ModCommandTest(test_base.TestBase):
                         'intValue': 0,
                         'explicitlySpecified': True,
                     },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
                 ],
             },
             {
                 'canonicalName': 'ext+',
                 'repoRuleName': 'local_repository',
-                'repoRuleBzlLabel': (
-                    '@@bazel_tools//tools/build_defs/repo:local.bzl'
-                ),
                 'moduleKey': 'ext@1.0',
                 'attribute': [],
             },
@@ -602,11 +557,9 @@ class ModCommandTest(test_base.TestBase):
                 'moduleKey': 'bar@2.0',
                 'attribute': [
                     {
-                        'name': 'strip_prefix',
-                        'type': 'STRING',
-                        'stringValue': '',
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
                         'explicitlySpecified': True,
-                        'nodep': False,
                     },
                     {
                         'name': 'remote_file_urls',
@@ -614,8 +567,9 @@ class ModCommandTest(test_base.TestBase):
                         'explicitlySpecified': True,
                     },
                     {
-                        'name': 'remote_file_integrity',
-                        'type': 'STRING_DICT',
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
                         'explicitlySpecified': True,
                     },
                     {
@@ -624,10 +578,11 @@ class ModCommandTest(test_base.TestBase):
                         'explicitlySpecified': True,
                     },
                     {
-                        'name': 'remote_patch_strip',
-                        'type': 'INTEGER',
-                        'intValue': 0,
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
                         'explicitlySpecified': True,
+                        'nodep': False,
                     },
                 ],
             },
@@ -929,7 +884,7 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
-  # fix for https://github.com/bazelbuild/bazel/issues/27233
+  # make sure https://github.com/bazelbuild/bazel/issues/27233 doesn't happen in 8.x
   def testShowRepoBazelTools(self):
     exit_code, stdout, stderr = self.RunBazel(
         ['mod', 'show_repo', '@bazel_tools'],
@@ -938,18 +893,20 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     stdout = '\n'.join(stdout)
     self.assertIn('## @bazel_tools:', stdout)
-    self.assertIn('Builtin or overridden repo located at: ', stdout)
-    self.assertIn('/embedded_tools', stdout)
+    self.assertIn('local_repository(', stdout)
+    self.assertIn('name = "bazel_tools"', stdout)
 
   def testShowRepoBazelToolsJson(self):
-    # @bazel_tools should be omitted from proto outputs
     exit_code, stdout, stderr = self.RunBazel(
         ['mod', 'show_repo', '--output=streamed_jsonproto', '@bazel_tools'],
         rstrip=True,
     )
     self.AssertExitCode(exit_code, 0, stderr)
-    stdout = '\n'.join(stdout)
-    self.assertEqual('', stdout)
+    repos = [json.loads(line) for line in stdout]
+    self.assertEqual(len(repos), 1)
+    self.assertEqual(repos[0]["canonicalName"], "bazel_tools")
+    self.assertEqual(repos[0]["repoRuleName"], "local_repository")
+    self.assertEqual(repos[0]["apparentName"], "@bazel_tools")
 
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
