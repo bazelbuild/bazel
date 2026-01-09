@@ -217,7 +217,7 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       return true;
     }
 
-    if (fileIsSymbolicLink(file)) {
+    if (fileIsSymbolicLink(file.toPath())) {
       throw new IOException(path + ERR_FILE_EXISTS);
     }
     if (file.isDirectory()) {
@@ -373,8 +373,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
     }
   }
 
-  protected boolean fileIsSymbolicLink(File file) {
-    return Files.isSymbolicLink(file.toPath());
+  protected boolean fileIsSymbolicLink(java.nio.file.Path file) {
+    return Files.isSymbolicLink(file);
   }
 
   @Override
