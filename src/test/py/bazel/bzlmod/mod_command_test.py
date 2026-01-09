@@ -452,6 +452,145 @@ class ModCommandTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
+  def testShowModuleAndExtensionReposFromBaseModuleJson(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_repo',
+            '--base_module=foo@2.0',
+            '--output=streamed_jsonproto',
+            '@bar_from_foo2',
+            'ext@1.0',
+            '@my_repo3',
+            'bar',
+        ],
+        rstrip=True,
+    )
+    repos = [json.loads(line) for line in stdout]
+
+    ignored_attrs = {
+        'integrity',
+        'path',
+        'remote_module_file_urls',
+        'remote_module_file_integrity',
+        'urls',
+    }
+    for repo in repos:
+      attrs = repo.get('attribute')
+      if attrs:
+        repo['attribute'] = [
+            attr
+            for attr in attrs
+            if attr.get('explicitlySpecified', False)
+            and attr['name'] not in ignored_attrs
+        ]
+
+    self.assertListEqual(
+        repos,
+        [
+            {
+                'canonicalName': 'bar+',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': (
+                    '@@bazel_tools//tools/build_defs/repo:http.bzl'
+                ),
+                'apparentName': '@bar_from_foo2',
+                'attribute': [
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
+                ],
+            },
+            {
+                'canonicalName': 'ext+',
+                'repoRuleName': 'local_repository',
+                'moduleKey': 'ext@1.0',
+                'attribute': [],
+            },
+            {
+                'canonicalName': 'ext++ext+repo3',
+                'repoRuleName': 'data_repo',
+                'repoRuleBzlLabel': '@@ext+//:ext.bzl',
+                'apparentName': '@my_repo3',
+                'originalName': 'repo3',
+                'attribute': [
+                    {
+                        'name': 'data',
+                        'type': 'STRING',
+                        'stringValue': 'requested repo',
+                        'nodep': False,
+                        'explicitlySpecified': True,
+                    },
+                ],
+            },
+            {
+                'canonicalName': 'bar+',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': (
+                    '@@bazel_tools//tools/build_defs/repo:http.bzl'
+                ),
+                'moduleKey': 'bar@2.0',
+                'attribute': [
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
+                ],
+            },
+        ],
+        'wrong output in the show query for module and extension-generated'
+        ' repos',
+    )
+
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -744,6 +883,30 @@ class ModCommandTest(test_base.TestBase):
         'for syntax and help.',
         stderr,
     )
+
+  # make sure https://github.com/bazelbuild/bazel/issues/27233 doesn't happen in 8.x
+  def testShowRepoBazelTools(self):
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stdout = '\n'.join(stdout)
+    self.assertIn('## @bazel_tools:', stdout)
+    self.assertIn('local_repository(', stdout)
+    self.assertIn('name = "bazel_tools"', stdout)
+
+  def testShowRepoBazelToolsJson(self):
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    repos = [json.loads(line) for line in stdout]
+    self.assertEqual(len(repos), 1)
+    self.assertEqual(repos[0]["canonicalName"], "bazel_tools")
+    self.assertEqual(repos[0]["repoRuleName"], "local_repository")
+    self.assertEqual(repos[0]["apparentName"], "@bazel_tools")
 
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(

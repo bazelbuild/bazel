@@ -105,7 +105,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           BuildType.LICENSE);
 
   private AspectResolver aspectResolver;
-  private DependencyFilter dependencyFilter;
+  private DependencyFilter dependencyFilter = DependencyFilter.ALL_DEPS;
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean includeDefaultValues = true;
@@ -213,7 +213,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> aspectsDependencies =
-          aspectResolver.computeAspectDependencies(target, dependencyFilter);
+          ImmutableMap.of();
+      if (aspectResolver != null) {
+        aspectsDependencies = aspectResolver.computeAspectDependencies(target, dependencyFilter);
+      }
       if (!aspectsDependencies.isEmpty()) {
         // Add information about additional attributes from aspects.
         List<Build.Attribute> attributes = new ArrayList<>();
