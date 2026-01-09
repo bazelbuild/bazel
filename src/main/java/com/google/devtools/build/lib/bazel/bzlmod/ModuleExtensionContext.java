@@ -90,7 +90,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
     // Record inputs to the extension that are known prior to evaluation.
     RepoRecordedInput.EnvVar.wrap(staticEnvVars)
-        .forEach((input, value) -> recordInput(input, value.orElse(null)));
+        .forEach((input, value) -> recordInputWithValue(input, value.orElse(null)));
     repoMappingRecorder.record(staticRepoMappingEntries);
   }
 

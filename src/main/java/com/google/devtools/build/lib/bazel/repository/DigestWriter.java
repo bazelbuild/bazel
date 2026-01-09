@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
-class DigestWriter {
+public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -123,8 +123,12 @@ class DigestWriter {
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
       var recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+      if (recordedInputValues.isEmpty()) {
+        return new RepoDirectoryState.OutOfDate(
+            "Bazel version, flags, repo rule definition or attributes changed");
+      }
       Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
+          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues.get());
       if (env.valuesMissing()) {
         return null;
       }
@@ -137,7 +141,12 @@ class DigestWriter {
     }
   }
 
-  private static ImmutableList<RepoRecordedInput.WithValue> readMarkerFile(
+  /**
+   * Returns a list of recorded inputs with their values parsed from the given marker file if the
+   * predeclared input hash matches, or {@code Optional.empty()} if the hash doesn't match or any
+   * error occurs during parsing.
+   */
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -151,26 +160,22 @@ class DigestWriter {
         if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
-          return ImmutableList.of(
-              new RepoRecordedInput.WithValue(
-                  new NeverUpToDateRepoRecordedInput(
-                      "Bazel version, flags, repo rule definition or attributes changed"),
-                  ""));
+          return Optional.empty();
         }
         firstLineVerified = true;
       } else {
         var inputAndValue = RepoRecordedInput.WithValue.parse(line);
         if (inputAndValue.isEmpty()) {
           // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
+          return Optional.empty();
         }
         recordedInputValues.add(inputAndValue.get());
       }
     }
     if (!firstLineVerified) {
-      return PARSE_FAILURE;
+      return Optional.empty();
     }
-    return recordedInputValues.build();
+    return Optional.of(recordedInputValues.build());
   }
 
   @Nullable
