@@ -1,9 +1,9 @@
 # Bazel - Google's Build System
 
-load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
-load("//tools/python:private/defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
+load("//tools/python:private/defs.bzl", "py_binary")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -36,10 +36,10 @@ filegroup(
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
+        "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//third_party:srcs",
+        "//tools:srcs",
     ] + glob([".bazelci/*"]) + [
         ".bazelrc",
         ".bazelversion",
@@ -155,6 +155,14 @@ pkg_tar(
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+# https://github.com/bazelbuild/bazel/pull/27463#issuecomment-3730854621
+genrule(
+    name = "maven-srcs",
+    outs = ["maven-srcs.txt"],
+    cmd = "echo 'Dummy target to unblock the Bazel 6.6.0 release.' >$@",
     visibility = ["//:__subpackages__"],
 )
 
