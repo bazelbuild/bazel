@@ -44,6 +44,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -381,7 +382,9 @@ public class DownloadManager {
   }
 
   private boolean isRetryableException(Throwable e) {
-    return e instanceof ContentLengthMismatchException || e instanceof SocketException;
+    return e instanceof ContentLengthMismatchException
+        || e instanceof SocketException
+        || e instanceof UnknownHostException;
   }
 
   /**
