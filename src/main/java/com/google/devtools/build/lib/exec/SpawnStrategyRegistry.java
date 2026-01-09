@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.analysis.test.TestRunnerActionConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -129,7 +130,7 @@ public final class SpawnStrategyRegistry
   public List<? extends SpawnStrategy> getStrategies(
       ActionExecutionMetadata resourceOwner, String mnemonic, @Nullable EventHandler reporter) {
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
-    if (!"TestRunner".equals(mnemonic)) {
+    if (!TestRunnerActionConstants.MNEMONIC.equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
       if (description != null) {
         ImmutableList<? extends SpawnStrategy> regexStrategies =
