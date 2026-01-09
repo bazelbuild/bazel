@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraints;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
 import com.google.common.base.Strings;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -499,7 +501,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx")})
   public String getExecOs(StarlarkRuleContext ctx) {
-    return ctx.getRuleContext().getExecutionPlatformOs().name();
+    return getOsFromConstraints(ctx.getRuleContext().getExecutionPlatform())
+        // Fall back to assuming exec OS == host OS.
+        .orElse(OS.getCurrent())
+        .name();
   }
 
   @StarlarkMethod(
