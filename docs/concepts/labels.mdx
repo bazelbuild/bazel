@@ -2,6 +2,8 @@
 title: 'Labels'
 ---
 
+
+
 A **label** is an identifier for a target. A typical label in its full canonical
 form looks like:
 
@@ -115,7 +117,7 @@ used from external repositories.
 For information about the different ways you can refer to targets, see
 [target patterns](/run/build#specifying-build-targets).
 
-### Lexical specification of a label {:#labels-lexical-specification}
+### Lexical specification of a label
 
 Label syntax discourages use of metacharacters that have special meaning to the
 shell. This helps to avoid inadvertent quoting problems, and makes it easier to
@@ -124,7 +126,7 @@ construct tools and scripts that manipulate labels, such as the
 
 The precise details of allowed target names are below.
 
-### Target names — `{{ "<var>" }}package-name{{ "</var>" }}:target-name` {:#target-names}
+### Target names — `{{ "<var>" }}package-name{{ "</var>" }}:target-name`
 
 `target-name` is the name of the target within the package. The name of a rule
 is the value of the `name` attribute in the rule's declaration in a `BUILD`
@@ -155,7 +157,7 @@ However, there are some situations where use of a slash is convenient, or
 sometimes even necessary. For example, the name of certain rules must match
 their principal source file, which may reside in a subdirectory of the package.
 
-### Package names — `//package-name:{{ "<var>" }}target-name{{ "</var>" }}` {:#package-names}
+### Package names — `//package-name:{{ "<var>" }}target-name{{ "</var>" }}`
 
 The name of a package is the name of the directory containing its `BUILD` file,
 relative to the top-level directory of the containing repository.
@@ -186,7 +188,7 @@ On a practical level:
   `//:foo`), it's best to leave that package empty so all meaningful packages
   have descriptive names.
 
-## Rules {:#rules}
+## Rules
 
 A rule specifies the relationship between inputs and outputs, and the
 steps to build the outputs. Rules can be of one of many different
