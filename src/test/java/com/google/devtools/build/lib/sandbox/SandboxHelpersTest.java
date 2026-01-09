@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableList;
@@ -358,6 +359,7 @@ public class SandboxHelpersTest {
 
     Path sandboxSymlink = sandboxRoot.getRelative("output");
     sandboxSymlink.createSymbolicLink(PathFragment.create("target"));
+    FileSystemUtils.createEmptyFile(sandboxRoot.getRelative("target"));
 
     Spawn spawn = new SpawnBuilder().withOutputs("output").build();
     SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
@@ -365,6 +367,22 @@ public class SandboxHelpersTest {
     Path realSymlink = execRoot.getRelative("output");
     assertThat(realSymlink.isSymbolicLink()).isTrue();
     assertThat(realSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("target"));
+  }
+
+  @Test
+  public void moveOutputs_danglingSymlinkThrows() throws Exception {
+    Path sandboxSymlink = sandboxRoot.getRelative("output");
+    sandboxSymlink.createSymbolicLink(PathFragment.create("target"));
+    // Target does not exist, so the symlink is dangling.
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                SandboxHelpers.moveOutputs(
+                    SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot));
+    assertThat(e).hasMessageThat().contains("is a dangling symbolic link");
   }
 
   @Test
