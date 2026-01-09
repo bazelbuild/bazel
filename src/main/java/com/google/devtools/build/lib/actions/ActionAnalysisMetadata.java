@@ -225,8 +225,6 @@ public interface ActionAnalysisMetadata {
    */
   NestedSet<Artifact> getMandatoryInputs();
 
-  NestedSet<Artifact> getDiscoveredInputs();
-
   /**
    * Returns a String to String map containing the execution properties of this action.
    *

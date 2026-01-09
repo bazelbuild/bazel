@@ -187,9 +187,9 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public final NestedSet<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     if (!discoversInputs() || getDiscoveredInputs() == null) {
-      return getMandatoryInputs();
+      return getAnalysisTimeInputs();
     }
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(getMandatoryInputs())

@@ -208,6 +208,8 @@ public interface Action extends ActionExecutionMetadata {
    */
   void updateDiscoveredInputs(NestedSet<Artifact> inputs);
 
+  NestedSet<Artifact> getDiscoveredInputs();
+
   /** Returns true if the output should bypass output filtering. This is used for test actions. */
   boolean showsOutputUnconditionally();
 

@@ -70,9 +70,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
@@ -130,7 +127,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Nullable private final Artifact dotdFile;
   private final BuildConfigurationValue configuration;
-  private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> mandatorySpawnInputs;
   private final NestedSet<Artifact> allowedDerivedInputs;
 
@@ -184,8 +180,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private Set<DerivedArtifact> usedModules;
 
   private ImmutableSet<Artifact> usedCpp20Modules;
-
-  private boolean inputsDiscovered = false;
 
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
@@ -286,7 +280,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.sourceFile = sourceFile;
     this.shareable = shareable;
     this.configuration = configuration;
-    this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes;
@@ -373,7 +366,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.sourceFile = sourceFile;
     this.dotdFile = dotdFile;
     this.configuration = configuration;
-    this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
     this.allowedDerivedInputs = allowedDerivedInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
@@ -476,11 +468,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public NestedSet<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
-  }
-
-  @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     // Never prune orphaned modules files. To cut down critical paths, CppCompileActions do not
     // add modules files as inputs. Instead they rely on input discovery to recognize the needed
@@ -495,15 +482,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return super.getMandatoryOutputs();
   }
 
-  /**
-   * Returns the list of additional inputs found by dependency discovery, during action preparation.
-   * {@link #discoverInputs(ActionExecutionContext)} must be called before this method is called on
-   * each action execution.
-   */
-  public NestedSet<Artifact> getAdditionalInputs() {
-    return Preconditions.checkNotNull(additionalInputs);
-  }
-
   /** Clears the discovered {@link #additionalInputs}. */
   private void clearAdditionalInputs() {
     additionalInputs = null;
@@ -515,11 +493,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         || shouldScanIncludes
         || getDotdFile() != null
         || shouldParseShowIncludes();
-  }
-
-  @Override
-  protected void setDiscoveredInputs(boolean inputsDiscovered) {
-    this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override
@@ -725,8 +698,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public final NestedSet<Artifact> getAnalysisTimeInputs() {
-    return mandatoryInputs;
+  public NestedSet<Artifact> getDiscoveredInputs() {
+    return additionalInputs;
   }
 
   @Nullable
@@ -764,7 +737,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs} or an empty
+   * Set by {@link #discoverInputs}. Returns a subset of {@link #getDiscoveredInputs()} or an empty
    * {@link NestedSet}, if this is not a compile action producing a C++ module.
    */
   @Override
@@ -967,7 +940,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               "failed to generate compile environment variables for rule '%s: %s",
               getOwner().getLabel(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
   }
 
@@ -1056,7 +1029,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1126,7 +1099,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    allowedIncludes.addAll(mandatoryInputs.toList());
+    allowedIncludes.addAll(getMandatoryInputs().toList());
     allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
     allowedIncludes.addAll(additionalPrunableHeaders.toList());
 
@@ -1198,30 +1171,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 includePath);
         DetailedExitCode code =
             createDetailedExitCode(message, Code.INCLUDE_PATH_OUTSIDE_EXEC_ROOT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
       }
-    }
-  }
-
-  /**
-   * Recalculates this action's live input collection.
-   *
-   * <p>Can only be called if {@link #discoversInputs}, and must be called after execution in that
-   * case.
-   */
-  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  @ThreadCompatible
-  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
-    Preconditions.checkState(
-        discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, this::describe)) {
-      NestedSetBuilder<Artifact> inputsBuilder =
-          NestedSetBuilder.<Artifact>stableOrder().addTransitive(mandatoryInputs);
-      if (discoveredInputs != null) {
-        inputsBuilder.addTransitive(discoveredInputs);
-      }
-      super.updateDiscoveredInputs(inputsBuilder.build());
     }
   }
 
@@ -1282,7 +1233,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @Override
   public synchronized void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
-    super.updateDiscoveredInputs(discoveredInputs);
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
         && !isCpp20ModuleCompilationAction(actionName)) {
       discoveredModules =
@@ -1366,7 +1316,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         executionInfo,
         getCommandLineKey(),
         ccCompilationContext.getDeclaredIncludeSrcs(),
-        mandatoryInputs,
+        getMandatoryInputs(),
         mandatorySpawnInputs,
         additionalPrunableHeaders,
         builtInIncludeDirectories,
@@ -1471,10 +1421,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
 
-    if (shouldScanIncludes) {
-      updateActionInputs(additionalInputs);
-    }
-
     ActionExecutionContext spawnContext;
     ShowIncludesFilter showIncludesFilterForStdout;
     ShowIncludesFilter showIncludesFilterForStderr;
@@ -1490,16 +1436,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       showIncludesFilterForStderr = null;
     }
 
-    Spawn spawn;
-    try {
-      spawn =
-          createSpawn(
-              actionExecutionContext.getExecRoot(),
-              actionExecutionContext.getClientEnv(),
-              pathMapper);
-    } finally {
-      clearAdditionalInputs();
-    }
+    Spawn spawn =
+        createSpawn(
+            actionExecutionContext.getExecRoot(),
+            actionExecutionContext.getClientEnv(),
+            pathMapper);
 
     ImmutableList<SpawnResult> spawnResults;
     byte[] dotDContents;
@@ -1547,7 +1488,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               showIncludesFilterForStderr,
               siblingRepositoryLayout,
               pathMapper);
-      updateActionInputs(discoveredInputs);
+      additionalInputs = discoveredInputs;
       validateInclusions(actionExecutionContext, discoveredInputs);
       return ActionResult.create(spawnResults);
     }
@@ -1575,7 +1516,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .addTransitive(discoveredInputs)
               .build();
     }
-    updateActionInputs(discoveredInputs);
+    additionalInputs = discoveredInputs;
 
     // hdrs_check: This cannot be switched off for C++ build actions,
     // because doing so would allow for incorrect builds.
@@ -1676,7 +1617,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         NestedSetBuilder.<ActionInput>stableOrder().addTransitive(mandatorySpawnInputs);
 
     if (discoversInputs()) {
-      inputsBuilder.addTransitive(getAdditionalInputs());
+      inputsBuilder.addTransitive(getDiscoveredInputs());
     }
     if (paramFileActionInput != null) {
       inputsBuilder.add(paramFileActionInput);

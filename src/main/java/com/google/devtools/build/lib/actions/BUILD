@@ -31,7 +31,6 @@ java_library(
     srcs = [
         "AbstractAction.java",
         "AbstractCommandLine.java",
-        "AbstractInputDiscoveringAction.java",
         "Action.java",
         "ActionAnalysisMetadata.java",
         "ActionCacheAwareAction.java",

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -20,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -230,6 +230,8 @@ public class StarlarkAction extends SpawnAction {
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
 
+    private volatile NestedSet<Artifact> discoveredInputs = null;
+
     EnhancedStarlarkAction(
         ActionOwner owner,
         NestedSet<Artifact> tools,
@@ -306,6 +308,14 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    public NestedSet<Artifact> getMandatoryInputs() {
+      if (unusedInputsList.isPresent()) {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+      return super.getMandatoryInputs();
+    }
+
+    @Override
     public Optional<Artifact> getUnusedInputsList() {
       return unusedInputsList;
     }
@@ -322,11 +332,20 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    public NestedSet<Artifact> getDiscoveredInputs() {
+      return discoveredInputs;
+    }
+
+    @Override
     public NestedSet<Artifact> getAllowedDerivedInputs() {
-      if (shadowedAction.isPresent()) {
-        return createInputs(shadowedAction.get().getAllowedDerivedInputs(), getInputs());
-      }
-      return getInputs();
+      return createInputs(
+          shadowedAction
+              .filter(Action::discoversInputs)
+              .map(Action::getAllowedDerivedInputs)
+              .orElse(NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+          unusedInputsList.isPresent()
+              ? allStarlarkActionInputs
+              : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     }
 
     @Nullable
@@ -338,21 +357,21 @@ public class StarlarkAction extends SpawnAction {
       if (shadowedAction.isPresent() && shadowedAction.get().discoversInputs()) {
         Action shadowedActionObj = shadowedAction.get();
 
-        NestedSet<Artifact> oldInputs = getInputs();
         NestedSet<Artifact> inputFilesForExtraAction =
             shadowedActionObj.getInputFilesForExtraAction(actionExecutionContext);
         if (inputFilesForExtraAction == null) {
           return null;
         }
-        updateDiscoveredInputs(
-            createInputs(
-                shadowedActionObj.getInputs(), inputFilesForExtraAction, allStarlarkActionInputs));
-        return NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
+        return createInputs(
+            checkNotNull(shadowedActionObj.getDiscoveredInputs()),
+            inputFilesForExtraAction,
+            unusedInputsList.isPresent()
+                ? allStarlarkActionInputs
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
       }
+      checkNotNull(unusedInputsList);
       // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
       // removed might now be needed.
-      updateDiscoveredInputs(allStarlarkActionInputs);
       return allStarlarkActionInputs;
     }
 
@@ -395,7 +414,7 @@ public class StarlarkAction extends SpawnAction {
 
       // Get all the action's inputs after execution which will include the shadowed action
       // discovered inputs
-      NestedSet<Artifact> allInputs = getInputs();
+      NestedSet<Artifact> allDiscoverableInputs = getInputs();
       Map<String, Artifact> usedInputsByMappedPath = new HashMap<>();
       for (Artifact input : allInputs.toList()) {
         usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
@@ -422,16 +441,6 @@ public class StarlarkAction extends SpawnAction {
       }
       updateDiscoveredInputs(
           NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
-    }
-
-    @Override
-    Spawn getSpawnForExtraActionSpawnInfo()
-        throws CommandLineExpansionException, InterruptedException {
-      if (shadowedAction.isPresent()) {
-        return this.getSpawnForExtraActionSpawnInfo(
-            createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
-      }
-      return this.getSpawnForExtraActionSpawnInfo(allStarlarkActionInputs);
     }
 
     @Nullable
