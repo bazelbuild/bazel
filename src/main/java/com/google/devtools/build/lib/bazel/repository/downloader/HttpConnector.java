@@ -166,7 +166,7 @@ class HttpConnector {
           // SSL/TLS errors (e.g., certificate expired, hostname mismatch) are not transient
           // and should not be retried. Throwing UnrecoverableHttpException allows the
           // HttpConnectorMultiplexer to fallback to alternative URLs instead of retrying.
-          String message = "SSL error connecting to " + url + ": " + e.getMessage();
+          String message = format("SSL error connecting to %s: %s", url, e.getMessage());
           eventHandler.handle(Event.progress(message));
           IOException httpException = new UnrecoverableHttpException(message);
           httpException.addSuppressed(e);
