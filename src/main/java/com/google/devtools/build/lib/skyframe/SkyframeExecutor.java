@@ -3846,6 +3846,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           && (externalFilesKnowledge.tooManyExternalOtherFilesSeen
               || !externalFilesKnowledge.externalOtherFilesSeen.isEmpty())) {
         fileTypesToCheck.add(FileType.EXTERNAL_OTHER);
+        fileTypesToCheck.add(FileType.REPO_CONTENTS_CACHE_DIRS);
       }
       // See the comment for FileType.OUTPUT for why we need to consider output files here.
       if (checkOutputFiles) {
