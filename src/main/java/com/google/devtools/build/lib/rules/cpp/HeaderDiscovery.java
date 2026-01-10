@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -153,8 +154,7 @@ final class HeaderDiscovery {
     // file system by default, the paths as reported by the compiler may differ in casing from
     // those listed by the toolchain.
     boolean caseInsensitiveSystemIncludes =
-        ConstraintConstants.getOsFromConstraints(action.getExecutionPlatform().constraints())
-            == OS.WINDOWS;
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
