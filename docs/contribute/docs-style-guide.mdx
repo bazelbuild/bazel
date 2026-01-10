@@ -2,12 +2,14 @@
 title: 'Bazel docs style guide'
 ---
 
+
+
 Thank you for contributing to Bazel's documentation. This serves as a quick
 documentation style guide to get you started. For any style questions not
 answered by this guide, follow the
-[Google developer documentation style guide](https://developers.google.com/style){: .external}.
+[Google developer documentation style guide](https://developers.google.com/style).
 
-## Defining principles {:#principles}
+## Defining principles
 
 Bazel docs should uphold these principles:
 
@@ -19,11 +21,11 @@ Bazel docs should uphold these principles:
 -  **Correct.** Write in a way where the content stays correct for as long as
    possible by avoiding time-based information and promises for the future.
 
-## Writing {:#writing-tips}
+## Writing
 
 This section contains basic writing tips.
 
-### Headings {:#headings}
+### Headings
 
 -  Page-level headings start at H2. (H1 headings are used as page titles.)
 -  Make headers as short as is sensible. This way, they fit in the TOC
@@ -43,7 +45,7 @@ This section contains basic writing tips.
    -  <span class="compare-better">Yes</span>: Preserving graph order
    -  <span class="compare-worse">No</span>: On the preservation of graph order
 
-### Names {:#names}
+### Names
 
 -  Capitalize proper nouns, such as Bazel and Starlark.
 
@@ -57,7 +59,7 @@ This section contains basic writing tips.
    -  For example, if you're writing about issuing commands on a
       terminal, don't use both terminal and command line on the page.
 
-### Page scope {:#page-scope}
+### Page scope
 
 -  Each page should have one purpose and that should be defined at the
    beginning. This helps readers find what they need quicker.
@@ -69,7 +71,7 @@ This section contains basic writing tips.
    there is no clear action, you can include links to similar concepts,
    examples, or other avenues for exploration.
 
-### Subject {:#subject}
+### Subject
 
 In Bazel documentation, the audience should primarily be users—the people using
 Bazel to build their software.
@@ -92,7 +94,7 @@ Bazel to build their software.
    -  <span class="compare-worse">No</span>: Bazel is evolving, and we will make changes to Bazel that at
       times will be incompatible and require some changes from Bazel users.
 
-### Temporal {:#temporal}
+### Temporal
 
 Where possible, avoid terms that orient things in time, such as referencing
 specific dates (Q2 2022) or saying "now", "currently", or "soon."  These go
@@ -105,7 +107,7 @@ specify a version level instead, such as "Bazel X.x and higher supports
 -  <span class="compare-worse">No</span>: Bazel will soon support remote
    caching, likely in October 2017.
 
-### Tense {:#tense}
+### Tense
 
 -  Use present tense. Avoid past or future tense unless absolutely necessary
    for clarity.
@@ -123,7 +125,7 @@ specify a version level instead, such as "Bazel X.x and higher supports
    -  <span class="compare-worse">No</span>: X is initiated by Bazel and then
       afterward Y will be built with the output.
 
-### Tone {:#tone}
+### Tone
 
 Write with a business friendly tone.
 
@@ -135,18 +137,18 @@ Write with a business friendly tone.
 -  Avoid overly formal language. Write as though you're explaining the
    concept to someone who is curious about tech, but doesn't know the details.
 
-## Formatting {:#format}
+## Formatting
 
-### File type {:#file-type}
+### File type
 
 For readability, wrap lines at 80 characters. Long links or code snippets
 may be longer, but should start on a new line. For example:
 
 Note: Where possible, use Markdown instead of HTML in your files. Follow the
-[GitHub Markdown Syntax Guide](https://guides.github.com/features/mastering-markdown/#syntax){: .external}
+[GitHub Markdown Syntax Guide](https://guides.github.com/features/mastering-markdown/#syntax)
 for recommended Markdown style.
 
-### Links {:#links}
+### Links
 
 -  Use descriptive link text instead of "here" or "below". This practice
    makes it easier to scan a doc and is better for screen readers.
@@ -157,7 +159,7 @@ for recommended Markdown style.
    -  <span class="compare-better">Yes</span>: For more details, see [link].
    -  <span class="compare-worse">No</span>: See [link] for more information.
 
-### Lists {:#lists}
+### Lists
 
 -  Use an ordered list to describe how to accomplish a task with steps
 -  Use an unordered list to list things that aren't task based. (There should
@@ -167,7 +169,7 @@ for recommended Markdown style.
    1. Start with verbs that are the same tense.
    1. Use an ordered list if there are steps to follow.
 
-### Placeholders {:#placeholders}
+### Placeholders
 
 -  Use angle brackets to denote a variable that users should change.
    In Markdown, escape the angle brackets with a back slash: `\<example\>`.
@@ -179,11 +181,11 @@ for recommended Markdown style.
 -  Especially for complicated code samples, use placeholders that make sense
    in context.
 
-### Table of contents {:#toc}
+### Table of contents
 
 Use the auto-generated TOC supported by the site. Don't add a manual TOC.
 
-## Code {:#code}
+## Code
 
 Code samples are developers' best friends. You probably know how to write these
 already, but here are a few tips.
@@ -192,7 +194,7 @@ If you're referencing a small snippet of code, you can embed it in a sentence.
 If you want the reader to use the code, such as copying a command, use a code
 block.
 
-### Code blocks {:#code-blocks}
+### Code blocks
 
 -  Keep it short. Eliminate all redundant or unnecessary text from a code
    sample.
@@ -205,7 +207,7 @@ block.
 
 -  Separate commands and output into different code blocks.
 
-### Inline code formatting {:#code-format}
+### Inline code formatting
 
 -  Use code style for filenames, directories, paths, and small bits of code.
 -  Use inline code styling instead of _italics_, "quotes," or **bolding**.
