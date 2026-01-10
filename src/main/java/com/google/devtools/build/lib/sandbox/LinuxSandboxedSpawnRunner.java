@@ -460,6 +460,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException {
+    super.verifyPostCondition(originalSpawn, sandbox, context);
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
     }
