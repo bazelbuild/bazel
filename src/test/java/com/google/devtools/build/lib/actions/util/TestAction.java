@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -43,7 +44,7 @@ import javax.annotation.Nullable;
  * A dummy action for testing. Its execution runs the specified Runnable or Callable, which is
  * defined by the test case, and touches all the output files.
  */
-public class TestAction extends AbstractInputDiscoveringAction {
+public class TestAction extends AbstractAction {
 
   @SerializationConstant public static final Runnable NO_EFFECT = () -> {};
 
@@ -62,6 +63,7 @@ public class TestAction extends AbstractInputDiscoveringAction {
 
   protected final Callable<Void> effect;
   private final ImmutableList<Artifact> optionalInputs;
+  private NestedSet<Artifact> discoveredInputs = null;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
@@ -90,13 +92,21 @@ public class TestAction extends AbstractInputDiscoveringAction {
   }
 
   @Override
+  public void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
+    Preconditions.checkState(discoversInputs(), this);
+    this.discoveredInputs = discoveredInputs;
+  }
+
+  @Override
+  public NestedSet<Artifact> getDiscoveredInputs() {
+    return discoveredInputs;
+  }
+
+  @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
-    NestedSet<Artifact> discoveredInputs =
-        NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
-    updateDiscoveredInputs(discoveredInputs);
-    return discoveredInputs;
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
   }
 
   @Override

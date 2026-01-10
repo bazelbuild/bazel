@@ -162,12 +162,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
-    throw new IllegalStateException("Not an input-discovering action: " + this);
-  }
-
-  @Override
-  public final void resetDiscoveredInputs() {
+  public void updateDiscoveredInputs(@Nullable NestedSet<Artifact> discoveredInputs) {
     throw new IllegalStateException("Not an input-discovering action: " + this);
   }
 

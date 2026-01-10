@@ -1400,7 +1400,7 @@ public final class SkyframeActionExecutor {
 
         // Once the action has been written to the action cache, we can free its discovered inputs.
         if (freeDiscoveredInputsAfterExecution && action.discoversInputs()) {
-          action.resetDiscoveredInputs();
+          action.updateDiscoveredInputs(null);
         }
         return ActionStepOrResult.of(value);
       }

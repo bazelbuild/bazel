@@ -414,7 +414,14 @@ public class StarlarkAction extends SpawnAction {
 
       // Get all the action's inputs after execution which will include the shadowed action
       // discovered inputs
-      NestedSet<Artifact> allDiscoverableInputs = getInputs();
+      NestedSet<Artifact> allInputs =
+          NestedSetBuilder.<Artifact>newBuilder(Order.STABLE_ORDER)
+              .addTransitive(
+                  shadowedAction
+                      .map(Action::getInputs)
+                      .orElse(NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+              .addTransitive(allStarlarkActionInputs)
+              .build();
       Map<String, Artifact> usedInputsByMappedPath = new HashMap<>();
       for (Artifact input : allInputs.toList()) {
         usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
