@@ -181,14 +181,15 @@ public class ExternalFilesHelper {
     /**
      * The directory containing the repo contents cache entries as well as direct children
      * corresponding to individual predeclared input hashes. These directories are created by Bazel
-     * but may be deleted when users delete the entire repo contents cache.
+     * but may be deleted when users delete the entire repo contents cache. However, they are always
+     * recreated by Bazel before they are used and/or depended on via Skyframe. They are thus
+     * immutably present from the perspective of Skyframe and don't require invalidation.
      *
-     * <p>These files' handling differs from EXTERNAL_REPO as they are never modified after they are
-     * created and don't live under the external directory, as well as from EXTERNAL_OTHER as they
-     * can be recreated by Bazel after diff detection.
-     *
-     * <p>The contents of these directories are considered EXTERNAL_OTHER as they carry UUID names
-     * and are thus never reused.
+     * <p>Note: If these directories every need to be checked for dirtiness during diffing, they
+     * have to be made non-cacheable according to DirtinessCheckerUtils.isCacheableType so that they
+     * are not locked in as non-existent if they have been removed. This would result in FileValues
+     * for files below them (the actual repo contents of type EXTERNAL_OTHER) being locked in as
+     * non-existent too, even after a refetch of the repo has added a new cache entry.
      */
     REPO_CONTENTS_CACHE_DIRS,
 
