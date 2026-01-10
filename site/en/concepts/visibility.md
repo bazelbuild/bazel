@@ -7,7 +7,7 @@ Book: /_book.yaml
 
 This page covers Bazel's three visibility systems:
 [target visibility](#target-visibility),
-transitive visibility](#transitive-visibility) and
+[transitive visibility](#transitive-visibility) and
 [load visibility](#load-visibility).
 
 These types of visibility help other developers distinguish between your
