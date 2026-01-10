@@ -400,7 +400,7 @@ class BazelRegistry:
         module_dir, name, version, path, deps, source
     )
 
-  def createGitRepoModule(self, name, version, path, deps=None, **kwargs):
+  def createGitRepoModule(self, name, version, path, deps=None, patches=None, patch_strip=0, overlay=None, **kwargs):
     """Add a git repo module into the registry."""
     module_dir = self.root.joinpath('modules', name, version)
     module_dir.mkdir(parents=True, exist_ok=True)
@@ -411,6 +411,27 @@ class BazelRegistry:
         'remote': f'file://{path}',
     }
     source.update(**kwargs)
+
+    # Add patches if provided
+    if patches:
+      patch_dir = module_dir.joinpath('patches')
+      patch_dir.mkdir()
+      source['patches'] = {}
+      source['patch_strip'] = patch_strip
+      for patch_path in patches:
+        patch = pathlib.Path(patch_path)
+        source['patches'][patch.name] = integrity(read(patch))
+        shutil.copy(str(patch), str(patch_dir))
+
+    # Add overlay if provided
+    if overlay:
+      overlay_dir = module_dir.joinpath('overlay')
+      overlay_dir.mkdir()
+      source['overlay'] = {}
+      for overlay_rel_path, overlay_file in overlay.items():
+        file = pathlib.Path(overlay_file)
+        source['overlay'][overlay_rel_path] = integrity(read(file))
+        shutil.copy(str(file), str(overlay_dir.joinpath(overlay_rel_path)))
 
     self._createModuleAndSourceJson(
         module_dir, name, version, path, deps, source

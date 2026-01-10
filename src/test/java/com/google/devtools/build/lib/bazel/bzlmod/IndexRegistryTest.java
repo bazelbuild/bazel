@@ -369,6 +369,60 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetGitRepoSpecWithPatches() throws Exception {
+    server.serve(
+        "/modules/bar/2.0/source.json",
+        "{",
+        "  \"type\": \"git_repository\",",
+        "  \"remote\": \"https://github.com/example/repo.git\",",
+        "  \"commit\": \"abc123def456\",",
+        "  \"patches\": {",
+        "    \"1.fix-this.patch\": \"sha256-lol\",",
+        "    \"2.fix-that.patch\": \"sha256-kek\"",
+        "  },",
+        "  \"patch_strip\": 3",
+        "}");
+    server.serve("/modules/bar/2.0/MODULE.bazel", "module(name = \"bar\", version = \"2.0\")");
+    server.start();
+
+    var moduleFileRegistryHashes =
+        ImmutableMap.of(
+            server.getUrl() + "/modules/bar/2.0/MODULE.bazel",
+            Optional.of(sha256("module(name = \"bar\", version = \"2.0\")")));
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("bar", "2.0"), moduleFileRegistryHashes, reporter, downloadManager))
+        .isEqualTo(
+            new GitRepoSpecBuilder()
+                .setRemote("https://github.com/example/repo.git")
+                .setCommit("abc123def456")
+                .setInitSubmodules(false)
+                .setVerbose(false)
+                .setRemotePatches(
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/bar/2.0/patches/1.fix-this.patch",
+                        "sha256-lol",
+                        server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
+                        "sha256-kek"))
+                .setRemotePatchStrip(3)
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"bar\", version = \"2.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel")))
+                .build());
+  }
+
+  @Test
   public void testGetLocalPathRepoSpec() throws Exception {
     server.serve("/bazel_registry.json", "{", "  \"module_base_path\": \"/hello/foo\"", "}");
     server.serve(
