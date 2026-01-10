@@ -140,7 +140,17 @@ public class GenClass {
             throw new IOException(
                 "Zip entry '" + name + "' would escape extraction directory (Zip Slip attack)");
           }
-          Files.createDirectories(outputPath.getParent());
+          Path parent = outputPath.getParent();
+          if (parent != null) {
+            Files.createDirectories(parent);
+            // After creating, verify the real path to prevent symlink-based traversal (TOCTOU).
+            if (!parent.toRealPath().startsWith(tempDir.toRealPath())) {
+              throw new IOException(
+                  "Zip entry '"
+                      + name
+                      + "' would escape extraction directory via symlink (Zip Slip attack)");
+            }
+          }
           // InputStream closing: JarFile extends ZipFile, and ZipFile.close() will close all of the
           // input streams previously returned by invocations of the getInputStream method.
           // See https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipFile.html#close--
