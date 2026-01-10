@@ -97,6 +97,10 @@ public class DigestWriter {
 
     record OutOfDate(String reason) implements RepoDirectoryState {}
 
+    /**
+     * Opaque state indicating that a Skyframe restart is needed and carrying state to be preserved
+     * across it.
+     */
     final class Indeterminate implements RepoDirectoryState {
       private final ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> batches;
 
@@ -116,7 +120,7 @@ public class DigestWriter {
    * Checks if the state of the repository in the file system is consistent with the rule in the
    * WORKSPACE file.
    *
-   * <p>Returns {@link RepoDirectoryState.Indeterminate} if a Skyframe status is needed.
+   * <p>Returns {@link RepoDirectoryState.Indeterminate} if a Skyframe restart is needed.
    *
    * <p>We check the repository root for existence here, but we can't depend on the FileValue,
    * because it's possible that we eventually create that directory in which case the FileValue and

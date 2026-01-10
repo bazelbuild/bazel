@@ -152,9 +152,9 @@ public final class LocalRepoContentsCache {
   /**
    * Moves a freshly fetched repo into the contents cache.
    *
-   * @return the repo dir in the contents cache.
+   * @return the new cache entry
    */
-  public Path moveToCache(
+  public CandidateRepo moveToCache(
       Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
       throws IOException {
     Preconditions.checkState(path != null);
@@ -181,7 +181,7 @@ public final class LocalRepoContentsCache {
     // Set up a symlink at the original fetched repo dir path.
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
-    return cacheRepoDir;
+    return new CandidateRepo(cacheRecordedInputsFile, cacheRepoDir);
   }
 
   public void acquireSharedLock() throws IOException, InterruptedException {

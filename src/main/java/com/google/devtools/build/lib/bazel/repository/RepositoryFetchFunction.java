@@ -316,16 +316,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
         if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
+          // This repo is eligible for the local and remote repo contents cache.
           if (repoContentsCache.isEnabled()) {
-            // This repo is eligible for the repo contents cache.
-            Path cachedRepoDir;
+            CandidateRepo newCacheEntry;
             try {
-              cachedRepoDir =
+              newCacheEntry =
                   repoContentsCache.moveToCache(
                       repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
-              // Refetch candidate repos upon the next restart to pick up the one we just created.
-              // TODO: Directly set this to the correct CandiateRepo.
-              state.candidateRepos = null;
             } catch (IOException e) {
               throw new RepositoryFunctionException(
                   new IOException(
@@ -334,6 +331,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
                       e),
                   Transience.TRANSIENT);
             }
+            // Upon the next restart, pick up the cache entry we just created.
+            state.candidateRepos = new ArrayDeque<>(ImmutableList.of(newCacheEntry));
+            Path cachedRepoDir = newCacheEntry.contentsDir();
             // Don't forget to register a FileStateValue on the cache repo dir, so that we know to
             // refetch if the cache entry gets GC'd from under us or the entire cache is deleted.
             //
