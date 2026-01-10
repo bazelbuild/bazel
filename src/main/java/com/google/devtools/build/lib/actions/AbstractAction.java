@@ -173,7 +173,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
-    throw new IllegalStateException("Not an input-discovering action: " + this);
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
