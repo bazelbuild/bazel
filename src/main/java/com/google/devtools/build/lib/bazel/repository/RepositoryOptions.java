@@ -320,7 +320,7 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "experimental_check_external_repository_files",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
