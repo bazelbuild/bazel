@@ -128,6 +128,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* initializer= */ null,
             /* test= */ true,
             attrs,
+            /* deletedAttrs= */ StarlarkList.empty(),
             /* implicitOutputs= */ Starlark.NONE,
             /* executable= */ false,
             /* outputToGenfiles= */ false,
