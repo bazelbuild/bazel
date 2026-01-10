@@ -283,6 +283,14 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
         if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
+          if (remoteRepoContentsCache != null) {
+            remoteRepoContentsCache.addToCache(
+                repositoryName,
+                repoRoot,
+                digestWriter.markerPath,
+                digestWriter.predeclaredInputHash,
+                env.getListener());
+          }
           if (repoContentsCache.isEnabled()) {
             // This repo is eligible for the repo contents cache.
             Path cachedRepoDir;
@@ -332,14 +340,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
             // entry as a candidate or will create a new one if it got GC'd in the meantime.
             throw new IllegalStateException(
                 "FileStateValue unexpectedly present for " + cachedRepoDir);
-          }
-          if (remoteRepoContentsCache != null) {
-            remoteRepoContentsCache.addToCache(
-                repositoryName,
-                repoRoot,
-                digestWriter.markerPath,
-                digestWriter.predeclaredInputHash,
-                env.getListener());
           }
         }
         return new RepositoryDirectoryValue.Success(
