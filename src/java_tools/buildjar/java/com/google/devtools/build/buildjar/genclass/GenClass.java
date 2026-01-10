@@ -134,11 +134,17 @@ public class GenClass {
             // Assume that prefixes that don't correspond to a known hand-written source are
             // generated.
             || !prefixesContains(userWrittenFilePrefixes, className)) {
-          Files.createDirectories(tempDir.resolve(name).getParent());
+          // Protect against Zip Slip (CWE-22): validate that the resolved path is within tempDir
+          Path outputPath = tempDir.resolve(name).normalize();
+          if (!outputPath.startsWith(tempDir)) {
+            throw new IOException(
+                "Zip entry '" + name + "' would escape extraction directory (Zip Slip attack)");
+          }
+          Files.createDirectories(outputPath.getParent());
           // InputStream closing: JarFile extends ZipFile, and ZipFile.close() will close all of the
           // input streams previously returned by invocations of the getInputStream method.
           // See https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipFile.html#close--
-          Files.copy(jar.getInputStream(entry), tempDir.resolve(name));
+          Files.copy(jar.getInputStream(entry), outputPath);
         }
       }
     }
