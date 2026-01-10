@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -151,6 +152,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
+  private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
+      new MutableSupplier<>();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
@@ -251,12 +254,14 @@ public class BazelRepositoryModule extends BlazeModule {
             repositoryHandlers,
             starlarkRepositoryFunction,
             isFetch,
+            repoEnvironmentSupplier,
             clientEnvironmentSupplier,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
+        new SingleExtensionEvalFunction(
+            directories, repoEnvironmentSupplier, clientEnvironmentSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
@@ -332,6 +337,12 @@ public class BazelRepositoryModule extends BlazeModule {
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
+    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    if (commandOptions.useStrictRepoEnv) {
+      repoEnvironmentSupplier.set(env.getRepoEnvFromOptions());
+    } else {
+      repoEnvironmentSupplier.set(env.getRepoEnv());
+    }
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);

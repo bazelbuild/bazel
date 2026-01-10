@@ -108,6 +108,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
   private final ExternalPackageHelper externalPackageHelper;
+  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final RepoContentsCache repoContentsCache;
 
@@ -115,6 +116,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       ImmutableMap<String, RepositoryFunction> handlers,
       @Nullable RepositoryFunction starlarkHandler,
       AtomicBoolean isFetch,
+      Supplier<Map<String, String>> repoEnvironmentSupplier,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
       ExternalPackageHelper externalPackageHelper,
@@ -122,6 +124,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     this.handlers = handlers;
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
+    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
     this.externalPackageHelper = externalPackageHelper;
@@ -441,6 +444,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       handler = handlers.get(rule.getRuleClass());
     }
     if (handler != null) {
+      handler.setRepoEnvironment(repoEnvironmentSupplier.get());
       handler.setClientEnvironment(clientEnvironmentSupplier.get());
     }
 
