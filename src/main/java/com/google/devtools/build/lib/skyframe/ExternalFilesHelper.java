@@ -185,11 +185,12 @@ public class ExternalFilesHelper {
      * recreated by Bazel before they are used and/or depended on via Skyframe. They are thus
      * immutably present from the perspective of Skyframe and don't require invalidation.
      *
-     * <p>Note: If these directories every need to be checked for dirtiness during diffing, they
-     * have to be made non-cacheable according to DirtinessCheckerUtils.isCacheableType so that they
-     * are not locked in as non-existent if they have been removed. This would result in FileValues
-     * for files below them (the actual repo contents of type EXTERNAL_OTHER) being locked in as
-     * non-existent too, even after a refetch of the repo has added a new cache entry.
+     * <p>Note: If these directories ever need to be checked for dirtiness during diffing, they have
+     * to be made non-cacheable according to {@link
+     * DirtinessCheckerUtils.ExternalDirtinessChecker#isCacheableType} so that they are not locked
+     * in as non-existent if they have been removed. This would result in FileValues for files below
+     * them (the actual repo contents, of type EXTERNAL_OTHER) being locked in as non-existent too,
+     * even after a refetch of the repo has added a new cache entry.
      */
     REPO_CONTENTS_CACHE_DIRS,
 
