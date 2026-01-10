@@ -3853,6 +3853,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       ExternalDirtinessChecker externalDirtinessChecker = null;
       if (!fileTypesToCheck.isEmpty()) {
+        // FileType.REPO_CONTENTS_CACHE_DIRS is intentionally never checked here. See the comment on
+        // that enum constant for details.
         externalDirtinessChecker =
             new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck);
         dirtinessCheckers =
