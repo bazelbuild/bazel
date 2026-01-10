@@ -100,7 +100,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       setActionRan(existingSummary.actionRan);
       setNumCached(existingSummary.numCached);
       setRanRemotely(existingSummary.ranRemotely);
-      setWasUnreportedWrongSize(existingSummary.wasUnreportedWrongSize);
       mergeSystemFailure(existingSummary.getSystemFailure());
     }
 
@@ -319,13 +318,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     }
 
     @CanIgnoreReturnValue
-    public Builder setWasUnreportedWrongSize(boolean wasUnreportedWrongSize) {
-      checkMutation();
-      summary.wasUnreportedWrongSize = wasUnreportedWrongSize;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder mergeSystemFailure(@Nullable DetailedExitCode systemFailure) {
       checkMutation();
       summary.systemFailure =
@@ -403,7 +395,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private int numLocalActionCached;
   private boolean actionRan;
   private boolean ranRemotely;
-  private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
   private final List<TestCase> passedTestCases = new ArrayList<>();
   private final List<TestCase> skippedTestCases = new ArrayList<>();
@@ -500,10 +491,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public boolean ranRemotely() {
     return ranRemotely;
-  }
-
-  public boolean wasUnreportedWrongSize() {
-    return wasUnreportedWrongSize;
   }
 
   public int getTotalTestCases() {
