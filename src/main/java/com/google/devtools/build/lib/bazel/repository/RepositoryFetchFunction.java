@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -151,12 +150,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
     // While checking whether a particular repo candidate (either the current contents under the
-    // external directory or a candidate repo in the local repo contents cache) is up-to-date, this
-    // holds opaque intermediate state. Reset to null after each candidate.
+    // external directory or a candidate repo in the local repo contents cache) is up-to-date, these
+    // hold opaque intermediate state that avoids repeating work, such as reading marker files, on
+    // Skyframe restarts.
     @Nullable RepoDirectoryState.Indeterminate indeterminateState;
+    @Nullable RepoDirectoryState.Indeterminate candidateIndeterminateState;
     // The candidate repos in the local repo contents cache that still have to be checked.
     @Nullable ArrayDeque<CandidateRepo> candidateRepos;
-    @Nullable RepoDirectoryState.Indeterminate candidateIndeterminateState;
   }
 
   @Nullable
