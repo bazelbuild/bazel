@@ -1836,7 +1836,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               // allow setting private attributes from initializers in builtins
               Label definitionLabel = currentRuleClass.getRuleDefinitionEnvironmentLabel();
               BuiltinRestriction.failIfLabelOutsideAllowlist(
-                  definitionLabel, ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
+                  definitionLabel,
+                  targetDefinitionContext.getMainRepoMapping(),
+                  ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
             }
             String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;
             Attribute attr =

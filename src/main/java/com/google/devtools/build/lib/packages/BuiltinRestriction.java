@@ -17,7 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import net.starlark.java.eval.EvalException;
@@ -47,6 +47,7 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
+              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
 
               // Apple rules
               BuiltinRestriction.allowlistEntry("", "third_party/apple_crosstool"),
@@ -54,6 +55,7 @@ public final class BuiltinRestriction {
                   "", "third_party/cpptoolchains/portable_llvm/build_defs"),
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_apple"),
               BuiltinRestriction.allowlistEntry("rules_apple", ""),
+              BuiltinRestriction.allowlistEntry("build_bazel_rules_apple", ""),
 
               // Cc rules
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_cc"),
@@ -82,6 +84,7 @@ public final class BuiltinRestriction {
               // Proto rules
               BuiltinRestriction.allowlistEntry("", "third_party/protobuf"),
               BuiltinRestriction.allowlistEntry("protobuf", ""),
+              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""),
 
               // Shell rules
               BuiltinRestriction.allowlistEntry("rules_shell", ""));
@@ -117,24 +120,9 @@ public final class BuiltinRestriction {
       return new AutoValue_BuiltinRestriction_AllowlistEntry(apparentRepoName, packagePrefix);
     }
 
-    final boolean allows(Label label) {
-      return reposMatch(apparentRepoName(), label.getRepository())
+    final boolean allows(Label label, RepositoryMapping repoMapping) {
+      return label.getRepository().equals(repoMapping.get(apparentRepoName()))
           && label.getPackageFragment().startsWith(packagePrefix());
-    }
-
-    private static boolean reposMatch(String allowedName, RepositoryName givenName) {
-      if (allowedName.equals(RepositoryName.MAIN.getName())) {
-        return givenName.equals(RepositoryName.MAIN);
-      }
-      if (allowedName.equals(RepositoryName.BAZEL_TOOLS.getName())) {
-        return givenName.equals(RepositoryName.BAZEL_TOOLS);
-      }
-      if (allowedName.equals(RepositoryName.BUILTINS.getName())) {
-        return givenName.equals(RepositoryName.BUILTINS);
-      }
-      // allowedName is a module name and givenName is a real canonical repo name, so it belongs to
-      // any version of that module if and only if it contains <allowedName>+ as a prefix.
-      return givenName.getName().startsWith(allowedName + "+");
     }
   }
 
@@ -177,16 +165,17 @@ public final class BuiltinRestriction {
    */
   public static void failIfModuleOutsideAllowlist(
       BazelModuleContext moduleContext, Collection<AllowlistEntry> allowlist) throws EvalException {
-    failIfLabelOutsideAllowlist(moduleContext.label(), allowlist);
+    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.repoMapping(), allowlist);
   }
 
   /**
    * Throws {@code EvalException} if the given {@link Label} is not within either 1) the builtins
    * repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
-  public static void failIfLabelOutsideAllowlist(Label label, Collection<AllowlistEntry> allowlist)
+  public static void failIfLabelOutsideAllowlist(
+      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist)
       throws EvalException {
-    if (isNotAllowed(label, allowlist)) {
+    if (isNotAllowed(label, repoMapping, allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
@@ -195,10 +184,11 @@ public final class BuiltinRestriction {
    * Returns true if the given {@link Label} is not within both 1) the builtins repository, or 2) a
    * package or subpackage of an entry in the given allowlist.
    */
-  public static boolean isNotAllowed(Label label, Collection<AllowlistEntry> allowlist) {
+  public static boolean isNotAllowed(
+      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist) {
     if (label.getRepository().getName().equals("_builtins")) {
       return false;
     }
-    return allowlist.stream().noneMatch(e -> e.allows(label));
+    return allowlist.stream().noneMatch(e -> e.allows(label, repoMapping));
   }
 }
