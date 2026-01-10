@@ -89,7 +89,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
         ImmutableSet.of(),
         inputsToCreate,
         dirsToCreate,
-        Iterables.concat(inputFiles.getFiles().keySet(), inputFiles.getSymlinks().keySet()),
+        Iterables.concat(inputFiles.files().keySet(), inputFiles.symlinks().keySet()),
         outputs);
     SandboxHelpers.cleanExisting(
         sandboxDir.getParentDirectory(),
