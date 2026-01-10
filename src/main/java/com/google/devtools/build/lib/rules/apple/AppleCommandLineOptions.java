@@ -35,18 +35,6 @@ import java.util.List;
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
-      name = "experimental_objc_provider_from_linked",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "No-op. Kept here for backwards compatibility. This field will be removed in a "
-              + "future release.")
-  // TODO(b/32411441): This flag should be removed.
-  public boolean objcProviderFromLinked;
-
-  @Option(
       name = "xcode_version",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -294,16 +282,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
-      name = "catalyst_cpus",
-      allowMultiple = true,
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
-  public List<String> catalystCpus;
-
-  @Option(
       name = "xcode_version_config",
       defaultValue = "@bazel_tools//tools/cpp:host_xcodes",
       converter = LabelConverter.class,
@@ -337,16 +315,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // TODO(cparsons): Update all callers to reference the actual xcode_version_config flag value.
   @VisibleForTesting
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
-
-  @Option(
-      name = "incompatible_enable_apple_toolchain_resolution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use toolchain resolution to select the Apple SDK for apple rules (Starlark and native)")
-  public boolean incompatibleUseToolchainResolution;
 
   @Option(
       name = "apple_platforms",
