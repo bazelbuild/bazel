@@ -93,6 +93,8 @@ public class BazelRuleClassProvider {
           .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.LINUX, PathFragment.create("/bin/bash"))
+          .put(OS.DARWIN, PathFragment.create("/bin/bash"))
           .put(OS.UNKNOWN, FALLBACK_SHELL)
           .buildOrThrow();
 
