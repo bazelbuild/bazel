@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -566,15 +565,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       return;
     }
     try {
-      var recordedInput = new RepoRecordedInput.DirTree(repoCacheFriendlyPath);
-      DirectoryTreeDigestValue digestValue =
-          (DirectoryTreeDigestValue)
-              env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
-      if (digestValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(recordedInput, digestValue.hexDigest());
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

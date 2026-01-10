@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
@@ -38,7 +39,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
-class DigestWriter {
+public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -95,41 +96,71 @@ class DigestWriter {
     record UpToDate() implements RepoDirectoryState {}
 
     record OutOfDate(String reason) implements RepoDirectoryState {}
+
+    /**
+     * Opaque state indicating that a Skyframe restart is needed and carrying state to be preserved
+     * across it.
+     */
+    final class Indeterminate implements RepoDirectoryState {
+      private final ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> batches;
+
+      private Indeterminate(ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> batches) {
+        this.batches = batches;
+      }
+    }
   }
 
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env)
+  RepoDirectoryState areRepositoryAndMarkerFileConsistent(
+      Environment env, @Nullable RepoDirectoryState.Indeterminate indeterminateState)
       throws InterruptedException, RepositoryFunctionException {
-    return areRepositoryAndMarkerFileConsistent(env, markerPath);
+    return areRepositoryAndMarkerFileConsistent(env, markerPath, indeterminateState);
   }
 
   /**
    * Checks if the state of the repository in the file system is consistent with the rule in the
    * WORKSPACE file.
    *
-   * <p>Returns null if a Skyframe status is needed.
+   * <p>Returns {@link RepoDirectoryState.Indeterminate} if a Skyframe restart is needed.
    *
    * <p>We check the repository root for existence here, but we can't depend on the FileValue,
    * because it's possible that we eventually create that directory in which case the FileValue and
    * the state of the file system would be inconsistent.
    */
-  @Nullable
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
+  RepoDirectoryState areRepositoryAndMarkerFileConsistent(
+      Environment env,
+      Path markerPath,
+      @Nullable RepoDirectoryState.Indeterminate intermediateState)
       throws RepositoryFunctionException, InterruptedException {
     if (!markerPath.exists()) {
       return new RepoDirectoryState.OutOfDate("repo hasn't been fetched yet");
     }
 
     try {
-      String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-      var recordedInputValues =
-          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
-      Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
-      if (env.valuesMissing()) {
-        return null;
+      // Avoid reading the marker file repeatedly.
+      if (intermediateState == null) {
+        String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
+        var recordedInputValues =
+            readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+        if (recordedInputValues.isEmpty()) {
+          return new RepoDirectoryState.OutOfDate(
+              "Bazel version, flags, repo rule definition or attributes changed");
+        }
+        // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+        intermediateState =
+            new RepoDirectoryState.Indeterminate(
+                RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get()));
       }
-      if (outdatedReason.isPresent()) {
-        return new RepoDirectoryState.OutOfDate(outdatedReason.get());
+      for (var batch : intermediateState.batches) {
+        RepoRecordedInput.prefetch(
+            env, directories, Collections2.transform(batch, RepoRecordedInput.WithValue::input));
+        if (env.valuesMissing()) {
+          return intermediateState;
+        }
+        Optional<String> outdatedReason =
+            RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+        if (outdatedReason.isPresent()) {
+          return new RepoDirectoryState.OutOfDate(outdatedReason.get());
+        }
       }
       return new RepoDirectoryState.UpToDate();
     } catch (IOException e) {
@@ -137,7 +168,12 @@ class DigestWriter {
     }
   }
 
-  private static ImmutableList<RepoRecordedInput.WithValue> readMarkerFile(
+  /**
+   * Returns a list of recorded inputs with their values parsed from the given marker file if the
+   * predeclared input hash matches, or {@code Optional.empty()} if the hash doesn't match or any
+   * error occurs during parsing.
+   */
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -151,26 +187,22 @@ class DigestWriter {
         if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
-          return ImmutableList.of(
-              new RepoRecordedInput.WithValue(
-                  new NeverUpToDateRepoRecordedInput(
-                      "Bazel version, flags, repo rule definition or attributes changed"),
-                  ""));
+          return Optional.empty();
         }
         firstLineVerified = true;
       } else {
         var inputAndValue = RepoRecordedInput.WithValue.parse(line);
         if (inputAndValue.isEmpty()) {
           // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
+          return Optional.empty();
         }
         recordedInputValues.add(inputAndValue.get());
       }
     }
     if (!firstLineVerified) {
-      return PARSE_FAILURE;
+      return Optional.empty();
     }
-    return recordedInputValues.build();
+    return Optional.of(recordedInputValues.build());
   }
 
   @Nullable
