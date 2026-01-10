@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 
 /** Mocking support for platforms and toolchains. */
@@ -123,9 +124,9 @@ public class MockPlatformSupport {
         "    name = 'osx',",
         "    constraint_setting = ':os',",
         ")",
-        "constraint_value(",
+        "alias(",
         "    name = 'macos',",
-        "    constraint_setting = ':os',",
+        "    actual = ':osx',",
         ")",
         "constraint_value(",
         "    name = 'ios',",
@@ -184,16 +185,12 @@ public class MockPlatformSupport {
         ")");
     mockToolsConfig.create(
         constraintsPath + "/host/BUILD",
+        "load(':constraints.bzl', 'HOST_CONSTRAINTS')",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "platform(",
         "    name = 'host',",
-        "    constraint_values = [",
-        // Regardless of the actual machine the tests are run on, hardcode everything to a single
-        // default value for simplicity.
-        "        '" + constraintsPackageRoot + "cpu:x86_64',",
-        "        '" + constraintsPackageRoot + "os:linux',",
-        "    ],",
+        "    constraint_values = HOST_CONSTRAINTS,",
         ")",
         "platform(",
         "     name = 'piii',",
@@ -208,7 +205,18 @@ public class MockPlatformSupport {
         // Regardless of the actual machine the tests are run on, hardcode everything to a single
         // default value for simplicity.
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
-        "        '" + constraintsPackageRoot + "os:linux',",
+        "        '"
+            + constraintsPackageRoot
+            + "os:%s',"
+                .formatted(
+                    switch (OS.getCurrent()) {
+                      case DARWIN -> "osx";
+                      case FREEBSD -> "freebsd";
+                      case OPENBSD -> "openbsd";
+                      case LINUX -> "linux";
+                      case WINDOWS -> "windows";
+                      case UNKNOWN -> "none";
+                    }),
         "    ]");
     mockToolsConfig.create(
         constraintsPath + "/host/extension.bzl", "def host_platform_repo(**kwargs):", "    pass");
