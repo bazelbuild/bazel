@@ -131,7 +131,7 @@ public interface ActionAnalysisMetadata {
    *
    * <p>For actions that do input discovery, a different result may be returned before and after
    * action execution, because input discovery may add or remove inputs. The original input set may
-   * be retrieved from {@link ActionExecutionMetadata#getOriginalInputs}.
+   * be retrieved from {@link ActionExecutionMetadata#getAnalysisTimeInputs}.
    */
   NestedSet<Artifact> getInputs();
 
@@ -140,7 +140,7 @@ public interface ActionAnalysisMetadata {
    *
    * <p>Unlike {@link #getInputs}, the same result is returned before and after action execution.
    */
-  NestedSet<Artifact> getOriginalInputs();
+  NestedSet<Artifact> getAnalysisTimeInputs();
 
   /**
    * Returns the input Artifacts that must be built before the action can be executed, but are not

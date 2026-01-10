@@ -52,7 +52,7 @@ public class AqueryUtils {
       // already executed). Instead, assemble the inputs from getOriginalInputs() and
       // getSchedulingDependencies(), which also include those added or removed by discovery.
       return NestedSetBuilder.<Artifact>stableOrder()
-          .addTransitive(action.getOriginalInputs())
+          .addTransitive(action.getAnalysisTimeInputs())
           .addTransitive(action.getSchedulingDependencies())
           .build();
     }

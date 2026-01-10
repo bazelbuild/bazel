@@ -882,7 +882,7 @@ public final class ResourceManagerTest {
     }
 
     @Override
-    public NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getAnalysisTimeInputs() {
       throw new IllegalStateException();
     }
 

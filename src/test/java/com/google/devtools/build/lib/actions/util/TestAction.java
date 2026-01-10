@@ -41,9 +41,8 @@ import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /**
- * A dummy action for testing.  Its execution runs the specified
- * Runnable or Callable, which is defined by the test case,
- * and touches all the output files.
+ * A dummy action for testing. Its execution runs the specified Runnable or Callable, which is
+ * defined by the test case, and touches all the output files.
  */
 public class TestAction extends AbstractAction {
 
@@ -63,9 +62,8 @@ public class TestAction extends AbstractAction {
   }
 
   protected final Callable<Void> effect;
-  private final NestedSet<Artifact> mandatoryInputs;
   private final ImmutableList<Artifact> optionalInputs;
-  private boolean inputsDiscovered = false;
+  private NestedSet<Artifact> discoveredInputs = null;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
@@ -79,14 +77,8 @@ public class TestAction extends AbstractAction {
   public TestAction(
       Callable<Void> effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     super(NULL_ACTION_OWNER, mandatoryArtifacts(inputs), outputs);
-    this.mandatoryInputs = getInputs();
     this.optionalInputs = optionalArtifacts(inputs);
     this.effect = effect;
-  }
-
-  @Override
-  public NestedSet<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
   }
 
   @Override
@@ -95,37 +87,26 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  protected boolean inputsDiscovered() {
-    return inputsDiscovered;
-  }
-
-  @Override
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
-    this.inputsDiscovered = inputsDiscovered;
-  }
-
-  @Override
-  public NestedSet<Artifact> getOriginalInputs() {
-    return mandatoryInputs;
-  }
-
-  @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
-    return NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, optionalInputs);
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, optionalInputs);
+  }
+
+  @Override
+  public void updateDiscoveredInputs(NestedSet<Artifact> discoveredInputs) {
+    Preconditions.checkState(discoversInputs(), this);
+    this.discoveredInputs = discoveredInputs;
+  }
+
+  @Override
+  public NestedSet<Artifact> getDiscoveredInputs() {
+    return discoveredInputs;
   }
 
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
-    NestedSet<Artifact> discoveredInputs =
-        NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
-    updateInputs(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(mandatoryInputs)
-            .addTransitive(discoveredInputs)
-            .build());
-    return discoveredInputs;
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER, Iterables.filter(optionalInputs, i -> i.getPath().exists()));
   }
 
   @Override
@@ -137,8 +118,8 @@ public class TestAction extends AbstractAction {
       // This is used, e.g., to test Blaze behavior when action has missing
       // input artifacts but still is successfully executed.
       if (!artifact.getPath().exists()) {
-        throw new IllegalStateException("action's input file does not exist: "
-            + artifact.getPath());
+        throw new IllegalStateException(
+            "action's input file does not exist: " + artifact.getPath());
       }
     }
 
@@ -188,6 +169,5 @@ public class TestAction extends AbstractAction {
     public DummyAction(Artifact input, Artifact output) {
       this(NestedSetBuilder.create(Order.STABLE_ORDER, input), output);
     }
-
   }
 }

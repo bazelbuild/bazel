@@ -136,7 +136,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     throw new UnsupportedOperationException();
   }
 

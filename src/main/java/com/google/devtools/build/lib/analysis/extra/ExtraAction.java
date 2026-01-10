@@ -58,7 +58,6 @@ public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
   private final NestedSet<Artifact> extraActionInputs;
-  private boolean inputsDiscovered = false;
 
   ExtraAction(
       ActionOwner owner,
@@ -139,16 +138,6 @@ public final class ExtraAction extends SpawnAction {
     return shadowedAction.discoversInputs();
   }
 
-  @Override
-  protected boolean inputsDiscovered() {
-    return inputsDiscovered;
-  }
-
-  @Override
-  protected void setInputsDiscovered(boolean inputsDiscovered) {
-    this.inputsDiscovered = inputsDiscovered;
-  }
-
   /**
    * This method returns null when a required SkyValue is missing and a Skyframe restart is
    * required.
@@ -167,15 +156,10 @@ public final class ExtraAction extends SpawnAction {
     if (inputFilesForExtraAction == null) {
       return null;
     }
-    updateInputs(
+    updateDiscoveredInputs(
         createInputs(shadowedAction.getInputs(), inputFilesForExtraAction, extraActionInputs));
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
-  }
-
-  @Override
-  public NestedSet<Artifact> getOriginalInputs() {
-    return shadowedAction.getOriginalInputs();
   }
 
   @Override

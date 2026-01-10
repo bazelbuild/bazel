@@ -117,7 +117,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 

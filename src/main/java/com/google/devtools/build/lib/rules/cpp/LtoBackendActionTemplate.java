@@ -407,7 +407,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     return allInputs;
   }
 

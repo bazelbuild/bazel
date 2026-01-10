@@ -501,11 +501,6 @@ public final class ActionsTestUtil {
     public boolean discoversInputs() {
       return true;
     }
-
-    @Override
-    protected boolean inputsDiscovered() {
-      return false;
-    }
   }
 
   /**

@@ -352,7 +352,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getAnalysisTimeInputs() {
     return getInputs();
   }
 

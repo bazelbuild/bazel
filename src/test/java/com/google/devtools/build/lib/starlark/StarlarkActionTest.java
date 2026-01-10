@@ -59,7 +59,7 @@ public final class StarlarkActionTest extends BuildViewTestCase {
     ensureMemoizedIsInitializedIsSet(starlarkAction);
     String originalStructure = dumpStructureWithEquivalenceReduction(starlarkAction);
 
-    starlarkAction.updateInputs(NestedSetBuilder.create(Order.STABLE_ORDER, discoveredInput));
+    starlarkAction.updateDiscoveredInputs(NestedSetBuilder.create(Order.STABLE_ORDER, discoveredInput));
 
     new SerializationTester(starlarkAction)
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)

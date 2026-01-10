@@ -527,7 +527,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
 
     @Override
-    public NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getAnalysisTimeInputs() {
       return getInputs();
     }
 

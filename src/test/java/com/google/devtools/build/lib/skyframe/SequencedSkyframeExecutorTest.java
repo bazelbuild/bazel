@@ -1455,7 +1455,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getAnalysisTimeInputs() {
       return getInputs();
     }
 
