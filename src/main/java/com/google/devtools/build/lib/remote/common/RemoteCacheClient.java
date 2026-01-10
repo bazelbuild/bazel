@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An interface for a remote caching protocol.
@@ -103,6 +104,12 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
     /** Get an input stream for the blob's data. Can be called multiple times. */
     InputStream get() throws IOException;
 
+    /** An optional human-readable description of the blob's source. */
+    @Nullable
+    default String description() {
+      return null;
+    }
+
     @Override
     default void close() {}
   }
@@ -117,7 +124,20 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    */
   default ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadBlob(context, digest, () -> new LazyFileInputStream(file));
+    return uploadBlob(
+        context,
+        digest,
+        new Blob() {
+          @Override
+          public InputStream get() {
+            return new LazyFileInputStream(file);
+          }
+
+          @Override
+          public String description() {
+            return "file " + file;
+          }
+        });
   }
 
   /**

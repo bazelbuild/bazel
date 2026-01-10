@@ -485,13 +485,33 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
-    return uploadChunker(
-        context,
-        digest,
-        Chunker.builder()
-            .setInput(digest.getSizeBytes(), blob)
-            .setCompressed(shouldCompress(digest))
-            .build());
+    return Futures.catchingAsync(
+        uploadChunker(
+            context,
+            digest,
+            Chunker.builder()
+                .setInput(digest.getSizeBytes(), blob)
+                .setCompressed(shouldCompress(digest))
+                .build()),
+        IOException.class,
+        e -> {
+          var cause = e.getCause();
+          if (!(cause instanceof StatusRuntimeException sre)) {
+            return Futures.immediateFailedFuture(e);
+          }
+          var code = sre.getStatus().getCode();
+          String blobDescription = blob.description();
+          // INVALID_ARGUMENT is returned in case of a digest mismatch, which can hint at concurrent
+          // modifications to the blob's source. Print it to help the user debug such issues.
+          // https://github.com/bazelbuild/bazel/blob/ec36eacc31678ecf4b5c25f9ab7ab166330aff28/third_party/remoteapis/build/bazel/remote/execution/v2/remote_execution.proto#L283-L286
+          if (code == Code.INVALID_ARGUMENT && blobDescription != null) {
+            return Futures.immediateFailedFuture(
+                new IOException(
+                    "while uploading %s: %s".formatted(blobDescription, e.getMessage()), e));
+          }
+          return Futures.immediateFailedFuture(e);
+        },
+        MoreExecutors.directExecutor());
   }
 
   ListenableFuture<Void> uploadChunker(
