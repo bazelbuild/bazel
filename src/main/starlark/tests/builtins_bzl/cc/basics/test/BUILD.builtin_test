@@ -1,0 +1,20 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+package(features = ["layering_check"])
+
+cc_library(
+    name = "lib",
+    srcs = ["nested/lib.cc"],
+    strip_include_prefix = "nested",
+    textual_hdrs = [
+        "nested/lib.h",
+        "not_nested.h",
+    ],
+)
+
+cc_test(
+    name = "test_include_textual",
+    srcs = ["test_include_textual.cc"],
+    deps = [":lib"],
+)
