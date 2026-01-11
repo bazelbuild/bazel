@@ -92,77 +92,47 @@ public class DigestWriter {
     }
   }
 
-  sealed interface RepoDirectoryState {
-    record UpToDate() implements RepoDirectoryState {}
-
-    record OutOfDate(String reason) implements RepoDirectoryState {}
-
-    /**
-     * Opaque state indicating that a Skyframe restart is needed and carrying state to be preserved
-     * across it.
-     */
-    final class Indeterminate implements RepoDirectoryState {
-      private final ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> batches;
-
-      private Indeterminate(ImmutableList<ImmutableList<RepoRecordedInput.WithValue>> batches) {
-        this.batches = batches;
-      }
-    }
-  }
-
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(
-      Environment env, @Nullable RepoDirectoryState.Indeterminate indeterminateState)
+  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env)
       throws InterruptedException, RepositoryFunctionException {
-    return areRepositoryAndMarkerFileConsistent(env, markerPath, indeterminateState);
+    return areRepositoryAndMarkerFileConsistent(env, markerPath);
   }
 
   /**
-   * Checks if the state of the repository in the file system is consistent with the rule in the
-   * WORKSPACE file.
+   * Checks if the state of the repo in the filesystem is consistent with its current definition.
+   * Returns {@link Optional#empty()} if they are consistent; otherwise, returns a description of
+   * why they are not.
    *
-   * <p>Returns {@link RepoDirectoryState.Indeterminate} if a Skyframe restart is needed.
-   *
-   * <p>We check the repository root for existence here, but we can't depend on the FileValue,
-   * because it's possible that we eventually create that directory in which case the FileValue and
-   * the state of the file system would be inconsistent.
+   * <p>This method treats a missing Skyframe dependency as if the repo is not up to date. The
+   * caller is responsible for checking {@code env.valuesMissing()}.
    */
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(
-      Environment env,
-      Path markerPath,
-      @Nullable RepoDirectoryState.Indeterminate intermediateState)
+  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
       throws RepositoryFunctionException, InterruptedException {
     if (!markerPath.exists()) {
-      return new RepoDirectoryState.OutOfDate("repo hasn't been fetched yet");
+      return Optional.of("repo hasn't been fetched yet");
     }
 
     try {
-      // Avoid reading the marker file repeatedly.
-      if (intermediateState == null) {
-        String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-        var recordedInputValues =
-            readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
-        if (recordedInputValues.isEmpty()) {
-          return new RepoDirectoryState.OutOfDate(
-              "Bazel version, flags, repo rule definition or attributes changed");
-        }
-        // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
-        intermediateState =
-            new RepoDirectoryState.Indeterminate(
-                RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get()));
+      String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
+      Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
+          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+      if (recordedInputValues.isEmpty()) {
+        return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
       }
-      for (var batch : intermediateState.batches) {
+      // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+      for (ImmutableList<RepoRecordedInput.WithValue> batch :
+          RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
         RepoRecordedInput.prefetch(
             env, directories, Collections2.transform(batch, RepoRecordedInput.WithValue::input));
         if (env.valuesMissing()) {
-          return intermediateState;
+          return Optional.of("Needs Skyframe restart");
         }
         Optional<String> outdatedReason =
             RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
         if (outdatedReason.isPresent()) {
-          return new RepoDirectoryState.OutOfDate(outdatedReason.get());
+          return outdatedReason;
         }
       }
-      return new RepoDirectoryState.UpToDate();
+      return Optional.empty();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
