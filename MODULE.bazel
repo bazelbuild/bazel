@@ -23,7 +23,7 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "protobuf", version = "33.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "33.3.bcr.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "9.1.0")
@@ -108,7 +108,7 @@ single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
     patches = ["//third_party:protobuf.patch"],
-    version = "33.1",
+    version = "33.3.bcr.1",
 )
 
 # Remove once the following PRs are available in a grpc-java release.
@@ -454,8 +454,6 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 # =========================================
 
 register_execution_platforms("//:default_host_platform")
-
-register_toolchains("@rules_python//python:autodetecting_toolchain")
 
 register_toolchains("@local_config_winsdk//:all")
 
