@@ -161,7 +161,10 @@ public class DirtinessCheckerUtils {
     private static boolean isCacheableType(FileType fileType) {
       return switch (fileType) {
         case INTERNAL, EXTERNAL, BUNDLED -> true;
-        case EXTERNAL_REPO, OUTPUT, REPO_CONTENTS_CACHE_DIRS -> false;
+        case EXTERNAL_REPO, OUTPUT -> false;
+        case REPO_CONTENTS_CACHE_DIRS ->
+            throw new IllegalStateException(
+                "Repo contents cache dirs are not expected to be checked for dirtiness");
       };
     }
   }
