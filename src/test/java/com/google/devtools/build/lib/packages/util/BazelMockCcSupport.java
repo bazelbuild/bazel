@@ -162,7 +162,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
           MessageFormat.format(
               """
-              load("//cc/private/rules_impl:fdo/{0}.bzl", _{0} = "{0}")
+              load("//cc/private/rules_impl/fdo:{0}.bzl", _{0} = "{0}")
               {0} = _{0}
               """,
               ruleName));
@@ -172,6 +172,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
         """
         load("//cc/private:cc_info.bzl", _CcInfo = "CcInfo")
         CcInfo = _CcInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_shared_library_info.bzl",
+        """
+        load("//cc/private:cc_shared_library_info.bzl", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
+        CcSharedLibraryInfo = _CcSharedLibraryInfo
         """);
     config.overwrite(
         "third_party/bazel_rules/rules_cc/cc/common/debug_package_info.bzl",
