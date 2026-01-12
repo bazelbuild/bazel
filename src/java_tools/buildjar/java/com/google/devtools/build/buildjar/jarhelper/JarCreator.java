@@ -17,8 +17,8 @@ package com.google.devtools.build.buildjar.jarhelper;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
@@ -42,7 +42,7 @@ public class JarCreator extends JarHelper {
   // Map from Jar entry names to files. Use TreeMap so we can establish a canonical order for the
   // entries regardless in what order they get added.
   private final TreeMap<String, Path> jarEntries = new TreeMap<>();
-  private String manifestFile;
+  private Path manifestPath;
   private String mainClass;
   private String targetLabel;
   private String injectingRuleKind;
@@ -173,15 +173,15 @@ public class JarCreator extends JarHelper {
    * Sets filename for the manifest content. If this is set the manifest will be read from this file
    * otherwise the manifest content will get generated on the fly.
    *
-   * @param manifestFile the filename of the manifest file.
+   * @param manifestPath the filename of the manifest file.
    */
-  public void setManifestFile(String manifestFile) {
-    this.manifestFile = manifestFile;
+  public void setManifestPath(Path manifestPath) {
+    this.manifestPath = manifestPath;
   }
 
   private byte[] manifestContent() throws IOException {
-    if (manifestFile != null) {
-      try (FileInputStream in = new FileInputStream(manifestFile)) {
+    if (manifestPath != null) {
+      try (InputStream in = Files.newInputStream(manifestPath)) {
         return manifestContentImpl(new Manifest(in));
       }
     } else {

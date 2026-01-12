@@ -18,6 +18,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
@@ -45,20 +46,15 @@ public class JarHelper {
    *
    * <p>The ZIP format uses MS-DOS timestamps (see <a
    * href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">APPNOTE.TXT</a>) which use
-   * 1980-1-1 as the epoch, but {@link ZipEntry#setTime(long)} expects milliseconds since the unix
-   * epoch (1970-1-1). To work around this, {@link ZipEntry} uses portability-reducing ZIP
+   * 1980-1-1 as the epoch. To work around this, {@link ZipEntry} uses portability-reducing ZIP
    * extensions to store pre-1980 timestamps, which can occasionally <a
    * href="https://bugs.openjdk.java.net/browse/JDK-8246129>cause</a> <a
    * href="https://openjdk.markmail.org/thread/wzw7zfilk5j7uzqk>issues</a>. For that reason, using a
-   * fixed post-1980 timestamp is preferred to e.g. calling {@code setTime(0)}. At Google, the
-   * timestamp of 2010-1-1 is used by convention in deterministic jar archives.
+   * fixed post-1980 timestamp is preferred. At Google, the timestamp of 2010-1-1 is used by
+   * convention in deterministic jar archives.
    */
-  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // Use setTime(LocalDateTime) in Java > 9
-  public static final long DEFAULT_TIMESTAMP =
-      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
-          .atZone(ZoneId.systemDefault())
-          .toInstant()
-          .toEpochMilli();
+  public static final LocalDateTime DEFAULT_TIMESTAMP = LocalDateTime.of(2010, 1, 1, 0, 0, 0);
+
   // These attributes are used by JavaBuilder, Turbine, and ijar.
   // They must all be kept in sync.
   public static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
@@ -69,7 +65,7 @@ public class JarHelper {
 
   // ZIP timestamps have a resolution of 2 seconds.
   // see http://www.info-zip.org/FAQ.html#limits
-  public static final long MINIMUM_TIMESTAMP_INCREMENT = 2000L;
+  public static final Duration MINIMUM_TIMESTAMP_INCREMENT = Duration.ofSeconds(2);
 
   // The path to the Jar we want to create
   protected final Path jarPath;
@@ -127,9 +123,9 @@ public class JarHelper {
    * @param name The name of the file for which we should return the normalized timestamp.
    * @return the time for a new Jar file entry in milliseconds since the epoch.
    */
-  private long normalizedTimestamp(String name) {
+  private static LocalDateTime normalizedTimestamp(String name) {
     if (name.endsWith(".class")) {
-      return DEFAULT_TIMESTAMP + MINIMUM_TIMESTAMP_INCREMENT;
+      return DEFAULT_TIMESTAMP.plus(MINIMUM_TIMESTAMP_INCREMENT);
     } else {
       return DEFAULT_TIMESTAMP;
     }
@@ -143,8 +139,8 @@ public class JarHelper {
    * @param filename The name of the file for which we are entering the time
    * @return the time for a new Jar file entry in milliseconds since the epoch.
    */
-  protected long newEntryTimeMillis(String filename) {
-    return normalize ? normalizedTimestamp(filename) : System.currentTimeMillis();
+  protected LocalDateTime newEntryTimeMillis(String filename) {
+    return normalize ? normalizedTimestamp(filename) : LocalDateTime.now(ZoneId.systemDefault());
   }
 
   /**
@@ -155,7 +151,7 @@ public class JarHelper {
     if (names.add(name)) {
       // Create a new entry
       JarEntry entry = new JarEntry(name);
-      entry.setTime(newEntryTimeMillis(name));
+      entry.setTimeLocal(newEntryTimeMillis(name));
       int size = content.length;
       entry.setSize(size);
       if (size == 0) {
@@ -218,9 +214,14 @@ public class JarHelper {
         // Create a new entry
         long size = isDirectory ? 0 : Files.size(path);
         JarEntry outEntry = new JarEntry(name);
-        long newtime =
-            normalize ? normalizedTimestamp(name) : Files.getLastModifiedTime(path).toMillis();
-        outEntry.setTime(newtime);
+        LocalDateTime newtime =
+            normalize
+                ? normalizedTimestamp(name)
+                : Files.getLastModifiedTime(path)
+                    .toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+        outEntry.setTimeLocal(newtime);
         outEntry.setSize(size);
         if (size == 0L) {
           outEntry.setMethod(JarEntry.STORED);
