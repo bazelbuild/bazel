@@ -25,7 +25,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 set_up() {
-  bazel clean --expunge >& $TEST_log
   add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -54,6 +53,11 @@ tear_down() {
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
     rm -fr "${TEST_TMPDIR}/server_dir"
   fi
+}
+
+function clean_external_repos() {
+  local output_base=$(bazel info output_base)
+  rm -rf "${output_base}/external"
 }
 
 function zip_up() {
@@ -1450,7 +1454,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
   bazel query 'deps("@ext//:bar")' && fail "Couldn't clean local cache" || :
 
   # The value should still be available from the repository cache
@@ -1460,7 +1464,7 @@ EOF
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1523,14 +1527,14 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # The value should still be available from the repository cache
   bazel query 'deps("@ext//:bar")' > "${TEST_log}" || fail "Expected success"
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1581,7 +1585,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Still, the file should be cached.
   bazel build '@ext//:foo' || fail "expected success"
@@ -1624,7 +1628,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Still, the file should be cached.
   bazel build '@ext//:foo' || fail "expected success"
@@ -1695,7 +1699,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
 
   # Do a noop build with the cache enabled to ensure the cache can be disabled
   # after the server starts.
@@ -1755,7 +1759,7 @@ EOF
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
-  bazel clean --expunge
+  clean_external_repos
   bazel query 'deps("@ext//:bar")' && fail "Couldn't clean local cache" || :
 
   # The value should still be available from the repository cache
@@ -1765,7 +1769,7 @@ EOF
   expect_log '@ext//:foo'
 
   # Clean again.
-  bazel clean --expunge
+  clean_external_repos
   # Even with a different source URL, the cache should be consulted.
 
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1919,7 +1923,7 @@ EOF
   bazel build //:it || fail "Expected success"
 
   # go offline and clean everything
-  bazel clean --expunge
+  clean_external_repos
   rm "${WRKDIR}/ext-1.1.zip"
 
   echo "Build #2"
@@ -2015,7 +2019,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="${WRKDIR}/distfiles" //:local \
     || fail "expected success"
 }
@@ -2068,7 +2072,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="${WRKDIR}/distfiles" //:local \
     || fail "expected success"
 }
@@ -2112,7 +2116,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="../distfiles" //:local \
     || fail "expected success"
 }
@@ -2156,7 +2160,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   # The local distdirs all do no provide the file; still, it should work by fetching
   # the file from upstream.
   bazel build --distdir=does/not/exist --distdir=/global/does/not/exist --distdir=../thisisafile --distdir=../thisisempty //:local \
@@ -2244,7 +2248,7 @@ genrule(
 )
 EOF
 
-  bazel clean --expunge
+  clean_external_repos
   bazel build --distdir="../distfiles" //:unrelated \
     || fail "expected success"
   # As no --distdir option is given and upstream not available,
