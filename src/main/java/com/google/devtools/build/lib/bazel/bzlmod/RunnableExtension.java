@@ -15,8 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -57,9 +57,7 @@ interface RunnableExtension {
 
   /* Holds the result data from running a module extension */
   record RunModuleExtensionResult(
-      ImmutableSortedMap<RepoRecordedInput.File, String> recordedFileInputs,
-      ImmutableSortedMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
-      ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
+      ImmutableList<RepoRecordedInput.WithValue> recordedInputs,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
       ModuleExtensionMetadata moduleExtensionMetadata,
       ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}

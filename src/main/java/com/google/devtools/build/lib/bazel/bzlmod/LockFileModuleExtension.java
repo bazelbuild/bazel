@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
@@ -45,11 +45,7 @@ public abstract class LockFileModuleExtension {
   @SuppressWarnings("mutable")
   public abstract byte[] getUsagesDigest();
 
-  public abstract ImmutableSortedMap<RepoRecordedInput.File, String> getRecordedFileInputs();
-
-  public abstract ImmutableSortedMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
-
-  public abstract ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> getEnvVariables();
+  public abstract ImmutableList<RepoRecordedInput.WithValue> getRecordedInputs();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
@@ -72,14 +68,7 @@ public abstract class LockFileModuleExtension {
 
     public abstract Builder setUsagesDigest(byte[] digest);
 
-    public abstract Builder setRecordedFileInputs(
-        ImmutableSortedMap<RepoRecordedInput.File, String> value);
-
-    public abstract Builder setRecordedDirentsInputs(
-        ImmutableSortedMap<RepoRecordedInput.Dirents, String> value);
-
-    public abstract Builder setEnvVariables(
-        ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> value);
+    public abstract Builder setRecordedInputs(ImmutableList<RepoRecordedInput.WithValue> value);
 
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
 

@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -119,6 +121,61 @@ public abstract sealed class RepoRecordedInput {
         }
       }
       return Optional.empty();
+    }
+
+    /**
+     * Splits the given map of recorded input values into batches of inputs that can be checked for
+     * up-to-dateness together without causing Skyframe cycles. Unlike the list overload, this
+     * method partitions inputs into unconditional and conditional groups since map iteration order
+     * (e.g. from ImmutableSortedMap) may not place unconditional inputs first.
+     */
+    public static ImmutableList<ImmutableList<WithValue>> splitIntoBatches(
+        Map<? extends RepoRecordedInput, String> recordedInputValues) {
+      var unconditional = new ArrayList<WithValue>();
+      var conditional = new ArrayList<WithValue>();
+      for (var e : recordedInputValues.entrySet()) {
+        var withValue = new WithValue(e.getKey(), e.getValue());
+        if (e.getKey().canBeRequestedUnconditionally()) {
+          unconditional.add(withValue);
+        } else {
+          conditional.add(withValue);
+        }
+      }
+      var batches = ImmutableList.<ImmutableList<WithValue>>builder();
+      if (!unconditional.isEmpty()) {
+        batches.add(ImmutableList.copyOf(unconditional));
+      }
+      if (!conditional.isEmpty()) {
+        batches.add(ImmutableList.copyOf(conditional));
+      }
+      return batches.build();
+    }
+
+    /**
+     * Splits the given list of recorded input values into batches such that within each batch, all
+     * recorded inputs's {@link SkyKey}s can be requested together. Unconditional inputs are always
+     * in the first batch, even if the list doesn't have them first (e.g., when read from a marker
+     * file written with sorted map iteration order).
+     */
+    public static ImmutableList<ImmutableList<WithValue>> splitIntoBatches(
+        List<WithValue> recordedInputValues) {
+      var unconditional = new ArrayList<WithValue>();
+      var conditional = new ArrayList<WithValue>();
+      for (var recordedInputValue : recordedInputValues) {
+        if (recordedInputValue.input().canBeRequestedUnconditionally()) {
+          unconditional.add(recordedInputValue);
+        } else {
+          conditional.add(recordedInputValue);
+        }
+      }
+      var batches = ImmutableList.<ImmutableList<WithValue>>builder();
+      if (!unconditional.isEmpty()) {
+        batches.add(ImmutableList.copyOf(unconditional));
+      }
+      if (!conditional.isEmpty()) {
+        batches.add(ImmutableList.copyOf(conditional));
+      }
+      return batches.build();
     }
 
     /** Converts this {@link WithValue} to a string in a format compatible with {@link #parse}. */
@@ -240,6 +297,13 @@ public abstract sealed class RepoRecordedInput {
   public abstract SkyKey getSkyKey(BlazeDirectories directories);
 
   /**
+   * Returns {@code true} if this recorded input can be requested unconditionally, i.e. without
+   * risking a Skyframe cycle. Recorded inputs for which this returns {@code false} must be checked
+   * in a separate batch from inputs for which this returns {@code true}.
+   */
+  protected abstract boolean canBeRequestedUnconditionally();
+
+  /**
    * Returns a human-readable reason for why the given {@code oldValue} is no longer up-to-date for
    * this recorded input, or an empty Optional if it is still up-to-date. This method can assume
    * that {@link #getSkyKey(BlazeDirectories)} is already evaluated; it can request further Skyframe
@@ -326,6 +390,11 @@ public abstract sealed class RepoRecordedInput {
                     .getRelative(repoName().get().getName()));
       }
       return RootedPath.toRootedPath(root, path());
+    }
+
+    /** Returns true if the path points into an external repository. */
+    public boolean inExternalRepo() {
+      return repoName().isPresent() && !repoName().get().isMain();
     }
   }
 
@@ -419,6 +488,13 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // Requesting files in external repositories can result in cycles if the external repo now
+      // transitively depends on the requesting repo.
+      return !path.inExternalRepo();
+    }
+
+    @Override
     public Optional<String> isOutdated(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
@@ -498,6 +574,13 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return DirectoryListingValue.key(path.getRootedPath(directories));
+    }
+
+    @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // Requesting directories in external repositories can result in cycles if the external repo
+      // transitively depends on the requesting repo.
+      return !path.inExternalRepo();
     }
 
     @Override
@@ -597,6 +680,13 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // Requesting directory trees in external repositories can result in cycles if the external
+      // repo now transitively depends on the requesting repo.
+      return !path.inExternalRepo();
+    }
+
+    @Override
     public Optional<String> isOutdated(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
@@ -675,6 +765,13 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return RepoEnvironmentFunction.key(name);
+    }
+
+    @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // Environment variables are static data injected into Skyframe, so there is no risk of
+      // cycles.
+      return true;
     }
 
     @Override
@@ -766,6 +863,14 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    protected boolean canBeRequestedUnconditionally() {
+      // Starlark can only request the mapping of the repo it is currently executing from, which
+      // means that the repo has already been fetched (either to execute the code or to verify the
+      // transitive .bzl hash). Further cycles aren't possible.
+      return true;
+    }
+
+    @Override
     public Optional<String> isOutdated(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
@@ -831,6 +936,11 @@ public abstract sealed class RepoRecordedInput {
     public SkyKey getSkyKey(BlazeDirectories directories) {
       // Return a random SkyKey to satisfy the contract.
       return PrecomputedValue.STARLARK_SEMANTICS.getKey();
+    }
+
+    @Override
+    protected boolean canBeRequestedUnconditionally() {
+      return true;
     }
 
     @Override

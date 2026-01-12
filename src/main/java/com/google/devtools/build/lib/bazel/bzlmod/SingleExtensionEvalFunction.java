@@ -21,9 +21,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.RunnableExtension.RunModuleExtensionResult;
@@ -47,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -269,15 +268,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
     if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
-      var envVariables =
-          ImmutableMap.<RepoRecordedInput.EnvVar, Optional<String>>builder()
-              // The environment variable dependencies statically declared via the 'environ'
-              // attribute.
-              .putAll(RepoRecordedInput.EnvVar.wrap(extension.getStaticEnvVars()))
-              // The environment variable dependencies dynamically declared via the 'getenv' method.
-              .putAll(moduleExtensionResult.recordedEnvVarInputs())
-              .buildKeepingLast();
-
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -287,9 +277,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setUsagesDigest(
                           SingleExtensionUsagesValue.hashForEvaluation(
                               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
-                      .setRecordedFileInputs(moduleExtensionResult.recordedFileInputs())
-                      .setRecordedDirentsInputs(moduleExtensionResult.recordedDirentsInputs())
-                      .setEnvVariables(ImmutableSortedMap.copyOf(envVariables))
+                      .setRecordedInputs(moduleExtensionResult.recordedInputs())
                       .setGeneratedRepoSpecs(generatedRepoSpecs)
                       .setModuleExtensionMetadata(lockfileModuleExtensionMetadata)
                       .setRecordedRepoMappingEntries(
@@ -339,16 +327,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 + extensionId
                 + "' or one of its transitive .bzl files has changed");
       }
-      if (didRecordedInputsChange(
-          env,
-          directories,
-          // didRecordedInputsChange expects possibly null String values.
-          Maps.transformValues(lockedExtension.getEnvVariables(), v -> v.orElse(null)))) {
-        diffRecorder.record(
-            "The environment variables the extension '"
-                + extensionId
-                + "' depends on (or their values) have changed");
-      }
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
       if (!Arrays.equals(
@@ -363,15 +341,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 + extensionId
                 + "' have changed");
       }
-      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedFileInputs())) {
+      Optional<String> reason =
+          didRecordedInputsChange(env, directories, lockedExtension.getRecordedInputs());
+      if (reason.isPresent()) {
         diffRecorder.record(
-            "One or more files the extension '" + extensionId + "' is using have changed");
-      }
-      if (didRecordedInputsChange(env, directories, lockedExtension.getRecordedDirentsInputs())) {
-        diffRecorder.record(
-            "One or more directory listings watched by the extension '"
-                + extensionId
-                + "' have changed");
+            "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
@@ -469,17 +443,23 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return false;
   }
 
-  private static boolean didRecordedInputsChange(
+  private static Optional<String> didRecordedInputsChange(
       Environment env,
       BlazeDirectories directories,
-      Map<? extends RepoRecordedInput, String> recordedInputs)
+      List<RepoRecordedInput.WithValue> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
-    Optional<String> outdated =
-        RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputs);
-    if (env.valuesMissing()) {
-      throw new NeedsSkyframeRestartException();
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+    for (ImmutableList<RepoRecordedInput.WithValue> batch :
+        RepoRecordedInput.WithValue.splitIntoBatches(recordedInputs)) {
+      Optional<String> outdated = RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (env.valuesMissing()) {
+        throw new NeedsSkyframeRestartException();
+      }
+      if (outdated.isPresent()) {
+        return outdated;
+      }
     }
-    return outdated.isPresent();
+    return Optional.empty();
   }
 
   private SingleExtensionValue createSingleExtensionValue(

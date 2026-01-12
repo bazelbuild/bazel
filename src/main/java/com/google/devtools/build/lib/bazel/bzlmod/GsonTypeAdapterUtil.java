@@ -357,49 +357,22 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
-  private static final TypeAdapter<RepoRecordedInput.File> REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER =
-      new TypeAdapter<>() {
-        @Override
-        public void write(JsonWriter jsonWriter, RepoRecordedInput.File value) throws IOException {
-          jsonWriter.value(value.toStringInternal());
-        }
-
-        @Override
-        public RepoRecordedInput.File read(JsonReader jsonReader) throws IOException {
-          return (RepoRecordedInput.File)
-              RepoRecordedInput.File.PARSER.parse(jsonReader.nextString());
-        }
-      };
-
-  private static final TypeAdapter<RepoRecordedInput.Dirents>
-      REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER =
+  private static final TypeAdapter<RepoRecordedInput.WithValue>
+      REPO_RECORDED_INPUT_WITH_VALUE_TYPE_ADAPTER =
           new TypeAdapter<>() {
             @Override
-            public void write(JsonWriter jsonWriter, RepoRecordedInput.Dirents value)
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.WithValue value)
                 throws IOException {
-              jsonWriter.value(value.toStringInternal());
+              jsonWriter.value(value.toString());
             }
 
             @Override
-            public RepoRecordedInput.Dirents read(JsonReader jsonReader) throws IOException {
-              return (RepoRecordedInput.Dirents)
-                  RepoRecordedInput.Dirents.PARSER.parse(jsonReader.nextString());
-            }
-          };
-
-  private static final TypeAdapter<RepoRecordedInput.EnvVar>
-      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
-          new TypeAdapter<>() {
-            @Override
-            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
-                throws IOException {
-              jsonWriter.value(value.toStringInternal());
-            }
-
-            @Override
-            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
-              return (RepoRecordedInput.EnvVar)
-                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            public RepoRecordedInput.WithValue read(JsonReader jsonReader) throws IOException {
+              return RepoRecordedInput.WithValue.parse(jsonReader.nextString())
+                  .orElseGet(
+                      () ->
+                          new RepoRecordedInput.WithValue(
+                              RepoRecordedInput.NeverUpToDateRepoRecordedInput.PARSE_FAILURE, ""));
             }
           };
 
@@ -487,11 +460,8 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
-        .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
-        .registerTypeAdapter(
-            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
+            RepoRecordedInput.WithValue.class, REPO_RECORDED_INPUT_WITH_VALUE_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}
