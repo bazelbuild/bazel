@@ -33,7 +33,15 @@ To build Bazel from source, you can do one of the following:
 
 4.  Build a development build of Bazel using Bazel:
     `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
-    Windows)
+    Windows).
+
+    **Note:** Many rulesets rely on the Bazel version for feature detection.
+    For this to work correctly, the version must be embedded in the binary.
+    Build `bazel-dev` in the **8.x–9.0** range with:
+
+    `bazel build --stamp --embed_label="X.Y.Z" //src:bazel-dev`
+
+    where `X.Y.Z` is the Bazel version being built (for example, `8.6.0`).
 
 5.  The resulting binary is at `bazel-bin/src/bazel-dev`
     (or `bazel-bin\src\bazel-dev.exe` on Windows). You can copy it wherever you
