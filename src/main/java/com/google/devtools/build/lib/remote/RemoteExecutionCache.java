@@ -26,7 +26,6 @@ import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -63,8 +61,12 @@ import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -210,32 +212,37 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
         context, digest, new VirtualActionInputBlob(virtualActionInput));
   }
 
-  private static final class VirtualActionInputBlob implements Blob {
-    private VirtualActionInput virtualActionInput;
-    // Can be large compared to the retained size of the VirtualActionInput and thus shouldn't be
-    // kept in memory for an extended period of time.
-    private volatile ByteString data;
-
-    VirtualActionInputBlob(VirtualActionInput virtualActionInput) {
-      this.virtualActionInput = Preconditions.checkNotNull(virtualActionInput);
-    }
+  private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
+    private static final ExecutorService VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR =
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("virtual-action-input-pipe-%d", 0).factory());
 
     @Override
-    public InputStream get() throws IOException {
-      if (data == null) {
-        synchronized (this) {
-          if (data == null) {
-            data = Preconditions.checkNotNull(virtualActionInput, "used after close()").getBytes();
-          }
-        }
+    public InputStream get() {
+      // Avoid materializing and retaining VirtualActionInput.getBytes() during the upload. This
+      // can result in high memory usage with many parallel actions with large virtual inputs. Limit
+      // this memory usage to the fixed buffer size by using a piped stream.
+      var pipedIn = new PipedInputStream(Chunker.getDefaultChunkSize());
+      PipedOutputStream pipedOut;
+      try {
+        pipedOut = new PipedOutputStream(pipedIn);
+      } catch (IOException e) {
+        throw new IllegalStateException(
+            "PipedOutputStream constructor is not expected to throw", e);
       }
-      return data.newInput();
-    }
-
-    @Override
-    public void close() {
-      virtualActionInput = null;
-      data = null;
+      // Note that while Piped{Input,Output}Stream are not directly I/O-bound, bytes read from
+      // pipedIn are sent out via gRPC before more bytes are read. As a result, pipedOut is expected
+      // to block frequently enough to make virtual threads suitable here.
+      VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR.submit(
+          () -> {
+            try (pipedOut) {
+              virtualActionInput.writeTo(pipedOut);
+            } catch (IOException e) {
+              throw new IllegalStateException(
+                  "writeTo is  not expected to throw as pipedOut doesn't", e);
+            }
+          });
+      return pipedIn;
     }
   }
 
