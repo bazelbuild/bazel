@@ -171,6 +171,7 @@ java_library(
         "@googleapis//google/longrunning:longrunning_java_proto",
         "@googleapis//google/rpc:rpc_java_proto",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@maven//:org_openjdk_jol_jol_core",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
@@ -196,7 +197,13 @@ java_library(
 
 java_test(
     name = "RemoteTests",
-    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+        # Required for compatibility with records.
+        "-Djol.magicFieldOffset=true",
+        # Match the Bazel startup flags.
+        "-XX:+UseCompactObjectHeaders",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RemoteTests_lib",
