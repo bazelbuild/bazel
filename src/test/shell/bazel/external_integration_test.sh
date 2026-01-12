@@ -1093,8 +1093,6 @@ EOF
     test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
     test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
-
-  shutdown_server
 }
 
 function test_sha256_weird() {
@@ -1116,7 +1114,6 @@ http_archive(
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
   expect_log "[Ii]nvalid SHA-256 checksum"
-  shutdown_server
 }
 
 function test_sha256_incorrect() {
@@ -1139,7 +1136,6 @@ EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
   expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
-  shutdown_server
 }
 
 function test_integrity_correct() {
@@ -1162,7 +1158,6 @@ http_archive(
 )
 EOF
   bazel build @repo//... || fail "Expected integrity check to succeed"
-  shutdown_server
 }
 
 function test_integrity_weird() {
