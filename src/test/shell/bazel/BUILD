@@ -315,7 +315,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
-        shard_count = 2,
+        shard_count = 4,
         tags = [
             "requires-network",  # For Bzlmod
         ],
