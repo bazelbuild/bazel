@@ -13,10 +13,7 @@
 # limitations under the License.
 """Utilities related to C++ support."""
 
-load(
-    ":common/cc/cc_helper_internal.bzl",
-    _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
-)
+load(":common/cc/cc_helper_internal.bzl", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 
 _cc_common_internal = _builtins.internal.cc_common
 _cc_internal = _builtins.internal.cc_internal

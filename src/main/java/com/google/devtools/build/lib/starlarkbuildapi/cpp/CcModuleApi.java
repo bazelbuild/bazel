@@ -416,7 +416,7 @@ public interface CcModuleApi<
     throw new UnsupportedOperationException();
   }
 
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
+  // LINT.ThenChange(@rules_cc//cc/private/compile/compile.bzl:compile_api)
 
   @StarlarkMethod(
       name = "link",
