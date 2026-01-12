@@ -1389,6 +1389,36 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.assertIn('https://unknown-registry.example.com', stderr)
 
+  def testInvalidRepoRuleReferencedByTargetDoesNotCrash(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "gen",',
+            '  srcs = ["@my_repo//:a.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $(OUTS)",',
+            ')',
+        ],
+    )
+    self.ScratchFile('repo.bzl', ['nonsense'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//:gen'],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('FATAL', stderr)
+    self.assertIn("compilation of module 'repo.bzl' failed", stderr)
+
 
 if __name__ == '__main__':
   absltest.main()
