@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 
@@ -78,12 +81,17 @@ public sealed interface MerkleTree {
    * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
    */
   final class Uploadable implements MerkleTree {
+    private static final Comparator<Digest> DIGEST_COMPARATOR =
+        Comparator.comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator());
+
     private final RootOnly.BlobsUploaded root;
-    private final ImmutableMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
+    private final ImmutableSortedMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
 
     Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
       this.root = root;
-      this.blobs = blobs;
+      // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
+      // arrays.
+      this.blobs = ImmutableSortedMap.copyOf(blobs, DIGEST_COMPARATOR);
     }
 
     @Override
