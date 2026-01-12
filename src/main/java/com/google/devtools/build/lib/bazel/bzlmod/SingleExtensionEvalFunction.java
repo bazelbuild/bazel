@@ -474,12 +474,18 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       BlazeDirectories directories,
       Map<? extends RepoRecordedInput, String> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
-    Optional<String> outdated =
-        RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputs);
-    if (env.valuesMissing()) {
-      throw new NeedsSkyframeRestartException();
+    // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+    for (ImmutableList<RepoRecordedInput.WithValue> batch :
+        RepoRecordedInput.WithValue.splitIntoBatches(recordedInputs)) {
+      Optional<String> outdated = RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+      if (env.valuesMissing()) {
+        throw new NeedsSkyframeRestartException();
+      }
+      if (outdated.isPresent()) {
+        return true;
+      }
     }
-    return outdated.isPresent();
+    return false;
   }
 
   private SingleExtensionValue createSingleExtensionValue(
