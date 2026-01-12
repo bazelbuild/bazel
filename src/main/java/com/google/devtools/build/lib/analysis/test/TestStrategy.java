@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -135,6 +136,29 @@ public abstract class TestStrategy implements TestActionContext {
     resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
     resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
     resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
+  }
+
+  /**
+   * Ensures that all directories used to run test are in the correct state and their content will
+   * not result in stale files.
+   */
+  protected void prepareFileSystem(
+      TestRunnerAction testAction,
+      Path execRoot,
+      Path tmpDir,
+      ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    prepareFileSystem(testAction, execRoot, tmpDir);
+    // Reset output metadata to avoid stale information from previous attempts.
+    actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
+    // Pre-touch the coverage data file to satisfy Bazel's output contract.
+    if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
+      Artifact coverageData = testAction.getCoverageData();
+      if (coverageData != null) {
+        FileSystemUtils.touchFile(
+            actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
+      }
+    }
   }
 
   /**

@@ -575,7 +575,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, execRoot, tmpDir);
+      prepareFileSystem(testAction, execRoot, tmpDir, actionExecutionContext);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 
@@ -735,7 +735,9 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setRunDurationMillis(durationMillis)
         .setHasCoverage(testAction.isCoverageMode());
 
-    if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
+    if (testAction.isCoverageMode()
+        && testAction.getSplitCoveragePostProcessing()
+        && testResultDataBuilder.getTestPassed()) {
       if (testAction.getCoverageDirectoryTreeArtifact() == null) {
         // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
         TestExecException e =
