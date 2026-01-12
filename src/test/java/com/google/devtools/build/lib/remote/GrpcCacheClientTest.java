@@ -50,18 +50,17 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.io.CountingOutputStream;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -77,8 +76,8 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -120,14 +119,17 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.junit.After;
 import org.junit.Before;
@@ -292,34 +294,45 @@ public class GrpcCacheClientTest {
             /* symlinkTemplate= */ null,
             DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
-    VirtualActionInput virtualActionInput =
-        ActionsTestUtil.createVirtualActionInput(execPath, "hello");
-    Spawn spawn =
-        new SpawnBuilder("unused").withInputs(virtualActionInput).withOutputs("foo").build();
-    SpawnExecutionContext spawnExecutionContext =
-        new FakeSpawnExecutionContext(
-            spawn,
-            /* inputMetadataProvider= */ null,
-            execRoot,
-            /* outErr= */ null,
-            ImmutableClassToInstanceMap.of(),
-            /* actionFileSystem= */ null);
+    var virtualActionInput =
+        new VirtualActionInput() {
+          @Override
+          public String getExecPathString() {
+            return execPath.getPathString();
+          }
+
+          @Override
+          public PathFragment getExecPath() {
+            return execPath;
+          }
+
+          @Override
+          public void writeTo(OutputStream out) throws IOException {
+            // Use a fixed seed to ensure deterministic content across multiple calls.
+            var random = new Random(123456);
+            // Use primes to exercise chunking logic. Keeping the full output in memory requires at
+            // least 64MB of heap.
+            for (int i = 0; i < 1031; i++) {
+              byte[] bytes = new byte[65537];
+              random.nextBytes(bytes);
+              out.write(bytes);
+            }
+          }
+        };
+    var merkleTreeComputer =
+        new MerkleTreeComputer(
+            DIGEST_UTIL, client, "buildRequestId", "commandId", TestConstants.WORKSPACE_NAME);
+    var spawn = new SpawnBuilder().withInput(virtualActionInput).build();
     var merkleTree =
         (MerkleTree.Uploadable)
-            new MerkleTreeComputer(
-                    DIGEST_UTIL,
-                    client,
-                    "buildRequestId",
-                    "commandId",
-                    TestConstants.WORKSPACE_NAME)
-                .buildForSpawn(
-                    spawn,
-                    ImmutableSet.of(),
-                    /* scrubber= */ null,
-                    spawnExecutionContext,
-                    remotePathResolver,
-                    MerkleTreeComputer.BlobPolicy.KEEP);
-    Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
+            merkleTreeComputer.buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                /* scrubber= */ null,
+                context.getSpawnExecutionContext(),
+                remotePathResolver,
+                MerkleTreeComputer.BlobPolicy.KEEP);
+    Digest digest = DIGEST_UTIL.compute(virtualActionInput);
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
     serviceRegistry.addService(
@@ -334,39 +347,96 @@ public class GrpcCacheClientTest {
           }
         });
 
-    // Mock a byte stream and assert that we see the virtual action input with contents 'hello'
-    AtomicBoolean writeOccurred = new AtomicBoolean();
+    var serviceError = new AtomicReference<Throwable>();
+    var countingOut = new CountingOutputStream(OutputStream.nullOutputStream());
+    var digestOut =
+        new DigestOutputStream(DigestHashFunction.SHA256.getHashFunction(), countingOut);
+    var sawFinalChunk = new CountDownLatch(1);
+    var delayFinalChunk = new CountDownLatch(1);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public StreamObserver<WriteRequest> write(
               final StreamObserver<WriteResponse> responseObserver) {
-            return new StreamObserver<WriteRequest>() {
+            return new StreamObserver<>() {
+              final AtomicBoolean firstRequest = new AtomicBoolean(true);
+
               @Override
               public void onNext(WriteRequest request) {
-                assertThat(request.getResourceName()).contains(digest.getHash());
-                assertThat(request.getFinishWrite()).isTrue();
-                assertThat(request.getData().toStringUtf8()).isEqualTo("hello");
-                writeOccurred.set(true);
+                try {
+                  if (firstRequest.getAndSet(false)) {
+                    assertThat(request.getResourceName()).contains(digest.getHash());
+                  }
+                  assertThat(request.getWriteOffset()).isEqualTo(countingOut.getCount());
+                  try {
+                    request.getData().newInput().transferTo(digestOut);
+                  } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                  }
+                  if (countingOut.getCount() == digest.getSizeBytes()) {
+                    sawFinalChunk.countDown();
+                    delayFinalChunk.await();
+                    assertThat(request.getFinishWrite()).isTrue();
+                  } else {
+                    assertThat(request.getFinishWrite()).isFalse();
+                  }
+                } catch (Throwable t) {
+                  serviceError.set(t);
+                  responseObserver.onError(Status.INTERNAL.withCause(t).asRuntimeException());
+                }
               }
 
               @Override
               public void onCompleted() {
-                responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(5).build());
+                responseObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(digest.getSizeBytes()).build());
                 responseObserver.onCompleted();
               }
 
               @Override
               public void onError(Throwable t) {
-                fail("An error occurred: " + t);
+                serviceError.set(t);
               }
             };
           }
         });
 
-    // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(
-        context, merkleTree, ImmutableMap.of(), /* force= */ true, remotePathResolver);
+    System.gc();
+    var usedMemoryBefore = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+
+    var uploadError = new AtomicReference<Throwable>();
+    var uploadThread =
+        Thread.ofPlatform()
+            .start(
+                () -> {
+                  try {
+                    client.ensureInputsPresent(
+                        context,
+                        merkleTree,
+                        ImmutableMap.of(),
+                        /* force= */ true,
+                        remotePathResolver);
+                  } catch (Throwable e) {
+                    uploadError.set(e);
+                  }
+                });
+
+    sawFinalChunk.await();
+    System.gc();
+    var usedMemoryAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+
+    delayFinalChunk.countDown();
+    uploadThread.join();
+
+    if (uploadError.get() != null) {
+      throw new AssertionError(uploadError.get());
+    }
+    if (serviceError.get() != null) {
+      throw new AssertionError(serviceError.get());
+    }
+    assertThat(digestOut.digest()).isEqualTo(digest);
+    // Ensure that memory usage didn't spike by the size of the virtual input (about 64MB).
+    assertThat(usedMemoryAfter - usedMemoryBefore).isLessThan(10 * 1024 * 1024);
   }
 
   @Test
