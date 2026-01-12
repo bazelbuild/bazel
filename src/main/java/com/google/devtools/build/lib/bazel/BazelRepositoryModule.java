@@ -681,10 +681,18 @@ public class BazelRepositoryModule extends BlazeModule {
    */
   @Nullable
   private Path toPath(PathFragment path, CommandEnvironment env) {
-    if (path.isEmpty() || env.getBlazeWorkspace().getWorkspace() == null) {
+    if (path.isEmpty() || env.getDirectories().getWorkspace() == null) {
       return null;
     }
-    return env.getBlazeWorkspace().getWorkspace().getRelative(path);
+    // It is important to use getWorkspace() here, not getWorkingDirectory(). Both Paths have the
+    // same underlying PathFragment, but may differ in their FileSystem if the remote repo contents
+    // cache is in use. getWorkspace() uses the same FileSystem as everything other than the
+    // workspace directory, while getWorkingDirectory() uses the workspace directory's FileSystem.
+    // Even though the users of the returned Path may end up writing to it, they are not expected to
+    // update source files within the workspace. Thus, the correct FileSystem is the one from
+    // getWorkspace(), which e.g. allows moves from the external directory under the output base to
+    // the local repo contents cache without crossing FileSystems.
+    return env.getDirectories().getWorkspace().getRelative(path);
   }
 
   @Override
