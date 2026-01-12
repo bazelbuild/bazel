@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -341,7 +340,7 @@ public final class RuleConfiguredTargetBuilder {
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    */
-  private void propagateTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() throws InterruptedException {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
@@ -349,7 +348,7 @@ public final class RuleConfiguredTargetBuilder {
       if (rdeLabel != null
           && BuiltinRestriction.isNotAllowed(
               rdeLabel,
-              RepositoryMapping.ALWAYS_FALLBACK,
+              ruleContext.getAnalysisEnvironment().getMainRepoMapping(),
               BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
