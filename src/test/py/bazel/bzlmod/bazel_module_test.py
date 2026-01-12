@@ -1419,6 +1419,66 @@ class BazelModuleTest(test_base.TestBase):
     self.assertNotIn('FATAL', stderr)
     self.assertIn("compilation of module 'repo.bzl' failed", stderr)
 
+  def testReverseDependencyDirection(self):
+    # Set up two module extensions that retain their predeclared input hashes
+    # across two builds but still reverse their dependency direction. Depending
+    # on how repo cache candidates are checked, this could lead to a Skyframe
+    # cycle.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'foo_ext = use_extension("//:repo.bzl", "foo_ext")',
+            'use_repo(foo_ext, "foo")',
+            'bar_ext = use_extension("//:repo.bzl", "bar_ext")',
+            'use_repo(bar_ext, "bar")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("output.txt", rctx.attr.content)',
+            '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+            '  print("JUST FETCHED: %s" % rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  implementation = _repo_impl,',
+            '  attrs = {"content": attr.string()},',
+            ')',
+            'def _foo_ext_impl(mctx):',
+            '  deps = mctx.read(Label("@//:foo_deps.txt")).splitlines()',
+            '  content = "foo"',
+            '  for dep in deps:',
+            '    if dep:',
+            '      content += " + " + mctx.read(Label(dep))',
+            '  repo(name = "foo", content = content)',
+            'foo_ext = module_extension(implementation = _foo_ext_impl)',
+            'def _bar_ext_impl(mctx):',
+            '  deps = mctx.read(Label("@//:bar_deps.txt")).splitlines()',
+            '  content = "bar"',
+            '  for dep in deps:',
+            '    if dep:',
+            '      content += " + " + mctx.read(Label(dep))',
+            '  repo(name = "bar", content = content)',
+            'bar_ext = module_extension(implementation = _bar_ext_impl)',
+        ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
+
+    # After expunging and reversing: cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt')
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    self.RunBazel(['build', '@foo//:output.txt'])
+
 
 if __name__ == '__main__':
   absltest.main()
