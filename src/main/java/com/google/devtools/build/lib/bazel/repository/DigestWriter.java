@@ -121,11 +121,6 @@ public class DigestWriter {
       // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
       for (ImmutableList<RepoRecordedInput.WithValue> batch :
           RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
-        RepoRecordedInput.prefetch(
-            env, directories, Collections2.transform(batch, RepoRecordedInput.WithValue::input));
-        if (env.valuesMissing()) {
-          return Optional.of("Needs Skyframe restart");
-        }
         Optional<String> outdatedReason =
             RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
         if (outdatedReason.isPresent()) {
