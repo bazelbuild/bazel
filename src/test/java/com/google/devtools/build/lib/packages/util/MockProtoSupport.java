@@ -495,6 +495,15 @@ public final class MockProtoSupport {
               + "proto_compiler = '"
               + ProtoConstants.DEFAULT_PROTOC_LABEL
               + "')");
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/prebuilt/authenticity.bzl",
+          "def _authenticity_impl(ctx):",
+          "    return [OutputGroupInfo(_validation = depset())]",
+          "authenticity_rule = rule(implementation = _authenticity_impl)");
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/prebuilt/BUILD.bazel",
+          "load(':authenticity.bzl', 'authenticity_rule')",
+          "authenticity_rule(name = 'authenticity_validation', visibility = ['//visibility:public'])");
       config.overwrite("proto_bazel_features_workspace/BUILD");
       config.overwrite(
           "proto_bazel_features_workspace/features.bzl",
