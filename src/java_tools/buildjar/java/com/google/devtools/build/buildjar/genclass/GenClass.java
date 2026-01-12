@@ -165,7 +165,6 @@ public class GenClass {
   private static void writeOutputJar(Path tempDir, GenClassOptions options) throws IOException {
     JarCreator output = new JarCreator(options.outputJar().toString());
     output.setCompression(true);
-    output.setNormalize(true);
     output.addDirectory(tempDir);
     output.execute();
   }

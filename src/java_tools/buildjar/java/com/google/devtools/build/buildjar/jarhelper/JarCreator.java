@@ -244,7 +244,6 @@ public class JarCreator extends JarHelper {
       createJar.addDirectory(args[i]);
     }
     createJar.setCompression(true);
-    createJar.setNormalize(true);
     createJar.setVerbose(true);
     long start = System.currentTimeMillis();
     try {

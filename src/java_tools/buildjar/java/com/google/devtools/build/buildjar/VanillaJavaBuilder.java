@@ -310,7 +310,6 @@ public class VanillaJavaBuilder implements Closeable {
       return;
     }
     JarCreator jar = new JarCreator(optionsParser.getGeneratedSourcesOutputJar());
-    jar.setNormalize(true);
     jar.setCompression(optionsParser.compressJar());
     jar.addDirectory(sourceGenDir);
     jar.execute();
@@ -323,7 +322,6 @@ public class VanillaJavaBuilder implements Closeable {
     }
     JarCreator jar = new JarCreator(optionsParser.getNativeHeaderOutput());
     try {
-      jar.setNormalize(true);
       jar.setCompression(optionsParser.compressJar());
       jar.addDirectory(nativeHeaderDir);
     } finally {
@@ -334,7 +332,6 @@ public class VanillaJavaBuilder implements Closeable {
   /** Writes the class output jar, including any resource entries. */
   private static void writeOutput(Path classDir, OptionsParser optionsParser) throws IOException {
     JarCreator jar = new JarCreator(optionsParser.getOutputJar());
-    jar.setNormalize(true);
     jar.setCompression(optionsParser.compressJar());
     jar.addDirectory(classDir);
     jar.execute();

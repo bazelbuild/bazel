@@ -20,7 +20,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.Attributes;
@@ -71,7 +70,6 @@ public class JarHelper {
   protected final Path jarPath;
 
   // The properties to describe how to create the Jar
-  protected boolean normalize;
   protected int storageMethod = JarEntry.DEFLATED;
   protected boolean verbose = false;
   protected boolean multiRelease = false;
@@ -81,15 +79,6 @@ public class JarHelper {
 
   public JarHelper(Path path) {
     jarPath = path;
-  }
-
-  /**
-   * Enables or disables the Jar entry normalization.
-   *
-   * @param normalize If true the timestamps of Jar entries will be set to the DOS epoch.
-   */
-  public void setNormalize(boolean normalize) {
-    this.normalize = normalize;
   }
 
   public void multiRelease(boolean multiRelease) {
@@ -140,7 +129,7 @@ public class JarHelper {
    * @return the time for a new Jar file entry in milliseconds since the epoch.
    */
   protected LocalDateTime newEntryTimeMillis(String filename) {
-    return normalize ? normalizedTimestamp(filename) : LocalDateTime.now(ZoneId.systemDefault());
+    return normalizedTimestamp(filename);
   }
 
   /**
@@ -214,13 +203,7 @@ public class JarHelper {
         // Create a new entry
         long size = isDirectory ? 0 : Files.size(path);
         JarEntry outEntry = new JarEntry(name);
-        LocalDateTime newtime =
-            normalize
-                ? normalizedTimestamp(name)
-                : Files.getLastModifiedTime(path)
-                    .toInstant()
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDateTime();
+        LocalDateTime newtime = normalizedTimestamp(name);
         outEntry.setTimeLocal(newtime);
         outEntry.setSize(size);
         if (size == 0L) {
