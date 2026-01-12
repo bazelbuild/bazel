@@ -139,9 +139,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:log:1.5.2",
         "com.dylibso.chicory:runtime:1.5.2",
         "com.dylibso.chicory:wasm:1.5.2",
-        "com.dylibso.chicory:log:1.5.2",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -451,8 +451,6 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 # =========================================
 
 register_execution_platforms("//:default_host_platform")
-
-register_toolchains("@rules_python//python:autodetecting_toolchain")
 
 register_toolchains("@local_config_winsdk//:all")
 
