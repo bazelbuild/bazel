@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import net.starlark.java.eval.EvalException;
@@ -121,8 +122,31 @@ public final class BuiltinRestriction {
     }
 
     final boolean allows(Label label, RepositoryMapping repoMapping) {
-      return label.getRepository().equals(repoMapping.get(apparentRepoName()))
+      return reposMatch(apparentRepoName(), label.getRepository(), repoMapping)
           && label.getPackageFragment().startsWith(packagePrefix());
+    }
+
+    private static boolean reposMatch(
+        String allowedName, RepositoryName givenName, RepositoryMapping repoMapping) {
+      if (givenName.equals(RepositoryName.MAIN)) {
+        // The main repository may be one of the allowlisted rulesets, in which case we need to fall
+        // back to interpreting allowedName as the apparent repo name. This is not a performance
+        // concern since:
+        // * In Bazel, the main repo is not expected to use private API unless it is one of the
+        //   allowlisted rulesets. For these rulesets, it is acceptable to pay the cost of a failed
+        //   RepositoryMapping lookup, which is expensive because it uses SpellChecker to construct
+        //   error messages. The only other case in which this cost is paid is if the main repo
+        //   attempts to use private APIs and subsequently fails.
+        // * In Blaze, the repo mapping is always trivial and lookups are cheap.
+        return allowedName.equals(RepositoryName.MAIN.getName())
+            || repoMapping.get(allowedName).isMain();
+      }
+      if (givenName.equals(RepositoryName.BAZEL_TOOLS)) {
+        return allowedName.equals(RepositoryName.BAZEL_TOOLS.getName());
+      }
+      // allowedName is a module name and givenName is a real canonical repo name, so it belongs to
+      // any version of that module if and only if it contains <allowedName>+ as a prefix.
+      return givenName.getName().startsWith(allowedName + "+");
     }
   }
 
@@ -186,7 +210,7 @@ public final class BuiltinRestriction {
    */
   public static boolean isNotAllowed(
       Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist) {
-    if (label.getRepository().getName().equals("_builtins")) {
+    if (label.getRepository().equals(RepositoryName.BUILTINS)) {
       return false;
     }
     return allowlist.stream().noneMatch(e -> e.allows(label, repoMapping));
