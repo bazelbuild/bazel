@@ -600,6 +600,13 @@ public final class SkyframeErrorProcessor {
               configurationIdMessage(ctKey.getConfigurationKey()),
               ((NoSuchThingException) exception).getDetailedExitCode());
       analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+    } else if (exception instanceof ExternalDepsException externalDepsException) {
+      AnalysisFailedCause analysisFailedCause =
+          new AnalysisFailedCause(
+              topLevelLabel,
+              configurationIdMessage(ctKey.getConfigurationKey()),
+              externalDepsException.getDetailedExitCode());
+      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (isExecutionException(exception)) {

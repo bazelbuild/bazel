@@ -507,77 +507,93 @@ class RepoContentsCacheTest(test_base.TestBase):
             'repo(name = "my_repo")',
         ],
     )
-    self.ScratchFile('workspace/BUILD.bazel')
+    self.ScratchFile(
+        'workspace/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "gen",',
+            '  srcs = ["@my_repo//:haha", "in.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $(OUTS)",',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'workspace/repo.bzl',
         [
             'def _repo_impl(rctx):',
-            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'haha\','
+                " srcs=['a.txt'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("a.txt", "hello world")',
             '  print("JUST FETCHED")',
             '  return rctx.repo_metadata(reproducible=True)',
             'repo = repository_rule(_repo_impl)',
         ],
     )
     # First fetch: not cached
+    self.ScratchFile('workspace/in.txt', ['1'])
     _, _, stderr = self.RunBazel(
         [
             'build',
-            '@my_repo//:haha',
+            '//:gen',
         ]
         + extra_args,
         cwd=workspace,
     )
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world1\n')
 
     # Second fetch: cached
+    self.ScratchFile('workspace/in.txt', ['2'])
     _, _, stderr = self.RunBazel(
         [
             'build',
-            '@my_repo//:haha',
+            '//:gen',
         ]
         + extra_args,
         cwd=workspace,
     )
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world2\n')
 
     # Delete the entire repo contents cache and fetch again: not cached
     # Avoid access denied on Windows due to files being read-only by moving to
     # a different location instead.
     os.rename(repo_contents_cache, repo_contents_cache + '_deleted')
+    self.ScratchFile('workspace/in.txt', ['3'])
     _, _, stderr = self.RunBazel(
-        [
-            'build',
-            '@my_repo//:haha',
-        ]
-        + extra_args,
+        ['build', '//:gen'] + extra_args,
         cwd=workspace,
     )
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertNotIn('WARNING', stderr)
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world3\n')
 
     # Second fetch after deletion: cached
+    self.ScratchFile('workspace/in.txt', ['4'])
     _, _, stderr = self.RunBazel(
-        [
-            'build',
-            '@my_repo//:haha',
-        ]
-        + extra_args,
+        ['build', '//:gen'] + extra_args,
         cwd=workspace,
     )
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertNotIn('WARNING', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world4\n')
 
     # Delete the entire repo contents cache and fetch again with a different
     # path: not cached
     # Avoid access denied on Windows due to files being read-only by moving to
     # a different location instead.
     os.rename(repo_contents_cache, repo_contents_cache + '_deleted_again')
+    self.ScratchFile('workspace/in.txt', ['5'])
     _, _, stderr = self.RunBazel(
-        [
-            'build',
-            '@my_repo//:haha',
-        ]
+        ['build', '//:gen']
         + extra_args
         + [
             '--repo_contents_cache=%s' % repo_contents_cache + '2',
@@ -587,6 +603,8 @@ class RepoContentsCacheTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('JUST FETCHED', stderr)
     self.assertNotIn('WARNING', stderr)
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world5\n')
 
   def testRepoContentsCacheDeleted_withCheckExternalRepositoryFiles(self):
     self.doTestRepoContentsCacheDeleted(check_external_repository_files=True)
