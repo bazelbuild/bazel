@@ -364,7 +364,7 @@ public final class RuleConfiguredTargetBuilder {
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    */
-  private void propagateTransitiveValidationOutputGroups() {
+  private void propagateTransitiveValidationOutputGroups() throws InterruptedException {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
@@ -372,7 +372,7 @@ public final class RuleConfiguredTargetBuilder {
       if (rdeLabel != null
           && BuiltinRestriction.isNotAllowed(
               rdeLabel,
-              RepositoryMapping.EMPTY,
+              ruleContext.getAnalysisEnvironment().getMainRepoMapping(),
               BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
