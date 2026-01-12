@@ -18,6 +18,9 @@ java_library(
         "JarCreator.java",
         "JarHelper.java",
     ],
+    deps = [
+        "//third_party:error_prone_annotations",
+    ],
 )
 
 #

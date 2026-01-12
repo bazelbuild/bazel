@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar.jarhelper;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
@@ -63,6 +64,7 @@ public class JarCreator extends JarHelper {
    * @param path the path of the input for the entry
    * @return true iff a new entry was added
    */
+  @CanIgnoreReturnValue
   public boolean addEntry(String entryName, Path path) {
     if (entryName.startsWith("/")) {
       entryName = entryName.substring(1);
@@ -86,6 +88,7 @@ public class JarCreator extends JarHelper {
    * @param fileName the name of the input file for the entry
    * @return true iff a new entry was added
    */
+  @CanIgnoreReturnValue
   public boolean addEntry(String entryName, String fileName) {
     return addEntry(entryName, Paths.get(fileName));
   }
