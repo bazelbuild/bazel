@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -38,15 +37,11 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Handles writing and reading of repo marker files. */
-class DigestWriter {
+public class DigestWriter {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
-  // Input value list to force repo invalidation upon an invalid marker file.
-  private static final ImmutableList<RepoRecordedInput.WithValue> PARSE_FAILURE =
-      ImmutableList.of(
-          new RepoRecordedInput.WithValue(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, ""));
 
   private final BlazeDirectories directories;
   final String predeclaredInputHash;
@@ -91,53 +86,53 @@ class DigestWriter {
     }
   }
 
-  sealed interface RepoDirectoryState {
-    record UpToDate() implements RepoDirectoryState {}
-
-    record OutOfDate(String reason) implements RepoDirectoryState {}
-  }
-
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env)
+  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env)
       throws InterruptedException, RepositoryFunctionException {
     return areRepositoryAndMarkerFileConsistent(env, markerPath);
   }
 
   /**
-   * Checks if the state of the repository in the file system is consistent with the rule in the
-   * WORKSPACE file.
+   * Checks if the state of the repo in the filesystem is consistent with its current definition.
+   * Returns {@link Optional#empty()} if they are consistent; otherwise, returns a description of
+   * why they are not.
    *
-   * <p>Returns null if a Skyframe status is needed.
-   *
-   * <p>We check the repository root for existence here, but we can't depend on the FileValue,
-   * because it's possible that we eventually create that directory in which case the FileValue and
-   * the state of the file system would be inconsistent.
+   * <p>This method treats a missing Skyframe dependency as if the repo is not up to date. The
+   * caller is responsible for checking {@code env.valuesMissing()}.
    */
-  @Nullable
-  RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
+  Optional<String> areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
       throws RepositoryFunctionException, InterruptedException {
     if (!markerPath.exists()) {
-      return new RepoDirectoryState.OutOfDate("repo hasn't been fetched yet");
+      return Optional.of("repo hasn't been fetched yet");
     }
 
     try {
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
-      var recordedInputValues =
+      Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
-      Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
-      if (env.valuesMissing()) {
-        return null;
+      if (recordedInputValues.isEmpty()) {
+        return Optional.of("Bazel version, flags, repo rule definition or attributes changed");
       }
-      if (outdatedReason.isPresent()) {
-        return new RepoDirectoryState.OutOfDate(outdatedReason.get());
+      // Check inputs in batches to prevent Skyframe cycles caused by outdated dependencies.
+      for (ImmutableList<RepoRecordedInput.WithValue> batch :
+          RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues.get())) {
+        Optional<String> outdatedReason =
+            RepoRecordedInput.isAnyValueOutdated(env, directories, batch);
+        if (outdatedReason.isPresent()) {
+          return outdatedReason;
+        }
       }
-      return new RepoDirectoryState.UpToDate();
+      return Optional.empty();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
 
-  private static ImmutableList<RepoRecordedInput.WithValue> readMarkerFile(
+  /**
+   * Returns a list of recorded inputs with their values parsed from the given marker file if the
+   * predeclared input hash matches, or {@code Optional.empty()} if the hash doesn't match or any
+   * error occurs during parsing.
+   */
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
@@ -151,26 +146,22 @@ class DigestWriter {
         if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
-          return ImmutableList.of(
-              new RepoRecordedInput.WithValue(
-                  new NeverUpToDateRepoRecordedInput(
-                      "Bazel version, flags, repo rule definition or attributes changed"),
-                  ""));
+          return Optional.empty();
         }
         firstLineVerified = true;
       } else {
         var inputAndValue = RepoRecordedInput.WithValue.parse(line);
         if (inputAndValue.isEmpty()) {
           // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
+          return Optional.empty();
         }
         recordedInputValues.add(inputAndValue.get());
       }
     }
     if (!firstLineVerified) {
-      return PARSE_FAILURE;
+      return Optional.empty();
     }
-    return recordedInputValues.build();
+    return Optional.of(recordedInputValues.build());
   }
 
   @Nullable
