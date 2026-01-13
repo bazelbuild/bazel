@@ -178,6 +178,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         null,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
+                        ImmutableMap::of,
                         directories,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))

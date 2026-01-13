@@ -85,6 +85,7 @@ import net.starlark.java.eval.Starlark;
  */
 public abstract class RepositoryFunction {
 
+  protected Map<String, String> repoEnvironment;
   protected Map<String, String> clientEnvironment;
 
   /**
@@ -420,7 +421,12 @@ public abstract class RepositoryFunction {
     env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }
 
-  /** Sets up a mapping of environment variables to use. */
+  /** Sets up a mapping of environment variables to use for repository operations. */
+  public void setRepoEnvironment(Map<String, String> repoEnvironment) {
+    this.repoEnvironment = repoEnvironment;
+  }
+
+  /** Sets up a mapping of environment variables to use for client operations (e.g. auth). */
   public void setClientEnvironment(Map<String, String> clientEnvironment) {
     this.clientEnvironment = clientEnvironment;
   }

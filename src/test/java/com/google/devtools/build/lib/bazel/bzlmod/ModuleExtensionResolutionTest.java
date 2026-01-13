@@ -242,6 +242,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         starlarkRepositoryFunction,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
+                        ImmutableMap::of,
                         directories,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
@@ -257,7 +258,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
                 .put(
                     SkyFunctions.SINGLE_EXTENSION_EVAL,
-                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+                    new SingleExtensionEvalFunction(directories, ImmutableMap::of, ImmutableMap::of))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))

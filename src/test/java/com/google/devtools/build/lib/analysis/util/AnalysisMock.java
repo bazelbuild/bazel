@@ -218,6 +218,7 @@ public abstract class AnalysisMock extends LoadingMock {
                 new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
+                ImmutableMap::of,
                 directories,
                 BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                 new RepoContentsCache()))
@@ -235,7 +236,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
             SkyFunctions.SINGLE_EXTENSION_EVAL,
-            new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+            new SingleExtensionEvalFunction(directories, ImmutableMap::of, ImmutableMap::of))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .put(
             SkyFunctions.REGISTRY,

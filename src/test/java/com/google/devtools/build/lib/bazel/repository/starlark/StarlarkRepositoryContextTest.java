@@ -143,7 +143,8 @@ public final class StarlarkRepositoryContextTest {
   private void setUpContextForRule(
       Map<String, Object> kwargs,
       IgnoredSubdirectories ignoredSubdirectories,
-      ImmutableMap<String, String> envVariables,
+      ImmutableMap<String, String> repoEnvVariables,
+      ImmutableMap<String, String> clientEnvVariables,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor repoRemoteExecutor,
       Attribute... attributes)
@@ -193,7 +194,8 @@ public final class StarlarkRepositoryContextTest {
             outputDirectory,
             ignoredSubdirectories,
             environment,
-            envVariables,
+            repoEnvVariables,
+            clientEnvVariables,
             downloader,
             1.0,
             /* processWrapper= */ null,
@@ -213,6 +215,7 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of("name", name),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
+        ImmutableMap.of("FOO", "BAR"),
         starlarkSemantics,
         /* repoRemoteExecutor= */ null);
   }
@@ -222,6 +225,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test", "foo", "bar"),
         IgnoredSubdirectories.EMPTY,
+        ImmutableMap.of("FOO", "BAR"),
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null,
@@ -236,6 +240,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.EMPTY,
+        ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
         ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
@@ -327,6 +332,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("under_workspace"))),
+        ImmutableMap.of("FOO", "BAR"),
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
@@ -445,6 +451,7 @@ public final class StarlarkRepositoryContextTest {
     setUpContextForRule(
         attrValues,
         IgnoredSubdirectories.EMPTY,
+        ImmutableMap.of("FOO", "BAR"),
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)
