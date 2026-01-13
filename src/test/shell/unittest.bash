@@ -660,23 +660,18 @@ function __trap_with_arg() {
 function __log_to_test_report() {
     local node="$1"
     local block="$2"
-    if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
+    local xml
+    if [[ -e "$XML_OUTPUT_FILE" ]]; then
+        xml="$(cat "$XML_OUTPUT_FILE")"
+    else
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
-        echo "${xml_header}<testsuites></testsuites>" > "$XML_OUTPUT_FILE"
+        xml="${xml_header}<testsuites></testsuites>"
     fi
 
-    # replace match on node with block and match
-    # replacement expression only needs escaping for quotes
-    perl -e "\
-\$input = @ARGV[0]; \
-\$/=undef; \
-open FILE, '+<$XML_OUTPUT_FILE'; \
-\$content = <FILE>; \
-if (\$content =~ /($node.*)\$/) { \
-  seek FILE, 0, 0; \
-  print FILE \$\` . \$input . \$1; \
-}; \
-close FILE" "$block"
+    local prefix="${xml%%${node}*}"  # Remove everything from node to the end
+    local position=${#prefix}  # Length of prefix = position of node in xml
+    local suffix="${xml:${position}}"  # Everything from node to the end
+    echo "${prefix}${block}${suffix}" > "$XML_OUTPUT_FILE"  # Insert block
 }
 
 # Usage: <total> <passed>
@@ -737,7 +732,7 @@ function run_suite() {
   echo "$message" >&2
   echo >&2
 
-  __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
+  __log_to_test_report "</testsuites>" "<testsuite></testsuite>"
 
   local total=0
   local passed=0
@@ -897,7 +892,7 @@ function run_suite() {
       if [[ "$TEST_verbose" == "true" ]]; then
           echo >&2
       fi
-      __log_to_test_report "<\/testsuite>" "$testcase_tag"
+      __log_to_test_report "</testsuite>" "$testcase_tag"
     done
   fi
 
