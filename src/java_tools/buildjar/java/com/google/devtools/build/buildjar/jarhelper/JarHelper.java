@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.buildjar.jarhelper;
 
+import com.google.devtools.build.buildjar.jarhelper.JarCreator.JarEntrySource;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -187,21 +187,22 @@ public class JarHelper {
    * Copies file or directory entries from the file system into the jar. Directory entries will be
    * detected and their names automatically '/' suffixed.
    */
-  protected void copyEntry(JarOutputStream out, String name, Path path) throws IOException {
+  protected void copyEntry(JarOutputStream out, String name, JarEntrySource source)
+      throws IOException {
     if (!names.contains(name)) {
-      if (!Files.exists(path)) {
-        throw new FileNotFoundException(path.toAbsolutePath() + " (No such file or directory)");
+      if (!source.exists()) {
+        throw new FileNotFoundException(source + " (No such file or directory)");
       }
-      boolean isDirectory = Files.isDirectory(path);
+      boolean isDirectory = source.isDirectory();
       if (isDirectory && !name.endsWith("/")) {
         name = name + '/'; // always normalize directory names before checking set
       }
       if (names.add(name)) {
         if (verbose) {
-          System.err.println("adding " + path);
+          System.err.println("adding " + source);
         }
         // Create a new entry
-        long size = isDirectory ? 0 : Files.size(path);
+        long size = isDirectory ? 0 : source.size();
         JarEntry outEntry = new JarEntry(name);
         LocalDateTime newtime = normalizedTimestamp(name);
         outEntry.setTimeLocal(newtime);
@@ -218,7 +219,7 @@ public class JarHelper {
             // It would be nicer to do this via DigestInputStream, but
             // the architecture of ZipOutputStream requires us to know the CRC-32
             // before we write the data to the stream.
-            byte[] bytes = Files.readAllBytes(path);
+            byte[] bytes = source.bytes();
             CRC32 crc = new CRC32();
             crc.update(bytes);
             outEntry.setCrc(crc.getValue());
@@ -226,7 +227,7 @@ public class JarHelper {
             out.write(bytes);
           } else {
             out.putNextEntry(outEntry);
-            Files.copy(path, out);
+            source.copyTo(out);
           }
         }
         out.closeEntry();

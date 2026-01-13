@@ -23,15 +23,13 @@ import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileVisitResult;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
-import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Predicate;
-import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
@@ -41,37 +39,11 @@ import java.util.stream.Stream;
  */
 public class GenClass {
 
-  /** Recursively delete a directory. */
-  private static void deleteTree(Path directory) throws IOException {
-    if (directory.toFile().exists()) {
-      Files.walkFileTree(
-          directory,
-          new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                throws IOException {
-              Files.delete(file);
-              return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
-                throws IOException {
-              Files.delete(dir);
-              return FileVisitResult.CONTINUE;
-            }
-          });
-    }
-  }
-
   public static void main(String[] args) throws IOException {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
-    Path tempDir = Files.createTempDirectory("tmp");
-    Files.createDirectories(tempDir);
-    extractGeneratedClasses(options.classJar(), manifest, tempDir);
-    writeOutputJar(tempDir, options);
-    deleteTree(tempDir);
+    Map<String, byte[]> classes = extractGeneratedClasses(options.classJar(), manifest);
+    writeOutputJar(classes, options);
   }
 
   /** Reads the compilation manifest. */
@@ -89,9 +61,7 @@ public class GenClass {
    */
   @VisibleForTesting
   static ImmutableSet<String> getPrefixes(Manifest manifest, Predicate<CompilationUnit> p) {
-    return manifest
-        .getCompilationUnitList()
-        .stream()
+    return manifest.getCompilationUnitList().stream()
         .filter(p)
         .flatMap(unit -> getUnitPrefixes(unit))
         .collect(toImmutableSet());
@@ -115,33 +85,33 @@ public class GenClass {
    * Unzip all the class files that correspond to annotation processor- generated sources into the
    * temporary directory.
    */
-  private static void extractGeneratedClasses(Path classJar, Manifest manifest, Path tempDir)
+  private static Map<String, byte[]> extractGeneratedClasses(Path classJar, Manifest manifest)
       throws IOException {
+    Map<String, byte[]> classes = new HashMap<>();
     ImmutableSet<String> generatedFilePrefixes =
         getPrefixes(manifest, unit -> unit.getGeneratedByAnnotationProcessor());
     ImmutableSet<String> userWrittenFilePrefixes =
         getPrefixes(manifest, unit -> !unit.getGeneratedByAnnotationProcessor());
     try (JarFile jar = new JarFile(classJar.toFile())) {
-      Enumeration<JarEntry> entries = jar.entries();
-      while (entries.hasMoreElements()) {
-        JarEntry entry = entries.nextElement();
-        String name = entry.getName();
-        if (!name.endsWith(".class")) {
-          continue;
-        }
-        String className = name.substring(0, name.length() - ".class".length());
-        if (prefixesContains(generatedFilePrefixes, className)
-            // Assume that prefixes that don't correspond to a known hand-written source are
-            // generated.
-            || !prefixesContains(userWrittenFilePrefixes, className)) {
-          Files.createDirectories(tempDir.resolve(name).getParent());
-          // InputStream closing: JarFile extends ZipFile, and ZipFile.close() will close all of the
-          // input streams previously returned by invocations of the getInputStream method.
-          // See https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipFile.html#close--
-          Files.copy(jar.getInputStream(entry), tempDir.resolve(name));
-        }
-      }
+      jar.stream()
+          .filter(entry -> entry.getName().endsWith(".class"))
+          .forEach(
+              entry -> {
+                String name = entry.getName();
+                String className = name.substring(0, name.length() - ".class".length());
+                if (prefixesContains(generatedFilePrefixes, className)
+                    // Assume that prefixes that don't correspond to a known hand-written source are
+                    // generated.
+                    || !prefixesContains(userWrittenFilePrefixes, className)) {
+                  try (InputStream is = jar.getInputStream(entry)) {
+                    classes.put(name, is.readAllBytes());
+                  } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                  }
+                }
+              });
     }
+    return classes;
   }
 
   /**
@@ -162,10 +132,11 @@ public class GenClass {
   }
 
   /** Writes the generated class files to the output jar. */
-  private static void writeOutputJar(Path tempDir, GenClassOptions options) throws IOException {
+  private static void writeOutputJar(Map<String, byte[]> classes, GenClassOptions options)
+      throws IOException {
     JarCreator output = new JarCreator(options.outputJar().toString());
     output.setCompression(true);
-    output.addDirectory(tempDir);
+    classes.forEach((name, content) -> output.addEntry(name, content));
     output.execute();
   }
 }
