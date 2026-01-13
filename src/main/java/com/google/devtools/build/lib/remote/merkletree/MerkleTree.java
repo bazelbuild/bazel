@@ -18,10 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
 import java.util.Comparator;
@@ -85,7 +85,7 @@ public sealed interface MerkleTree {
         Comparator.comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator());
 
     private final RootOnly.BlobsUploaded root;
-    private final ImmutableSortedMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
+    private final ImmutableSortedMap<Digest, /* byte[] | ActionInput */ Object> blobs;
 
     Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
       this.root = root;
@@ -134,10 +134,19 @@ public sealed interface MerkleTree {
         Digest digest) {
       return switch (blobs.get(digest)) {
         case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data));
-        case Path path ->
-            Optional.of(uploader.uploadFile(context, remotePathResolver, digest, path));
         case VirtualActionInput virtualActionInput ->
             Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
+        case ActionInput actionInput -> {
+          var spawnExecutionContext = context.getSpawnExecutionContext();
+          var pathResolver =
+              spawnExecutionContext != null
+                  ? spawnExecutionContext.getPathResolver()
+                  // Used by MerkleTreeComputer#buildForFiles.
+                  : MerkleTreeComputer.actionInputWithPathResolver;
+          yield Optional.of(
+              uploader.uploadFile(
+                  context, remotePathResolver, digest, pathResolver.toPath(actionInput)));
+        }
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
       };
