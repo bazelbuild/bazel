@@ -1033,8 +1033,8 @@ static jbyteArray getxattr_common(JNIEnv *env,
   jbyteArray result = nullptr;
   bool attr_not_found = false;
   ssize_t size;
-  RESTARTABLE(size = getxattr(path_chars, name_chars, value, arraysize(value),
-                              &attr_not_found),
+  RESTARTABLE(getxattr(path_chars, name_chars, value, arraysize(value),
+                       &attr_not_found),
               size);
   if (size == -1) {
     if (!attr_not_found) {
