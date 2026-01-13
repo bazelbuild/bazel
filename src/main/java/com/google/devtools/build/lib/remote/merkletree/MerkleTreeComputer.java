@@ -480,7 +480,8 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    var blobs = ImmutableMap.<Digest, Object>builder();
+    ImmutableMap.Builder</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+        blobs = ImmutableMap.builder();
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -632,7 +633,7 @@ public final class MerkleTreeComputer {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-              blobs.put(digest, fileOrSourceDirectory);
+              blobs.put(metadata, fileOrSourceDirectory);
             }
             inputFiles++;
             inputBytes += digest.getSizeBytes();
