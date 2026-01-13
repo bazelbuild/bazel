@@ -245,8 +245,6 @@ tasks:
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_cache_async"
-      - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     build_targets:
@@ -257,8 +255,6 @@ tasks:
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_cache_async"
-      - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     test_targets:
