@@ -98,8 +98,8 @@ class OutputJar {
                              const std::string& property_name);
   // Append data from the file specified by file_path.
   size_t AppendFile(Options* options, const char* file_path);
-  // Copy 'count' bytes starting at 'offset' from the given file.
-  ssize_t CopyAppendData(int in_fd, off64_t offset, size_t count);
+  // Copy 'count' bytes starting at the beginning of the given file.
+  ssize_t CopyAppendData(int in_fd, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void* buffer, size_t count);
   // Write to the output file without updating outpos_.
@@ -117,6 +117,7 @@ class OutputJar {
   };
 
   absl::flat_hash_map<std::string, struct EntryInfo> known_members_;
+  int fd_;
   FILE* file_;
   off64_t outpos_;
   std::unique_ptr<char[]> buffer_;

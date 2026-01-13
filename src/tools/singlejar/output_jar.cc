@@ -33,6 +33,10 @@
 
 #include "re2/re2.h"
 
+#if defined(__linux)
+#include <sys/sendfile.h>
+#endif
+
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -404,6 +408,7 @@ bool OutputJar::Open() {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
   }
+  fd_ = fd;
   file_ = fdopen(fd, "w");
   if (file_ == nullptr) {
     diag_warn("%s:%d: fdopen of %s", __FILE__, __LINE__, path());
@@ -1112,10 +1117,36 @@ void OutputJar::ClasspathResource(const std::string& resource_name,
   }
 }
 
-ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
+ssize_t OutputJar::CopyAppendData(int in_fd, size_t count) {
   if (count == 0) {
     return 0;
   }
+
+  // Use sendfile for the launcher preamble, which can be very large for targets
+  // with many native deps.
+  //
+  // TODO(asmundak): Consider reflink (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.
+#if defined(__linux)
+  // fflush is necessary before switching from fwrite to sendfile.
+  if (fflush(file_) != 0) {
+    diag_err(1, "fflush failed");
+  }
+  // sendfile call is interruptible and has to be handled the same way as write
+  // call.
+  for (size_t to_write = count; to_write > 0;) {
+    ssize_t written = sendfile(fd_, in_fd, nullptr, to_write);
+    if (written < 0) {
+      return written;
+    } else if (written == 0) {
+      outpos_ += static_cast<off64_t>(count - to_write);
+      return static_cast<ssize_t>(count - to_write);
+    }
+    to_write -= static_cast<size_t>(written);
+  }
+  outpos_ += static_cast<off64_t>(count);
+  return static_cast<ssize_t>(count);
+#endif
+
   std::unique_ptr<void, decltype(free)*> buffer(malloc(kBufferSize), free);
   if (buffer == nullptr) {
     diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
@@ -1141,7 +1172,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
 #else
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
-    ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
+    ssize_t n_read = pread(in_fd, buffer.get(), len, total_written);
     if (n_read > 0) {
       if (!WriteBytes(buffer.get(), n_read)) {
         return -1;
@@ -1164,10 +1195,7 @@ size_t OutputJar::AppendFile(Options* options, const char* const file_path) {
   if (fstat(in_fd, &statbuf)) {
     diag_err(1, "%s", file_path);
   }
-  // TODO(asmundak):  Consider going back to sendfile() or reflink
-  // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
-  // be very large for targets with many native deps.
-  ssize_t byte_count = CopyAppendData(in_fd, 0, statbuf.st_size);
+  ssize_t byte_count = CopyAppendData(in_fd, statbuf.st_size);
   if (byte_count < 0) {
     diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__, file_path,
              options->output_jar.c_str());
