@@ -46,7 +46,7 @@ import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -350,30 +350,42 @@ public final class MerkleTreeComputer {
         .getRelative(pathMapper.map(input.getExecPath()));
   }
 
-  /** An {@link ActionInput} backed by an absolute {@link Path}. */
-  private static class ActionInputWithPath extends ActionInputHelper.BasicActionInput {
-    final Path path;
+  /**
+   * An {@link ActionInput} backed by an absolute {@link Path} and a relative {@link PathFragment}.
+   */
+  private static class ActionInputWithPath extends BasicActionInput {
+    private final Path basePath;
+    private final PathFragment relativePath;
 
-    ActionInputWithPath(Path path) {
-      this.path = path;
+    ActionInputWithPath(Path basePath) {
+      this(basePath, PathFragment.EMPTY_FRAGMENT);
     }
 
-    @Override
-    public String getExecPathString() {
-      return path.getPathString();
+    ActionInputWithPath(Path basePath, PathFragment relativePath) {
+      this.basePath = basePath;
+      this.relativePath = relativePath;
     }
 
     @Override
     public PathFragment getExecPath() {
-      return path.asFragment();
+      return basePath.asFragment().getRelative(relativePath);
+    }
+
+    @Override
+    public String getExecPathString() {
+      return getExecPath().getPathString();
+    }
+
+    Path getPath() {
+      return basePath.getRelative(relativePath);
     }
   }
 
-  private static final ArtifactPathResolver actionInputWithPathResolver =
+  static final ArtifactPathResolver actionInputWithPathResolver =
       new ArtifactPathResolver() {
         @Override
         public Path toPath(ActionInput actionInput) {
-          return ((ActionInputWithPath) actionInput).path;
+          return ((ActionInputWithPath) actionInput).getPath();
         }
 
         @Override
@@ -620,7 +632,7 @@ public final class MerkleTreeComputer {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-              blobs.put(digest, artifactPathResolver.toPath(fileOrSourceDirectory));
+              blobs.put(digest, fileOrSourceDirectory);
             }
             inputFiles++;
             inputBytes += digest.getSizeBytes();
@@ -646,11 +658,10 @@ public final class MerkleTreeComputer {
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
-          Path inputPath = artifactPathResolver.toPath(input);
-          var digest = digestUtil.compute(inputPath);
+          var digest = digestUtil.compute(artifactPathResolver.toPath(input));
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, inputPath);
+            blobs.put(digest, input);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
@@ -1010,8 +1021,7 @@ public final class MerkleTreeComputer {
       String basename = entry.getName();
       PathFragment path = relPath.getChild(basename);
       switch (entry.getType()) {
-        case FILE ->
-            inputs.put(path, ActionInputHelper.fromPath(dirPath.getRelative(path).asFragment()));
+        case FILE -> inputs.put(path, new ActionInputWithPath(dirPath, path));
         case DIRECTORY -> explodeDirectory(path, dirPath, inputs);
         default ->
             throw new IOException(
@@ -1064,7 +1074,7 @@ public final class MerkleTreeComputer {
     };
   }
 
-  private static class EmptyInputDirectory extends ActionInputHelper.BasicActionInput {
+  private static class EmptyInputDirectory extends BasicActionInput {
     private final PathFragment execPath;
 
     EmptyInputDirectory(PathFragment execPath) {
