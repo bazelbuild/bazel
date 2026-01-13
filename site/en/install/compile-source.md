@@ -37,7 +37,7 @@ To build Bazel from source, you can do one of the following:
 
     **Note:** Many rulesets rely on the Bazel version for feature detection.
     For this to work correctly, the version must be embedded in the binary.
-    Build `bazel-dev` in the **8.x–9.0** range with:
+    Build `bazel-dev` with:
 
     `bazel build --stamp --embed_label="X.Y.Z" //src:bazel-dev`
 
