@@ -88,7 +88,25 @@ genrule(
     cmd = """
         release_info="$$(cat $(location :README.md))"
         template="$$(cat $(location template_bin.sh))"
-        echo "$${template//%release_info%/$${release_info}}" >$@
+        target_os=""" + select({
+        "//src/conditions:darwin": "\"darwin\"",
+        "//src/conditions:freebsd": "\"freebsd\"",
+        "//src/conditions:openbsd": "\"openbsd\"",
+        "//conditions:default": "\"linux\"",
+    }) + """
+        target_arch=""" + select({
+        "//src/conditions:linux_x86_64": "\"x86_64\"",
+        "//src/conditions:linux_aarch64": "\"aarch64\"",
+        "//src/conditions:darwin_x86_64": "\"x86_64\"",
+        "//src/conditions:darwin_arm64": "\"arm64\"",
+        "//src/conditions:linux_arm": "\"arm\"",
+        "//src/conditions:linux_ppc": "\"ppc\"",
+        "//src/conditions:linux_s390x": "\"s390x\"",
+        "//conditions:default": "\"x86_64\"",  # Fallback
+    }) + """
+        template="$${template//%release_info%/$$release_info}"
+        template="$${template//%target_os%/$$target_os}"
+        echo "$${template//%target_arch%/$$target_arch}" >$@
         """,
 )
 
