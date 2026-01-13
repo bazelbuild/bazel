@@ -72,11 +72,10 @@ landing_page:
       path: /install/ide
       custom_image:
         path: /install/images/tune.svg
-
   # Starter Repos
-  Starter template repositories for most languages:
-  <a href="https://github.com/bazel-starters">Bazel Starters GitHub Org</a>
-
+  - heading: Starter Repos
+    description: >
+      Starter template repositories for most languages: <a href="https://github.com/bazel-starters">Bazel Starters GitHub Org</a>
   # First build Row
   - options:
     - cards
