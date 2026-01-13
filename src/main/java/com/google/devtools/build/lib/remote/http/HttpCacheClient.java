@@ -720,13 +720,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return retrier.executeAsync(
-        () -> {
-          var result =
-              uploadAsync(
-                  digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true);
-          result.addListener(blob::close, MoreExecutors.directExecutor());
-          return result;
-        });
+        () ->
+            uploadAsync(
+                digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true));
   }
 
   @Override
