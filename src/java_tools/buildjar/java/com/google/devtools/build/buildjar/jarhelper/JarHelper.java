@@ -62,8 +62,14 @@ public class JarHelper {
 
   public static final Attributes.Name MULTI_RELEASE = new Attributes.Name("Multi-Release");
 
-  // ZIP timestamps have a resolution of 2 seconds.
-  // see http://www.info-zip.org/FAQ.html#limits
+  /**
+   * This is used to adjust the timestamp for class files to slightly after the normalized time.
+   *
+   * <p>ZIP timestamps have a resolution of 2 seconds, see http://www.info-zip.org/FAQ.html#limits.
+   *
+   * <p>Javac will, when loading a class X, prefer a source file to a class file, if both files have
+   * the same timestamp.
+   */
   public static final Duration MINIMUM_TIMESTAMP_INCREMENT = Duration.ofSeconds(2);
 
   // The path to the Jar we want to create
@@ -121,18 +127,6 @@ public class JarHelper {
   }
 
   /**
-   * Returns the time for a new Jar file entry in milliseconds since the epoch. Uses {@link
-   * JarCreator#DEFAULT_TIMESTAMP} for normalized entries, {@link System#currentTimeMillis()}
-   * otherwise.
-   *
-   * @param filename The name of the file for which we are entering the time
-   * @return the time for a new Jar file entry in milliseconds since the epoch.
-   */
-  protected LocalDateTime newEntryTimeMillis(String filename) {
-    return normalizedTimestamp(filename);
-  }
-
-  /**
    * Writes an entry with specific contents to the jar. Directory entries must include the trailing
    * '/'.
    */
@@ -140,7 +134,7 @@ public class JarHelper {
     if (names.add(name)) {
       // Create a new entry
       JarEntry entry = new JarEntry(name);
-      entry.setTimeLocal(newEntryTimeMillis(name));
+      entry.setTimeLocal(normalizedTimestamp(name));
       int size = content.length;
       entry.setSize(size);
       if (size == 0) {
