@@ -161,12 +161,7 @@ public final class NetworkMetricsCollector {
   }
 
   private static long calcDelta(long prev, long next) {
-    // The next could wrap, and if that happens, assume prev is 0 (best effort).
-    if (next < prev) {
-      return next;
-    } else {
-      return next - prev;
-    }
+    return next - prev;
   }
 
   private static double calcValuePerSec(long deltaValue, double deltaNanos) {
