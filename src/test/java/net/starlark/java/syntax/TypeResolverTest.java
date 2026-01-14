@@ -32,14 +32,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TypeResolverTest {
 
-  private final FileOptions.Builder options = FileOptions.builder().allowTypeSyntax(true);
+  private final FileOptions.Builder options =
+      FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
 
-  /** Evaluates a string to a type in an empty environment. */
+  /** Evaluates an expression string to a type in an empty environment. */
   private StarlarkType evalType(String type) throws Exception {
-    Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
-    // TODO: #27728 - When type resolution can consider non-universal types, use a better mock
-    // module here that supports evalType().
-    return TypeResolver.evalTypeExpression(typeExpr, TestUtils.moduleWithUniversalTypes());
+    Module module = TestUtils.moduleWithUniversalTypes();
+    Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
+    Resolver.resolveExpr(expr, module, options.build());
+    return TypeResolver.evalTypeExpression(expr, TestUtils.moduleWithUniversalTypes());
   }
 
   /**
@@ -185,6 +186,17 @@ public class TypeResolverTest {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected type arguments after the type constructor 'list'");
+  }
+
+  @Test
+  public void localCannotShadowPredeclaredType() throws Exception {
+    assertInvalid(
+        "local name 'int' cannot be used as a type",
+        """
+        def f():
+            int = 123
+            x : int
+        """);
   }
 
   @Test

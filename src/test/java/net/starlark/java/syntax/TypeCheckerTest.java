@@ -33,6 +33,7 @@ public final class TypeCheckerTest {
   private final FileOptions.Builder options =
       FileOptions.builder()
           .allowTypeSyntax(true)
+          .resolveTypeSyntax(true)
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
 

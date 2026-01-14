@@ -25,6 +25,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Resolver.Module;
+import net.starlark.java.syntax.Resolver.Scope;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 
@@ -62,20 +63,26 @@ public final class TypeResolver extends NodeVisitor {
   }
 
   /**
-   * Resolves a name in the module to a type.
+   * Resolves an identifier to a type.
    *
    * <p>If no match, logs an error at the given node and returns Any.
    */
-  // TODO: #27728 - Instead of looking up the name in the module directly, have this method take in
-  // an Identifier and first verify that the identifier's scope is not local. This avoids the
-  // situation where we allow a local var that shadows a global/predeclared/universal type to still
-  // be used as a type name.
-  private Object resolveType(String name, Node node) {
+  private Object resolveType(Identifier id) {
+    String name = id.getName();
+
+    var scope = id.getBinding().getScope();
+    if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
+      // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
+      // type name.
+      errorf(id, "local name '%s' cannot be used as a type", name);
+      return Types.ANY;
+    }
+
     try {
       return module.resolveType(name);
     } catch (Resolver.Module.Undefined ex) {
       String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
-      errorf(node, "%s%s", ex.getMessage(), suggestion);
+      errorf(id, "%s%s", ex.getMessage(), suggestion);
       return Types.ANY;
     }
   }
@@ -96,7 +103,7 @@ public final class TypeResolver extends NodeVisitor {
       case TYPE_APPLICATION -> {
         TypeApplication app = (TypeApplication) expr;
 
-        Object constructorObject = resolveType(app.getConstructor().getName(), app);
+        Object constructorObject = resolveType(app.getConstructor());
         if (constructorObject.equals(Types.ANY)) {
           return Types.ANY;
         }
@@ -119,8 +126,7 @@ public final class TypeResolver extends NodeVisitor {
         }
       }
       case IDENTIFIER -> {
-        var id = (Identifier) expr;
-        return resolveType(id.getName(), id);
+        return resolveType((Identifier) expr);
       }
       default -> {
         // TODO(ilist@): full evaluation: lists and dicts
@@ -209,8 +215,9 @@ public final class TypeResolver extends NodeVisitor {
   /**
    * Resolves a type expression to a {@link StarlarkType}.
    *
-   * @param expr a valid type expression; for example, one produced by {@link
-   *     Expression#parseTypeExpression}.
+   * @param expr a valid type expression with binding information resolved
+   * @param module a static Module containing type information for the bindings used in type
+   *     expressions
    * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
    *     to a type.
    */
