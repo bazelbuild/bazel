@@ -93,6 +93,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -178,6 +179,10 @@ public final class MerkleTreeComputer {
   private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
       new TaskDeduplicator<>();
 
+  private final LongAdder discardedCount = new LongAdder();
+  private final LongAdder uploadableCount = new LongAdder();
+  private final LongAdder uploadableRetainedBytes = new LongAdder();
+
   public MerkleTreeComputer(
       DigestUtil digestUtil,
       @Nullable MerkleTreeUploader remoteExecutionCache,
@@ -194,6 +199,12 @@ public final class MerkleTreeComputer {
     this.emptyTree =
         new MerkleTree.Uploadable(
             new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableMap.of());
+  }
+
+  public record Stats(long discardedCount, long uploadableCount, long uploadableRetainedBytes) {}
+
+  public Stats getStats() {
+    return new Stats(discardedCount.sum(), uploadableCount.sum(), uploadableRetainedBytes.sum());
   }
 
   /** Specifies which blobs should be retained in the Merkle tree. */
@@ -355,7 +366,7 @@ public final class MerkleTreeComputer {
    */
   static class ChildActionInput extends BasicActionInput {
     private final ActionInput parent;
-    private final String relativePath;
+    final String relativePath;
 
     ChildActionInput(ActionInput parent, PathFragment relativePath) {
       this.parent = parent;
@@ -562,13 +573,18 @@ public final class MerkleTreeComputer {
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
               checkState(builtBlobs.isEmpty());
+              discardedCount.increment();
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
             } else {
-              return new MerkleTree.Uploadable(
-                  new MerkleTree.RootOnly.BlobsUploaded(
-                      directoryBlobDigest, inputFiles, inputBytes),
-                  builtBlobs);
+              var merkleTree =
+                  new MerkleTree.Uploadable(
+                      new MerkleTree.RootOnly.BlobsUploaded(
+                          directoryBlobDigest, inputFiles, inputBytes),
+                      builtBlobs);
+              uploadableCount.increment();
+              uploadableRetainedBytes.add(merkleTree.retainedBytes());
+              return merkleTree;
             }
           }
           topDirectory

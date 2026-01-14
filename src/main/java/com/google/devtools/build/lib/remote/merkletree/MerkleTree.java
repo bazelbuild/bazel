@@ -134,7 +134,8 @@ public sealed interface MerkleTree {
     }
 
     public int retainedBytes() {
-      //  footprint:
+      // Example output of JOL's GraphLayout.parseInstance(...).toFootprint() for a
+      // MerkleTree.Uploadable:
       //     COUNT       AVG       SUM   DESCRIPTION
       //        18       180      3240   [B
       //         2       112       224   [Ljava.lang.Object;
@@ -148,36 +149,46 @@ public sealed interface MerkleTree {
       // com.google.devtools.build.lib.remote.merkletree.MerkleTree$Uploadable
       //         9        24       216   java.lang.String
       //        44                4184   (total)
-      int size = 16 // MerkleTree.Uploadable object
-          + 32 // MerkleTree.RootOnly.BlobsUploaded object
-          + 40 // ImmutableSortedMap object
-          + 24 // RegularImmutableSortedSet object
-          + 2 * 16 // RegularImmutableList objects
-          + 2 * alignedSize(12 + 4 * blobs.size()); // Object[] arrays in the lists
+      int size =
+          16 // MerkleTree.Uploadable object
+              + 32 // MerkleTree.RootOnly.BlobsUploaded object
+              + 40 // ImmutableSortedMap object
+              + 24 // RegularImmutableSortedSet object
+              + 2 * 16 // RegularImmutableList objects
+              + 2 * arraySize(blobs.size(), 4); // Object[] arrays in the lists
       for (Object key : blobs.keySet()) {
-        size += switch (key) {
-          case Digest digest -> 40 // Digest object
-                                + 24 // String object for hash
-              + alignedSize(12 + digest.getHash().length()); // byte[] for hash
-          default -> 0;
-        };
+        size +=
+            switch (key) {
+              case Digest digest ->
+                  40 // Digest object
+                      + 24 // String object for hash
+                      + arraySize(digest.getHash().length(), 1); // byte[] for hash
+              default -> 0;
+            };
       }
       for (Object value : blobs.values()) {
-        size += switch (value) {
-          case byte[] data -> alignedSize(12 + data.length); // byte[] object
-          case MerkleTreeComputer.EmptyInputDirectory ignored -> 16;
-          case MerkleTreeComputer.ChildActionInput childActionInput ->
-          16 // ChildActionInput object
-              + 24 // String object for name
-              + alignedSize(12 + childActionInput.name().length()); // byte[] for name
-          default -> 0;
-        };
+        size +=
+            switch (value) {
+              case byte[] data -> arraySize(data.length, 1); // byte[] object
+              case MerkleTreeComputer.EmptyInputDirectory ignored -> 16;
+              case MerkleTreeComputer.ChildActionInput childActionInput ->
+                  16 // ChildActionInput object
+                      + 24 // String object for relative path
+                      + arraySize(
+                          childActionInput.relativePath.length(), 1); // byte[] for relative path
+              // Don't account for PathActionInput, which is only used in tests or remote repository
+              // execution.
+              default -> 0;
+            };
       }
       return size;
     }
 
-    private int alignedSize(int size) {
-      return (size + 7) & ~7;
+    private int arraySize(int length, int sizePerElement) {
+      // 8 byte header with -XX:+UseCompactObjectHeaders + 4 byte length field
+      int unpaddedSize = 12 + length * sizePerElement;
+      // Pad to multiples of 8 bytes.
+      return (unpaddedSize + 7) & ~7;
     }
 
     public Collection<Digest> allDigests() {
