@@ -28,48 +28,48 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark type resolution. */
+/** Tests for {@link TypeTagger}. */
 @RunWith(JUnit4.class)
-public class TypeResolverTest {
+public class TypeTaggerTest {
 
   private final FileOptions.Builder options =
       FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
 
-  /** Evaluates an expression string to a type in an empty environment. */
-  private StarlarkType evalType(String type) throws Exception {
+  /** Extracts an expression string to a type in an empty environment. */
+  private StarlarkType extractType(String type) throws Exception {
     Module module = TestUtils.moduleWithUniversalTypes();
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
     Resolver.resolveExpr(expr, module, options.build());
-    return TypeResolver.evalTypeExpression(expr, TestUtils.moduleWithUniversalTypes());
+    return TypeTagger.extractType(expr, TestUtils.moduleWithUniversalTypes());
   }
 
   /**
-   * Parses a series of strings as a file, then resolves and type-resolves it.
+   * Parses a series of strings as a file, then resolves and type-tags it.
    *
-   * <p>Asserts that parsing and symbol resolution succeeded, but type-resolving may fail.
+   * <p>Asserts that parsing and symbol resolution succeeded, but type-tagging may fail.
    */
-  private StarlarkFile annotateFilePossiblyFailing(String... lines) throws Exception {
+  private StarlarkFile tagFilePossiblyFailing(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.ok()).isTrue();
     Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertThat(file.ok()).isTrue();
-    TypeResolver.annotateFile(file, module);
+    TypeTagger.tagFile(file, module);
     return file;
   }
 
-  /** As in {@link #annotateFilePossiblyFailing} but asserts that even type resolution succeeded. */
-  private StarlarkFile annotateFile(String... lines) throws Exception {
-    StarlarkFile file = annotateFilePossiblyFailing(lines);
+  /** As in {@link #tagFilePossiblyFailing} but asserts that even type tagging succeeded. */
+  private StarlarkFile tagFile(String... lines) throws Exception {
+    StarlarkFile file = tagFilePossiblyFailing(lines);
     assertThat(file.ok()).isTrue();
     return file;
   }
 
-  /** Asserts that type resolution fails with at least the specified error. */
+  /** Asserts that type tagging fails with at least the specified error. */
   private void assertInvalid(String expectedError, String... lines) throws Exception {
-    StarlarkFile file = annotateFilePossiblyFailing(lines);
-    assertWithMessage("type resolution suceeded unexpectedly").that(file.ok()).isFalse();
+    StarlarkFile file = tagFilePossiblyFailing(lines);
+    assertWithMessage("type tagging succeeded unexpectedly").that(file.ok()).isFalse();
     assertContainsError(file.errors(), expectedError);
   }
 
@@ -111,53 +111,54 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void evalType_primitives() throws Exception {
-    assertThat(evalType("None")).isEqualTo(Types.NONE);
-    assertThat(evalType("bool")).isEqualTo(Types.BOOL);
-    assertThat(evalType("int")).isEqualTo(Types.INT);
-    assertThat(evalType("float")).isEqualTo(Types.FLOAT);
-    assertThat(evalType("str")).isEqualTo(Types.STR);
+  public void extractType_primitives() throws Exception {
+    assertThat(extractType("None")).isEqualTo(Types.NONE);
+    assertThat(extractType("bool")).isEqualTo(Types.BOOL);
+    assertThat(extractType("int")).isEqualTo(Types.INT);
+    assertThat(extractType("float")).isEqualTo(Types.FLOAT);
+    assertThat(extractType("str")).isEqualTo(Types.STR);
   }
 
   @Test
-  public void evalType_union() throws Exception {
-    assertThat(evalType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
+  public void extractType_union() throws Exception {
+    assertThat(extractType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
   }
 
   // TODO: #27370 - Rather than test applications of constructors for list and dict here, test the
   // general machinery for calling a type constructor. The actual types should be tested separately.
 
   @Test
-  public void evalType_list() throws Exception {
-    assertThat(evalType("list[int]")).isEqualTo(Types.list(Types.INT));
-    assertThat(evalType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
+  public void extractType_list() throws Exception {
+    assertThat(extractType("list[int]")).isEqualTo(Types.list(Types.INT));
+    assertThat(extractType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> evalType("list[int, bool]"));
+    var exception = assertThrows(SyntaxError.Exception.class, () -> extractType("list[int, bool]"));
     assertThat(exception).hasMessageThat().isEqualTo("list[] accepts exactly 1 argument but got 2");
 
-    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("list[[int]]"));
+    exception = assertThrows(SyntaxError.Exception.class, () -> extractType("list[[int]]"));
     assertThat(exception).hasMessageThat().isEqualTo("unexpected expression '[int]'");
 
     // TODO: #27370 - `list` should produce `list[Any]`.
   }
 
   @Test
-  public void evalType_dict() throws Exception {
-    assertThat(evalType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
-    assertThat(evalType("dict[int, list[str]]"))
+  public void extractType_dict() throws Exception {
+    assertThat(extractType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
+    assertThat(extractType("dict[int, list[str]]"))
         .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict[int]"));
+    var exception = assertThrows(SyntaxError.Exception.class, () -> extractType("dict[int]"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("dict[] accepts exactly 2 arguments but got 1");
 
-    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict[int, str, bool]"));
+    exception =
+        assertThrows(SyntaxError.Exception.class, () -> extractType("dict[int, str, bool]"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("dict[] accepts exactly 2 arguments but got 3");
 
-    exception = assertThrows(SyntaxError.Exception.class, () -> evalType("dict"));
+    exception = assertThrows(SyntaxError.Exception.class, () -> extractType("dict"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("expected type arguments after the type constructor 'dict'");
@@ -165,24 +166,24 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void evalType_unknownIdentifier() {
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo"));
+  public void extractType_unknownIdentifier() {
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> extractType("Foo"));
 
     assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
   }
 
   @Test
-  public void evalType_badTypeApplications() {
+  public void extractType_badTypeApplications() {
     SyntaxError.Exception e =
-        assertThrows(SyntaxError.Exception.class, () -> evalType("int[bool]"));
+        assertThrows(SyntaxError.Exception.class, () -> extractType("int[bool]"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("'int' is not a type constructor, cannot be applied to '[bool]'");
 
-    e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo[int]"));
+    e = assertThrows(SyntaxError.Exception.class, () -> extractType("Foo[int]"));
     assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
 
-    e = assertThrows(SyntaxError.Exception.class, () -> evalType("list"));
+    e = assertThrows(SyntaxError.Exception.class, () -> extractType("list"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected type arguments after the type constructor 'list'");
@@ -237,7 +238,7 @@ public class TypeResolverTest {
     // Also avoid assertInvalid() in this test case so we have some coverage of the declaration
     // location reporting, which is spread over two events.
     StarlarkFile file =
-        annotateFilePossiblyFailing(
+        tagFilePossiblyFailing(
             """
             def f():
                 x : int
@@ -289,9 +290,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsFunctionType_basic() throws Exception {
+  public void tagFile_setsFunctionType_basic() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
@@ -312,9 +313,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsFunctionType_omittedDetailsHandledCorrectly() throws Exception {
+  public void tagFile_setsFunctionType_omittedDetailsHandledCorrectly() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f(*a, **b):
                 pass
@@ -329,7 +330,7 @@ public class TypeResolverTest {
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
 
     file =
-        annotateFile(
+        tagFile(
             """
             def f():
                 pass
@@ -343,9 +344,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_reachesInnerFunctions() throws Exception {
+  public void tagFile_reachesInnerFunctions() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f():
                 def g(a : int):
@@ -361,9 +362,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsFunctionType_onLambdas() throws Exception {
+  public void tagFile_setsFunctionType_onLambdas() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             lambda x: 123
             """);
@@ -376,7 +377,7 @@ public class TypeResolverTest {
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
 
     file =
-        annotateFile(
+        tagFile(
             """
             lambda x: lambda y: 123
             """);
@@ -390,17 +391,17 @@ public class TypeResolverTest {
   // (There's no equivalent test for evaluating an expression, since that callable is created
   // on-the-fly by Starlark#eval.)
   @Test
-  public void annotateFile_doesNotSetTypeOnStarlarkFileFunction() throws Exception {
-    StarlarkFile file = annotateFile("pass");
+  public void tagFile_doesNotSetTypeOnStarlarkFileFunction() throws Exception {
+    StarlarkFile file = tagFile("pass");
     Types.CallableType type = file.getResolvedFunction().getFunctionType();
 
     assertThat(type).isNull();
   }
 
   @Test
-  public void annotateFile_setsBindingType_nullByDefault() throws Exception {
+  public void tagFile_setsBindingType_nullByDefault() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             x = 1
             """);
@@ -411,9 +412,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_var() throws Exception {
+  public void tagFile_setsBindingType_var() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             x : int
             """);
@@ -424,11 +425,11 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_assignment() throws Exception {
+  public void tagFile_setsBindingType_assignment() throws Exception {
     options.allowToplevelRebinding(true);
 
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             x : int = 5
             x = 6  # not clobbered by annotation-less reassignment
@@ -440,9 +441,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_functionIdentifier() throws Exception {
+  public void tagFile_setsBindingType_functionIdentifier() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f(x : int):
                 pass
@@ -455,9 +456,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_functionParams() throws Exception {
+  public void tagFile_setsBindingType_functionParams() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
@@ -474,9 +475,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_lambdaParams() throws Exception {
+  public void tagFile_setsBindingType_lambdaParams() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             lambda x, y: 123
             """);
@@ -491,9 +492,9 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_setsBindingType_insideFunctions() throws Exception {
+  public void tagFile_setsBindingType_insideFunctions() throws Exception {
     StarlarkFile file =
-        annotateFile(
+        tagFile(
             """
             def f():
                 x : int
@@ -505,8 +506,8 @@ public class TypeResolverTest {
   }
 
   @Test
-  public void annotateFile_toleratesBareStarParam() throws Exception {
-    annotateFile(
+  public void tagFile_toleratesBareStarParam() throws Exception {
+    tagFile(
         """
         def f(*, x):
             pass

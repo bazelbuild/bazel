@@ -65,7 +65,7 @@ java_library(
         "TypeAliasStatement.java",
         "TypeApplication.java",
         "TypeChecker.java",
-        "TypeResolver.java",
+        "TypeTagger.java",
         "UnaryOperatorExpression.java",
         "VarStatement.java",
     ],

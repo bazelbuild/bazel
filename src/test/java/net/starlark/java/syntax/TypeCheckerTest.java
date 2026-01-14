@@ -60,7 +60,7 @@ public final class TypeCheckerTest {
     Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
-    TypeResolver.annotateFile(file, module);
+    TypeTagger.tagFile(file, module);
     assertNoErrors("type-resolving", file);
     return file;
   }

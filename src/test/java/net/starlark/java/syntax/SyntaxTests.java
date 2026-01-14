@@ -31,7 +31,7 @@ import org.junit.runners.Suite;
   ResolverTest.class,
   StarlarkFileTest.class,
   TypeCheckerTest.class,
-  TypeResolverTest.class,
+  TypeTaggerTest.class,
   TypesTest.class,
 })
 public class SyntaxTests {}

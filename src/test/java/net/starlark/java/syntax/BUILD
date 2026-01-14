@@ -41,7 +41,7 @@ java_test(
         "StarlarkFileTest.java",
         "SyntaxTests.java",  # (suite)
         "TypeCheckerTest.java",
-        "TypeResolverTest.java",
+        "TypeTaggerTest.java",
         "TypesTest.java",
     ],
     deps = [

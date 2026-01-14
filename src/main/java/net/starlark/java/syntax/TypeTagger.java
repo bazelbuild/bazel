@@ -30,16 +30,19 @@ import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 
 /**
- * A visitor for annotating a resolved file with type information.
+ * A visitor for tagging the data structures of a resolved file with type information.
  *
  * <p>This populates the function type on the {@link Resolver.Function} objects in the AST, and the
  * variable types on the {@link Resolver.Binding} objects. These type fields must all be null prior
- * to running the visitor. The types assigned to the fields are based solely on the evaluation of
- * type annotations in the program; no type inference is done here.
+ * to running the visitor.
  *
- * <p>Only a file that has passed the Resolver without errors should be run through this visitor.
+ * <p>The types assigned to the fields are based solely on the type annotations in the program. No
+ * type inference is done here.
+ *
+ * <p>Only a file that has passed the {@code Resolver} without errors should be run through this
+ * visitor.
  */
-public final class TypeResolver extends NodeVisitor {
+public final class TypeTagger extends NodeVisitor {
 
   private final Module module;
 
@@ -57,13 +60,13 @@ public final class TypeResolver extends NodeVisitor {
     errors.add(new SyntaxError(loc, String.format(format, args)));
   }
 
-  private TypeResolver(List<SyntaxError> errors, Module module) {
+  private TypeTagger(List<SyntaxError> errors, Module module) {
     this.errors = errors;
     this.module = module;
   }
 
   /**
-   * Resolves an identifier to a type.
+   * Given an identifier denoting a type, obtains the type from the module.
    *
    * <p>If no match, logs an error at the given node and returns Any.
    */
@@ -87,14 +90,14 @@ public final class TypeResolver extends NodeVisitor {
     }
   }
 
-  private Object evalTypeOrArg(Expression expr) {
+  private Object extractTypeOrArg(Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
         BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
-          StarlarkType x = evalType(binop.getX());
-          StarlarkType y = evalType(binop.getY());
+          StarlarkType x = extractType(binop.getX());
+          StarlarkType y = extractType(binop.getY());
           return Types.union(x, y);
         }
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
@@ -116,7 +119,9 @@ public final class TypeResolver extends NodeVisitor {
           return Types.ANY;
         }
         ImmutableList<Object> arguments =
-            app.getArguments().stream().map(arg -> evalTypeOrArg(arg)).collect(toImmutableList());
+            app.getArguments().stream()
+                .map(arg -> extractTypeOrArg(arg))
+                .collect(toImmutableList());
 
         try {
           return constructor.invoke(arguments);
@@ -136,8 +141,8 @@ public final class TypeResolver extends NodeVisitor {
     }
   }
 
-  private StarlarkType evalType(Expression expr) {
-    Object typeOrArg = evalTypeOrArg(expr);
+  private StarlarkType extractType(Expression expr) {
+    Object typeOrArg = extractTypeOrArg(expr);
     if (!(typeOrArg instanceof StarlarkType type)) {
       if (typeOrArg instanceof Types.TypeConstructorProxy) {
         errorf(expr, "expected type arguments after the type constructor '%s'", expr);
@@ -147,6 +152,26 @@ public final class TypeResolver extends NodeVisitor {
       return Types.ANY;
     }
     return type;
+  }
+
+  /**
+   * Statically evaluates a type expression to the {@link StarlarkType} it denotes.
+   *
+   * @param expr a valid type expression with binding information resolved
+   * @param module a static Module containing type information for the bindings used in type
+   *     expressions
+   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be evaluated
+   *     to a type.
+   */
+  public static StarlarkType extractType(Expression expr, Module module)
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeTagger r = new TypeTagger(errors, module);
+    StarlarkType result = r.extractType(expr);
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(r.errors);
+    }
+    return result;
   }
 
   private Types.CallableType createFunctionType(
@@ -178,7 +203,7 @@ public final class TypeResolver extends NodeVisitor {
       Expression typeExpr = param.getType();
 
       names.add(name);
-      types.add(typeExpr == null ? Types.ANY : evalType(typeExpr));
+      types.add(typeExpr == null ? Types.ANY : extractType(typeExpr));
       if (param instanceof Parameter.Mandatory) {
         mandatoryParameters.add(name);
       }
@@ -187,18 +212,18 @@ public final class TypeResolver extends NodeVisitor {
     StarlarkType varargsType = null;
     if (star != null && star.getIdentifier() != null) {
       Expression typeExpr = star.getType();
-      varargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
+      varargsType = typeExpr == null ? Types.ANY : extractType(typeExpr);
     }
 
     StarlarkType kwargsType = null;
     if (starStar != null) {
       Expression typeExpr = starStar.getType();
-      kwargsType = typeExpr == null ? Types.ANY : evalType(typeExpr);
+      kwargsType = typeExpr == null ? Types.ANY : extractType(typeExpr);
     }
 
     StarlarkType returnType = Types.ANY;
     if (returnTypeExpr != null) {
-      returnType = evalType(returnTypeExpr);
+      returnType = extractType(returnTypeExpr);
     }
 
     return Types.callable(
@@ -210,26 +235,6 @@ public final class TypeResolver extends NodeVisitor {
         varargsType,
         kwargsType,
         returnType);
-  }
-
-  /**
-   * Resolves a type expression to a {@link StarlarkType}.
-   *
-   * @param expr a valid type expression with binding information resolved
-   * @param module a static Module containing type information for the bindings used in type
-   *     expressions
-   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
-   *     to a type.
-   */
-  public static StarlarkType evalTypeExpression(Expression expr, Module module)
-      throws SyntaxError.Exception {
-    List<SyntaxError> errors = new ArrayList<>();
-    TypeResolver r = new TypeResolver(errors, module);
-    StarlarkType result = r.evalType(expr);
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(r.errors);
-    }
-    return result;
   }
 
   /**
@@ -257,7 +262,7 @@ public final class TypeResolver extends NodeVisitor {
         // to be the first binding occurrence of the symbol.
         //
         // A consequence of this is that `def f(): ...; f = lambda: ...` is permitted by the
-        // type resolver (though the type checker will still require the assignment to be consistent
+        // type tagger (though the type checker will still require the assignment to be consistent
         // with the def's type signature), even though the opposite statement order is prohibited.
         //
         // When a violation occurs at a def statement, we use a more specific error message to avoid
@@ -299,7 +304,7 @@ public final class TypeResolver extends NodeVisitor {
   @Override
   public void visit(AssignmentStatement assignment) {
     if (assignment.getType() != null) {
-      StarlarkType type = evalType(assignment.getType());
+      StarlarkType type = extractType(assignment.getType());
       setType(assignment, (Identifier) assignment.getLHS(), type);
     }
 
@@ -323,7 +328,7 @@ public final class TypeResolver extends NodeVisitor {
       // This matches the behavior for the Resolver.Function's type.
       StarlarkType type = Types.ANY;
       if (param.getType() != null) {
-        type = evalType(param.getType());
+        type = extractType(param.getType());
       }
       setType(param, param.getIdentifier(), type);
     }
@@ -333,7 +338,7 @@ public final class TypeResolver extends NodeVisitor {
 
   @Override
   public void visit(VarStatement var) {
-    StarlarkType type = evalType(var.getType());
+    StarlarkType type = extractType(var.getType());
     setType(var, var.getIdentifier(), type);
 
     // No need to descend into type expression child.
@@ -362,8 +367,8 @@ public final class TypeResolver extends NodeVisitor {
    *
    * <p>Any errors are appended to the file's list of errors.
    */
-  public static void annotateFile(StarlarkFile file, Module module) {
-    TypeResolver r = new TypeResolver(file.errors, module);
+  public static void tagFile(StarlarkFile file, Module module) {
+    TypeTagger r = new TypeTagger(file.errors, module);
     r.visit(file);
   }
 }

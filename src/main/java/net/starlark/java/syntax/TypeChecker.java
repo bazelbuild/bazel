@@ -23,7 +23,7 @@ import net.starlark.java.types.Types;
 
 /**
  * A visitor for validating that expressions and statements respect the types of the symbols
- * appearing within them, as determined by the type resolver.
+ * appearing within them, as determined by the type tagger.
  *
  * <p>Type annotations are not traversed by this visitor.
  */
@@ -76,7 +76,7 @@ public final class TypeChecker extends NodeVisitor {
 
   /**
    * Infers the type of an expression from a bottom-up traversal, relying on type information stored
-   * in identifier bindings by the {@link TypeResolver}.
+   * in identifier bindings by the {@link TypeTagger}.
    *
    * <p>May not be called on type expressions (annotations, var statements, type alias statements).
    */
@@ -242,8 +242,8 @@ public final class TypeChecker extends NodeVisitor {
   /**
    * Infers the type of an expression.
    *
-   * <p>The expression must have already been resolved and type-resolved, i.e. type information must
-   * be present in the identifiers' bindings.
+   * <p>The expression must have already been resolved and type-tagged, i.e. identifiers must have
+   * their bindings set and these bindings must contain type information.
    *
    * @throws SyntaxError.Exception if a static type error is present in the expression
    */
@@ -346,7 +346,7 @@ public final class TypeChecker extends NodeVisitor {
   /**
    * Checks that the given file's AST satisfies the types in the bindings of its identifiers.
    *
-   * <p>The file must have already been passed through the type resolver without error
+   * <p>The file must have already been passed through the {@link TypeTagger} without error
    *
    * <p>Any type checking errors are appended to the file's errors list.
    */

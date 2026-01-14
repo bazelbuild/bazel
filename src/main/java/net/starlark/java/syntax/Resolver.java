@@ -98,7 +98,7 @@ public final class Resolver extends NodeVisitor {
     // Otherwise, the first occurrence of this symbol (which must be non-binding).
     private final Identifier first;
 
-    // Set by type checking (possibly more than once) if applicable.
+    // Set by TypeTagger (possibly more than once) if applicable.
     // Null is treated as untyped / Any.
     @Nullable private StarlarkType type;
 
@@ -861,7 +861,7 @@ public final class Resolver extends NodeVisitor {
     // TODO: #27848 - Restrict the types that can be used on the RHS of isinstance(); e.g. `list` or
     // `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,  since a
     // list can subsequently be mutated to add a non-int element. Probably needs to be done in
-    // TypeResolver.
+    // TypeTagger.
     errorf(node, "isinstance() is not yet supported");
   }
 
