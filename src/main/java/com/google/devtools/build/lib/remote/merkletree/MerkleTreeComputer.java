@@ -89,6 +89,7 @@ import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -198,7 +199,7 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.Uploadable(
-            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableMap.of());
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
   public record Stats(long discardedCount, String uploadableStats) {}
@@ -362,7 +363,10 @@ public final class MerkleTreeComputer {
   }
 
   /**
-   * An {@link ActionInput} backed by an absolute {@link Path} and a relative {@link PathFragment}.
+   * An {@link ActionInput} that is a child of another one at a given relative path.
+   *
+   * <p>This is used as a memory optimization as it avoids storing full absolute paths for children
+   * of a source directory.
    */
   static class ChildActionInput extends BasicActionInput {
     private final ActionInput parent;
@@ -384,6 +388,11 @@ public final class MerkleTreeComputer {
     }
   }
 
+  /**
+   * Adapts a {@link Path} to an {@link ActionInput}.
+   *
+   * <p>This is only used for remote repository execution and tests.
+   */
   private static class PathActionInput extends BasicActionInput {
     private final Path path;
 
@@ -505,8 +514,9 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    ImmutableMap.Builder</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
-        blobs = ImmutableMap.builder();
+    var blobs =
+        new TreeMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>(
+            MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -569,10 +579,9 @@ public final class MerkleTreeComputer {
           inputBytes += directoryBlobDigest.getSizeBytes();
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
-            var builtBlobs = blobs.buildKeepingLast();
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
-              checkState(builtBlobs.isEmpty());
+              checkState(blobs.isEmpty());
               discardedCount.increment();
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
@@ -581,7 +590,7 @@ public final class MerkleTreeComputer {
                   new MerkleTree.Uploadable(
                       new MerkleTree.RootOnly.BlobsUploaded(
                           directoryBlobDigest, inputFiles, inputBytes),
-                      builtBlobs);
+                      blobs);
               synchronized (uploadableStats) {
                 uploadableStats.accept(merkleTree.retainedBytes());
               }

@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 
 /**
  * A representation of the inputs to a remotely executed action represented as a Merkle tree.
@@ -84,7 +85,7 @@ public sealed interface MerkleTree {
    * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
    */
   final class Uploadable implements MerkleTree {
-    private static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
+    static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
         (o1, o2) ->
             switch (o1) {
               case Digest digest1 ->
@@ -111,11 +112,14 @@ public sealed interface MerkleTree {
     private final RootOnly.BlobsUploaded root;
     private final ImmutableSortedMap<Object, /* byte[] | ActionInput */ Object> blobs;
 
-    Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Object, Object> blobs) {
+    Uploadable(
+        RootOnly.BlobsUploaded root,
+        SortedMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+            blobs) {
       this.root = root;
       // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
       // arrays.
-      this.blobs = ImmutableSortedMap.copyOf(blobs, DIGEST_AND_METADATA_COMPARATOR);
+      this.blobs = ImmutableSortedMap.copyOfSorted(blobs);
     }
 
     @Override
@@ -163,6 +167,7 @@ public sealed interface MerkleTree {
                   40 // Digest object
                       + 24 // String object for hash
                       + arraySize(digest.getHash().length(), 1); // byte[] for hash
+              // FileArtifactValue is retained by Skyframe anyway.
               default -> 0;
             };
       }
@@ -177,7 +182,8 @@ public sealed interface MerkleTree {
                       + arraySize(
                           childActionInput.relativePath.length(), 1); // byte[] for relative path
               // Don't account for PathActionInput, which is only used in tests or remote repository
-              // execution.
+              // execution. All other ActionInputs are retained anyway (permanently or, in the case
+              // of VirtualActionInput, by the Spawn).
               default -> 0;
             };
       }
