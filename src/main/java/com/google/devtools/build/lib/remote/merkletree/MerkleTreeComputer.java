@@ -85,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -180,8 +181,7 @@ public final class MerkleTreeComputer {
       new TaskDeduplicator<>();
 
   private final LongAdder discardedCount = new LongAdder();
-  private final LongAdder uploadableCount = new LongAdder();
-  private final LongAdder uploadableRetainedBytes = new LongAdder();
+  private final LongSummaryStatistics uploadableStats = new LongSummaryStatistics();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -201,10 +201,10 @@ public final class MerkleTreeComputer {
             new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableMap.of());
   }
 
-  public record Stats(long discardedCount, long uploadableCount, long uploadableRetainedBytes) {}
+  public record Stats(long discardedCount, String uploadableStats) {}
 
   public Stats getStats() {
-    return new Stats(discardedCount.sum(), uploadableCount.sum(), uploadableRetainedBytes.sum());
+    return new Stats(discardedCount.sum(), uploadableStats.toString());
   }
 
   /** Specifies which blobs should be retained in the Merkle tree. */
@@ -582,8 +582,9 @@ public final class MerkleTreeComputer {
                       new MerkleTree.RootOnly.BlobsUploaded(
                           directoryBlobDigest, inputFiles, inputBytes),
                       builtBlobs);
-              uploadableCount.increment();
-              uploadableRetainedBytes.add(merkleTree.retainedBytes());
+              synchronized (uploadableStats) {
+                uploadableStats.accept(merkleTree.retainedBytes());
+              }
               return merkleTree;
             }
           }
