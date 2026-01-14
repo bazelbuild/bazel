@@ -133,6 +133,51 @@ public sealed interface MerkleTree {
       return root().inputBytes();
     }
 
+    public int retainedBytes() {
+      //  footprint:
+      //     COUNT       AVG       SUM   DESCRIPTION
+      //        18       180      3240   [B
+      //         2       112       224   [Ljava.lang.Object;
+      //         9        40       360   build.bazel.remote.execution.v2.Digest
+      //         1        40        40   com.google.common.collect.ImmutableSortedMap
+      //         2        16        32   com.google.common.collect.RegularImmutableList
+      //         1        24        24   com.google.common.collect.RegularImmutableSortedSet
+      //         1        32        32
+      // com.google.devtools.build.lib.remote.merkletree.MerkleTree$RootOnly$BlobsUploaded
+      //         1        16        16
+      // com.google.devtools.build.lib.remote.merkletree.MerkleTree$Uploadable
+      //         9        24       216   java.lang.String
+      //        44                4184   (total)
+      int size = 16 // MerkleTree.Uploadable object
+          + 32 // MerkleTree.RootOnly.BlobsUploaded object
+          + 40 // ImmutableSortedMap object
+          + 24 // RegularImmutableSortedSet object
+          + 2 * 16 // RegularImmutableList objects
+          + 2 * alignedSize(12 + 4 * blobs.size()); // Object[] arrays in the lists
+      for (Object key : blobs.keySet()) {
+        size += switch (key) {
+          case Digest digest -> 40 // Digest object
+                                + 24 // String object for hash
+              + alignedSize(12 + digest.getHash().length()); // byte[] for hash
+          default -> 0;
+        };
+      }
+      for (Object value : blobs.values()) {
+        size += switch (value) {
+          case byte[] data -> alignedSize(12 + data.length); // byte[] object
+          case MerkleTreeComputer.EmptyInputDirectory ignored -> 16;
+          case MerkleTreeComputer.ActionInputWithPath actionInputWithPath ->
+          16;
+          default -> 0;
+        };
+      }
+      return size;
+    }
+
+    private int alignedSize(int size) {
+      return (size + 7) & ~7;
+    }
+
     public Collection<Digest> allDigests() {
       return Collections2.transform(blobs.keySet(), MerkleTree.Uploadable::adaptToDigest);
     }

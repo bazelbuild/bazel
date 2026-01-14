@@ -832,6 +832,8 @@ public class RemoteExecutionServiceTest {
       Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
       // TODO: Get this number down.
       assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(4184);
+      assertThat(merkleTreeOnlyRetention.totalSize())
+          .isEqualTo(((MerkleTree.Uploadable) merkleTree).retainedBytes());
     }
   }
 
