@@ -302,6 +302,19 @@ public class ProxyHelperTest {
   }
 
   @Test
+  public void testProxyInfoWithUnicodeCredentials() throws Exception {
+    // Test Unicode characters in username and password
+    // Username: "用户" (Chinese for "user") = %E7%94%A8%E6%88%B7
+    // Password: "contraseña" (Spanish with ñ) = contrase%C3%B1a
+    ProxyInfo proxyInfo = ProxyHelper.createProxy(
+        "http://%E7%94%A8%E6%88%B7:contrase%C3%B1a@proxy.example.com:8080");
+    assertThat(proxyInfo.hasCredentials()).isTrue();
+    String encoded = proxyInfo.getProxyAuthorizationHeader().substring("Basic ".length());
+    String decoded = new String(Base64.getDecoder().decode(encoded), java.nio.charset.StandardCharsets.UTF_8);
+    assertThat(decoded).isEqualTo("用户:contraseña");
+  }
+
+  @Test
   public void testProxyInfoWithoutCredentials() throws Exception {
     ProxyInfo proxyInfo = ProxyHelper.createProxy("http://proxy.example.com:8080");
     assertThat(proxyInfo.hasCredentials()).isFalse();
