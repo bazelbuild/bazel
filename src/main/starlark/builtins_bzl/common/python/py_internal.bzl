@@ -18,9 +18,6 @@ Various builtin Starlark defined objects exposed for non-builtin Starlark.
 These may change at any time and are closely coupled to the rule implementation.
 """
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
@@ -33,15 +30,6 @@ def _add_py_extra_pseudo_action(*args, **kwargs):
 
 def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
-
-def _cc_semantics_get_cc_runtimes(*args, **kwargs):
-    return cc_semantics.get_cc_runtimes(*args, **kwargs)
-
-def _cc_semantics_get_runtimes_toolchain(*args, **kwargs):
-    return cc_semantics.get_runtimes_toolchain(*args, **kwargs)
-
-def _cc_semantics_get_stl(*args, **kwargs):
-    return cc_semantics.get_stl(*args, **kwargs)
 
 def _copy_without_caching(*args, **kwargs):
     return _py_builtins.copy_without_caching(*args, **kwargs)
@@ -110,17 +98,46 @@ def _stamp_binaries(ctx):
 def _strip_opts(ctx):
     return ctx.fragments.cpp.strip_opts()
 
+_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "pyd", "wasm"]
+
+def _is_valid_shared_library_artifact(shared_library):
+    if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
+        return True
+
+    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+
+def _is_versioned_shared_library_extension_valid(shared_library_name):
+    """Validates the name against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+
+    Args:
+        shared_library_name: (str) the name to validate
+
+    Returns:
+        (bool)
+    """
+
+    # must match VERSIONED_SHARED_LIBRARY.
+    for ext in (".so.", ".dylib."):
+        name, _, version = shared_library_name.rpartition(ext)
+        if name and version:
+            version_parts = version.split(".")
+            for part in version_parts:
+                if not part[0].isdigit():
+                    return False
+                for c in part[1:].elems():
+                    if not (c.isalnum() or c == "_"):
+                        return False
+            return True
+    return False
+
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(
     PackageSpecificationInfo = PackageSpecificationInfo,
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,
     cc_helper = struct(
-        is_valid_shared_library_artifact = cc_helper.is_valid_shared_library_artifact,
+        is_valid_shared_library_artifact = _is_valid_shared_library_artifact,
     ),
-    cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
-    cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
-    cc_semantics_get_stl = _cc_semantics_get_stl,
     copy_without_caching = _copy_without_caching,
     create_repo_mapping_manifest = _create_repo_mapping_manifest,
     create_sources_only_manifest = _create_sources_only_manifest,

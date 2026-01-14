@@ -42,8 +42,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
 
-// LINT.IfChange
-
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
 @RequiresOptions(options = {AppleCommandLineOptions.class})
@@ -404,5 +402,4 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       return fileSystemName;
     }
   }
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/apple_configuration.bzl)
 }
