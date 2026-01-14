@@ -140,19 +140,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
           (options.macosCpus == null || options.macosCpus.isEmpty())
               ? ImmutableList.of(DEFAULT_MACOS_CPU)
               : ImmutableList.copyOf(options.macosCpus);
-      ImmutableList<String> catalystCpus =
-          (options.catalystCpus == null || options.catalystCpus.isEmpty())
-              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
-              : ImmutableList.copyOf(options.catalystCpus);
 
       return new AutoValue_AppleConfiguration_AppleCpus(
-          appleSplitCpu,
-          iosMultiCpus,
-          visionosCpus,
-          watchosCpus,
-          tvosCpus,
-          macosCpus,
-          catalystCpus);
+          appleSplitCpu, iosMultiCpus, visionosCpus, watchosCpus, tvosCpus, macosCpus);
     }
 
     abstract String appleSplitCpu();
@@ -166,8 +156,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> tvosCpus();
 
     abstract ImmutableList<String> macosCpus();
-
-    abstract ImmutableList<String> catalystCpus();
   }
 
   @Override
@@ -184,7 +172,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     fields.put("watchos_cpus", Tuple.copyOf(appleCpus.watchosCpus()));
     fields.put("tvos_cpus", Tuple.copyOf(appleCpus.tvosCpus()));
     fields.put("macos_cpus", Tuple.copyOf(appleCpus.macosCpus()));
-    fields.put("catalyst_cpus", Tuple.copyOf(appleCpus.catalystCpus()));
     return StructProvider.STRUCT.create(fields, "");
   }
 
@@ -237,22 +224,14 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
       return appleCpus.appleSplitCpu();
     }
-    switch (applePlatformType) {
-      case PlatformType.IOS:
-        return appleCpus.iosMultiCpus().get(0);
-      case PlatformType.VISIONOS:
-        return appleCpus.visionosCpus().get(0);
-      case PlatformType.WATCHOS:
-        return appleCpus.watchosCpus().get(0);
-      case PlatformType.TVOS:
-        return appleCpus.tvosCpus().get(0);
-      case PlatformType.MACOS:
-        return appleCpus.macosCpus().get(0);
-      case PlatformType.CATALYST:
-        return appleCpus.catalystCpus().get(0);
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
-    }
+    return switch (applePlatformType) {
+      case PlatformType.IOS -> appleCpus.iosMultiCpus().get(0);
+      case PlatformType.VISIONOS -> appleCpus.visionosCpus().get(0);
+      case PlatformType.WATCHOS -> appleCpus.watchosCpus().get(0);
+      case PlatformType.TVOS -> appleCpus.tvosCpus().get(0);
+      case PlatformType.MACOS -> appleCpus.macosCpus().get(0);
+      default -> throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
+    };
   }
 
   /**
