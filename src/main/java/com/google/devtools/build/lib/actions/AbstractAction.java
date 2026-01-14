@@ -640,7 +640,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   @Nullable
-  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
+  public Dict<String, String> getStarlarkSubstitutions()
+      throws EvalException, InterruptedException {
     return null;
   }
 

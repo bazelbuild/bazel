@@ -253,7 +253,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
             Substitution.of("%key%", StringEncoding.unicodeToInternal(SPECIAL_CHARS))));
   }
 
-  private String computeKey(TemplateExpansionAction action) throws EvalException {
+  private String computeKey(TemplateExpansionAction action)
+      throws EvalException, InterruptedException {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();

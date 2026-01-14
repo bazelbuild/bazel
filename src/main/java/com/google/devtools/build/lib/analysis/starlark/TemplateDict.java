@@ -119,7 +119,7 @@ public class TemplateDict implements TemplateDictApi {
     }
 
     @Override
-    public String getValue() throws EvalException {
+    public String getValue() throws EvalException, InterruptedException {
       try (Mutability mutability = Mutability.create("expand_template")) {
         StarlarkThread execThread =
             StarlarkThread.create(
@@ -132,31 +132,25 @@ public class TemplateDict implements TemplateDictApi {
         ImmutableList<?> values = valuesSet.toList();
         List<String> parts = new ArrayList<>(values.size());
         for (Object val : values) {
-          try {
-            Object ret = Starlark.positionalOnlyCall(execThread, mapEach, val);
-            if (ret instanceof String string) {
-              parts.add(string);
-            } else if (ret instanceof Sequence<?> sequence) {
-              for (Object v : sequence) {
-                if (!(v instanceof String)) {
-                  throw Starlark.errorf(
-                      "Function provided to map_each must return string, None, or list of strings,"
-                          + " but returned list containing element '%s' of type %s for key '%s' and"
-                          + " value: %s",
-                      v, Starlark.type(v), getKey(), val);
-                }
-                parts.add((String) v);
+          Object ret = Starlark.positionalOnlyCall(execThread, mapEach, val);
+          if (ret instanceof String string) {
+            parts.add(string);
+          } else if (ret instanceof Sequence<?> sequence) {
+            for (Object v : sequence) {
+              if (!(v instanceof String str)) {
+                throw Starlark.errorf(
+                    "Function provided to map_each must return string, None, or list of strings,"
+                        + " but returned list containing element '%s' of type %s for key '%s' and"
+                        + " value: %s",
+                    v, Starlark.type(v), getKey(), val);
               }
-            } else if (ret != Starlark.NONE) {
-              throw Starlark.errorf(
-                  "Function provided to map_each must return string, None, or list of strings, but "
-                      + "returned type %s for key '%s' and value: %s",
-                  Starlark.type(ret), getKey(), val);
+              parts.add(str);
             }
-          } catch (InterruptedException e) {
-            // Report the error to the user, but the stack trace is not of use to them
+          } else if (ret != Starlark.NONE) {
             throw Starlark.errorf(
-                "Could not evaluate substitution for %s: %s", val, e.getMessage());
+                "Function provided to map_each must return string, None, or list of strings, but "
+                    + "returned type %s for key '%s' and value: %s",
+                Starlark.type(ret), getKey(), val);
           }
         }
         if (uniquify) {

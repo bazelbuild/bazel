@@ -121,7 +121,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  Dict<String, String> getStarlarkSubstitutions() throws EvalException;
+  Dict<String, String> getStarlarkSubstitutions() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "env",
