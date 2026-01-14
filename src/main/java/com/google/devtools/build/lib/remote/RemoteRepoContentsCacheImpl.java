@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfe
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -86,6 +87,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addOutputPaths(REPO_DIRECTORY_PATH)
           .addOutputFiles(MARKER_FILE_PATH)
           .addOutputDirectories(REPO_DIRECTORY_PATH)
+          .setPlatform(Platform.getDefaultInstance())
           .build();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
@@ -116,6 +118,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         Action.newBuilder()
             .setCommandDigest(digestUtil.compute(COMMAND))
             .setInputRootDigest(digestUtil.compute(INPUT_ROOT))
+            .setPlatform(Platform.getDefaultInstance())
             .build();
   }
 
@@ -127,6 +130,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String predeclaredInputHash,
       ExtendedEventHandler reporter)
       throws InterruptedException {
+    if (!(fetchedRepoDir.getFileSystem() instanceof RemoteExternalOverlayFileSystem)) {
+      return;
+    }
     var context = buildContext(repoName);
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
