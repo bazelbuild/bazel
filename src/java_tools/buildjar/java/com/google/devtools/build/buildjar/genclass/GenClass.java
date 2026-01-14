@@ -134,7 +134,7 @@ public class GenClass {
   /** Writes the generated class files to the output jar. */
   private static void writeOutputJar(Map<String, byte[]> classes, GenClassOptions options)
       throws IOException {
-    JarCreator output = new JarCreator(options.outputJar().toString());
+    JarCreator output = new JarCreator(options.outputJar());
     output.setCompression(true);
     classes.forEach((name, content) -> output.addEntry(name, content));
     output.execute();

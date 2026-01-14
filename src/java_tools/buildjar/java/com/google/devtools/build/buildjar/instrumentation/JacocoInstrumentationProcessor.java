@@ -71,7 +71,7 @@ public final class JacocoInstrumentationProcessor {
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
     instrumentRecursively(instr, build.getClassDir());
     jar.addDirectory(instrumentedClassesDirectory);
-    jar.addEntry(coverageInformation, coverageInformation);
+    jar.addEntry(coverageInformation, Path.of(coverageInformation));
   }
 
   public void cleanup() throws IOException {

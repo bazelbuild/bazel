@@ -24,7 +24,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
@@ -115,14 +114,6 @@ public class JarCreator extends JarHelper {
   private String targetLabel;
   private String injectingRuleKind;
 
-  /**
-   * @deprecated use {@link JarCreator(Path)} instead
-   */
-  @Deprecated
-  public JarCreator(String fileName) {
-    this(Paths.get(fileName));
-  }
-
   public JarCreator(Path path) {
     super(path);
   }
@@ -168,26 +159,6 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds an entry to the Jar file, normalizing the name.
-   *
-   * @param entryName the name of the entry in the Jar file
-   * @param fileName the name of the input file for the entry
-   * @return true iff a new entry was added
-   */
-  @CanIgnoreReturnValue
-  public boolean addEntry(String entryName, String fileName) {
-    return addEntry(entryName, Paths.get(fileName));
-  }
-
-  /**
-   * @deprecated prefer {@link #addDirectory(Path)}
-   */
-  @Deprecated
-  public void addDirectory(String directory) {
-    addDirectory(Paths.get(directory));
-  }
-
-  /**
    * Adds the contents of a directory to the Jar file. All files below this directory will be added
    * to the Jar file using the name relative to the directory as the name for the Jar entry.
    *
@@ -203,8 +174,7 @@ public class JarCreator extends JarHelper {
           new SimpleFileVisitor<Path>() {
 
             @Override
-            public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
-                throws IOException {
+            public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs) {
               if (!path.equals(directory)) {
                 // For consistency with legacy behaviour, include entries for directories except for
                 // the root.
@@ -214,8 +184,7 @@ public class JarCreator extends JarHelper {
             }
 
             @Override
-            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                throws IOException {
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
               addEntry(path, /* isDirectory= */ false);
               return FileVisitResult.CONTINUE;
             }
@@ -326,10 +295,10 @@ public class JarCreator extends JarHelper {
       System.err.println("usage: CreateJar output [root directories]");
       System.exit(1);
     }
-    String output = args[0];
+    Path output = Path.of(args[0]);
     JarCreator createJar = new JarCreator(output);
     for (int i = 1; i < args.length; i++) {
-      createJar.addDirectory(args[i]);
+      createJar.addDirectory(Path.of(args[i]));
     }
     createJar.setCompression(true);
     createJar.setVerbose(true);
