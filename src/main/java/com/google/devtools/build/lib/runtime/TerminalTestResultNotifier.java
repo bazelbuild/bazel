@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
 import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT;
 import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -152,6 +155,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     return options.getOptions(ExecutionOptions.class).testCheckUpToDate;
   }
 
+  private static EnumSet<ExecutionOptions.TestSummaryFormat> SHOW_ALL_TESTS_FORMATS =
+      EnumSet.of(DETAILED, DETAILED_UNCACHED, SHORT, SHORT_UNCACHED);
+  private static EnumSet<ExecutionOptions.TestSummaryFormat> SHOW_NO_STATUS_TESTS_FORMATS =
+      EnumSet.of(DETAILED, DETAILED_UNCACHED);
+  private static EnumSet<ExecutionOptions.TestSummaryFormat> SHOW_ALL_TEST_CASES_FORMATS =
+      EnumSet.of(DETAILED, DETAILED_UNCACHED);
+  private static EnumSet<ExecutionOptions.TestSummaryFormat> SHOW_CACHED_TESTS_FORMATS =
+      EnumSet.of(DETAILED, SHORT);
 
   /**
    * Prints a test summary information for all tests to the terminal.
@@ -211,49 +222,22 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
     switch (testSummaryFormat) {
       case DETAILED:
-        printSummary(
-            summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ true,
-            /* showAllTestCases= */ true,
-            /* showCachedTests= */ true);
-        break;
-
       case DETAILED_UNCACHED:
-        printSummary(
-            summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ true,
-            /* showAllTestCases= */ true,
-            /* showCachedTests= */ false);
-        break;
-
       case SHORT:
-        printSummary(
-            summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ false,
-            /* showAllTestCases= */ false,
-            /* showCachedTests= */ true);
-        break;
-
       case SHORT_UNCACHED:
+      case TERSE: {
+        boolean showAllTests = SHOW_ALL_TESTS_FORMATS.contains(testSummaryFormat);
+        boolean showNoStatusTests = SHOW_NO_STATUS_TESTS_FORMATS.contains(testSummaryFormat);
+        boolean showAllTestCases = SHOW_ALL_TEST_CASES_FORMATS.contains(testSummaryFormat);
+        boolean showCachedTests = SHOW_CACHED_TESTS_FORMATS.contains(testSummaryFormat);
         printSummary(
             summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ false,
-            /* showAllTestCases= */ false,
-            /* showCachedTests= */ false);
+            showAllTests,
+            showNoStatusTests,
+            showAllTestCases,
+            showCachedTests);
         break;
-
-      case TERSE:
-        printSummary(
-            summaries,
-            /* showAllTests= */ false,
-            /* showNoStatusTests= */ false,
-            /* showAllTestCases= */ false,
-            /* showCachedTests= */ false);
-        break;
+      }
 
       case TESTCASE:
       case NONE:
