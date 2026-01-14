@@ -402,27 +402,40 @@ public final class Resolver extends NodeVisitor {
   }
 
   /**
-   * A Module is a static abstraction of a Starlark module (see {@link
-   * net.starlark.java.eval.Module})). It describes, for the resolver and compiler, the set of
-   * variable names that are predeclared, either by the interpreter (UNIVERSAL) or by the
-   * application (PREDECLARED), plus the set of pre-defined global names (which is typically empty,
-   * except in a REPL or EvaluationTestCase scenario).
+   * A static abstraction of a Starlark {@link net.starlark.java.eval.Module Module}, that resolves
+   * names to scope and type information rather than to dynamic Starlark values.
+   *
+   * <p>The {@link #resolve} API returns information about predefined variables, including those
+   * provided by the interpreter itself ({@link Scope#UNIVERSAL}), the application ({@link
+   * Scope#PREDECLARED}), and even evaluations that are considered to precede the current
+   * environment ({@link Scope#GLOBAL} -- typically empty except for the REPL and unit tests). It
+   * does *not* contain information about local symbols, or globals that are defined in the code
+   * currently being resolved.
+   *
+   * <p>The {@link #resolveType} API returns type information used in static type checking, but is
+   * not used directly in the resolver. It may include information about user-defined types, i.e.
+   * types introduced as global symbols in the resolved code.
    */
   public interface Module {
 
     /**
      * Resolves a name to a GLOBAL, PREDECLARED, or UNIVERSAL binding.
      *
-     * @throws Undefined if the name is not defined.
+     * @throws Undefined if the name is not defined. The exception may contain a set of available
+     *     candidate names that are predefined symbols.
      */
     Scope resolve(String name) throws Undefined;
 
     /**
      * Resolves a name to a corresponding type.
      *
-     * @throws Undefined if the name is not defined, or if it is not valid as a type.
+     * @throws Undefined if the name is not defined, or if it is not valid as a type. If not
+     *     defined, the exception may contain a set of available candidate names that are predefined
+     *     symbols or that are injected as user-defined types.
      */
-    StarlarkType resolveType(String name) throws Undefined;
+    // TODO: #28043 - Returns Object because that's the type of Types.TYPE_UNIVERSE. Replace that
+    // with StarlarkType after merging TypeConstructorProxy into StarlarkType.
+    Object resolveType(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
@@ -430,7 +443,7 @@ public final class Resolver extends NodeVisitor {
      * names, will be used as candidates for spelling suggestions.
      */
     final class Undefined extends Exception {
-      @Nullable private final Set<String> candidates;
+      @Nullable final Set<String> candidates;
 
       public Undefined(String message, @Nullable Set<String> candidates) {
         super(message);

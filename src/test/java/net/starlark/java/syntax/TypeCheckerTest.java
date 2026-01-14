@@ -56,7 +56,7 @@ public final class TypeCheckerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
-    Module module = TestUtils.moduleWithPredeclared();
+    Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
     TypeResolver.annotateFile(file, module);

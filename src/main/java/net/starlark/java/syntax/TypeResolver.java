@@ -23,6 +23,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
@@ -39,7 +40,6 @@ import net.starlark.java.types.Types;
  */
 public final class TypeResolver extends NodeVisitor {
 
-  // TODO: #27728 - Will be used when we support non-universal type symbols.
   private final Module module;
 
   private final List<SyntaxError> errors;
@@ -61,9 +61,28 @@ public final class TypeResolver extends NodeVisitor {
     this.module = module;
   }
 
+  /**
+   * Resolves a name in the module to a type.
+   *
+   * <p>If no match, logs an error at the given node and returns Any.
+   */
+  // TODO: #27728 - Instead of looking up the name in the module directly, have this method take in
+  // an Identifier and first verify that the identifier's scope is not local. This avoids the
+  // situation where we allow a local var that shadows a global/predeclared/universal type to still
+  // be used as a type name.
+  private Object resolveType(String name, Node node) {
+    try {
+      return module.resolveType(name);
+    } catch (Resolver.Module.Undefined ex) {
+      String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
+      errorf(node, "%s%s", ex.getMessage(), suggestion);
+      return Types.ANY;
+    }
+  }
+
   private Object evalTypeOrArg(Expression expr) {
     switch (expr.kind()) {
-      case BINARY_OPERATOR:
+      case BINARY_OPERATOR -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
         BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
@@ -73,13 +92,12 @@ public final class TypeResolver extends NodeVisitor {
         }
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
         return Types.ANY;
-      case TYPE_APPLICATION:
+      }
+      case TYPE_APPLICATION -> {
         TypeApplication app = (TypeApplication) expr;
 
-        Object constructorObject = Types.TYPE_UNIVERSE.get(app.getConstructor().getName());
-        if (constructorObject == null) {
-          // TODO(ilist@): include possible candidates in the error message
-          errorf(expr, "type constructor '%s' is not defined", app.getConstructor().getName());
+        Object constructorObject = resolveType(app.getConstructor().getName(), app);
+        if (constructorObject.equals(Types.ANY)) {
           return Types.ANY;
         }
         if (!(constructorObject instanceof Types.TypeConstructorProxy constructor)) {
@@ -99,23 +117,16 @@ public final class TypeResolver extends NodeVisitor {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
         }
-      case IDENTIFIER:
-        Identifier id = (Identifier) expr;
-        // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
-        // TODO: #27728 - Don't lookup in the type universe based on the identifier's name. Instead,
-        // retrieve it from the Module using the Binding in the Identifier. I.e., make type
-        // resolution build upon symbol resolution.
-        Object result = Types.TYPE_UNIVERSE.get(id.getName());
-        if (result == null) {
-          // TODO(ilist@): include possible candidates in the error message
-          errorf(expr, "type '%s' is not defined", id.getName());
-          return Types.ANY;
-        }
-        return result;
-      default:
+      }
+      case IDENTIFIER -> {
+        var id = (Identifier) expr;
+        return resolveType(id.getName(), id);
+      }
+      default -> {
         // TODO(ilist@): full evaluation: lists and dicts
         errorf(expr, "unexpected expression '%s'", expr);
         return Types.ANY;
+      }
     }
   }
 

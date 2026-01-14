@@ -83,17 +83,7 @@ public final class TypeChecker extends NodeVisitor {
   private StarlarkType infer(Expression expr) {
     switch (expr.kind()) {
       case IDENTIFIER -> {
-        var id = (Identifier) expr;
-        return switch (id.getName()) {
-          // As a hack, we special-case the names of these universal symbols that should really be
-          // keywords.
-          // TODO: #27728 - Instead of special casing, ensure type information is stored correctly
-          // for the universal/predeclared symbols in the module, and retrieve it from there at type
-          // resolution time. Then here we just need to get it from the binding like anything else.
-          case "True", "False" -> Types.BOOL;
-          case "None" -> Types.NONE;
-          default -> getType(id);
-        };
+        return getType((Identifier) expr);
       }
       case STRING_LITERAL -> {
         return Types.STR;

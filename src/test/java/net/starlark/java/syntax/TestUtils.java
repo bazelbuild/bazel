@@ -18,8 +18,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import net.starlark.java.syntax.Resolver.Module;
+import net.starlark.java.syntax.Resolver.Module.Undefined;
 import net.starlark.java.syntax.Resolver.Scope;
 import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 public final class TestUtils {
 
@@ -43,6 +45,28 @@ public final class TestUtils {
     }
   }
 
+  private static class TestModule implements Module {
+    private final ImmutableSet<String> predeclared;
+
+    TestModule(ImmutableSet<String> predeclared) {
+      this.predeclared = predeclared;
+    }
+
+    @Override
+    public Scope resolve(String name) throws Undefined {
+      if (predeclared.contains(name)) {
+        return Scope.PREDECLARED;
+      } else {
+        throw new Undefined(String.format("name '%s' is not defined", name), predeclared);
+      }
+    }
+
+    @Override
+    public Object resolveType(String name) throws Undefined {
+      throw new Undefined("TestModule does not support type resolution");
+    }
+  }
+
   /**
    * A basic static resolver Module implementation for testing.
    *
@@ -50,19 +74,21 @@ public final class TestUtils {
    * are resolved.
    */
   public static Module moduleWithPredeclared(String... names) {
-    ImmutableSet<String> predeclared = ImmutableSet.copyOf(names);
-    return new Module() {
-      @Override
-      public Scope resolve(String name) throws Undefined {
-        if (predeclared.contains(name)) {
-          return Scope.PREDECLARED;
-        }
-        throw new Undefined(String.format("name '%s' is not defined", name), predeclared);
-      }
+    return new TestModule(ImmutableSet.copyOf(names));
+  }
 
+  /** A basic static resolver Module implementation that knows about the universal types. */
+  public static Module moduleWithUniversalTypes() {
+    return new TestModule(Types.TYPE_UNIVERSE.keySet()) {
       @Override
-      public StarlarkType resolveType(String name) throws Undefined {
-        throw new Undefined("moduleWithPredeclared() does not support types");
+      public Object resolveType(String name) throws Undefined {
+        resolve(name); // throws if unknown
+        Object type = Types.TYPE_UNIVERSE.get(name);
+        // TODO: #28043 - Remove this assertion when we simplify the universe schema.
+        if (!(type instanceof StarlarkType || type instanceof Types.TypeConstructorProxy)) {
+          throw new AssertionError("invalid type universe");
+        }
+        return type;
       }
     };
   }

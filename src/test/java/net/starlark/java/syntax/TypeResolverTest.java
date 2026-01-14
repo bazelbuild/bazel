@@ -39,7 +39,7 @@ public class TypeResolverTest {
     Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
     // TODO: #27728 - When type resolution can consider non-universal types, use a better mock
     // module here that supports evalType().
-    return TypeResolver.evalTypeExpression(typeExpr, TestUtils.moduleWithPredeclared());
+    return TypeResolver.evalTypeExpression(typeExpr, TestUtils.moduleWithUniversalTypes());
   }
 
   /**
@@ -51,7 +51,7 @@ public class TypeResolverTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.ok()).isTrue();
-    Module module = TestUtils.moduleWithPredeclared();
+    Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertThat(file.ok()).isTrue();
     TypeResolver.annotateFile(file, module);
@@ -167,7 +167,7 @@ public class TypeResolverTest {
   public void evalType_unknownIdentifier() {
     SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo"));
 
-    assertThat(e).hasMessageThat().isEqualTo("type 'Foo' is not defined");
+    assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
   }
 
   @Test
@@ -179,7 +179,7 @@ public class TypeResolverTest {
         .isEqualTo("'int' is not a type constructor, cannot be applied to '[bool]'");
 
     e = assertThrows(SyntaxError.Exception.class, () -> evalType("Foo[int]"));
-    assertThat(e).hasMessageThat().isEqualTo("type constructor 'Foo' is not defined");
+    assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
 
     e = assertThrows(SyntaxError.Exception.class, () -> evalType("list"));
     assertThat(e)
