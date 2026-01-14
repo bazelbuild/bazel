@@ -353,7 +353,7 @@ public final class MerkleTreeComputer {
   /**
    * An {@link ActionInput} backed by an absolute {@link Path} and a relative {@link PathFragment}.
    */
-  private static class ActionInputWithPath extends BasicActionInput {
+  static class ActionInputWithPath extends BasicActionInput {
     private final Path basePath;
     private final PathFragment relativePath;
 
@@ -1075,7 +1075,7 @@ public final class MerkleTreeComputer {
     };
   }
 
-  private static class EmptyInputDirectory extends BasicActionInput {
+  static class EmptyInputDirectory extends BasicActionInput {
     private final PathFragment execPath;
 
     EmptyInputDirectory(PathFragment execPath) {
