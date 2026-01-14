@@ -240,8 +240,9 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                 try (pipedOut) {
                   virtualActionInput.writeTo(pipedOut);
                 } catch (IOException e) {
-                  throw new IllegalStateException(
-                      "writeTo is  not expected to throw as pipedOut doesn't", e);
+                  // Since VirtualActionInput#writeTo only throws when pipedOut does, this means
+                  // that the reader has closed pipedIn early, perhaps due to interruption. Since
+                  // the reader is gone, there is no way to propagate this exception back.
                 }
               });
       return pipedIn;
