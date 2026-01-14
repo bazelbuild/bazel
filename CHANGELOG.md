@@ -1,3 +1,34 @@
+## Release 10.0.0-pre.20251217.3 (2026-01-13)
+
+```
+Baseline: b9762ddb486864c29cca3aeefc30fbf391e86f14
+
+Cherry picks:
+
+   + 39ffbf0d06db539f53dc7a86b46e79f4af7845c2:
+     Automated rollback of commit
+     03ee90a351737979e3a78b48f1590ca7da7c54e9.
+   + 1d6aaa0a83a644bea11f737407e114682d693bff:
+     Internal change.
+   + aea3f208d4a5032ca28bffcddcac2e0e125a4ad0:
+     Automated rollback of commit
+     cb9bd8615210dda2104f79d281938e47187dc2de.
+   + 1b97de53d69a028536a318045a893cb34c842439:
+     Use the hermetic python toolchain for Bazel (#28287)
+```
+
+Important changes:
+
+  - `--override_repository` now supports apparent repository names
+    from the point of view of the main repository. An unknown
+    apparent repo name will result in an error.
+  - The values of keyword arguments passed to `use_repo` can now
+    contain the special substrings `{name}` and `{version}`, which
+    are treated as equivalent to the corresponding attributes of the
+    current module.
+
+This release contains contributions from many people at Google, as well as Carmen Chui, Chi Wang, David Zbarsky, Fabian Meumertzheim, Jeff Klukas, Jordan Mele, Jordan Mele, Justin Kaeser, Keith Smiley, Markus Hofbauer, Son Luong Ngoc, Timothy Gu, Will Stranton.
+
 ## Release 8.5.1 (2026-01-12)
 
 ```
