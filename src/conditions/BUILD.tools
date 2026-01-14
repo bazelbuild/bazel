@@ -144,35 +144,6 @@ config_setting(
 )
 
 config_setting(
-    name = "host_windows_x64_constraint",
-    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
-    values = {"host_cpu": "x64_windows"},
-)
-
-config_setting(
-    name = "host_windows_arm64_constraint",
-    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
-    values = {"host_cpu": "arm64_windows"},
-)
-
-alias(
-    name = "host_windows",
-    actual = select({
-        ":host_windows_arm64_constraint": ":host_windows_arm64_constraint",
-        "//conditions:default": ":host_windows_x64_constraint",
-    }),
-    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "remote",
-    deprecation = "No longer used by Bazel and will be removed in the future. Migrate to toolchains or define your own version of this setting.",
-    values = {"define": "EXECUTOR=remote"},
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
     name = "debian_build",
     values = {
         "define": "distribution=debian",
