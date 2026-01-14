@@ -166,8 +166,10 @@ public sealed interface MerkleTree {
         size += switch (value) {
           case byte[] data -> alignedSize(12 + data.length); // byte[] object
           case MerkleTreeComputer.EmptyInputDirectory ignored -> 16;
-          case MerkleTreeComputer.ActionInputWithPath actionInputWithPath ->
-          16;
+          case MerkleTreeComputer.ChildActionInput childActionInput ->
+          16 // ChildActionInput object
+              + 24 // String object for name
+              + alignedSize(12 + childActionInput.name().length()); // byte[] for name
           default -> 0;
         };
       }

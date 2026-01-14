@@ -353,31 +353,45 @@ public final class MerkleTreeComputer {
   /**
    * An {@link ActionInput} backed by an absolute {@link Path} and a relative {@link PathFragment}.
    */
-  static class ActionInputWithPath extends BasicActionInput {
-    private final Path basePath;
-    private final PathFragment relativePath;
+  static class ChildActionInput extends BasicActionInput {
+    private final ActionInput parent;
+    private final String relativePath;
 
-    ActionInputWithPath(Path basePath) {
-      this(basePath, PathFragment.EMPTY_FRAGMENT);
-    }
-
-    ActionInputWithPath(Path basePath, PathFragment relativePath) {
-      this.basePath = basePath;
-      this.relativePath = relativePath;
+    ChildActionInput(ActionInput parent, PathFragment relativePath) {
+      this.parent = parent;
+      this.relativePath = relativePath.getPathString();
     }
 
     @Override
     public PathFragment getExecPath() {
-      return basePath.asFragment().getRelative(relativePath);
+      return parent.getExecPath().getRelative(relativePath);
     }
 
     @Override
     public String getExecPathString() {
       return getExecPath().getPathString();
     }
+  }
+
+  private static class PathActionInput extends BasicActionInput {
+    private final Path path;
+
+    PathActionInput(Path path) {
+      this.path = path;
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return path.asFragment();
+    }
+
+    @Override
+    public String getExecPathString() {
+      return path.asFragment().getPathString();
+    }
 
     Path getPath() {
-      return basePath.getRelative(relativePath);
+      return path;
     }
   }
 
@@ -385,7 +399,7 @@ public final class MerkleTreeComputer {
       new ArtifactPathResolver() {
         @Override
         public Path toPath(ActionInput actionInput) {
-          return ((ActionInputWithPath) actionInput).getPath();
+          return ((PathActionInput) actionInput).getPath();
         }
 
         @Override
@@ -415,7 +429,7 @@ public final class MerkleTreeComputer {
                   Lists.transform(
                       ImmutableList.sortedCopyOf(
                           Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                      e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
+                      e -> entry(e.getKey(), new PathActionInput(e.getValue()))),
                   alwaysFalse(),
                   /* spawnScrubber= */ null,
                   StaticInputMetadataProvider.empty(),
@@ -748,7 +762,7 @@ public final class MerkleTreeComputer {
         }
         yield computeIfAbsent(
             metadata,
-            () -> explodeDirectory(artifactPathResolver.toPath(artifact)).entrySet(),
+            () -> explodeDirectory(artifact, artifactPathResolver).entrySet(),
             isToolInput.test(mappedExecPath),
             metadataProvider,
             artifactPathResolver,
@@ -1004,15 +1018,19 @@ public final class MerkleTreeComputer {
     return path1.subFragment(0, commonSegments);
   }
 
-  private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(Path dirPath)
-      throws IOException, InterruptedException {
+  private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(
+      Artifact dir, ArtifactPathResolver pathResolver) throws IOException, InterruptedException {
     var inputs = ImmutableSortedMap.<PathFragment, ActionInput>orderedBy(HIERARCHICAL_COMPARATOR);
-    explodeDirectory(PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
+    Path dirPath = pathResolver.toPath(dir);
+    explodeDirectory(dir, PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
     return inputs.buildOrThrow();
   }
 
   private static void explodeDirectory(
-      PathFragment relPath, Path dirPath, ImmutableMap.Builder<PathFragment, ActionInput> inputs)
+      Artifact dir,
+      PathFragment relPath,
+      Path dirPath,
+      ImmutableMap.Builder<PathFragment, ActionInput> inputs)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -1022,8 +1040,8 @@ public final class MerkleTreeComputer {
       String basename = entry.getName();
       PathFragment path = relPath.getChild(basename);
       switch (entry.getType()) {
-        case FILE -> inputs.put(path, new ActionInputWithPath(dirPath, path));
-        case DIRECTORY -> explodeDirectory(path, dirPath, inputs);
+        case FILE -> inputs.put(path, new ChildActionInput(dir, path));
+        case DIRECTORY -> explodeDirectory(dir, path, dirPath, inputs);
         default ->
             throw new IOException(
                 "The file type of '%s' is not supported.".formatted(dirPath.getRelative(path)));
