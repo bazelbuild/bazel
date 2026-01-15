@@ -22,6 +22,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -56,14 +57,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allPass() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.TESTCASE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.TESTCASE);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("10 passing"));
@@ -75,14 +76,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allPassButTargetFails() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 10,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.TESTCASE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(10)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.TESTCASE);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -94,14 +95,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_someFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.TESTCASE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.TESTCASE);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -160,14 +161,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 10,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.TESTCASE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(10)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.TESTCASE);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -179,14 +180,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allPass() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("10 passing"));
@@ -199,14 +200,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allPassUncached() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("10 passing"));
@@ -219,14 +220,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allPassCached() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ false
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(false)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("10 passing"));
@@ -239,14 +240,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allPassButSomeSkipped() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 2,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(2)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -259,14 +260,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allPassUncachedButSomeSkipped() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 2,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(2)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -279,14 +280,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allPassCachedButSomeSkipped() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.PASSED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 2,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ false
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.PASSED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(2)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(false)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -299,14 +300,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allPassButTargetFails() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 10,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(10)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -318,14 +319,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allPassButTargetFails() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 0,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 10,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(0)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(10)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -337,14 +338,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_someFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -355,14 +356,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_someFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("8 passing"));
@@ -373,14 +374,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 10,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(10)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -392,14 +393,14 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedUncachedOption_allFail() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 10,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(10)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED);
 
     String printed = getPrintedMessage();
     assertThat(printed).contains("0 passing");
@@ -411,89 +412,119 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void shortOption_noSummaryPrinted() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.SHORT);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.SHORT);
 
     verifyNoSummaryPrinted();
   }
 
   @Test
   public void shortUncachedOption_noSummaryPrinted() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED);
 
     verifyNoSummaryPrinted();
   }
 
   @Test
   public void terseOption_noSummaryPrinted() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.TERSE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.TERSE);
 
     verifyNoSummaryPrinted();
   }
 
   @Test
   public void noneOption_noSummaryPrinted() throws Exception {
-    printTestCaseSummary(new TestSummarySpec(
-      BlazeTestStatus.FAILED,
-      /*failedTestCases=*/ 2,
-      /*skippedTestCases=*/ 0,
-      /*unknownTestCases=*/ 0,
-      /*totalTestCases=*/ 10,
-      /*actionRan=*/ true
-    ), ExecutionOptions.TestSummaryFormat.NONE);
+    printTestCaseSummary(TestSummarySpec.builder()
+      .setStatus(BlazeTestStatus.FAILED)
+      .setFailedTestCases(2)
+      .setSkippedTestCases(0)
+      .setUnknownTestCases(0)
+      .setTotalTestCases(10)
+      .setActionRan(true)
+      .build(), ExecutionOptions.TestSummaryFormat.NONE);
 
     verifyNoSummaryPrinted();
   }
 
-  // A record that is used to generate a TestSummary mock object for testing.
-  private static record TestSummarySpec(
-    BlazeTestStatus status,
-    int failedTestCases,
-    int skippedTestCases,
-    int unknownTestCases,
-    int totalTestCases,
-    boolean actionRan) {
+  // A helper that creates `TestSummary` mocks for testing.
+  static class TestSummarySpec {
+    private final BlazeTestStatus status;
+    private final int failedTestCases;
+    private final int skippedTestCases;
+    private final int unknownTestCases;
+    private final int totalTestCases;
+    private final boolean actionRan;
 
-      TestSummary build() throws LabelSyntaxException {
-        TestSummary testSummary = mock(TestSummary.class);
-        when(testSummary.getTotalTestCases()).thenReturn(totalTestCases);
-        when(testSummary.getUnknownTestCases()).thenReturn(unknownTestCases);
-        when(testSummary.getStatus()).thenReturn(status);
-        when(testSummary.actionRan()).thenReturn(actionRan);
-        
-        TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
-        List<TestCase> failedTestCasesList = Collections.nCopies(failedTestCases, failedTestCase);
-        when(testSummary.getFailedTestCases()).thenReturn(failedTestCasesList);
+    TestSummarySpec(
+        BlazeTestStatus status,
+        int failedTestCases,
+        int skippedTestCases,
+        int unknownTestCases,
+        int totalTestCases,
+        boolean actionRan) {
+      this.status = status;
+      this.failedTestCases = failedTestCases;
+      this.skippedTestCases = skippedTestCases;
+      this.unknownTestCases = unknownTestCases;
+      this.totalTestCases = totalTestCases;
+      this.actionRan = actionRan;
+    }
 
-        TestCase skippedTestCase = TestCase.newBuilder().setStatus(Status.SKIPPED).build();
-        List<TestCase> skippedTestCasesList = Collections.nCopies(skippedTestCases, skippedTestCase);
-        when(testSummary.getSkippedTestCases()).thenReturn(skippedTestCasesList);
+    static Builder builder() {
+      return new AutoBuilder_TerminalTestResultNotifierTest_TestSummarySpec_Builder();
+    }
 
-        Label label = Label.parseCanonical("//foo:bar");
-        when(testSummary.getLabel()).thenReturn(label);
+    TestSummary build() throws LabelSyntaxException {
+      TestSummary testSummary = mock(TestSummary.class);
+      when(testSummary.getTotalTestCases()).thenReturn(totalTestCases);
+      when(testSummary.getUnknownTestCases()).thenReturn(unknownTestCases);
+      when(testSummary.getStatus()).thenReturn(status);
+      when(testSummary.actionRan()).thenReturn(actionRan);
+      
+      TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
+      List<TestCase> failedTestCasesList = Collections.nCopies(failedTestCases, failedTestCase);
+      when(testSummary.getFailedTestCases()).thenReturn(failedTestCasesList);
 
-        return testSummary;
-      }
+      TestCase skippedTestCase = TestCase.newBuilder().setStatus(Status.SKIPPED).build();
+      List<TestCase> skippedTestCasesList = Collections.nCopies(skippedTestCases, skippedTestCase);
+      when(testSummary.getSkippedTestCases()).thenReturn(skippedTestCasesList);
+
+      Label label = Label.parseCanonical("//foo:bar");
+      when(testSummary.getLabel()).thenReturn(label);
+
+      return testSummary;
+    }
+
+    @AutoBuilder(ofClass = TestSummarySpec.class)
+    abstract static class Builder {
+      abstract Builder setStatus(BlazeTestStatus status);
+      abstract Builder setFailedTestCases(int failedTestCases);
+      abstract Builder setSkippedTestCases(int skippedTestCases);
+      abstract Builder setUnknownTestCases(int unknownTestCases);
+      abstract Builder setTotalTestCases(int totalTestCases);
+      abstract Builder setActionRan(boolean actionRan);
+      abstract TestSummarySpec build();
+    }
   }
 
   private void printFailedToBuildSummaries(TestSummaryFormat testSummaryFormat) throws LabelSyntaxException {
