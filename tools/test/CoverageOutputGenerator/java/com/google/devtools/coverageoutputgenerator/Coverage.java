@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 class Coverage {
   private final TreeMap<String, SourceFileCoverage> sourceFiles;
@@ -118,18 +120,21 @@ class Coverage {
     if (regexes.isEmpty()) {
       return coverage;
     }
+    // Pre-compile patterns once instead of recompiling for every source file
+    List<Pattern> compiledPatterns =
+        regexes.stream().map(Pattern::compile).collect(Collectors.toList());
     Coverage filteredCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
+      if (!matchesAnyPattern(source.sourceFileName(), compiledPatterns)) {
         filteredCoverage.add(source);
       }
     }
     return filteredCoverage;
   }
 
-  private static boolean matchesAnyRegex(String input, List<String> regexes) {
-    for (String regex : regexes) {
-      if (input.matches(regex)) {
+  private static boolean matchesAnyPattern(String input, List<Pattern> patterns) {
+    for (Pattern pattern : patterns) {
+      if (pattern.matcher(input).matches()) {
         return true;
       }
     }
