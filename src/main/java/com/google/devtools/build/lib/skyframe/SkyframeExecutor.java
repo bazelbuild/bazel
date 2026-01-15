@@ -589,18 +589,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Invalidates the given keys with an external remote analysis service.
    *
-   * <p>This is a no-op if remote analysis caching is disabled.
+   * <p>If remote analysis caching is disabled, all deserialized nodes are deleted.
    */
   public void invalidateWithExternalService(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    if (!isRemoteAnalysisCachingEnabled()) {
-      return;
-    }
     ImmutableSet<SkyKey> keysToLookup =
         getEvaluator().getDoneValues().entrySet().parallelStream()
             .filter(e -> e.getValue() instanceof DeserializedSkyValue)
             .map(Entry::getKey)
             .collect(toImmutableSet());
+
+    if (!isRemoteAnalysisCachingEnabled()) {
+      // If skycache is disabled, we need to delete all the deserialized nodes
+      // because they do not have transitive edges to File/Directory nodes.
+      if (!keysToLookup.isEmpty()) {
+        // Only scan the graph for deletion if there are keys to delete,
+        // otherwise it'll be a wasteful iteration.
+        getEvaluator().delete(keysToLookup::contains);
+      }
+      return;
+    }
+
     Set<SkyKey> keysToInvalidate =
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
             keysToLookup, remoteAnalysisCachingState);
