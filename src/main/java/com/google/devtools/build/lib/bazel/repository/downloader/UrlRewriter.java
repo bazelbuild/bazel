@@ -127,10 +127,8 @@ public class UrlRewriter {
         }
         return new UrlRewriter(
             configPaths.stream().map(PathFragment::getPathString).toList(), readers);
-        } catch (UrlRewriterParseException e) { // Prevent it being wrapped in RuntimeException
-        throw e;
       } catch (Throwable e) {
-        throw closer.rethrow(e);
+        throw closer.rethrow(e, UrlRewriterParseException.class);
       } finally {
         closer.close();
       }
