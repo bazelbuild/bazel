@@ -815,6 +815,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       appendCoverageLog(coverageOutErr, fileOutErr);
     }
 
+    if (!testResultDataBuilder.getTestPassed()) {
+      touchCoverageData(testAction, actionExecutionContext);
+    }
+
     Verify.verify(
         !(testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing())
             || actionExecutionContext

@@ -121,7 +121,11 @@ public abstract class TestStrategy implements TestActionContext {
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot, Path tmpDir)
+  protected void prepareFileSystem(
+      TestRunnerAction testAction,
+      Path execRoot,
+      @Nullable Path tmpDir,
+      @Nullable ActionExecutionContext actionExecutionContext)
       throws IOException {
     if (tmpDir != null) {
       recreateDirectory(tmpDir);
@@ -136,22 +140,17 @@ public abstract class TestStrategy implements TestActionContext {
     resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
     resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
     resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
+
+    if (actionExecutionContext != null) {
+      // Reset output metadata to avoid stale information from previous attempts.
+      actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
+    }
   }
 
-  /**
-   * Ensures that all directories used to run test are in the correct state and their content will
-   * not result in stale files.
-   */
-  protected void prepareFileSystem(
-      TestRunnerAction testAction,
-      Path execRoot,
-      Path tmpDir,
-      ActionExecutionContext actionExecutionContext)
+  /** Pre-touch the coverage data file to satisfy Bazel's output contract. */
+  protected final void touchCoverageData(
+      TestRunnerAction testAction, ActionExecutionContext actionExecutionContext)
       throws IOException {
-    prepareFileSystem(testAction, execRoot, tmpDir);
-    // Reset output metadata to avoid stale information from previous attempts.
-    actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
-    // Pre-touch the coverage data file to satisfy Bazel's output contract.
     if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
       Artifact coverageData = testAction.getCoverageData();
       if (coverageData != null) {
@@ -159,14 +158,6 @@ public abstract class TestStrategy implements TestActionContext {
             actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
       }
     }
-  }
-
-  /**
-   * Ensures that all directories used to run test are in the correct state and their content will
-   * not result in stale files. Only use this if no local tmp and working directory are required.
-   */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
-    prepareFileSystem(testAction, execRoot, null);
   }
 
   /** Removes directory if it exists and recreates it. */
