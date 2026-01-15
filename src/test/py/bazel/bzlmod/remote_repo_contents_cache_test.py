@@ -665,7 +665,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
@@ -702,7 +702,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
   def testBzlFilePrefetching(self):
     self.ScratchFile(
@@ -778,6 +778,25 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(
         os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
+
+  def testRun(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "buildozer", version = "8.2.1")',
+        ],
+    )
+
+    # First fetch: not cached
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.2.1', stdout)
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.2.1', stdout)
+    repo_dir = self.RepoDir('buildozer')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
 
 
 if __name__ == '__main__':

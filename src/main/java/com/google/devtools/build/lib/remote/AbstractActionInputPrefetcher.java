@@ -285,7 +285,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
@@ -317,10 +317,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
-      // Source artifacts in the main repo don't need to be fetched.
-      if (input instanceof Artifact artifact
-          && artifact.isSourceArtifact()
-          && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain())) {
+      if (!RemoteOutputChecker.mayBeRemote(input)) {
         continue;
       }
 
