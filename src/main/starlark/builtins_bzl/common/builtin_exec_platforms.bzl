@@ -409,13 +409,8 @@ bazel_fragments["PlatformOptions"] = fragment(
 
 bazel_fragments["ProtoConfiguration$Options"] = fragment(
     propagate = [
-        "//command_line_option:proto_compiler",
         "//command_line_option:protocopt",
         "//command_line_option:experimental_proto_descriptor_sets_include_source_info",
-        "//command_line_option:proto_toolchain_for_java",
-        "//command_line_option:proto_toolchain_for_j2objc",
-        "//command_line_option:proto_toolchain_for_javalite",
-        "//command_line_option:proto_toolchain_for_cc",
         "//command_line_option:strict_proto_deps",
         "//command_line_option:strict_public_imports",
         "//command_line_option:cc_proto_library_header_suffixes",
