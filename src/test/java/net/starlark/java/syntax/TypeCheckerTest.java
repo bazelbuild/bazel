@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.types.StarlarkType;
@@ -472,6 +473,19 @@ public final class TypeCheckerTest {
     // Heterogeneous case.
     StarlarkType unionType = Types.union(Types.INT, Types.STR);
     assertTypeGivenDecls("[1, 'a']", Types.list(unionType));
+  }
+
+  @Test
+  public void infer_tuple() throws Exception {
+    // Empty case.
+    assertTypeGivenDecls("()", Types.tuple(ImmutableList.of()));
+
+    // Homogeneous case.
+    assertTypeGivenDecls(
+        "(1, 2, 3)", Types.tuple(ImmutableList.of(Types.INT, Types.INT, Types.INT)));
+
+    // Heterogeneous case.
+    assertTypeGivenDecls("(1, 'a')", Types.tuple(ImmutableList.of(Types.INT, Types.STR)));
   }
 
   @Test

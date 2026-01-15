@@ -15,6 +15,7 @@
 package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
@@ -119,7 +120,9 @@ public final class TypeChecker extends NodeVisitor {
         for (Expression element : list.getElements()) {
           elementTypes.add(infer(element));
         }
-        return Types.list(Types.union(elementTypes));
+        return list.isTuple()
+            ? Types.tuple(ImmutableList.copyOf(elementTypes))
+            : Types.list(Types.union(elementTypes));
       }
       case DICT_EXPR -> {
         var dict = (DictExpression) expr;
