@@ -1038,6 +1038,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean legacyLocalFallback;
+
+    @Option(
+        name = "proto_toolchain_for_j2objc",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "No-op.")
+    public Label protoToolchainForJ2Objc;
   }
 
   @Override
