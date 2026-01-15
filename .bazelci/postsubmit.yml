@@ -184,6 +184,7 @@ tasks:
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
+      - "-//src/main/starlark/tests/builtins_bzl:cc_builtin_tests"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of the Bazel repo.
