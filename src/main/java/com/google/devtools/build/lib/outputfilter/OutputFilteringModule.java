@@ -40,16 +40,21 @@ public final class OutputFilteringModule extends BlazeModule {
         name = "auto_output_filter",
         converter = AutoOutputFilter.Converter.class,
         defaultValue = "none",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "If --output_filter is not specified, then the value for this option is used "
-                + "create a filter automatically. Allowed values are 'none' (filter nothing "
-                + "/ show everything), 'all' (filter everything / show nothing), 'packages' "
-                + "(include output from rules in packages mentioned on the Blaze command line), "
-                + "and 'subpackages' (like 'packages', but also include subpackages). For the "
-                + "'packages' and 'subpackages' values //java/foo and //javatests/foo are treated "
-                + "as one package)'.")
+            """
+            If `--output_filter` is not specified, then the value for this option is used
+            create a filter automatically. Allowed values are;
+            - `none` (filter nothing / show everything),
+            - `all` (filter everything / show nothing),
+            - `packages` (include output from rules in packages mentioned on the Blaze command
+              line) and
+            - `subpackages` (like `packages`, but also include subpackages).
+            
+            For the `packages` and `subpackages` values `//java/foo` and `//javatests/foo` are
+            treated as one package.
+            """)
     public AutoOutputFilter autoOutputFilter;
   }
 

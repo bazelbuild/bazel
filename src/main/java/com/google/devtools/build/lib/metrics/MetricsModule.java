@@ -36,12 +36,14 @@ public class MetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Controls the output of BEP ActionSummary and BuildGraphMetrics, limiting the number of"
-                + " mnemonics in ActionData and number of entries reported in"
-                + " BuildGraphMetrics.AspectCount/RuleClassCount. By default the number of types is"
-                + " limited to the top 20, by number of executed actions for ActionData, and"
-                + " instances for RuleClass and Asepcts. Setting this option will write statistics"
-                + " for all mnemonics, rule classes and aspects.")
+            """
+            Controls the output of BEP `ActionSummary` and `BuildGraphMetrics`, limiting the number of
+            mnemonics in `ActionData` and number of entries reported in
+            `BuildGraphMetrics.AspectCount/RuleClassCount`. By default the number of types is
+            limited to the top 20, by number of executed actions for `ActionData`, and
+            instances for `RuleClass` and `Aspect`. Setting this option will write statistics
+            for all mnemonics, rule classes and aspects.
+            """)
     public boolean recordMetricsForAllMnemonics;
 
     @Option(
@@ -50,10 +52,12 @@ public class MetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Controls the output of BEP BuildGraphMetrics, including expensive"
-                + "to compute skyframe metrics about Skykeys, RuleClasses and Aspects."
-                + "With this flag set to false BuildGraphMetrics.rule_count and aspect"
-                + "fields will not be populated in the BEP.")
+            """
+            Controls the output of BEP `BuildGraphMetrics`, including expensive
+            to compute skyframe metrics about `Skykey`s, `RuleClass`es and `Aspect`s.
+            With this flag set to `false` `BuildGraphMetrics.rule_count` and `aspect`
+            fields will not be populated in the BEP.
+            """)
     public boolean recordSkyframeMetrics;
   }
 
