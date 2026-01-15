@@ -1856,6 +1856,10 @@ public class BuildTool {
     long totalRequests = totalHits + totalMisses;
 
     checkState(totalRequests >= 0, "totalRequests should be non-negative");
+    if (totalRequests == 0) {
+      // Don't report stats if there were no requests.
+      return;
+    }
 
     // Combine keys from both maps
     Set<SkyFunctionName> allFunctionNames =
