@@ -769,9 +769,6 @@ public class StandaloneTestStrategy extends TestStrategy {
       Path coverageDirPath =
           actionExecutionContext.getInputPath(testAction.getCoverageDirectoryTreeArtifact());
       coverageDirPath.setWritable(true);
-      for (Artifact artifact : expandedCoverageDir) {
-        actionExecutionContext.getInputPath(artifact).setWritable(true);
-      }
 
       Spawn coveragePostProcessingSpawn =
           createCoveragePostProcessingSpawn(
