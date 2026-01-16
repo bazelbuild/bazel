@@ -367,11 +367,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     public void onSuccess(byte[] bytes) {
       if (bytes == null) {
         // This error should be tolerated by falling back on computation.
-        onFailure(
-            new MissingSharedValueBytesException(
-                String.format(
-                    "missing shared value bytes for a %s instance belonging to a %s instance",
-                    codec.getEncodedClass().getName(), parent.getClass().getName())));
+        onFailure(MissingSharedValueBytesException.INSTANCE);
         return;
       }
       SharedValueDeserializationContext innerContext = getFreshContext();
@@ -621,8 +617,30 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
    * <p>This error should be tolerated by falling back on computation.
    */
   static final class MissingSharedValueBytesException extends SerializationException {
-    MissingSharedValueBytesException(String message) {
-      super(message);
+    /**
+     * Singleton instance.
+     *
+     * <p>This exception is used to signal cache misses and can be thrown millions of times in a
+     * build. Using a singleton avoids the overhead of object allocation, message formatting, and
+     * stack trace generation, all of which are expensive at scale and unnecessary for control flow.
+     */
+    @SuppressWarnings("StaticAssignmentOfThrowable")
+    static final MissingSharedValueBytesException INSTANCE = new MissingSharedValueBytesException();
+
+    private MissingSharedValueBytesException() {
+      super("Missing shared value bytes");
+    }
+
+    /**
+     * Does nothing.
+     *
+     * <p>This is overridden for performance. Since this exception is used for control flow, the
+     * stack trace is not needed and avoiding filling it in is a significant optimization.
+     */
+    @Override
+    public Throwable fillInStackTrace() {
+      // No-op to avoid capturing the stack trace.
+      return this;
     }
   }
 }

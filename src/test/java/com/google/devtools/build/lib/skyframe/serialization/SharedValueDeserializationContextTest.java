@@ -303,11 +303,7 @@ public final class SharedValueDeserializationContextTest {
     var thrown =
         (MissingSharedValueBytesException)
             assertThrows(ExecutionException.class, result::get).getCause();
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
-                + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+    assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
   }
 
   @Test
@@ -346,11 +342,7 @@ public final class SharedValueDeserializationContextTest {
         (MissingSharedValueBytesException)
             assertThrows(ExecutionException.class, () -> result.get(WAIT_TIMEOUT_SECONDS, SECONDS))
                 .getCause();
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
-                + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+    assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
   }
 
   @Test
