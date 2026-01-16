@@ -64,11 +64,12 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   /**
-   * Given an identifier denoting a type, obtains the type from the module.
+   * Given an identifier denoting a type constructor, obtains the type constructor from the module.
    *
-   * <p>If no match, logs an error at the given node and returns Any.
+   * <p>If no match, logs an error at the given node and returns null.
    */
-  private Object resolveType(Identifier id) {
+  @Nullable
+  private Types.TypeConstructorProxy resolveTypeConstructor(Identifier id) {
     String name = id.getName();
 
     var scope = id.getBinding().getScope();
@@ -76,18 +77,19 @@ public final class TypeTagger extends NodeVisitor {
       // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
       // type name.
       errorf(id, "local name '%s' cannot be used as a type", name);
-      return Types.ANY;
+      return null;
     }
 
     try {
-      return module.resolveType(name);
+      return module.resolveTypeConstructor(name);
     } catch (Resolver.Module.Undefined ex) {
       String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
       errorf(id, "%s%s", ex.getMessage(), suggestion);
-      return Types.ANY;
+      return null;
     }
   }
 
+  // TODO: #28043 - Narrow return type to a TypeArg, once we add that class.
   private Object extractTypeOrArg(Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR -> {
@@ -104,16 +106,8 @@ public final class TypeTagger extends NodeVisitor {
       case TYPE_APPLICATION -> {
         TypeApplication app = (TypeApplication) expr;
 
-        Object constructorObject = resolveType(app.getConstructor());
-        if (constructorObject.equals(Types.ANY)) {
-          return Types.ANY;
-        }
-        if (!(constructorObject instanceof Types.TypeConstructorProxy constructor)) {
-          errorf(
-              expr,
-              "'%s' is not a type constructor, cannot be applied to '%s'",
-              app.getConstructor().getName(),
-              app.getArguments());
+        Types.TypeConstructorProxy constructor = resolveTypeConstructor(app.getConstructor());
+        if (constructor == null) {
           return Types.ANY;
         }
         ImmutableList<Object> arguments =
@@ -129,7 +123,18 @@ public final class TypeTagger extends NodeVisitor {
         }
       }
       case IDENTIFIER -> {
-        return resolveType((Identifier) expr);
+        Types.TypeConstructorProxy constructor = resolveTypeConstructor((Identifier) expr);
+        if (constructor == null) {
+          return Types.ANY;
+        }
+        try {
+          return constructor.invoke(ImmutableList.of());
+        } catch (IllegalArgumentException e) {
+          // TODO: #28043 - Allow unapplied type constructors to be syntactic sugar for a default
+          // application, e.g. `list` for `list[Any]`.
+          errorf(expr, "%s", e.getMessage());
+          return Types.ANY;
+        }
       }
       default -> {
         // TODO(ilist@): full evaluation: lists and dicts

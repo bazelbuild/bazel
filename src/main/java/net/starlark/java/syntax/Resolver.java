@@ -425,15 +425,13 @@ public final class Resolver extends NodeVisitor {
     Scope resolve(String name) throws Undefined;
 
     /**
-     * Resolves a name to a corresponding type.
+     * Resolves a name to a corresponding type constructor.
      *
-     * @throws Undefined if the name is not defined, or if it is not valid as a type. If not
-     *     defined, the exception may contain a set of available candidate names that are predefined
-     *     symbols or that are injected as user-defined types.
+     * @throws Undefined if the name is not defined, or if it is not valid as a type constructor. If
+     *     not defined, the exception may contain a set of available candidate names that are
+     *     predefined symbols or that are injected as user-defined types.
      */
-    // TODO: #28043 - Returns Object because that's the type of Types.TYPE_UNIVERSE. Replace that
-    // with StarlarkType after merging TypeConstructorProxy into StarlarkType.
-    Object resolveType(String name) throws Undefined;
+    Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}

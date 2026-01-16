@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
-import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -253,11 +252,12 @@ public final class Module implements Resolver.Module {
   }
 
   @Override
-  public Object resolveType(String name) throws Undefined {
+  public Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined {
     // TODO: #27728 - Hack until StarlarkType is correctly represented by Starlark runtime symbols:
     // Hardcoded check for the universal type symbols before looking at the module.
-    if (Types.TYPE_UNIVERSE.containsKey(name)) {
-      return Types.TYPE_UNIVERSE.get(name);
+    Types.TypeConstructorProxy constructor = Types.TYPE_UNIVERSE.get(name);
+    if (constructor != null) {
+      return constructor;
     }
 
     Resolver.Scope scope = resolve(name);
@@ -268,10 +268,10 @@ public final class Module implements Resolver.Module {
       case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
-    if (!(value instanceof StarlarkType starlarkType)) {
+    if (!(value instanceof Types.TypeConstructorProxy constructorValue)) {
       throw new Undefined(String.format("%s symbol '%s' cannot be used as a type", scope, name));
     }
-    return starlarkType;
+    return constructorValue;
   }
 
   /**

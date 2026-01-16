@@ -60,7 +60,7 @@ public final class TestUtils {
     }
 
     @Override
-    public Object resolveType(String name) throws Undefined {
+    public Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined {
       throw new Undefined("TestModule does not support type resolution");
     }
   }
@@ -68,8 +68,8 @@ public final class TestUtils {
   /**
    * A basic static resolver Module implementation for testing.
    *
-   * <p>It defines only the given predeclared names, without even universals (e.g. None). No types
-   * are resolved.
+   * <p>It defines only the given predeclared names, without even universals (e.g. None). No type
+   * constructors are resolved.
    */
   public static Module moduleWithPredeclared(String... names) {
     return new TestModule(ImmutableSet.copyOf(names));
@@ -79,14 +79,9 @@ public final class TestUtils {
   public static Module moduleWithUniversalTypes() {
     return new TestModule(Types.TYPE_UNIVERSE.keySet()) {
       @Override
-      public Object resolveType(String name) throws Undefined {
+      public Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined {
         resolve(name); // throws if unknown
-        Object type = Types.TYPE_UNIVERSE.get(name);
-        // TODO: #28043 - Remove this assertion when we simplify the universe schema.
-        if (!(type instanceof StarlarkType || type instanceof Types.TypeConstructorProxy)) {
-          throw new AssertionError("invalid type universe");
-        }
-        return type;
+        return Types.TYPE_UNIVERSE.get(name);
       }
     };
   }

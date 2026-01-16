@@ -65,18 +65,18 @@ public final class Types {
 
   private Types() {} // uninstantiable
 
-  public static final ImmutableMap<String, Object> TYPE_UNIVERSE = makeTypeUniverse();
+  public static final ImmutableMap<String, TypeConstructorProxy> TYPE_UNIVERSE = makeTypeUniverse();
 
-  private static ImmutableMap<String, Object> makeTypeUniverse() {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+  private static ImmutableMap<String, TypeConstructorProxy> makeTypeUniverse() {
+    ImmutableMap.Builder<String, TypeConstructorProxy> env = ImmutableMap.builder();
     env //
-        .put("Any", ANY)
-        .put("object", OBJECT)
-        .put("None", NONE)
-        .put("bool", BOOL)
-        .put("int", INT)
-        .put("float", FLOAT)
-        .put("str", STR)
+        .put("Any", wrapType("Any", ANY))
+        .put("object", wrapType("object", OBJECT))
+        .put("None", wrapType("None", NONE))
+        .put("bool", wrapType("bool", BOOL))
+        .put("int", wrapType("int", INT))
+        .put("float", wrapType("float", FLOAT))
+        .put("str", wrapType("str", STR))
         .put("list", wrapTypeConstructor("list", Types::list))
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
@@ -582,6 +582,15 @@ public final class Types {
    */
   public interface TypeConstructorProxy {
     StarlarkType invoke(ImmutableList<?> argsTuple);
+  }
+
+  static TypeConstructorProxy wrapType(String name, StarlarkType type) {
+    return argsTuple -> {
+      if (!argsTuple.isEmpty()) {
+        throw new IllegalArgumentException(String.format("'%s' does not accept arguments", name));
+      }
+      return type;
+    };
   }
 
   static TypeConstructorProxy wrapTypeConstructor(

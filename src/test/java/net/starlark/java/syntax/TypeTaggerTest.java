@@ -42,6 +42,15 @@ public class TypeTaggerTest {
   }
 
   /**
+   * Asserts that attempting to extract an expression string to a type fails, with a syntax
+   * exception whose message exactly matches the expected string.
+   */
+  private void assertExtractTypeFails(String type, String expectedMessage) throws Exception {
+    var e = assertThrows(SyntaxError.Exception.class, () -> extractType(type));
+    assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
+  }
+
+  /**
    * Parses a series of strings as a file, then resolves and type-tags it.
    *
    * <p>Asserts that parsing and symbol resolution succeeded, but type-tagging may fail.
@@ -115,6 +124,12 @@ public class TypeTaggerTest {
     assertThat(extractType("int")).isEqualTo(Types.INT);
     assertThat(extractType("float")).isEqualTo(Types.FLOAT);
     assertThat(extractType("str")).isEqualTo(Types.STR);
+
+    assertExtractTypeFails("None[bool]", "'None' does not accept arguments");
+    assertExtractTypeFails("bool[bool]", "'bool' does not accept arguments");
+    assertExtractTypeFails("int[bool]", "'int' does not accept arguments");
+    assertExtractTypeFails("float[bool]", "'float' does not accept arguments");
+    assertExtractTypeFails("str[bool]", "'str' does not accept arguments");
   }
 
   @Test
@@ -130,13 +145,10 @@ public class TypeTaggerTest {
     assertThat(extractType("list[int]")).isEqualTo(Types.list(Types.INT));
     assertThat(extractType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> extractType("list[int, bool]"));
-    assertThat(exception).hasMessageThat().isEqualTo("list[] accepts exactly 1 argument but got 2");
-
-    exception = assertThrows(SyntaxError.Exception.class, () -> extractType("list[[int]]"));
-    assertThat(exception).hasMessageThat().isEqualTo("unexpected expression '[int]'");
-
+    assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
+    assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
     // TODO: #27370 - `list` should produce `list[Any]`.
+    assertExtractTypeFails("list", "list[] accepts exactly 1 argument but got 0");
   }
 
   @Test
@@ -145,46 +157,16 @@ public class TypeTaggerTest {
     assertThat(extractType("dict[int, list[str]]"))
         .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
 
-    var exception = assertThrows(SyntaxError.Exception.class, () -> extractType("dict[int]"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("dict[] accepts exactly 2 arguments but got 1");
-
-    exception =
-        assertThrows(SyntaxError.Exception.class, () -> extractType("dict[int, str, bool]"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("dict[] accepts exactly 2 arguments but got 3");
-
-    exception = assertThrows(SyntaxError.Exception.class, () -> extractType("dict"));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo("expected type arguments after the type constructor 'dict'");
+    assertExtractTypeFails("dict[int]", "dict[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails("dict[int, str, bool]", "dict[] accepts exactly 2 arguments but got 3");
     // TODO: #27370 - `dict` should produce `dict[Any, Any]`.
+    assertExtractTypeFails("dict", "dict[] accepts exactly 2 arguments but got 0");
   }
 
   @Test
-  public void extractType_unknownIdentifier() {
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> extractType("Foo"));
-
-    assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
-  }
-
-  @Test
-  public void extractType_badTypeApplications() {
-    SyntaxError.Exception e =
-        assertThrows(SyntaxError.Exception.class, () -> extractType("int[bool]"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("'int' is not a type constructor, cannot be applied to '[bool]'");
-
-    e = assertThrows(SyntaxError.Exception.class, () -> extractType("Foo[int]"));
-    assertThat(e).hasMessageThat().isEqualTo("name 'Foo' is not defined");
-
-    e = assertThrows(SyntaxError.Exception.class, () -> extractType("list"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("expected type arguments after the type constructor 'list'");
+  public void extractType_unknownIdentifier() throws Exception {
+    assertExtractTypeFails("Foo", "name 'Foo' is not defined");
+    assertExtractTypeFails("Foo[int]", "name 'Foo' is not defined");
   }
 
   @Test
