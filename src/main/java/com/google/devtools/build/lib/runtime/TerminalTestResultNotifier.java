@@ -14,10 +14,15 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED;
 import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -109,7 +114,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
-      boolean showAllTestCases) {
+      boolean showAllTestCases,
+      boolean showCachedTests) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -127,6 +133,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           continue;
         }
       }
+
+      if (!showCachedTests
+          && summary.getStatus() == BlazeTestStatus.PASSED
+          && !summary.actionRan()) {
+        continue;
+      }
+
       TestSummaryPrinter.print(
           summary,
           printer,
@@ -145,6 +158,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     return options.getOptions(ExecutionOptions.class).testCheckUpToDate;
   }
 
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> SHOW_ALL_TESTS_FORMATS =
+      Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED, SHORT, SHORT_UNCACHED);
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat>
+      SHOW_NO_STATUS_TESTS_FORMATS = Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat>
+      SHOW_ALL_TEST_CASES_FORMATS = Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> SHOW_CACHED_TESTS_FORMATS =
+      Sets.immutableEnumSet(DETAILED, SHORT);
 
   /**
    * Prints a test summary information for all tests to the terminal.
@@ -194,7 +215,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       }
 
       stats.totalTestCases += summary.getTotalTestCases();
-      stats.totalUnknownTestCases += summary.getUnkownTestCases();
+      stats.totalUnknownTestCases += summary.getUnknownTestCases();
       stats.totalFailedTestCases += summary.getFailedTestCases().size();
       stats.totalSkippedTestCases += summary.getSkippedTestCases().size();
     }
@@ -204,28 +225,19 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
     switch (testSummaryFormat) {
       case DETAILED:
-        printSummary(
-            summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ true,
-            /* showAllTestCases= */ true);
-        break;
-
+      case DETAILED_UNCACHED:
       case SHORT:
-        printSummary(
-            summaries,
-            /* showAllTests= */ true,
-            /* showNoStatusTests= */ false,
-            /* showAllTestCases= */ false);
-        break;
-
+      case SHORT_UNCACHED:
       case TERSE:
-        printSummary(
-            summaries,
-            /* showAllTests= */ false,
-            /* showNoStatusTests= */ false,
-            /* showAllTestCases= */ false);
+        {
+          boolean showAllTests = SHOW_ALL_TESTS_FORMATS.contains(testSummaryFormat);
+          boolean showNoStatusTests = SHOW_NO_STATUS_TESTS_FORMATS.contains(testSummaryFormat);
+          boolean showAllTestCases = SHOW_ALL_TEST_CASES_FORMATS.contains(testSummaryFormat);
+          boolean showCachedTests = SHOW_CACHED_TESTS_FORMATS.contains(testSummaryFormat);
+          printSummary(
+              summaries, showAllTests, showNoStatusTests, showAllTestCases, showCachedTests);
         break;
+        }
 
       case TESTCASE:
       case NONE:
@@ -265,7 +277,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
   private void printStats(TestResultStats stats) {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
-    if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
+    if (testSummaryFormat == DETAILED
+        || testSummaryFormat == DETAILED_UNCACHED
+        || testSummaryFormat == TESTCASE) {
       int passCount =
           stats.totalTestCases
               - stats.totalFailedTestCases
