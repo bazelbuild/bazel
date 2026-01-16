@@ -22,7 +22,7 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.remote.merkletree.DirectoryBuilder.writeTo;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
@@ -517,8 +517,8 @@ public final class MerkleTreeComputer {
     var blobs =
         new TreeMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>(
             MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
-    Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
-    directoryStack.push(Directory.newBuilder());
+    Deque<DirectoryBuilder> directoryStack = new ArrayDeque<>();
+    directoryStack.push(DirectoryBuilder.create(blobPolicy));
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
     PathFragment lastSourceDirPath = null;
@@ -571,8 +571,9 @@ public final class MerkleTreeComputer {
           commonPrefix = null;
         }
         for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
-          byte[] directoryBlob = directoryStack.pop().build().toByteArray();
-          Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
+          var directoryBlob = directoryStack.pop().build();
+          Digest directoryBlobDigest =
+              digestUtil.compute(out -> writeTo(out, directoryBlob, blobs));
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
             blobs.put(directoryBlobDigest, directoryBlob);
           }
@@ -597,19 +598,15 @@ public final class MerkleTreeComputer {
               return merkleTree;
             }
           }
-          topDirectory
-              .addDirectoriesBuilder()
-              .setName(internalToUnicode(dirToPop))
-              .setDigest(directoryBlobDigest);
+          topDirectory.addDirectory(dirToPop, directoryBlobDigest);
         }
         for (int i = 0; i < newParent.segmentCount() - commonPrefix.segmentCount(); i++) {
-          directoryStack.push(Directory.newBuilder());
+          directoryStack.push(DirectoryBuilder.create(blobPolicy));
         }
         currentParent = newParent;
       }
 
-      Directory.Builder currentDirectory = checkNotNull(directoryStack.peek());
-      String name = internalToUnicode(path.getBaseName());
+      DirectoryBuilder currentDirectory = checkNotNull(directoryStack.peek());
       var nodeProperties = isToolInput.test(path) ? TOOL_NODE_PROPERTIES : null;
 
       switch (input) {
@@ -617,7 +614,7 @@ public final class MerkleTreeComputer {
             when specialArtifact.isTreeArtifact() || specialArtifact.isRunfilesTree() -> {
           var subTreeRoot =
               Preconditions.checkNotNull(subTreeRoots.get(entry), "missing subtree for %s", input);
-          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
+          currentDirectory.addDirectory(specialArtifact, subTreeRoot);
           inputFiles += subTreeRoot.inputFiles();
           inputBytes += subTreeRoot.inputBytes();
         }
@@ -625,14 +622,7 @@ public final class MerkleTreeComputer {
           var metadata =
               checkNotNull(
                   metadataProvider.getInputMetadata(symlink), "missing metadata: %s", symlink);
-          var builder =
-              currentDirectory
-                  .addSymlinksBuilder()
-                  .setName(name)
-                  .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()));
-          if (nodeProperties != null) {
-            builder.setNodeProperties(nodeProperties);
-          }
+          currentDirectory.addSymlink(symlink, metadata, nodeProperties);
           inputFiles++;
         }
         case Artifact fileOrSourceDirectory -> {
@@ -645,7 +635,7 @@ public final class MerkleTreeComputer {
             var subTreeRoot =
                 Preconditions.checkNotNull(
                     subTreeRoots.get(entry), "missing subtree for %s", input);
-            currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
+            currentDirectory.addDirectory(fileOrSourceDirectory, subTreeRoot);
             inputFiles += subTreeRoot.inputFiles();
             inputBytes += subTreeRoot.inputBytes();
             // The source directory subsumes all children paths, which may be staged separately as
@@ -671,7 +661,7 @@ public final class MerkleTreeComputer {
             lastSourceDirPath = path;
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-            addFile(currentDirectory, name, digest, nodeProperties);
+            currentDirectory.addFile(fileOrSourceDirectory, metadata, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
               blobs.put(metadata, fileOrSourceDirectory);
             }
@@ -681,7 +671,7 @@ public final class MerkleTreeComputer {
         }
         case VirtualActionInput virtualActionInput -> {
           var digest = digestUtil.compute(virtualActionInput);
-          addFile(currentDirectory, name, digest, nodeProperties);
+          currentDirectory.addFile(virtualActionInput, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.put(digest, virtualActionInput);
           }
@@ -689,18 +679,18 @@ public final class MerkleTreeComputer {
           inputBytes += digest.getSizeBytes();
         }
         case EmptyInputDirectory ignored ->
-            currentDirectory.addDirectoriesBuilder().setName(name).setDigest(emptyDigest);
+            currentDirectory.addDirectory(path.getBaseName(), emptyDigest);
         case null -> {
           // This is a sentinel value for an empty file. This case only occurs when this method is
           // called from computeForRunfilesTreeIfAbsent.
-          addFile(currentDirectory, name, emptyDigest, nodeProperties);
+          currentDirectory.addFile(path.getBaseName(), emptyDigest, nodeProperties);
           inputFiles++;
         }
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
           var digest = digestUtil.compute(artifactPathResolver.toPath(input));
-          addFile(currentDirectory, name, digest, nodeProperties);
+          currentDirectory.addFile(path.getBaseName(), digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.put(digest, input);
           }
