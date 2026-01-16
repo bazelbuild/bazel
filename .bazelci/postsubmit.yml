@@ -5,6 +5,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -31,6 +32,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -47,6 +49,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -60,6 +63,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -83,6 +87,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -101,6 +106,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -121,6 +127,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -154,6 +161,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -178,6 +186,7 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+      - IF DEFINED UPDATE_BAZEL_LOCK_FILE bazel mod deps --lockfile_mode=update
     build_flags:
       - "--config=ci-windows"
     build_targets:
@@ -221,6 +230,7 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+      - IF DEFINED UPDATE_BAZEL_LOCK_FILE bazel mod deps --lockfile_mode=update
     build_flags:
       - "--config=ci-windows"
       - "--config=windows_arm64"
@@ -232,6 +242,8 @@ tasks:
   rbe_ubuntu2004:
     platform: ubuntu2004
     name: "RBE"
+    shell_commands:
+      - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
