@@ -18,6 +18,7 @@ tasks:
       - "//..."
     test_flags:
       - "--config=ci-linux"
+      - "--test_tag_filters=-no_presubmit"
     test_targets:
       - "//..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
@@ -71,6 +72,7 @@ tasks:
       - "//..."
     test_flags:
       - "--config=ci-linux"
+      - "--test_tag_filters=-no_presubmit"
     test_targets:
       - "//..."
     include_json_profile:
@@ -113,6 +115,7 @@ tasks:
       - "//..."
     test_flags:
       - "--config=ci-linux"
+      - "--test_tag_filters=-no_presubmit"
     test_targets:
       - "//..."
     include_json_profile:
@@ -132,6 +135,7 @@ tasks:
       - "//src:test_repos"
     test_flags:
       - "--config=ci-macos"
+      - "--test_tag_filters=-no_presubmit,-no_macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
     test_targets:
@@ -164,6 +168,7 @@ tasks:
       - "//..."
     test_flags:
       - "--config=ci-macos"
+      - "--test_tag_filters=-no_presubmit,-no_macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
@@ -172,10 +177,6 @@ tasks:
       - "//..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable some slow tests
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
-      - "-//src/test/shell/bazel:bazel_determinism_test"
     include_json_profile:
       - build
       - test
@@ -194,7 +195,7 @@ tasks:
     test_flags:
       - "--config=ci-windows"
       # We need to keep --test_tag_filters here for the bazel-diff integration.
-      - "--test_tag_filters=-no_windows,-slow"
+      - "--test_tag_filters=-no_presubmit,-no_windows,-slow"
     test_targets:
       - "//src:embedded_tools_size_test"
       - "//src/main/starlark/tests/builtins_bzl/..."
@@ -252,6 +253,7 @@ tasks:
       - "//..."
     test_flags:
       - "--config=remote"
+      - "--test_tag_filters=-no_presubmit"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--remote_download_minimal"

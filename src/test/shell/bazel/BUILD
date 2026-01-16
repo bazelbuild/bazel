@@ -1220,7 +1220,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
-    tags = ["block-network"],
+    tags = [
+        "block-network",
+        "no_presubmit",
+    ],
 )
 
 sh_test(
@@ -1240,6 +1243,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
+        "no_presubmit",
         "no_windows",
     ],
 )
@@ -1256,6 +1260,7 @@ sh_test(
     ],
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
+        "no_presubmit",
         "no_windows",
         "slow",
     ],
