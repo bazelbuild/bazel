@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
@@ -172,5 +173,22 @@ public class CompressedFunctionTest {
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return ((Decompressor) clazz.getConstructor().newInstance()).decompress(descriptor);
+  }
+
+  /** Test renaming the single compressed file to something that escapes. */
+  @Test
+  public void testDecompressWithRenamedFileEscape() throws Exception {
+    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(EXTRACTED_FILE_NAME, "../escaped.txt");
+    DecompressorDescriptor.Builder descriptor =
+        DecompressorDescriptor.builder()
+            .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))
+            .setRenameFiles(renameFiles)
+            .setArchivePath(
+                testFs.getPath(archiveDir.getCanonicalPath()).getRelative(compressedFileName));
+
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor.build()));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 }

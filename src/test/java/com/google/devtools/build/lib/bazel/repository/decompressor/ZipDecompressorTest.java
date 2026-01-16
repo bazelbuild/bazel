@@ -17,10 +17,20 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -30,6 +40,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ZipDecompressorTest {
 
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
   private static final int FILE = 0100644;
   private static final int EXECUTABLE = 0100755;
   private static final int DIRECTORY = 040755;
@@ -41,6 +52,18 @@ public class ZipDecompressorTest {
   private static final int DIRECTORY_ATTRIBUTE = DIRECTORY << 16;
 
   private static final String ARCHIVE_NAME = "test_decompress_archive.zip";
+
+  private Path createZipFile(String entryName, String content) throws IOException {
+    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    File zipFile = folder.newFile("malicious.zip");
+    try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
+      ZipEntry entry = new ZipEntry(entryName);
+      zos.putNextEntry(entry);
+      zos.write(content.getBytes(UTF_8));
+      zos.closeEntry();
+    }
+    return fs.getPath(zipFile.getAbsolutePath());
+  }
 
   /**
    * Test decompressing a tar.gz file with hard link file and symbolic link file inside without
@@ -137,5 +160,17 @@ public class ZipDecompressorTest {
   public void testDirectoryWithRegularFilePermissions() throws Exception {
     int permissions = ZipDecompressor.getPermissions(FILE, "foo/bar/");
     assertThat(permissions).isEqualTo(040755);
+  }
+
+  @Test
+  public void testDecompressZipWithUpLevelReference() throws IOException {
+    Path zipFile = createZipFile("../foo", "bar");
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(zipFile)
+            .setDestinationPath(zipFile.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 }

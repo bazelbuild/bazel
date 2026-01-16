@@ -132,6 +132,12 @@ public class ZipDecompressor implements Decompressor {
               "Failed to extract %s, zipped paths cannot be absolute", strippedRelativePath));
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
+    if (!outputPath.startsWith(destinationDirectory)) {
+      throw new IOException(
+          String.format(
+              "Failed to extract %s, path is escaping the destination directory",
+              strippedRelativePath));
+    }
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
     outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
@@ -146,17 +152,15 @@ public class ZipDecompressor implements Decompressor {
       Preconditions.checkState(read == buffer.length);
 
       PathFragment target = StripPrefixedPath.createPathFragment(buffer);
-      if (target.containsUplevelReferences()) {
-        PathFragment pointsTo = strippedRelativePath.getParentDirectory().getRelative(target);
-        if (pointsTo.containsUplevelReferences()) {
-          throw new IOException(
-              "Zip entries cannot refer to files outside of their directory: "
-                  + reader.getFilename()
-                  + " has a symlink "
-                  + strippedRelativePath
-                  + " pointing to "
-                  + new String(buffer, UTF_8));
-        }
+      Path targetPath = outputPath.getParentDirectory().getRelative(target);
+      if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
+        throw new IOException(
+            "Zip entries cannot refer to files outside of their directory: "
+                + reader.getFilename()
+                + " has a symlink "
+                + strippedRelativePath
+                + " pointing to "
+                + new String(buffer, UTF_8));
       }
 
       symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));

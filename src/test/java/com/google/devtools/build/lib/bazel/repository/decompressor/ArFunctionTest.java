@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -26,15 +28,22 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
+import org.apache.commons.compress.archivers.ar.ArArchiveOutputStream;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests decompressing archives. */
 @RunWith(JUnit4.class)
 public class ArFunctionTest {
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
+
   /*
    * .ar archive created with ar cr test_files.ar archived_first.txt archived_second.md
    * The files contain short UTF-8 encoded strings.
@@ -81,6 +90,27 @@ public class ArFunctionTest {
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return new ArFunction().decompress(descriptor);
+  }
+
+  @Test
+  public void testDecompressArWithUpLevelReference() throws IOException {
+    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    File arFile = folder.newFile("malicious.ar");
+    try (ArArchiveOutputStream aos = new ArArchiveOutputStream(new FileOutputStream(arFile))) {
+      ArArchiveEntry entry = new ArArchiveEntry("../foo", 3);
+      aos.putArchiveEntry(entry);
+      aos.write("bar".getBytes(UTF_8));
+      aos.closeArchiveEntry();
+    }
+    Path arPath = fs.getPath(arFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(arPath)
+            .setDestinationPath(arPath.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
   }
 
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {

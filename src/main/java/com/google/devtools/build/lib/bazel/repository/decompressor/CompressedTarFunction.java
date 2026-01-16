@@ -101,7 +101,20 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        Path filePath = descriptor.destinationPath().getRelative(entryPath.getPathFragment());
+        PathFragment strippedRelativePath = entryPath.getPathFragment();
+        if (strippedRelativePath.isAbsolute()) {
+          throw new IOException(
+              String.format(
+                  "Failed to extract %s, tarred paths cannot be absolute", strippedRelativePath));
+        }
+
+        Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
+        if (!filePath.startsWith(descriptor.destinationPath())) {
+          throw new IOException(
+              String.format(
+                  "Failed to extract %s, path is escaping the destination directory",
+                  strippedRelativePath));
+        }
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();
@@ -112,11 +125,25 @@ public abstract class CompressedTarFunction implements Decompressor {
                     toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
                     prefix,
                     descriptor.destinationPath());
+
+            Path resolvedTargetPath =
+                (entry.isSymbolicLink()
+                        ? filePath.getParentDirectory()
+                        : descriptor.destinationPath())
+                    .getRelative(targetName);
+            if (!targetName.isAbsolute()
+                && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
+              throw new IOException(
+                  String.format(
+                      "Tar entries cannot refer to files outside of their directory: %s has a"
+                          + " link %s pointing to %s",
+                      descriptor.archivePath(), entryName, targetName));
+            }
+
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
-              Path targetPath = descriptor.destinationPath().getRelative(targetName);
-              if (filePath.equals(targetPath)) {
+              if (filePath.equals(resolvedTargetPath)) {
                 // The behavior here is semantically different, depending on whether the underlying
                 // filesystem is case-sensitive or case-insensitive. However, it is effectively the
                 // same: we drop the link entry.
@@ -130,7 +157,7 @@ public abstract class CompressedTarFunction implements Decompressor {
                 if (filePath.exists()) {
                   filePath.delete();
                 }
-                FileSystemUtils.createHardLink(filePath, targetPath);
+                FileSystemUtils.createHardLink(filePath, resolvedTargetPath);
               }
             }
           } else {

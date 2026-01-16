@@ -230,6 +230,31 @@ public class SevenZDecompressorTest {
     assertThat(e).hasMessageThat().isEqualTo("7z archive contains unnamed entry");
   }
 
+  @Test
+  public void testDecompress7zWithUpLevelReference() throws Exception {
+    setUpTestDirectories();
+    // Create a test archive.
+    SevenZOutputFile sevenZOutput =
+        new SevenZOutputFile(new File(archiveDir.getPath(), ARCHIVE_NAME));
+
+    SevenZArchiveEntry entry =
+        sevenZOutput.createArchiveEntry(new File(TestUtils.tmpDirFile(), "test_file"), "../foo");
+    sevenZOutput.putArchiveEntry(entry);
+    sevenZOutput.write("bar".getBytes(UTF_8));
+    sevenZOutput.closeArchiveEntry();
+    sevenZOutput.finish();
+
+    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))
+            .setArchivePath(testFs.getPath(archiveDir.getCanonicalPath()).getRelative(ARCHIVE_NAME))
+            .build();
+
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
+  }
+
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return new SevenZDecompressor().decompress(descriptor);
   }

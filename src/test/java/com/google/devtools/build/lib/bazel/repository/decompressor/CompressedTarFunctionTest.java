@@ -17,21 +17,34 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.zip.GZIPInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests decompressing archives. */
 @RunWith(JUnit4.class)
 public class CompressedTarFunctionTest {
+
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
+
   /* Tarball, created by "tar -czf <ARCHIVE_NAME> <files...>" */
   private static final String ARCHIVE_NAME = "test_decompress_archive.tar.gz";
 
@@ -110,5 +123,56 @@ public class CompressedTarFunctionTest {
         return new GZIPInputStream(compressedInputStream);
       }
     }.decompress(descriptor);
+  }
+
+  @Test
+  public void testDecompressTarWithUpLevelReference() throws Exception {
+    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    File tarGzFile = folder.newFile("malicious.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      TarArchiveEntry entry = new TarArchiveEntry("../foo");
+      entry.setSize(3);
+      tos.putArchiveEntry(entry);
+      tos.write("bar".getBytes(UTF_8));
+      tos.closeArchiveEntry();
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(tarGzPath.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
+  }
+
+  @Test
+  public void testDecompressTarWithSymlinkEscape() throws Exception {
+    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    File tarGzFile = folder.newFile("malicious_symlink.tar.gz");
+    try (FileOutputStream fos = new FileOutputStream(tarGzFile);
+        GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+        TarArchiveOutputStream tos = new TarArchiveOutputStream(gzos)) {
+      TarArchiveEntry entry = new TarArchiveEntry("link", TarArchiveEntry.LF_SYMLINK);
+      entry.setLinkName("../foo");
+      entry.setIds(0, 0);
+      entry.setNames("user", "group");
+      tos.putArchiveEntry(entry);
+      tos.closeArchiveEntry();
+    }
+    Path tarGzPath = fs.getPath(tarGzFile.getAbsolutePath());
+
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(tarGzPath)
+            .setDestinationPath(tarGzPath.getParentDirectory().getRelative("out"))
+            .build();
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Tar entries cannot refer to files outside of their directory");
   }
 }
