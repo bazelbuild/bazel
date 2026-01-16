@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,6 +56,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 /** JUnit tests for ijar tool. */
 @RunWith(JUnit4.class)
@@ -289,6 +289,13 @@ public class IjarTests {
     // ijar passes module-infos through unmodified, so it doesn't care that these ones are bogus
     assertThat(new String(lib.get("module-info.class"), UTF_8)).isEqualTo("hello");
     assertThat(new String(lib.get("foo/module-info.class"), UTF_8)).isEqualTo("goodbye");
+  }
+
+  @Test
+  public void multiReleasePreserved() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/multirelease-interface.jar")) {
+      assertThat(jf.isMultiRelease()).isTrue();
+    }
   }
 
   @Test

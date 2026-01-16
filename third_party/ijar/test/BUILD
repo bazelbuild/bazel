@@ -401,6 +401,26 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+genrule(
+    name = "multirelease",
+    testonly = True,
+    srcs = ["Object.java"],
+    outs = ["multirelease.jar"],
+    cmd = "$(JAVABASE)/bin/jar --create --file $@ --release 9 $<",
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+)
+
+genrule(
+    name = "multirelease-interface",
+    testonly = True,
+    srcs = [":multirelease.jar"],
+    outs = ["multirelease-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -433,6 +453,7 @@ java_test(
         ":local_and_anonymous-interface.jar",
         ":meta_inf_transitive-interface",
         ":module_info-interface.jar",
+        ":multirelease-interface.jar",
         ":scala_tasty-interface.jar",
     ],
     tags = ["zip"],
