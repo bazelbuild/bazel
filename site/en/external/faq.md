@@ -252,11 +252,37 @@ above](#which-is-evaluated-first-module-bazel-or-workspace)), or use a target
 pattern (like `bazel fetch @foo//:bar`) to fetch all transitive dependencies of
 `@foo//:bar` (this is equivalent to `bazel build --nobuild @foo//:bar`).
 
-The make sure no fetches happen during a build, use `--nofetch`. More precisely,
+To make sure no fetches happen during a build, use `--nofetch`. More precisely,
 this makes any attempt to run a non-local repository rule fail.
 
 If you want to fetch repos _and_ modify them to test locally, consider using
 the [`bazel vendor`](vendor) command.
+
+### How do I insulate my builds from the Internet? {:#how-do-i-insulate-my-builds-from-the-internet}
+
+Here are some websites on the publicly accessible Internet that a typical Bazel
+build relies on, and what you can do to insulate yourself from potential
+outages, especially as an enterprise Bazel user.
+
+*   `releases.bazel.build`: Bazelisk downloads Bazel release binaries from this
+    website. You can [configure Bazelisk][bazelisk-config] to have it download
+    from your company's internal mirror instead.
+*   `bcr.bazel.build`: Bazel consults the BCR for module metadata during module
+    resolution. You can mirror the BCR itself and set the `--registry` flag to
+    remove your dependency on BCR serving infrastructure (see the
+    [disclaimer][bcr-disclaimer] for more information). Alternatively, you can
+    ensure your MODULE.bazel.lock file is up to date, and set up your CI or
+    developer machines with a prepopulated download cache
+    (`--repository_cache`). If properly set up, the download cache will contain
+    all necessary registry files needed for a build, and the lockfile will
+    contain their checksums; Bazel will then use the cached results and avoid
+    Internet access altogether during module resolution.
+*   `mirror.bazel.build` and `github.com`: Many modules have source archives
+    hosted on these two websites. Consider setting up a company-internal mirror
+    for source archives, and use either `--downloader_config` or
+    `--module_mirrors` to point Bazel at them. Alternatively, a prepopulated
+    download cache as mentioned in the previous bullet point will also help
+    Bazel completely avoid accessing the Internet for source archives.
 
 ### How do I use HTTP proxies? {:#how-do-i-use-http-proxies}
 
@@ -327,4 +353,5 @@ fetched](https://github.com/bazelbuild/bazel/discussions/20464).
 [npm-semver]: https://docs.npmjs.com/about-semantic-versioning
 [cargo-semver]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#version-requirement-syntax
 [go_deps]: https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/bzlmod.md#specifying-external-dependencies
-
+[bazelisk-config]: https://github.com/bazelbuild/bazelisk?tab=readme-ov-file#where-does-bazelisk-get-bazel-from
+[bcr-disclaimer]: https://github.com/bazelbuild/bazel-central-registry?tab=readme-ov-file#disclaimer
