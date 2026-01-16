@@ -223,10 +223,11 @@ public sealed interface MerkleTree {
         RemoteActionExecutionContext context,
         RemotePathResolver remotePathResolver,
         Digest digest) {
-      return switch (blobs.get(digest)) {
-        case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data));
+      var blob = blobs.get(digest);
+      return switch (blob) {
         case VirtualActionInput virtualActionInput ->
-            Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
+            Optional.of(
+                uploader.uploadDeterministicWriterOutput(context, digest, virtualActionInput));
         case ActionInput actionInput -> {
           var spawnExecutionContext = context.getSpawnExecutionContext();
           var pathResolver =
@@ -239,7 +240,10 @@ public sealed interface MerkleTree {
                   context, remotePathResolver, digest, pathResolver.toPath(actionInput)));
         }
         case null -> Optional.empty();
-        default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
+        default ->
+            Optional.of(
+                uploader.uploadDeterministicWriterOutput(
+                    context, digest, out -> DirectoryBuilder.writeTo(out, blob, blobs)));
       };
     }
 
