@@ -35,6 +35,9 @@ common --downloader_config=bazel_downloader.cfg
 # Add BCR module mirrors
 common --module_mirrors=https://bcr.cloudflaremirrors.com
 
+# Some integration tests need the PATH environment variable set.
+common --test_env=PATH
+
 # Suppress warnings from external repos, we have no direct control on them anyway.
 common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w
@@ -45,9 +48,6 @@ common:windows --host_per_file_copt=external/.*@/w
 
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true
-
-# On Windows, integration tests need the PATH environment variable set.
-common:windows --test_env=PATH
 
 # Enable Java 21 language features and compile for a Java 25 runtime, matching
 # version of the embedded JDK.
