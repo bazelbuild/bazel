@@ -1,3 +1,23 @@
+## Release 10.0.0-pre.20260104.1 (2026-01-15)
+
+```
+Baseline: 571ed6a26de82b041dedb6d30ff816c97c68e79a
+
+Cherry picks:
+
+   + 1f2624a0b0a55f692ef019c731c0a9cb8cca0638:
+     Cherry picks for 10.0.0-pre.20260104.1  (#28313)
+```
+
+Important changes:
+
+  - C static libraries can now elide backwards reference warnings (if
+    linking with LLD and such warnings are enabled) if the
+    `warn_backrefs_defined` feature is defined and enabled for the
+    toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Novak, Carmen Chui, Dan Katz, Fabian Meumertzheim, gampu, Keith Smiley.
+
 ## Release 10.0.0-pre.20251217.3 (2026-01-13)
 
 ```
