@@ -25,16 +25,16 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import net.starlark.java.annot.ParamType;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
-import net.starlark.java.types.Types.CollectionType;
-import net.starlark.java.types.Types.DictType;
-import net.starlark.java.types.Types.ListType;
-import net.starlark.java.types.Types.MappingType;
-import net.starlark.java.types.Types.SequenceType;
-import net.starlark.java.types.Types.SetType;
-import net.starlark.java.types.Types.TupleType;
-import net.starlark.java.types.Types.UnionType;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
+import net.starlark.java.syntax.Types.CollectionType;
+import net.starlark.java.syntax.Types.DictType;
+import net.starlark.java.syntax.Types.ListType;
+import net.starlark.java.syntax.Types.MappingType;
+import net.starlark.java.syntax.Types.SequenceType;
+import net.starlark.java.syntax.Types.SetType;
+import net.starlark.java.syntax.Types.TupleType;
+import net.starlark.java.syntax.Types.UnionType;
 
 /** Type checker for Starlark types. */
 // TODO: #28043 - Replace or reformulate these using static helpers in StarlarkType.

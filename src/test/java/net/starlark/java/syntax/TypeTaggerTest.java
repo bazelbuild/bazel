@@ -22,8 +22,6 @@ import static org.junit.Assert.assertThrows;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

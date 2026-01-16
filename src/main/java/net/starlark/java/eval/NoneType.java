@@ -16,8 +16,8 @@ package net.starlark.java.eval;
 
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 
 /** The type of the Starlark None value. */
 @StarlarkBuiltin(

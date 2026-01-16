@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.types.StarlarkType;
+import net.starlark.java.syntax.StarlarkType;
 
 /**
  * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link

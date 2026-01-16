@@ -455,7 +455,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/types",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",

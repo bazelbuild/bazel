@@ -26,8 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 
 /**
  * The Resolver resolves each identifier in a syntax tree to its binding, and performs other

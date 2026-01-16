@@ -19,7 +19,6 @@ java_library(
     visibility = ["//src/test/java/net/starlark/java:__subpackages__"],
     deps = [
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
     ],
 )
@@ -47,7 +46,6 @@ java_test(
     deps = [
         ":TestUtils",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

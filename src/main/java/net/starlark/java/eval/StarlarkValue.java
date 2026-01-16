@@ -14,8 +14,8 @@
 
 package net.starlark.java.eval;
 
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {

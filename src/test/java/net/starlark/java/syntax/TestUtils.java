@@ -20,8 +20,6 @@ import java.util.List;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Module.Undefined;
 import net.starlark.java.syntax.Resolver.Scope;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 
 public final class TestUtils {
 

@@ -58,6 +58,7 @@ java_library(
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
+        "StarlarkType.java",
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
@@ -66,6 +67,7 @@ java_library(
         "TypeApplication.java",
         "TypeChecker.java",
         "TypeTagger.java",
+        "Types.java",
         "UnaryOperatorExpression.java",
         "VarStatement.java",
     ],
@@ -73,7 +75,6 @@ java_library(
     # Do not add Bazel or Google dependencies here!
     deps = [
         "//src/main/java/net/starlark/java/spelling",
-        "//src/main/java/net/starlark/java/types",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

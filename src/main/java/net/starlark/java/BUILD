@@ -12,7 +12,6 @@ filegroup(
         "//src/main/java/net/starlark/java/lib/json:srcs",
         "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/java/net/starlark/java/syntax:srcs",
-        "//src/main/java/net/starlark/java/types:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )

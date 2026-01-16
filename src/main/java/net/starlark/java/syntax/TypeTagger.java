@@ -26,8 +26,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Scope;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 
 /**
  * A visitor for tagging the data structures of a resolved file with type information.

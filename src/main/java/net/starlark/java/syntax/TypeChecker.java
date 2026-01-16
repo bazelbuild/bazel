@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 
 /**
  * A visitor for validating that expressions and statements respect the types of the symbols

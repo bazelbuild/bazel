@@ -70,7 +70,6 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
         "//third_party:error_prone_annotations",
         "//third_party:auto_value",
         "//third_party:flogger",
