@@ -93,18 +93,20 @@ class RepoContentsCacheTest(test_base.TestBase):
     # Verify that the repo directory under the output base is a symlink or
     # junction into the repo contents cache.
     repo_dir = self.repoDir('my_repo')
-    self.assertTrue(os.path.islink(repo_dir) or os.path.isjunction(repo_dir))
-    target_path = os.readlink(repo_dir)
-    real_target_path = os.path.realpath(target_path)
-    real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
-    for parent in pathlib.Path(real_target_path).parents:
-      if parent.samefile(real_repo_contents_cache):
-        break
-    else:
-      self.fail(
-          'repo target dir %s is not in the repo contents cache %s'
-          % (real_target_path, real_repo_contents_cache)
-      )
+    try:
+      target_path = os.readlink(repo_dir)
+      real_target_path = os.path.realpath(target_path)
+      real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
+      for parent in pathlib.Path(real_target_path).parents:
+        if parent.samefile(real_repo_contents_cache):
+          break
+      else:
+        self.fail(
+            'repo target dir %s is not in the repo contents cache %s'
+            % (real_target_path, real_repo_contents_cache)
+        )
+    except OSError:
+      self.fail('repo_dir %s is not a symlink or junction' % repo_dir)
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
