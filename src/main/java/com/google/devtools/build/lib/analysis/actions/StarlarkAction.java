@@ -227,6 +227,9 @@ public class StarlarkAction extends SpawnAction {
     // excluding the shadowed action inputs.
     private final NestedSet<Artifact> allStarlarkActionInputs;
 
+    // Null when there is no shadowed action.
+    @Nullable private final NestedSet<Artifact> mandatoryInputs;
+
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
     private boolean inputsDiscovered = false;
@@ -260,6 +263,10 @@ public class StarlarkAction extends SpawnAction {
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = inputs;
+      this.mandatoryInputs =
+          shadowedAction.isPresent()
+              ? createInputs(shadowedAction.get().getMandatoryInputs(), inputs)
+              : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
     }
@@ -295,6 +302,10 @@ public class StarlarkAction extends SpawnAction {
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = allStarlarkActionInputs;
+      this.mandatoryInputs =
+          shadowedAction.isPresent()
+              ? createInputs(shadowedAction.get().getMandatoryInputs(), allStarlarkActionInputs)
+              : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
     }
@@ -335,6 +346,11 @@ public class StarlarkAction extends SpawnAction {
     @Override
     protected void setInputsDiscovered(boolean inputsDiscovered) {
       this.inputsDiscovered = inputsDiscovered;
+    }
+
+    @Override
+    public NestedSet<Artifact> getMandatoryInputs() {
+      return mandatoryInputs != null ? mandatoryInputs : getInputs();
     }
 
     @Override
@@ -468,15 +484,11 @@ public class StarlarkAction extends SpawnAction {
     /**
      * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
      * list to determine the list of inputs for a subsequent run, taking into account
-     * unused_input_list. Hence we need to store the inputs' execPaths in the action cache. The
-     * StarlarkAction inputs' execPaths should also be stored in the action cache if it shadows
-     * another action that discovers its inputs to avoid re-running input discovery after a
-     * shutdown.
+     * unused_input_list. Hence we need to store the inputs' execPaths in the action cache.
      */
     @Override
     public boolean storeInputsExecPathsInActionCache() {
-      return unusedInputsList.isPresent()
-          || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
+      return unusedInputsList.isPresent();
     }
 
     /**

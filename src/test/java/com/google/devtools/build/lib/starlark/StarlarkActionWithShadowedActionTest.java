@@ -357,6 +357,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     Action shadowedAction = mock(Action.class);
     when(shadowedAction.discoversInputs()).thenReturn(discoversInputs);
     when(shadowedAction.getInputs()).thenReturn(inputs);
+    when(shadowedAction.getMandatoryInputs()).thenReturn(inputs);
     when(shadowedAction.getAllowedDerivedInputs()).thenReturn(inputs);
     when(shadowedAction.getInputFilesForExtraAction(
             ArgumentMatchers.any(ActionExecutionContext.class)))
