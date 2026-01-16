@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForDeserializationFuture;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -429,7 +430,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     if (bytes[0] == (byte) 0) {
       return byteArrayInputStream;
     }
-    return new ZstdInputStream(byteArrayInputStream);
+    return new ZstdInputStream(byteArrayInputStream, RecyclingBufferPool.INSTANCE);
   }
 
   @Override
