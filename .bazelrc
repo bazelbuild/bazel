@@ -74,6 +74,7 @@ common:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 ## Common
 common:ci-common --lockfile_mode=error
 common:ci-common --remote_download_minimal
+common:ci-common --nobuild_runfile_links
 
 ## For Linux
 common:ci-linux --config=ci-common
