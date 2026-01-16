@@ -14,18 +14,25 @@
 
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.NodeProperties;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 interface DirectoryBuilder {
@@ -48,16 +55,20 @@ interface DirectoryBuilder {
   Object build();
 
   static DirectoryBuilder create(MerkleTreeComputer.BlobPolicy blobPolicy) {
-    return new MessageDirectoryBuilder();
+    return switch (blobPolicy) {
+      case DISCARD -> new MessageDirectoryBuilder();
+      case KEEP, KEEP_AND_REUPLOAD -> new CompactDirectoryBuilder();
+    };
   }
 
   static void writeTo(OutputStream out, Object directory, Map<Object, Object> blobs)
       throws IOException {
-    if (directory instanceof byte[] bytes) {
-      out.write(bytes);
-    } else {
-      throw new IllegalArgumentException(
-          "Expected Directory message, got: " + directory.getClass().getName());
+    switch (directory) {
+      case byte[] bytes -> MessageDirectoryBuilder.writeTo(out, bytes);
+      case Object[] objects -> CompactDirectoryBuilder.writeTo(out, objects, blobs);
+      default ->
+          throw new IllegalArgumentException(
+              "Unknown directory representation: " + directory.getClass());
     }
   }
 
@@ -123,8 +134,154 @@ interface DirectoryBuilder {
     }
 
     @Override
-    public Object build() {
+    public byte[] build() {
       return dirBuilder.build().toByteArray();
+    }
+
+    private static void writeTo(OutputStream out, byte[] bytes) throws IOException {
+      out.write(bytes);
+    }
+  }
+
+  class CompactDirectoryBuilder implements DirectoryBuilder {
+    private final ArrayList<Object> files = new ArrayList<>();
+    @Nullable private NodeProperties fileNodeProperties;
+    private final ArrayList<Object> symlinks = new ArrayList<>();
+    @Nullable private NodeProperties symlinkNodeProperties;
+    private final ArrayList<Object> directories = new ArrayList<>();
+
+    @Override
+    public void addFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
+      maybeUpdateFileNodeProperties(nodeProperties);
+      files.add(name);
+      files.add(digest);
+    }
+
+    @Override
+    public void addFile(ActionInput file, Digest digest, @Nullable NodeProperties nodeProperties) {
+      maybeUpdateFileNodeProperties(nodeProperties);
+      files.add(digest);
+    }
+
+    @Override
+    public void addFile(
+        ActionInput file, FileArtifactValue metadata, @Nullable NodeProperties nodeProperties) {
+      maybeUpdateFileNodeProperties(nodeProperties);
+      files.add(metadata);
+    }
+
+    private void maybeUpdateFileNodeProperties(@Nullable NodeProperties newProperties) {
+      if (!Objects.equals(newProperties, fileNodeProperties)) {
+        files.add(newProperties);
+        fileNodeProperties = newProperties;
+      }
+    }
+
+    @Override
+    public void addSymlink(
+        Artifact.SpecialArtifact symlink,
+        FileArtifactValue metadata,
+        @Nullable NodeProperties nodeProperties) {
+      maybeUpdateSymlinkNodeProperties(nodeProperties);
+      symlinks.add(symlink);
+      symlinks.add(metadata.getUnresolvedSymlinkTarget());
+    }
+
+    private void maybeUpdateSymlinkNodeProperties(@Nullable NodeProperties nodeProperties) {
+      if (!Objects.equals(nodeProperties, symlinkNodeProperties)) {
+        symlinks.add(nodeProperties);
+        symlinkNodeProperties = nodeProperties;
+      }
+    }
+
+    @Override
+    public void addDirectory(Artifact subTreeRoot, MerkleTree subTree) {
+      directories.add(subTree);
+      directories.add(subTreeRoot);
+    }
+
+    @Override
+    public void addDirectory(String name, Digest digest) {
+      directories.add(name);
+      directories.add(digest);
+    }
+
+    @Override
+    public Object[] build() {
+      maybeUpdateFileNodeProperties(null);
+      maybeUpdateSymlinkNodeProperties(null);
+      return MerkleTreeComputer.concat(MerkleTreeComputer.concat(files, symlinks), directories)
+          .toArray();
+    }
+
+    static void writeTo(OutputStream out, Object[] directory, Map<Object, Object> blobs)
+        throws IOException {
+      var codedOut = CodedOutputStream.newInstance(out);
+      NodeProperties nodeProperties = null;
+      for (int i = 0; i < directory.length; i++) {
+        var item = directory[i];
+        switch (item) {
+          case NodeProperties newNodeProperties -> nodeProperties = newNodeProperties;
+          case Artifact.SpecialArtifact symlink -> {
+            checkState(symlink.isSymlink());
+            var metadata = (FileArtifactValue) directory[++i];
+            codedOut.writeMessage(
+                3,
+                SymlinkNode.newBuilder()
+                    .setName(internalToUnicode(symlink.getFilename()))
+                    .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()))
+                    .build());
+          }
+          case String name -> {
+            var digest = (Digest) directory[++i];
+            codedOut.writeMessage(
+                2,
+                DirectoryNode.newBuilder()
+                    .setName(internalToUnicode(name))
+                    .setDigest(digest)
+                    .build());
+          }
+          case MerkleTree subTree -> {
+            var subTreeRoot = (Artifact) directory[++i];
+            codedOut.writeMessage(
+                2,
+                DirectoryNode.newBuilder()
+                    .setName(internalToUnicode(subTreeRoot.getFilename()))
+                    .setDigest(subTree.digest())
+                    .build());
+          }
+          default -> {
+            var digest =
+                switch (item) {
+                  case Digest d -> d;
+                  case FileArtifactValue metadata ->
+                      DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+                  default ->
+                      throw new IllegalStateException("Unexpected item type: " + item.getClass());
+                };
+            var blobObj = blobs.get(item);
+            checkState(blobObj != null, "Blob for %s not found", item);
+            var input = (ActionInput) blobObj;
+            var fileNode =
+                FileNode.newBuilder()
+                    .setName(internalToUnicode(input.getExecPath().getBaseName()))
+                    .setDigest(digest)
+                    // We always treat files as executable since Bazel will `chmod 555` on the
+                    // output
+                    // files of an action within ActionOutputMetadataStore#getMetadata after action
+                    // execution if no metadata was injected. We can't use real executable bit of
+                    // the
+                    // file until this behavior is changed. See
+                    // https://github.com/bazelbuild/bazel/issues/13262 for more details.
+                    .setIsExecutable(true);
+            if (nodeProperties != null) {
+              fileNode.setNodeProperties(nodeProperties);
+            }
+            codedOut.writeMessage(1, fileNode.build());
+          }
+        }
+      }
+      codedOut.flush();
     }
   }
 }

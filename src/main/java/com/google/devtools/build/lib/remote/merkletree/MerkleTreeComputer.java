@@ -1088,7 +1088,7 @@ public final class MerkleTreeComputer {
    * ArrayLists in methods such as {@link ImmutableList#sortedCopyOf}.
    */
   @SuppressWarnings("unchecked")
-  private static <T> Collection<T> concat(
+  static <T> Collection<T> concat(
       Collection<? extends T> first, Collection<? extends T> second) {
     if (first.isEmpty()) {
       return (Collection<T>) second;
