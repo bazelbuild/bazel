@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.concat;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
@@ -35,7 +36,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 interface DirectoryBuilder {
-  void addFile(String name, Digest digest, @Nullable NodeProperties nodeProperties);
+  void addEmptyFile(String name, Digest emptyDigest, @Nullable NodeProperties nodeProperties);
 
   void addFile(ActionInput file, Digest digest, @Nullable NodeProperties nodeProperties);
 
@@ -70,25 +71,52 @@ interface DirectoryBuilder {
     }
   }
 
+  static FileNode makeFileNode(
+      String name, Digest digest, @Nullable NodeProperties nodeProperties) {
+    var fileNodeBuilder =
+        FileNode.newBuilder()
+            .setName(internalToUnicode(name))
+            .setDigest(digest)
+            // We always treat files as executable since Bazel will `chmod 555` on the output
+            // files of an action within ActionOutputMetadataStore#getMetadata after action
+            // execution if no metadata was injected. We can't use real executable bit of the
+            // file until this behavior is changed. See
+            // https://github.com/bazelbuild/bazel/issues/13262 for more details.
+            .setIsExecutable(true);
+    if (nodeProperties != null) {
+      fileNodeBuilder.setNodeProperties(nodeProperties);
+    }
+    return fileNodeBuilder.build();
+  }
+
+  static DirectoryNode makeDirectoryNode(String name, Digest digest) {
+    return DirectoryNode.newBuilder().setName(internalToUnicode(name)).setDigest(digest).build();
+  }
+
+  static SymlinkNode makeSymlinkNode(
+      String name, String target, @Nullable NodeProperties nodeProperties) {
+    var symlinkNodeBuilder =
+        SymlinkNode.newBuilder()
+            .setName(internalToUnicode(name))
+            .setTarget(internalToUnicode(target));
+    if (nodeProperties != null) {
+      symlinkNodeBuilder.setNodeProperties(nodeProperties);
+    }
+    return symlinkNodeBuilder.build();
+  }
+
   class MessageDirectoryBuilder implements DirectoryBuilder {
     private final Directory.Builder dirBuilder = Directory.newBuilder();
 
+    private void addFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
+      dirBuilder.addFiles(makeFileNode(name, digest, nodeProperties));
+    }
+
     @Override
-    public void addFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
-      var fileBuilder =
-          dirBuilder
-              .addFilesBuilder()
-              .setName(internalToUnicode(name))
-              .setDigest(digest)
-              // We always treat files as executable since Bazel will `chmod 555` on the output
-              // files of an action within ActionOutputMetadataStore#getMetadata after action
-              // execution if no metadata was injected. We can't use real executable bit of the
-              // file until this behavior is changed. See
-              // https://github.com/bazelbuild/bazel/issues/13262 for more details.
-              .setIsExecutable(true);
-      if (nodeProperties != null) {
-        fileBuilder.setNodeProperties(nodeProperties);
-      }
+    public void addEmptyFile(
+        String name, Digest emptyDigest, @Nullable NodeProperties nodeProperties) {
+      checkArgument(emptyDigest.getSizeBytes() == 0, "Digest is not empty: %s", emptyDigest);
+      addFile(name, emptyDigest, nodeProperties);
     }
 
     @Override
@@ -108,27 +136,20 @@ interface DirectoryBuilder {
         Artifact.SpecialArtifact symlink,
         FileArtifactValue metadata,
         @Nullable NodeProperties nodeProperties) {
-      var symlinkBuilder =
-          dirBuilder
-              .addSymlinksBuilder()
-              .setName(internalToUnicode(symlink.getFilename()))
-              .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()));
-      if (nodeProperties != null) {
-        symlinkBuilder.setNodeProperties(nodeProperties);
-      }
+      dirBuilder.addSymlinks(
+          makeSymlinkNode(
+              symlink.getFilename(), metadata.getUnresolvedSymlinkTarget(), nodeProperties));
     }
 
     @Override
     public void addDirectory(Artifact subTreeRoot, MerkleTree subtree) {
-      dirBuilder
-          .addDirectoriesBuilder()
-          .setName(internalToUnicode(subTreeRoot.getFilename()))
-          .setDigest(subtree.digest());
+      dirBuilder.addDirectories(
+          makeDirectoryNode(subTreeRoot.getExecPath().getBaseName(), subtree.digest()));
     }
 
     @Override
     public void addDirectory(String name, Digest digest) {
-      dirBuilder.addDirectoriesBuilder().setName(internalToUnicode(name)).setDigest(digest);
+      dirBuilder.addDirectories(makeDirectoryNode(name, digest));
     }
 
     @Override
@@ -149,10 +170,9 @@ interface DirectoryBuilder {
     private final ArrayList<Object> directories = new ArrayList<>();
 
     @Override
-    public void addFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
+    public void addEmptyFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
       maybeUpdateFileNodeProperties(nodeProperties);
       files.add(name);
-      files.add(digest);
     }
 
     @Override
@@ -225,10 +245,10 @@ interface DirectoryBuilder {
             var metadata = (FileArtifactValue) directory[++i];
             codedOut.writeMessage(
                 3,
-                SymlinkNode.newBuilder()
-                    .setName(internalToUnicode(symlink.getExecPath().getBaseName()))
-                    .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()))
-                    .build());
+                makeSymlinkNode(
+                    symlink.getExecPath().getBaseName(),
+                    metadata.getUnresolvedSymlinkTarget(),
+                    nodeProperties));
           }
           case ActionInput input -> {
             var metadataObj = directory[++i];
@@ -240,38 +260,24 @@ interface DirectoryBuilder {
                   default ->
                       throw new IllegalStateException("Unexpected item type: " + item.getClass());
                 };
-            var fileNode =
-                FileNode.newBuilder()
-                    .setName(internalToUnicode(input.getExecPath().getBaseName()))
-                    .setDigest(digest)
-                    // We always treat files as executable since Bazel will `chmod 555` on the
-                    // output files of an action within ActionOutputMetadataStore#getMetadata after
-                    // action execution if no metadata was injected. We can't use real executable
-                    // bit of the file until this behavior is changed. See
-                    // https://github.com/bazelbuild/bazel/issues/13262 for more details.
-                    .setIsExecutable(true);
-            if (nodeProperties != null) {
-              fileNode.setNodeProperties(nodeProperties);
-            }
-            codedOut.writeMessage(1, fileNode.build());
+            codedOut.writeMessage(
+                1, makeFileNode(input.getExecPath().getBaseName(), digest, nodeProperties));
           }
           case MerkleTree subTree -> {
             var subTreeRoot = (ActionInput) directory[++i];
             codedOut.writeMessage(
-                2,
-                DirectoryNode.newBuilder()
-                    .setName(internalToUnicode(subTreeRoot.getExecPath().getBaseName()))
-                    .setDigest(subTree.digest())
-                    .build());
+                2, makeDirectoryNode(subTreeRoot.getExecPath().getBaseName(), subTree.digest()));
           }
           case String name -> {
-            var digest = (Digest) directory[++i];
-            codedOut.writeMessage(
-                2,
-                DirectoryNode.newBuilder()
-                    .setName(internalToUnicode(name))
-                    .setDigest(digest)
-                    .build());
+            var nextObj = directory[i + 1];
+            if (nextObj instanceof Digest digest) {
+              i++;
+              codedOut.writeMessage(2, makeDirectoryNode(name, digest));
+            } else {
+              // TODO: Get the correct empty hash.
+              var emptyDigest = Digest.newBuilder().setHash("").setSizeBytes(0).build();
+              codedOut.writeMessage(1, makeFileNode(name, emptyDigest, nodeProperties));
+            }
           }
           default -> throw new IllegalStateException("Unexpected value: " + item);
         }
