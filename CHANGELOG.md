@@ -1,3 +1,24 @@
+## Release 10.0.0-pre.20260112.1 (2026-01-16)
+
+```
+Baseline: 7111cbfcecdd3bda3e4beedd8b59dc93d3652607
+
+Cherry picks:
+
+   + 76166fca04ca8fdf6d87b3a2a7cf60da6ca8145b:
+     Use the hermetic python toolchain for Bazel
+```
+
+Important changes:
+
+  - The new `package_relative_label` function on the rule context
+    (`ctx`) can be used to turn a user-provided label string into a
+    `Label` relative to the target that is currently being analyzed
+    (where `Label(...)` would return a `Label` relative to the `.bzl`
+    file containing the call).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Alex O'Brien, Carmen Chui, Damian Banki, dependabot[bot], Fabian Meumertzheim, George Gensure, google-labs-jules[bot], jade.
+
 ## Release 10.0.0-pre.20260104.1 (2026-01-15)
 
 ```
