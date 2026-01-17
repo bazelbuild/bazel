@@ -685,7 +685,7 @@ public final class MerkleTreeComputer {
         case null -> {
           // This is a sentinel value for an empty file. This case only occurs when this method is
           // called from computeForRunfilesTreeIfAbsent.
-          currentDirectory.addFile(path.getBaseName(), emptyDigest, nodeProperties);
+          currentDirectory.addEmptyFile(path.getBaseName(), emptyDigest, nodeProperties);
           inputFiles++;
         }
         default -> {
