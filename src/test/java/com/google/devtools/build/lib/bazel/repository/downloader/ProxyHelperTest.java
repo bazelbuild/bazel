@@ -19,12 +19,11 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.Base64;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +33,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ProxyHelperTest {
+
+  @Before
+  public void setUp() {
+    ProxyHelper.resetAuthenticatorForTesting();
+  }
 
   @Test
   public void testCreateIfNeededHttpLowerCase() throws Exception {
