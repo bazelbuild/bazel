@@ -30,7 +30,6 @@ import static java.util.Map.entry;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
-import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -526,6 +525,7 @@ public final class MerkleTreeComputer {
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
     PathFragment lastSourceDirPath = null;
+    ActionInput firstInputForParent = null;
     Map.Entry<PathFragment, ? extends ActionInput> lastEntry = null;
     for (var entry : Iterables.concat(sortedInputs, END_OF_INPUTS_SENTINEL)) {
       if (Thread.interrupted()) {
@@ -574,7 +574,9 @@ public final class MerkleTreeComputer {
           // Unused.
           commonPrefix = null;
         }
-        for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
+        var dirsToPop = fragmentToPop.splitToListOfSegments().reverse();
+        for (int i = 0; i < dirsToPop.size(); i++) {
+          String dirToPop = dirsToPop.get(i);
           var directoryBlob = directoryStack.pop().build();
           Digest directoryBlobDigest =
               digestUtil.compute(out -> writeTo(out, directoryBlob, emptyDigest));
@@ -603,12 +605,16 @@ public final class MerkleTreeComputer {
               return merkleTree;
             }
           }
-          topDirectory.addDirectory(dirToPop, directoryBlobDigest);
+          topDirectory.addDirectory(dirToPop, firstInputForParent, i + 1, directoryBlobDigest);
         }
         for (int i = 0; i < newParent.segmentCount() - commonPrefix.segmentCount(); i++) {
           directoryStack.push(DirectoryBuilder.create(blobPolicy));
         }
         currentParent = newParent;
+        firstInputForParent = input;
+      } else if (firstInputForParent == null) {
+        // Still in the same directory but the first input was an empty runfile. Try the next one.
+        firstInputForParent = input;
       }
 
       DirectoryBuilder currentDirectory = checkNotNull(directoryStack.peek());
@@ -999,27 +1005,6 @@ public final class MerkleTreeComputer {
       }
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
-    }
-  }
-
-  private static void addFile(
-      Directory.Builder directory,
-      String name,
-      Digest digest,
-      @Nullable NodeProperties nodeProperties) {
-    var builder =
-        directory
-            .addFilesBuilder()
-            .setName(name)
-            .setDigest(digest)
-            // We always treat files as executable since Bazel will `chmod 555` on the output
-            // files of an action within ActionOutputMetadataStore#getMetadata after action
-            // execution if no metadata was injected. We can't use real executable bit of the
-            // file until this behavior is changed. See
-            // https://github.com/bazelbuild/bazel/issues/13262 for more details.
-            .setIsExecutable(true);
-    if (nodeProperties != null) {
-      builder.setNodeProperties(nodeProperties);
     }
   }
 

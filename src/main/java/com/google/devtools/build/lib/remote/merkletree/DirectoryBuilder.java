@@ -50,7 +50,7 @@ interface DirectoryBuilder {
 
   void addDirectory(Artifact subTreeRoot, MerkleTree subTree);
 
-  void addDirectory(String name, Digest digest);
+  void addDirectory(String name, @Nullable ActionInput firstInputInDir, int i, Digest digest);
 
   Object build();
 
@@ -148,7 +148,8 @@ interface DirectoryBuilder {
     }
 
     @Override
-    public void addDirectory(String name, Digest digest) {
+    public void addDirectory(
+        String name, @Nullable ActionInput firstInputInDir, int i, Digest digest) {
       dirBuilder.addDirectories(makeDirectoryNode(name, digest));
     }
 
@@ -223,7 +224,17 @@ interface DirectoryBuilder {
     }
 
     @Override
-    public void addDirectory(String name, Digest digest) {
+    public void addDirectory(
+        String name, @Nullable ActionInput firstInputInDir, int i, Digest digest) {
+      if (firstInputInDir != null) {
+        var segments = firstInputInDir.getExecPath().splitToListOfSegments().reverse();
+        if (segments.size() > i && segments.get(i).equals(name)) {
+          directories.add(i);
+          directories.add(firstInputInDir);
+          directories.add(digest);
+          return;
+        }
+      }
       directories.add(name);
       directories.add(digest);
     }
@@ -279,6 +290,13 @@ interface DirectoryBuilder {
             } else {
               codedOut.writeMessage(1, makeFileNode(name, emptyDigest, nodeProperties));
             }
+          }
+          case Integer index -> {
+            var firstInputInDir = (ActionInput) directory[++i];
+            var digest = (Digest) directory[++i];
+            var segments = firstInputInDir.getExecPath().splitToListOfSegments().reverse();
+            var name = segments.get(index);
+            codedOut.writeMessage(2, makeDirectoryNode(name, digest));
           }
           default -> throw new IllegalStateException("Unexpected value: " + item);
         }
