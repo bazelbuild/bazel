@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import java.net.Proxy;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import javax.annotation.Nullable;
 
 /**
@@ -63,7 +62,6 @@ public class ProxyInfo {
     if (!hasCredentials()) {
       return null;
     }
-    String credentials = username + ":" + password;
-    return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+    return BasicHttpAuthenticationEncoder.encode(username, password);
   }
 }
