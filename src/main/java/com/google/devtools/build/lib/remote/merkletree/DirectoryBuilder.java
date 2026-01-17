@@ -61,10 +61,10 @@ interface DirectoryBuilder {
     };
   }
 
-  static void writeTo(OutputStream out, Object directory) throws IOException {
+  static void writeTo(OutputStream out, Object directory, Digest emptyDigest) throws IOException {
     switch (directory) {
       case byte[] bytes -> MessageDirectoryBuilder.writeTo(out, bytes);
-      case Object[] objects -> CompactDirectoryBuilder.writeTo(out, objects);
+      case Object[] objects -> CompactDirectoryBuilder.writeTo(out, objects, emptyDigest);
       default ->
           throw new IllegalArgumentException(
               "Unknown directory representation: " + directory.getClass());
@@ -170,7 +170,9 @@ interface DirectoryBuilder {
     private final ArrayList<Object> directories = new ArrayList<>();
 
     @Override
-    public void addEmptyFile(String name, Digest digest, @Nullable NodeProperties nodeProperties) {
+    public void addEmptyFile(
+        String name, Digest emptyDigest, @Nullable NodeProperties nodeProperties) {
+      checkArgument(emptyDigest.getSizeBytes() == 0, "Digest is not empty: %s", emptyDigest);
       maybeUpdateFileNodeProperties(nodeProperties);
       files.add(name);
     }
@@ -233,7 +235,8 @@ interface DirectoryBuilder {
       return concat(concat(files, directories), symlinks).toArray();
     }
 
-    static void writeTo(OutputStream out, Object[] directory) throws IOException {
+    static void writeTo(OutputStream out, Object[] directory, Digest emptyDigest)
+        throws IOException {
       var codedOut = CodedOutputStream.newInstance(out);
       NodeProperties nodeProperties = null;
       for (int i = 0; i < directory.length; i++) {
@@ -274,8 +277,6 @@ interface DirectoryBuilder {
               i++;
               codedOut.writeMessage(2, makeDirectoryNode(name, digest));
             } else {
-              // TODO: Get the correct empty hash.
-              var emptyDigest = Digest.newBuilder().setHash("").setSizeBytes(0).build();
               codedOut.writeMessage(1, makeFileNode(name, emptyDigest, nodeProperties));
             }
           }

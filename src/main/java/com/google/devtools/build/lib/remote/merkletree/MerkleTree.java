@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -119,15 +120,19 @@ public sealed interface MerkleTree {
 
     private final RootOnly.BlobsUploaded root;
     private final ImmutableSortedMap<Object, /* byte[] | ActionInput */ Object> blobs;
+    private final Digest emptyDigest;
 
     Uploadable(
         RootOnly.BlobsUploaded root,
-        SortedMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
-            blobs) {
+        SortedMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object> blobs,
+        Digest emptyDigest) {
       this.root = root;
       // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
       // arrays.
       this.blobs = ImmutableSortedMap.copyOfSorted(blobs);
+      checkArgument(
+          emptyDigest.getSizeBytes() == 0, "Empty digest must have size 0: %s", emptyDigest);
+      this.emptyDigest = emptyDigest;
     }
 
     @Override
@@ -162,7 +167,7 @@ public sealed interface MerkleTree {
       //         9        24       216   java.lang.String
       //        44                4184   (total)
       int size =
-          16 // MerkleTree.Uploadable object
+          24 // MerkleTree.Uploadable object
               + 32 // MerkleTree.RootOnly.BlobsUploaded object
               + 40 // ImmutableSortedMap object
               + 24 // RegularImmutableSortedSet object
@@ -237,7 +242,7 @@ public sealed interface MerkleTree {
                       // Serialize compact directory representation to bytes for test compatibility.
                       var out = new java.io.ByteArrayOutputStream();
                       try {
-                        DirectoryBuilder.writeTo(out, directory);
+                        DirectoryBuilder.writeTo(out, directory, emptyDigest);
                       } catch (java.io.IOException e) {
                         throw new IllegalStateException("Failed to serialize directory", e);
                       }
@@ -281,7 +286,7 @@ public sealed interface MerkleTree {
         default ->
             Optional.of(
                 uploader.uploadDeterministicWriterOutput(
-                    context, digest, out -> DirectoryBuilder.writeTo(out, blob)));
+                    context, digest, out -> DirectoryBuilder.writeTo(out, blob, emptyDigest)));
       };
     }
 
