@@ -172,14 +172,11 @@ public sealed interface MerkleTree {
               + 40 // ImmutableSortedMap object
               + 24 // RegularImmutableSortedSet object
               + 2 * 16 // RegularImmutableList objects
-              + 2 * arraySize(blobs.size(), 4); // Object[] arrays in the lists
+              + 2 * objectArrayShallowSize(blobs.size()); // arrays for keys and values
       for (Object key : blobs.keySet()) {
         size +=
             switch (key) {
-              case Digest digest ->
-                  40 // Digest object
-                      + 24 // String object for hash
-                      + arraySize(digest.getHash().length(), 1); // byte[] for hash
+              case Digest digest -> 40 + stringSize(digest.getHash());
               // FileArtifactValue is retained by Skyframe anyway.
               default -> 0;
             };
@@ -187,24 +184,20 @@ public sealed interface MerkleTree {
       for (Object value : blobs.values()) {
         size +=
             switch (value) {
-              case byte[] data -> arraySize(data.length, 1); // byte[] object
+              case byte[] data -> byteArraySize(data.length);
               case MerkleTreeComputer.EmptyInputDirectory ignored -> 16;
               case MerkleTreeComputer.ChildActionInput childActionInput ->
-                  16 // ChildActionInput object
-                      + 24 // String object for relative path
-                      + arraySize(
-                          childActionInput.relativePath.length(), 1); // byte[] for relative path
+                  16 + stringSize(childActionInput.relativePath);
               case Object[] directory -> {
                 // Compact directory representation from CompactDirectoryBuilder.
-                int dirSize = arraySize(directory.length, 4); // Object[] array
+                int dirSize = objectArrayShallowSize(directory.length);
                 for (Object item : directory) {
                   dirSize +=
                       switch (item) {
-                        case String str ->
-                            24 // String object
-                                + arraySize(str.length(), 1); // byte[] for string content
+                        case String str -> stringSize(str);
                         // Other types (Digest, FileArtifactValue, MerkleTree, Artifact,
-                        // NodeProperties) are either counted elsewhere or retained globally.
+                        // NodeProperties, Integer) are either counted elsewhere or retained
+                        // globally.
                         case null, default -> 0;
                       };
                 }
@@ -217,6 +210,18 @@ public sealed interface MerkleTree {
             };
       }
       return size;
+    }
+
+    private int stringSize(String str) {
+      return 24 + byteArraySize(str.length());
+    }
+
+    private int objectArrayShallowSize(int length) {
+      return arraySize(length, 4);
+    }
+
+    private int byteArraySize(int length) {
+      return arraySize(length, 1);
     }
 
     private int arraySize(int length, int sizePerElement) {
