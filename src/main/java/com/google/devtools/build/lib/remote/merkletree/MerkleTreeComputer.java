@@ -200,7 +200,9 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.Uploadable(
-            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0),
+            ImmutableSortedMap.of(),
+            emptyDigest);
   }
 
   public record Stats(long discardedCount, String uploadableStats) {}
@@ -575,7 +577,7 @@ public final class MerkleTreeComputer {
         for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
           var directoryBlob = directoryStack.pop().build();
           Digest directoryBlobDigest =
-              digestUtil.compute(out -> writeTo(out, directoryBlob));
+              digestUtil.compute(out -> writeTo(out, directoryBlob, emptyDigest));
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
             blobs.put(directoryBlobDigest, directoryBlob);
           }
@@ -593,7 +595,8 @@ public final class MerkleTreeComputer {
                   new MerkleTree.Uploadable(
                       new MerkleTree.RootOnly.BlobsUploaded(
                           directoryBlobDigest, inputFiles, inputBytes),
-                      blobs);
+                      blobs,
+                      emptyDigest);
               synchronized (uploadableStats) {
                 uploadableStats.accept(merkleTree.retainedBytes());
               }
