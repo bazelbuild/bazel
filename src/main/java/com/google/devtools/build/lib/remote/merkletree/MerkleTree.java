@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static java.util.Comparator.comparing;
+
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Collections2;
@@ -85,25 +87,31 @@ public sealed interface MerkleTree {
    * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
    */
   final class Uploadable implements MerkleTree {
+    private static final Comparator<Digest> DIGEST_COMPARATOR =
+        comparing(Digest::getHash).thenComparing(Digest::getSizeBytes);
+    private static final Comparator<FileArtifactValue> FILE_ARTIFACT_VALUE_COMPARATOR =
+        comparing(FileArtifactValue::getDigest, UnsignedBytes.lexicographicalComparator())
+            .thenComparing(FileArtifactValue::getSize);
     static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
         (o1, o2) ->
             switch (o1) {
               case Digest digest1 ->
-                  switch (o2) {
-                    case Digest digest2 -> digest1.getHash().compareTo(digest2.getHash());
-                    case FileArtifactValue metadata2 ->
-                        UnsignedBytes.lexicographicalComparator()
-                            .compare(DigestUtil.toBinaryDigest(digest1), metadata2.getDigest());
-                    default -> throw new IllegalStateException("Unexpected blob type: " + o2);
-                  };
+                  DIGEST_COMPARATOR.compare(
+                      digest1,
+                      switch (o2) {
+                        case Digest digest2 -> digest2;
+                        case FileArtifactValue metadata2 ->
+                            DigestUtil.buildDigest(metadata2.getDigest(), metadata2.getSize());
+                        default -> throw new IllegalStateException("Unexpected blob type: " + o2);
+                      });
               case FileArtifactValue metadata1 ->
                   switch (o2) {
                     case FileArtifactValue metadata2 ->
-                        UnsignedBytes.lexicographicalComparator()
-                            .compare(metadata1.getDigest(), metadata2.getDigest());
+                        FILE_ARTIFACT_VALUE_COMPARATOR.compare(metadata1, metadata2);
                     case Digest digest2 ->
-                        -UnsignedBytes.lexicographicalComparator()
-                            .compare(DigestUtil.toBinaryDigest(digest2), metadata1.getDigest());
+                        DIGEST_COMPARATOR.compare(
+                            DigestUtil.buildDigest(metadata1.getDigest(), metadata1.getSize()),
+                            digest2);
                     default -> throw new IllegalStateException("Unexpected blob type: " + o2);
                   };
               default -> throw new IllegalStateException("Unexpected blob type: " + o1);
