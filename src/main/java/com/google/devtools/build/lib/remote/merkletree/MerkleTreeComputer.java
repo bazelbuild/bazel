@@ -692,7 +692,7 @@ public final class MerkleTreeComputer {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
           var digest = digestUtil.compute(artifactPathResolver.toPath(input));
-          currentDirectory.addFile(path.getBaseName(), digest, nodeProperties);
+          currentDirectory.addFile(input, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.putIfAbsent(digest, input);
           }
