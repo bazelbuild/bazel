@@ -181,6 +181,22 @@ public sealed interface MerkleTree {
                       + 24 // String object for relative path
                       + arraySize(
                           childActionInput.relativePath.length(), 1); // byte[] for relative path
+              case Object[] directory -> {
+                // Compact directory representation from CompactDirectoryBuilder.
+                int dirSize = arraySize(directory.length, 4); // Object[] array
+                for (Object item : directory) {
+                  dirSize +=
+                      switch (item) {
+                        case String str ->
+                            24 // String object
+                                + arraySize(str.length(), 1); // byte[] for string content
+                        // Other types (Digest, FileArtifactValue, MerkleTree, Artifact,
+                        // NodeProperties) are either counted elsewhere or retained globally.
+                        case null, default -> 0;
+                      };
+                }
+                yield dirSize;
+              }
               // Don't account for PathActionInput, which is only used in tests or remote repository
               // execution. All other ActionInputs are retained anyway (permanently or, in the case
               // of VirtualActionInput, by the Spawn).
@@ -206,7 +222,21 @@ public sealed interface MerkleTree {
       return blobs.entrySet().stream()
           .collect(
               ImmutableMap.toImmutableMap(
-                  entry -> adaptToDigest(entry.getKey()), Map.Entry::getValue));
+                  entry -> adaptToDigest(entry.getKey()),
+                  entry -> {
+                    var value = entry.getValue();
+                    if (value instanceof Object[] directory) {
+                      // Serialize compact directory representation to bytes for test compatibility.
+                      var out = new java.io.ByteArrayOutputStream();
+                      try {
+                        DirectoryBuilder.writeTo(out, directory);
+                      } catch (java.io.IOException e) {
+                        throw new IllegalStateException("Failed to serialize directory", e);
+                      }
+                      return out.toByteArray();
+                    }
+                    return value;
+                  }));
     }
 
     @Override
@@ -243,7 +273,7 @@ public sealed interface MerkleTree {
         default ->
             Optional.of(
                 uploader.uploadDeterministicWriterOutput(
-                    context, digest, out -> DirectoryBuilder.writeTo(out, blob, blobs)));
+                    context, digest, out -> DirectoryBuilder.writeTo(out, blob)));
       };
     }
 

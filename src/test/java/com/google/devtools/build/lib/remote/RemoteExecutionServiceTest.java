@@ -831,7 +831,7 @@ public class RemoteExecutionServiceTest {
           Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
       Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
       // TODO: Get this number down.
-      assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(4184);
+      assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(2360);
       assertThat(merkleTreeOnlyRetention.totalSize())
           .isEqualTo(((MerkleTree.Uploadable) merkleTree).retainedBytes());
     }
