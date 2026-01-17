@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
@@ -305,7 +306,8 @@ public final class MerkleTreeComputer {
     var outputDirectories =
         spawn.getOutputFiles().stream()
             .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
-            .map(outputDir -> new EmptyInputDirectory(outputDir.getExecPath()))
+            .map(input -> (Artifact) input)
+            .map(EmptyInputDirectory::new)
             .collect(toImmutableList());
     // Reduce peak memory usage by avoiding the allocation of intermediate arrays and sorted map, as
     // well as the prolonged retention of mapped paths. All of these can be reconstructed on-the-fly
@@ -573,7 +575,7 @@ public final class MerkleTreeComputer {
         for (String dirToPop : fragmentToPop.splitToListOfSegments().reverse()) {
           var directoryBlob = directoryStack.pop().build();
           Digest directoryBlobDigest =
-              digestUtil.compute(out -> writeTo(out, directoryBlob, blobs));
+              digestUtil.compute(out -> writeTo(out, directoryBlob));
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
             blobs.put(directoryBlobDigest, directoryBlob);
           }
@@ -673,13 +675,13 @@ public final class MerkleTreeComputer {
           var digest = digestUtil.compute(virtualActionInput);
           currentDirectory.addFile(virtualActionInput, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, virtualActionInput);
+            blobs.putIfAbsent(digest, virtualActionInput);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
         }
-        case EmptyInputDirectory ignored ->
-            currentDirectory.addDirectory(path.getBaseName(), emptyDigest);
+        case EmptyInputDirectory emptyInputDirectory ->
+            currentDirectory.addDirectory(emptyInputDirectory.outputDir, emptyTree);
         case null -> {
           // This is a sentinel value for an empty file. This case only occurs when this method is
           // called from computeForRunfilesTreeIfAbsent.
@@ -692,7 +694,7 @@ public final class MerkleTreeComputer {
           var digest = digestUtil.compute(artifactPathResolver.toPath(input));
           currentDirectory.addFile(path.getBaseName(), digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, input);
+            blobs.putIfAbsent(digest, input);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
@@ -1088,8 +1090,7 @@ public final class MerkleTreeComputer {
    * ArrayLists in methods such as {@link ImmutableList#sortedCopyOf}.
    */
   @SuppressWarnings("unchecked")
-  static <T> Collection<T> concat(
-      Collection<? extends T> first, Collection<? extends T> second) {
+  static <T> Collection<T> concat(Collection<? extends T> first, Collection<? extends T> second) {
     if (first.isEmpty()) {
       return (Collection<T>) second;
     }
@@ -1110,20 +1111,21 @@ public final class MerkleTreeComputer {
   }
 
   static class EmptyInputDirectory extends BasicActionInput {
-    private final PathFragment execPath;
+    private final Artifact outputDir;
 
-    EmptyInputDirectory(PathFragment execPath) {
-      this.execPath = execPath;
+    EmptyInputDirectory(Artifact outputDir) {
+      checkArgument(outputDir.isTreeArtifact());
+      this.outputDir = outputDir;
     }
 
     @Override
     public String getExecPathString() {
-      return execPath.getPathString();
+      return outputDir.getExecPathString();
     }
 
     @Override
     public PathFragment getExecPath() {
-      return execPath;
+      return outputDir.getExecPath();
     }
   }
 

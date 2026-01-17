@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.remote.merkletree;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.concat;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -31,7 +31,6 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -61,11 +60,10 @@ interface DirectoryBuilder {
     };
   }
 
-  static void writeTo(OutputStream out, Object directory, Map<Object, Object> blobs)
-      throws IOException {
+  static void writeTo(OutputStream out, Object directory) throws IOException {
     switch (directory) {
       case byte[] bytes -> MessageDirectoryBuilder.writeTo(out, bytes);
-      case Object[] objects -> CompactDirectoryBuilder.writeTo(out, objects, blobs);
+      case Object[] objects -> CompactDirectoryBuilder.writeTo(out, objects);
       default ->
           throw new IllegalArgumentException(
               "Unknown directory representation: " + directory.getClass());
@@ -160,6 +158,7 @@ interface DirectoryBuilder {
     @Override
     public void addFile(ActionInput file, Digest digest, @Nullable NodeProperties nodeProperties) {
       maybeUpdateFileNodeProperties(nodeProperties);
+      files.add(file);
       files.add(digest);
     }
 
@@ -167,6 +166,7 @@ interface DirectoryBuilder {
     public void addFile(
         ActionInput file, FileArtifactValue metadata, @Nullable NodeProperties nodeProperties) {
       maybeUpdateFileNodeProperties(nodeProperties);
+      files.add(file);
       files.add(metadata);
     }
 
@@ -184,7 +184,7 @@ interface DirectoryBuilder {
         @Nullable NodeProperties nodeProperties) {
       maybeUpdateSymlinkNodeProperties(nodeProperties);
       symlinks.add(symlink);
-      symlinks.add(metadata.getUnresolvedSymlinkTarget());
+      symlinks.add(metadata);
     }
 
     private void maybeUpdateSymlinkNodeProperties(@Nullable NodeProperties nodeProperties) {
@@ -210,26 +210,58 @@ interface DirectoryBuilder {
     public Object[] build() {
       maybeUpdateFileNodeProperties(null);
       maybeUpdateSymlinkNodeProperties(null);
-      return MerkleTreeComputer.concat(MerkleTreeComputer.concat(files, symlinks), directories)
-          .toArray();
+      return concat(concat(files, directories), symlinks).toArray();
     }
 
-    static void writeTo(OutputStream out, Object[] directory, Map<Object, Object> blobs)
-        throws IOException {
+    static void writeTo(OutputStream out, Object[] directory) throws IOException {
       var codedOut = CodedOutputStream.newInstance(out);
       NodeProperties nodeProperties = null;
       for (int i = 0; i < directory.length; i++) {
         var item = directory[i];
         switch (item) {
+          case null -> nodeProperties = null;
           case NodeProperties newNodeProperties -> nodeProperties = newNodeProperties;
-          case Artifact.SpecialArtifact symlink -> {
-            checkState(symlink.isSymlink());
+          case ActionInput symlink when symlink.isSymlink() -> {
             var metadata = (FileArtifactValue) directory[++i];
             codedOut.writeMessage(
                 3,
                 SymlinkNode.newBuilder()
-                    .setName(internalToUnicode(symlink.getFilename()))
+                    .setName(internalToUnicode(symlink.getExecPath().getBaseName()))
                     .setTarget(internalToUnicode(metadata.getUnresolvedSymlinkTarget()))
+                    .build());
+          }
+          case ActionInput input -> {
+            var metadataObj = directory[++i];
+            var digest =
+                switch (metadataObj) {
+                  case Digest d -> d;
+                  case FileArtifactValue metadata ->
+                      DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+                  default ->
+                      throw new IllegalStateException("Unexpected item type: " + item.getClass());
+                };
+            var fileNode =
+                FileNode.newBuilder()
+                    .setName(internalToUnicode(input.getExecPath().getBaseName()))
+                    .setDigest(digest)
+                    // We always treat files as executable since Bazel will `chmod 555` on the
+                    // output files of an action within ActionOutputMetadataStore#getMetadata after
+                    // action execution if no metadata was injected. We can't use real executable
+                    // bit of the file until this behavior is changed. See
+                    // https://github.com/bazelbuild/bazel/issues/13262 for more details.
+                    .setIsExecutable(true);
+            if (nodeProperties != null) {
+              fileNode.setNodeProperties(nodeProperties);
+            }
+            codedOut.writeMessage(1, fileNode.build());
+          }
+          case MerkleTree subTree -> {
+            var subTreeRoot = (ActionInput) directory[++i];
+            codedOut.writeMessage(
+                2,
+                DirectoryNode.newBuilder()
+                    .setName(internalToUnicode(subTreeRoot.getExecPath().getBaseName()))
+                    .setDigest(subTree.digest())
                     .build());
           }
           case String name -> {
@@ -241,44 +273,7 @@ interface DirectoryBuilder {
                     .setDigest(digest)
                     .build());
           }
-          case MerkleTree subTree -> {
-            var subTreeRoot = (Artifact) directory[++i];
-            codedOut.writeMessage(
-                2,
-                DirectoryNode.newBuilder()
-                    .setName(internalToUnicode(subTreeRoot.getFilename()))
-                    .setDigest(subTree.digest())
-                    .build());
-          }
-          default -> {
-            var digest =
-                switch (item) {
-                  case Digest d -> d;
-                  case FileArtifactValue metadata ->
-                      DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-                  default ->
-                      throw new IllegalStateException("Unexpected item type: " + item.getClass());
-                };
-            var blobObj = blobs.get(item);
-            checkState(blobObj != null, "Blob for %s not found", item);
-            var input = (ActionInput) blobObj;
-            var fileNode =
-                FileNode.newBuilder()
-                    .setName(internalToUnicode(input.getExecPath().getBaseName()))
-                    .setDigest(digest)
-                    // We always treat files as executable since Bazel will `chmod 555` on the
-                    // output
-                    // files of an action within ActionOutputMetadataStore#getMetadata after action
-                    // execution if no metadata was injected. We can't use real executable bit of
-                    // the
-                    // file until this behavior is changed. See
-                    // https://github.com/bazelbuild/bazel/issues/13262 for more details.
-                    .setIsExecutable(true);
-            if (nodeProperties != null) {
-              fileNode.setNodeProperties(nodeProperties);
-            }
-            codedOut.writeMessage(1, fileNode.build());
-          }
+          default -> throw new IllegalStateException("Unexpected value: " + item);
         }
       }
       codedOut.flush();
