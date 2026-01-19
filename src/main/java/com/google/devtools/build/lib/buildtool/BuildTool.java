@@ -1525,7 +1525,7 @@ public class BuildTool {
       ClientId clientId =
           this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
       listener.setClientId(clientId);
-      servicesSupplier.configure(options, clientId, env.getBuildRequestId(), jsonLogWriter);
+      servicesSupplier.configure(options, clientId, env.getCommandId().toString(), jsonLogWriter);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.metadataWriter = servicesSupplier.getMetadataWriter();

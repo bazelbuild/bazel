@@ -187,6 +187,35 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help = "Locator for the AnalysisCacheService instance.")
   public String analysisCacheService;
 
+  @Option(
+      name = "experimental_remote_analysis_cache_storage",
+      defaultValue = "RAM",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = RemoteAnalysisCacheStorageTypeConverter.class,
+      help = "The storage type for the remote analysis cache.")
+  public RemoteAnalysisCacheStorageType storageType;
+
+  /** The storage type for the remote analysis cache. */
+  public enum RemoteAnalysisCacheStorageType {
+    /** Write to RAM. */
+    RAM,
+
+    /** Write to HDD. */
+    HDD,
+
+    /** Write to both RAM and HDD. */
+    BOTH
+  }
+
+  /** Enum converter for {@link RemoteAnalysisCacheStorageType}. */
+  public static class RemoteAnalysisCacheStorageTypeConverter
+      extends EnumConverter<RemoteAnalysisCacheStorageType> {
+    public RemoteAnalysisCacheStorageTypeConverter() {
+      super(RemoteAnalysisCacheStorageType.class, "Remote analysis cache storage type");
+    }
+  }
+
   // Configuration Modes:
   // 1. Write Proxy: If --experimental_remote_analysis_write_proxy is set, all uploads go through
   //    the write proxy. --experimental_remote_analysis_cache_mode must be UPLOAD.
