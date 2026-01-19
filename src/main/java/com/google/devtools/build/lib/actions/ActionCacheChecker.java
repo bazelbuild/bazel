@@ -470,6 +470,8 @@ public class ActionCacheChecker {
     if (!cacheConfig.enabled()) {
       return new Token(action);
     }
+
+    ActionCache.Entry entry = getCacheEntry(action);
     NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
     boolean inputsKnown = action.inputsKnown();
@@ -479,8 +481,9 @@ public class ActionCacheChecker {
           action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s",
           action);
-      if (action instanceof ActionCacheAwareAction actionCacheAwareAction
-          && actionCacheAwareAction.storeInputsExecPathsInActionCache()) {
+      // When inputs are pruned, the action cache stores all used inputs. Otherwise, it only stores
+      // discovered inputs.
+      if (entry != null && !entry.isCorrupted() && entry.prunedInputs()) {
         actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
       } else {
         actionInputs =
@@ -490,7 +493,7 @@ public class ActionCacheChecker {
                 .build();
       }
     }
-    ActionCache.Entry entry = getCacheEntry(action);
+
     CachedOutputMetadata cachedOutputMetadata = null;
     if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
       cachedOutputMetadata = loadCachedOutputMetadata(action, entry, outputMetadataStore);
@@ -517,7 +520,8 @@ public class ActionCacheChecker {
       return token;
     }
 
-    if (!inputsKnown) {
+    // Don't store pruned inputs in the action - it costs too much memory.
+    if (!inputsKnown && !entry.prunedInputs()) {
       action.updateInputs(actionInputs);
     }
 
@@ -678,12 +682,13 @@ public class ActionCacheChecker {
 
     var builder =
         new ActionCache.Entry.Builder(
-            actionKey,
-            action.discoversInputs(),
-            effectiveEnvironment,
-            actionExecutionSalt,
-            outputPermissions,
-            useArchivedTreeArtifacts);
+                actionKey,
+                action.discoversInputs(),
+                effectiveEnvironment,
+                actionExecutionSalt,
+                outputPermissions,
+                useArchivedTreeArtifacts)
+            .setPrunedInputs(action.prunedInputs());
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
@@ -708,11 +713,8 @@ public class ActionCacheChecker {
       }
     }
 
-    boolean storeAllInputsInActionCache =
-        action instanceof ActionCacheAwareAction actionCacheAwareAction
-            && actionCacheAwareAction.storeInputsExecPathsInActionCache();
     ImmutableSet<Artifact> excludePathsFromActionCache =
-        !storeAllInputsInActionCache && action.discoversInputs()
+        action.discoversInputs() && !action.prunedInputs()
             ? action.getMandatoryInputs().toSet()
             : ImmutableSet.of();
 

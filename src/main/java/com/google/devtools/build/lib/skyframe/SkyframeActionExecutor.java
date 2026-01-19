@@ -1399,7 +1399,15 @@ public final class SkyframeActionExecutor {
         }
 
         // Once the action has been written to the action cache, we can free its discovered inputs.
-        if (freeDiscoveredInputsAfterExecution && action.discoversInputs()) {
+        // We do this unconditionally for input-pruning actions because it costs too much memory for
+        // them to save their set of used inputs - they are already stored in the action cache.
+        if (action.prunedInputs()) {
+          checkState(
+              action.discoversInputs(),
+              "Only input-discovering actions may prune inputs: %s",
+              action);
+          action.resetDiscoveredInputs();
+        } else if (action.discoversInputs() && freeDiscoveredInputsAfterExecution) {
           action.resetDiscoveredInputs();
         }
         return ActionStepOrResult.of(value);

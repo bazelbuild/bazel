@@ -65,7 +65,7 @@ public interface ActionCache {
   /**
    * Returns the cache entry for the specified key, or null if not found.
    *
-   * <p>If an entry exists but is corrupted, returns {@link ActionCache.Entry.CORRUPTED}. Callers
+   * <p>If an entry exists but is corrupted, returns {@link ActionCache.Entry#CORRUPTED}. Callers
    * should check {@link ActionCache.Entry#isCorrupted()} before inspecting anything else on the
    * entry.
    */
@@ -82,7 +82,7 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new Entry(null, null, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
 
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
@@ -91,6 +91,8 @@ public interface ActionCache {
     // List of input paths discovered by the action.
     // Null if the action does not discover inputs.
     @Nullable private final ImmutableList<String> discoveredInputPaths;
+
+    private final boolean prunedInputs;
 
     // Output metadata.
     // Only present when building without the bytes, and even then, only for remotely stored files.
@@ -101,11 +103,16 @@ public interface ActionCache {
     Entry(
         @Nullable byte[] digest,
         @Nullable ImmutableList<String> discoveredInputPaths,
+        boolean prunedInputs,
         ImmutableMap<String, FileArtifactValue> outputFileMetadata,
         ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata,
         ImmutableList<String> proxyOutputs) {
+      checkArgument(
+          !prunedInputs || discoveredInputPaths != null,
+          "Action had unused inputs but no discovered inputs");
       this.digest = digest;
       this.discoveredInputPaths = discoveredInputPaths;
+      this.prunedInputs = prunedInputs;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
       this.proxyOutputs = proxyOutputs;
@@ -129,6 +136,17 @@ public interface ActionCache {
     public boolean discoversInputs() {
       checkState(!isCorrupted());
       return discoveredInputPaths != null;
+    }
+
+    /**
+     * Whether the action detected unused inputs.
+     *
+     * <p>If true, implies {@link #discoversInputs()}, and {@link #getDiscoveredInputPaths()}
+     * returns the used inputs.
+     */
+    public boolean prunedInputs() {
+      checkState(!isCorrupted());
+      return prunedInputs;
     }
 
     /**
@@ -276,6 +294,7 @@ public interface ActionCache {
       // Discovered inputs.
       // Null if the action does not discover inputs.
       @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
+      private boolean prunedInputs = false;
 
       private final ImmutableMap.Builder<String, FileArtifactValue> outputFileMetadata =
           ImmutableMap.builder();
@@ -381,6 +400,12 @@ public interface ActionCache {
         return this;
       }
 
+      @CanIgnoreReturnValue
+      public Builder setPrunedInputs(boolean prunedInputs) {
+        this.prunedInputs = prunedInputs;
+        return this;
+      }
+
       public Entry build() {
         return new Entry(
             computeDigest(
@@ -392,6 +417,7 @@ public interface ActionCache {
                 outputPermissions,
                 useArchivedTreeArtifacts),
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
+            prunedInputs,
             outputFileMetadata.buildOrThrow(),
             outputTreeMetadata.buildOrThrow(),
             proxyOutputs.build());

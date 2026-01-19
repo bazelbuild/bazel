@@ -543,9 +543,8 @@ public final class ActionExecutionFunction implements SkyFunction {
   @Nullable
   private AllInputs collectInputs(Action action, Environment env)
       throws InterruptedException, AlreadyReportedActionExecutionException {
-    NestedSet<Artifact> allKnownInputs = action.getInputs();
     if (action.inputsKnown()) {
-      return new AllInputs(allKnownInputs);
+      return new AllInputs(action.getInputs());
     }
 
     checkState(action.discoversInputs(), action);
@@ -556,6 +555,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       checkState(env.valuesMissing(), action);
       return null;
     }
+
+    // Actions which pruned their inputs may be able to get an action cache hit without requesting
+    // the full set of original inputs. We'll request them later on if there is no action cache hit.
+    NestedSet<Artifact> allKnownInputs =
+        action.prunedInputs() ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : action.getInputs();
     return new AllInputs(allKnownInputs, actionCacheInputs);
   }
 
@@ -872,26 +876,11 @@ public final class ActionExecutionFunction implements SkyFunction {
             actionForError);
         continue;
       }
-      switch (retrievedMetadata) {
-        case TreeArtifactValue treeValue -> {
-          inputData.putTreeArtifact(input, treeValue);
-          treeValue
-              .getArchivedRepresentation()
-              .ifPresent(
-                  archivedRepresentation ->
-                      inputData.put(
-                          archivedRepresentation.archivedTreeFileArtifact(),
-                          archivedRepresentation.archivedFileValue()));
-        }
-        case ActionExecutionValue actionExecutionValue ->
-            inputData.put(input, actionExecutionValue.getExistingFileArtifactValue(input));
-        case MissingArtifactValue missing ->
-            inputData.put(input, FileArtifactValue.MISSING_FILE_MARKER);
-        case FileArtifactValue fileArtifactValue -> inputData.put(input, fileArtifactValue);
-        default ->
-            throw new IllegalStateException(
-                "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
+      if (retrievedMetadata instanceof MissingArtifactValue) {
+        retrievedMetadata = FileArtifactValue.MISSING_FILE_MARKER;
       }
+      ActionInputMapHelper.addToMap(
+          inputData, input, retrievedMetadata, MetadataConsumerForMetrics.NO_OP);
     }
   }
 
