@@ -118,6 +118,23 @@ sh_test(
 )
 
 sh_test(
+    name = "stack_trace_integration_test",
+    size = "medium",
+    srcs = ["stack_trace_integration_tests.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+        "4",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
     name = "antxmlresultwriter_integration_test",
     size = "medium",
     srcs = ["antxmlresultwriter_integration_test.sh"],

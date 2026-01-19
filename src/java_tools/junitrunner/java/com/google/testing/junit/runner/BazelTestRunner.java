@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
@@ -27,6 +28,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.junit.runner.Result;
+import sun.misc.Signal;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -40,6 +42,7 @@ import org.junit.runner.Result;
  * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
  * closed by the unit test framework for running over time.
  */
+@SuppressWarnings("SunApi")
 public class BazelTestRunner {
   /**
    * If no arguments are passed on the command line, use this System property to
@@ -77,6 +80,10 @@ public class BazelTestRunner {
    */
   public static void main(String[] args) {
     PrintStream stderr = System.err;
+
+    // Install signal handlers early to ensure stack traces are printed even if the test
+    // is interrupted during suite creation.
+    installSignalHandlers(stderr);
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
     if (!checkTestSuiteProperty(suiteClassName)) {
@@ -254,5 +261,16 @@ public class BazelTestRunner {
         Thread.currentThread().interrupt();
       }
     }
+  }
+
+  /** Installs a SIGTERM handler that prints stack traces for all threads. */
+  private static void installSignalHandlers(PrintStream errPrintStream) {
+    SignalHandlers signalHandlers = new SignalHandlers(SignalHandlers.createRealHandlerInstaller());
+    signalHandlers.installHandler(
+        new Signal("TERM"),
+        signal -> {
+          errPrintStream.println("Received SIGTERM, dumping stack traces for all threads\n");
+          StackTraces.printAll(errPrintStream);
+        });
   }
 }
