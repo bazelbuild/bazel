@@ -33,7 +33,6 @@ java_library(
         "AbstractCommandLine.java",
         "Action.java",
         "ActionAnalysisMetadata.java",
-        "ActionCacheAwareAction.java",
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
         "ActionChangePrunedEvent.java",

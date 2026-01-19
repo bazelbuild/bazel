@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.analysis.actions;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -55,7 +55,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -221,15 +220,20 @@ public class StarlarkAction extends SpawnAction {
   /** A {@link StarlarkAction} with {@code unused_inputs_list} and/or a shadowed action present. */
   @AutoCodec
   @VisibleForSerialization
-  static final class EnhancedStarlarkAction extends StarlarkAction
-      implements ActionCacheAwareAction {
+  static final class EnhancedStarlarkAction extends StarlarkAction {
     // All the inputs of the Starlark action including those listed in the unused inputs and
     // excluding the shadowed action inputs.
     private final NestedSet<Artifact> allStarlarkActionInputs;
+    // allStarlarkActionInputs plus shadowed action inputs, if present.
+    private final NestedSet<Artifact> originalInputs;
+
+    // Null when there is no shadowed action.
+    @Nullable private final NestedSet<Artifact> mandatoryInputs;
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
     private boolean inputsDiscovered = false;
+    private boolean prunedInputs = false;
 
     EnhancedStarlarkAction(
         ActionOwner owner,
@@ -260,6 +264,11 @@ public class StarlarkAction extends SpawnAction {
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = inputs;
+      this.originalInputs = getInputs();
+      this.mandatoryInputs =
+          shadowedAction.isPresent()
+              ? createInputs(shadowedAction.get().getMandatoryInputs(), inputs)
+              : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
     }
@@ -295,6 +304,11 @@ public class StarlarkAction extends SpawnAction {
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = allStarlarkActionInputs;
+      this.originalInputs = getInputs();
+      this.mandatoryInputs =
+          shadowedAction.isPresent()
+              ? createInputs(shadowedAction.get().getMandatoryInputs(), allStarlarkActionInputs)
+              : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
     }
@@ -323,8 +337,13 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    public boolean prunedInputs() {
+      return prunedInputs;
+    }
+
+    @Override
     public NestedSet<Artifact> getOriginalInputs() {
-      return allStarlarkActionInputs;
+      return originalInputs;
     }
 
     @Override
@@ -335,6 +354,11 @@ public class StarlarkAction extends SpawnAction {
     @Override
     protected void setInputsDiscovered(boolean inputsDiscovered) {
       this.inputsDiscovered = inputsDiscovered;
+    }
+
+    @Override
+    public NestedSet<Artifact> getMandatoryInputs() {
+      return mandatoryInputs != null ? mandatoryInputs : getInputs();
     }
 
     @Override
@@ -409,13 +433,11 @@ public class StarlarkAction extends SpawnAction {
         return;
       }
 
-      // Get all the action's inputs after execution which will include the shadowed action
-      // discovered inputs
-      NestedSet<Artifact> allInputs = getInputs();
-      Map<String, Artifact> usedInputsByMappedPath = new HashMap<>();
-      for (Artifact input : allInputs.toList()) {
-        usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
-      }
+      // Initialized lazily in case there are no unused inputs.
+      Map<String, Artifact> usedInputsByMappedPath = null;
+
+      boolean sawUnusedInput = false;
+
       // Bazel encodes file system paths as raw bytes stored in a Latin-1 encoded string, so we need
       // to make sure to also decode the unused input list as Latin-1.
       try (BufferedReader br =
@@ -429,14 +451,29 @@ public class StarlarkAction extends SpawnAction {
           if (line.isEmpty()) {
             continue;
           }
-          usedInputsByMappedPath.remove(line);
+          if (usedInputsByMappedPath == null) {
+            // Get all the action's inputs after execution which will include the shadowed action
+            // discovered inputs.
+            ImmutableList<Artifact> allInputs = getInputs().toList();
+            usedInputsByMappedPath = Maps.newHashMapWithExpectedSize(allInputs.size());
+            for (Artifact input : allInputs) {
+              usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
+            }
+          }
+          if (usedInputsByMappedPath.remove(line) != null) {
+            sawUnusedInput = true;
+          }
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(
             e,
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
       }
+
+      prunedInputs = sawUnusedInput;
+      if (sawUnusedInput) {
       updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
+    }
     }
 
     @Override
@@ -463,20 +500,6 @@ public class StarlarkAction extends SpawnAction {
         return null;
       }
       return createInputs(inputFilesForExtraAction, allStarlarkActionInputs);
-    }
-
-    /**
-     * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
-     * list to determine the list of inputs for a subsequent run, taking into account
-     * unused_input_list. Hence we need to store the inputs' execPaths in the action cache. The
-     * StarlarkAction inputs' execPaths should also be stored in the action cache if it shadows
-     * another action that discovers its inputs to avoid re-running input discovery after a
-     * shutdown.
-     */
-    @Override
-    public boolean storeInputsExecPathsInActionCache() {
-      return unusedInputsList.isPresent()
-          || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
     }
 
     /**

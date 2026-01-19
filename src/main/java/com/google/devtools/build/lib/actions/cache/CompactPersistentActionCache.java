@@ -75,7 +75,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 23;
+  private static final int VERSION = 24;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -848,7 +848,8 @@ public class CompactPersistentActionCache implements ActionCache {
     int maxDiscoveredInputsSize = 1; // presence marker
     if (entry.discoversInputs()) {
       maxDiscoveredInputsSize +=
-          VarInt.MAX_VARINT_SIZE // length
+          1 // pruned inputs presence marker
+              + VarInt.MAX_VARINT_SIZE // length
               + (VarInt.MAX_VARINT_SIZE // execPath
                   * entry.getDiscoveredInputPaths().size());
     }
@@ -899,6 +900,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
+      VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
       VarInt.putVarInt(discoveredInputPaths.size(), sink);
       for (String discoveredInputPath : discoveredInputPaths) {
@@ -975,11 +977,19 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] digest = MetadataDigestUtils.read(source);
 
       ImmutableList<String> discoveredInputPaths = null;
+      boolean prunedInputs = false;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
         if (discoveredInputsPresenceMarker != 1) {
           throw new IOException(
               "Invalid presence marker for discovered inputs: " + discoveredInputsPresenceMarker);
+        }
+        int prunedInputsMarker = VarInt.getVarInt(source);
+        if (prunedInputsMarker != 0) {
+          if (prunedInputsMarker != 1) {
+            throw new IOException("Invalid marker for pruned inputs: " + prunedInputsMarker);
+          }
+          prunedInputs = true;
         }
         int numDiscoveredInputs = VarInt.getVarInt(source);
         if (numDiscoveredInputs < 0) {
@@ -1003,6 +1013,7 @@ public class CompactPersistentActionCache implements ActionCache {
         return new ActionCache.Entry(
             digest,
             discoveredInputPaths,
+            prunedInputs,
             /* outputFileMetadata= */ ImmutableMap.of(),
             /* outputTreeMetadata= */ ImmutableMap.of(),
             /* proxyOutputs= */ ImmutableList.of());
@@ -1083,6 +1094,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return new ActionCache.Entry(
           digest,
           discoveredInputPaths,
+          prunedInputs,
           outputFiles.buildOrThrow(),
           outputTrees.buildOrThrow(),
           proxyArtifacts.build());

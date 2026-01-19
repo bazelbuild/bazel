@@ -370,6 +370,10 @@ EOF
   assert_empty_file output
 }
 
+# Note: --noinclude_pruned_inputs doesn't filter out inputs removed by
+# unused_inputs_list, even after the build. The set of used inputs is only
+# stored in the action cache (not in memory), so aquery cannot know which inputs
+# are used.
 function test_unused_inputs() {
   add_rules_shell "MODULE.bazel"
 
@@ -418,7 +422,7 @@ EOF
   chmod +x "$pkg/tool.sh"
   touch "$pkg/used.txt" "$pkg/useless.txt"
 
-  # Test --include_pruned_inputs before build.
+  # Test before build.
   # Expect used.txt and useless.txt to be considered inputs.
 
   bazel aquery "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
@@ -437,7 +441,7 @@ EOF
 
   assert_nonempty_file output
 
-  # Test --include_pruned_inputs after build.
+  # Test after build.
   # Expect used.txt and useless.txt to be considered inputs.
 
   bazel build "//$pkg:foo" || fail "Expected success"
@@ -459,54 +463,6 @@ EOF
   assert_nonempty_file output
 
   bazel clean
-
-  # Test --noinclude_pruned_inputs before build.
-  # Expect used.txt and useless.txt to be considered inputs.
-
-  bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  assert_contains "Inputs:.*used.txt" output
-  assert_contains "Inputs:.*useless.txt" output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  # Test --noinclude_pruned_inputs after build.
-  # Expect used.h to be considered an input, but not useless.h.
-
-  bazel build "//$pkg:foo" || fail "Expected success"
-
-  bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  assert_contains "Inputs:.*used.txt" output
-  assert_not_contains "Inputs:.*useless.txt" output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_empty_file output
 }
 
 function test_aquery_starlark_env() {

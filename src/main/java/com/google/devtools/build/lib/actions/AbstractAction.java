@@ -141,6 +141,11 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
+  public boolean prunedInputs() {
+    return false;
+  }
+
+  @Override
   @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
