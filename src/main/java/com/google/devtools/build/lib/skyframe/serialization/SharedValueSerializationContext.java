@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
 
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -354,7 +355,8 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     if (childBytes.length > COMPRESSION_THRESHOLD_IN_BYTES) {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       outputStream.write((byte) 1);
-      try (ZstdOutputStream zstdOutputStream = new ZstdOutputStream(outputStream)) {
+      try (ZstdOutputStream zstdOutputStream =
+          new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE)) {
         zstdOutputStream.write(childBytes);
         zstdOutputStream.flush();
         return outputStream.toByteArray();
