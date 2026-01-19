@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -3122,6 +3123,32 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
     assertThat(ev.eval("action.mnemonic")).isEqualTo("MyWrite");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(contentUnchecked).isEqualTo("foo123\n");
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithArgsAndSupportsPathMapping() throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "args = ctx.actions.args()",
+            "args.add('foo123')",
+            "ctx.actions.write(output=out, content=args, execution_requirements={'supports-path-mapping': ''})"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    var action = (Action) ev.eval("ruleContext.attr.dep[Actions].by_file[file]");
+    ev.update("action", action);
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(action.getExecutionInfo()).containsEntry("supports-path-mapping", "");
 
     Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);

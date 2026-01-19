@@ -373,8 +373,26 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             named = true,
             positional = false,
             doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+        @Param(
+            name = "execution_requirements",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Information for scheduling the action. See "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
+                    + "for useful keys."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
+  void write(
+      FileApi output,
+      Object content,
+      Boolean isExecutable,
+      Object mnemonicUnchecked,
+      Object executionRequirementsUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
