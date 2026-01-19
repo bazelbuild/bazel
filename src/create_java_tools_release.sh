@@ -162,4 +162,5 @@ java_tools_output='"java_tools" : {'${urls}', "sha" : "'${file_hash}'"}'
 artifacts='"artifacts" : {'${platform_output}' '${java_tools_output}'}'
 version='"version" : "v'${java_tools_version}'"'
 release='"release" : "'${release}'"'
-echo "{${version}, ${release}, ${artifacts}}" | jq
+provenance='"source_revision" : "'${commit_hash}'"'
+echo "{${version}, ${provenance}, ${release}, ${artifacts}}" | jq
