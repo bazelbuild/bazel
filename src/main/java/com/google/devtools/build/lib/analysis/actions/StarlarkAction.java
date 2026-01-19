@@ -472,8 +472,8 @@ public class StarlarkAction extends SpawnAction {
 
       prunedInputs = sawUnusedInput;
       if (sawUnusedInput) {
-      updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
-    }
+        updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
+      }
     }
 
     @Override
