@@ -582,15 +582,15 @@ public final class Types {
 
   static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> constructor) {
-    return argsTuple -> {
-      if (argsTuple.size() != 1) {
+    return args -> {
+      if (args.size() != 1) {
         throw new TypeConstructor.Failure(
-            String.format("%s[] accepts exactly 1 argument but got %d", name, argsTuple.size()));
+            String.format("%s[] accepts exactly 1 argument but got %d", name, args.size()));
       }
-      if (!(argsTuple.get(0) instanceof StarlarkType type)) {
+      TypeConstructor.Arg arg = args.get(0);
+      if (!(arg instanceof StarlarkType type)) {
         throw new TypeConstructor.Failure(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
+            String.format("in application to %s, got '%s', expected a type", name, arg));
       }
       return constructor.apply(type);
     };
@@ -598,20 +598,20 @@ public final class Types {
 
   static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
-    return argsTuple -> {
-      if (argsTuple.size() != 2) {
+    return args -> {
+      if (args.size() != 2) {
         throw new TypeConstructor.Failure(
-            String.format("%s[] accepts exactly 2 arguments but got %d", name, argsTuple.size()));
+            String.format("%s[] accepts exactly 2 arguments but got %d", name, args.size()));
       }
-      if (!(argsTuple.get(0) instanceof StarlarkType keyType)) {
+      TypeConstructor.Arg keyArg = args.get(0);
+      TypeConstructor.Arg valueArg = args.get(1);
+      if (!(keyArg instanceof StarlarkType keyType)) {
         throw new TypeConstructor.Failure(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
+            String.format("in application to %s, got '%s', expected a type", name, keyArg));
       }
-      if (!(argsTuple.get(1) instanceof StarlarkType valueType)) {
+      if (!(valueArg instanceof StarlarkType valueType)) {
         throw new TypeConstructor.Failure(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
+            String.format("in application to %s, got '%s', expected a type", name, valueArg));
       }
       return constructor.apply(keyType, valueType);
     };
@@ -620,10 +620,10 @@ public final class Types {
   private static final TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return argsTuple -> {
+    return args -> {
       ImmutableList.Builder<StarlarkType> elementTypes =
-          ImmutableList.builderWithExpectedSize(argsTuple.size());
-      for (Object arg : argsTuple) {
+          ImmutableList.builderWithExpectedSize(args.size());
+      for (TypeConstructor.Arg arg : args) {
         if (!(arg instanceof StarlarkType type)) {
           throw new TypeConstructor.Failure(
               String.format("in application to tuple, got '%s', expected a type", arg));

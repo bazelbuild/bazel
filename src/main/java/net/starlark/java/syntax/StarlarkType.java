@@ -23,7 +23,7 @@ import java.util.List;
  * <p>Starlark typing is an experimental feature under development. See the tracking issue:
  * https://github.com/bazelbuild/bazel/issues/27370
  */
-public abstract class StarlarkType {
+public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
 
   /**
    * Returns the list of supertypes of this type.

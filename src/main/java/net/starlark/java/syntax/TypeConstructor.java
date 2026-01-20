@@ -36,10 +36,22 @@ public interface TypeConstructor {
   }
 
   /**
+   * An argument to a type constructor's {@link #invoke} method.
+   *
+   * <p>Conceptually, a type argument is the result of evaluating a subexpression of a type
+   * expression. Whereas the overall type expression must yield a {@link StarlarkType}, a
+   * subexpression can also yield other objects such as an ellipsis or a list of other arguments.
+   * These are needed for type expressions like {@code tuple[Any, ...]} and {@code Callable[[int],
+   * bool]}.
+   */
+  // TODO: #27370 - Support other type arguments besides StarlarkType when we need them.
+  sealed interface Arg permits StarlarkType {}
+
+  /**
    * Returns the result of applying this constructor to the given type arguments
    *
    * @throws Failure if the usage of this constructor is invalid (typically due to a mismatch in the
    *     number of arguments)
    */
-  StarlarkType invoke(ImmutableList<?> argsTuple) throws Failure;
+  StarlarkType invoke(ImmutableList<Arg> argsTuple) throws Failure;
 }

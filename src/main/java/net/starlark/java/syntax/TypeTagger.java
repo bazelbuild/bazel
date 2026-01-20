@@ -89,8 +89,7 @@ public final class TypeTagger extends NodeVisitor {
     }
   }
 
-  // TODO: #28043 - Narrow return type to a TypeArg, once we add that class.
-  private Object extractTypeOrArg(Expression expr) {
+  private TypeConstructor.Arg extractArg(Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
@@ -110,10 +109,8 @@ public final class TypeTagger extends NodeVisitor {
         if (constructor == null) {
           return Types.ANY;
         }
-        ImmutableList<Object> arguments =
-            app.getArguments().stream()
-                .map(arg -> extractTypeOrArg(arg))
-                .collect(toImmutableList());
+        ImmutableList<TypeConstructor.Arg> arguments =
+            app.getArguments().stream().map(this::extractArg).collect(toImmutableList());
 
         try {
           return constructor.invoke(arguments);
@@ -145,13 +142,9 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   private StarlarkType extractType(Expression expr) {
-    Object typeOrArg = extractTypeOrArg(expr);
-    if (!(typeOrArg instanceof StarlarkType type)) {
-      if (typeOrArg instanceof TypeConstructor) {
-        errorf(expr, "expected type arguments after the type constructor '%s'", expr);
-      } else {
-        errorf(expr, "expression '%s' is not a valid type.", expr);
-      }
+    TypeConstructor.Arg arg = extractArg(expr);
+    if (!(arg instanceof StarlarkType type)) {
+      errorf(expr, "expression '%s' is not a valid type.", expr);
       return Types.ANY;
     }
     return type;
