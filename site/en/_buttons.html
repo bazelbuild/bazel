@@ -43,6 +43,13 @@
 <!-- The lines below are updated by //scripts/docs:gen_new_toc -->
 <!-- BEGIN_VERSION_INDICATOR -->
 ·
+{% dynamic if setvar.version == "9.0.0" %}
+<strong>9.0</strong>
+{% dynamic else %}
+<a href="/versions/9.0.0{% dynamic print setvar.original_path %}">
+9.0</a>
+{% dynamic endif %}
+·
 {% dynamic if setvar.version == "8.5.0" %}
 <strong>8.5</strong>
 {% dynamic else %}
@@ -52,31 +59,22 @@
 {% dynamic if setvar.version == "8.4.0" %}
 <strong>8.4</strong>
 {% dynamic else %}
-<a href="/versions/8.4.0{% dynamic print setvar.original_path %}">8.4</a>
+<a href="/versions/8.4.0{% dynamic print setvar.original_path %}">
+8.4</a>
 {% dynamic endif %}
 ·
 {% dynamic if setvar.version == "8.3.0" %}
 <strong>8.3</strong>
 {% dynamic else %}
-<a href="/versions/8.3.0{% dynamic print setvar.original_path %}">8.3</a>
+<a href="/versions/8.3.0{% dynamic print setvar.original_path %}">
+8.3</a>
 {% dynamic endif %}
 ·
 {% dynamic if setvar.version == "8.2.0" %}
 <strong>8.2</strong>
 {% dynamic else %}
-<a href="/versions/8.2.0{% dynamic print setvar.original_path %}">8.2</a>
-{% dynamic endif %}
-·
-{% dynamic if setvar.version == "8.1.0" %}
-<strong>8.1</strong>
-{% dynamic else %}
-<a href="/versions/8.1.0{% dynamic print setvar.original_path %}">8.1</a>
-{% dynamic endif %}
-·
-{% dynamic if setvar.version == "8.0.0" %}
-<strong>8.0</strong>
-{% dynamic else %}
-<a href="/versions/8.0.0{% dynamic print setvar.original_path %}">8.0</a>
+<a href="/versions/8.2.0{% dynamic print setvar.original_path %}">
+8.2</a>
 {% dynamic endif %}
 ·
 {% dynamic if setvar.version == "7.7.0" %}
