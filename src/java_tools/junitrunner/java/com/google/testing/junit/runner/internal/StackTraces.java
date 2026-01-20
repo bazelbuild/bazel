@@ -41,6 +41,16 @@ public class StackTraces {
    * @param out Stream to print to
    */
   public static void printAll(PrintStream out) {
+    printAll(out, /* emitJsonThreadDump= */ false);
+  }
+
+  /**
+   * Prints all stack traces to the given stream.
+   *
+   * @param out Stream to print to
+   * @param emitJsonThreadDump Whether to also emit a JSON thread dump to a file
+   */
+  public static void printAll(PrintStream out, boolean emitJsonThreadDump) {
     out.println("Starting full thread dump ...\n");
     ThreadMXBean mb = ManagementFactory.getThreadMXBean();
 
