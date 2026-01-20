@@ -43,7 +43,7 @@ public final class Types {
    * The Dynamic type of gradual typing; compatible with any other type, but not related by
    * subtyping to any other type.
    */
-  public static final StarlarkType ANY = new Any();
+  public static final StarlarkType ANY = new AnyType();
 
   /** The top type of the type hierarchy. */
   public static final StarlarkType OBJECT = new ObjectType();
@@ -52,12 +52,12 @@ public final class Types {
   public static final StarlarkType NEVER = new NeverType();
 
   // Primitive types
-  public static final StarlarkType NONE = new None();
+  public static final StarlarkType NONE = new NoneType();
 
-  public static final StarlarkType BOOL = new Bool();
-  public static final StarlarkType INT = new Int();
+  public static final StarlarkType BOOL = new BoolType();
+  public static final StarlarkType INT = new IntType();
   public static final StarlarkType FLOAT = new FloatType();
-  public static final StarlarkType STR = new Str();
+  public static final StarlarkType STR = new StrType();
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -65,10 +65,10 @@ public final class Types {
 
   private Types() {} // uninstantiable
 
-  public static final ImmutableMap<String, TypeConstructorProxy> TYPE_UNIVERSE = makeTypeUniverse();
+  public static final ImmutableMap<String, TypeConstructor> TYPE_UNIVERSE = makeTypeUniverse();
 
-  private static ImmutableMap<String, TypeConstructorProxy> makeTypeUniverse() {
-    ImmutableMap.Builder<String, TypeConstructorProxy> env = ImmutableMap.builder();
+  private static ImmutableMap<String, TypeConstructor> makeTypeUniverse() {
+    ImmutableMap.Builder<String, TypeConstructor> env = ImmutableMap.builder();
     env //
         .put("Any", wrapType("Any", ANY))
         .put("object", wrapType("object", OBJECT))
@@ -80,7 +80,7 @@ public final class Types {
         .put("list", wrapTypeConstructor("list", Types::list))
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
-        .put("tuple", wrapTupleConstructorProxy())
+        .put("tuple", wrapTupleConstructor())
         .put("Collection", wrapTypeConstructor("Collection", Types::collection))
         .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence))
         .put("Mapping", wrapTypeConstructor("Mapping", Types::mapping));
@@ -89,7 +89,7 @@ public final class Types {
 
   // hashCode and equals implementation is a workaround for serialization code that may duplicate
   // otherwise singletons
-  private static final class Any extends StarlarkType {
+  private static final class AnyType extends StarlarkType {
     @Override
     public String toString() {
       return "Any";
@@ -97,12 +97,12 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Any.class.hashCode();
+      return AnyType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Any;
+      return obj instanceof AnyType;
     }
   }
 
@@ -140,7 +140,7 @@ public final class Types {
     }
   }
 
-  private static final class None extends StarlarkType {
+  private static final class NoneType extends StarlarkType {
     @Override
     public String toString() {
       return "None";
@@ -148,16 +148,16 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return None.class.hashCode();
+      return NoneType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof None;
+      return obj instanceof NoneType;
     }
   }
 
-  private static final class Bool extends StarlarkType {
+  private static final class BoolType extends StarlarkType {
     @Override
     public String toString() {
       return "bool";
@@ -165,16 +165,16 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Bool.class.hashCode();
+      return BoolType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Bool;
+      return obj instanceof BoolType;
     }
   }
 
-  private static final class Int extends StarlarkType {
+  private static final class IntType extends StarlarkType {
     @Override
     public String toString() {
       return "int";
@@ -182,12 +182,12 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Int.class.hashCode();
+      return IntType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Int;
+      return obj instanceof IntType;
     }
   }
 
@@ -208,7 +208,7 @@ public final class Types {
     }
   }
 
-  private static final class Str extends StarlarkType {
+  private static final class StrType extends StarlarkType {
     @Override
     public String toString() {
       return "str";
@@ -216,12 +216,12 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Str.class.hashCode();
+      return StrType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Str;
+      return obj instanceof StrType;
     }
   }
 
@@ -382,8 +382,6 @@ public final class Types {
    *
    * <p>If types set contains Object type it's simplified to Object type. If the set contains a
    * single element, it is returned instead of constructing a union.
-   *
-   * @throws IllegalArgumentException If an empty set is passed in.
    */
   public static StarlarkType union(StarlarkType... types) {
     return union(ImmutableSet.copyOf(types));
@@ -573,35 +571,24 @@ public final class Types {
     }
   }
 
-  /**
-   * A proxy for a type constructor, e.g. {@code list}.
-   *
-   * <p>It takes a list of arguments and returns a constructed type.
-   *
-   * <p>Throws {@link IllegalArgumentException} if call doesn't match the expected signature.
-   */
-  public interface TypeConstructorProxy {
-    StarlarkType invoke(ImmutableList<?> argsTuple);
-  }
-
-  static TypeConstructorProxy wrapType(String name, StarlarkType type) {
+  static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
-        throw new IllegalArgumentException(String.format("'%s' does not accept arguments", name));
+        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
       }
       return type;
     };
   }
 
-  static TypeConstructorProxy wrapTypeConstructor(
+  static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> constructor) {
     return argsTuple -> {
       if (argsTuple.size() != 1) {
-        throw new IllegalArgumentException(
+        throw new TypeConstructor.Failure(
             String.format("%s[] accepts exactly 1 argument but got %d", name, argsTuple.size()));
       }
       if (!(argsTuple.get(0) instanceof StarlarkType type)) {
-        throw new IllegalArgumentException(
+        throw new TypeConstructor.Failure(
             String.format(
                 "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
       }
@@ -609,20 +596,20 @@ public final class Types {
     };
   }
 
-  static TypeConstructorProxy wrapTypeConstructor(
+  static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
     return argsTuple -> {
       if (argsTuple.size() != 2) {
-        throw new IllegalArgumentException(
+        throw new TypeConstructor.Failure(
             String.format("%s[] accepts exactly 2 arguments but got %d", name, argsTuple.size()));
       }
       if (!(argsTuple.get(0) instanceof StarlarkType keyType)) {
-        throw new IllegalArgumentException(
+        throw new TypeConstructor.Failure(
             String.format(
                 "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
       }
       if (!(argsTuple.get(1) instanceof StarlarkType valueType)) {
-        throw new IllegalArgumentException(
+        throw new TypeConstructor.Failure(
             String.format(
                 "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
       }
@@ -630,7 +617,7 @@ public final class Types {
     };
   }
 
-  private static final TypeConstructorProxy wrapTupleConstructorProxy() {
+  private static final TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return argsTuple -> {
@@ -638,7 +625,7 @@ public final class Types {
           ImmutableList.builderWithExpectedSize(argsTuple.size());
       for (Object arg : argsTuple) {
         if (!(arg instanceof StarlarkType type)) {
-          throw new IllegalArgumentException(
+          throw new TypeConstructor.Failure(
               String.format("in application to tuple, got '%s', expected a type", arg));
         }
         elementTypes.add(type);

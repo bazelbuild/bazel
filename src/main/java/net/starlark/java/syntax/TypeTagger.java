@@ -69,7 +69,7 @@ public final class TypeTagger extends NodeVisitor {
    * <p>If no match, logs an error at the given node and returns null.
    */
   @Nullable
-  private Types.TypeConstructorProxy resolveTypeConstructor(Identifier id) {
+  private TypeConstructor resolveTypeConstructor(Identifier id) {
     String name = id.getName();
 
     var scope = id.getBinding().getScope();
@@ -106,7 +106,7 @@ public final class TypeTagger extends NodeVisitor {
       case TYPE_APPLICATION -> {
         TypeApplication app = (TypeApplication) expr;
 
-        Types.TypeConstructorProxy constructor = resolveTypeConstructor(app.getConstructor());
+        TypeConstructor constructor = resolveTypeConstructor(app.getConstructor());
         if (constructor == null) {
           return Types.ANY;
         }
@@ -117,19 +117,19 @@ public final class TypeTagger extends NodeVisitor {
 
         try {
           return constructor.invoke(arguments);
-        } catch (IllegalArgumentException e) {
+        } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
         }
       }
       case IDENTIFIER -> {
-        Types.TypeConstructorProxy constructor = resolveTypeConstructor((Identifier) expr);
+        TypeConstructor constructor = resolveTypeConstructor((Identifier) expr);
         if (constructor == null) {
           return Types.ANY;
         }
         try {
           return constructor.invoke(ImmutableList.of());
-        } catch (IllegalArgumentException e) {
+        } catch (TypeConstructor.Failure e) {
           // TODO: #28043 - Allow unapplied type constructors to be syntactic sugar for a default
           // application, e.g. `list` for `list[Any]`.
           errorf(expr, "%s", e.getMessage());
@@ -147,7 +147,7 @@ public final class TypeTagger extends NodeVisitor {
   private StarlarkType extractType(Expression expr) {
     Object typeOrArg = extractTypeOrArg(expr);
     if (!(typeOrArg instanceof StarlarkType type)) {
-      if (typeOrArg instanceof Types.TypeConstructorProxy) {
+      if (typeOrArg instanceof TypeConstructor) {
         errorf(expr, "expected type arguments after the type constructor '%s'", expr);
       } else {
         errorf(expr, "expression '%s' is not a valid type.", expr);

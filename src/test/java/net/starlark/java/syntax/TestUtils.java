@@ -60,7 +60,7 @@ public final class TestUtils {
     }
 
     @Override
-    public Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined {
+    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
       throw new Undefined("TestModule does not support type resolution");
     }
   }
@@ -79,7 +79,7 @@ public final class TestUtils {
   public static Module moduleWithUniversalTypes() {
     return new TestModule(Types.TYPE_UNIVERSE.keySet()) {
       @Override
-      public Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined {
+      public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
         resolve(name); // throws if unknown
         return Types.TYPE_UNIVERSE.get(name);
       }

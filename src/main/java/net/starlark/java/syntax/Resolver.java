@@ -410,9 +410,9 @@ public final class Resolver extends NodeVisitor {
    * does *not* contain information about local symbols, or globals that are defined in the code
    * currently being resolved.
    *
-   * <p>The {@link #resolveType} API returns type information used in static type checking, but is
-   * not used directly in the resolver. It may include information about user-defined types, i.e.
-   * types introduced as global symbols in the resolved code.
+   * <p>The {@link #resolveTypeConstructor} API returns type information used in static type
+   * checking, but is not used directly in the resolver. It may include information about
+   * user-defined types, i.e. types introduced as global symbols in the resolved code.
    */
   public interface Module {
 
@@ -431,7 +431,7 @@ public final class Resolver extends NodeVisitor {
      *     not defined, the exception may contain a set of available candidate names that are
      *     predefined symbols or that are injected as user-defined types.
      */
-    Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined;
+    TypeConstructor resolveTypeConstructor(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}
