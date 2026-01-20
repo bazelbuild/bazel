@@ -45,8 +45,8 @@ import sun.misc.Signal;
 @SuppressWarnings("SunApi") // for signal handling, see JDK-8349056
 public class BazelTestRunner {
   /**
-   * If no arguments are passed on the command line, use this System property to
-   * determine which test suite to run.
+   * If no arguments are passed on the command line, use this System property to determine which
+   * test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
 
@@ -130,14 +130,17 @@ public class BazelTestRunner {
           TEST_SUITE_PROPERTY_NAME);
       System.err.println();
       System.err.println("This property is set automatically when running with Bazel like such:");
-      System.err.printf("  java -D%s=[test-suite-class] %s%n",
+      System.err.printf(
+          "  java -D%s=[test-suite-class] %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=[test-suite-class] -jar [deploy-jar]%n",
-          TEST_SUITE_PROPERTY_NAME);
+      System.err.printf(
+          "  java -D%s=[test-suite-class] -jar [deploy-jar]%n", TEST_SUITE_PROPERTY_NAME);
       System.err.println("E.g.:");
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests "
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests "
               + "-jar SmallTests_deploy.jar%n",
           TEST_SUITE_PROPERTY_NAME);
       return false;
@@ -227,22 +230,24 @@ public class BazelTestRunner {
    * @param out Print stream to use
    */
   private static void printStackTracesIfJvmExitHangs(final PrintStream out) {
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        sleepUninterruptibly(5);
-        out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
-        StackTraces.printAll(out);
-      }
-    }, "BazelTestRunner: Print stack traces if JVM exit hangs");
+    Thread thread =
+        new Thread(
+            new Runnable() {
+              @Override
+              public void run() {
+                sleepUninterruptibly(5);
+                out.println(
+                    "JVM still up after five seconds. Dumping stack traces for all threads.");
+                StackTraces.printAll(out);
+              }
+            },
+            "BazelTestRunner: Print stack traces if JVM exit hangs");
 
     thread.setDaemon(true);
     thread.start();
   }
 
-  /**
-   * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
-   */
+  /** Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly. */
   private static void sleepUninterruptibly(long sleepForSeconds) {
     boolean interrupted = false;
     try {
