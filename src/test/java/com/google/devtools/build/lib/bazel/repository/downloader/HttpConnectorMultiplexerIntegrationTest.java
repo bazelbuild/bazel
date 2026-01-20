@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Sleeper;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
@@ -83,7 +82,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
 
   @Before
   public void before() throws Exception {
-    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(Proxy.NO_PROXY);
+    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(ProxyInfo.NO_PROXY);
   }
 
   @After
