@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -57,8 +58,17 @@ public abstract class BazelVersion {
     return getSuffix().startsWith("-pre");
   }
 
-  /** Parses a version string into a {@link BazelVersion} object. */
-  public static BazelVersion parse(String version) {
+  private static BazelVersion getInstance() {
+    return parse(BlazeVersionInfo.instance().getVersion());
+  }
+
+  @Nullable
+  private static BazelVersion parse(String version) {
+    // For a prerelease version of Bazel, pretend that all constraints are satisfied (see
+    // satisfiesCompatibility below).
+    if (version.isEmpty()) {
+      return null;
+    }
     Matcher matcher = PATTERN.matcher(version);
     Preconditions.checkArgument(
         matcher.matches(), "bad version (does not match regex): %s", version);
@@ -71,8 +81,19 @@ public abstract class BazelVersion {
     return new AutoValue_BazelVersion(releaseSplit, nullToEmpty(suffix), version);
   }
 
-  /** Check if class version satisfies compatibility version */
-  public boolean satisfiesCompatibility(String compatVersion) {
+  /** Returns the current Bazel version as a string, or "<dev>" if unknown. */
+  public static String getCurrentVersionString() {
+    var currentVersion = getInstance();
+    return currentVersion == null ? "<dev>" : currentVersion.getOriginal();
+  }
+
+  /** Check if the current Bazel version satisfies the given compatibility version constraint. */
+  public static boolean satisfiesCompatibility(String compatVersion) {
+    var currentVersion = getInstance();
+    if (currentVersion == null) {
+      return true;
+    }
+
     int cutIndex = compatVersion.contains("=") ? 2 : 1;
     String sign = compatVersion.substring(0, cutIndex);
     compatVersion = compatVersion.substring(cutIndex);
@@ -85,8 +106,10 @@ public abstract class BazelVersion {
 
     int result =
         Objects.compare(
-            getRelease(), compatSplit, lexicographical(Comparator.<Integer>naturalOrder()));
-    if (result == 0 && isPrerelease()) {
+            currentVersion.getRelease(),
+            compatSplit,
+            lexicographical(Comparator.<Integer>naturalOrder()));
+    if (result == 0 && currentVersion.isPrerelease()) {
       result = -1;
     }
 

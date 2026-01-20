@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -186,14 +187,19 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in module()", e);
     }
+    var compatibilityVersions =
+        checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility");
     context
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
-        .addBazelCompatibilityValues(
-            checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
+        .addBazelCompatibilityValues(compatibilityVersions)
         .setRepoName(repoName);
+    if (context.blankModuleIfIncompatible()
+        && !compatibilityVersions.stream().allMatch(BazelVersion::satisfiesCompatibility)) {
+      throw new ModuleThreadContext.EarlyExitEvalException();
+    }
   }
 
   private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)

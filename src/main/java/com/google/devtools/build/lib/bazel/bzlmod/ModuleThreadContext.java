@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -48,6 +49,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
 
   private final boolean ignoreDevDeps;
+  private final RepositoryOptions.BazelCompatibilityMode bazelCompatibilityMode;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
@@ -58,6 +60,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
+
+  /**
+   * Exception to signal early exit from MODULE.bazel evaluation because the module results in an
+   * error anyway if used.
+   */
+  public static final class EarlyExitEvalException extends EvalException {
+    public EarlyExitEvalException() {
+      super("Early exit from MODULE.bazel evaluation");
+    }
+  }
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -72,10 +84,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       ModuleKey key,
       boolean ignoreDevDeps,
+      RepositoryOptions.BazelCompatibilityMode bazelCompatibilityMode,
       @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
     super(/* mainRepoMappingSupplier= */ null);
     module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
+    this.bazelCompatibilityMode = bazelCompatibilityMode;
     this.builtinModules = builtinModules;
     this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
@@ -141,6 +155,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public boolean shouldIgnoreDevDeps() {
     return ignoreDevDeps;
+  }
+
+  public boolean blankModuleIfIncompatible() {
+    return bazelCompatibilityMode == RepositoryOptions.BazelCompatibilityMode.ERROR;
   }
 
   public void addDep(Optional<String> repoName, DepSpec depSpec) {

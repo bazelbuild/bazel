@@ -19,12 +19,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
@@ -304,19 +302,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return;
     }
 
-    String currentBazelVersion = BlazeVersionInfo.instance().getVersion();
-    if (Strings.isNullOrEmpty(currentBazelVersion)) {
-      return;
-    }
-
-    BazelVersion curVersion = BazelVersion.parse(currentBazelVersion);
     for (InterimModule module : modules) {
       for (String compatVersion : module.getBazelCompatibility()) {
-        if (!curVersion.satisfiesCompatibility(compatVersion)) {
+        if (!BazelVersion.satisfiesCompatibility(compatVersion)) {
           String message =
               String.format(
                   "Bazel version %s is not compatible with module \"%s\" (bazel_compatibility: %s)",
-                  curVersion.getOriginal(), module.getKey(), module.getBazelCompatibility());
+                  BazelVersion.getCurrentVersionString(),
+                  module.getKey(),
+                  module.getBazelCompatibility());
 
           if (mode == BazelCompatibilityMode.WARNING) {
             eventHandler.handle(Event.warn(message));

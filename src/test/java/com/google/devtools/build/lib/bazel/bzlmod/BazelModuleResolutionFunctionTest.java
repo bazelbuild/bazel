@@ -195,6 +195,45 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
             + " [>=9.0.0])");
   }
 
+  @Test
+  public void testIncompatibleModuleUsesUnknownModuleParameter() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='mod', version='1.0', bazel_compatibility=['>=9.0.0'], shiny_new_parameter = 3.14)");
+    invalidatePackages(false);
+
+    embedBazelVersion("8.0.0");
+    EvaluationResult<BazelModuleResolutionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Bazel version 8.0.0 is not compatible with module \"<root>\" (bazel_compatibility:"
+        + " [>=9.0.0])");
+  }
+
+  @Test
+  public void testIncompatibleModuleUsesUnknownTopLevelSymbol() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='mod', version='1.0', bazel_compatibility=['>=9.0.0'])",
+        "shiny_new_function()");
+    invalidatePackages(false);
+
+    embedBazelVersion("8.0.0");
+    EvaluationResult<BazelModuleResolutionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Bazel version 8.0.0 is not compatible with module \"<root>\" (bazel_compatibility:"
+        + " [>=9.0.0])");
+  }
+
   private void embedBazelVersion(String version) {
     // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
     BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
