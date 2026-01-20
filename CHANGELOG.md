@@ -1,3 +1,258 @@
+## Release 9.0.0 (2026-01-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260112.1 (2026-01-16)
+
+```
+Baseline: 7111cbfcecdd3bda3e4beedd8b59dc93d3652607
+
+Cherry picks:
+
+   + 76166fca04ca8fdf6d87b3a2a7cf60da6ca8145b:
+     Use the hermetic python toolchain for Bazel
+```
+
+Important changes:
+
+  - The new `package_relative_label` function on the rule context
+    (`ctx`) can be used to turn a user-provided label string into a
+    `Label` relative to the target that is currently being analyzed
+    (where `Label(...)` would return a `Label` relative to the `.bzl`
+    file containing the call).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Alex O'Brien, Carmen Chui, Damian Banki, dependabot[bot], Fabian Meumertzheim, George Gensure, google-labs-jules[bot], jade.
+
+## Release 10.0.0-pre.20260104.1 (2026-01-15)
+
+```
+Baseline: 571ed6a26de82b041dedb6d30ff816c97c68e79a
+
+Cherry picks:
+
+   + 1f2624a0b0a55f692ef019c731c0a9cb8cca0638:
+     Cherry picks for 10.0.0-pre.20260104.1  (#28313)
+```
+
+Important changes:
+
+  - C static libraries can now elide backwards reference warnings (if
+    linking with LLD and such warnings are enabled) if the
+    `warn_backrefs_defined` feature is defined and enabled for the
+    toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Novak, Carmen Chui, Dan Katz, Fabian Meumertzheim, gampu, Keith Smiley.
+
+## Release 10.0.0-pre.20251217.3 (2026-01-13)
+
+```
+Baseline: b9762ddb486864c29cca3aeefc30fbf391e86f14
+
+Cherry picks:
+
+   + 39ffbf0d06db539f53dc7a86b46e79f4af7845c2:
+     Automated rollback of commit
+     03ee90a351737979e3a78b48f1590ca7da7c54e9.
+   + 1d6aaa0a83a644bea11f737407e114682d693bff:
+     Internal change.
+   + aea3f208d4a5032ca28bffcddcac2e0e125a4ad0:
+     Automated rollback of commit
+     cb9bd8615210dda2104f79d281938e47187dc2de.
+   + 1b97de53d69a028536a318045a893cb34c842439:
+     Use the hermetic python toolchain for Bazel (#28287)
+```
+
+Important changes:
+
+  - `--override_repository` now supports apparent repository names
+    from the point of view of the main repository. An unknown
+    apparent repo name will result in an error.
+  - The values of keyword arguments passed to `use_repo` can now
+    contain the special substrings `{name}` and `{version}`, which
+    are treated as equivalent to the corresponding attributes of the
+    current module.
+
+This release contains contributions from many people at Google, as well as Carmen Chui, Chi Wang, David Zbarsky, Fabian Meumertzheim, Jeff Klukas, Jordan Mele, Jordan Mele, Justin Kaeser, Keith Smiley, Markus Hofbauer, Son Luong Ngoc, Timothy Gu, Will Stranton.
+
+## Release 8.5.1 (2026-01-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20251208.3 (2025-12-18)
+
+```
+Baseline: 9ba1edd5516721ffef3ad34e4f4c4e385e603320
+
+Cherry picks:
+
+   + e8b02043432e37af24bc063055f27ef4fa631519:
+     Automated rollback of commit
+     ed847c7929502ce6abc4eb8c3c03701059d7a579.
+```
+
+This release contains contributions from many people at Google, as well as Aaron Sky, Damian Banki, dependabot[bot], Fabian Meumertzheim, Jean-Yves LENHOF, Keith Smiley, Lucas Pottersky, Malte Poll, Will Stranton.
+
+## Release 8.5.0 (2025-12-11)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20251203.1 (2025-12-10)
+
+```
+Baseline: 413f554735101e4e933984c09b2ed59745ce7ab4
+```
+
+Important changes:
+
+  - Added an optional parameter to allow eliding the stack trace when
+    calling fail().
+
+This release contains contributions from many people at Google, as well as Amit Keren, Benjamin Peterson, Chris Heisterkamp, David Zbarsky, Dylan Joss, Fabian Brandstetter, Fabian Meumertzheim, Greg, Jordan Mele, Keith Smiley, Pieter Agten, Rgis Desgroppes.
+
+## Release 10.0.0-pre.20251116.2 (2025-12-01)
+
+```
+Baseline: 7c096ba03fed206d9e6fe3afccbfe5c91a71ec46
+
+Cherry picks:
+
+   + 9c45849986b61f8f3eb3c585a1b2264fdd30d018:
+     Automated rollback of commit
+     c82313b4ca4749c0f1c8f304b4c12328e8beb4ea.
+```
+
+New features:
+
+  - The new `attr.label_list_dict` type accepts a dict in which keys
+    are strings and values are lists of labels.
+  - bazel query/cquery/aquery now supports an `executables()`
+    function to find only the executable targets in a given expression
+
+Important changes:
+
+  - The new `--remote_max_concurrency_per_connection` can be used to
+    specify the maximum number of concurrent gRPC requests Bazel will
+    issue on a single connection to the server. The default value of
+    100 matches the previous behavior.
+  - In environment variable values set via `--repo_env`, the
+    substring `%bazel_workspace%` is now replaced with the absolute
+    path of the current Bazel workspace. This can, for example, be
+    used to make tools checked into the repository available on the
+    `PATH` for repository rules.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Alex Eagle, Benjamin Peterson, dependabot[bot], Ed Schouten, Fabian Meumertzheim, Keith Smiley, Markus Hofbauer.
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+   + 08d7a4ce0a428b7758d55644987de7289c9ad04e:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+   + 1dc713325f1186cbf9e2c713768b79eb3eb857da:
+     Release 10.0.0-pre.20251105.2 (2025-11-18)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20251105.2 (2025-11-18)
+
+```
+Baseline: ce6bdd119d0938d1a4e692ea23adf63f3e7fa762
+
+Cherry picks:
+
+   + f44363ee9b8b927d0967def901a21dd533cc96ff:
+     Prevent NPE on a null ActionOwner.
+   + f7564a6465a6606491fa556adb5e70dd70131b73:
+     Actually fix the NPE when checking the owner of a source
+     artifact.
+   + ce8fa279ec37d735c06a5543a2299bb4d0d4accf:
+     Compare paths as fragments in `AbstractActionInputPrefetcher`.
+```
+
+Incompatible changes:
+
+  - `--incompatible_compact_repo_mapping_manifest` is now enabled by
+    default. If you encounter issues with runfile lookups failing at
+    runtime, make sure that the language rulesets you use are
+    up-to-date and runfiles libraries support the new format. Further
+    details are available in the tracking issue
+    https://github.com/bazelbuild/bazel/issues/26262.
+
+New features:
+
+  - The results of reproducible repository rules without dependencies
+    added at runtime (e.g., via `repository_ctx.watch` or `.getenv`)
+    can now be cached in a regular HTTP or gRPC remote cache if the
+    new `--experimental_remote_repo_contents_cache` startup option is
+    provided.
+
+Important changes:
+
+  - The `--module_mirrors` flag now supports specifying mirrors for
+    individual registries via the syntax
+    `--module_mirrors=<registry>=<mirror1>[,<mirror2>,...]`.
+  - The deprecated `remote_execution_properties` platform attribute
+    has been removed in favor of `exec_properties`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Keith Smiley, Lev Leontev, Mark Reuter, PikachuHy, Timothy Gu.
+
+## Release 7.7.1 (2025-11-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20251029.2 (2025-11-07)
+
+```
+Baseline: 0d890272e6f39cc5ca5c959df5b6981fbfe0bd91
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, David Sanderson, Fabian Meumertzheim, Farid Zakaria, Keith Smiley, Will Stranton.
+
 ## Release 9.0.0-pre.20251025.1 (2025-10-31)
 
 ```
