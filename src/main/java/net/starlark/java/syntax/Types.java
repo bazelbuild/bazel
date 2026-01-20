@@ -580,57 +580,66 @@ public final class Types {
     };
   }
 
-  static TypeConstructor wrapTypeConstructor(
-      String name, Function<StarlarkType, StarlarkType> constructor) {
-    return args -> {
-      if (args.size() != 1) {
-        throw new TypeConstructor.Failure(
-            String.format("%s[] accepts exactly 1 argument but got %d", name, args.size()));
-      }
-      TypeConstructor.Arg arg = args.get(0);
-      if (!(arg instanceof StarlarkType type)) {
+  private static ImmutableList<StarlarkType> toStarlarkTypes(
+      String name, ImmutableList<TypeConstructor.Arg> args) throws TypeConstructor.Failure {
+    for (TypeConstructor.Arg arg : args) {
+      if (!(arg instanceof StarlarkType)) {
         throw new TypeConstructor.Failure(
             String.format("in application to %s, got '%s', expected a type", name, arg));
       }
-      return constructor.apply(type);
+    }
+    @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+    var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+    return result;
+  }
+
+  /**
+   * Returns a new type constructor wrapping the given one-argument type factory.
+   *
+   * <p>The type constructor can be invoked with one argument, which is passed to the underlying
+   * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
+   * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
+   */
+  static TypeConstructor wrapTypeConstructor(
+      String name, Function<StarlarkType, StarlarkType> factory) {
+    return args -> {
+      var types = toStarlarkTypes(name, args);
+      return switch (types.size()) {
+        case 0 -> factory.apply(ANY);
+        case 1 -> factory.apply(types.get(0));
+        default -> {
+          throw new TypeConstructor.Failure(
+              String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
+        }
+      };
     };
   }
 
+  /**
+   * Returns a new type constructor wrapping the given two-argument type factory.
+   *
+   * <p>The type constructor can be invoked with two arguments, which are passed to the underlying
+   * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY} for
+   * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
+   * {@code dict[Any, Any]}.)
+   */
   static TypeConstructor wrapTypeConstructor(
-      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
+      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     return args -> {
-      if (args.size() != 2) {
-        throw new TypeConstructor.Failure(
-            String.format("%s[] accepts exactly 2 arguments but got %d", name, args.size()));
-      }
-      TypeConstructor.Arg keyArg = args.get(0);
-      TypeConstructor.Arg valueArg = args.get(1);
-      if (!(keyArg instanceof StarlarkType keyType)) {
-        throw new TypeConstructor.Failure(
-            String.format("in application to %s, got '%s', expected a type", name, keyArg));
-      }
-      if (!(valueArg instanceof StarlarkType valueType)) {
-        throw new TypeConstructor.Failure(
-            String.format("in application to %s, got '%s', expected a type", name, valueArg));
-      }
-      return constructor.apply(keyType, valueType);
+      var types = toStarlarkTypes(name, args);
+      return switch (types.size()) {
+        case 0 -> factory.apply(ANY, ANY);
+        case 2 -> factory.apply(types.get(0), types.get(1));
+        default ->
+            throw new TypeConstructor.Failure(
+                String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
+      };
     };
   }
 
   private static final TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return args -> {
-      ImmutableList.Builder<StarlarkType> elementTypes =
-          ImmutableList.builderWithExpectedSize(args.size());
-      for (TypeConstructor.Arg arg : args) {
-        if (!(arg instanceof StarlarkType type)) {
-          throw new TypeConstructor.Failure(
-              String.format("in application to tuple, got '%s', expected a type", arg));
-        }
-        elementTypes.add(type);
-      }
-      return tuple(elementTypes.build());
-    };
+    return args -> tuple(toStarlarkTypes("tuple", args));
   }
 }

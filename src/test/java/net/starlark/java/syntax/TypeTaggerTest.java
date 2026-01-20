@@ -137,18 +137,16 @@ public class TypeTaggerTest {
     assertThat(extractType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
   }
 
-  // TODO: #27370 - Rather than test applications of constructors for list and dict here, test the
-  // general machinery for calling a type constructor. The actual types should be tested separately.
+  // These are also tests of the list and dict type constructors, not just the TypeTagger.
 
   @Test
   public void extractType_list() throws Exception {
     assertThat(extractType("list[int]")).isEqualTo(Types.list(Types.INT));
     assertThat(extractType("list[list[int]]")).isEqualTo(Types.list(Types.list(Types.INT)));
+    assertThat(extractType("list")).isEqualTo(Types.list(Types.ANY));
 
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
     assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
-    // TODO: #27370 - `list` should produce `list[Any]`.
-    assertExtractTypeFails("list", "list[] accepts exactly 1 argument but got 0");
   }
 
   @Test
@@ -156,11 +154,10 @@ public class TypeTaggerTest {
     assertThat(extractType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
     assertThat(extractType("dict[int, list[str]]"))
         .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
+    assertThat(extractType("dict")).isEqualTo(Types.dict(Types.ANY, Types.ANY));
 
     assertExtractTypeFails("dict[int]", "dict[] accepts exactly 2 arguments but got 1");
     assertExtractTypeFails("dict[int, str, bool]", "dict[] accepts exactly 2 arguments but got 3");
-    // TODO: #27370 - `dict` should produce `dict[Any, Any]`.
-    assertExtractTypeFails("dict", "dict[] accepts exactly 2 arguments but got 0");
   }
 
   @Test
