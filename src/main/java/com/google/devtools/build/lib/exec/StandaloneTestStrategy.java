@@ -735,88 +735,89 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setRunDurationMillis(durationMillis)
         .setHasCoverage(testAction.isCoverageMode());
 
-    if (testAction.isCoverageMode()
-        && testAction.getSplitCoveragePostProcessing()
-        && testResultDataBuilder.getTestPassed()) {
-      if (testAction.getCoverageDirectoryTreeArtifact() == null) {
-        // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
-        TestExecException e =
-            createTestExecException(
-                TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-                "coverageDirectoryTreeArtifact is null:"
-                    + " --experimental_split_coverage_postprocessing depends on"
-                    + " --experimental_fetch_all_coverage_outputs being enabled");
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
-      var unused =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
-
-      ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
-              .getChildren();
-      ImmutableSet<Artifact> coverageSpawnMetadata =
-          ImmutableSet.<Artifact>builder()
-              .addAll(expandedCoverageDir)
-              .add(testAction.getCoverageDirectoryTreeArtifact())
-              .build();
-
-      Spawn coveragePostProcessingSpawn =
-          createCoveragePostProcessingSpawn(
-              actionExecutionContext,
-              testAction,
-              ImmutableList.copyOf(expandedCoverageDir),
-              tmpDirRoot);
-      SpawnStrategyResolver spawnStrategyResolver =
-          actionExecutionContext.getContext(SpawnStrategyResolver.class);
-
-      Path testRoot =
-          actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
-
-      Path out = testRoot.getChild("coverage.log");
-      Path err = testRoot.getChild("coverage.err");
-      FileOutErr coverageOutErr = new FileOutErr(out, err);
-      ActionExecutionContext coverageActionExecutionContext =
-          actionExecutionContext
-              .withFileOutErr(coverageOutErr)
-              .withOutputsAsInputs(coverageSpawnMetadata);
-
-      try {
-        spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
-      } catch (SpawnExecException e) {
-        if (e.isCatastrophic()) {
+    if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
+      if (testResultDataBuilder.getTestPassed()) {
+        if (testAction.getCoverageDirectoryTreeArtifact() == null) {
+          // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
+          TestExecException e =
+              createTestExecException(
+                  TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+                  "coverageDirectoryTreeArtifact is null:"
+                      + " --experimental_split_coverage_postprocessing depends on"
+                      + " --experimental_fetch_all_coverage_outputs being enabled");
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
           throw e;
         }
-        if (!e.getSpawnResult().setupSuccess()) {
+        var unused =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
+
+        ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+                .getChildren();
+        ImmutableSet<Artifact> coverageSpawnMetadata =
+            ImmutableSet.<Artifact>builder()
+                .addAll(expandedCoverageDir)
+                .add(testAction.getCoverageDirectoryTreeArtifact())
+                .build();
+
+        Spawn coveragePostProcessingSpawn =
+            createCoveragePostProcessingSpawn(
+                actionExecutionContext,
+                testAction,
+                ImmutableList.copyOf(expandedCoverageDir),
+                tmpDirRoot);
+        SpawnStrategyResolver spawnStrategyResolver =
+            actionExecutionContext.getContext(SpawnStrategyResolver.class);
+
+        Path testRoot =
+            actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
+
+        Path out = testRoot.getChild("coverage.log");
+        Path err = testRoot.getChild("coverage.err");
+        FileOutErr coverageOutErr = new FileOutErr(out, err);
+        ActionExecutionContext coverageActionExecutionContext =
+            actionExecutionContext
+                .withFileOutErr(coverageOutErr)
+                .withOutputsAsInputs(coverageSpawnMetadata);
+
+        try {
+          spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
+        } catch (SpawnExecException e) {
+          if (e.isCatastrophic()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            throw e;
+          }
+          if (!e.getSpawnResult().setupSuccess()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            // Rethrow as the test could not be run and thus there's no point in retrying.
+            throw e;
+          }
+          testResultDataBuilder
+              .setCachable(e.getSpawnResult().status().isConsideredUserError())
+              .setTestPassed(false)
+              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+        } catch (ExecException | InterruptedException e) {
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
-          // Rethrow as the test could not be run and thus there's no point in retrying.
           throw e;
         }
-        testResultDataBuilder
-            .setCachable(e.getSpawnResult().status().isConsideredUserError())
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
-      } catch (ExecException | InterruptedException e) {
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
+
+        // Append all output from the coverage spawn to the test log.
+        appendCoverageLog(coverageOutErr, fileOutErr);
+      } else {
+        Artifact coverageData = testAction.getCoverageData();
+        if (coverageData != null) {
+          FileSystemUtils.touchFile(
+              actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
+        }
       }
-
-      // Append all output from the coverage spawn to the test log.
-      writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
-      appendCoverageLog(coverageOutErr, fileOutErr);
-    }
-
-    if (!testResultDataBuilder.getTestPassed()) {
-      touchCoverageData(testAction, actionExecutionContext);
     }
 
     Verify.verify(

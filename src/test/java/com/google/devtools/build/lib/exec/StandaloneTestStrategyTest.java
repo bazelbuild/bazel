@@ -1154,9 +1154,16 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   @Test
   public void testMetadataResetOnRetry() throws Exception {
     scratch.file("standalone/flaky_test.sh", "mocked");
-    scratch.file("standalone/BUILD",
-        "load('//test_defs:foo_test.bzl', 'foo_test')",
-        "foo_test(name = 'flaky_test', srcs = ['flaky_test.sh'], flaky = True)");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "flaky_test",
+            srcs = ["flaky_test.sh"],
+            flaky = True,
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:flaky_test");
 
     OutputMetadataStore outputMetadataStore = org.mockito.Mockito.mock(OutputMetadataStore.class);
@@ -1180,9 +1187,15 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testSkipCoverageOnFailure() throws Exception {
     useConfiguration("--collect_code_coverage", "--experimental_split_coverage_postprocessing");
     scratch.file("standalone/fail_coverage.sh", "mocked");
-    scratch.file("standalone/BUILD",
-        "load('//test_defs:foo_test.bzl', 'foo_test')",
-        "foo_test(name = 'fail_coverage', srcs = ['fail_coverage.sh'])");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "fail_coverage",
+            srcs = ["fail_coverage.sh"],
+        )
+        """);
     TestRunnerAction testRunnerAction = getTestAction("//standalone:fail_coverage");
 
     when(spawnStrategy.exec(any(), any()))

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -144,19 +143,6 @@ public abstract class TestStrategy implements TestActionContext {
     if (actionExecutionContext != null) {
       // Reset output metadata to avoid stale information from previous attempts.
       actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
-    }
-  }
-
-  /** Pre-touch the coverage data file to satisfy Bazel's output contract. */
-  protected final void touchCoverageData(
-      TestRunnerAction testAction, ActionExecutionContext actionExecutionContext)
-      throws IOException {
-    if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
-      Artifact coverageData = testAction.getCoverageData();
-      if (coverageData != null) {
-        FileSystemUtils.touchFile(
-            actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
-      }
     }
   }
 
