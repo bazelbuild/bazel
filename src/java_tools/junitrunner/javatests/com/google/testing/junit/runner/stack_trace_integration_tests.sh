@@ -117,6 +117,7 @@ function test_ShutdownHook() {
 
   if $is_bazel; then
     expect_log 'Received SIGTERM, dumping stack traces for all threads'
+    expect_json_thread_dumps '"name": "my-virtual-thread",'
   else
     expect_log 'INTERRUPTED TEST: SIGTERM'
   fi

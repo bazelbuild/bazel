@@ -232,14 +232,10 @@ public class BazelTestRunner {
   private static void printStackTracesIfJvmExitHangs(final PrintStream out) {
     Thread thread =
         new Thread(
-            new Runnable() {
-              @Override
-              public void run() {
-                sleepUninterruptibly(5);
-                out.println(
-                    "JVM still up after five seconds. Dumping stack traces for all threads.");
-                StackTraces.printAll(out);
-              }
+            () -> {
+              sleepUninterruptibly(5);
+              out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
+              StackTraces.printAll(out, /* emitJsonThreadDump= */ true);
             },
             "BazelTestRunner: Print stack traces if JVM exit hangs");
 
@@ -275,7 +271,7 @@ public class BazelTestRunner {
         new Signal("TERM"),
         __ -> {
           errPrintStream.println("Received SIGTERM, dumping stack traces for all threads\n");
-          StackTraces.printAll(errPrintStream);
+          StackTraces.printAll(errPrintStream, /* emitJsonThreadDump= */ true);
         });
   }
 }
