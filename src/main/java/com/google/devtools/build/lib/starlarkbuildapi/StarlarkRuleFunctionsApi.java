@@ -208,7 +208,7 @@ symbolic) to define targets &ndash; possibly multiple ones.
 <p>The value returned by <code>macro(...)</code> must be assigned to a global variable in a .bzl
 file; the name of the global variable will be the macro symbol's name.
 
-<p>See <a href="/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
+<p>See <a href="https://bazel.build/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
 macros.
 """,
       parameters = {
