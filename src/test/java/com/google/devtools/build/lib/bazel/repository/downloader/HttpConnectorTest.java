@@ -41,7 +41,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.InetAddress;
-import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -96,7 +95,7 @@ public class HttpConnectorTest {
 
   @Before
   public void before() throws Exception {
-    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(Proxy.NO_PROXY);
+    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(ProxyInfo.NO_PROXY);
   }
 
   @After
