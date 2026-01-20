@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
+import javax.net.ssl.SSLException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -155,6 +156,8 @@ class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (SSLException e) {
+          throw new UnrecoverableHttpException(e.getMessage());
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
