@@ -21,4 +21,8 @@ public final class UnrecoverableHttpException extends IOException {
   UnrecoverableHttpException(String message) {
     super(message);
   }
+
+  UnrecoverableHttpException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

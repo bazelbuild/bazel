@@ -47,20 +47,16 @@ public class HttpDownloaderTlsTest {
   private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
-  private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final JavaIoFileSystem fs;
 
   public HttpDownloaderTlsTest() {
     fs = new JavaIoFileSystem(DigestHashFunction.SHA256);
   }
 
-  @After
-  public void after() {
-    executor.shutdown();
-  }
 
   @Test
   public void downloadFrom2UrlsFirstTlsErrorSecondOk() throws IOException, InterruptedException {
+    ExecutorService executor = Executors.newFixedThreadPool(2);
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       Future<?> server1Future =
@@ -98,25 +94,17 @@ public class HttpDownloaderTlsTest {
 
       Path resultingFile = fs.getPath(workingDir.newFile().getAbsolutePath());
       
-      try {
-          httpDownloader.download(
-              urls,
-              Collections.emptyMap(),
-              StaticCredentials.EMPTY,
-              Optional.empty(),
-              "testCanonicalId",
-              resultingFile,
-              eventHandler,
-              Collections.emptyMap(),
-              Optional.empty(),
-              "testRepo");
-      } catch (IOException e) {
-          // If the bug exists, this will likely throw an exception wrapping SSLHandshakeException
-          // instead of failing over to the second URL.
-          // We will print the stack trace for debugging purposes.
-          e.printStackTrace();
-          throw e; // Rethrow to fail the test
-      }
+      httpDownloader.download(
+          urls,
+          Collections.emptyMap(),
+          StaticCredentials.EMPTY,
+          Optional.empty(),
+          "testCanonicalId",
+          resultingFile,
+          eventHandler,
+          Collections.emptyMap(),
+          Optional.empty(),
+          "testRepo");
 
       try {
         server1Future.get();
@@ -126,6 +114,8 @@ public class HttpDownloaderTlsTest {
       }
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content2");
+    } finally {
+      executor.shutdown();
     }
   }
 
