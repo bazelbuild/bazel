@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -62,8 +63,7 @@ public class HttpDownloaderTlsTest {
   public void downloadFrom2UrlsFirstTlsErrorSecondOk() throws IOException, InterruptedException {
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
+      Future<?> server1Future =
           executor.submit(
               () -> {
                 // Determine which port was assigned
@@ -74,22 +74,19 @@ public class HttpDownloaderTlsTest {
                 return null;
               });
 
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError2 =
+      Future<?> server2Future =
           executor.submit(
               () -> {
-                while (!executor.isShutdown()) {
-                  try (Socket socket = server2.accept()) {
-                    readHttpRequest(socket.getInputStream());
-                    sendLines(
-                        socket,
-                        "HTTP/1.1 200 OK",
-                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                        "Connection: close",
-                        "Content-Type: text/plain",
-                        "",
-                        "content2");
-                  }
+                try (Socket socket = server2.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "",
+                      "content2");
                 }
                 return null;
               });
@@ -119,6 +116,13 @@ public class HttpDownloaderTlsTest {
           // We will print the stack trace for debugging purposes.
           e.printStackTrace();
           throw e; // Rethrow to fail the test
+      }
+
+      try {
+        server1Future.get();
+        server2Future.get();
+      } catch (ExecutionException e) {
+        throw new IOException(e.getCause());
       }
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content2");

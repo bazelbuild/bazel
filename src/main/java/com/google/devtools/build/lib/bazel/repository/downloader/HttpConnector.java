@@ -157,7 +157,11 @@ class HttpConnector {
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
         } catch (SSLException e) {
-          throw new UnrecoverableHttpException(e.getMessage());
+          String message = "TLS error: " + e.getMessage();
+          eventHandler.handle(Event.progress(message));
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
