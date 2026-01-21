@@ -65,7 +65,7 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
+    client = new DiskCacheClient(root, DIGEST_UTIL, executorService);
   }
 
   @Test
@@ -102,8 +102,7 @@ public class DiskCacheClientTest {
         new DiskCacheClient(
             root,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
-            /* verifyDownloads= */ true);
+            executorService);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
 
@@ -118,8 +117,7 @@ public class DiskCacheClientTest {
         new DiskCacheClient(
             root,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
-            /* verifyDownloads= */ true);
+            executorService);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
 

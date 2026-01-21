@@ -31,10 +31,11 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -45,7 +46,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import javax.annotation.Nullable;
 
 /**
  * An on-disk store for the remote action cache.
@@ -72,19 +72,10 @@ public class DiskCacheClient {
   private final Path tmpRoot;
 
   private final ListeningExecutorService executorService;
-  private final boolean verifyDownloads;
-  private final DigestUtil digestUtil;
 
-  /**
-   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
-   *     digest used to index that file.
-   */
-  public DiskCacheClient(
-      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
+  public DiskCacheClient(Path root, DigestUtil digestUtil, ExecutorService executorService)
       throws IOException {
-    this.digestUtil = digestUtil;
     this.executorService = MoreExecutors.listeningDecorator(executorService);
-    this.verifyDownloads = verifyDownloads;
 
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
@@ -148,23 +139,25 @@ public class DiskCacheClient {
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+          if (out instanceof MaybePathBacked maybePathBacked
+              && maybePathBacked.maybeGetPath() instanceof Path outPath) {
+            // If the output stream is path-backed, the filesystem may be able to avoid copying the
+            // file.
+            FileSystemUtils.copyFile(path, outPath);
+          } else {
+            try (InputStream in = path.getInputStream()) {
+              ByteStreams.copy(in, out);
+            }
           }
           return null;
         });
   }
 
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    @Nullable
-    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, digestOut != null ? digestOut : out, Store.CAS),
+        download(digest, out, Store.CAS),
         (v) -> {
           try {
-            if (digestOut != null) {
-              Utils.verifyBlobContents(digest, digestOut.digest());
-            }
             out.flush();
             return immediateFuture(null);
           } catch (IOException e) {
