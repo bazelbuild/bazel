@@ -69,7 +69,7 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, /* verifyDownloads= */ true);
+    client = new DiskCacheClient(root, DIGEST_UTIL);
   }
 
   @After
@@ -108,10 +108,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
 
@@ -123,10 +120,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
 
