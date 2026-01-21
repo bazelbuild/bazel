@@ -46,6 +46,12 @@ public abstract class BazelVersion {
   private static final Pattern PATTERN =
       Pattern.compile("(?<release>(?:\\d+\\.)*\\d+)(?<suffix>(.*))?");
 
+  /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
+     2) then contain a version number in form of X.X.X where X has one or two digits
+  */
+  private static final Pattern VALID_BAZEL_COMPATIBILITY_VERSION =
+      Pattern.compile("(>|<|-|<=|>=)(\\d+\\.){2}\\d+");
+
   /** Returns the "release" part of the version string as a list of integers. */
   abstract ImmutableList<Integer> getRelease();
 
@@ -101,6 +107,12 @@ public abstract class BazelVersion {
     }
 
     for (String compatVersion : bazelCompatibility) {
+      if (!VALID_BAZEL_COMPATIBILITY_VERSION.matcher(compatVersion).matches()) {
+        return Optional.of(
+            ("invalid version argument '%s': valid argument must 1) start with (<,<=,>,>=,-); 2)"
+                    + " contain a version number in form of X.X.X where X is a number")
+                .formatted(compatVersion));
+      }
       int cutIndex = compatVersion.contains("=") ? 2 : 1;
       String sign = compatVersion.substring(0, cutIndex);
       compatVersion = compatVersion.substring(cutIndex);

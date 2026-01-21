@@ -52,6 +52,25 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBazelInvalidCompatibility_afterValidIncompatibleConstraint() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='mod', version='1.0', bazel_compatibility=['>=6.0.0', 'or', '>=5.2.0'])");
+    invalidatePackages(false);
+
+    embedBazelVersion("5.1.4");
+    EvaluationResult<BazelModuleResolutionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Bazel version 5.1.4 is not compatible with module \"<root>\""
+            + " (bazel_compatibility: [>=6.0.0, or, >=5.2.0])");
+  }
+
+  @Test
   public void testSimpleBazelCompatibilityFailure() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
@@ -212,7 +231,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         "Bazel version 8.0.0 is not compatible with module \"<root>\" (bazel_compatibility:"
-        + " [>=9.0.0])");
+            + " [>=9.0.0])");
   }
 
   @Test
@@ -232,7 +251,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         "Bazel version 8.0.0 is not compatible with module \"<root>\" (bazel_compatibility:"
-        + " [>=9.0.0])");
+            + " [>=9.0.0])");
   }
 
   private void embedBazelVersion(String version) {
