@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -423,7 +425,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ImmutableMap.copyOf(overrides);
   }
 
-  public void throwDelayedExceptionIfAny(@Nullable EvalException evalException)
+  public void throwDelayedExceptionIfAny(
+      @Nullable EvalException evalException, ExtendedEventHandler eventHandler)
       throws EvalException {
     if (incompatibilityMessage != null && (delayedSyntaxError != null || evalException != null)) {
       throw new EvalException(incompatibilityMessage, delayedSyntaxError);
@@ -431,6 +434,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     if (delayedSyntaxError != null) {
       // The syntax error has been delayed to allow for a better error message due to an
       // incompatible Bazel version, but that hasn't happened, so we report it now.
+      Event.replayEventsOn(eventHandler, delayedSyntaxError.errors());
       throw new EvalException(delayedSyntaxError);
     }
     if (evalException != null) {

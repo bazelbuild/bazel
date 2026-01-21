@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.difflib.patch.PatchFailedException;
@@ -654,9 +653,9 @@ public class ModuleFileFunction implements SkyFunction {
 
       try {
         compiledRootModuleFile.runOnThread(thread);
-        context.throwDelayedExceptionIfAny(/* evalException= */ null);
+        context.throwDelayedExceptionIfAny(/* evalException= */ null, eventHandler);
       } catch (EvalException e) {
-        context.throwDelayedExceptionIfAny(e);
+        context.throwDelayedExceptionIfAny(e, eventHandler);
         throw e;
       }
       injectRepos(injectedRepositories, context, thread);
