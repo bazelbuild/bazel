@@ -192,7 +192,7 @@ final class Eval {
               "%s(): parameter '%s' has default value of type '%s', declares '%s'",
               rfn.getName(),
               rfn.getParameterNames().get(i),
-              TypeChecker.type(defaultValue),
+              Starlark.getStarlarkType(defaultValue),
               parameterType);
         }
       }

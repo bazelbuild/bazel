@@ -46,7 +46,9 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.Types;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
@@ -320,6 +322,29 @@ public final class Starlark {
       checkValid(x);
       return -1; // valid but not a sequence
     }
+  }
+
+  /** Returns the type of the given Starlark value. */
+  // TODO: #27370 - We'll probably need to thread a StarlarkSemantics (or an opaque interface
+  // wrapping it) through here, since the type of a value may depend on flag-guarding of its APIs.
+  static StarlarkType getStarlarkType(Object value) {
+    return switch (value) {
+      case String s -> Types.STR;
+      case Boolean b -> Types.BOOL;
+      case StarlarkValue x -> {
+        @Nullable StarlarkType type = x.getStarlarkType();
+        if (type == null) {
+          // TODO: #28325 - For types with StarlarkClassDescriptors, return the type stored in the
+          // descriptor.
+          type = Types.ANY;
+        }
+        yield type;
+      }
+      default -> {
+        checkValid(value); // throws
+        throw new AssertionError("unreachable");
+      }
+    };
   }
 
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */

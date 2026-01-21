@@ -151,8 +151,9 @@ public class Dict<K, V>
     return isEmpty()
         ? Types.dict(Types.ANY, Types.ANY)
         : Types.dict(
-            Types.union(keySet().stream().map(TypeChecker::type).collect(toImmutableSet())),
-            Types.union(values().stream().map(TypeChecker::type).collect(toImmutableSet())));
+            Types.union(keySet().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())),
+            Types.union(
+                values().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
   }
 
   /**

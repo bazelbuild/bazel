@@ -14,13 +14,22 @@
 
 package net.starlark.java.eval;
 
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.StarlarkType;
-import net.starlark.java.syntax.Types;
 
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+
+  /**
+   * Returns the type of this Starlark value, or null if no information is provided.
+   *
+   * <p>This method should not be called directly in client code. The canonical way to obtain the
+   * type of a value is {@link Starlark#getStarlarkType}, which may inject information obtained in
+   * other ways.
+   */
+  @Nullable
   default StarlarkType getStarlarkType() {
-    return Types.ANY;
+    return null;
   }
 
   /**

@@ -101,7 +101,8 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     // to store and update list's type when elements are added to it.
     return isEmpty()
         ? Types.list(Types.ANY)
-        : Types.list(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
+        : Types.list(
+            Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
   }
 
   /**

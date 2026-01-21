@@ -555,7 +555,7 @@ public final class StarlarkFunction implements StarlarkCallable {
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
                 owner.getName(),
                 owner.getParameterNames().get(i),
-                TypeChecker.type(locals[i]),
+                Starlark.getStarlarkType(locals[i]),
                 parameterType);
           }
         }
@@ -582,7 +582,7 @@ public final class StarlarkFunction implements StarlarkCallable {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",
-              owner.getName(), TypeChecker.type(returnValue), functionType.getReturnType());
+              owner.getName(), Starlark.getStarlarkType(returnValue), functionType.getReturnType());
         }
       }
 

@@ -801,7 +801,7 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
     // TODO(ilist@): store the type for non-homogeneous sets
     return isEmpty()
         ? Types.set(Types.ANY)
-        : Types.set(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
+        : Types.set(Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
   }
 
   /**

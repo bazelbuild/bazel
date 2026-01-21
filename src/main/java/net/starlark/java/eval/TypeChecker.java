@@ -139,26 +139,11 @@ public final class TypeChecker {
   }
 
   static boolean isValueSubtypeOf(Object value, StarlarkType type2) {
-    // Fast path for Any type. `type(value)` below can take long time to evaluate
+    // Fast path for Any type. `Starlark.getStarlarkType(value)` can take long time to evaluate
     if (Objects.equals(type2, Types.ANY)) {
       return true;
     }
-    return isSubtypeOf(type(value), type2);
-  }
-
-  static StarlarkType type(Object value) {
-    if (value instanceof StarlarkValue val) {
-      StarlarkType type = val.getStarlarkType();
-      // Workaround for test mocks that generate getStarlarkType returning null
-      return Objects.requireNonNullElse(type, Types.ANY);
-    }
-    if (value instanceof Boolean) {
-      return Types.BOOL;
-    }
-    if (value instanceof String) {
-      return Types.STR;
-    }
-    throw new IllegalArgumentException("Expected a valid Starlark value.");
+    return isSubtypeOf(Starlark.getStarlarkType(value), type2);
   }
 
   private static class ParameterizedTypeImpl implements ParameterizedType {
