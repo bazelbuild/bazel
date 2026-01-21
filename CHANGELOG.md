@@ -1,3 +1,19 @@
+## Release 6.6.0 (2026-01-21)
+
+```
+Baseline:  d2daa9b6fed3f38bf8e8cce90a0d17ea945c1ab7
+
+Release Notes:
+
++ Release 6.5.0 (2024-01-23)
++ Fixes for using recent Xcodes and macOS 26 (#27463)
++ Match postsubmit jobs with presubmit (#28193)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Mike Bland.
+```
+
 ## Release 9.0.0 (2026-01-20)
 
 ```
