@@ -60,10 +60,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addBzlToplevel(
-        "java_common",
-        BaseRuleClasses.createEmptySymbol(
-            "java_common", "@rules_java//java/common:java_common.bzl"));
+    builder.addBzlToplevel("java_common", Starlark.NONE);
     builder.addStarlarkBuiltinsInternal(
         "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));
   }
