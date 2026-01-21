@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -424,13 +423,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ImmutableMap.copyOf(overrides);
   }
 
-  public void throwDelayedExceptionIfAny(
-      BazelCompatibilityMode bazelCompatibilityMode, @Nullable EvalException evalException)
+  public void throwDelayedExceptionIfAny(@Nullable EvalException evalException)
       throws EvalException {
-    if (incompatibilityMessage != null
-        && (delayedSyntaxError != null
-            || evalException != null
-            || bazelCompatibilityMode == BazelCompatibilityMode.ERROR)) {
+    if (incompatibilityMessage != null && (delayedSyntaxError != null || evalException != null)) {
       throw new EvalException(incompatibilityMessage, delayedSyntaxError);
     }
     if (delayedSyntaxError != null) {

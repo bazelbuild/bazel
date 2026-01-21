@@ -92,6 +92,42 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSimpleBazelCompatibilityFailure_inUnselectedNonRootModule_success(
+      @TestParameter BazelCompatibilityMode bazelCompatibilityMode) throws Exception {
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode)));
+    reporter.removeHandler(failFastHandler);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='mod', version='1.0')",
+        "bazel_dep(name = 'a', version = '1.1')",
+        "bazel_dep(name = 'b', version = '1.0')");
+
+    registry
+        .addModule(
+            createModuleKey("a", "1.0"),
+            "module(name='a', version='1.0', bazel_compatibility=['>6.0.0'])")
+        .addModule(createModuleKey("a", "1.1"), "module(name='a', version='1.1')")
+        .addModule(
+            createModuleKey("b", "1.0"),
+            "module(name='b', version='1.0')",
+            "bazel_dep(name='a', version='1.0')");
+    invalidatePackages(false);
+
+    embedBazelVersion("5.1.4");
+    EvaluationResult<BazelModuleResolutionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.hasError()).isFalse();
+    assertNoEvents();
+  }
+
+  @Test
   public void testBazelCompatibilityWarning() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
