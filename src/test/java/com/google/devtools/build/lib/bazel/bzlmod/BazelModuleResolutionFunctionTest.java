@@ -180,7 +180,8 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='mod', version='1.0', bazel_compatibility=['>=9.0.0'])",
+        "BAZEL_COMPATIBILITY = ['>=9.0.0']",
+        "module(name='mod', version='1.0', bazel_compatibility=BAZEL_COMPATIBILITY)",
         "bazel_dep(shiny_new_parameter = 3.14)");
     invalidatePackages(false);
 
@@ -200,7 +201,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='mod', version='1.0', bazel_compatibility=['>=9.0.0'], shiny_new_parameter = 3.14)");
+        "module(name='mod', version='1.0', bazel_compatibility=['>=%s.0.0'%9], shiny_new_parameter = 3.14)");
     invalidatePackages(false);
 
     embedBazelVersion("8.0.0");
@@ -219,7 +220,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='mod', version='1.0', bazel_compatibility=['>=9.0.0'])",
+        "module(name='mod', version='1.0', bazel_compatibility=['>='+'9.0.0'])",
         "shiny_new_function()");
     invalidatePackages(false);
 

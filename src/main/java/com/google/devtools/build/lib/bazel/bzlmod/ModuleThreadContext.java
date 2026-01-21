@@ -157,7 +157,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public boolean blankModuleIfIncompatible() {
+  public boolean incompatibleModuleWillFail() {
     return bazelCompatibilityMode == RepositoryOptions.BazelCompatibilityMode.ERROR;
   }
 

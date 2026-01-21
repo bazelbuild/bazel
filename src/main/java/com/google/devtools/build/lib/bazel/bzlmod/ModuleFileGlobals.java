@@ -154,6 +154,7 @@ public class ModuleFileGlobals {
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             defaultValue = "[]"),
       },
+      extraKeywords = @Param(name = "kwargs", documented = false),
       useStarlarkThread = true)
   public void module(
       String name,
@@ -161,6 +162,7 @@ public class ModuleFileGlobals {
       StarlarkInt compatibilityLevel,
       String repoName,
       Iterable<?> bazelCompatibility,
+      Dict<String, Object> kwargs,
       StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "module()");
@@ -196,9 +198,13 @@ public class ModuleFileGlobals {
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
         .addBazelCompatibilityValues(compatibilityVersions)
         .setRepoName(repoName);
-    if (context.blankModuleIfIncompatible()
+    if (context.incompatibleModuleWillFail()
         && !compatibilityVersions.stream().allMatch(BazelVersion::satisfiesCompatibility)) {
       throw new ModuleThreadContext.EarlyExitEvalException();
+    }
+    if (!kwargs.isEmpty()) {
+      throw Starlark.errorf(
+          "module() got unexpected keyword argument '%s'", kwargs.keySet().iterator().next());
     }
   }
 
