@@ -303,19 +303,17 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     for (InterimModule module : modules) {
-      for (String compatVersion : module.getBazelCompatibility()) {
-        Optional<String> incompatibilityMessage =
-            BazelVersion.checkCompatibility(compatVersion, module.getKey());
-        if (incompatibilityMessage.isPresent()) {
-          if (mode == BazelCompatibilityMode.WARNING) {
-            eventHandler.handle(Event.warn(incompatibilityMessage.get()));
-          } else {
-            eventHandler.handle(Event.error(incompatibilityMessage.get()));
-            throw new BazelModuleResolutionFunctionException(
-                ExternalDepsException.withMessage(
-                    Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed"),
-                Transience.PERSISTENT);
-          }
+      Optional<String> incompatibilityMessage =
+          BazelVersion.checkCompatibility(module.getBazelCompatibility(), module.getKey());
+      if (incompatibilityMessage.isPresent()) {
+        if (mode == BazelCompatibilityMode.WARNING) {
+          eventHandler.handle(Event.warn(incompatibilityMessage.get()));
+        } else {
+          eventHandler.handle(Event.error(incompatibilityMessage.get()));
+          throw new BazelModuleResolutionFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed"),
+              Transience.PERSISTENT);
         }
       }
     }
