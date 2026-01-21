@@ -61,6 +61,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -397,7 +398,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    *     being requested.
    * @param configPrefix the configuration to request {@code targets} in. This can be the
    *     configuration's checksum, any prefix of its checksum, or the special identifiers "target"
-   *     or "null".
+   *     "anyexec", or "null".
    * @param callback the callback to receive the results of this method.
    * @return {@link QueryTaskCallable} that returns the correctly configured targets.
    */
@@ -418,7 +419,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       boolean userFriendlyConfigName = true;
       for (CqueryNode target : targets) {
         Label label = getCorrectLabel(target);
-        CqueryNode keyedConfiguredTarget;
+        CqueryNode keyedConfiguredTarget = null;
         switch (configPrefix) {
           case "host" ->
               throw new QueryException(
@@ -427,6 +428,37 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
           case "target" -> keyedConfiguredTarget = getTargetConfiguredTarget(label);
           case "null" -> keyedConfiguredTarget = getNullConfiguredTarget(label);
+          case "anyexec" -> {
+            ImmutableList<BuildConfigurationValue> matchingConfigs =
+                transitiveConfigurations.values().stream()
+                    .filter(BuildConfigurationValue::isExecConfiguration)
+                    .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+                    .collect(ImmutableList.toImmutableList());
+            if (!matchingConfigs.isEmpty()) {
+              for (var cfg : matchingConfigs) {
+                keyedConfiguredTarget = getConfiguredTarget(label, cfg);
+                if (keyedConfiguredTarget != null) {
+                  break;
+                }
+              }
+            } else {
+              throw new QueryException(
+                  String.format("Unable to identify 'exec' configuration for %s\n", label)
+                      + "config()'s second argument must identify a unique configuration.\n"
+                      + "\n"
+                      + "Valid values:\n"
+                      + " 'target' for the default configuration\n"
+                      + " 'null' for source files (which have no configuration)\n"
+                      + " 'anyexec' for identifying any path to a exec tool configuration\n"
+                      + " an arbitrary configuration's full or short ID\n"
+                      + "\n"
+                      + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
+                      + "config' shows full IDs.\n"
+                      + "\n"
+                      + "For more help, see https://bazel.build/docs/cquery.",
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+            }
+          }
           default -> {
             ImmutableList<String> matchingConfigs =
                 transitiveConfigurations.keySet().stream()
