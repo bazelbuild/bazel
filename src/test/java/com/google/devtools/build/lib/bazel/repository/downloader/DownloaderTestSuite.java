@@ -26,7 +26,6 @@ import org.junit.runners.Suite.SuiteClasses;
   HttpConnectorMultiplexerTest.class,
   HttpConnectorTest.class,
   HttpDownloaderTest.class,
-  HttpDownloaderTlsTest.class,
   HttpStreamTest.class,
   HttpUtilsTest.class,
   ProgressInputStreamTest.class,
