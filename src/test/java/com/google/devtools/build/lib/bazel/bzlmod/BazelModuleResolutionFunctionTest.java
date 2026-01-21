@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.fail;
 
@@ -27,13 +28,14 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link BazelModuleResolutionFunction}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
 
   @Test
@@ -96,9 +98,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                BazelCompatibilityMode.WARNING)));
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.WARNING)));
     invalidatePackages(false);
 
     embedBazelVersion("5.1.4");
@@ -119,9 +119,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                BazelCompatibilityMode.OFF)));
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.OFF)));
     invalidatePackages(false);
 
     embedBazelVersion("5.1.4");
@@ -195,7 +193,11 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncompatibleModuleUsesUnknownParameter() throws Exception {
+  public void testIncompatibleModuleUsesUnknownParameter(
+      @TestParameter BazelCompatibilityMode bazelCompatibilityMode) throws Exception {
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode)));
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
@@ -216,7 +218,11 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncompatibleModuleUsesUnknownModuleParameter() throws Exception {
+  public void testIncompatibleModuleUsesUnknownModuleParameter(
+      @TestParameter BazelCompatibilityMode bazelCompatibilityMode) throws Exception {
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode)));
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
@@ -235,7 +241,11 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncompatibleModuleUsesUnknownTopLevelSymbol() throws Exception {
+  public void testIncompatibleModuleUsesUnknownTopLevelSymbol(
+      @TestParameter BazelCompatibilityMode bazelCompatibilityMode) throws Exception {
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode)));
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "MODULE.bazel",
