@@ -218,17 +218,6 @@ java_binary(
 )
 
 java_library(
-    name = "bazel_version",
-    srcs = ["BazelVersion.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "bazel_services",
     srcs = ["BazelServices.java"],
     deps = [

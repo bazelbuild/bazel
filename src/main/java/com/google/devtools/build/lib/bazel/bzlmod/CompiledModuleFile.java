@@ -14,6 +14,8 @@
 //
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.StarlarkUtil;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
@@ -50,7 +53,8 @@ public record CompiledModuleFile(
     ModuleFile moduleFile,
     Program program,
     Module predeclaredEnv,
-    ImmutableList<IncludeStatement> includeStatements) {
+    ImmutableList<IncludeStatement> includeStatements,
+    @Nullable SyntaxError.Exception delayedSyntaxException) {
   public static final String INCLUDE_IDENTIFIER = "include";
 
   record IncludeStatement(String includeLabel, Location location) {}
@@ -87,13 +91,58 @@ public record CompiledModuleFile(
       ImmutableList<IncludeStatement> includeStatements = checkModuleFileSyntax(starlarkFile);
       Module predeclaredEnv =
           Module.withPredeclared(starlarkSemantics, starlarkEnv.getModuleBazelEnv());
-      Program program = Program.compileFile(starlarkFile, predeclaredEnv);
-      return new CompiledModuleFile(moduleFile, program, predeclaredEnv, includeStatements);
+      Program program;
+      try {
+        program = Program.compileFile(starlarkFile, predeclaredEnv);
+      } catch (SyntaxError.Exception e) {
+        // A syntax error may be due to MODULE.bazel constructs added by or forbidden in a certain
+        // Bazel version, but to learn whether the module is compatible with the current version,
+        // we need to evaluate at least up to the `module()` call. Since compilation fails anyway,
+        // we can try to run the file truncated just after `module()` to get a potentially better
+        // error message.
+        int moduleCallPos = getModuleCallPos(starlarkFile);
+        // Compiling the truncated program only makes sense if we actually found a `module()` call
+        // and it's not the last statement in the file.
+        if (moduleCallPos >= starlarkFile.getStatements().size() - 1) {
+          throw e;
+        }
+        // Both StarlarkFile and Module are inherently mutable and modified by the (partial)
+        // Resolver pass during compilation, so we need to reparse to get a fresh copy.
+        StarlarkFile freshStarlarkFile = StarlarkFile.parse(parserInput);
+        // Parsing is guaranteed to succeed since we already parsed successfully above.
+        checkState(freshStarlarkFile.ok());
+        var freshPredeclaredEnv =
+            Module.withPredeclared(starlarkSemantics, starlarkEnv.getModuleBazelEnv());
+        var truncatedProgram =
+            Program.compileFile(
+                freshStarlarkFile.subTree(0, moduleCallPos + 1), freshPredeclaredEnv);
+        return new CompiledModuleFile(
+            moduleFile, truncatedProgram, freshPredeclaredEnv, includeStatements, e);
+      }
+      return new CompiledModuleFile(
+          moduleFile, program, predeclaredEnv, includeStatements, /* delayedSyntaxException= */ null);
     } catch (SyntaxError.Exception e) {
-      Event.replayEventsOn(eventHandler, e.errors());
-      throw ExternalDepsException.withMessage(
-          Code.BAD_MODULE, "syntax error in MODULE.bazel file for %s", moduleKey);
+      throw handleAndWrapSyntaxErrorException(e, moduleKey, eventHandler);
     }
+  }
+
+  private static int getModuleCallPos(StarlarkFile starlarkFile) throws SyntaxError.Exception {
+    for (int i = 0; i < starlarkFile.getStatements().size(); i++) {
+      if (starlarkFile.getStatements().get(i) instanceof ExpressionStatement exprStmt
+          && exprStmt.getExpression() instanceof CallExpression callExpr
+          && callExpr.getFunction() instanceof Identifier funcId
+          && funcId.getName().equals("module")) {
+        return i;
+      }
+    }
+    return starlarkFile.getStatements().size();
+  }
+
+  public static ExternalDepsException handleAndWrapSyntaxErrorException(
+      SyntaxError.Exception e, ModuleKey moduleKey, ExtendedEventHandler eventHandler) {
+    Event.replayEventsOn(eventHandler, e.errors());
+    return ExternalDepsException.withMessage(
+        Code.BAD_MODULE, "syntax error in MODULE.bazel file for %s: %s", moduleKey, e.getMessage());
   }
 
   private static class SyntaxChecker extends DotBazelFileSyntaxChecker {

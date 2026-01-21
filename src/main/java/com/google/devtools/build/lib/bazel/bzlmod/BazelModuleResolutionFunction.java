@@ -304,18 +304,13 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
     for (InterimModule module : modules) {
       for (String compatVersion : module.getBazelCompatibility()) {
-        if (!BazelVersion.satisfiesCompatibility(compatVersion)) {
-          String message =
-              String.format(
-                  "Bazel version %s is not compatible with module \"%s\" (bazel_compatibility: %s)",
-                  BazelVersion.getCurrentVersionString(),
-                  module.getKey(),
-                  module.getBazelCompatibility());
-
+        Optional<String> incompatibilityMessage =
+            BazelVersion.checkCompatibility(compatVersion, module.getKey());
+        if (incompatibilityMessage.isPresent()) {
           if (mode == BazelCompatibilityMode.WARNING) {
-            eventHandler.handle(Event.warn(message));
+            eventHandler.handle(Event.warn(incompatibilityMessage.get()));
           } else {
-            eventHandler.handle(Event.error(message));
+            eventHandler.handle(Event.error(incompatibilityMessage.get()));
             throw new BazelModuleResolutionFunctionException(
                 ExternalDepsException.withMessage(
                     Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed"),

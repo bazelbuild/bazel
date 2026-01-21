@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -41,6 +40,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
 public class ModuleThreadContext extends StarlarkThreadContext {
@@ -49,7 +49,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
 
   private final boolean ignoreDevDeps;
-  private final RepositoryOptions.BazelCompatibilityMode bazelCompatibilityMode;
+  @Nullable private final SyntaxError.Exception delayedSyntaxError;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
@@ -60,16 +60,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
-
-  /**
-   * Exception to signal early exit from MODULE.bazel evaluation because the module results in an
-   * error anyway if used.
-   */
-  public static final class EarlyExitEvalException extends EvalException {
-    public EarlyExitEvalException() {
-      super("Early exit from MODULE.bazel evaluation");
-    }
-  }
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -84,12 +74,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       ModuleKey key,
       boolean ignoreDevDeps,
-      RepositoryOptions.BazelCompatibilityMode bazelCompatibilityMode,
+      @Nullable SyntaxError.Exception delayedSyntaxError,
       @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
     super(/* mainRepoMappingSupplier= */ null);
     module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
-    this.bazelCompatibilityMode = bazelCompatibilityMode;
+    this.delayedSyntaxError = delayedSyntaxError;
     this.builtinModules = builtinModules;
     this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
@@ -157,8 +147,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public boolean incompatibleModuleWillFail() {
-    return bazelCompatibilityMode == RepositoryOptions.BazelCompatibilityMode.ERROR;
+  public boolean hasDelayedSyntaxError() {
+    return delayedSyntaxError != null;
   }
 
   public void addDep(Optional<String> repoName, DepSpec depSpec) {
@@ -366,7 +356,13 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  public InterimModule buildModule(@Nullable Registry registry) throws EvalException {
+  public InterimModule buildModule(@Nullable Registry registry)
+      throws SyntaxError.Exception, EvalException {
+    if (delayedSyntaxError != null) {
+      // The syntax error has been delayed to allow for a better error message due to an
+      // incompatible Bazel version, but that hasn't happened, so we report it now.
+      throw delayedSyntaxError;
+    }
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
       if (module.getKey().name().equals(builtinModule)) {
@@ -429,5 +425,15 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
     }
     return ImmutableMap.copyOf(overrides);
+  }
+
+  /**
+   * Exception to signal early exit from MODULE.bazel evaluation because the module is incompatible
+   * with the current Bazel version *and* the module file contains a syntax error.
+   */
+  public static final class IncompatibleBrokenModuleException extends EvalException {
+    public IncompatibleBrokenModuleException(String message) {
+      super(message);
+    }
   }
 }

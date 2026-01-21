@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.difflib.patch.PatchFailedException;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleF
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Registry.NotFoundException;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.decompressor.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -96,6 +94,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * Takes a {@link ModuleKey} and its override (if any), retrieves the module file from a registry or
@@ -241,7 +240,6 @@ public class ModuleFileFunction implements SkyFunction {
               // Disable printing for modules from registries. We don't want them to be able to spam
               // the console during resolution.
               /* printIsNoop= */ true,
-              BAZEL_COMPATIBILITY_MODE.get(env),
               starlarkSemantics,
               env.getListener(),
               SymbolGenerator.create(skyKey));
@@ -261,6 +259,10 @@ public class ModuleFileFunction implements SkyFunction {
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
+    } catch (SyntaxError.Exception e) {
+      throw new ModuleFileFunctionException(
+          CompiledModuleFile.handleAndWrapSyntaxErrorException(e, moduleKey, env.getListener()),
+          Transience.PERSISTENT);
     }
     if (!module.getName().equals(moduleKey.name())) {
       throw errorf(
@@ -371,7 +373,6 @@ public class ModuleFileFunction implements SkyFunction {
         // Allow printing to aid in debugging non-registry overrides, which are often edited by the
         // user.
         /* printIsNoop= */ false,
-        BAZEL_COMPATIBILITY_MODE.get(env),
         starlarkSemantics,
         env.getListener(),
         symbolGenerator);
@@ -530,6 +531,10 @@ public class ModuleFileFunction implements SkyFunction {
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
+    } catch (SyntaxError.Exception e) {
+      throw new ModuleFileFunctionException(
+          CompiledModuleFile.handleAndWrapSyntaxErrorException(e, ModuleKey.ROOT, eventHandler),
+          Transience.PERSISTENT);
     }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
       Proxy firstProxy = usage.getProxies().getFirst();
@@ -610,7 +615,6 @@ public class ModuleFileFunction implements SkyFunction {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       Map<String, PathFragment> injectedRepositories,
       boolean printIsNoop,
-      RepositoryOptions.BazelCompatibilityMode bazelCompatibilityMode,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler eventHandler,
       SymbolGenerator<?> symbolGenerator)
@@ -620,7 +624,7 @@ public class ModuleFileFunction implements SkyFunction {
             builtinModules,
             moduleKey,
             ignoreDevDeps,
-            bazelCompatibilityMode,
+            compiledRootModuleFile.delayedSyntaxException(),
             includeLabelToParsedModuleFile);
     try (SilentCloseable c =
             Profiler.instance()
@@ -647,12 +651,7 @@ public class ModuleFileFunction implements SkyFunction {
             }
           });
 
-      try {
-        compiledRootModuleFile.runOnThread(thread);
-      } catch (ModuleThreadContext.EarlyExitEvalException ignored) {
-        // Evaluation has been short-circuited due to the module being unusable. It will not have
-        // been constructed properly, but since it results in an error if used anyway, that's fine.
-      }
+      compiledRootModuleFile.runOnThread(thread);
       injectRepos(injectedRepositories, context, thread);
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));

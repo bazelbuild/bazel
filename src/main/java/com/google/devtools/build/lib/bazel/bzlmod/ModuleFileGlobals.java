@@ -191,6 +191,22 @@ public class ModuleFileGlobals {
     }
     var compatibilityVersions =
         checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility");
+    if (context.hasDelayedSyntaxError()) {
+      for (String compatVersion : compatibilityVersions) {
+        var maybeIncompatibilityMessage =
+            BazelVersion.checkCompatibility(compatVersion, context.getModuleBuilder().getKey());
+        if (maybeIncompatibilityMessage.isPresent()) {
+          throw new EvalException(maybeIncompatibilityMessage.get());
+        }
+      }
+    }
+    // Check for any unexpected arguments after checking Bazel compatibility to avoid masking
+    // incompatibility errors with "unexpected keyword argument" errors for new arguments.
+    if (!kwargs.isEmpty()) {
+      // Mimics the standard Starlark error message for unexpected keyword arguments.
+      throw Starlark.errorf(
+          "module() got unexpected keyword argument '%s'", kwargs.keySet().iterator().next());
+    }
     context
         .getModuleBuilder()
         .setName(name)
@@ -198,14 +214,6 @@ public class ModuleFileGlobals {
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
         .addBazelCompatibilityValues(compatibilityVersions)
         .setRepoName(repoName);
-    if (context.incompatibleModuleWillFail()
-        && !compatibilityVersions.stream().allMatch(BazelVersion::satisfiesCompatibility)) {
-      throw new ModuleThreadContext.EarlyExitEvalException();
-    }
-    if (!kwargs.isEmpty()) {
-      throw Starlark.errorf(
-          "module() got unexpected keyword argument '%s'", kwargs.keySet().iterator().next());
-    }
   }
 
   private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)

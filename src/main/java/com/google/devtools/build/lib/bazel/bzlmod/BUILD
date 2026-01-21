@@ -174,6 +174,7 @@ java_library(
         "YankedVersionsValue.java",
     ],
     deps = [
+        ":bazel_version",
         ":common",
         ":exception",
         ":module_extension",
@@ -181,7 +182,6 @@ java_library(
         ":registry",
         ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_version",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -262,6 +262,7 @@ java_library(
         "YankedVersionsUtil.java",
     ],
     deps = [
+        ":bazel_version",
         ":common",
         ":exception",
         ":module_extension",
@@ -273,7 +274,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_version",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:attribute_utils",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
@@ -487,5 +487,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bazel_version",
+    srcs = ["BazelVersion.java"],
+    deps = [
+        ":common",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
