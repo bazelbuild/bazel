@@ -149,10 +149,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public boolean hasDelayedSyntaxError() {
-    return delayedSyntaxError != null;
-  }
-
   public void setIncompatibilityMessage(String incompatibilityMessage) {
     this.incompatibilityMessage = incompatibilityMessage;
   }
@@ -428,16 +424,22 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ImmutableMap.copyOf(overrides);
   }
 
-  public void throwDelayedExceptionIfAny(BazelCompatibilityMode bazelCompatibilityMode)
+  public void throwDelayedExceptionIfAny(
+      BazelCompatibilityMode bazelCompatibilityMode, @Nullable EvalException evalException)
       throws EvalException {
     if (incompatibilityMessage != null
-        && (delayedSyntaxError != null || bazelCompatibilityMode == BazelCompatibilityMode.ERROR)) {
+        && (delayedSyntaxError != null
+            || evalException != null
+            || bazelCompatibilityMode == BazelCompatibilityMode.ERROR)) {
       throw new EvalException(incompatibilityMessage, delayedSyntaxError);
     }
     if (delayedSyntaxError != null) {
       // The syntax error has been delayed to allow for a better error message due to an
       // incompatible Bazel version, but that hasn't happened, so we report it now.
       throw new EvalException(delayedSyntaxError);
+    }
+    if (evalException != null) {
+      throw evalException;
     }
   }
 }

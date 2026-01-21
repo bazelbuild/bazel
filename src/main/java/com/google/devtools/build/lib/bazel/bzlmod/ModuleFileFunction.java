@@ -658,8 +658,9 @@ public class ModuleFileFunction implements SkyFunction {
 
       try {
         compiledRootModuleFile.runOnThread(thread);
+        context.throwDelayedExceptionIfAny(bazelCompatibilityMode, /* evalException= */ null);
       } catch (EvalException e) {
-        context.throwDelayedExceptionIfAny(bazelCompatibilityMode);
+        context.throwDelayedExceptionIfAny(bazelCompatibilityMode, e);
         throw e;
       }
       injectRepos(injectedRepositories, context, thread);
