@@ -1042,9 +1042,13 @@ public class BuildTool {
   private void reportOnlyBailOutReason(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
     Preconditions.checkNotNull(dependenciesProvider);
-    RemoteAnalysisCacheClient.Stats raccStats =
-        dependenciesProvider.getAnalysisCacheClient().getStats();
-    env.getRemoteAnalysisCachingEventListener().recordServiceStats(/* fvsStats= */ null, raccStats);
+    RemoteAnalysisCacheClient remoteAnalysisCacheClient =
+        dependenciesProvider.getAnalysisCacheClient();
+    if (remoteAnalysisCacheClient == null) {
+      return;
+    }
+    env.getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(/* fvsStats= */ null, remoteAnalysisCacheClient.getStats());
   }
 
   /**
