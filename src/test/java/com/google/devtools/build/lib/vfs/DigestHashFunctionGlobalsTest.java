@@ -65,4 +65,17 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("Sha_224")).isSameInstanceAs(converter.convert("SHA-224"));
     assertThat(converter.convert("sha_224")).isSameInstanceAs(converter.convert("SHA-224"));
   }
+
+  @Test
+  public void convertThrowsDescriptiveErrorOnInvalidInput() {
+    var e =
+        org.junit.Assert.assertThrows(
+            com.google.devtools.common.options.OptionsParsingException.class,
+            () -> converter.convert("invalid"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'invalid' is not a valid hash function. Possible values are: ");
+    assertThat(e).hasMessageThat().contains("SHA-1");
+    assertThat(e).hasMessageThat().contains("SHA-256");
+  }
 }
