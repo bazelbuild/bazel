@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -47,6 +48,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
   private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
+  @Nullable private String incompatibilityMessage = null;
 
   private final boolean ignoreDevDeps;
   @Nullable private final SyntaxError.Exception delayedSyntaxError;
@@ -149,6 +151,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public boolean hasDelayedSyntaxError() {
     return delayedSyntaxError != null;
+  }
+
+  public void setIncompatibilityMessage(String incompatibilityMessage) {
+    this.incompatibilityMessage = incompatibilityMessage;
   }
 
   public void addDep(Optional<String> repoName, DepSpec depSpec) {
@@ -358,11 +364,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public InterimModule buildModule(@Nullable Registry registry)
       throws SyntaxError.Exception, EvalException {
-    if (delayedSyntaxError != null) {
-      // The syntax error has been delayed to allow for a better error message due to an
-      // incompatible Bazel version, but that hasn't happened, so we report it now.
-      throw delayedSyntaxError;
-    }
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
       if (module.getKey().name().equals(builtinModule)) {
@@ -427,13 +428,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ImmutableMap.copyOf(overrides);
   }
 
-  /**
-   * Exception to signal early exit from MODULE.bazel evaluation because the module is incompatible
-   * with the current Bazel version *and* the module file contains a syntax error.
-   */
-  public static final class IncompatibleBrokenModuleException extends EvalException {
-    public IncompatibleBrokenModuleException(String message) {
-      super(message);
+  public void throwDelayedExceptionIfAny(BazelCompatibilityMode bazelCompatibilityMode)
+      throws EvalException {
+    if (incompatibilityMessage != null
+        && (delayedSyntaxError != null || bazelCompatibilityMode == BazelCompatibilityMode.ERROR)) {
+      throw new EvalException(incompatibilityMessage, delayedSyntaxError);
+    }
+    if (delayedSyntaxError != null) {
+      // The syntax error has been delayed to allow for a better error message due to an
+      // incompatible Bazel version, but that hasn't happened, so we report it now.
+      throw new EvalException(delayedSyntaxError);
     }
   }
 }

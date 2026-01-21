@@ -184,12 +184,12 @@ public class ModuleFileGlobals {
     }
     var compatibilityVersions =
         Sequence.cast(bazelCompatibility, String.class, "bazel_compatibility").getImmutableList();
-    if (context.hasDelayedSyntaxError()) {
-      var maybeMessage =
-          BazelVersion.checkCompatibility(
-              compatibilityVersions, context.getModuleBuilder().getKey());
-      if (maybeMessage.isPresent()) {
-        throw new EvalException(maybeMessage.get());
+    var maybeIncompatibilityMessage =
+        BazelVersion.checkCompatibility(compatibilityVersions, context.getModuleBuilder().getKey());
+    if (maybeIncompatibilityMessage.isPresent()) {
+      context.setIncompatibilityMessage(maybeIncompatibilityMessage.get());
+      if (context.hasDelayedSyntaxError()) {
+        throw new EvalException(maybeIncompatibilityMessage.get());
       }
     }
     // Check for any unexpected arguments after checking Bazel compatibility to avoid masking
