@@ -636,7 +636,7 @@ std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
   // Provide terminal options as least important options.
   // LINT.IfChange
   std::string terminal_rc_source = "client";
-  // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
+  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
   result.push_back({terminal_rc_source, "common",
                     "--isatty=" + blaze_util::ToString(IsStandardTerminal())});
   result.push_back(
@@ -678,7 +678,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   // LINT.IfChange
   result.push_back("--rc_source=client");
   rcfile_index["client"] = 0;
-  // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
+  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
   int cur_index = 1;
   for (const auto& option : blazerc_options) {
     if (rcfile_index.contains(option.source_path)) continue;
