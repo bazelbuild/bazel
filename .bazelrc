@@ -35,6 +35,9 @@ common --downloader_config=bazel_downloader.cfg
 # Add BCR module mirrors
 common --module_mirrors=https://bcr.cloudflaremirrors.com
 
+# Some integration tests need the PATH environment variable set.
+common --test_env=PATH
+
 # Suppress warnings from external repos, we have no direct control on them anyway.
 common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w

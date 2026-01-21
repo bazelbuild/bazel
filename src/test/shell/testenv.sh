@@ -50,6 +50,9 @@ if is_windows; then
   export JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   export BAZEL_SH="$(cygpath -m /usr/bin/bash)"
 
+  # Make sure /usr/bin is first in the PATH for tools like `find`.
+  export PATH="/usr/bin:$PATH"
+
   # Disable MSYS path conversion that converts path-looking command arguments to
   # Windows paths (even if they arguments are not in fact paths).
   export MSYS_NO_PATHCONV=1

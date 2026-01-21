@@ -55,7 +55,7 @@ public final class GlobalRcUtils {
         return false;
       };
   // LINT.ThenChange(//src/main/cpp/option_processor.cc,
-  // src/main/java/com/google/devtools/common/options/InvocationPolicyEnforcer.java
+  // //src/main/java/com/google/devtools/common/options/InvocationPolicyEnforcer.java)
 
   /** Is an rc file path a global rc? */
   public static boolean isGlobalRcFile(String rcFilePath) {
