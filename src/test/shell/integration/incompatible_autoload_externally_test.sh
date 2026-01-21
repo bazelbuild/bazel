@@ -545,5 +545,29 @@ EOF
   expect_log "Error: no native function or rule 'java_library'"
 }
 
+function test_removed_provider() {
+  setup_module_dot_bazel
+  cat > BUILD << 'EOF'
+load("//:my_rule.bzl", "my_rule")
+
+my_rule(
+    name = "my_target",
+)
+EOF
+  cat > my_rule.bzl << 'EOF'
+def _impl(ctx):
+  return [CcInfo()]
+
+my_rule = rule(
+    implementation = _impl,
+    provides = [CcInfo],
+)
+EOF
+
+  bazel build --incompatible_autoload_externally= :my_target >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "my_rule.bzl:2:11: The CcInfo symbol has been removed, add the following to your BUILD/bzl file:"
+  expect_log 'load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")'
+}
+
 
 run_suite "Tests for incompatible_autoload_externally flag"
