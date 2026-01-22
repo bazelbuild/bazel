@@ -332,6 +332,12 @@ bool IsReadableFile(const Path& p) {
   return true;
 }
 
+bool DirectoryExists(const Path& p) {
+  DWORD attrs = GetFileAttributesW(AddUncPrefixMaybe(p).c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
+}
+
 // Gets an environment variable's value.
 // Returns:
 // - true, if the envvar is defined and successfully fetched, or it's empty or
@@ -469,6 +475,14 @@ bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
   // dependencies.
   std::wstring coverage_dir;
   if (!GetEnv(L"COVERAGE_DIR", &coverage_dir) || coverage_dir.empty()) {
+    if (!DirectoryExists(dir)) {
+      LogError(
+          __LINE__,
+          L"ERROR: RUNFILES_DIR does not exist. This can happen when using "
+          L"--nobuild_runfile_manifests with local execution. Use a different "
+          L"execution strategy, or build with runfile manifests.");
+      return false;
+    }
     if (!SetCurrentDirectoryW(dir.Get().c_str())) {
       DWORD err = GetLastError();
       LogErrorWithArgAndValue(__LINE__, "Could not chdir", dir.Get(), err);

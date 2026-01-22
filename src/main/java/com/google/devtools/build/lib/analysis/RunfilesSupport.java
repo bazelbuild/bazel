@@ -429,10 +429,8 @@ public final class RunfilesSupport {
   /** Returns the root directory of the runfiles symlink farm; otherwise, returns null. */
   @Nullable
   public Path getRunfilesDirectory() {
-    if (runfilesInputManifest == null) {
-      return null;
-    }
-    return FileSystemUtils.replaceExtension(runfilesInputManifest.getPath(), RUNFILES_DIR_EXT);
+    Path executablePath = owningExecutable.getPath();
+    return executablePath.getParentDirectory().getRelative(executablePath.getBaseName() + RUNFILES_DIR_EXT);
   }
 
   /**
