@@ -1919,7 +1919,7 @@ public final class SkyframeActionExecutor {
             stderr,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : firstStartTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
   }
 
   /**
