@@ -16,6 +16,7 @@ package net.starlark.java.syntax;
 
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Base class for all Starlark types.
@@ -62,6 +63,29 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     if (t1.equals(t2)) {
       return true;
     }
+    return false;
+  }
+
+  /**
+   * Infers the return type of a binary operation having an operand of this type.
+   *
+   * @param operator a binary operator (one of {@link BinaryOperatorExpression#operators}) which is
+   *     not {@link TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, or {@link
+   *     TokenKind#NOT_EQUALS} (those are always inferred to produce {@link Types#BOOL})
+   * @param that a non-union, non-Never type of the other operand
+   * @param thisLeft true iff this type is the type of the LHS operand.
+   * @return the inferred type of the operation, or {@code null} to indicate that we could not infer
+   *     a return type, in which case the caller would fall back to calling {@code
+   *     inferBinaryOperator} on the other operand's type, or to special-case handling for certain
+   *     operators on certain built-in types (e.g. tuple multiplication).
+   */
+  @Nullable
+  StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    return null;
+  }
+
+  /** Returns true if this type's values can be compared with other values of the same type. */
+  boolean isComparable() {
     return false;
   }
 }

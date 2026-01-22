@@ -15,10 +15,12 @@
 package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A visitor for validating that expressions and statements respect the types of the symbols
@@ -132,6 +134,57 @@ public final class TypeChecker extends NodeVisitor {
         }
         return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
       }
+      case BINARY_OPERATOR -> {
+        var binop = (BinaryOperatorExpression) expr;
+        TokenKind operator = binop.getOperator();
+        switch (operator) {
+          case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
+            // Boolean regardless of LHS and RHS.
+            return Types.BOOL;
+          }
+          default -> {
+            // Take the union of all types inferred by crossing the left and right union elements
+            // (each of which must be a valid combination of rhs and lhs for the operator).
+            StarlarkType xType = infer(binop.getX());
+            StarlarkType yType = infer(binop.getY());
+            ImmutableCollection<StarlarkType> xTypes = Types.unfoldUnion(xType);
+            ImmutableCollection<StarlarkType> yTypes = Types.unfoldUnion(yType);
+            ArrayList<StarlarkType> resultTypes = new ArrayList<>();
+            for (StarlarkType xElemType : xTypes) {
+              for (StarlarkType yElemType : yTypes) {
+                @Nullable
+                StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
+                if (resultType == null) {
+                  resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
+                }
+                if (resultType == null && operator == TokenKind.STAR) {
+                  // Tuple repetition is the only case where we need to examine the expressions.
+                  // TODO: #28037 - We can get rid of the tuple repetition special case if we
+                  // introduce ConstantIntType for integer constants.
+                  if (xElemType.equals(Types.INT) && yElemType instanceof Types.TupleType tuple) {
+                    resultType = inferTupleRepetition(tuple, binop.getX());
+                  } else if (yElemType.equals(Types.INT)
+                      && xElemType instanceof Types.TupleType tuple) {
+                    resultType = inferTupleRepetition(tuple, binop.getY());
+                  }
+                }
+                if (resultType == null) {
+                  // TODO: #28037 - better error message if LHS and/or RHS are unions?
+                  errorf(
+                      binop.getOperatorLocation(),
+                      "operator '%s' cannot be applied to types '%s' and '%s'",
+                      operator,
+                      xType,
+                      yType);
+                  return Types.ANY;
+                }
+                resultTypes.add(resultType);
+              }
+            }
+            return Types.union(resultTypes);
+          }
+        }
+      }
       case UNARY_OPERATOR -> {
         var unop = (UnaryOperatorExpression) expr;
         if (unop.getOperator() == TokenKind.NOT) {
@@ -154,8 +207,8 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
       default -> {
-        // TODO: #28037 - support binaryop, call, cast, comprehension, conditional, lambda, and
-        // slice expressions.
+        // TODO: #28037 - support call, cast, comprehension, conditional, lambda, and slice
+        // expressions.
         throw new UnsupportedOperationException(
             String.format("cannot typecheck %s expression", expr.kind()));
       }
@@ -238,6 +291,21 @@ public final class TypeChecker extends NodeVisitor {
       errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
       return Types.ANY;
     }
+  }
+
+  private static StarlarkType inferTupleRepetition(Types.TupleType tuple, Expression timesExpr) {
+    if (timesExpr instanceof IntLiteral intLiteral) {
+      // TODO: #28037 - our IntLiteral is always non-negative (we parse negative integers as unary
+      // expressions). Note, however, that mypy does handle negative integers; we ought to either
+      // support negative integers in ConstantIntType if/when we introduce it, or else optimize
+      // negative integer literals to be IntLiteral (see #28385).
+      @Nullable Integer times = intLiteral.getIntValueExact();
+      if (times != null) {
+        return tuple.repeat(times);
+      }
+    }
+    // TODO: #28037 - return tuple of indeterminate shape.
+    return Types.ANY;
   }
 
   /**

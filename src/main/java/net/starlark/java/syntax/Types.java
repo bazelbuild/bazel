@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -58,6 +59,9 @@ public final class Types {
   public static final StarlarkType INT = new IntType();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new StrType();
+
+  // A frequently-used union `int | float`.
+  public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -103,6 +107,34 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof AnyType;
+    }
+
+    // TODO: #27370 - we may want to infer a more precise type when one of the operands is non-Any.
+    // (For example, we could infer that int % Any is int | float; on the other hand, Any % int
+    // could also be a string, since % is also a string substitution operator.) Requires a registry
+    // of which types (including those of application-defined net.starlark.java.eval.HasBinary
+    // values) support which binary operators. This would also imply that the inferred type of
+    // `Any <op> T` could be application-dependent even if T is a universal built-in type.
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            // Infer that a comparison with a comparable type is boolean.
+            that.isComparable() ? Types.BOOL : null;
+        case IN, NOT_IN ->
+            // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
+            // it is membership-testable.
+            // If we are the RHS, act as a membership-testable type that allows any LHS (e.g. list)
+            // and return bool.
+            thisLeft ? null : Types.BOOL;
+        default -> ANY;
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
     }
   }
 
@@ -172,6 +204,21 @@ public final class Types {
     public boolean equals(Object obj) {
       return obj instanceof BoolType;
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            that.equals(Types.BOOL) ? Types.BOOL : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
+    }
   }
 
   private static final class IntType extends StarlarkType {
@@ -188,6 +235,29 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof IntType;
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            NUMERIC.getTypes().contains(that) ? Types.BOOL : null;
+        case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
+        case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
+        case STAR ->
+            // Repetition operator (int * str, int * list, etc.) is assumed to be symmetric and
+            // implemented by the rhs, so defer to rhs for non-numeric case.
+            NUMERIC.getTypes().contains(that) ? that : null;
+        case AMPERSAND, CARET, GREATER_GREATER, LESS_LESS, PIPE ->
+            that.equals(Types.INT) ? Types.INT : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
     }
   }
 
@@ -206,6 +276,23 @@ public final class Types {
     public boolean equals(Object obj) {
       return obj instanceof FloatType;
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            NUMERIC.getTypes().contains(that) ? Types.BOOL : null;
+        case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
+            NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
+    }
   }
 
   private static final class StrType extends StarlarkType {
@@ -222,6 +309,29 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof StrType;
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> that.equals(STR) ? BOOL : null;
+        case PLUS -> that.equals(STR) ? STR : null;
+        case PERCENT ->
+            // String substitution allows anything on the RHS
+            thisLeft ? STR : null;
+        case STAR -> that.equals(INT) ? STR : null;
+        case IN, NOT_IN ->
+            // If we are LHS, defer to the RHS.
+            // If we are RHS, explicitly handle Any since AnyType.inferBinaryOperator defers to us.
+            !thisLeft && (that.equals(STR) || that.equals(ANY)) ? BOOL : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
     }
   }
 
@@ -378,10 +488,12 @@ public final class Types {
   /**
    * Constructs a union type.
    *
-   * <p>If the types sets contains another Union type it's flattened. Duplicates are removed.
+   * <p>If the types set contains another Union type it's flattened. Duplicates are removed.
+   * Occurrences of Never are removed.
    *
    * <p>If types set contains Object type it's simplified to Object type. If the set contains a
-   * single element, it is returned instead of constructing a union.
+   * single element, it is returned instead of constructing a union. And if the set is empty, Never
+   * is returned.
    */
   public static StarlarkType union(StarlarkType... types) {
     return union(ImmutableSet.copyOf(types));
@@ -396,7 +508,7 @@ public final class Types {
     for (StarlarkType type : types) {
       if (type instanceof UnionType union) {
         subtypesBuilder.addAll(union.getTypes());
-      } else {
+      } else if (!type.equals(Types.NEVER)) {
         subtypesBuilder.add(type);
       }
     }
@@ -413,13 +525,26 @@ public final class Types {
   }
 
   public static StarlarkType union(List<StarlarkType> types) {
+    if (types.size() == 1) {
+      // Optimize the common case.
+      return types.getFirst();
+    }
     return union(ImmutableSet.copyOf(types));
+  }
+
+  /** Returns the list of a union's types, or a singleton list if {@code type} is not a union. */
+  public static ImmutableCollection<StarlarkType> unfoldUnion(StarlarkType type) {
+    if (type instanceof Types.UnionType unionType) {
+      return unionType.getTypes();
+    }
+    return ImmutableList.of(type);
   }
 
   /**
    * Union type
    *
-   * <p>Unions with zero or one type are disallowed. See {@link Types#union}.
+   * <p>Unions must contain at least two types, none of which may be Never or Object. See {@link
+   * Types#union}.
    */
   @AutoValue
   public abstract static class UnionType extends StarlarkType {
@@ -437,9 +562,7 @@ public final class Types {
 
   /** List type */
   @AutoValue
-  public abstract static class ListType extends StarlarkType {
-    public abstract StarlarkType getElementType();
-
+  public abstract static class ListType extends AbstractSequenceType {
     @Override
     public List<StarlarkType> getSupertypes() {
       return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
@@ -449,6 +572,27 @@ public final class Types {
     public final String toString() {
       return "list[" + getElementType() + "]";
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            // TODO: #28037 - verify that the element types are comparable.
+            that instanceof ListType ? Types.BOOL : null;
+        case PLUS ->
+            that instanceof ListType thatList
+                ? list(union(getElementType(), thatList.getElementType()))
+                : null;
+        case STAR -> that.equals(Types.INT) ? this : null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
+    }
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
@@ -457,9 +601,11 @@ public final class Types {
 
   /** Dict type */
   @AutoValue
-  public abstract static class DictType extends StarlarkType {
+  public abstract static class DictType extends AbstractMappingType {
+    @Override
     public abstract StarlarkType getKeyType();
 
+    @Override
     public abstract StarlarkType getValueType();
 
     @Override
@@ -479,7 +625,8 @@ public final class Types {
 
   /** Set type */
   @AutoValue
-  public abstract static class SetType extends StarlarkType {
+  public abstract static class SetType extends AbstractCollectionType {
+    @Override
     public abstract StarlarkType getElementType();
 
     @Override
@@ -491,6 +638,22 @@ public final class Types {
     public final String toString() {
       return "set[" + getElementType() + "]";
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case AMPERSAND, MINUS ->
+            // TODO: #27370 - we may want to tighten the type of a set intersection, but it's
+            // non-trivial.
+            that instanceof SetType ? this : null;
+        case CARET, PIPE ->
+            that instanceof SetType thatSet
+                ? set(union(getElementType(), thatSet.getElementType()))
+                : null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
   }
 
   public static TupleType tuple(ImmutableList<StarlarkType> elementTypes) {
@@ -499,8 +662,13 @@ public final class Types {
 
   /** Tuple type of a fixed length. */
   @AutoValue
-  public abstract static class TupleType extends StarlarkType {
+  public abstract static class TupleType extends AbstractSequenceType {
     public abstract ImmutableList<StarlarkType> getElementTypes();
+
+    @Override
+    public StarlarkType getElementType() {
+      return union(getElementTypes());
+    }
 
     @Override
     public List<StarlarkType> getSupertypes() {
@@ -514,6 +682,45 @@ public final class Types {
           + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
           + "]";
     }
+
+    /** Returns the type of this tuple concatenated with another. */
+    TupleType concatenate(TupleType rhs) {
+      // TODO: #27728 - revisit concatenation when we support tuples of indeterminate shape.
+      return tuple(
+          ImmutableList.<StarlarkType>builder()
+              .addAll(getElementTypes())
+              .addAll(rhs.getElementTypes())
+              .build());
+    }
+
+    /** Returns the type of this tuple repeated. */
+    TupleType repeat(int times) {
+      // TODO: #27728 - revisit concatenation when we support tuples of indeterminate shape.
+      ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
+      for (int i = 0; i < times; i++) {
+        builder.addAll(getElementTypes());
+      }
+      return tuple(builder.build());
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
+            // TODO: #28037 - verify that the element types at each position are comparable.
+            that instanceof TupleType ? Types.BOOL : null;
+        case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
+        // Special case handled by TypeChecker.inferTupleRepetition.
+        case STAR -> null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
+
+    @Override
+    boolean isComparable() {
+      return true;
+    }
   }
 
   /** Collection type */
@@ -521,11 +728,27 @@ public final class Types {
     return new AutoValue_Types_CollectionType(elementType);
   }
 
-  /** Collection type */
-  @AutoValue
-  public abstract static class CollectionType extends StarlarkType {
+  /** Abstract collection type implementing common functionality. Exists to be subclassed. */
+  public abstract static class AbstractCollectionType extends StarlarkType {
     public abstract StarlarkType getElementType();
 
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        // `in` and `not in` are always valid for collections on the RHS.
+        case IN, NOT_IN -> thisLeft ? null : BOOL;
+        default -> null;
+      };
+    }
+  }
+
+  /** Collection type. */
+  // We need CollectionType to be a separate class from AbstractCollectionType only because one
+  // @AutoValue class may not extend another - so we cannot have SequenceType or SetType be
+  // subclasses of CollectionType (they are subclasses of AbstractCollectionType instead).
+  @AutoValue
+  public abstract static class CollectionType extends AbstractCollectionType {
     @Override
     public final String toString() {
       return "Collection[" + getElementType() + "]";
@@ -537,15 +760,25 @@ public final class Types {
     return new AutoValue_Types_SequenceType(elementType);
   }
 
-  /** Sequence type */
-  @AutoValue
-  public abstract static class SequenceType extends StarlarkType {
+  /** Abstract sequence type for common sequence functionality. Exists to be subclassed. */
+  public abstract static class AbstractSequenceType extends AbstractCollectionType {
+    @Override
     public abstract StarlarkType getElementType();
 
     @Override
     public List<StarlarkType> getSupertypes() {
       return ImmutableList.of(collection(getElementType()));
     }
+  }
+
+  /** Sequence type. */
+  // We need SequenceType to be a separate class from AbstractSequenceType only because one
+  // @AutoValue class may not extend another - so we cannot have ListType or
+  // TupleType be subclasses of SequenceType (they are subclasses of AbstractSequenceType instead).
+  @AutoValue
+  public abstract static class SequenceType extends AbstractSequenceType {
+    @Override
+    public abstract StarlarkType getElementType();
 
     @Override
     public final String toString() {
@@ -558,11 +791,46 @@ public final class Types {
     return new AutoValue_Types_MappingType(keyType, valueType);
   }
 
-  /** Mapping type */
-  @AutoValue
-  public abstract static class MappingType extends StarlarkType {
+  /** Abstract mapping type for common map functionality. Exists to be subclassed. */
+  public abstract static class AbstractMappingType extends AbstractCollectionType {
     public abstract StarlarkType getKeyType();
 
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public StarlarkType getElementType() {
+      return getKeyType();
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType rhs, boolean thisLeft) {
+      return switch (operator) {
+        case PIPE ->
+            // TODO: #27370 - mypy supports dict | dict, but doesn't support the | operator for
+            // non-dict mappings. Should we have the same restriction? (Note that such a restriction
+            // would break some uses of Bazel's native.existing_rules()).
+            // TODO: #27370 - do we need to handle Neve for the key or value type?
+            rhs instanceof AbstractMappingType rhsMapping
+                ? dict(
+                    union(getKeyType(), rhsMapping.getKeyType()),
+                    union(getValueType(), rhsMapping.getValueType()))
+                : null;
+        default -> super.inferBinaryOperator(operator, rhs, thisLeft);
+      };
+    }
+  }
+
+  /** Mapping type. */
+  // We need MappingType to be a separate class from AbstractMappingType only because one @AutoValue
+  // class may not extend another - so we cannot have DictType be a subclass of MappingType (it is a
+  // subclass of AbstractMappingType instead).
+  @AutoValue
+  public abstract static class MappingType extends AbstractMappingType {
+    @Override
+    public abstract StarlarkType getKeyType();
+
+    @Override
     public abstract StarlarkType getValueType();
 
     @Override
