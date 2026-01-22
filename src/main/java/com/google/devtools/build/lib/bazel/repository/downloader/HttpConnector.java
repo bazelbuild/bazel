@@ -124,8 +124,15 @@ class HttpConnector {
     while (true) {
       HttpURLConnection connection = null;
       try {
-        connection = (HttpURLConnection)
-            url.openConnection(proxyHelper.createProxyIfNeeded(url));
+        ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
+        connection = (HttpURLConnection) url.openConnection(proxyInfo.proxy());
+        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
+        // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
+        // Authenticator we set in ProxyHelper.
+        if (proxyInfo.hasCredentials()) {
+          connection.setRequestProperty(
+              "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
+        }
         // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
         connection.addRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
         boolean isAlreadyCompressed =
