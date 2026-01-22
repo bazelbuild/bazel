@@ -510,7 +510,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return totalTestCases;
   }
 
-  public int getUnkownTestCases() {
+  public int getUnknownTestCases() {
     return totalUnknownTestCases;
   }
 

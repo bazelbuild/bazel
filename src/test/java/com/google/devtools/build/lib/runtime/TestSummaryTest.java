@@ -610,7 +610,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(1);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(1);
   }
 
   @Test
@@ -628,7 +628,7 @@ public class TestSummaryTest {
         getTemplateBuilder().collectTestCases(a).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(2);
-    assertThat(summary.getUnkownTestCases()).isEqualTo(0);
+    assertThat(summary.getUnknownTestCases()).isEqualTo(0);
     assertThat(summary.getFailedTestCases()).isEmpty();
   }
 

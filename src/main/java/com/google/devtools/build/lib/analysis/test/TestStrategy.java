@@ -19,8 +19,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -340,13 +342,18 @@ public abstract class TestStrategy implements TestActionContext {
     return digest.hexDigestAndReset().substring(0, 32);
   }
 
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> PARSE_TEST_RESULT_FORMATS =
+      Sets.immutableEnumSet(
+          ExecutionOptions.TestSummaryFormat.DETAILED,
+          ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED,
+          ExecutionOptions.TestSummaryFormat.TESTCASE);
+
   /** Parse a test result XML file into a {@link TestCase}. */
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if ((executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.DETAILED)
-        && (executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.TESTCASE)) {
+    if (!PARSE_TEST_RESULT_FORMATS.contains(executionOptions.testSummary)) {
       return null;
     }
 
