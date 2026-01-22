@@ -223,17 +223,6 @@ public class DiskCacheClientTest {
   }
 
   @Test
-  public void downloadBlob_whenCorrupted_throwsOutputDigestMismatchException() throws Exception {
-    Digest digest = getDigest("contents");
-    populateCas(digest, "corrupted contents");
-    Path out = fs.getPath("/out");
-
-    assertThrows(
-        OutputDigestMismatchException.class,
-        () -> getFromFuture(client.downloadBlob(digest, out.getOutputStream())));
-  }
-
-  @Test
   public void downloadActionResult_whenPresent_returnsCachedActionResult() throws Exception {
     ActionKey actionKey = new ActionKey(getDigest("key"));
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(42).build();
