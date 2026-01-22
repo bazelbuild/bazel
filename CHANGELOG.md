@@ -1,3 +1,11 @@
+## Release 10.0.0-pre.20260114.1 (2026-01-22)
+
+```
+Baseline: a4e9e9774d3266b829de7e0b7e7cd75791ca3333
+```
+
+Initial release.
+
 ## Release 6.6.0 (2026-01-21)
 
 ```
