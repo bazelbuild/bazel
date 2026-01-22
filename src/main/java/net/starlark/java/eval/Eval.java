@@ -172,7 +172,9 @@ final class Eval {
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
     @Nullable CallableType functionType = rfn.getFunctionType();
     boolean dynamicTypeCheckingEnabled =
-        fr.thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
+        fr.thread
+            .getSemantics()
+            .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
     for (int i = 0; i < nparams; i++) {
       Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {

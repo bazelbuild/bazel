@@ -19,6 +19,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
@@ -189,13 +190,7 @@ public class BzlCompileFunction implements SkyFunction {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
 
-    boolean useTypeSyntax = shouldUseTypeSyntax(semantics, key);
-    // Type checking requires the syntax flag to be enabled, though technically it shouldn't matter
-    // to semantics if unannotated code is considered untyped.
-    boolean doTypeChecking =
-        useTypeSyntax && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
-
-    FileOptions options =
+    FileOptions.Builder optionsBuilder =
         FileOptions.builder()
             // By default, Starlark load statements create file-local bindings.
             // However, the BUILD prelude typically contains nothing but load
@@ -208,12 +203,9 @@ public class BzlCompileFunction implements SkyFunction {
             // permitted in a .bzl file. But there's no easy way to do that short of either string
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
-            .stringLiteralsAreAsciiOnly(key.isSclDialect())
-            .allowTypeSyntax(useTypeSyntax)
-            .resolveTypeSyntax(doTypeChecking)
-            .tolerateInvalidTypeExpressions(!doTypeChecking)
-            .build();
-    StarlarkFile file = StarlarkFile.parse(input, options);
+            .stringLiteralsAreAsciiOnly(key.isSclDialect());
+    setTypeOptions(optionsBuilder, semantics, key);
+    StarlarkFile file = StarlarkFile.parse(input, optionsBuilder.build());
 
     // compile
     final Module module;
@@ -255,8 +247,13 @@ public class BzlCompileFunction implements SkyFunction {
     boolean okFiletype =
         // annotations in prelude not allowed (it has null key.label)
         !key.isBuildPrelude()
-            // annotations in SCL now allowed (not yet compatible with Go-Starlark interpreter)
-            && !key.isSclDialect();
+            // annotations in SCL not allowed (not yet compatible with Go-Starlark interpreter)
+            && !key.isSclDialect()
+            // TODO: #27370 - At the moment we haven't implemented the distinction between typed and
+            // untyped code, so we need this special casing to prevent type checking from applying
+            // to arbitrary @_builtins code. Same for @bazel_tools.
+            && !key.isBuiltins()
+            && !key.label.getRepository().equals(RepositoryName.BAZEL_TOOLS);
 
     if (typeSyntaxFlag && okFiletype) {
       if (allowlist.isEmpty()
@@ -265,6 +262,27 @@ public class BzlCompileFunction implements SkyFunction {
       }
     }
     return false;
+  }
+
+  private static void setTypeOptions(
+      FileOptions.Builder builder, StarlarkSemantics semantics, BzlCompileValue.Key key) {
+    boolean useTypeSyntax = shouldUseTypeSyntax(semantics, key);
+    // Technically, if we're not using type syntax then the whole file is considered untyped code,
+    // which should be ignored by type checking. But let's gate type checking on the use of the
+    // syntax flag anyway.
+    boolean doStaticTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
+    boolean doDynamicTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
+    boolean needsTypeInfo = doStaticTypeChecking || doDynamicTypeChecking;
+
+    builder
+        .allowTypeSyntax(useTypeSyntax)
+        .resolveTypeSyntax(needsTypeInfo)
+        .tolerateInvalidTypeExpressions(!needsTypeInfo)
+        .staticTypeChecking(doStaticTypeChecking);
   }
 
   /**

@@ -209,8 +209,8 @@ public final class TypeChecker extends NodeVisitor {
       default -> {
         // TODO: #28037 - support call, cast, comprehension, conditional, lambda, and slice
         // expressions.
-        throw new UnsupportedOperationException(
-            String.format("cannot typecheck %s expression", expr.kind()));
+        errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
+        return Types.ANY;
       }
     }
   }
@@ -345,8 +345,10 @@ public final class TypeChecker extends NodeVisitor {
     if (lhs.kind() == Expression.Kind.LIST_EXPR) {
       // TODO: #28037 - support LHSs containing multiple targets (list expression), field
       // assignments, and subscript assignments.
-      throw new UnsupportedOperationException(
-          "cannot typecheck assignment statements with multiple targets on the LHS");
+      errorf(
+          lhs,
+          "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS");
+      return;
     }
 
     if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
@@ -372,7 +374,8 @@ public final class TypeChecker extends NodeVisitor {
   public void visit(AssignmentStatement assignment) {
     if (assignment.isAugmented()) {
       // TODO: #28037 - support this by validating that `lhs <op> rhs` would type check
-      throw new UnsupportedOperationException("cannot typecheck augmented assignment statements");
+      errorf(assignment, "UNSUPPORTED: cannot typecheck augmented assignment statements");
+      return;
     }
 
     // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
@@ -419,7 +422,7 @@ public final class TypeChecker extends NodeVisitor {
    *
    * <p>Any type checking errors are appended to the file's errors list.
    */
-  public static void check(StarlarkFile file) {
+  public static void checkFile(StarlarkFile file) {
     TypeChecker checker = new TypeChecker(file.errors);
     checker.visit(file);
   }

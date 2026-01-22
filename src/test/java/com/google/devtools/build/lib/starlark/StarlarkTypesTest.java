@@ -139,9 +139,9 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void typeResolverDoesRunWithTypeCheckingFlag() throws Exception {
+  public void typeResolverDoesRunWithDynamicTypeCheckingFlag() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_type_checking");
+        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
     scratch.file(
         "test/foo.bzl",
         """
@@ -157,6 +157,42 @@ public class StarlarkTypesTest extends BuildViewTestCase {
 
     checkLoadingPhaseError(
         "//test:BUILD", "type annotation on 'x' may only appear at its declaration");
+  }
+
+  @Test
+  public void staticTypeCheckingDoesNotRunByDefault() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        x: int = "a"
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "x")
+        """);
+
+    getTarget("//test:BUILD");
+    assertNoEvents();
+  }
+
+  @Test
+  public void staticTypeCheckingDoesRunWithStaticTypeCheckingFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file(
+        "test/foo.bzl",
+        """
+        x: int = "a"
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":foo.bzl", "x")
+        """);
+
+    checkLoadingPhaseError("//test:BUILD", "cannot assign type 'str' to 'x' of type 'int'");
   }
 
   @Test
@@ -180,9 +216,9 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void dynamicTypeCheckingDoesRunWithTypeCheckingFlag() throws Exception {
+  public void dynamicTypeCheckingDoesRunWithDynamicTypeCheckingFlag() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_type_checking");
+        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
     scratch.file(
         "test/foo.bzl",
         """

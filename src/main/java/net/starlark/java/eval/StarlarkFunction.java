@@ -537,9 +537,12 @@ public final class StarlarkFunction implements StarlarkCallable {
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
 
+      boolean dynamicTyping =
+          thread
+              .getSemantics()
+              .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
       Types.CallableType functionType =
-          thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING)
-                  && owner.getStarlarkType() instanceof Types.CallableType
+          dynamicTyping && owner.getStarlarkType() instanceof Types.CallableType
               ? (Types.CallableType) owner.getStarlarkType()
               : null;
 

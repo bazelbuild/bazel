@@ -112,6 +112,13 @@ public final class Program {
       }
     }
 
+    if (file.getOptions().staticTypeChecking()) {
+      TypeChecker.checkFile(file);
+      if (!file.ok()) {
+        throw new SyntaxError.Exception(file.errors());
+      }
+    }
+
     // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
     // enabled. Blocked on having the type checker tolerate all AST nodes.
 

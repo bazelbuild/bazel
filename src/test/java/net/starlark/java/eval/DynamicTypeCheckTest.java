@@ -40,7 +40,7 @@ public class DynamicTypeCheckTest {
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
-            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, true)
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
     // TODO: #27728 - No need to add to global environment once these builtin types are in the
     // universal block.
@@ -53,7 +53,7 @@ public class DynamicTypeCheckTest {
   public void typechecking_disabledByFlag() throws Exception {
     ev.setSemantics(
         StarlarkSemantics.builder()
-            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, false)
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, false)
             .build());
 
     ev.exec("def f(a : int): pass", "f('abc')");

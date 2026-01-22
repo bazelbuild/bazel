@@ -696,16 +696,45 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalStarlarkTypeSyntax;
 
   @Option(
-      name = "experimental_starlark_type_checking",
+      name = "experimental_starlark_static_type_checking",
       defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Enables type checking in files and functions that contain type annotations or related "
-              + "syntax. (When this flag is disabled, Bazel is more forgiving of invalid types in "
-              + "type annotations.)")
-  public boolean experimentalStarlarkTypeChecking;
+          "Enables static type checking in files and functions that contain type annotations or "
+              + "related syntax.")
+  public boolean experimentalStarlarkStaticTypeChecking;
+
+  @Option(
+      name = "experimental_starlark_dynamic_type_checking",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables dynamic type checking of arguments and return values for functions that contain "
+              + "type annotations or related syntax.")
+  public boolean experimentalStarlarkDynamicTypeChecking;
+
+  @Option(
+      name = "experimental_starlark_type_checking",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      expansion = {
+        "--experimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking",
+      },
+      help =
+          "Enables both static and dynamic type checking in files and functions that contain type"
+              + " annotations or related syntax. This is an expansion flag for"
+              + " --experimental_starlark_static_type_checking and "
+              + "--experimental_starlark_dynamic_type_checking."
+              + " (When both flags are disabled, Bazel is more forgiving of invalid types in type"
+              + " annotations.)")
+  public Void experimentalStarlarkTypeChecking;
 
   // TODO: b/350661266 - Delete this flag.
   @Option(
@@ -955,8 +984,11 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
             .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, experimentalStarlarkTypeSyntax)
             .setBool(
-                StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING,
-                experimentalStarlarkTypeChecking)
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING,
+                experimentalStarlarkStaticTypeChecking)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING,
+                experimentalStarlarkDynamicTypeChecking)
             .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
