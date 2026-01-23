@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
@@ -62,6 +63,12 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
                 .setActionCacheUpdateCapabilities(
                     ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                 .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)
+                .setSplitBlobSupport(true)
+                .setSpliceBlobSupport(true)
+                .setFastCdc2020Params(FastCdc2020Params.newBuilder()
+                    .setAvgChunkSizeBytes(512 * 1024)
+                    .setSeed(0)
+                    .build())
                 .build());
     if (execEnabled) {
       response.setExecutionCapabilities(
