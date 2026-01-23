@@ -567,7 +567,6 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x < y", Types.BOOL, "x: int; y: float");
     assertTypeGivenDecls("x >= y", Types.BOOL, "x: bool; y: bool");
     assertTypeGivenDecls("x <= y", Types.BOOL, "x: str; y: str");
-    assertTypeGivenDecls("(1, 2) >= (3, 4)", Types.BOOL);
 
     // Any inference
     assertTypeGivenDecls("x < y", Types.BOOL, "x: Any; y: Any");
@@ -580,9 +579,17 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x >= y", Types.BOOL, "x: Any; y: int | list[str]");
     assertTypeGivenDecls("x < y", Types.BOOL, "x: int | str; y: Any");
 
-    // TODO: #27728 - these should fail since the element types are not comparable.
-    assertTypeGivenDecls("x < y", Types.BOOL, "x: list[int]; y: list[str]");
-    assertTypeGivenDecls("x >= y", Types.BOOL, "x: tuple[int, str]; y: tuple[str, int]");
+    // Compound types
+    assertTypeGivenDecls("(1, 2) >= (3, 4)", Types.BOOL);
+    assertTypeGivenDecls("x < y", Types.BOOL, "x: list[int]; y: list[int|float]");
+    assertTypeGivenDecls("x <= y", Types.BOOL, "x: list[int|float]; y: list[float|int]");
+    assertTypeGivenDecls("x > y", Types.BOOL, "x: tuple[str, int]; y: tuple[str]");
+    assertTypeGivenDecls(
+        "x <= y", Types.BOOL, "x: list[tuple[str, int]]; y: list[tuple[Any, float]]");
+    // Lists of Never are always comparable to other lists
+    assertTypeGivenDecls("[] < [1]", Types.BOOL);
+    assertTypeGivenDecls("['a'] >= []", Types.BOOL);
+    assertTypeGivenDecls("[] > []", Types.BOOL);
 
     // unsupported operations
     assertInvalid(":1:5: operator '<' cannot be applied to types 'str' and 'int'", "'0' < 1");
@@ -601,6 +608,17 @@ public final class TypeCheckerTest {
     assertInvalid(
         "operator '<' cannot be applied to types 'int|str' and 'int|str'",
         "x: int | str; y: int | str; x < y");
+    // Incomparable compound types
+    assertInvalid(
+        "operator '<' cannot be applied to types 'list[int|str]' and 'list[str]'",
+        "x: list[int|str]; y: list[str]; x < y");
+    assertInvalid(
+        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[str, int]'",
+        "x: tuple[int, str]; y: tuple[str, int]; x >= y");
+    assertInvalid(
+        "operator '>=' cannot be applied to types 'list[tuple[str, int]]' and 'list[tuple[bool,"
+            + " Any]]'",
+        "x: list[tuple[str, int]]; y: list[tuple[bool, Any]]; x >= y");
   }
 
   @Test

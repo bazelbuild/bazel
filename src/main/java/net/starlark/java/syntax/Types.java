@@ -119,9 +119,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            // Infer that a comparison with a comparable type is boolean.
-            that.isComparable() ? Types.BOOL : null;
         case IN, NOT_IN ->
             // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
             // it is membership-testable.
@@ -133,8 +130,10 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      // Instead of enumerating all comparable types here, allow StarlarkType#comparable to defer to
+      // that.isComparable(ANY).
+      return that.equals(ANY);
     }
   }
 
@@ -169,6 +168,13 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof NeverType;
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      // Regard Never - as the bottom type - to be comparable to anything; in particular, this
+      // allows empty lists (i.e. list[Never]) to be comparable to arbitrary non-empty lists.
+      return true;
     }
   }
 
@@ -206,18 +212,8 @@ public final class Types {
     }
 
     @Override
-    @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
-      return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            that.equals(Types.BOOL) ? Types.BOOL : null;
-        default -> null;
-      };
-    }
-
-    @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      return that.equals(Types.BOOL) || that.equals(Types.ANY);
     }
   }
 
@@ -241,8 +237,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            NUMERIC.getTypes().contains(that) ? Types.BOOL : null;
         case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
         case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
         case STAR ->
@@ -256,8 +250,10 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      // TODO: #27370 - we are expressing "other is-consistent-subtype-of NUMERIC", which supposed
+      // to be (but currently isn't) implemented by StarlarkType.assignableFrom.
+      return that.equals(INT) || that.equals(FLOAT) || that.equals(NUMERIC) || that.equals(ANY);
     }
   }
 
@@ -281,8 +277,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            NUMERIC.getTypes().contains(that) ? Types.BOOL : null;
         case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
             NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
         default -> null;
@@ -290,8 +284,10 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      // TODO: #27370 - we are expressing "other is-consistent-subtype-of NUMERIC", which supposed
+      // to be (but currently isn't) implemented by StarlarkType.assignableFrom.
+      return that.equals(INT) || that.equals(FLOAT) || that.equals(NUMERIC) || that.equals(ANY);
     }
   }
 
@@ -315,7 +311,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> that.equals(STR) ? BOOL : null;
         case PLUS -> that.equals(STR) ? STR : null;
         case PERCENT ->
             // String substitution allows anything on the RHS
@@ -330,8 +325,8 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      return that.equals(STR) || that.equals(ANY);
     }
   }
 
@@ -554,6 +549,11 @@ public final class Types {
     public final String toString() {
       return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
     }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
+    }
   }
 
   public static ListType list(StarlarkType elementType) {
@@ -577,9 +577,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            // TODO: #28037 - verify that the element types are comparable.
-            that instanceof ListType ? Types.BOOL : null;
         case PLUS ->
             that instanceof ListType thatList
                 ? list(union(getElementType(), thatList.getElementType()))
@@ -590,8 +587,13 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof ListType thatList) {
+        return comparable(getElementType(), thatList.getElementType());
+      }
+      return false;
     }
   }
 
@@ -707,9 +709,6 @@ public final class Types {
     @Nullable
     StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
-        case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS ->
-            // TODO: #28037 - verify that the element types at each position are comparable.
-            that instanceof TupleType ? Types.BOOL : null;
         case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
         // Special case handled by TypeChecker.inferTupleRepetition.
         case STAR -> null;
@@ -718,8 +717,19 @@ public final class Types {
     }
 
     @Override
-    boolean isComparable() {
-      return true;
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof TupleType thatTuple) {
+        int commonLength = Math.min(getElementTypes().size(), thatTuple.getElementTypes().size());
+        for (int i = 0; i < commonLength; i++) {
+          if (!comparable(getElementTypes().get(i), thatTuple.getElementTypes().get(i))) {
+            return false;
+          }
+        }
+        return true;
+      }
+      return false;
     }
   }
 

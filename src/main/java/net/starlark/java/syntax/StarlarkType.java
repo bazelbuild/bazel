@@ -67,11 +67,15 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
   }
 
   /**
-   * Infers the return type of a binary operation having an operand of this type.
+   * Infers the return type of a binary operation having an operand of this type. Intended for use
+   * by {@link TypeChecker}.
    *
    * @param operator a binary operator (one of {@link BinaryOperatorExpression#operators}) which is
-   *     not {@link TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, or {@link
-   *     TokenKind#NOT_EQUALS} (those are always inferred to produce {@link Types#BOOL})
+   *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
+   *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
+   *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}); those are handled specially by
+   *     {@link TypeChecker#infer}.
    * @param that a non-union, non-Never type of the other operand
    * @param thisLeft true iff this type is the type of the LHS operand.
    * @return the inferred type of the operation, or {@code null} to indicate that we could not infer
@@ -84,8 +88,22 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     return null;
   }
 
-  /** Returns true if this type's values can be compared with other values of the same type. */
-  boolean isComparable() {
+  /**
+   * Returns true iff the values of the two arbitrary (possibly union) types can be ordering
+   * compared.
+   */
+  public static boolean comparable(StarlarkType x, StarlarkType y) {
+    return x.isComparable(y) || y.isComparable(x);
+  }
+
+  /**
+   * Returns true if this type's values can be ordering compared with values of another type. A
+   * return value of false is ambiguous on its own; two types are considered incomparable iff both
+   * {code x.isComparable(y)} and {@code y.isComparable(x)} are false.
+   *
+   * <p>Do not call this method directly; instead, use {@link #comparable}.
+   */
+  protected boolean isComparable(StarlarkType that) {
     return false;
   }
 }

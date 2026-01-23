@@ -44,6 +44,17 @@ public final class TypeChecker extends NodeVisitor {
     errors.add(new SyntaxError(loc, String.format(format, args)));
   }
 
+  private void binaryOperatorError(
+      BinaryOperatorExpression binop, StarlarkType xType, StarlarkType yType) {
+    // TODO: #28037 - better error message if LHS and/or RHS are unions?
+    errorf(
+        binop.getOperatorLocation(),
+        "operator '%s' cannot be applied to types '%s' and '%s'",
+        binop.getOperator(),
+        xType,
+        yType);
+  }
+
   private TypeChecker(List<SyntaxError> errors) {
     this.errors = errors;
   }
@@ -142,6 +153,16 @@ public final class TypeChecker extends NodeVisitor {
             // Boolean regardless of LHS and RHS.
             return Types.BOOL;
           }
+          case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
+            // Boolean or type error.
+            StarlarkType xType = infer(binop.getX());
+            StarlarkType yType = infer(binop.getY());
+            if (StarlarkType.comparable(xType, yType)) {
+              return Types.BOOL;
+            }
+            binaryOperatorError(binop, xType, yType);
+            return Types.ANY;
+          }
           default -> {
             // Take the union of all types inferred by crossing the left and right union elements
             // (each of which must be a valid combination of rhs and lhs for the operator).
@@ -169,13 +190,7 @@ public final class TypeChecker extends NodeVisitor {
                   }
                 }
                 if (resultType == null) {
-                  // TODO: #28037 - better error message if LHS and/or RHS are unions?
-                  errorf(
-                      binop.getOperatorLocation(),
-                      "operator '%s' cannot be applied to types '%s' and '%s'",
-                      operator,
-                      xType,
-                      yType);
+                  binaryOperatorError(binop, xType, yType);
                   return Types.ANY;
                 }
                 resultTypes.add(resultType);
