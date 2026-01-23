@@ -124,7 +124,7 @@ public final class GoogleAuthUtils {
 
   private static boolean isTlsEnabled(String target) {
     // 'grpcs://' or empty prefix => TLS-enabled
-    // when no schema prefix is provided in URL, bazel will treat it as a gRPC request with TLS
+    // when no scheme prefix is provided in URL, bazel will treat it as a gRPC request with TLS
     // enabled
     return !target.startsWith("grpc://") && !target.startsWith("unix:");
   }
