@@ -18,6 +18,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -612,9 +614,31 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
+    ChunkingConfig chunkingConfig = null;
+    if (remoteOptions.experimentalRemoteCacheChunking) {
+      try {
+        ServerCapabilities capabilities = cacheChannel.getServerCapabilities();
+        chunkingConfig = ChunkingConfig.fromServerCapabilities(capabilities);
+      } catch (IOException e) {
+        throw createExitException(
+            "Failed to query remote cache capabilities for chunking: " + e.getMessage(),
+            ExitCode.REMOTE_ERROR,
+            RemoteExecution.Code.CAPABILITIES_QUERY_FAILURE);
+      }
+      if (chunkingConfig == null) {
+        throw createExitException(
+            "--experimental_remote_cache_chunking was set, but the remote cache server does not"
+                + " advertise chunking support (SplitBlob/SpliceBlob RPCs with FastCDC 2020"
+                + " parameters).",
+            ExitCode.REMOTE_ERROR,
+            RemoteExecution.Code.CLIENT_SERVER_INCOMPATIBLE);
+      }
+    }
+
     RemoteCacheClient remoteCacheClient =
         new GrpcCacheClient(
-            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
+            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil,
+            chunkingConfig);
     cacheChannel.release();
     DiskCacheClient diskCacheClient = null;
 
