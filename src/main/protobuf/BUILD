@@ -285,6 +285,7 @@ java_library_srcs(
     deps = [":remote_scrubbing_java_proto"],
 )
 
+
 proto_library(
     name = "bazel_output_service_proto",
     srcs = ["bazel_output_service.proto"],
