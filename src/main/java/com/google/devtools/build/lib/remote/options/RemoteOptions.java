@@ -724,6 +724,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Scrubber scrubber;
 
   @Option(
+      name = "experimental_remote_cache_chunking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, large blobs are split into content-defined chunks using FastCDC 2020 and "
+              + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
+              + "must advertise SplitBlob/SpliceBlob RPCs and FastCDC 2020 parameters in its "
+              + "capabilities.")
+  public boolean experimentalRemoteCacheChunking;
+
+  @Option(
       name = "experimental_throttle_remote_action_building",
       defaultValue = "true",
       converter = BooleanConverter.class,

@@ -531,7 +531,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 CallCredentialsProvider.NO_CREDENTIALS,
                 remoteOptions,
                 retrier,
-                DIGEST_UTIL));
+                DIGEST_UTIL,
+                /* chunkingConfig= */ null));
     doAnswer(
             invocationOnMock ->
                 missingDigestsFinder.findMissingDigests(
