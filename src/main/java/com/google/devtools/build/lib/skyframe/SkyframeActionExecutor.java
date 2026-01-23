@@ -1852,7 +1852,7 @@ public final class SkyframeActionExecutor {
             logs.build(),
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : firstStartTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
   }
 
   /**
