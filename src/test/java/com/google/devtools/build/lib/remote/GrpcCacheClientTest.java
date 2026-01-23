@@ -215,7 +215,8 @@ public class GrpcCacheClientTest {
             });
     channels.add(channel);
     return new GrpcCacheClient(
-        channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
+        channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL,
+        /* chunkingConfig= */ null);
   }
 
   private static byte[] downloadBlob(
