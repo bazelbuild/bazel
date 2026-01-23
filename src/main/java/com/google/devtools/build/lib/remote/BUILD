@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
@@ -28,7 +29,9 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "ChunkingConfig.java",
             "ExecutionStatusException.java",
+            "FastCDCChunker.java",
             "ReferenceCountedChannel.java",
             "ChannelConnectionWithServerCapabilitiesFactory.java",
             "RemoteRetrier.java",
@@ -95,6 +98,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
