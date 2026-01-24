@@ -698,6 +698,14 @@ public abstract class BuildIntegrationTestCase {
       // BuildViewTestCase).
       runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
     }
+
+    // Integration tests currently pretend that they run on a Linux host platform on all OSes. This
+    // is a gross hack, but while it is in place, we need to manually set the shell path to a valid
+    // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
+    // one.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
+    }
   }
 
   protected void resetOptions() {
