@@ -118,6 +118,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
+        .add("inputArtifactData", inputArtifactData)
         .add("inputArtifactDataSize", inputArtifactData.sizeForDebugging())
         .toString();
   }

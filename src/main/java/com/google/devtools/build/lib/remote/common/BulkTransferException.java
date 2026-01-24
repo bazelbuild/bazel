@@ -89,8 +89,11 @@ public class BulkTransferException extends IOException {
       var execPath = e.getExecPath();
       checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
       var actionInput = actionInputResolver.apply(execPath.getPathString());
-      checkNotNull(
-          actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
+      if (actionInput == null) {
+        throw new IllegalStateException(
+            "ActionInput not found for filename %s in CacheNotFoundException".formatted(execPath),
+            this);
+      }
 
       lostInputs.put(DigestUtil.toString(missingDigest), actionInput);
     }

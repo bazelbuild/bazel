@@ -604,8 +604,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
     // current action.
     if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
-      ImmutableMap<String, ActionInput> lostInputs =
-          e.getLostInputs(context.getInputMetadataProvider()::getInput);
+      ImmutableMap<String, ActionInput> lostInputs;
+      try {
+        lostInputs = e.getLostInputs(context.getInputMetadataProvider()::getInput);
+      } catch (RuntimeException re) {
+        System.err.printf(
+            "Action: %s%nSpawn: %s%nIMP: %s%n",
+            spawn.getResourceOwner(), spawn, context.getInputMetadataProvider());
+        throw re;
+      }
       if (!lostInputs.isEmpty()) {
         throw new LostInputsExecException(
             lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
