@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -341,8 +340,7 @@ public class DiskCacheClientTest {
   public void concurrentUploadDownload()
       throws IOException, ExecutionException, InterruptedException {
     var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
-    var nativeClient =
-        new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL, /* verifyDownloads= */ false);
+    var nativeClient = new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL);
     var tasks = new ArrayList<Future<?>>();
     // Use 1 MB blobs to increase the window for concurrent access during write/rename.
     var contentSize = 1024 * 1024;

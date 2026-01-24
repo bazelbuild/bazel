@@ -119,8 +119,7 @@ public final class CombinedCacheClientFactory {
   }
 
   public static DiskCacheClient createDiskCache(
-      Path workingDirectory, RemoteOptions options, DigestUtil digestUtil, boolean verifyDownloads)
-      throws IOException {
+      Path workingDirectory, RemoteOptions options, DigestUtil digestUtil) throws IOException {
     Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
     return new DiskCacheClient(cacheDir, digestUtil);
   }

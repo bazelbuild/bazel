@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -80,11 +78,7 @@ public class DiskCacheClient {
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
 
-  private final DigestUtil digestUtil;
-
   public DiskCacheClient(Path root, DigestUtil digestUtil) throws IOException {
-    this.digestUtil = digestUtil;
-
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
             ? root
