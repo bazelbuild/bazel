@@ -15119,6 +15119,7 @@ Important changes:
   - Bazel now no longer includes system headers on macOS in coverage
     reports (#14969).
     
+
     Closes #14971.
 
 This release contains contributions from many people at Google, as well as amberdixon, Benjamin Peterson, Brentley Jones, Dan Fleming, Danny Wolf, Fabian Meumertzheim, Keith Smiley, Niyas Sait, Noa Resare, Oliver Eikemeier, oquenchil, Philipp Schrader, Xùdōng Yáng, Yannic.
