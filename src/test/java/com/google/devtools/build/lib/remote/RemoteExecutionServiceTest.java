@@ -824,7 +824,9 @@ public class RemoteExecutionServiceTest {
       var alreadyRetainedObjects =
           GraphLayout.parseInstance(spawn, fakeFileCache, digestUtil, someOtherMerkleTree);
       // This covers objects internal to JOL itself as well as metadata lazily attached to classes
-      // related to MerkleTree.
+      // related to MerkleTree. Note that this has to be computed in a separate parseInstance call
+      // since the first call on someOtherMerkleTree may thus not have captured the metadata
+      // attached to the Class objects it references (e.g. cached field lists).
       var jolInternalObjects =
           GraphLayout.parseInstance(alreadyRetainedObjects, someOtherMerkleTree);
       var merkleTreeTransitiveRetention = GraphLayout.parseInstance(merkleTree);
