@@ -17,8 +17,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
- * An interface to mark {@link java.io.OutputStream} and {@link java.io.InputStream}s that may be
- * known to write to an associated {@link Path}.
+ * An interface to mark {@link java.io.OutputStream}s that may be known to write to an associated
+ * {@link Path}.
  */
 public interface MaybePathBacked {
   /** If this stream is backed by a Path, returns that Path. Otherwise, returns null. */
