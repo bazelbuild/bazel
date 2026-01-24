@@ -52,7 +52,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
   // - subtyping (list[int] <= Sequence[int])
   // - covariance (Sequence[int] <= Sequence[object])
   // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
-  // - transitive application of all of the above, including across unions
+  // - transitive application of all of the above
   public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
     if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
       return true;
@@ -62,6 +62,12 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     }
     if (t1.equals(t2)) {
       return true;
+    }
+    if (t2 instanceof Types.UnionType union2) {
+      return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2));
+    }
+    if (t1 instanceof Types.UnionType union1) {
+      return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
     }
     return false;
   }

@@ -68,6 +68,32 @@ public class TypesTest {
   }
 
   @Test
+  public void assignability_union() {
+    StarlarkType intOrStr = Types.union(Types.INT, Types.STR);
+    StarlarkType intOrFloatOrStr = Types.union(Types.INT, Types.FLOAT, Types.STR);
+    StarlarkType floatOrStr = Types.union(Types.FLOAT, Types.STR);
+    // Assignability of a primitive type to a union
+    assertLt(Types.INT, intOrStr);
+    assertLt(Types.STR, intOrStr);
+    assertLt(Types.ANY, intOrStr);
+    assertNotLt(Types.FLOAT, intOrStr);
+    assertNotLt(Types.OBJECT, intOrStr);
+
+    // Assignability of a union to a primitive type
+    assertLt(intOrStr, Types.ANY);
+    assertLt(intOrStr, Types.OBJECT);
+    assertNotLt(intOrStr, Types.INT);
+    assertNotLt(intOrStr, Types.STR);
+
+    // Assignability between unions
+    assertLt(intOrStr, intOrStr);
+    assertLt(intOrStr, intOrFloatOrStr);
+    assertNotLt(intOrFloatOrStr, intOrStr);
+    assertNotLt(intOrStr, floatOrStr);
+    assertNotLt(floatOrStr, intOrStr);
+  }
+
+  @Test
   public void callable_toSignatureString() {
     // ordinary only
     assertThat(
