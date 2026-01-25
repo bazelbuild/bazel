@@ -216,7 +216,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
     @SuppressWarnings("AllowVirtualThreads")
     private static final ExecutorService VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR =
         Executors.newThreadPerTaskExecutor(
-            Thread.ofVirtual().name("virtual-action-input-pipe-0").factory());
+            Thread.ofVirtual().name("virtual-action-input-pipe-", 0).factory());
 
     @Override
     public InputStream get() {
