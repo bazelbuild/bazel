@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -67,13 +68,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         // that the runfiles tree has been updated (only the output manifest is an action output,
         // so Skyframe cannot invalidate the symlink tree).
         if (outputService.canCreateSymlinkTree()) {
-          Map<PathFragment, PathFragment> symlinks;
+          Supplier<Map<PathFragment, PathFragment>> symlinks;
           if (action.isFilesetTree()) {
-            symlinks = getFilesetMap(action, actionExecutionContext);
+            symlinks = () -> getFilesetMap(action, actionExecutionContext);
           } else {
             // TODO(tjgq): This produces an incorrect path for unresolved symlinks, which should be
             // created textually.
-            symlinks = Maps.transformValues(getRunfilesMap(action), TO_PATH);
+            symlinks = () -> Maps.transformValues(getRunfilesMap(action), TO_PATH);
           }
           outputService.createSymlinkTree(
               symlinks, action.getOutputManifest().getExecPath().getParentDirectory());
