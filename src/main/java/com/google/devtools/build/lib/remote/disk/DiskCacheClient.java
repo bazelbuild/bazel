@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -142,7 +144,20 @@ public class DiskCacheClient {
     }
 
     target.getParentDirectory().createDirectoryAndParents();
-    src.renameTo(target);
+    try {
+      src.renameTo(target);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a
+      // concurrent get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we
+      // know that another thread won the race to place the file in the cache. As the exception is
+      // rather generic and could result from other failure types, we rethrow the exception if the
+      // cache entry hasn't been created.
+      if (OS.getCurrent() != OS.WINDOWS || !target.exists()) {
+        throw e;
+      }
+      src.delete();
+    }
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -333,7 +348,20 @@ public class DiskCacheClient {
         }
       }
       path.getParentDirectory().createDirectoryAndParents();
-      temp.renameTo(path);
+      try {
+        temp.renameTo(path);
+      } catch (FileAccessException e) {
+        // On Windows, atomically replacing a file that is currently opened (e.g. due to a
+        // concurrent get on the cache) results in renameTo throwing this exception, which wraps an
+        // AccessDeniedException. This case is benign since if the target path already exists, we
+        // know that another thread won the race to place the file in the cache. As the exception is
+        // rather generic and could result from other failure types, we rethrow the exception if the
+        // cache entry hasn't been created.
+        if (OS.getCurrent() != OS.WINDOWS || !path.exists()) {
+          throw e;
+        }
+        temp.delete();
+      }
     } catch (IOException e) {
       try {
         temp.delete();

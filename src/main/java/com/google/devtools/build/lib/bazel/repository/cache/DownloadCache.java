@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -251,7 +252,7 @@ public class DownloadCache {
       // that another thread won the race to place the file in the cache. As the exception is rather
       // generic and could result from other failure types, we rethrow the exception if the cache
       // entry hasn't been created.
-      if (!cacheValue.exists()) {
+      if (OS.getCurrent() != OS.WINDOWS || !cacheValue.exists()) {
         throw e;
       }
     }
