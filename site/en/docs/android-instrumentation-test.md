@@ -233,6 +233,7 @@ android_sdk_repository(
 
 # Android Test Support
 ATS_COMMIT = "$COMMIT_HASH"
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "android_test_support",
     strip_prefix = "android-test-%s" % ATS_COMMIT,
