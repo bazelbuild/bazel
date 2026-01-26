@@ -16,6 +16,7 @@ java_library(
     srcs = [
         "StarlarkDocExtract.java",
         "StarlarkDocExtractRule.java",
+        "ValidateBzlLibrary.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -25,9 +26,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",

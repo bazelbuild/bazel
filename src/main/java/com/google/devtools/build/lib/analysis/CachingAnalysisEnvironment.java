@@ -69,6 +69,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   // TODO(bazel-team): Should this be nulled out by disable()? Alternatively, does disable() even
   // need to exist?
   private final StarlarkBuiltinsValue starlarkBuiltinsValue;
+
   /**
    * Map of artifacts to either themselves or to {@code Pair<Artifact, String>} if
    * --experimental_extended_sanity_checks is enabled. In the latter case, the string will contain
@@ -119,13 +120,14 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       return new StringBuilder("null Action");
     }
     return new StringBuilder()
-      .append(action.getClass().getName())
-      .append(' ')
-      .append(action.getMnemonic());
+        .append(action.getClass().getName())
+        .append(' ')
+        .append(action.getMnemonic());
   }
 
   /**
    * Sanity checks that all generated artifacts have a generating action.
+   *
    * @param target for error reporting
    */
   public void verifyGeneratedArtifactHaveActions(Target target) {
@@ -144,9 +146,11 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throw new IllegalStateException(
           String.format(
               "%s %s : These artifacts do not have a generating action:\n%s\n"
-              + "These actions were checked:\n%s\n",
-              target.getTargetKind(), target.getLabel(),
-              Joiner.on('\n').join(orphanArtifacts), Joiner.on('\n').join(checkedActions)));
+                  + "These actions were checked:\n%s\n",
+              target.getTargetKind(),
+              target.getLabel(),
+              Joiner.on('\n').join(orphanArtifacts),
+              Joiner.on('\n').join(checkedActions)));
     }
   }
 
@@ -386,7 +390,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   // TODO(ulfjack): It would be better for this to be a checked exception, which requires updating
   // all callers to pass the exception through.
   public static class MissingDepException extends RuntimeException {
-    MissingDepException(String msg) {
+    public MissingDepException(String msg) {
       super(msg);
     }
   }
