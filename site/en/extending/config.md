@@ -333,6 +333,39 @@ final values can be affected by configuration. In Starlark, this will replace
 the [`configuration_field`](/rules/lib/globals/bzl#configuration_field)
  API.
 
+#### `label_flag` and `label_setting` {:#label-flag-setting}
+
+These rules serve as label-typed build settings used for transitions and command-line configuration. They function as aliases that can be redirected by the configuration.
+
+**Attributes:**
+
+*   `name`: (required) A unique name for this target.
+*   `build_setting_default`: (required) The default label this alias points to.
+*   `visibility`: (optional) Standard visibility attribute.
+
+**Example:**
+
+```python
+# //example/BUILD
+label_flag(
+    name = "my_flag",
+    build_setting_default = ":default_target",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "default_target",
+    srcs = ["default.cc"],
+)
+```
+
+You can then override this flag on the command line:
+
+```shell
+$ bazel build //my:target --//example:my_flag=//other:target
+```
+
+
 ```python
 # example/rules.bzl
 MyProvider = provider(fields = ["my_field"])
