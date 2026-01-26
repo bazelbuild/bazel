@@ -1373,6 +1373,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  /**
+   * This is a memory optimization only used in Skycache's upload mode. It makes builds
+   * non-incremental and the only way it can be undone is by running the clean command or restarting
+   * the Bazel server.
+   */
+  public void clearPackageValues() {
+    if (remoteAnalysisCachingDependenciesProvider.shouldDiscardPackageValuesPostAnalysis()) {
+      remoteAnalysisCachingDependenciesProvider.computeSelectionAndDiscardPackageValues(
+          memoizingEvaluator.getInMemoryGraph());
+    }
+  }
+
   protected static boolean isEmptyOptionsKey(@Nullable BuildConfigurationKey key) {
     if (key == null) {
       return false;

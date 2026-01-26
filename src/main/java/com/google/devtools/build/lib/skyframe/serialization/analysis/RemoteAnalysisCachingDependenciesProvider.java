@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
@@ -24,7 +25,9 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Collection;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -107,6 +110,12 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   }
 
   boolean areMetadataQueriesEnabled();
+
+  void computeSelectionAndDiscardPackageValues(InMemoryGraph graph);
+
+  Collection<Label> getTopLevelTargets();
+
+  boolean shouldDiscardPackageValuesPostAnalysis();
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -210,6 +219,21 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public boolean areMetadataQueriesEnabled() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void computeSelectionAndDiscardPackageValues(InMemoryGraph graph) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<Label> getTopLevelTargets() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean shouldDiscardPackageValuesPostAnalysis() {
       throw new UnsupportedOperationException();
     }
   }

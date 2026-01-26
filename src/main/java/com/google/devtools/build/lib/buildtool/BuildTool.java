@@ -151,6 +151,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -1309,6 +1310,9 @@ public class BuildTool {
 
     private boolean bailedOut;
 
+    private final Collection<Label> topLevelTargets;
+    private final boolean discardPackageValuesPostAnalysis;
+
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env,
         Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher,
@@ -1333,7 +1337,8 @@ public class BuildTool {
               options.serializedFrontierProfile,
               targets,
               userOptions,
-              projectSclOptions);
+              projectSclOptions,
+              options.discardPackageValuesPostAnalysis);
 
       return switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
@@ -1418,10 +1423,13 @@ public class BuildTool {
         String serializedFrontierProfile,
         Collection<Label> targets,
         Map<String, String> userOptions,
-        Set<String> projectSclOptions)
+        Set<String> projectSclOptions,
+        boolean discardPackageValuesPostAnalysis)
         throws InterruptedException, AbruptExitException {
       RemoteAnalysisCachingOptions options =
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
+      this.topLevelTargets = targets;
+      this.discardPackageValuesPostAnalysis = discardPackageValuesPostAnalysis;
 
       if (options.jsonLog != null) {
         try {
@@ -1821,6 +1829,21 @@ public class BuildTool {
     @Override
     public boolean areMetadataQueriesEnabled() {
       return areMetadataQueriesEnabled;
+    }
+
+    @Override
+    public void computeSelectionAndDiscardPackageValues(InMemoryGraph graph) {
+      FrontierSerializer.computeSelectionAndDiscardPackageValues(graph, this);
+    }
+
+    @Override
+    public Collection<Label> getTopLevelTargets() {
+      return topLevelTargets;
+    }
+
+    @Override
+    public boolean shouldDiscardPackageValuesPostAnalysis() {
+      return discardPackageValuesPostAnalysis;
     }
   }
 
