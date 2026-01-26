@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
-
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -42,13 +41,14 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -140,7 +141,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
-      Path destination,
+      OutputStream destination,
+      @Nullable String destinationPath,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Optional<String> type,
@@ -155,6 +157,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           checksum,
           canonicalId,
           destination,
+          destinationPath,
           eventHandler,
           clientEnv,
           type,
@@ -208,7 +211,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                   Utils.getFromFuture(
                       cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
                 } catch (OutputDigestMismatchException e) {
-                  e.setOutputPath(destination.getPathString());
+                  e.setOutputPath(destinationPath);
                   throw e;
                 }
                 return null;
@@ -217,7 +220,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (!remoteDownloaderLocalFallback) {
-        if (e instanceof StatusRuntimeException) {
+        if (e instanceof StatusRuntimeException statusRuntimeException) {
+          if (statusRuntimeException.getStatus() == Status.NOT_FOUND) {
+            throw new FileNotFoundException(eventUri + ": 404 Not Found");
+          }
           throw new IOException(e);
         }
         throw e;
@@ -231,6 +237,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           checksum,
           canonicalId,
           destination,
+          destinationPath,
           eventHandler,
           clientEnv,
           type,
@@ -319,13 +326,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
-  private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
+  private OutputStream newOutputStream(OutputStream out, Optional<Checksum> checksum)
       throws IOException {
-    OutputStream out = destination.getOutputStream();
-    if (checksum.isPresent()) {
-      out = new HashOutputStream(out, checksum.get());
-    }
-    return out;
+    return checksum.<OutputStream>map(cs -> new HashOutputStream(out, cs)).orElse(out);
   }
 
   @VisibleForTesting

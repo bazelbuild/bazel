@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
@@ -27,8 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
-import com.google.devtools.build.lib.vfs.Path;
-import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
@@ -41,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
+import javax.annotation.Nullable;
 
 /**
  * HTTP implementation of {@link Downloader}.
@@ -79,7 +78,8 @@ public class HttpDownloader implements Downloader {
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
-      Path destination,
+      OutputStream destination,
+      @Nullable String destinationPath,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Optional<String> type,
@@ -97,7 +97,7 @@ public class HttpDownloader implements Downloader {
       semaphore.acquire();
 
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
-          OutputStream out = destination.getOutputStream()) {
+          OutputStream out = destination) {
         try {
           ByteStreams.copy(payload, out);
         } catch (SocketTimeoutException e) {
@@ -125,51 +125,32 @@ public class HttpDownloader implements Downloader {
     }
 
     if (!success) {
-      final IOException exception =
-          new IOException(
-              "Error downloading "
-                  + urls
-                  + " to "
-                  + destination
-                  + (ioExceptions.isEmpty()
-                      ? ""
-                      : ": " + Iterables.getLast(ioExceptions).getMessage()));
-
-      for (IOException cause : ioExceptions) {
+      // When destinationPath is null (in-memory download), don't add the "Error downloading"
+      // prefix - just use the original exception message to preserve backward compatibility.
+      var message =
+          destinationPath != null
+              ? "Error downloading %s to %s%s"
+                  .formatted(
+                      urls,
+                      destinationPath,
+                      ioExceptions.isEmpty()
+                          ? ""
+                          : ": " + Iterables.getLast(ioExceptions).getMessage())
+              : ioExceptions.isEmpty()
+                  ? "Error downloading " + urls
+                  : Iterables.getLast(ioExceptions).getMessage();
+      // Make it easy for callers to distinguish between not found and other IO errors.
+      var exception =
+          !ioExceptions.isEmpty()
+                  && ioExceptions.stream().allMatch(e -> e instanceof FileNotFoundException)
+              ? new FileNotFoundException(message)
+              : new IOException(message);
+      for (var cause : ioExceptions) {
         exception.addSuppressed(cause);
       }
 
       throw exception;
     }
-  }
-
-  /** Downloads the contents of one URL and reads it into a byte array. */
-  public byte[] downloadAndReadOneUrl(
-      URL url,
-      Credentials credentials,
-      Optional<Checksum> checksum,
-      ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv)
-      throws IOException, InterruptedException {
-    HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
-
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    semaphore.acquire();
-    try (HttpStream payload =
-        multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
-      ByteStreams.copy(payload, out);
-    } catch (SocketTimeoutException e) {
-      // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
-      // an external interruption, but simply a failed download due to some server timing
-      // out. So rethrow them as ordinary IOExceptions.
-      throw new IOException(e);
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException(e.getMessage());
-    } finally {
-      semaphore.release();
-      // TODO(wyv): Do we need to report any event here?
-    }
-    return out.toByteArray();
   }
 
   private HttpConnectorMultiplexer setUpConnectorMultiplexer(

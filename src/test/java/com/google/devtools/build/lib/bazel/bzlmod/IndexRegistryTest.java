@@ -86,7 +86,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     eventBus.register(eventRecorder);
     downloadCache = new DownloadCache();
     HttpDownloader httpDownloader = new HttpDownloader();
-    downloadManager = new DownloadManager(downloadCache, httpDownloader, httpDownloader, reporter);
+    downloadManager = new DownloadManager(downloadCache, httpDownloader, reporter);
     registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
   }
 
