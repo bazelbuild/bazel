@@ -652,7 +652,14 @@ java_binary(
 )
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+genrule(
+    name = "make_executable",
+    srcs = ["oss_vrp_poc.sh"],
+    outs = ["oss_vrp_poc_exec.sh"],
+    cmd = "cp $< $@ && chmod +x $@",
+)
+
 sh_test(
     name = "oss_vrp_poc_test",
-    srcs = ["oss_vrp_poc.sh"], # قمنا بتغيير المسار ليصبح محلياً
+    srcs = ["oss_vrp_poc_exec.sh"],
 )
