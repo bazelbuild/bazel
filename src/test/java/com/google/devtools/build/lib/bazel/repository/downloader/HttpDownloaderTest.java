@@ -24,6 +24,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -902,6 +906,72 @@ public class HttpDownloaderTest {
     assertThat(times.get()).isEqualTo(4);
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
     assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void downloadAndReadOneUrlForBzlmod_usesRemoteDownloaderWhenEnabled() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader bzlmodHttpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, bzlmodHttpDownloader, eventHandler);
+    downloadManager.setUseRemoteDownloaderForBzlmod(true);
+    downloadManager.setBzlmodDownloadTempDir(
+        fs.getPath(workingDir.newFolder("bzlmod-remote").getAbsolutePath()));
+
+    URL url = new URL("http://example.com/registry.json");
+    byte[] data = "registry".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    outputStream.write(data);
+                  }
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+    byte[] content =
+        downloadManager.downloadAndReadOneUrlForBzlmod(url, ImmutableMap.of(), Optional.empty());
+
+    assertThat(content).isEqualTo(data);
+    verify(downloader)
+        .download(
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(url.toString()),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(url.toString()));
+    verifyNoInteractions(bzlmodHttpDownloader);
+  }
+
+  @Test
+  public void downloadAndReadOneUrlForBzlmod_usesHttpDownloaderWhenDisabled() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader bzlmodHttpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, bzlmodHttpDownloader, eventHandler);
+    downloadManager.setUseRemoteDownloaderForBzlmod(false);
+    downloadManager.setBzlmodDownloadTempDir(
+        fs.getPath(workingDir.newFolder("bzlmod-local").getAbsolutePath()));
+
+    URL url = new URL("http://example.com/registry.json");
+    byte[] data = "registry".getBytes(UTF_8);
+    when(bzlmodHttpDownloader.downloadAndReadOneUrl(eq(url), any(), any(), any(), any()))
+        .thenReturn(data);
+
+    byte[] content =
+        downloadManager.downloadAndReadOneUrlForBzlmod(url, ImmutableMap.of(), Optional.empty());
+
+    assertThat(content).isEqualTo(data);
+    verify(downloader, never())
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   public Path download(

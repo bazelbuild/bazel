@@ -153,6 +153,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public String remoteDownloader;
 
   @Option(
+      name = "experimental_remote_downloader_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to use the remote downloader for bzlmod registry file downloads. This only"
+              + " has an effect when --experimental_remote_downloader is set.")
+  public boolean remoteDownloaderBzlmod;
+
+  @Option(
       name = "experimental_remote_downloader_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,

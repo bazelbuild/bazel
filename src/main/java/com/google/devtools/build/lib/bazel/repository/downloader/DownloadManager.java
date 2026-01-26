@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -70,6 +71,8 @@ public class DownloadManager {
   private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
+  private boolean useRemoteDownloaderForBzlmod = false;
+  @Nullable private Path bzlmodDownloadTempDir;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
 
@@ -112,6 +115,14 @@ public class DownloadManager {
   public void setRetries(int retries) {
     checkArgument(retries >= 0, "Invalid retries");
     this.retries = retries;
+  }
+
+  public void setUseRemoteDownloaderForBzlmod(boolean useRemoteDownloaderForBzlmod) {
+    this.useRemoteDownloaderForBzlmod = useRemoteDownloaderForBzlmod;
+  }
+
+  public void setBzlmodDownloadTempDir(Path bzlmodDownloadTempDir) {
+    this.bzlmodDownloadTempDir = bzlmodDownloadTempDir;
   }
 
   public void setNetrcCreds(Credentials netrcCreds) {
@@ -458,15 +469,22 @@ public class DownloadManager {
     }
 
     byte[] content;
+    String canonicalId = originalUrl.toString();
     for (int attempt = 0; ; ++attempt) {
       try {
-        content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
-                credentialFactory.create(authHeaders),
-                checksum,
-                eventHandler,
-                clientEnv);
+        if (useRemoteDownloaderForBzlmod) {
+          content =
+              downloadAndReadOneUrlUsingDownloader(
+                  rewrittenUrls.get(0), authHeaders, checksum, clientEnv, canonicalId, canonicalId);
+        } else {
+          content =
+              bzlmodHttpDownloader.downloadAndReadOneUrl(
+                  rewrittenUrls.get(0),
+                  credentialFactory.create(authHeaders),
+                  checksum,
+                  eventHandler,
+                  clientEnv);
+        }
         break;
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
@@ -488,6 +506,46 @@ public class DownloadManager {
       }
     }
     return content;
+  }
+
+  private byte[] downloadAndReadOneUrlUsingDownloader(
+      URL url,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Optional<Checksum> checksum,
+      Map<String, String> clientEnv,
+      String canonicalId,
+      String context)
+      throws IOException, InterruptedException {
+    Path tempPath = getBzlmodDownloadTempPath();
+    try {
+      downloader.download(
+          ImmutableList.of(url),
+          ImmutableMap.of(),
+          credentialFactory.create(authHeaders),
+          checksum,
+          canonicalId,
+          tempPath,
+          eventHandler,
+          clientEnv,
+          Optional.empty(),
+          context);
+      return FileSystemUtils.readContent(tempPath);
+    } finally {
+      try {
+        tempPath.delete();
+      } catch (IOException e) {
+        // Best-effort cleanup; leave stale temp file rather than mask download errors.
+      }
+    }
+  }
+
+  private Path getBzlmodDownloadTempPath() throws IOException {
+    Path tempDir = bzlmodDownloadTempDir;
+    if (tempDir == null) {
+      throw new IOException("Bzlmod download temp directory is not configured.");
+    }
+    tempDir.createDirectoryAndParents();
+    return tempDir.getChild(UUID.randomUUID().toString());
   }
 
   @Nullable
