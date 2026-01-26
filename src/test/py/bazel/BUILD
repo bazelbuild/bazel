@@ -254,9 +254,9 @@ py_test(
 )
 
 py_test(
-    name = "bazel_proto_test",
+    name = "bazel_tools_proto_test",
     size = "medium",
-    srcs = ["bazel_proto_test.py"],
+    srcs = ["bazel_tools_proto_test.py"],
     deps = [":test_base"],
 )
 

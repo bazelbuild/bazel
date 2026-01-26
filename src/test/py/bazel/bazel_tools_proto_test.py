@@ -17,7 +17,7 @@ import os
 from src.test.py.bazel import test_base
 
 
-class BazelProtoTest(test_base.TestBase):
+class BazelToolsProtoTest(test_base.TestBase):
 
   def testProtoLibraryInBazelTools(self):
     self.AddBazelDep('protobuf')
