@@ -99,8 +99,7 @@ proto_library(
     srcs = ["xcode_config.proto"],
 )
 
-# The following targets are not available in @bazel_tools.
-# We provide aliases to a non-existent target with a descriptive name and a deprecation warning
+# The following targets are not available in @bazel_tools
 # to give a clear error message if someone tries to use them.
 
 UNSUPPORTED_LANGUAGE_SPECIFIC_TARGETS = [
@@ -156,24 +155,21 @@ UNSUPPORTED_LANGUAGE_SPECIFIC_TARGETS = [
 [alias(
     name = s + "_java_proto",
     actual = ":ERROR_language_specific_proto_library_is_unsupported_in_bazel_tools",
-    deprecation = "Language specific proto targets are not available in @bazel_tools. Please use the proto_library and generate your own code.",
 ) for s in FILES]
 
 [alias(
     name = s + "_java_proto_srcs",
     actual = ":ERROR_language_specific_proto_library_is_unsupported_in_bazel_tools",
-    deprecation = "Language specific proto targets are not available in @bazel_tools. Please use the proto_library and generate your own code.",
 ) for s in FILES]
 
 [alias(
     name = name,
     actual = ":ERROR_language_specific_proto_library_is_unsupported_in_bazel_tools",
-    deprecation = "Language specific proto targets are not available in @bazel_tools. Please use the proto_library and generate your own code.",
 ) for name in UNSUPPORTED_LANGUAGE_SPECIFIC_TARGETS]
 
 genrule(
     name = "ERROR_language_specific_proto_library_is_unsupported_in_bazel_tools",
     outs = ["unused.txt"],
-    cmd = "echo 'Language specific proto targets are not available in @bazel_tools. Please use the proto_library and generate your own code.' >&2 && exit 1",
+    cmd = "echo '\n\nLanguage specific proto targets are not available in @bazel_tools. Please use the proto_library and generate your own code.\n\n' >&2 && exit 1",
 )
 
