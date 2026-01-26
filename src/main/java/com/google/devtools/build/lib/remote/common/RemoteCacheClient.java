@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -100,7 +99,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * as late as possible and close the blob as soon as they are done with it.
    */
   @FunctionalInterface
-  interface Blob extends Closeable {
+  interface Blob {
     /** Get an input stream for the blob's data. Can be called multiple times. */
     InputStream get() throws IOException;
 
@@ -109,9 +108,6 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
     default String description() {
       return null;
     }
-
-    @Override
-    default void close() {}
   }
 
   /**
