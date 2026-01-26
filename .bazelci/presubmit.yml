@@ -252,6 +252,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//..."
     test_flags:
+      - "--config=ci-common"
       - "--config=remote"
       - "--test_tag_filters=-no_presubmit"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"

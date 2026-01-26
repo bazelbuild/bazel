@@ -245,6 +245,7 @@ tasks:
     shell_commands:
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
+      - "--config=ci-common"
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
