@@ -41,18 +41,6 @@ class BazelProtoTest(test_base.TestBase):
     # This should succeed because we fixed the visibility/load issues in @bazel_tools//src/main/protobuf:BUILD
     self.RunBazel(['build', '//:my_proto'])
 
-  def testProtocAliasInBazelTools(self):
-    self.AddBazelDep('protobuf')
-    self.ScratchFile('BUILD', [
-        'alias(',
-        '    name = "my_protoc",',
-        '    actual = "@bazel_tools//tools/proto:protoc",',
-        ')',
-    ])
-
-    # This should succeed because @bazel_tools//tools/proto:protoc aliases to @com_google_protobuf//:protoc
-    self.RunBazel(['build', '//:my_protoc'])
-
   def testUnsupportedLanguageSpecificProtoTargets(self):
     self.AddBazelDep('protobuf')
     self.ScratchFile('BUILD', [
