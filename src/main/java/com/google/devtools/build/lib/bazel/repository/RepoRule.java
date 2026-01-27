@@ -64,12 +64,8 @@ public record RepoRule(
     boolean remotable,
     ImmutableSet<String> environ) {
 
-  /**
-   * A list of forbidden attribute names. These used to be present on all repo rules simply because
-   * they were built-in attributes for all rules.
-   */
-  private static final ImmutableSet<String> LEGACY_BUILTIN_ATTRIBUTES =
-      ImmutableSet.of("name", "tags", "deprecation", "visibility");
+  /** A list of reserved attribute names. */
+  private static final ImmutableSet<String> RESERVED_ATTRIBUTES = ImmutableSet.of("name");
 
   /** Supplies a {@link RepoRule} instance. */
   public interface Supplier {
@@ -98,7 +94,9 @@ public record RepoRule(
           AttributeUtils.typeCheckAttrValues(
               attributes,
               attributeIndices,
-              Maps.filterKeys(kwargs, k -> !LEGACY_BUILTIN_ATTRIBUTES.contains(k)),
+              Maps.filterKeys(
+                  kwargs,
+                  k -> !RESERVED_ATTRIBUTES.contains(k)),
               labelConverter,
               ExternalDeps.Code.EXTENSION_EVAL_ERROR,
               callStack,
@@ -107,7 +105,7 @@ public record RepoRule(
       var attrDict = Dict.<String, Object>builder();
       for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
         // Only store explicitly-specified attributes.
-        if (!LEGACY_BUILTIN_ATTRIBUTES.contains(kwarg.getKey())
+        if (!RESERVED_ATTRIBUTES.contains(kwarg.getKey())
             && !Starlark.isNullOrNone(kwarg.getValue())) {
           attrDict.put(kwarg.getKey(), attrValues.get(attributeIndices.get(kwarg.getKey())));
         }
@@ -152,7 +150,7 @@ public record RepoRule(
     }
 
     public final boolean hasAttribute(String attrName) {
-      return attrNames.contains(attrName) || LEGACY_BUILTIN_ATTRIBUTES.contains(attrName);
+      return attrNames.contains(attrName) || RESERVED_ATTRIBUTES.contains(attrName);
     }
 
     public abstract Builder local(boolean value);
