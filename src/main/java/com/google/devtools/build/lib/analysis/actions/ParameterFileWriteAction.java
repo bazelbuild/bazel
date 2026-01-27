@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -122,8 +121,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     this.type = type;
     this.makeExecutable = makeExecutable;
     this.mnemonic = mnemonic;
-    // Save memory by not storing the full execution info, but only what matters for this particular
-    // action.
     this.usePathStripping =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), executionInfo)
             == CoreOptions.OutputPathsMode.STRIP;
@@ -140,14 +137,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public ImmutableMap<String, String> getExecutionInfo() {
-    return usePathStripping
-        ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")
-        : ImmutableMap.of();
-  }
-
-  private CoreOptions.OutputPathsMode getOutputPathsMode() {
-    return usePathStripping ? CoreOptions.OutputPathsMode.STRIP : CoreOptions.OutputPathsMode.OFF;
+  protected boolean usePathStripping() {
+    return usePathStripping;
   }
 
   @VisibleForTesting
@@ -196,12 +187,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException, InterruptedException {
     final ArgChunk arguments;
-    // Other actions consuming this parameter file may have path mapping disabled due to inputs
-    // conflicting across configurations, in which case paths written to the file will not match.
-    // Since this depends on the consumer but the decision is only made at execution time, it is not
-    // clear how to improve that situation. Actions that are prone to such collisions should avoid
-    // depending on parameter files.
-    var pathMapper = PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
+    var pathMapper = createPathMapper();
     try {
       InputMetadataProvider inputMetadataProvider =
           Preconditions.checkNotNull(ctx.getInputMetadataProvider());
