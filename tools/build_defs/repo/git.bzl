@@ -29,6 +29,8 @@ load(
     "workspace_and_buildfile",
 )
 
+_STRIP_PREFIX_TMP_DIR = ".bazel_git_strip_prefix"
+
 def _clone_or_update_repo(ctx):
     if ((ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
@@ -36,18 +38,33 @@ def _clone_or_update_repo(ctx):
         fail("At most one of commit, tag, or branch may be provided")
 
     root = ctx.path(".")
-    directory = str(root)
-    if ctx.attr.strip_prefix:
-        directory = root.get_child(".tmp_git_root")
-
-    git_ = git_repo(ctx, directory)
+    git_ = git_repo(ctx, root)
 
     if ctx.attr.strip_prefix:
-        dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
-        if not ctx.path(dest_link).exists:
+        strip_prefix_dir = root.get_child(ctx.attr.strip_prefix)
+        if not strip_prefix_dir.exists:
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
-        for item in ctx.path(dest_link).readdir():
-            ctx.symlink(item, root.get_child(item.basename))
+        if not strip_prefix_dir.is_dir:
+            fail("strip_prefix at {} is not a directory".format(ctx.attr.strip_prefix))
+
+        # 1. Move the contents of the strip_prefix subdirectory to a hidden
+        #    directory in the root.
+        ctx.rename(strip_prefix_dir, root.get_child(_STRIP_PREFIX_TMP_DIR))
+
+        # 2. Delete all other top-level entries.
+        for entry in root.readdir():
+            if entry.basename != _STRIP_PREFIX_TMP_DIR and entry.basename != ".git":
+                ctx.delete(entry)
+
+        # 3. Move the contents of the hidden directory to the root.
+        for entry in root.get_child(_STRIP_PREFIX_TMP_DIR).readdir():
+            ctx.rename(
+                root.get_child(_STRIP_PREFIX_TMP_DIR).get_child(entry.basename),
+                root.get_child(entry.basename),
+            )
+
+        # 4. Delete the hidden directory.
+        ctx.delete(root.get_child(_STRIP_PREFIX_TMP_DIR))
 
     if ctx.attr.shallow_since:
         return {"commit": git_.commit, "shallow_since": git_.shallow_since}
@@ -211,10 +228,7 @@ def _git_repository_implementation(ctx):
             integrity = ctx.attr.remote_module_file_integrity,
         )
 
-    if ctx.attr.strip_prefix:
-        ctx.delete(ctx.path(".tmp_git_root/.git"))
-    else:
-        ctx.delete(ctx.path(".git"))
+    ctx.delete(ctx.path(".git"))
     if ctx.attr.commit:
         return ctx.repo_metadata(reproducible = True)
     return ctx.repo_metadata(attrs_for_reproducibility = _update_git_attrs(ctx.attr, _common_attrs.keys(), update))
