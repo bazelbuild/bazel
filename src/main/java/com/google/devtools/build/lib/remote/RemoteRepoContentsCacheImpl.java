@@ -173,7 +173,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   /* startTime= */ Instant.now(),
                   /* wallTimeInMs= */ 0,
                   /* preserveExecutableBit= */ true)
-              .upload(context, cache, reporter);
+              .upload(context, cache, reporter, /* reportUploadProgress= */ true);
     } catch (ExecException | IOException e) {
       reporter.handle(
           Event.warn(
