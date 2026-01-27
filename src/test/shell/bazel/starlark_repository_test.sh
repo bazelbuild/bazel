@@ -3740,3 +3740,35 @@ function test_local_module_file_patch_with_copy() {
 }
 
 run_suite "local repository tests"
+
+function test_http_file_root_build_alias() {
+  create_new_workspace
+  local file="${TEST_TMPDIR}/data.txt"
+  echo "hello world" > "$file"
+  if is_windows; then
+     file_url="file:///$(cygpath -m $file)"
+  else
+     file_url="file://${file}"
+  fi
+  # loopback restriction in tests might require 127.0.0.1 or localhost? 
+  # But file:// is usually fine.
+
+  # use_repo_rule requires bazel_tools, which should be available
+  cat > MODULE.bazel <<MODULE
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "data_repo",
+    url = "${file_url}",
+    sha256 = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+)
+MODULE
+
+  cat > BUILD <<BUILD_FILE
+filegroup(
+    name = "it",
+    srcs = ["@data_repo//:file"],
+)
+BUILD_FILE
+
+  bazel build //:it >& $TEST_log || fail "Expected build to succeed"
+}
