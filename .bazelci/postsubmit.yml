@@ -2,6 +2,7 @@
 
 tasks:
   rockylinux8:
+    platform: metrics_test_platform
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -29,6 +30,7 @@ tasks:
       - build
       - test
   rockylinux8_arm64:
+    platform: metrics_test_platform
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -46,6 +48,7 @@ tasks:
     include_json_profile:
       - build
   fedora39:
+    platform: metrics_test_platform
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -60,6 +63,7 @@ tasks:
       - build
       - test
   ubuntu2404:
+    platform: metrics_test_platform
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -79,7 +83,7 @@ tasks:
       - build
       - test
   ubuntu2004_clang:
-    platform: ubuntu2004
+    platform: metrics_test_platform
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -103,6 +107,7 @@ tasks:
       - build
       - test
   ubuntu2004:
+    platform: metrics_test_platform
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -240,7 +245,7 @@ tasks:
     include_json_profile:
       - build
   rbe_ubuntu2004:
-    platform: ubuntu2004
+    platform: metrics_test_platform
     name: "RBE"
     shell_commands:
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
@@ -294,6 +299,7 @@ tasks:
       - build
       - test
   kythe_ubuntu2404:
+    platform: metrics_test_platform
     index_flags:
     - "--define=kythe_corpus=github.com/bazelbuild/bazel"
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
