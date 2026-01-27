@@ -232,6 +232,18 @@ filegroup(
 )
 """
 
+_HTTP_FILE_ROOT_BUILD = """\
+package(default_visibility = ["//visibility:public"])
+
+# Convenience target so users can reference @repo//:file and get a useful
+# error message/suggestion instead of "BUILD file not found" when they
+# accidentally reference the repo root.
+alias(
+    name = "file",
+    actual = "//file:file",
+)
+"""
+
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
     repo_root = ctx.path(".")
@@ -258,6 +270,7 @@ def _http_file_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("BUILD.bazel", _HTTP_FILE_ROOT_BUILD)
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
