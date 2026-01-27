@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import net.starlark.java.eval.CpuProfiler;
+import net.starlark.java.eval.CpuProfilerNativeSupportImpl;
 
 /** The main class. */
 public final class Bazel {
@@ -107,6 +109,7 @@ public final class Bazel {
     // Windows. We do this in Bazel.java to make sure that the global state is set before the first
     // use of SubprocessBuilder.
     WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+    CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
     BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
   }

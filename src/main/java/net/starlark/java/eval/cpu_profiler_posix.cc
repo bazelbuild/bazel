@@ -14,11 +14,12 @@
 
 // POSIX support for Starlark CPU profiler.
 
-#include <arpa/inet.h>  // for htonl
+#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <jni.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -33,9 +34,10 @@
 
 namespace cpu_profiler {
 
-// static native boolean supported();
+// native boolean supported();
 extern "C" JNIEXPORT jboolean JNICALL
-Java_net_starlark_java_eval_CpuProfiler_supported(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_supported(
+    JNIEnv* env, jobject instance) {
   return true;
 }
 
@@ -97,9 +99,10 @@ void onsigprof(int sig) {
   errno = old_errno;
 }
 
-// static native jint gettid();
+// native jint getThreadId();
 extern "C" JNIEXPORT jint JNICALL
-Java_net_starlark_java_eval_CpuProfiler_gettid(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_getThreadId(
+    JNIEnv* env, jobject instance) {
   return gettid();
 }
 
@@ -122,9 +125,10 @@ static jobject makeFD(JNIEnv *env, int fd) {
   return fdobj;
 }
 
-// static native FileDescriptor createPipe();
+// native FileDescriptor createPipe();
 extern "C" JNIEXPORT jobject JNICALL
-Java_net_starlark_java_eval_CpuProfiler_createPipe(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_createPipe(
+    JNIEnv* env, jobject instance) {
   // Create a pipe for profile events from the handler to Java.
   // The default pipe size is 64KiB on Linux and 16KiB on Mac OS X.
   int pipefds[2];
@@ -143,10 +147,10 @@ Java_net_starlark_java_eval_CpuProfiler_createPipe(JNIEnv *env, jclass clazz) {
   return makeFD(env, pipefds[0]);
 }
 
-// static native boolean startTimer(long period_micros);
+// native boolean startTimer(long period_micros);
 extern "C" JNIEXPORT jboolean JNICALL
-Java_net_starlark_java_eval_CpuProfiler_startTimer(JNIEnv *env, jclass clazz,
-                                                   jlong period_micros) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_startTimer(
+    JNIEnv* env, jobject instance, jlong period_micros) {
   // Install the signal handler.
   // Use sigaction(2) not signal(2) so that we can correctly
   // restore the previous handler if necessary.
@@ -186,9 +190,10 @@ Java_net_starlark_java_eval_CpuProfiler_startTimer(JNIEnv *env, jclass clazz,
   return true;
 }
 
-// static native void stopTimer();
+// native void stopTimer();
 extern "C" JNIEXPORT void JNICALL
-Java_net_starlark_java_eval_CpuProfiler_stopTimer(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_stopTimer(
+    JNIEnv* env, jobject instance) {
   // Disarm the CPU interval timer.
   struct itimerval timer = {};
   if (setitimer(ITIMER_PROF, &timer, nullptr) < 0) {

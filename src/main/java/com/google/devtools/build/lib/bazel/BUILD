@@ -199,6 +199,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
         "//third_party:guava",
     ],
 )

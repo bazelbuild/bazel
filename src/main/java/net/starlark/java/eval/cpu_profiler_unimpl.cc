@@ -20,28 +20,32 @@
 namespace cpu_profiler {
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_net_starlark_java_eval_CpuProfiler_supported(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_supported(
+    JNIEnv* env, jobject instance) {
   return false;
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_net_starlark_java_eval_CpuProfiler_gettid(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_getThreadId(
+    JNIEnv* env, jobject instance) {
   abort();
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_net_starlark_java_eval_CpuProfiler_createPipe(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_createPipe(
+    JNIEnv* env, jobject instance) {
   abort();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_net_starlark_java_eval_CpuProfiler_startTimer(JNIEnv *env, jclass clazz,
-                                                   jlong period_micros) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_startTimer(
+    JNIEnv* env, jobject instance, jlong period_micros) {
   abort();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_net_starlark_java_eval_CpuProfiler_stopTimer(JNIEnv *env, jclass clazz) {
+Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_stopTimer(
+    JNIEnv* env, jobject instance) {
   abort();
 }
 

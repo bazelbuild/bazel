@@ -32,7 +32,7 @@ sh_binary(
         # Ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/cpp:client",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -295,7 +295,7 @@ genrule(
         "install_base_key" + suffix,
         "//:platforms-srcs",
         # Non-ordered items follow:
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
