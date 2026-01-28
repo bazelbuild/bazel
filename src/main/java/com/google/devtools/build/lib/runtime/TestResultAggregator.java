@@ -250,13 +250,12 @@ final class TestResultAggregator {
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
-    if (status == BlazeTestStatus.PASSED
-        && shouldEmitTestSizeWarningInSummary(
-            policy.testVerboseTimeoutWarnings,
-            warnings,
-            result.getData().getTestProcessTimesList(),
-            target)) {
-      summary.setWasUnreportedWrongSize(true);
+    if (status == BlazeTestStatus.PASSED) {
+      shouldEmitTestSizeWarningInSummary(
+          policy.testVerboseTimeoutWarnings,
+          warnings,
+          result.getData().getTestProcessTimesList(),
+          target);
     }
 
     summary
