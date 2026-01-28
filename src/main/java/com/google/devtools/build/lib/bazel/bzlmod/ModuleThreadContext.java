@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,14 +42,17 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
 public class ModuleThreadContext extends StarlarkThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
   private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
+  @Nullable private String incompatibilityMessage = null;
 
   private final boolean ignoreDevDeps;
+  @Nullable private final SyntaxError.Exception delayedSyntaxError;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
@@ -72,10 +77,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       ModuleKey key,
       boolean ignoreDevDeps,
+      @Nullable SyntaxError.Exception delayedSyntaxError,
       @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
     super(/* mainRepoMappingSupplier= */ null);
     module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
+    this.delayedSyntaxError = delayedSyntaxError;
     this.builtinModules = builtinModules;
     this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
@@ -141,6 +148,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public boolean shouldIgnoreDevDeps() {
     return ignoreDevDeps;
+  }
+
+  public void setIncompatibilityMessage(String incompatibilityMessage) {
+    this.incompatibilityMessage = incompatibilityMessage;
   }
 
   public void addDep(Optional<String> repoName, DepSpec depSpec) {
@@ -348,7 +359,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  public InterimModule buildModule(@Nullable Registry registry) throws EvalException {
+  public InterimModule buildModule(@Nullable Registry registry)
+      throws SyntaxError.Exception, EvalException {
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
       if (module.getKey().name().equals(builtinModule)) {
@@ -411,5 +423,22 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
     }
     return ImmutableMap.copyOf(overrides);
+  }
+
+  public void throwDelayedExceptionIfAny(
+      @Nullable EvalException evalException, ExtendedEventHandler eventHandler)
+      throws EvalException {
+    if (incompatibilityMessage != null && (delayedSyntaxError != null || evalException != null)) {
+      throw new EvalException(incompatibilityMessage, delayedSyntaxError);
+    }
+    if (delayedSyntaxError != null) {
+      // The syntax error has been delayed to allow for a better error message due to an
+      // incompatible Bazel version, but that hasn't happened, so we report it now.
+      Event.replayEventsOn(eventHandler, delayedSyntaxError.errors());
+      throw new EvalException(delayedSyntaxError);
+    }
+    if (evalException != null) {
+      throw evalException;
+    }
   }
 }

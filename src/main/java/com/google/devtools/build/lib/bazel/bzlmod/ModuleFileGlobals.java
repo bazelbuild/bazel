@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -58,12 +58,6 @@ import net.starlark.java.syntax.Location;
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
 public class ModuleFileGlobals {
-
-  /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
-     2) then contain a version number in form of X.X.X where X has one or two digits
-  */
-  private static final Pattern VALID_BAZEL_COMPATIBILITY_VERSION =
-      Pattern.compile("(>|<|-|<=|>=)(\\d+\\.){2}\\d+");
 
   @VisibleForTesting
   static void validateModuleName(String moduleName) throws EvalException {
@@ -153,6 +147,7 @@ public class ModuleFileGlobals {
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             defaultValue = "[]"),
       },
+      extraKeywords = @Param(name = "kwargs", documented = false),
       useStarlarkThread = true)
   public void module(
       String name,
@@ -160,6 +155,7 @@ public class ModuleFileGlobals {
       StarlarkInt compatibilityLevel,
       String repoName,
       Iterable<?> bazelCompatibility,
+      Dict<String, Object> kwargs,
       StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "module()");
@@ -186,13 +182,23 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in module()", e);
     }
+    var compatibilityVersions =
+        Sequence.cast(bazelCompatibility, String.class, "bazel_compatibility").getImmutableList();
+    BazelVersion.checkCompatibility(compatibilityVersions, context.getModuleBuilder().getKey())
+        .ifPresent(context::setIncompatibilityMessage);
+    // Check for any unexpected arguments after checking Bazel compatibility to avoid masking
+    // incompatibility errors with "unexpected keyword argument" errors for new arguments.
+    if (!kwargs.isEmpty()) {
+      // Mimics the standard Starlark error message for unexpected keyword arguments.
+      throw Starlark.errorf(
+          "module() got unexpected keyword argument '%s'", kwargs.keySet().iterator().next());
+    }
     context
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
-        .addBazelCompatibilityValues(
-            checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
+        .addBazelCompatibilityValues(compatibilityVersions)
         .setRepoName(repoName);
   }
 
@@ -205,20 +211,6 @@ public class ModuleFileGlobals {
             "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
                 + " got '%s' as an argument",
             where, item);
-      }
-    }
-    return list.getImmutableList();
-  }
-
-  private static ImmutableList<String> checkAllCompatibilityVersions(
-      Iterable<?> iterable, String where) throws EvalException {
-    Sequence<String> list = Sequence.cast(iterable, String.class, where);
-    for (String version : list) {
-      if (!VALID_BAZEL_COMPATIBILITY_VERSION.matcher(version).matches()) {
-        throw Starlark.errorf(
-            "invalid version argument '%s': valid argument must 1) start with (<,<=,>,>=,-); "
-                + "2) contain a version number in form of X.X.X where X is a number",
-            version);
       }
     }
     return list.getImmutableList();
