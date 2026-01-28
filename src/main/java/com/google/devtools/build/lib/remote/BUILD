@@ -306,3 +306,15 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "fast_cdc_chunker",
+    srcs = ["FastCDCChunker.java"],
+    deps = [
+        ":chunking_config",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//third_party:guava",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
