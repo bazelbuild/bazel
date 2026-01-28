@@ -60,6 +60,23 @@ class TarFileWriter(object):
     self.tar = tarfile.open(name=name, mode=mode)
     self.members = set()
     self.directories = set(['.'])
+    if root_directory.startswith('/') or not self._is_safe_path(self.root_directory):
+      raise self.Error('Invalid root directory: %s' % root_directory)
+
+  def _is_safe_path(self, path):
+    """Check if a path is safe.
+
+    A path is safe if it is not absolute and does not contain '..' components.
+
+    Args:
+      path: the path to check.
+
+    Returns:
+      True if the path is safe, False otherwise.
+    """
+    if path.startswith('/') or '..' in path.split('/'):
+      return False
+    return True
 
   def __enter__(self):
     return self
@@ -199,8 +216,11 @@ class TarFileWriter(object):
        dest_path: the name of the file in the artifact
        mode: force to the specified mode. Default is mode from the file.
     """
-    # Make a clean, '/' deliminted destination path
+    # Make a clean, '/' delimited destination path
     dest = os.path.normpath(dest_path.strip('/')).replace(os.path.sep, '/')
+    if dest_path.startswith('/') or not self._is_safe_path(dest):
+      raise self.Error('Invalid destination path: %s' % dest_path)
+
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
       mode = 0o755 if os.access(dest, os.X_OK) else 0o644

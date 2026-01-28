@@ -195,6 +195,27 @@ class TarFileWriterTest(unittest.TestCase):
       n_content.append(nc)
     self.assertTarFileContent(self.tempfile, n_content)
 
+  def test_invalid_paths(self):
+    with self.assertRaisesRegex(mini_tar.TarFileWriter.Error,
+                                "Invalid destination path"):
+      with mini_tar.TarFileWriter(self.tempfile) as f:
+        f.add_file_at_dest(in_path="/dev/null", dest_path="../traversal")
+
+    with self.assertRaisesRegex(mini_tar.TarFileWriter.Error,
+                                "Invalid destination path"):
+      with mini_tar.TarFileWriter(self.tempfile) as f:
+        f.add_file_at_dest(in_path="/dev/null", dest_path="/absolute")
+
+    with self.assertRaisesRegex(mini_tar.TarFileWriter.Error,
+                                "Invalid root directory"):
+      with mini_tar.TarFileWriter(self.tempfile, root_directory="../bad_root"):
+        pass
+
+    with self.assertRaisesRegex(mini_tar.TarFileWriter.Error,
+                                "Invalid root directory"):
+      with mini_tar.TarFileWriter(self.tempfile, root_directory="/abs_root"):
+        pass
+
 
 if __name__ == "__main__":
   unittest.main()
