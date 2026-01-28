@@ -1209,6 +1209,32 @@ the value may span multiple lines. Keys must not be duplicated.
 Bazel partitions the keys into two buckets: "stable" and "volatile". (The names "stable" and
 "volatile" are a bit counter-intuitive, so don't think much about them.)
 
+#### Example
+
+The following example shows how `--workspace_status_command` can be used
+to generate build metadata and consume it during a build.
+
+Create a workspace status script:
+
+```sh
+#!/usr/bin/env sh
+echo "BUILD_USER $(whoami)"
+echo "BUILD_TIMESTAMP $(date +%s)"
+
+Make the script executable:
+chmod +x status.sh
+
+
+bazel build //:gen_metadata --workspace_status_command=./status.sh
+
+genrule(
+    name = "gen_metadata",
+    outs = ["metadata.txt"],
+    cmd = "cat bazel-out/volatile-status.txt > $@",
+    stamp = 1,
+)
+
+
 Bazel then writes the key-value pairs into two files:
 
 *   `bazel-out/stable-status.txt`
