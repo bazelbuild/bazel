@@ -145,7 +145,6 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//..."
     test_flags:
       - "--config=ci-macos"
       - "--test_tag_filters=-no_presubmit,-no_macos"
