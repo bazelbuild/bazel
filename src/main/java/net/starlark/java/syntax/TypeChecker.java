@@ -107,20 +107,20 @@ public final class TypeChecker extends NodeVisitor {
         return Types.FLOAT;
       }
       case DOT -> {
-        // TODO: #27370 - Add support for field retrieval on types besides Any.
         var dot = (DotExpression) expr;
         StarlarkType objType = infer(dot.getObject());
-        if (objType.equals(Types.ANY)) {
-          return Types.ANY;
-        } else {
+        String name = dot.getField().getName();
+        StarlarkType fieldType = objType.getField(name);
+        if (fieldType == null) {
           errorf(
               dot.getDotLocation(),
               "'%s' of type '%s' does not have field '%s'",
               dot.getObject(),
               objType,
-              dot.getField().getName());
+              name);
           return Types.ANY;
         }
+        return fieldType;
       }
       case INDEX -> {
         return inferIndex((IndexExpression) expr);

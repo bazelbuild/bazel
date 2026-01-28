@@ -37,6 +37,8 @@ public final class TypeCheckerTest {
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
 
+  private Module module = new TestUtils.ModuleWithUniversalTypes();
+
   /**
    * Throws {@link AssertionError} if a file has errors, with an exception message that includes
    * {@code what} and the errors.
@@ -57,7 +59,6 @@ public final class TypeCheckerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
-    Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
     TypeTagger.tagFile(file, module);
@@ -181,10 +182,52 @@ public final class TypeCheckerTest {
     // TODO: #28037 - Check break/continue, once we support for and def statements
   }
 
+  /** A dummy type having a single field 'f' of type int. */
+  private static final class FooType extends StarlarkType {
+    @Override
+    public StarlarkType getField(String name) {
+      return name.equals("f") ? Types.INT : null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj != null && obj.getClass().equals(this.getClass());
+    }
+
+    @Override
+    public int hashCode() {
+      return this.getClass().hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return "Foo";
+    }
+  }
+
+  private static final class ModuleWithFoo extends TestUtils.ModuleWithUniversalTypes {
+    @Override
+    public Resolver.Scope resolve(String name) throws Resolver.Module.Undefined {
+      if (name.equals("Foo")) {
+        return Resolver.Scope.PREDECLARED;
+      }
+      return super.resolve(name);
+    }
+
+    @Override
+    public TypeConstructor resolveTypeConstructor(String name) throws Resolver.Module.Undefined {
+      if (name.equals("Foo")) {
+        return Types.wrapType("Foo", new FooType());
+      }
+      return super.resolveTypeConstructor(name);
+    }
+  }
+
   @Test
   public void infer_dot() throws Exception {
-    // TODO: #27370 - Make this more interesting when we support struct types.
+    module = new ModuleWithFoo();
 
+    assertTypeGivenDecls("o.f", Types.INT, "o: Foo");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
 
     assertInvalid(
@@ -193,14 +236,25 @@ public final class TypeCheckerTest {
         n: int
         n.f
         """);
+    assertInvalid(
+        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        """
+        o: Foo
+        o.g
+        """);
   }
 
   @Test
   public void assignment_dot() throws Exception {
+    module = new ModuleWithFoo();
+
     assertValid(
         """
-        o: Any
-        o.f = 123
+        o1: Foo
+        o1.f = 123
+
+        o2: Any
+        o2.f = 123
         """);
 
     assertInvalid(
@@ -208,6 +262,19 @@ public final class TypeCheckerTest {
         """
         s: str
         s.f = 123
+        """);
+
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'o.f' of type 'int'",
+        """
+        o: Foo
+        o.f = 'abc'
+        """);
+    assertInvalid(
+        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        """
+        o: Foo
+        o.g = 123
         """);
   }
 

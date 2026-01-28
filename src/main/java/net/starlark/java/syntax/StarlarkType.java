@@ -39,6 +39,14 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
   }
 
   /**
+   * If this type has a field by the given name, returns the type of that field, or null otherwise.
+   */
+  @Nullable
+  public StarlarkType getField(String name) {
+    return null;
+  }
+
+  /**
    * Returns whether a value of type {@code t2} can be assigned to a value of type {@code t1}.
    *
    * <p>In gradual typing terms, {@code t2} must be a "consistent subtype of" {@code t1}. This means

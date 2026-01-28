@@ -127,8 +127,6 @@ public final class TypeTagger extends NodeVisitor {
         try {
           return constructor.invoke(ImmutableList.of());
         } catch (TypeConstructor.Failure e) {
-          // TODO: #28043 - Allow unapplied type constructors to be syntactic sugar for a default
-          // application, e.g. `list` for `list[Any]`.
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
         }
@@ -339,6 +337,9 @@ public final class TypeTagger extends NodeVisitor {
 
     // No need to descend into type expression child.
   }
+
+  // TODO: #28325 - Ensure we assign the type of an identifier referencing a universal/predeclared
+  // symbol, i.e. with no binding occurrences in the file.
 
   @Override
   public void visit(LambdaExpression lambda) {

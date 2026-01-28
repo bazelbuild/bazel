@@ -16,6 +16,7 @@ package net.starlark.java.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.List;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Module.Undefined;
@@ -43,46 +44,48 @@ public final class TestUtils {
     }
   }
 
-  private static class TestModule implements Module {
-    private final ImmutableSet<String> predeclared;
-
-    TestModule(ImmutableSet<String> predeclared) {
-      this.predeclared = predeclared;
-    }
-
-    @Override
-    public Scope resolve(String name) throws Undefined {
-      if (predeclared.contains(name)) {
-        return Scope.PREDECLARED;
-      } else {
-        throw new Undefined(String.format("name '%s' is not defined", name), predeclared);
-      }
-    }
-
-    @Override
-    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
-      throw new Undefined("TestModule does not support type resolution");
-    }
-  }
-
   /**
    * A basic static resolver Module implementation for testing.
    *
    * <p>It defines only the given predeclared names, without even universals (e.g. None). No type
    * constructors are resolved.
    */
-  public static Module moduleWithPredeclared(String... names) {
-    return new TestModule(ImmutableSet.copyOf(names));
+  public static class ModuleWithPredeclared implements Module {
+    private final ImmutableSet<String> names;
+
+    public ModuleWithPredeclared(Collection<String> names) {
+      this.names = ImmutableSet.copyOf(names);
+    }
+
+    public ModuleWithPredeclared(String... names) {
+      this(ImmutableSet.copyOf(names));
+    }
+
+    @Override
+    public Scope resolve(String name) throws Undefined {
+      if (names.contains(name)) {
+        return Scope.PREDECLARED;
+      } else {
+        throw new Undefined(String.format("name '%s' is not defined", name), names);
+      }
+    }
+
+    @Override
+    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
+      throw new Undefined("ModuleWithPredeclared does not support type resolution");
+    }
   }
 
-  /** A basic static resolver Module implementation that knows about the universal types. */
-  public static Module moduleWithUniversalTypes() {
-    return new TestModule(Types.TYPE_UNIVERSE.keySet()) {
-      @Override
-      public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
-        resolve(name); // throws if unknown
-        return Types.TYPE_UNIVERSE.get(name);
-      }
-    };
+  /** A version of {@link ModuleWithPredeclared} that knows about the universal types. */
+  public static class ModuleWithUniversalTypes extends ModuleWithPredeclared {
+    public ModuleWithUniversalTypes() {
+      super(Types.TYPE_UNIVERSE.keySet());
+    }
+
+    @Override
+    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
+      resolve(name); // throws if unknown
+      return Types.TYPE_UNIVERSE.get(name);
+    }
   }
 }

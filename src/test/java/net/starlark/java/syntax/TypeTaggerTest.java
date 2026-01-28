@@ -35,10 +35,10 @@ public class TypeTaggerTest {
 
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
-    Module module = TestUtils.moduleWithUniversalTypes();
+    Module module = new TestUtils.ModuleWithUniversalTypes();
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
     Resolver.resolveExpr(expr, module, options.build());
-    return TypeTagger.extractType(expr, TestUtils.moduleWithUniversalTypes());
+    return TypeTagger.extractType(expr, module);
   }
 
   /**
@@ -59,7 +59,7 @@ public class TypeTaggerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.ok()).isTrue();
-    Module module = TestUtils.moduleWithUniversalTypes();
+    Module module = new TestUtils.ModuleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertThat(file.ok()).isTrue();
     TypeTagger.tagFile(file, module);

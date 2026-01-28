@@ -90,7 +90,7 @@ final class Examples {
 
     // Compile the program, with additional predeclared environment bindings.
     // TODO(adonovan): supply Starlark.UNIVERSE somehow.
-    Program prog = Program.compileFile(file, TestUtils.moduleWithPredeclared("zero", "square"));
+    Program prog = Program.compileFile(file, new TestUtils.ModuleWithPredeclared("zero", "square"));
 
     // . . .
 

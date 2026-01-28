@@ -109,6 +109,11 @@ public final class Types {
       return obj instanceof AnyType;
     }
 
+    @Override
+    public StarlarkType getField(String name) {
+      return ANY;
+    }
+
     // TODO: #27370 - we may want to infer a more precise type when one of the operands is non-Any.
     // (For example, we could infer that int % Any is int | float; on the other hand, Any % int
     // could also be a string, since % is also a string substitution operator.) Requires a registry

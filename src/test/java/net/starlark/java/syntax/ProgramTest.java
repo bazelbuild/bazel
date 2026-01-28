@@ -26,7 +26,7 @@ public final class ProgramTest {
   private Program compileFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
-    return Program.compileFile(file, TestUtils.moduleWithPredeclared("pre"));
+    return Program.compileFile(file, new TestUtils.ModuleWithPredeclared("pre"));
   }
 
   @Test
