@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
@@ -32,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -76,33 +78,41 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * An interface used to check whether a given {@link Path} is stored in a remote or a disk cache.
+   * An interface used to check whether a given {@link Path} is available without contacting the
+   * remote cache, i.e., it is present on the local disk, perhaps after being downloaded from the
+   * disk cache.
    */
   public interface RemotePathChecker {
-    boolean isRemote(RemoteActionExecutionContext context, Path path) throws IOException;
+    ListenableFuture<Boolean> isAvailableLocally(RemoteActionExecutionContext context, Path path);
   }
 
   private RemotePathChecker remotePathChecker =
       new RemotePathChecker() {
         @Override
-        public boolean isRemote(RemoteActionExecutionContext context, Path path)
-            throws IOException {
+        public ListenableFuture<Boolean> isAvailableLocally(
+            RemoteActionExecutionContext context, Path path) {
           var fs = path.getFileSystem();
-          if (fs instanceof RemoteActionFileSystem remoteActionFileSystem) {
-            if (remoteActionFileSystem.isRemote(path)) {
-              if (context.getReadCachePolicy().allowDiskCache()) {
-                try (var inputStream = path.getInputStream()) {
-                  // If the file exists in the disk cache, download it and continue the upload.
-                  return false;
-                } catch (IOException e) {
-                  logger.atWarning().withCause(e).log(
-                      "Failed to get input stream for %s", path.getPathString());
-                }
-              }
-              return true;
-            }
+          if (!(fs instanceof RemoteActionFileSystem remoteActionFileSystem)) {
+            return immediateFuture(true);
           }
-          return false;
+          // If the file is available in the disk cache, we can attempt to download it from there.
+          ListenableFuture<Void> downloadFromDiskCache = immediateVoidFuture();
+          if (context.getReadCachePolicy().allowDiskCache()) {
+            downloadFromDiskCache =
+                Futures.catchingAsync(
+                    remoteActionFileSystem.downloadIfRemote(path.asFragment()),
+                    IOException.class,
+                    e -> {
+                      logger.atWarning().withCause(e).log(
+                          "Failed to download %s", path.getPathString());
+                      return immediateVoidFuture();
+                    },
+                    directExecutor());
+          }
+          return Futures.transform(
+              downloadFromDiskCache,
+              unused -> remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()),
+              directExecutor());
         }
       };
 
@@ -184,25 +194,26 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemotePathResolver remotePathResolver,
       Digest digest,
       Path path) {
-    try {
-      if (remotePathChecker.isRemote(context, path)) {
-        // If we get here, the remote input was determined to exist in the remote or disk
-        // cache at some point before action execution, but reported to be missing when
-        // querying the remote for missing action inputs; possibly because it was evicted in
-        // the interim.
-        if (remotePathResolver != null) {
-          throw new CacheNotFoundException(
-              digest, remotePathResolver.localPathToExecPath(path.asFragment()));
-        } else {
-          // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
-          // way to handle lost inputs.
-          throw new CacheNotFoundException(digest, path.getPathString());
-        }
-      }
-    } catch (IOException e) {
-      return immediateFailedFuture(e);
-    }
-    return remoteCacheClient.uploadFile(context, digest, path);
+    return Futures.transformAsync(
+        remotePathChecker.isAvailableLocally(context, path),
+        isAvailableLocally -> {
+          if (!isAvailableLocally) {
+            // If we get here, the remote input was determined to exist in the remote or disk
+            // cache at some point before action execution, but reported to be missing when
+            // querying the remote for missing action inputs; possibly because it was evicted in
+            // the interim.
+            if (remotePathResolver != null) {
+              throw new CacheNotFoundException(
+                  digest, remotePathResolver.localPathToExecPath(path.asFragment()));
+            } else {
+              // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
+              // way to handle lost inputs.
+              throw new CacheNotFoundException(digest, path.getPathString());
+            }
+          }
+          return remoteCacheClient.uploadFile(context, digest, path);
+        },
+        directExecutor());
   }
 
   @Override
