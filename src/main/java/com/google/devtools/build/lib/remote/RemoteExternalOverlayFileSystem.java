@@ -186,11 +186,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
    */
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    deleteTree(repoDir);
+    delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
-    var repoDir = externalDirectory.getChild(repo.getName());
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
         externalFs, repoDir, remoteContents.getRoot(), childMap, filesToPrefetch::add);
@@ -208,7 +210,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
-    nativeFs.createDirectoryAndParents(externalDirectory.getChild(repo.getName()));
+    nativeFs.createDirectoryAndParents(repoDir);
     // Keep the marker file contents in memory so that it can be written out when the repo is
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
