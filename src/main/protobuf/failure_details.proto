@@ -1191,6 +1191,7 @@ message FailAction {
     FRAGMENT_CLASS_MISSING = 7 [(metadata) = { exit_code: 1 }];
     reserved 8, 9; // For internal use
     CANT_BUILD_INCOMPATIBLE_TARGET = 10 [(metadata) = { exit_code: 1 }];
+    VALIDATION_FAILURE = 11 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
