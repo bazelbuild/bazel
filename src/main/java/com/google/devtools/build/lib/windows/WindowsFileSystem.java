@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
 import javax.annotation.Nullable;
 
@@ -81,12 +81,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     boolean existingDirectory = stat != null && stat.isDirectory();
 
     try {
-      File link = getIoFile(linkPath);
-      File target = getIoFile(targetPath);
+      Path link = getNioPath(linkPath);
+      Path target = getNioPath(targetPath);
 
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
-        Files.copy(target.toPath(), link.toPath());
+        Files.copy(target, link);
       } else if (createSymbolicLinks
           && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
         // If symlinks are enabled and the target is not an existing or future directory, create a
@@ -120,7 +120,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected boolean fileIsSymbolicLink(File file) {
+  protected boolean fileIsSymbolicLink(Path file) {
     try {
       if (isSymlinkOrJunction(file)) {
         return true;
@@ -137,10 +137,10 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    File file = getIoFile(path);
+    Path nioPath = getNioPath(path);
     final DosFileAttributes attributes;
     try {
-      attributes = getAttribs(file, followSymlinks);
+      attributes = getAttribs(nioPath, followSymlinks);
     } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
@@ -171,7 +171,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           @Override
           public boolean isSymbolicLink() {
             if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
             }
             return isSymbolicLink;
           }
@@ -214,14 +214,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public boolean isSymbolicLink(PathFragment path) {
-    return fileIsSymbolicLink(getIoFile(path));
+    return fileIsSymbolicLink(getNioPath(path));
   }
 
   @Override
   public boolean isDirectory(PathFragment path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (isSymlinkOrJunction(getIoFile(path))) {
+        if (isSymlinkOrJunction(getNioPath(path))) {
           return false;
         }
       } catch (IOException e) {
@@ -274,13 +274,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
    * they are dangling), though only directory junctions and directory symlinks are useful.
    */
   @VisibleForTesting
-  static boolean isSymlinkOrJunction(File file) throws IOException {
-    return WindowsFileOperations.isSymlinkOrJunction(file.getPath());
+  static boolean isSymlinkOrJunction(Path file) throws IOException {
+    return WindowsFileOperations.isSymlinkOrJunction(file.toString());
   }
 
-  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
+  private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
       throws IOException {
-    return Files.readAttributes(
-        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
+    return Files.readAttributes(file, DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }
