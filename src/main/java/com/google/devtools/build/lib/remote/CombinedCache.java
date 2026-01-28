@@ -32,9 +32,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -64,6 +67,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,6 +96,11 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
+
+  @SuppressWarnings("AllowVirtualThreads")
+  private final ListeningExecutorService virtualThreadExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("combined-cache-", 0).factory()));
 
   @Nullable protected final RemoteCacheClient remoteCacheClient;
   @Nullable protected final DiskCacheClient diskCacheClient;
@@ -128,6 +137,15 @@ public class CombinedCache extends AbstractReferenceCounted {
       return ServerCapabilities.getDefaultInstance();
     }
     return remoteCacheClient.getServerCapabilities();
+  }
+
+  @Nullable
+  public ChunkingConfig getChunkingConfig() {
+    try {
+      return ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   /**
@@ -437,6 +455,29 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> downloadBlobFromRemote(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
+
+    if (remoteCacheClient instanceof GrpcCacheClient grpcClient) {
+      ChunkedBlobDownloader chunkedDownloader = grpcClient.getChunkedDownloader();
+      if (chunkedDownloader != null && digest.getSizeBytes() > grpcClient.getChunkingThreshold()) {
+        ListenableFuture<Void> chunkedDownloadFuture =
+            virtualThreadExecutor.submit(() -> {
+              chunkedDownloader.downloadChunked(context, digest, out);
+              return null;
+            });
+        return Futures.catchingAsync(
+            chunkedDownloadFuture,
+            CacheNotFoundException.class,
+            (e) -> regularDownloadBlobFromRemote(context, digest, out),
+            directExecutor());
+      }
+    }
+
+    return regularDownloadBlobFromRemote(context, digest, out);
+  }
+
+  private ListenableFuture<Void> regularDownloadBlobFromRemote(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
 

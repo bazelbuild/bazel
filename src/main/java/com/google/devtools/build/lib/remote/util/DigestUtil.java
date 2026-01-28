@@ -70,6 +70,18 @@ public class DigestUtil {
   }
 
   /**
+   * Computes a digest for a portion of a byte array. This is useful for uploading
+   * an individual chunk from a larger file.
+   *
+   * @param data the byte array
+   * @param offset the start offset in the array
+   * @param length the number of bytes to hash
+   */
+  public Digest compute(byte[] data, int offset, int length) {
+    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).toString(), length);
+  }
+
+  /**
    * Computes a digest for a file.
    *
    * <p>Prefer calling {@link #compute(Path, FileStatus)} when a recently obtained {@link

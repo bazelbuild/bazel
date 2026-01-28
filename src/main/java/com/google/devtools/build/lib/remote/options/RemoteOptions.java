@@ -724,6 +724,21 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Scrubber scrubber;
 
   @Option(
+      name = "experimental_remote_cache_chunking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, Bazel will use Content-Defined Chunking (CDC) for remote cache read and write operations. "
+              + "Large blobs (>2MB) are split into chunks using the FastCDC 2020 algorithm, enabling deduplication "
+              + "and parallel transfers. For uploads, only missing chunks are uploaded and "
+              + "SpliceBlob is called to register the blob to chunk mapping on the remote. For downloads, SplitBlob is used to "
+              + "get chunk information and chunks are downloaded to reassemble the blob. The server must "
+              + "declare capabilities for SplitBlob and SpliceBlob RPCs for this to work.")
+  public boolean experimentalRemoteCacheChunking;
+
+  @Option(
       name = "experimental_throttle_remote_action_building",
       defaultValue = "true",
       converter = BooleanConverter.class,

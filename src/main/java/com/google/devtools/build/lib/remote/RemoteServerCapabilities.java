@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesFutureStub;
+// import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Compressor;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
@@ -244,6 +245,28 @@ class RemoteServerCapabilities {
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
             "--remote_cache_compression requested but remote does not support compression");
+      }
+
+      if (remoteOptions.experimentalRemoteCacheChunking) {
+        if (!cacheCap.getSplitBlobSupport()) {
+          result.addError(
+              "--experimental_remote_cache_chunking requested but remote does not support"
+                  + " SplitBlob");
+        }
+        if (!cacheCap.getSpliceBlobSupport()) {
+          result.addError(
+              "--experimental_remote_cache_chunking requested but remote does not support"
+                  + " SpliceBlob");
+        }
+        // TODO(https://github.com/bazelbuild/remote-apis/pull/357): Re-enable once servers 
+        // advertise ChunkingConfiguration with FASTCDC_2020.
+        // if (!cacheCap.hasChunkingConfiguration()
+        //     || !cacheCap.getChunkingConfiguration().getSupportedChunkingAlgorithmsList()
+        //         .contains(ChunkingFunction.Value.FASTCDC_2020)) {
+        //   result.addError(
+        //       "--experimental_remote_cache_chunking requested but remote does not support"
+        //           + " FASTCDC_2020 chunking algorithm");
+        // }
       }
 
       // Check result cache priority is in the supported range.

@@ -25,6 +25,7 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -158,6 +159,26 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   default ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     return uploadBlob(context, digest, data::newInput);
+  }
+
+  /**
+   * Registers a blob as the concatenation of the given chunks via SpliceBlob RPC.
+   *
+   * <p>This is used for CDC (Content-Defined Chunking) uploads. After uploading all chunks,
+   * SpliceBlob is called to register the blob with the given digest as the concatenation of
+   * the chunks.
+   *
+   * @param context the context for the action.
+   * @param blobDigest The digest of the complete blob.
+   * @param chunkDigests The digests of the chunks that make up the blob, in order.
+   * @return A future representing pending completion of the splice operation, or null if
+   *     SpliceBlob is not supported by this cache client.
+   */
+  default ListenableFuture<Void> spliceBlob(
+      RemoteActionExecutionContext context,
+      Digest blobDigest,
+      List<Digest> chunkDigests) {
+    return null;
   }
 
   /** Close resources associated with the remote cache. */
