@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -373,7 +376,10 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   @Override
   public InputStream getInputStream(PathFragment path) throws IOException {
     try {
-      downloadIfRemote(path);
+      getFromFuture(downloadIfRemote(path));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
     } catch (BulkTransferException e) {
       var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
@@ -384,29 +390,23 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     return localFs.getPath(path).getInputStream();
   }
 
-  private void downloadIfRemote(PathFragment path) throws IOException {
-    if (!isRemote(path)) {
-      return;
+  /** Downloads the file at {@code path} if it is remote. */
+  public ListenableFuture<Void> downloadIfRemote(PathFragment path) {
+    try {
+      if (!isRemote(path)) {
+        return immediateVoidFuture();
+      }
+    } catch (IOException e) {
+      return immediateFailedFuture(e);
     }
     PathFragment execPath = path.relativeTo(execRoot);
     ActionInput input = inputArtifactData.getInput(execPath);
     if (input == null) {
       // TODO(tjgq): Also look up the remote output tree.
-      return;
+      return immediateVoidFuture();
     }
-
-    try {
-      getFromFuture(
-          inputFetcher.prefetchFiles(
-              action,
-              ImmutableList.of(input),
-              inputArtifactData,
-              Priority.CRITICAL,
-              Reason.INPUTS));
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
-    }
+    return inputFetcher.prefetchFiles(
+        action, ImmutableList.of(input), inputArtifactData, Priority.CRITICAL, Reason.INPUTS);
   }
 
   @Override
