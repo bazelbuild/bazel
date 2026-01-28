@@ -41,6 +41,7 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
+import javax.net.ssl.SSLException;
 
 /**
  * Class for establishing connections to HTTP servers for downloading files.
@@ -162,6 +163,22 @@ class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (SSLException e) {
+          // Check if the exception is due to a permanent error, such as a certificate validation
+          // issue.
+          // These errors are unlikely to be resolved by retrying.
+          if (e.getMessage() != null
+              && (e.getMessage().contains("certificate")
+                  || e.getMessage().contains("CertPathValidatorException"))) {
+            String message = "TLS error: " + e.getMessage();
+            eventHandler.handle(Event.progress(message));
+            IOException httpException = new UnrecoverableHttpException(message);
+            httpException.addSuppressed(e);
+            throw httpException;
+          }
+          // Otherwise, treat it as a potentially transient network error and let it fall through
+          // to the standard IOException handler for retries.
+          throw e;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
