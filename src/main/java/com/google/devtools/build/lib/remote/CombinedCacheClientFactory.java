@@ -59,13 +59,7 @@ public final class CombinedCacheClientFactory {
       httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
     }
     if (isDiskCache(options)) {
-      diskCacheClient =
-          createDiskCache(
-              workingDirectory,
-              options,
-              digestUtil,
-              executorService,
-              options.remoteVerifyDownloads);
+      diskCacheClient = createDiskCache(workingDirectory, options, digestUtil, executorService);
     }
     if (httpCacheClient == null && diskCacheClient == null) {
       throw new IllegalArgumentException(
@@ -130,11 +124,10 @@ public final class CombinedCacheClientFactory {
       Path workingDirectory,
       RemoteOptions options,
       DigestUtil digestUtil,
-      ExecutorService executorService,
-      boolean verifyDownloads)
+      ExecutorService executorService)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(cacheDir, digestUtil, executorService, verifyDownloads);
+    return new DiskCacheClient(cacheDir, digestUtil, executorService);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
