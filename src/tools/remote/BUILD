@@ -19,6 +19,7 @@ java_binary(
     name = "worker",
     jvm_flags = [
         "--enable-native-access=ALL-UNNAMED",
+        "-Djava.lang.Thread.allowVirtualThreads=true",
     ],
     main_class = "com.google.devtools.build.remote.worker.RemoteWorker",
     visibility = ["//visibility:public"],
