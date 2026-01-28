@@ -160,6 +160,8 @@ public class GzFunctionTest {
       // upgrade the Apache Commons Compress library to 1.28. At which point, you can replace
       // hackExpectedTimeSeconds below with unixTimeSeconds.
       // See https://github.com/apache/commons-compress/pull/624
+      // NOTE: 1.28 also has an issue - see https://github.com/bazelbuild/bazel/issues/28454
+      // so cleaning up this hack will need to wait until 1.29 is released.
       long hackExpectedTimeSeconds = unixTimeSeconds / 1000 * 1000;
       // Time should be in epoch milliseconds.
       assertThat(testFile.lastModified()).isEqualTo(hackExpectedTimeSeconds * 1000);
