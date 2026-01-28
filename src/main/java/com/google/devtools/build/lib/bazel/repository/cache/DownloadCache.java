@@ -21,9 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -243,19 +241,7 @@ public class DownloadCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     fileWriter.writeTo(tmpName);
-    try {
-      tmpName.renameTo(cacheValue);
-    } catch (FileAccessException e) {
-      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
-      // get on the cache) results in renameTo throwing this exception, which wraps an
-      // AccessDeniedException. This case is benign since if the target path already exists, we know
-      // that another thread won the race to place the file in the cache. As the exception is rather
-      // generic and could result from other failure types, we rethrow the exception if the cache
-      // entry hasn't been created.
-      if (OS.getCurrent() != OS.WINDOWS || !cacheValue.exists()) {
-        throw e;
-      }
-    }
+    FileSystemUtils.renameToleratingConcurrentCreation(tmpName, cacheValue);
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();
