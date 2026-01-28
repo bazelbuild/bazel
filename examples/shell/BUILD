@@ -33,6 +33,13 @@ sh_test(
     ],
 )
 
+sh_binary(
+    name = "runfile",
+    srcs = ["runfile.sh"],
+    data = ["//examples:runfile.txt"],
+    use_bash_launcher = True,
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
