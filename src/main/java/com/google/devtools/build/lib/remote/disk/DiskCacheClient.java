@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -142,7 +143,7 @@ public class DiskCacheClient {
     }
 
     target.getParentDirectory().createDirectoryAndParents();
-    src.renameTo(target);
+    FileSystemUtils.renameToleratingConcurrentCreation(src, target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -333,7 +334,7 @@ public class DiskCacheClient {
         }
       }
       path.getParentDirectory().createDirectoryAndParents();
-      temp.renameTo(path);
+      FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
     } catch (IOException e) {
       try {
         temp.delete();
