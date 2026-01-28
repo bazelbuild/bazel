@@ -278,14 +278,29 @@ public abstract class MockCcSupport {
             "cc/toolchains/cc_toolchain_alias.bzl",
             "cc/toolchains/cc_toolchain_config_info.bzl",
             "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD",
-            "cc/private/rules_impl/native.bzl")) {
+            "cc/private/rules_impl/BUILD")) {
       try {
         config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
+      }
+    }
+    // We handle these files separately and ignore errors since only native.bzl will be found for
+    // bazel, but the other two for blaze
+    // TODO: once rules_cc is released and updated in bazel, move this into the set above
+    for (String path :
+        ImmutableList.of(
+            "cc/private/rules_impl/native.bzl",
+            "cc/private/rules_impl/native_cc_common.bzl",
+            "cc/private/rules_impl/native_providers.bzl")) {
+      try {
+        config.overwrite(
+            "third_party/bazel_rules/rules_cc/" + path,
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+      } catch (Exception e) {
+        // ignore
       }
     }
 
