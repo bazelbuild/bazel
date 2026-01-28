@@ -122,7 +122,6 @@ tasks:
       - build
       - test
   macos:
-    shards: 10
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -132,27 +131,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-    test_flags:
-      - "--config=ci-macos"
-      - "--test_tag_filters=-no_presubmit,-no_macos"
-      # Fine tune the number of test jobs running in parallel to avoid timeout
-      - "--local_test_jobs=2"
-    test_targets:
-      - "//..."
-      # Disable python and shell integration tests on Intel Macs
-      - "-//src/test/shell/..."
-      - "-//src/test/py/..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules out of the Bazel repo.
-      # ServerTests frequently runs into deadlocks on Intel Macs
-      - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
-      # Add back a few Apple specific tests
-      - "+//src/test/shell/bazel/apple/..."
     include_json_profile:
       - build
-      - test
   macos_arm64:
     shards: 10
     shell_commands:
