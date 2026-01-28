@@ -22,7 +22,9 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Function;
@@ -33,6 +35,7 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.ManualSleeper;
+import com.google.devtools.build.lib.events.Event;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -40,13 +43,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.net.Proxy;
+import java.security.cert.CertPathValidatorException;
+import java.security.cert.CertificateException;
 import java.util.List;
+import javax.net.ssl.SSLException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -719,6 +728,118 @@ public class HttpConnectorTest {
       assertThat(headers1).containsEntry("authentication", ImmutableList.of(basic1));
       assertThat(headers2).containsEntry("authentication", ImmutableList.of(basic2));
     }
+  }
+
+  @Test
+  public void ssLException_withCertificateCause_throwsUnrecoverableHttpException() throws Exception {
+    SSLException sslException = new SSLException("SSL handshake failed");
+    sslException.initCause(new CertificateException("Untrusted certificate"));
+
+    URL url =
+        new URL(
+            "http",
+            "localhost",
+            80,
+            "/foo",
+            new URLStreamHandler() {
+              @Override
+              protected URLConnection openConnection(URL u) throws IOException {
+                return openConnection(u, null);
+              }
+
+              @Override
+              protected URLConnection openConnection(URL u, Proxy p) throws IOException {
+                HttpURLConnection mockConnection = mock(HttpURLConnection.class);
+                when(mockConnection.getResponseCode()).thenThrow(sslException);
+                doThrow(sslException).when(mockConnection).connect();
+                return mockConnection;
+              }
+            });
+
+    thrown.expect(UnrecoverableHttpException.class);
+    thrown.expectMessage("TLS error: SSL handshake failed");
+
+    connector.connect(url, u -> ImmutableMap.of());
+
+    verify(eventHandler).handle(Event.progress("TLS error: SSL handshake failed"));
+  }
+
+  @Test
+  public void ssLException_withCertPathValidatorCause_throwsUnrecoverableHttpException()
+      throws Exception {
+    SSLException sslException = new SSLException("SSL handshake failed");
+    sslException.initCause(
+        new CertPathValidatorException("Path validation failed"));
+
+    URL url =
+        new URL(
+            "http",
+            "localhost",
+            80,
+            "/foo",
+            new URLStreamHandler() {
+              @Override
+              protected URLConnection openConnection(URL u) throws IOException {
+                return openConnection(u, null);
+              }
+
+              @Override
+              protected URLConnection openConnection(URL u, Proxy p) throws IOException {
+                HttpURLConnection mockConnection = mock(HttpURLConnection.class);
+                doThrow(sslException).when(mockConnection).connect();
+                return mockConnection;
+              }
+            });
+
+    thrown.expect(UnrecoverableHttpException.class);
+    thrown.expectMessage("TLS error: SSL handshake failed");
+
+    connector.connect(url, u -> ImmutableMap.of());
+
+    verify(eventHandler).handle(Event.progress("TLS error: SSL handshake failed"));
+  }
+
+  @Test
+  public void ssLException_withoutCertificateCause_retries() throws Exception {
+    SSLException sslException = new SSLException("Connection reset");
+    final AtomicInteger tries = new AtomicInteger();
+
+    URL url =
+        new URL(
+            "http",
+            "localhost",
+            80,
+            "/foo",
+            new URLStreamHandler() {
+              @Override
+              protected URLConnection openConnection(URL u) throws IOException {
+                return openConnection(u, null);
+              }
+
+              @Override
+              protected URLConnection openConnection(URL u, Proxy p) throws IOException {
+                HttpURLConnection mockConnection = mock(HttpURLConnection.class);
+                try {
+                  if (tries.incrementAndGet() == 1) {
+                    doThrow(sslException).when(mockConnection).connect();
+                  } else {
+                    // Succeed on retry
+                    when(mockConnection.getResponseCode()).thenReturn(200);
+                    when(mockConnection.getInputStream())
+                        .thenReturn(new java.io.ByteArrayInputStream("hello".getBytes(UTF_8)));
+                  }
+                } catch (Exception e) {
+                  // should not happen
+                }
+                return mockConnection;
+              }
+            });
+
+    try (java.io.InputStream input =
+        connector.connect(url, u -> ImmutableMap.of()).getInputStream()) {
+      assertThat(new String(ByteStreams.toByteArray(input), UTF_8)).isEqualTo("hello");
+    }
+    assertThat(tries.get()).isEqualTo(2);
   }
 
   private File createTempFile(byte[] fileContents) throws IOException {
