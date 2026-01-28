@@ -26,7 +26,6 @@ import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -38,13 +37,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /** A {@link CombinedCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends CombinedCache {
-  private static final ExecutorService executorService =
-      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
   private record DigestAndInvocation(Digest digest, String invocationId) {}
 
@@ -57,7 +52,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
       throws IOException {
     super(
         /* remoteCacheClient= */ null,
-        new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
+        new DiskCacheClient(cacheDir, digestUtil, /* verifyDownloads= */ true),
         remoteOptions,
         digestUtil);
     this.remoteWorkerOptions = remoteWorkerOptions;

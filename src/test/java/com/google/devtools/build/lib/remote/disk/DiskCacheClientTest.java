@@ -27,7 +27,6 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -44,8 +43,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,8 +54,6 @@ import org.junit.runners.JUnit4;
 public class DiskCacheClientTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private static final ExecutorService executorService =
-      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path root = fs.getPath("/disk_cache");
@@ -65,7 +61,12 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
+    client = new DiskCacheClient(root, DIGEST_UTIL, /* verifyDownloads= */ true);
+  }
+
+  @After
+  public void tearDown() {
+    client.close();
   }
 
   @Test
@@ -102,7 +103,6 @@ public class DiskCacheClientTest {
         new DiskCacheClient(
             root,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
             /* verifyDownloads= */ true);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
@@ -118,7 +118,6 @@ public class DiskCacheClientTest {
         new DiskCacheClient(
             root,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
             /* verifyDownloads= */ true);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
