@@ -72,6 +72,21 @@ function expect_thread_dumps_in_log() {
     "Thread dumps ended successfully"
 }
 
+# Usage: expect_thread_dumps_in_log <virtual thread dump content>
+function expect_json_thread_dumps() {
+  local thread_dump_starts=$(count_in_log "Starting full thread dump")
+  local json_thread_dump=$(count_in_log "Writing JSON thread dump to ")
+  check_eq "$thread_dump_starts" "$json_thread_dump" \
+    "JSON thread dumps generated as expected"
+  # Extract the path of the JSON thread dumps and check that they exist
+  local json_paths=$(grep -oE "Writing JSON thread dump to [^ ]+" $TEST_log | \
+    sed 's/Writing JSON thread dump to //')
+  for path in $json_paths; do
+    [ -f "$path" ] || fail "Expected JSON thread dump file $path to exist"
+    grep -q "$1" "$path" || fail "Expected virtual thread dump content not found in $path: $(cat "$path")"
+  done
+}
+
 #######################
 
 # Test that we see a stack trace even on shutdown hook slowness.
@@ -102,6 +117,7 @@ function test_ShutdownHook() {
 
   if $is_bazel; then
     expect_log 'Received SIGTERM, dumping stack traces for all threads'
+    expect_json_thread_dumps '"name": "my-virtual-thread",'
   else
     expect_log 'INTERRUPTED TEST: SIGTERM'
   fi
@@ -136,6 +152,7 @@ function test_SlowSuite() {
 
   if $is_bazel; then
     expect_log 'Received SIGTERM, dumping stack traces for all threads'
+    expect_json_thread_dumps '"name": "my-virtual-thread",'
   else
     expect_log "Execution interrupted while running 'TestSuite creation'"
   fi
