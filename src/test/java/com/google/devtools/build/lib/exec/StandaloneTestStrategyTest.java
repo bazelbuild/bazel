@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestRunnerActionConstants;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
@@ -663,6 +664,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               FileOutErr outErr = context.getFileOutErr();
               called.add(outErr);
               if (spawn.getOutputFiles().size() != 1) {
+                assertThat(spawn.getMnemonic()).isEqualTo(TestRunnerActionConstants.MNEMONIC);
                 try (OutputStream stream = outErr.getOutputStream()) {
                   stream.write("This will not appear in the test output: bla\n".getBytes(UTF_8));
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
@@ -676,6 +678,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               } else {
                 String testName = "standalone/failing_test";
                 assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
+                assertThat(spawn.getMnemonic())
+                    .isEqualTo(TestRunnerActionConstants.TEST_XML_GENERATION_MNEMONIC);
                 return ImmutableList.of(xmlGeneratorSpawnResult);
               }
             });
