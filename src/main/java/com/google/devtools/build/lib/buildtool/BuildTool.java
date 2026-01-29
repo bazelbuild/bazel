@@ -133,6 +133,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient.LookupTopLevelTargetsResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
@@ -1730,16 +1731,30 @@ public class BuildTool {
       if (skycacheMetadataParams.getTargets().isEmpty()) {
         eventHandler.handle(
             Event.warn(
-                "Skycache: Not querying Skycache metadata because invocation has no" + " targets"));
+                "Skycache: Not querying Skycache metadata because invocation has no targets"));
       } else {
-        getAnalysisCacheClient()
-            .lookupTopLevelTargets(
-                skycacheMetadataParams.getEvaluatingVersion(),
-                skycacheMetadataParams.getConfigurationHash(),
-                skycacheMetadataParams.getUseFakeStampData(),
-                skycacheMetadataParams.getBazelVersion(),
-                eventHandler,
-                () -> bailedOut = true);
+        try {
+          LookupTopLevelTargetsResult result =
+              getAnalysisCacheClient()
+                  .lookupTopLevelTargets(
+                      skycacheMetadataParams.getEvaluatingVersion(),
+                      skycacheMetadataParams.getConfigurationHash(),
+                      skycacheMetadataParams.getUseFakeStampData(),
+                      skycacheMetadataParams.getBazelVersion());
+
+          Event event =
+              switch (result.status()) {
+                case MATCH_STATUS_MATCH -> Event.info("Skycache: " + result.statusMessage());
+                case MATCH_STATUS_FAILURE -> Event.warn("Skycache: " + result.statusMessage());
+                default -> {
+                  bailedOut = true;
+                  yield Event.warn("Skycache: " + result.statusMessage());
+                }
+              };
+          eventHandler.handle(event);
+        } catch (ExecutionException | TimeoutException e) {
+          eventHandler.handle(Event.warn("Skycache: Error with metadata store: " + e.getMessage()));
+        }
       }
     }
 

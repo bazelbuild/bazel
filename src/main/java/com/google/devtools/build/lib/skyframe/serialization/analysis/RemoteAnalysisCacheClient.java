@@ -15,15 +15,19 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.protobuf.ByteString;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /** Interface to the remote analysis cache. */
 public interface RemoteAnalysisCacheClient {
 
   /** Timeout when accessing the future in order to shutdown the client. */
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
+
+  /** The result of a top-level targets lookup. */
+  record LookupTopLevelTargetsResult(TopLevelTargetsMatchStatus status, String statusMessage) {}
 
   /** Usage statistics. */
   record Stats(
@@ -40,12 +44,10 @@ public interface RemoteAnalysisCacheClient {
   Stats getStats();
 
   /** Looks up the targets in the metadata table */
-  void lookupTopLevelTargets(
+  LookupTopLevelTargetsResult lookupTopLevelTargets(
       long evaluatingVersion,
       String configurationHash,
       boolean useFakeStampData,
-      String bazelVersion,
-      EventHandler eventHandler,
-      Runnable bailOutCallback)
-      throws InterruptedException;
+      String bazelVersion)
+      throws ExecutionException, TimeoutException, InterruptedException;
 }
