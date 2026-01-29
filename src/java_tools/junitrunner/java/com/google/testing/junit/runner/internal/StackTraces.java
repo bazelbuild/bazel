@@ -92,6 +92,9 @@ public class StackTraces {
     out.println("\nDone full thread dump.");
     out.flush();
 
+    if (!emitJsonThreadDump) {
+      return;
+    }
     // The thread dump above does not include virtual threads, so also capture a structured dump
     // that includes virtual threads. Since the dump is potentially large, we write it to a file in
     // the test outputs directory instead of printing it to the console.
