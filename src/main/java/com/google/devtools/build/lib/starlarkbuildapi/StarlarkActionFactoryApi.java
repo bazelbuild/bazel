@@ -588,7 +588,10 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " action. The returned dictionary may contain the following entries, each of"
                     + " which may be a float or an int:<ul><li>\"cpu\": number of CPUs; default"
                     + " 1<li>\"memory\": in MB; default 250<li>\"local_test\": number of local"
-                    + " tests; default 1</ul><p>If this parameter is set to <code>None</code> , the"
+                    + " tests; default 1<li>Any custom resource defined via"
+                    + " <a href=\"/reference/command-line-reference#build-flag--local_resources=\">"
+                    + " <code>--local_resources=</code></a></ul>"
+                    + " <p>If this parameter is set to <code>None</code> , the"
                     + " default values are used.<p>The callback must be top-level (lambda and"
                     + " nested functions aren't allowed)."),
         @Param(
