@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -265,6 +266,10 @@ public final class FrontierSerializer {
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
         node -> {
+          if (node.getKey() instanceof BzlLoadValue.Key) {
+            var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
+            incrementalInMemoryNodeEntry.clearSkyValue();
+          }
           if (!(node.getKey() instanceof ActionLookupKey key) || !node.isDone()) {
             return;
           }
