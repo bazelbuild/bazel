@@ -193,8 +193,7 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.Uploadable(
-            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0),
-            ImmutableMap.of(emptyDigest, emptyBlob));
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableMap.of());
   }
 
   /** Specifies which blobs should be retained in the Merkle tree. */
