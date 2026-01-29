@@ -15,13 +15,16 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** Interface for implementing the download of a file. */
 public interface Downloader {
@@ -35,7 +38,9 @@ public interface Downloader {
    * @param urls list of mirror URLs with identical content
    * @param credentials credentials to use when connecting to URLs
    * @param checksum valid checksum which is checked, or absent to disable
-   * @param output path to the destination file to write
+   * @param output the output stream to write the downloaded contents to
+   * @param destinationPath the path to the destination file, if any, or a human-readable and
+   *     path-like description of the desination (used for logging and error messages)
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @param context free-form string that describes the origin of the download for logging
    * @throws IOException if download was attempted and ended up failing
@@ -47,10 +52,40 @@ public interface Downloader {
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
-      Path output,
+      OutputStream output,
+      @Nullable String destinationPath,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Optional<String> type,
       String context)
       throws IOException, InterruptedException;
+
+  @VisibleForTesting
+  default void download(
+      List<URL> urls,
+      Map<String, List<String>> headers,
+      Credentials credentials,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Path destination,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      Optional<String> type,
+      String context)
+      throws IOException, InterruptedException {
+    try (var out = destination.getOutputStream()) {
+      download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          out,
+          destination.getPathString(),
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+    }
+  }
 }

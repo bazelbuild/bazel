@@ -270,10 +270,7 @@ public class BazelRepositoryModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     DownloadManager downloadManager =
         new DownloadManager(
-            repositoryCache.getDownloadCache(),
-            env.getDownloaderDelegate(),
-            env.getHttpDownloader(),
-            env.getReporter());
+            repositoryCache.getDownloadCache(), env.getDownloaderDelegate(), env.getReporter());
     this.repositoryFetchFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);

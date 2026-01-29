@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +51,8 @@ public class DelegatingDownloader implements Downloader {
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
-      Path destination,
+      OutputStream out,
+      @Nullable String destinationPath,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Optional<String> type,
@@ -67,7 +68,8 @@ public class DelegatingDownloader implements Downloader {
         credentials,
         checksum,
         canonicalId,
-        destination,
+        out,
+        destinationPath,
         eventHandler,
         clientEnv,
         type,

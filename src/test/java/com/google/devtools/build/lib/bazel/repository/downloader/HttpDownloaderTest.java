@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
@@ -81,7 +80,7 @@ public class HttpDownloaderTest {
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
-      new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+      new DownloadManager(downloadCache, httpDownloader, eventHandler);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final JavaIoFileSystem fs;
@@ -595,158 +594,9 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void downloadAndReadOneUrl_ok() throws IOException, InterruptedException {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              () -> {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(
-                      socket,
-                      "HTTP/1.1 200 OK",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 5",
-                      "",
-                      "hello");
-                }
-                return null;
-              });
-
-      assertThat(
-              new String(
-                  httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                      StaticCredentials.EMPTY,
-                      Optional.empty(),
-                      eventHandler,
-                      Collections.emptyMap()),
-                  UTF_8))
-          .isEqualTo("hello");
-    }
-  }
-
-  @Test
-  public void downloadAndReadOneUrl_notFound() throws IOException, InterruptedException {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              () -> {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(
-                      socket,
-                      "HTTP/1.1 404 Not Found",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 5",
-                      "",
-                      "");
-                }
-                return null;
-              });
-
-      assertThrows(
-          IOException.class,
-          () ->
-              httpDownloader.downloadAndReadOneUrl(
-                  new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                  StaticCredentials.EMPTY,
-                  Optional.empty(),
-                  eventHandler,
-                  Collections.emptyMap()));
-    }
-  }
-
-  @Test
-  public void downloadAndReadOneUrl_checksumProvided()
-      throws IOException, Checksum.InvalidChecksumException, InterruptedException {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              () -> {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(
-                      socket,
-                      "HTTP/1.1 200 OK",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 5",
-                      "",
-                      "hello");
-                }
-                return null;
-              });
-
-      assertThat(
-              new String(
-                  httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                      StaticCredentials.EMPTY,
-                      Optional.of(
-                          Checksum.fromString(
-                              DownloadCache.KeyType.SHA256,
-                              Hashing.sha256().hashString("hello", UTF_8).toString())),
-                      eventHandler,
-                      ImmutableMap.of()),
-                  UTF_8))
-          .isEqualTo("hello");
-    }
-  }
-
-  @Test
-  public void downloadAndReadOneUrl_checksumMismatch() throws IOException {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              () -> {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(
-                      socket,
-                      "HTTP/1.1 200 OK",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 9",
-                      "",
-                      "malicious");
-                }
-                return null;
-              });
-
-      var e =
-          assertThrows(
-              UnrecoverableHttpException.class,
-              () ->
-                  httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                      StaticCredentials.EMPTY,
-                      Optional.of(
-                          Checksum.fromString(
-                              DownloadCache.KeyType.SHA256,
-                              Hashing.sha256().hashUnencodedChars("hello").toString())),
-                      eventHandler,
-                      ImmutableMap.of()));
-      assertThat(e).hasMessageThat().contains("Checksum was");
-    }
-  }
-
-  @Test
   public void download_contentLengthMismatch_propagateErrorIfNotRetry() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    HttpDownloader httpDownloader = mock(HttpDownloader.class);
-    DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    DownloadManager downloadManager = new DownloadManager(downloadCache, downloader, eventHandler);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -781,10 +631,8 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatch_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    DownloadManager downloadManager = new DownloadManager(downloadCache, downloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -825,10 +673,8 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatchWithOtherErrors_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    DownloadManager downloadManager = new DownloadManager(downloadCache, downloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -872,10 +718,8 @@ public class HttpDownloaderTest {
   @Test
   public void download_socketException_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    DownloadManager downloadManager = new DownloadManager(downloadCache, downloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -916,10 +760,8 @@ public class HttpDownloaderTest {
   @Test
   public void download_socketExceptionWithOtherErrors_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    DownloadManager downloadManager = new DownloadManager(downloadCache, downloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);

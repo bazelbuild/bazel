@@ -135,7 +135,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           new DownloadManager(
               repositoryCache.getDownloadCache(),
               httpDownloader,
-              httpDownloader,
               // Only used in tests, so it's okay to miss download progress events.
               ExtendedEventHandler.NOOP);
       RegistryFactoryImpl registryFactory =
