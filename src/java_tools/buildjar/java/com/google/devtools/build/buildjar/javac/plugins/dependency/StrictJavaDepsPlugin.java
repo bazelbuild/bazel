@@ -22,6 +22,7 @@ import static javax.tools.StandardLocation.CLASS_PATH;
 
 import com.google.auto.value.AutoOneOf;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
@@ -36,6 +37,7 @@ import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.PackageTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -61,6 +63,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -419,8 +425,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
       JCTree vartype = varDecl.vartype;
       JCCompilationUnit unit = (JCCompilationUnit) getCurrentPath().getCompilationUnit();
-      if (vartype.pos == Position.NOPOS
-          || vartype.getEndPosition(unit.endPositions) == Position.NOPOS) {
+      if (vartype.pos == Position.NOPOS || getEndPosition(vartype, unit) == Position.NOPOS) {
         return true;
       }
       return false;
@@ -724,4 +729,44 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static final JarOwner JSPECIFY_JAR_OWNER =
       JarOwner.create(
           EMPTY_PATH, "//third_party/java/jspecify_annotations", /* aspect= */ Optional.empty());
+
+  /** Returns the source end position of the tree. */
+  private static int getEndPosition(Tree tree, CompilationUnitTree unit) {
+    try {
+      return (int) GET_END_POS_HANDLE.invokeExact((JCTree) tree, (JCCompilationUnit) unit);
+    } catch (Throwable e) {
+      Throwables.throwIfUnchecked(e);
+      throw new AssertionError(e);
+    }
+  }
+
+  private static final MethodHandle GET_END_POS_HANDLE = getEndPosMethodHandle();
+
+  private static MethodHandle getEndPosMethodHandle() {
+    MethodHandles.Lookup lookup = MethodHandles.lookup();
+    try {
+      // JDK versions after https://bugs.openjdk.org/browse/JDK-8372948
+      // (tree, unit) -> tree.getEndPosition()
+      return MethodHandles.dropArguments(
+          lookup.findVirtual(JCTree.class, "getEndPosition", MethodType.methodType(int.class)),
+          1,
+          JCCompilationUnit.class);
+    } catch (ReflectiveOperationException e1) {
+      try {
+        // JDK versions before https://bugs.openjdk.org/browse/JDK-8372948
+        // (tree, unit) -> tree.getEndPosition(unit.endPositions)
+        Class<?> endPosTableClass = Class.forName("com.sun.tools.javac.tree.EndPosTable");
+        return MethodHandles.filterArguments(
+            lookup.findVirtual(
+                JCTree.class, "getEndPosition", MethodType.methodType(int.class, endPosTableClass)),
+            1,
+            lookup
+                .findVarHandle(JCCompilationUnit.class, "endPositions", endPosTableClass)
+                .toMethodHandle(VarHandle.AccessMode.GET));
+      } catch (ReflectiveOperationException e2) {
+        e2.addSuppressed(e1);
+        throw new LinkageError(e2.getMessage(), e2);
+      }
+    }
+  }
 }
