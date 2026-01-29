@@ -83,6 +83,18 @@ public class Printer {
   }
 
   /**
+   * A dummy version of {@link #printList(Iterable, String, String, String)} that accepts an unused
+   * {@link StarlarkSemantics} argument, existing purely for source interop purposes. DO NOT USE in
+   * Bazel. For now, this method exists only for API migration of non-Bazel users of the Starlark
+   * interpreter; see b/478302712.
+   */
+  @CanIgnoreReturnValue
+  public Printer printList(
+      Iterable<?> list, String before, String separator, String after, StarlarkSemantics unused) {
+    return printList(list, before, separator, after);
+  }
+
+  /**
    * Appends a list to the printer's buffer. List elements are rendered with {@code repr}.
    *
    * <p>May be overridden by subclasses.
@@ -92,6 +104,7 @@ public class Printer {
    * @param separator a separator to print between items
    * @param after a string to print after the list items, e.g. a closing bracket
    */
+  @CanIgnoreReturnValue
   public Printer printList(Iterable<?> list, String before, String separator, String after) {
     this.append(before);
     String sep = "";
@@ -114,6 +127,7 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code debugPrint}.
    */
+  @CanIgnoreReturnValue
   public Printer debugPrint(Object o, StarlarkThread thread) {
     if (o instanceof StarlarkValue) {
       ((StarlarkValue) o).debugPrint(this, thread);
@@ -130,6 +144,7 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code str}.
    */
+  @CanIgnoreReturnValue
   public Printer str(Object o, StarlarkSemantics semantics) {
     if (o instanceof String) {
       return this.append((String) o);
@@ -141,6 +156,17 @@ public class Printer {
     } else {
       return this.repr(o);
     }
+  }
+
+  /**
+   * A dummy version of {@link #repr(Object)} that accepts an unused {@link StarlarkSemantics}
+   * argument, existing purely for source interop purposes. DO NOT USE in Bazel. For now, this
+   * method exists only for API migration of non-Bazel users of the Starlark interpreter; see
+   * b/478302712.
+   */
+  @CanIgnoreReturnValue
+  public Printer repr(Object o, StarlarkSemantics unused) {
+    return repr(o);
   }
 
   /**
@@ -157,6 +183,7 @@ public class Printer {
    * Map.Entry, or Class. All other values are formatted using their {@code toString} method.
    * TODO(adonovan): disallow that.
    */
+  @CanIgnoreReturnValue
   public Printer repr(Object o) {
     // atomic values (leaves of the object graph)
     if (o == null) {
@@ -222,6 +249,7 @@ public class Printer {
     return this;
   }
 
+  @CanIgnoreReturnValue
   private Printer appendQuoted(String s) {
     this.append('"');
     int len = s.length();
@@ -232,10 +260,12 @@ public class Printer {
     return this.append('"');
   }
 
+  @CanIgnoreReturnValue
   private Printer backslashChar(char c) {
     return this.append('\\').append(c);
   }
 
+  @CanIgnoreReturnValue
   private Printer escapeCharacter(char c) {
     if (c == '"') {
       return backslashChar(c);
