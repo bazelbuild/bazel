@@ -21,7 +21,7 @@ load("@with_cfg.bzl", "with_cfg")
 _MINIMUM_JAVA_RUNTIME_VERSION = 8
 
 # The minimum version of a java_toolchain's java_runtime supported by prebuilt Java tools.
-_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 17
+_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 21
 
 minimum_java_runtime_java_binary, _minimum_java_runtime_java_binary = (
     # Don't warn about targeting very old Java versions.
