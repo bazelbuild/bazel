@@ -79,7 +79,6 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -99,7 +98,6 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -122,7 +120,6 @@ public class CombinedCacheClientFactoryTest {
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
                 digestUtil,
-                executorService,
                 retrier));
   }
 
@@ -138,7 +135,6 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -160,7 +156,6 @@ public class CombinedCacheClientFactoryTest {
                         authAndTlsOptions,
                         workingDirectory,
                         digestUtil,
-                        executorService,
                         retrier)))
         .hasMessageThat()
         .contains("Remote cache proxy unsupported: bad-proxy");
@@ -177,7 +172,6 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -195,7 +189,6 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isNull();

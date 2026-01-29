@@ -20,6 +20,7 @@ java_binary(
     jvm_flags = [
         # Disables functionality in StringUtil that relies on Bazel's own internal string representation.
         "-Dbazel.internal.UnicodeStrings=true",
+        "-Djava.lang.Thread.allowVirtualThreads=true",
     ],
     main_class = "com.google.devtools.build.remote.worker.RemoteWorker",
     visibility = ["//visibility:public"],
