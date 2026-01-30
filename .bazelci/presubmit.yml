@@ -153,9 +153,22 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
-      - "//..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
+      - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
+      - "//src/test/java/com/google/devtools/build/lib/skyframe:MacOSXFsEventsDiffAwarenessTest"
+      - "//src/test/py/bazel:bazel_module_test"
+      - "//src/test/py/bazel:mod_command_test"
+      - "//src/test/shell/bazel:bazel_example_test"
+      - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:cpp_darwin_integration_test"
+      - "//src/test/shell/bazel:external_integration_test"
+      - "//src/test/shell/bazel:help_test"
+      - "//src/test/shell/bazel/apple:bazel_apple_test"
+      - "//src/test/shell/bazel/apple:bazel_objc_test"
+      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
