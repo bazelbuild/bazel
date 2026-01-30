@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -1032,9 +1033,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void downloadToplevel_unresolvedSymlink() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
+  public void downloadToplevel_unresolvedSymlink_unspecified() throws Exception {
+    // Windows cannot create dangling symlinks without knowing the target type.
     assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
 
     setDownloadToplevel();
     writeSymlinkRule();
@@ -1043,18 +1045,83 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':symlink.bzl', 'symlink')",
         "symlink(",
         "  name = 'foo-link',",
-        "  target_path = '/some/path',",
+        "  target_path = '" + targetPath.getPathString() + "',",
         ")");
 
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
+  }
+
+  @Test
+  public void downloadToplevel_unresolvedSymlink_file() throws Exception {
+    // File symlinks on Windows require Developer Mode or admin privileges.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_path = '" + targetPath.getPathString() + "',",
+        "  target_type = 'file',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Assert that the symlink works after planting the target.
+    FileSystemUtils.writeContent(targetPath, UTF_8, "hello world");
+    assertThat(FileSystemUtils.readContent(getOutputPath("foo-link"), UTF_8))
+        .isEqualTo("hello world");
+  }
+
+  @Test
+  public void downloadToplevel_unresolvedSymlink_directory() throws Exception {
+    Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_path = '" + targetPath.getPathString() + "',",
+        "  target_type = 'directory',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Assert that the symlink works after planting the target.
+    targetPath.createDirectory();
+    FileSystemUtils.writeContent(targetPath.getChild("file.txt"), UTF_8, "hello world");
+    assertThat(FileSystemUtils.readContent(getOutputPath("foo-link/file.txt"), UTF_8))
+        .isEqualTo("hello world");
   }
 
   @Test
