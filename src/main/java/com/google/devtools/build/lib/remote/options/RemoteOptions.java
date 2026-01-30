@@ -47,8 +47,11 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket).")
+          "Connect to the remote cache/executor through a proxy. Supported formats: "
+              + "Unix domain socket (unix:/path/to/socket) or HTTP proxy "
+              + "(http://[user:password@]host:port). For HTTP/HTTPS remote caches, environment "
+              + "variables HTTPS_PROXY, HTTP_PROXY (and their lowercase variants) are also "
+              + "respected if this flag is not set. Use NO_PROXY or no_proxy to exclude hosts.")
   public String remoteProxy;
 
   @Option(
