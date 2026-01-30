@@ -730,6 +730,35 @@ genrule(
     visibility = ["//scripts/docs:__pkg__"],
 )
 
+# TODO: replace gen_reference_docs with this target once the docs migration is done.
+genrule(
+    name = "gen_mdx_reference_docs",
+    srcs = [
+        ":build-encyclopedia.zip",
+        ":command-line-reference.html",
+        ":skylark-library.zip",
+        "//tools/build_defs/repo:doc",
+    ],
+    outs = ["mdx-reference-docs.zip"],
+    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
+          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
+          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
+          "mkdir -p $(@D)/mdx_docs && " +
+          "$(location //scripts/docs:html2mdx) --in_dir $(@D)/gen_docs --out_dir $(@D)/mdx_docs && " +
+          # Ugly hack: we want to preserve paths relative to mdx_docs/,
+          # which means we have to temporarily cd into that directory and zip with -r.
+          "pushd $(@D)/mdx_docs && " +
+          "zip -qr tmp.zip . && " +
+          "popd && mv $(@D)/mdx_docs/tmp.zip $@",
+    tools = [
+        "//scripts/docs:html2mdx",
+    ],
+    visibility = ["//scripts/docs:__pkg__"],
+)
+
 genrule(
     name = "gen_api_proto",
     srcs = [
