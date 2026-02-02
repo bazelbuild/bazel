@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Module.Undefined;
 import net.starlark.java.syntax.Resolver.Scope;
@@ -71,7 +72,8 @@ public final class TestUtils {
     }
 
     @Override
-    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
+    @Nullable
+    public TypeConstructor getTypeConstructor(String name) throws Undefined {
       throw new Undefined("ModuleWithPredeclared does not support type resolution");
     }
   }
@@ -83,7 +85,8 @@ public final class TestUtils {
     }
 
     @Override
-    public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
+    @Nullable
+    public TypeConstructor getTypeConstructor(String name) throws Undefined {
       resolve(name); // throws if unknown
       return Types.TYPE_UNIVERSE.get(name);
     }

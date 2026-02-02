@@ -427,11 +427,11 @@ public final class Resolver extends NodeVisitor {
     /**
      * Resolves a name to a corresponding type constructor.
      *
-     * @throws Undefined if the name is not defined, or if it is not valid as a type constructor. If
-     *     not defined, the exception may contain a set of available candidate names that are
-     *     predefined symbols or that are injected as user-defined types.
+     * @return null if the name is known but not a type constructor.
+     * @throws Undefined if the name is not defined, as per {@link #resolve}.
      */
-    TypeConstructor resolveTypeConstructor(String name) throws Undefined;
+    @Nullable
+    TypeConstructor getTypeConstructor(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}

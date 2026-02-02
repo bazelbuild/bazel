@@ -215,11 +215,11 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public TypeConstructor resolveTypeConstructor(String name) throws Resolver.Module.Undefined {
+    public TypeConstructor getTypeConstructor(String name) throws Resolver.Module.Undefined {
       if (name.equals("Foo")) {
         return Types.wrapType("Foo", new FooType());
       }
-      return super.resolveTypeConstructor(name);
+      return super.getTypeConstructor(name);
     }
   }
 

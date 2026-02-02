@@ -253,7 +253,8 @@ public final class Module implements Resolver.Module {
   }
 
   @Override
-  public TypeConstructor resolveTypeConstructor(String name) throws Undefined {
+  @Nullable
+  public TypeConstructor getTypeConstructor(String name) throws Undefined {
     // TODO: #27728 - Hack until StarlarkType is correctly represented by Starlark runtime symbols:
     // Hardcoded check for the universal type symbols before looking at the module.
     TypeConstructor constructor = Types.TYPE_UNIVERSE.get(name);
@@ -269,10 +270,7 @@ public final class Module implements Resolver.Module {
       case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
-    if (!(value instanceof TypeConstructor constructorValue)) {
-      throw new Undefined(String.format("%s symbol '%s' cannot be used as a type", scope, name));
-    }
-    return constructorValue;
+    return value instanceof TypeConstructor constructorValue ? constructorValue : null;
   }
 
   /**

@@ -76,12 +76,17 @@ public final class TypeTagger extends NodeVisitor {
     if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
       // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
       // type name.
-      errorf(id, "local name '%s' cannot be used as a type", name);
+      errorf(id, "local symbol '%s' cannot be used as a type", name);
       return null;
     }
 
     try {
-      return module.resolveTypeConstructor(name);
+      TypeConstructor constructor = module.getTypeConstructor(name);
+      if (constructor == null) {
+        errorf(id, "%s symbol '%s' cannot be used as a type", scope, name);
+        return null;
+      }
+      return constructor;
     } catch (Resolver.Module.Undefined ex) {
       String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
       errorf(id, "%s%s", ex.getMessage(), suggestion);

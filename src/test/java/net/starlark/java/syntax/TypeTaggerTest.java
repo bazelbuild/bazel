@@ -30,12 +30,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TypeTaggerTest {
 
-  private final FileOptions.Builder options =
+  @SuppressWarnings("FieldCanBeFinal")
+  private FileOptions.Builder options =
       FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
+
+  private Module module = new TestUtils.ModuleWithUniversalTypes();
 
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
-    Module module = new TestUtils.ModuleWithUniversalTypes();
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
     Resolver.resolveExpr(expr, module, options.build());
     return TypeTagger.extractType(expr, module);
@@ -59,7 +61,6 @@ public class TypeTaggerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.ok()).isTrue();
-    Module module = new TestUtils.ModuleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertThat(file.ok()).isTrue();
     TypeTagger.tagFile(file, module);
@@ -169,11 +170,31 @@ public class TypeTaggerTest {
   @Test
   public void localCannotShadowPredeclaredType() throws Exception {
     assertInvalid(
-        "local name 'int' cannot be used as a type",
+        "local symbol 'int' cannot be used as a type",
         """
         def f():
             int = 123
             x : int
+        """);
+  }
+
+  @Test
+  public void nonTypeCannotBeUsedAsType() throws Exception {
+    module =
+        new TestUtils.ModuleWithPredeclared("Foo") {
+          @Override
+          @Nullable
+          public TypeConstructor getTypeConstructor(String name) throws Undefined {
+            if (name.equals("Foo")) {
+              return null;
+            }
+            return super.getTypeConstructor(name);
+          }
+        };
+    assertInvalid(
+        "predeclared symbol 'Foo' cannot be used as a type",
+        """
+        x : Foo
         """);
   }
 
