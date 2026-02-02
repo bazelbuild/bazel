@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -29,8 +30,10 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -101,7 +104,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     return builder.build();
   }
 
-  static void writeAllowlistFile(Scratch scratch) throws Exception {
+  private static void writeAllowlistFile(Scratch scratch) throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         """
@@ -1004,13 +1007,82 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_value");
   }
 
-  private ImmutableList<ConfiguredTarget> getComputedConfiguredTarget(String label)
+  @Test
+  public void stampTransitionOutput_stampSettingMarkerNotApplied(@TestParameter boolean stampFlag)
       throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _stamp_output_impl(settings, attr):
+            return {"//command_line_option:stamp": True}
+
+        stamp_output_transition = transition(
+            implementation = _stamp_output_impl,
+            inputs = [],
+            outputs = ["//command_line_option:stamp"],
+        )
+
+        example = rule(implementation = lambda ctx: None, cfg = stamp_output_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "example")
+        example(name = "depends_on_stamp_output")
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:depends_on_stamp_output").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    assertThat(node.getDirectDeps()).doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+  }
+
+  @Test
+  public void stampTransitionInput_stampSettingMarkerAppliedIfStampFlag(
+      @TestParameter boolean stampFlag) throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _stamp_input_impl(settings, attr):
+            result = "opt" if settings["//command_line_option:stamp"] else "fastbuild"
+            return {"//command_line_option:compilation_mode": result}
+
+        stamp_input_transition = transition(
+            implementation = _stamp_input_impl,
+            inputs = ["//command_line_option:stamp"],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+
+        example = rule(implementation = lambda ctx: None, cfg = stamp_input_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "example")
+        example(name = "depends_on_stamp_input")
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:depends_on_stamp_input").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    if (stampFlag) {
+      assertThat(node.getDirectDeps()).contains(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    } else {
+      assertThat(node.getDirectDeps())
+          .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    }
+  }
+
+  private ImmutableList<ConfiguredTarget> getComputedConfiguredTarget(String label) {
     return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
         .filter(
             e ->
-                e.getKey() instanceof ConfiguredTargetKey
-                    && ((ConfiguredTargetKey) e.getKey()).getLabel().toString().equals(label))
+                e.getKey() instanceof ConfiguredTargetKey ctKey
+                    && ctKey.getLabel().toString().equals(label))
         .map(e -> ((ConfiguredTargetValue) e.getValue()).getConfiguredTarget())
         .collect(toImmutableList());
   }

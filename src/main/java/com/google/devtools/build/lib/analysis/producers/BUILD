@@ -82,6 +82,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:load_aspects_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:load_aspects_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",

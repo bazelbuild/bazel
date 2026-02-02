@@ -63,6 +63,10 @@ public final class PrecomputedValue implements SkyValue {
       injectable.inject(precomputed.key, Delta.justNew(new PrecomputedValue(supplier.get())));
     }
 
+    public SkyKey getKey() {
+      return precomputed.getKey();
+    }
+
     @Override
     public String toString() {
       return precomputed + ": " + supplier.get();
@@ -110,6 +114,23 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
       new Precomputed<>("lazy_macro_expansion_packages");
+
+  /**
+   * A marker Skyframe dependency for a configured target that may behave differently due to {@code
+   * --stamp=true}, even if it does not own a stamped action.
+   *
+   * <p>Examples are:
+   *
+   * <ul>
+   *   <li>When a starlark transition reads {@code //command_line_option:stamp} as an input.
+   *   <li>A {@code config_setting} that matches on the value of {@code --stamp} (not yet
+   *       implemented).
+   * </ul>
+   *
+   * <p>The value is irrelevant. Its {@link Injected#getKey} is just a marker dependency.
+   */
+  public static final Injected STAMP_SETTING_MARKER =
+      injected(new Precomputed<>("stamp_setting_marker"), Boolean.TRUE);
 
   private final Object value;
 

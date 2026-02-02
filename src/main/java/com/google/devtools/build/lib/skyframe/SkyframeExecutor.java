@@ -1537,6 +1537,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable(), packages);
   }
 
+  private void setStampSettingMarker() {
+    PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
+  }
+
   public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
     PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
@@ -1727,6 +1731,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.lazyMacroExpansionPackages);
+    setStampSettingMarker();
 
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
