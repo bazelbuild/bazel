@@ -53,6 +53,7 @@ function set_up() {
 function tear_down() {
   bazel clean >& $TEST_log
   stop_worker
+  shutdown_server
 }
 
 function test_remote_downloader_http_archive() {
@@ -126,7 +127,7 @@ EOF
   local archive_file="${TEST_TMPDIR}/pkg.zip"
   (cd "${archive_dir}" && zip -r "${archive_file}" .)
   # Use a wrong checksum intentionally
-  local wrong_sha256="0000000000000000000000000000000000000000000000000000000000000000"
+  local wrong_integrity="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
   serve_file "${archive_file}"
 
@@ -137,7 +138,7 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(
     name = "pkg",
     url = "http://127.0.0.1:${nc_port}/served_file.$$",
-    sha256 = "${wrong_sha256}",
+    integrity = "${wrong_integrity}",
     type = "zip",
 )
 EOF
@@ -157,7 +158,7 @@ EOF
       && fail "Expected build to fail due to checksum mismatch"
 
   expect_log "Checksum was"
-  expect_log "${wrong_sha256}"
+  expect_log "${wrong_integrity}"
 }
 
 function test_remote_downloader_canonical_id() {
