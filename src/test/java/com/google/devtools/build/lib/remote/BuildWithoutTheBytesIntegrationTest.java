@@ -39,8 +39,10 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.UUID;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,6 +52,8 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  @TestParameter public boolean useDiskCache;
 
   @Override
   protected ImmutableList<String> getStartupOptions() {
@@ -73,6 +77,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       // Force MSYS `ln -s` to create a (possibly dangling) native symlink or junction.
       // The default behavior is to require the target path to exist and make a deep copy.
       addOptions("--action_env=MSYS=winsymlinks:native");
+    }
+
+    if (useDiskCache) {
+      addOptions("--disk_cache=" + UUID.randomUUID());
     }
   }
 
@@ -127,6 +135,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected void evictAllBlobs() throws Exception {
     worker.reset();
+    if (useDiskCache) {
+      addOptions("--disk_cache=" + UUID.randomUUID());
+    }
   }
 
   @Override
