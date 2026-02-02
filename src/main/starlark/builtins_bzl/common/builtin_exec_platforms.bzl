@@ -238,7 +238,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:build_runfile_links",
         "//command_line_option:experimental_remotable_source_manifests",
         "//command_line_option:incompatible_always_include_files_in_data",
-        "//command_line_option:experimental_strict_fileset_output",
         "//command_line_option:strict_filesets",
         "//command_line_option:check_visibility",
         "//command_line_option:experimental_enforce_transitive_visibility",

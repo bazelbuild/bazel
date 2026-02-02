@@ -334,17 +334,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalWritableOutputs;
 
   @Option(
-      name = "experimental_strict_fileset_output",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If this option is enabled, filesets will treat all output artifacts as regular files. "
-              + "They will not traverse directories or be sensitive to symlinks.")
-  public boolean strictFilesetOutput;
-
-  @Option(
       name = "stamp",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
