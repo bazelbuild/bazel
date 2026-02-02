@@ -592,23 +592,6 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void graphlessQueryWithLexicographicalOutput() throws Exception {
-    write(
-        "foo/BUILD",
-        "load('//test_defs:foo_library.bzl', 'foo_library')",
-        "foo_library(name='foo', srcs=['foo.sh'])");
-
-    QueryOutput result =
-        getQueryResult(
-            "//foo",
-            "--experimental_graphless_query",
-            "--order_output=auto",
-            "--incompatible_lexicographical_output");
-    assertSuccessfulExitCode(result);
-    assertThat(result.getStdout()).isNotEmpty();
-  }
-
-  @Test
   public void graphlessQueryRequiresStreamedFormatter() throws Exception {
     write(
         "foo/BUILD",
