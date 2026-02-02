@@ -1379,8 +1379,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * the Bazel server.
    */
   public void clearPackageValues() {
-    if (remoteAnalysisCachingDependenciesProvider.shouldDiscardPackageValuesPostAnalysis()) {
-      remoteAnalysisCachingDependenciesProvider.computeSelectionAndDiscardPackageValues(
+    if (remoteAnalysisCachingDependenciesProvider.shouldMinimizeMemory()) {
+      remoteAnalysisCachingDependenciesProvider.computeSelectionAndMinimizeMemory(
           memoizingEvaluator.getInMemoryGraph());
     }
   }

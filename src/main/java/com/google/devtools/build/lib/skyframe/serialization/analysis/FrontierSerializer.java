@@ -250,14 +250,15 @@ public final class FrontierSerializer {
   }
 
   /**
-   * Discards unneeded {@code PackageValue}s from the graph after analysis.
+   * Discards unneeded {@code PackageValue}s and {@code BzlLoadValue}s from the graph after
+   * analysis.
    *
    * <p>This is a memory optimization to reduce peak heap before the execution phase. It finds all
    * packages associated with selected {@code ConfiguredTargetValue}s and clears the values of all
    * other {@code PackageValue} nodes. The graph is mutilated after this and incremental builds are
    * not possible.
    */
-  public static void computeSelectionAndDiscardPackageValues(
+  public static void computeSelectionAndMinimizeMemory(
       InMemoryGraph graph, RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
     SelectionResult selectionResult =
         computeSelectionResult(

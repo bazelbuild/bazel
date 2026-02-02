@@ -1312,7 +1312,7 @@ public class BuildTool {
     private boolean bailedOut;
 
     private final Collection<Label> topLevelTargets;
-    private final boolean discardPackageValuesPostAnalysis;
+    private final boolean minimizeMemory;
 
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env,
@@ -1339,7 +1339,7 @@ public class BuildTool {
               targets,
               userOptions,
               projectSclOptions,
-              options.discardPackageValuesPostAnalysis);
+              options.skycacheMinimizeMemory);
 
       return switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
@@ -1425,12 +1425,12 @@ public class BuildTool {
         Collection<Label> targets,
         Map<String, String> userOptions,
         Set<String> projectSclOptions,
-        boolean discardPackageValuesPostAnalysis)
+        boolean minimizeMemory)
         throws InterruptedException, AbruptExitException {
       RemoteAnalysisCachingOptions options =
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       this.topLevelTargets = targets;
-      this.discardPackageValuesPostAnalysis = discardPackageValuesPostAnalysis;
+      this.minimizeMemory = minimizeMemory;
 
       if (options.jsonLog != null) {
         try {
@@ -1847,8 +1847,8 @@ public class BuildTool {
     }
 
     @Override
-    public void computeSelectionAndDiscardPackageValues(InMemoryGraph graph) {
-      FrontierSerializer.computeSelectionAndDiscardPackageValues(graph, this);
+    public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
+      FrontierSerializer.computeSelectionAndMinimizeMemory(graph, this);
     }
 
     @Override
@@ -1857,8 +1857,8 @@ public class BuildTool {
     }
 
     @Override
-    public boolean shouldDiscardPackageValuesPostAnalysis() {
-      return discardPackageValuesPostAnalysis;
+    public boolean shouldMinimizeMemory() {
+      return minimizeMemory;
     }
   }
 

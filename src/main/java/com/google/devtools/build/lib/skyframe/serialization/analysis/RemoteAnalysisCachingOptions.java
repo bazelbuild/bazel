@@ -278,7 +278,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help =
           "DO NOT USE: This flag is currently in development and does not work with every target."
               + " If enabled, Blaze will discard values after the analysis phase is"
-              + " complete.")
-  // TODO: b/418730298 - Rename to skycacheMinimizeMemory everywhere else in the codebase
-  public boolean discardPackageValuesPostAnalysis;
+              + " complete to provide Skycache writers with more headroom.")
+  public boolean skycacheMinimizeMemory;
 }
