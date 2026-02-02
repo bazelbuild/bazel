@@ -34,7 +34,7 @@ public class TypeTaggerTest {
   private FileOptions.Builder options =
       FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
 
-  private Module module = new TestUtils.ModuleWithUniversalTypes();
+  private Module module = TestUtils.Module.withUniversalTypes();
 
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
@@ -180,17 +180,7 @@ public class TypeTaggerTest {
 
   @Test
   public void nonTypeCannotBeUsedAsType() throws Exception {
-    module =
-        new TestUtils.ModuleWithPredeclared("Foo") {
-          @Override
-          @Nullable
-          public TypeConstructor getTypeConstructor(String name) throws Undefined {
-            if (name.equals("Foo")) {
-              return null;
-            }
-            return super.getTypeConstructor(name);
-          }
-        };
+    module = TestUtils.Module.withTypes("Foo", null);
     assertInvalid(
         "predeclared symbol 'Foo' cannot be used as a type",
         """

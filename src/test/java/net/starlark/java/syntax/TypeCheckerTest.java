@@ -37,7 +37,7 @@ public final class TypeCheckerTest {
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
 
-  private Module module = new TestUtils.ModuleWithUniversalTypes();
+  private Module module = TestUtils.Module.withUniversalTypes();
 
   /**
    * Throws {@link AssertionError} if a file has errors, with an exception message that includes
@@ -205,27 +205,12 @@ public final class TypeCheckerTest {
     }
   }
 
-  private static final class ModuleWithFoo extends TestUtils.ModuleWithUniversalTypes {
-    @Override
-    public Resolver.Scope resolve(String name) throws Resolver.Module.Undefined {
-      if (name.equals("Foo")) {
-        return Resolver.Scope.PREDECLARED;
-      }
-      return super.resolve(name);
-    }
-
-    @Override
-    public TypeConstructor getTypeConstructor(String name) throws Resolver.Module.Undefined {
-      if (name.equals("Foo")) {
-        return Types.wrapType("Foo", new FooType());
-      }
-      return super.getTypeConstructor(name);
-    }
-  }
+  private final Module fooModule =
+      TestUtils.Module.withUniversalTypesAnd("Foo", Types.wrapType("Foo", new FooType()));
 
   @Test
   public void infer_dot() throws Exception {
-    module = new ModuleWithFoo();
+    module = fooModule;
 
     assertTypeGivenDecls("o.f", Types.INT, "o: Foo");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
@@ -246,7 +231,7 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_dot() throws Exception {
-    module = new ModuleWithFoo();
+    module = fooModule;
 
     assertValid(
         """
