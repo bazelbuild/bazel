@@ -373,4 +373,38 @@ public final class TypeTagger extends NodeVisitor {
     TypeTagger r = new TypeTagger(file.errors, module);
     r.visit(file);
   }
+
+  /**
+   * Same as {@link #tagFile}, but for an individual expression.
+   *
+   * <p>Any errors are thrown as a {@link SyntaxError.Exception}.
+   */
+  public static void tagExpr(Expression expr, Module module) throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeTagger r = new TypeTagger(errors, module);
+
+    r.visit(expr);
+
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(errors);
+    }
+  }
+
+  /**
+   * Sets the Starlark type on a {@link Resolver.Function} that the resolver generated to wrap an
+   * expression.
+   */
+  public static void tagExprFunction(Resolver.Function function, StarlarkType exprType) {
+    Types.CallableType functionType =
+        Types.callable(
+            /* parameterNames= */ ImmutableList.of(),
+            /* parameterTypes= */ ImmutableList.of(),
+            /* numPositionalOnlyParameters= */ 0,
+            /* numPositionalParameters= */ 0,
+            /* mandatoryParams= */ ImmutableSet.of(),
+            /* varargsType= */ null,
+            /* kwargsType= */ null,
+            /* returns= */ exprType);
+    setType(function, functionType);
+  }
 }

@@ -1,0 +1,99 @@
+// Copyright 2026 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package net.starlark.java.eval;
+
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
+import static org.junit.Assert.assertThrows;
+
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.SyntaxError;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/**
+ * Integrated tests for static type checking of Starlark code.
+ *
+ * <p>For tests of the type checker logic in isolation, see syntax/TypeCheckerTest.java.
+ */
+@RunWith(JUnit4.class)
+public final class StaticTypeCheckTest {
+
+  @SuppressWarnings("FieldCanBeFinal")
+  private FileOptions.Builder options =
+      FileOptions.builder()
+          .allowTypeSyntax(true)
+          .resolveTypeSyntax(true)
+          .staticTypeChecking(true)
+          // This lets us construct simpler test cases without wrapper `def` statements.
+          .allowToplevelRebinding(true);
+
+  @SuppressWarnings("FieldCanBeFinal")
+  private Module module = Module.create();
+
+  private Program compile(String... lines) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    StarlarkFile file = StarlarkFile.parse(input, options.build());
+    return Program.compileFile(file, module);
+  }
+
+  private void assertValid(String... lines) {
+    try {
+      compile(lines);
+    } catch (SyntaxError.Exception ex) {
+      throw new AssertionError("Expected success, but got: " + ex.getMessage(), ex);
+    }
+  }
+
+  private void assertInvalid(String message, String... lines) {
+    SyntaxError.Exception ex = assertThrows(SyntaxError.Exception.class, () -> compile(lines));
+    assertContainsError(ex.errors(), message);
+  }
+
+  private StarlarkType inferType(String expr) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(expr);
+    Expression expression = Expression.parse(input, options.build());
+    Program program = Program.compileExpr(expression, module, options.build());
+    return program.getResolvedFunction().getFunctionType();
+  }
+
+  @Test
+  public void typecheckSuccess() {
+    assertValid("n = 123 + 123");
+  }
+
+  @Test
+  public void typecheckFailure() {
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        n = 123 + 'abc'
+        """);
+  }
+
+  @Test
+  public void noneAsType() {
+    assertInvalid(
+        "cannot assign type 'int' to 'x' of type 'None'",
+        """
+        x : None = 123
+        """);
+  }
+}
