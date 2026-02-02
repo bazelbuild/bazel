@@ -199,7 +199,7 @@ public class BuildTool {
   private static final String SKYFRAME_MEMORY_DUMP_FILE = "skyframe_memory.json";
 
   private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
-      (req, env, runtime, analysisResult) -> {};
+      (unusedRequest, unusedEnv, unusedRuntime, unusedAnalysisResult) -> {};
 
   /** Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query. */
   public interface AnalysisPostProcessor {
