@@ -15,9 +15,10 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
-import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -48,7 +49,7 @@ public final class FlagAliasTest {
         new BlazeOptionHandlerTestHelper(
             optionsClasses,
             /* allowResidue= */ true,
-            /* aliasFlag= */ BLAZE_ALIASING_FLAG,
+            /* aliasFlag= */ CoreOptionConverters.BLAZE_ALIASING_FLAG,
             /* skipStarlarkPrefixes= */ true);
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
@@ -103,8 +104,8 @@ public final class FlagAliasTest {
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
-                "While parsing option --flag_alias=foo: Variable definitions must be in"
-                    + " the form of a 'name=value' assignment"));
+                "While parsing option --flag_alias=foo: Flag alias definitions must be in"
+                    + " the form of a 'name=label' assignment"));
   }
 
   @Test

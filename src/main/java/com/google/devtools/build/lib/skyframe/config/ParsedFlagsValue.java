@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +36,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.util.List;
 import java.util.Map;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
@@ -55,7 +55,7 @@ public final class ParsedFlagsValue implements SkyValue {
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
-        List<Map.Entry<String, String>> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings) {
       return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
     }
 
@@ -68,7 +68,7 @@ public final class ParsedFlagsValue implements SkyValue {
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        List<Map.Entry<String, String>> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings) {
       return interner.intern(
           new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
     }
@@ -77,13 +77,13 @@ public final class ParsedFlagsValue implements SkyValue {
     private final PackageContext packageContext;
     private final boolean includeDefaultValues;
 
-    private final List<Map.Entry<String, String>> flagAliasMappings;
+    private final ImmutableMap<String, Label> flagAliasMappings;
 
     private Key(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues,
-        List<Map.Entry<String, String>> flagAliasMappings) {
+        ImmutableMap<String, Label> flagAliasMappings) {
       this.rawFlags = checkNotNull(rawFlags);
       this.packageContext = checkNotNull(packageContext);
       this.includeDefaultValues = includeDefaultValues;
@@ -102,7 +102,7 @@ public final class ParsedFlagsValue implements SkyValue {
       return includeDefaultValues;
     }
 
-    List<Map.Entry<String, String>> flagAliasMappings() {
+    ImmutableMap<String, Label> flagAliasMappings() {
       return flagAliasMappings;
     }
 

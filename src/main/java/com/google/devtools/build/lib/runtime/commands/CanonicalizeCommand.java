@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
-import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -187,7 +188,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .optionsClasses(optionsClasses)
             .skipStarlarkOptionPrefixes()
             .allowResidue(true)
-            .withAliasFlag(BLAZE_ALIASING_FLAG)
+            .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
             .withAliases(options.getAliases())
             .withConversionContext(mainRepoMapping)
             .build();

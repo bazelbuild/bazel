@@ -1858,12 +1858,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     RepoContext mainRepoContext =
         RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
 
-    ImmutableList<Entry<String, String>> flagAliasMappings =
+    ImmutableMap<String, Label> flagAliasMappings =
         args.stream()
             .filter(arg -> arg.startsWith("--flag_alias="))
             .map(arg -> arg.substring("--flag_alias=".length()).split("="))
-            .map(pair -> new SimpleImmutableEntry<>(pair[0], pair[1]))
-            .collect(toImmutableList());
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    pair -> pair[0], pair -> Label.parseCanonicalUnchecked(pair[1])));
     // Parse the options.
     PackageContext rootPackage = mainRepoContext.rootPackage();
     ParsedFlagsValue.Key parsedFlagsKey =

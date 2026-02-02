@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Map.Entry.comparingByKey;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +35,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -942,7 +942,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "flag_alias",
-      converter = Converters.FlagAliasConverter.class,
+      converter = CoreOptionConverters.FlagAliasConverter.class,
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -953,7 +953,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
           `{key}={value}` as an argument.
           """)
-  public List<Map.Entry<String, String>> commandLineFlagAliases;
+  public List<Map.Entry<String, Label>> commandLineFlagAliases;
 
   @Option(
       name = "archived_tree_artifact_mnemonics_filter",
@@ -1038,6 +1038,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return false;
   }
 
+  private volatile ImmutableMap<String, Label> commandLineFlagAliasesMap = null;
+
+  public ImmutableMap<String, Label> getCommandLineFlagAliases() {
+    // Force a single copy of the map to avoid repeated conversions.
+    if (commandLineFlagAliasesMap == null) {
+      synchronized (this) {
+        if (commandLineFlagAliasesMap == null) {
+          commandLineFlagAliasesMap = ImmutableMap.copyOf(commandLineFlagAliases);
+        }
+      }
+    }
+    return commandLineFlagAliasesMap;
+  }
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum implements StarlarkValue {
     /**
@@ -1066,10 +1080,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   // Sort the map entries by key.
-  private static List<Map.Entry<String, String>> sortEntries(
-      List<Map.Entry<String, String>> entries) {
-    ImmutableList<Map.Entry<String, String>> sortedEntries =
-        entries.stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(toImmutableList());
+  private static <V> List<Map.Entry<String, V>> sortEntries(List<Map.Entry<String, V>> entries) {
+    ImmutableList<Map.Entry<String, V>> sortedEntries =
+        entries.stream().sorted(comparingByKey()).collect(toImmutableList());
     // If we made no changes, return the same instance we got to reduce churn.
     if (sortedEntries.equals(entries)) {
       return entries;
@@ -1125,5 +1138,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;
+  }
+
+  @Override
+  public CoreOptions clone() {
+    CoreOptions base = (CoreOptions) super.clone();
+    // commandLineFlagAliasesMap is derived from commandLineFlagAliases, so it must be cleared
+    // here to ensure it is recomputed in case commandLineFlagAliases is mutated after cloning.
+    base.commandLineFlagAliasesMap = null;
+    return base;
   }
 }

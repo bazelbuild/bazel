@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -99,7 +100,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
     ConfiguredAttributeMapper configuredAttributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions, configHash, false);
-    ImmutableList<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
+    ImmutableCollection<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
 
     for (Attribute attribute : rule.getAttributes()) {
       // If the value is present, even if it is null, add to the attribute map.
@@ -148,7 +149,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   private Result handleConfiguredAttribute(
       @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ConfiguredAttributeMapper configuredAttributeMapper,
-      ImmutableList<String> transitionOutputs,
+      ImmutableCollection<String> transitionOutputs,
       Attribute attribute,
       SelectorList<?> val) {
     // If there are no configConditions then nothing is resolvable.
@@ -173,7 +174,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
 
   private boolean selectBranchesReferenceOutputs(
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableList<String> transitionOutputs,
+      ImmutableCollection<String> transitionOutputs,
       SelectorList<?> val) {
     for (Object label : val.getKeyLabels()) {
       ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
@@ -186,7 +187,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   }
 
   private boolean checkIfAttributeSelectOnAFlagTransitionChanges(
-      ConfigMatchingProvider configMatchingProvider, ImmutableList<String> transitionOutputs) {
+      ConfigMatchingProvider configMatchingProvider, ImmutableCollection<String> transitionOutputs) {
     // check settingMap
     Set<String> nativeFlagLabels = new HashSet<>();
     for (String key : configMatchingProvider.settingsMap().keySet()) {

@@ -330,11 +330,11 @@ EOF
   # This is important because select() and transitions read --flag_alias to
   # correctly map aliases.
   # This regex checks that the line starts with "flag_alias:" and contains
-  # both "compilation_mode=@//:my_flag" and "user_set=//:fake_flag" in any order.
+  # both "compilation_mode=//:my_flag" and "user_set=//:fake_flag" in any order.
   local flag_alias_regex="flag_alias:.*\\("
-  flag_alias_regex+="compilation_mode=@//:my_flag.*user_set=//:fake_flag"
+  flag_alias_regex+="compilation_mode=//:my_flag.*user_set=//:fake_flag"
   flag_alias_regex+="\\|"
-  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=@//:my_flag"
+  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=//:my_flag"
   flag_alias_regex+="\\)"
 
   expect_log "$flag_alias_regex" \

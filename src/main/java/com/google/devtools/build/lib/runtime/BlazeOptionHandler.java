@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
@@ -678,8 +678,8 @@ public final class BlazeOptionHandler {
       // The canonicalize-flags command only inherits bazelrc "build" commands. Not "test", not
       // "build:foo". Restrict --flag_alias accordingly to prevent building with flags that
       // canonicalize-flags can't recognize.
-      if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
-              || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
+      if ((override.option.startsWith("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG + "=")
+              || override.option.equals("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG))
           && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
@@ -687,7 +687,7 @@ public final class BlazeOptionHandler {
                 rcFile,
                 override.command,
                 override.option,
-                Converters.BLAZE_ALIASING_FLAG,
+                CoreOptionConverters.BLAZE_ALIASING_FLAG,
                 String.join(", ", BUILD_COMMAND_ANCESTORS)));
       }
       String command = override.command;

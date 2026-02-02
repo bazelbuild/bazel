@@ -191,14 +191,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     // alias to "//bar". Since Bazel's options parsing replaces "--foo" with "//bar", we want to do
     // the same here to match the parsed options. Generally, all logic reading any user API that
     // sets "--foo" should do this.
-    ImmutableMap<String, String> commandLineFlagAliases =
+    ImmutableMap<String, Label> commandLineFlagAliases =
         ruleContext
             .getConfiguration()
             .getOptions()
             .get(CoreOptions.class)
-            .commandLineFlagAliases
-            .stream()
-            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            .getCommandLineFlagAliases();
 
     // Partition expected "--foo" settings (native flag style) by whether they're flag aliases.
     var nativeValuesParitionedByAlias =
@@ -224,13 +222,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         attributes.get(
             ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT));
     for (var flagAlias : nativeValuesParitionedByAlias.get(true)) {
-      try {
-        Label userDefinedFlag =
-            Label.parseCanonical(commandLineFlagAliases.get(flagAlias.getKey()));
-        String aliasValue = flagAlias.getValue();
-        String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
-        if (flagSettingsAttributeValue != null && !flagSettingsAttributeValue.equals(aliasValue)) {
-          ruleContext.ruleError(
+      Label userDefinedFlag = commandLineFlagAliases.get(flagAlias.getKey());
+      String aliasValue = flagAlias.getValue();
+      String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
+      if (flagSettingsAttributeValue != null && !flagSettingsAttributeValue.equals(aliasValue)) {
+        ruleContext.ruleError(
 """
 \nConflicting flag value expectations:
  - %s has '%s = {"%s": "%s"}'.
@@ -240,25 +236,22 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 Either remove one of these settings or ensure they match the same value.
 
 """
-                  .formatted(
-                      ruleContext.getLabel(),
-                      ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
-                      flagAlias.getKey(),
-                      aliasValue,
-                      flagAlias.getKey(),
-                      userDefinedFlag,
-                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                      userDefinedFlag,
-                      aliasValue,
-                      ruleContext.getLabel(),
-                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                      userDefinedFlag,
-                      flagSettingsAttributeValue));
-        }
-        userDefinedFlagSettings.put(userDefinedFlag, aliasValue);
-      } catch (LabelSyntaxException e) {
-        ruleContext.ruleError("Cannot parse label: " + e.getMessage());
+                .formatted(
+                    ruleContext.getLabel(),
+                    ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
+                    flagAlias.getKey(),
+                    aliasValue,
+                    flagAlias.getKey(),
+                    userDefinedFlag,
+                    ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                    userDefinedFlag,
+                    aliasValue,
+                    ruleContext.getLabel(),
+                    ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                    userDefinedFlag,
+                    flagSettingsAttributeValue));
       }
+      userDefinedFlagSettings.put(userDefinedFlag, aliasValue);
     }
 
     // Collect platform constraint settings.
