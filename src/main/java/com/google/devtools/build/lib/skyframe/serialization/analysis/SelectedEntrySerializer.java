@@ -250,8 +250,10 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     for (SkyKey selectedKey : selection) {
       // We acquire the semaphore here and not in serializer.accept() so as not to starve commonPool
       writeStatuses.semaphore.acquire();
-      submissions.add(
-          Futures.submit(() -> serializer.accept(selectedKey), ForkJoinPool.commonPool()));
+      ListenableFuture<Void> listenableFuture =
+          Futures.submit(() -> serializer.accept(selectedKey), ForkJoinPool.commonPool());
+      listenableFuture.addListener(() -> writeStatuses.semaphore.release(), directExecutor());
+      submissions.add(listenableFuture);
     }
 
     try {
@@ -544,7 +546,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
               writeStatuses.counters.entriesUploaded.incrementAndGet();
               writeStatuses.counters.keyBytesUploaded.addAndGet(keyByteCount);
               writeStatuses.counters.valueBytesUploaded.addAndGet(valueByteCount);
-              writeStatuses.semaphore.release();
             },
             directExecutor());
 
