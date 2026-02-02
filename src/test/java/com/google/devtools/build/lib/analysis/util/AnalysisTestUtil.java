@@ -194,6 +194,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public void declareStampSettingDep() throws InterruptedException {
+      original.declareStampSettingDep();
+    }
+
+    @Override
     public ActionLookupKey getOwner() {
       return original.getOwner();
     }

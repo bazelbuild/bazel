@@ -2211,6 +2211,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public void declareStampSettingDep() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ActionLookupKey getOwner() {
       throw new UnsupportedOperationException();
     }

@@ -123,8 +123,7 @@ public final class PrecomputedValue implements SkyValue {
    *
    * <ul>
    *   <li>When a starlark transition reads {@code //command_line_option:stamp} as an input.
-   *   <li>A {@code config_setting} that matches on the value of {@code --stamp} (not yet
-   *       implemented).
+   *   <li>A {@code config_setting} that matches on the value of {@code --stamp}.
    * </ul>
    *
    * <p>The value is irrelevant. Its {@link Injected#getKey} is just a marker dependency.

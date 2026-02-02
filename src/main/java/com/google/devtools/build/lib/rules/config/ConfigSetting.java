@@ -104,7 +104,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * @param userDefinedFlagSettings user-defined flags that match this rule (defined in Starlark)
    * @param constraintValueSettings the current platform's expected {@code constraint_value}s
    */
-  record Settings(
+  private record Settings(
       ImmutableMultimap<String, String> nativeFlagSettings,
       ImmutableMap<Label, String> userDefinedFlagSettings,
       ImmutableList<Label> constraintValueSettings) {}
@@ -148,6 +148,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (ruleContext.getConfiguration().stampBinaries()
+        && settings.nativeFlagSettings.containsKey("stamp")) {
+      ruleContext.getAnalysisEnvironment().declareStampSettingDep();
+    }
+
     ConfigMatchingProvider configMatcher =
         ConfigMatchingProvider.create(
             ruleContext.getLabel(),
@@ -167,7 +172,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   /** Returns this {@code config_setting}'s expected settings. */
-  private Settings getSettings(RuleContext ruleContext, AttributeMap attributes) {
+  private static Settings getSettings(RuleContext ruleContext, AttributeMap attributes) {
     // Collect expected flags from "values" and "define_values" attributes.
     ImmutableMultimap<String, String> nativeValueAttributes =
         ImmutableMultimap.<String, String>builder()
@@ -607,7 +612,7 @@ Either remove one of these settings or ensure they match the same value.
     }
 
     /** Returns whether the specified flag values matched the actual flag values. */
-    public MatchResult result() {
+    MatchResult result() {
       return result;
     }
 
