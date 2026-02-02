@@ -1934,7 +1934,8 @@ public class BuildTool {
       bytesReceived += raccStats.bytesReceived();
       requests += raccStats.requestsSent();
     }
-    double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
+    // totalRequests is already checked to be non-zero above.
+    double overallHitRate = (double) totalHits / totalRequests * 100;
     env.getReporter()
         .handle(
             Event.info(
