@@ -41,7 +41,6 @@ java_library(
         "TimestampGranularityUtils.java",
         "UnknownRuleConfiguredTarget.java",
     ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
     deps = [
         ":JunitUtils",
         ":TestConstants",

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
+import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 
@@ -38,22 +39,8 @@ public final class UnixFileStatus implements FileStatus {
     this.ino = ino;
   }
 
-  public static Dirent.Type getDirentTypeFromMode(int mode) {
-    if (isSpecialFile(mode)) {
-      return Dirent.Type.UNKNOWN;
-    } else if (isFile(mode)) {
-      return Dirent.Type.FILE;
-    } else if (isDirectory(mode)) {
-      return Dirent.Type.DIRECTORY;
-    } else if (isSymbolicLink(mode)) {
-      return Dirent.Type.SYMLINK;
-    } else {
-      return Dirent.Type.UNKNOWN;
-    }
-  }
-
   public Dirent.Type getDirentType() {
-    return getDirentTypeFromMode(mode);
+    return UnixMode.getDirentTypeFromMode(mode);
   }
 
   @Override
@@ -64,47 +51,27 @@ public final class UnixFileStatus implements FileStatus {
 
   @Override
   public boolean isFile() {
-    return isFile(mode);
-  }
-
-  public static boolean isFile(int mode) {
-    int type = mode & S_IFMT;
-    return type == S_IFREG || isSpecialFile(mode);
+    return UnixMode.isFile(mode);
   }
 
   @Override
   public boolean isSpecialFile() {
-    return isSpecialFile(mode);
-  }
-
-  public static boolean isSpecialFile(int mode) {
-    int type = mode & S_IFMT;
-    return type == S_IFSOCK || type == S_IFBLK || type == S_IFCHR || type == S_IFIFO;
+    return UnixMode.isSpecialFile(mode);
   }
 
   @Override
   public boolean isDirectory() {
-    return isDirectory(mode);
-  }
-
-  public static boolean isDirectory(int mode) {
-    int type = mode & S_IFMT;
-    return type == S_IFDIR;
+    return UnixMode.isDirectory(mode);
   }
 
   @Override
   public boolean isSymbolicLink() {
-    return isSymbolicLink(mode);
-  }
-
-  public static boolean isSymbolicLink(int mode) {
-    int type = mode & S_IFMT;
-    return type == S_IFLNK;
+    return UnixMode.isSymbolicLink(mode);
   }
 
   @Override
   public int getPermissions() {
-    return mode & S_IRWXA;
+    return UnixMode.getPermissions(mode);
   }
 
   @Override
@@ -122,49 +89,14 @@ public final class UnixFileStatus implements FileStatus {
     return ctime;
   }
 
-  ////////////////////////////////////////////////////////////////////////
-
   @Override
   public String toString() {
-    return String.format(
-        "UnixFileStatus(mode=0%06o,mtime=%d,ctime=%d,size=%d,ino=%d)",
-        mode, mtime, ctime, size, ino);
+    return MoreObjects.toStringHelper(this)
+        .add("mode", String.format("0%06o", mode))
+        .add("mtime", mtime)
+        .add("ctime", ctime)
+        .add("size", size)
+        .add("ino", ino)
+        .toString();
   }
-
-  ////////////////////////////////////////////////////////////////////////
-  // Platform-specific details. These fields are public so that they can
-  // be used from other packages. See POSIX and/or Linux manuals for details.
-  //
-  // These need to be kept in sync with the native code and system call
-  // interface.  (The unit tests ensure that.)  Of course, this decoding could
-  // be done in the JNI code to ensure maximum portability, but (a) we don't
-  // expect we'll need that any time soon, and (b) that would require eager
-  // rather than on-demand bitmunging of all attributes.  In any case, it's not
-  // part of the interface so it can be easily changed later if necessary.
-
-  public static final int S_IFMT =   0170000; // mask: filetype bitfields
-  public static final int S_IFSOCK = 0140000; // socket
-  public static final int S_IFLNK =  0120000; // symbolic link
-  public static final int S_IFREG =  0100000; // regular file
-  public static final int S_IFBLK =  0060000; // block device
-  public static final int S_IFDIR =  0040000; // directory
-  public static final int S_IFCHR =  0020000; // character device
-  public static final int S_IFIFO =  0010000; // fifo
-  public static final int S_ISUID =  0004000; // set UID bit
-  public static final int S_ISGID =  0002000; // set GID bit (see below)
-  public static final int S_ISVTX =  0001000; // sticky bit (see below)
-  public static final int S_IRWXA =  00777; // mask: all permissions
-  public static final int S_IRWXU =  00700; // mask: file owner permissions
-  public static final int S_IRUSR =  00400; // owner has read permission
-  public static final int S_IWUSR =  00200; // owner has write permission
-  public static final int S_IXUSR =  00100; // owner has execute permission
-  public static final int S_IRWXG =  00070; // mask: group permissions
-  public static final int S_IRGRP =  00040; // group has read permission
-  public static final int S_IWGRP =  00020; // group has write permission
-  public static final int S_IXGRP =  00010; // group has execute permission
-  public static final int S_IRWXO =  00007; // mask: other permissions
-  public static final int S_IROTH =  00004; // others have read permission
-  public static final int S_IWOTH =  00002; // others have write permisson
-  public static final int S_IXOTH = 00001; // others have execute permission
-  public static final int S_IEXEC = 00111; // owner, group, world execute
 }

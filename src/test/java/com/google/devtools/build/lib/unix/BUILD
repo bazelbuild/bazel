@@ -28,8 +28,9 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
