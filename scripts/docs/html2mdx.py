@@ -46,6 +46,14 @@ _HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 
 
 def _convert_directory(html_dir, mdx_dir):
+    """Converts all .html files to .mdx files.
+    
+    Args:
+        html_dir: str; full path of the directory with
+            .html files (input).
+        mdx_dir: str; full path of the directory where
+            .mdx files should be created (output).
+    """
     for curr_dir, _, files in os.walk(html_dir):
         rel = os.path.relpath(curr_dir, start=html_dir)
         dest_dir = os.path.join(mdx_dir, rel)
