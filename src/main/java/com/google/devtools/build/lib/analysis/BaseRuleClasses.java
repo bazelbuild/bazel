@@ -53,6 +53,10 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.GuardedValue;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Rule class definitions used by (almost) every rule. */
 public class BaseRuleClasses {
@@ -491,5 +495,30 @@ public class BaseRuleClasses {
       }
       return null;
     }
+  }
+
+  public static GuardedValue createEmptySymbol(String name, String bzlLoadLabel) {
+    return new GuardedValue() {
+
+      @Override
+      public String getErrorFromAttemptingAccess(String name) {
+        return """
+            The %s symbol has been removed, add the following to your BUILD/bzl file:
+
+            load("%s", "%s")
+            """
+            .formatted(name, bzlLoadLabel, name);
+      }
+
+      @Override
+      public Object getObject() {
+        return Starlark.NONE;
+      }
+
+      @Override
+      public boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics, @Nullable Object clientData) {
+        return false;
+      }
+    };
   }
 }
