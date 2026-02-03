@@ -481,10 +481,6 @@ public class BuildConfigurationValue
     return outputDirectories.getHostPathSeparator();
   }
 
-  public boolean isStrictFilesets() {
-    return options.strictFilesets;
-  }
-
   public String getWorkspaceName() {
     return workspaceName;
   }
