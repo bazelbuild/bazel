@@ -26,7 +26,6 @@ Build and test software of any size, quickly and reliably.
   * [Install Bazel](https://bazel.build/install)
   * [Get started with Bazel](https://bazel.build/start)
   * Follow our tutorials:
-
     - [Build C++](https://bazel.build/tutorials/cpp)
     - [Build Java](https://bazel.build/tutorials/java)
     - [Android](https://bazel.build/tutorials/android-app)
