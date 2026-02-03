@@ -267,26 +267,28 @@ public final class FrontierSerializer {
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
         node -> {
-          if (node.getKey() instanceof BzlLoadValue.Key) {
-            var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
-            incrementalInMemoryNodeEntry.clearSkyValue();
-          }
-          if (!(node.getKey() instanceof ActionLookupKey key) || !node.isDone()) {
-            return;
-          }
-          SkyValue value = node.getValue();
-          if (!selectedKeys.contains(key)) {
-            return;
-          }
-          // An ActionLookupKey can point to ActionLookupValues or ConfiguredTargetValues.
-          // If the key is selected, we must retain the value. If it's a ConfiguredTargetValue,
-          // we also record its package to prevent clearing the corresponding PackageValue later.
-          if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-            Label label =
-                (configuredTargetValue.getConfiguredTarget() instanceof AliasConfiguredTarget alias)
-                    ? alias.getLabel()
-                    : key.getLabel();
-            packageIdentifierSet.add(label.getPackageIdentifier());
+          switch (node.getKey()) {
+            case BzlLoadValue.Key unused -> ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+            case ActionLookupKey key -> {
+              if (!node.isDone() || !selectedKeys.contains(key)) {
+                break;
+              }
+              // An ActionLookupKey can point to ActionLookupValues or
+              // ConfiguredTargetValues. If the key is selected, we must retain
+              // the value. If it's a ConfiguredTargetValue, we also record its
+              // package to prevent clearing the corresponding PackageValue
+              // later.
+              SkyValue value = node.getValue();
+              if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+                Label label =
+                    (configuredTargetValue.getConfiguredTarget()
+                            instanceof AliasConfiguredTarget alias)
+                        ? alias.getLabel()
+                        : key.getLabel();
+                packageIdentifierSet.add(label.getPackageIdentifier());
+              }
+            }
+            default -> {}
           }
         });
     packageIdentifierSet.addAll(
@@ -297,11 +299,15 @@ public final class FrontierSerializer {
     // selected ConfiguredTargetValues.
     graph.parallelForEach(
         node -> {
-          if (node.getKey() instanceof PackageIdentifier key
-              && !packageIdentifierSet.contains(key)) {
-            var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
-            incrementalInMemoryNodeEntry.clearSkyValue();
+          if (!(node.getKey() instanceof PackageIdentifier key)) {
+            return;
           }
+
+          if (packageIdentifierSet.contains(key)) {
+            return;
+          }
+
+          ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
         });
   }
 
