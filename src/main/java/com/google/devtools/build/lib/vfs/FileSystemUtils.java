@@ -22,6 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.IOException;
 import java.io.InputStream;
@@ -517,6 +518,40 @@ public class FileSystemUtils {
       target.setLastModifiedTime(source.getLastModifiedTime());
     }
     return target;
+  }
+
+  /**
+   * Atomically renames a source file to a target file, tolerating the case where another thread has
+   * concurrently created the target file (e.g. because it is known to have the same content in a
+   * CAS-like structure).
+   *
+   * <p>This handles a Windows-specific edge case: when the target file is being read by another
+   * process (e.g., during a concurrent cache lookup), the rename operation fails with a {@link
+   * FileAccessException}. If the target file already exists when this happens, it means another
+   * thread won the race to create it, so we can safely delete the source file.
+   *
+   * <p>The parent directories of the target file must already exist.
+   *
+   * @param source the file to rename
+   * @param target the destination path
+   */
+  @ThreadSafe
+  public static void renameToleratingConcurrentCreation(Path source, Path target)
+      throws IOException {
+    try {
+      source.renameTo(target);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
+      // get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we know
+      // that another thread won the race to place the file in the cache. As the exception is rather
+      // generic and could result from other failure types, we rethrow the exception if the cache
+      // entry hasn't been created.
+      if (OS.getCurrent() != OS.WINDOWS || !target.exists()) {
+        throw e;
+      }
+      source.delete();
+    }
   }
 
   /* Directory tree operations. */

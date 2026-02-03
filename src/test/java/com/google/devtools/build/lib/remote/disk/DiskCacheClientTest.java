@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -39,10 +40,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -344,6 +352,86 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
+  }
+
+  @Test
+  public void concurrentUploadDownload()
+      throws IOException, ExecutionException, InterruptedException {
+    var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
+    var nativeClient =
+        new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL, /* verifyDownloads= */ false);
+    var tasks = new ArrayList<Future<?>>();
+    // Use 1 MB blobs to increase the window for concurrent access during write/rename.
+    var contentSize = 1024 * 1024;
+    var numConcurrentOps = 10;
+    try (var executor = Executors.newFixedThreadPool(numConcurrentOps)) {
+      for (int attempt = 0; attempt < 100; attempt++) {
+        var contentArray = new byte[contentSize];
+        // Fill with a pattern based on the attempt number.
+        for (int i = 0; i < contentSize; i++) {
+          contentArray[i] = (byte) (attempt + i);
+        }
+        var contentBytes = ByteString.copyFrom(contentArray);
+        var contentDigest = DIGEST_UTIL.compute(contentArray);
+        // Use a latch to ensure all concurrent tasks start at roughly the same time.
+        var startLatch = new CountDownLatch(numConcurrentOps);
+        // Half the tasks do uploads, half do downloads with a slow OutputStream to keep the file
+        // open longer. This maximizes the chance of a rename failing because a download has the
+        // file open.
+        for (int concurrentOp = 0; concurrentOp < numConcurrentOps; concurrentOp++) {
+          boolean isUploader = concurrentOp % 2 == 0;
+          tasks.add(
+              executor.submit(
+                  () -> {
+                    // Signal ready and wait for all tasks to be ready.
+                    startLatch.countDown();
+                    startLatch.await();
+                    if (isUploader) {
+                      getFromFuture(nativeClient.uploadBlob(contentDigest, contentBytes));
+                    } else {
+                      // Use a slow OutputStream that pauses periodically to keep the file open
+                      // longer during download.
+                      var out =
+                          new OutputStream() {
+                            private int bytesWritten = 0;
+
+                            @Override
+                            public void write(int b) throws IOException {
+                              bytesWritten++;
+                              maybeSleep();
+                            }
+
+                            @Override
+                            public void write(byte[] b, int off, int len) throws IOException {
+                              bytesWritten += len;
+                              maybeSleep();
+                            }
+
+                            private void maybeSleep() {
+                              // Sleep every 64KB to slow down the download.
+                              if (bytesWritten % (64 * 1024) < 100) {
+                                try {
+                                  Thread.sleep(1);
+                                } catch (InterruptedException e) {
+                                  Thread.currentThread().interrupt();
+                                }
+                              }
+                            }
+                          };
+                      try {
+                        getFromFuture(nativeClient.downloadBlob(contentDigest, out));
+                      } catch (CacheNotFoundException ignored) {
+                        // File not yet uploaded by another task.
+                      }
+                    }
+                    return null;
+                  }));
+        }
+      }
+      for (var task : tasks) {
+        task.get();
+      }
+    }
   }
 
   private Tree getTreeWithFile(Digest fileDigest) {
