@@ -175,7 +175,6 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
         "//command_line_option:host_macos_minimum_os",
         "//command_line_option:experimental_prefer_mutual_xcode",
         "//command_line_option:experimental_include_xcode_execution_requirements",
-        "//command_line_option:use_platforms_in_apple_crosstool_transition",
         "//command_line_option:incompatible_remove_ctx_apple_fragment",
     ],
     outputs = [
