@@ -45,7 +45,7 @@ _TEMPLATE_RE = re.compile(r"^\{%.+$\n", re.MULTILINE)
 _HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 
 
-def convert_directory(html_dir, mdx_dir):
+def _convert_directory(html_dir, mdx_dir):
     for curr_dir, _, files in os.walk(html_dir):
         rel = os.path.relpath(curr_dir, start=html_dir)
         dest_dir = os.path.join(mdx_dir, rel)
@@ -59,32 +59,32 @@ def convert_directory(html_dir, mdx_dir):
             src = os.path.join(curr_dir, fname)
             dest = os.path.join(dest_dir, f"{basename}.mdx")
             
-            convert_file(src, dest)
+            _convert_file(src, dest)
 
 
-def convert_file(src, dest):
+def _convert_file(src, dest):
     with open(src, "rt") as f:
         content = f.read()
     
     with open(dest, "wt") as f:
-        f.write(transform(content))
+        f.write(_transform(content))
 
 
-def transform(html_content):
-    return fix_markdown(html2md(html_content))
+def _transform(html_content):
+    return _fix_markdown(_html2md(html_content))
 
 
-def html2md(content):
+def _html2md(content):
     return markdownify.markdownify(content, heading_style="ATX")
 
 
-def fix_markdown(content):
+def _fix_markdown(content):
     no_templates = _TEMPLATE_RE.sub("", content)
-    no_html_links = _HTML_LINK_RE.sub(fix_link, no_templates)
+    no_html_links = _HTML_LINK_RE.sub(_fix_link, no_templates)
     return _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links)
 
 
-def fix_link(m):
+def _fix_link(m):
     raw = m.group(1)
     # Only keep .html extension for external links.
     if raw.startswith("http://") or raw.startswith("https://"):
@@ -93,18 +93,18 @@ def fix_link(m):
     return f"]({raw}"
 
 
-def fail(msg):
+def _fail(msg):
     print(msg, file=sys.stderr)
     exit(1)
 
 
 def main(unused_argv):
     if not os.path.isdir(FLAGS.in_dir):
-        fail(f"{FLAGS.in_dir} is not a directory")
+        _fail(f"{FLAGS.in_dir} is not a directory")
     if not os.path.isdir(FLAGS.out_dir):
-        fail(f"{FLAGS.out_dir} is not a directory")
+        _fail(f"{FLAGS.out_dir} is not a directory")
 
-    convert_directory(FLAGS.in_dir, FLAGS.out_dir)
+    _convert_directory(FLAGS.in_dir, FLAGS.out_dir)
 
 
 if __name__ == "__main__":
