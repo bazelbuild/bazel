@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCac
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
@@ -230,8 +229,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
-    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
-        differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());

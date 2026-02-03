@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -164,15 +163,7 @@ public class BzlCompileFunction implements SkyFunction {
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
 
-      // Takes into account --incompatible_autoload_externally, similarly to the comment above, this
-      // only defines the correct set of symbols, but does not load them yet.
-      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
-      if (autoloadSymbols == null) {
-        return null;
-      }
-      predeclared =
-          autoloadSymbols.getUninjectedBuildBzlEnv(
-              key.getLabel() == null ? null : key.getLabel().getRepository());
+      predeclared = bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.

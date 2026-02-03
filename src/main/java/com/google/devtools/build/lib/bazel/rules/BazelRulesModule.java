@@ -591,6 +591,35 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_autoload_externally",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> incompatibleAutoloadExternally;
+
+    @Option(
+        name = "repositories_without_autoloads",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> repositoriesWithoutAutoloads;
+
+    @Option(
+        name = "incompatible_disable_autoloads_in_main_repo",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDisableAutoloadsInMainRepo;
+
+    @Option(
         name = "experimental_py_binaries_include_label",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

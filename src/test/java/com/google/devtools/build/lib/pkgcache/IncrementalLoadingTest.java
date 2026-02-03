@@ -529,7 +529,6 @@ public class IncrementalLoadingTest {
               PrecomputedValue.injected(
                   RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
@@ -626,7 +625,6 @@ public class IncrementalLoadingTest {
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,

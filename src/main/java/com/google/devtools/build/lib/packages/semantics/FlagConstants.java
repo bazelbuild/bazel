@@ -25,9 +25,6 @@ class FlagConstants {
   public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME =
       "+experimental_rule_extension_api";
 
-  // TODO - ilist@: once Java providers are removed, the whole line can be compressed to
-  // "@rules_java"
-  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "";
 
   // Enable annotations, but not actual type checking, with the effect that the parser tolerates
   // arbitrary expressions in annotations for now.
