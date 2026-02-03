@@ -341,6 +341,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_lockfile_test"
       - "-//src/test/py/bazel:bazel_overrides_test"
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_tools_proto_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
