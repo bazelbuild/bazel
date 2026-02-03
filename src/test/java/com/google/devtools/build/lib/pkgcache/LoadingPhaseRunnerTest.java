@@ -510,6 +510,268 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testTestTagFiltersAccumulate() throws Exception {
+    tester.addFile(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            srcs = ["pass.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = ["pass.sh"],
+            tags = ["tag2"],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = ["pass.sh"],
+            tags = ["tag1", "tag2"],
+        )
+
+        foo_test(
+            name = "t4",
+            srcs = ["pass.sh"],
+            tags = ["tag3"],
+        )
+        """);
+    // Multiple --test_tag_filters should accumulate
+    tester.useLoadingOptions("--test_tag_filters=tag1", "--test_tag_filters=tag2");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2", "//tests:t3", "//tests:t4"));
+    // All tests with tag1 or tag2 should run
+    assertThat(result.getTestsToRunLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2", "//tests:t3"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+    assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testBuildTagFiltersAccumulate() throws Exception {
+    tester.addFile(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+        foo_library(
+            name = "lib1",
+            srcs = ["lib1.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_library(
+            name = "lib2",
+            srcs = ["lib2.sh"],
+            tags = ["tag2"],
+        )
+
+        foo_library(
+            name = "lib3",
+            srcs = ["lib3.sh"],
+            tags = ["tag1", "tag2"],
+        )
+
+        foo_library(
+            name = "lib4",
+            srcs = ["lib4.sh"],
+            tags = ["tag3"],
+        )
+        """);
+    // Multiple --build_tag_filters should accumulate
+    tester.useLoadingOptions("--build_tag_filters=tag1", "--build_tag_filters=tag2");
+    TargetPatternPhaseValue result = assertNoErrors(tester.load("//foo:all"));
+    // All targets with tag1 or tag2 should be built
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//foo:lib1", "//foo:lib2", "//foo:lib3"));
+  }
+
+  @Test
+  public void testTestTagFiltersAccumulateWithExclusions() throws Exception {
+    tester.addFile(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            srcs = ["pass.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = ["pass.sh"],
+            tags = ["tag2"],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = ["pass.sh"],
+            tags = ["tag1", "tag2"],
+        )
+
+        foo_test(
+            name = "t4",
+            srcs = ["pass.sh"],
+            tags = ["tag1", "excluded"],
+        )
+        """);
+    // Multiple --test_tag_filters should accumulate, including exclusions
+    tester.useLoadingOptions("--test_tag_filters=tag1,tag2", "--test_tag_filters=-excluded");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2", "//tests:t3", "//tests:t4"));
+    // Tests with tag1 or tag2 should run, but not those with excluded tag
+    assertThat(result.getTestsToRunLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2", "//tests:t3"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+    assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testTestTagFiltersOverride_positiveToNegative() throws Exception {
+    tester.addFile(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            srcs = ["pass.sh"],
+            tags = ["flake8"],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = ["pass.sh"],
+            tags = ["other"],
+        )
+        """);
+    // First include flake8, then exclude it - the exclusion should win
+    tester.useLoadingOptions("--test_tag_filters=flake8", "--test_tag_filters=-flake8");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2"));
+    // t2 should run because there are no required tags (only exclusion of flake8)
+    // t1 should not run because it has the excluded tag flake8
+    assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//tests:t2"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+    assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testTestTagFiltersOverride_negativeToPositive() throws Exception {
+    tester.addFile(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            srcs = ["pass.sh"],
+            tags = ["flake8"],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = ["pass.sh"],
+            tags = ["other"],
+        )
+        """);
+    // First exclude flake8, then include it - the inclusion should win
+    tester.useLoadingOptions("--test_tag_filters=-flake8", "--test_tag_filters=flake8");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2"));
+    // Only t1 should run because flake8 is now required
+    assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//tests:t1"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+    assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testBuildTagFiltersOverride_positiveToNegative() throws Exception {
+    tester.addFile(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+        foo_library(
+            name = "lib1",
+            srcs = ["lib1.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_library(
+            name = "lib2",
+            srcs = ["lib2.sh"],
+            tags = ["tag2"],
+        )
+        """);
+    // First include tag1, then exclude it - the exclusion should win
+    tester.useLoadingOptions("--build_tag_filters=tag1", "--build_tag_filters=-tag1");
+    TargetPatternPhaseValue result = assertNoErrors(tester.load("//foo:all"));
+    // lib2 should be built because there are no required tags (only exclusion of tag1)
+    // lib1 should not be built because it has the excluded tag tag1
+    assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo:lib2"));
+  }
+
+  @Test
+  public void testBuildTagFiltersOverride_negativeToPositive() throws Exception {
+    tester.addFile(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+        foo_library(
+            name = "lib1",
+            srcs = ["lib1.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_library(
+            name = "lib2",
+            srcs = ["lib2.sh"],
+            tags = ["tag2"],
+        )
+        """);
+    // First exclude tag1, then include it - the inclusion should win
+    tester.useLoadingOptions("--build_tag_filters=-tag1", "--build_tag_filters=tag1");
+    TargetPatternPhaseValue result = assertNoErrors(tester.load("//foo:all"));
+    // Only lib1 should be built because tag1 is now required
+    assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo:lib1"));
+  }
+
+  @Test
+  public void testTestTagFiltersOverride_multipleFlips() throws Exception {
+    tester.addFile(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            srcs = ["pass.sh"],
+            tags = ["tag1"],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = ["pass.sh"],
+            tags = ["tag2"],
+        )
+        """);
+    // Flip tag1 multiple times: include, exclude, include again
+    tester.useLoadingOptions(
+        "--test_tag_filters=tag1", "--test_tag_filters=-tag1", "--test_tag_filters=tag1");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//tests:t1", "//tests:t2"));
+    // t1 should run because tag1 is finally included
+    assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//tests:t1"));
+    assertThat(tester.getFilteredTargets()).isEmpty();
+    assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
   public void testTestSuiteExpansion() throws Exception {
     tester.addFile(
         "cc/BUILD",
