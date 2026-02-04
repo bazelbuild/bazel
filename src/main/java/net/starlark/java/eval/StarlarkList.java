@@ -264,14 +264,14 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(this, "[", ", ", "]");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(this, "[", ", ", "]", semantics);
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
@@ -361,7 +361,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         return;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(
@@ -422,7 +422,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         return i;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(

@@ -684,10 +684,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   @Override
-  public void repr(Printer printer) {
-    // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    // TODO: wyv@ - Use StarlarkSemantics here too for optional unambiguity.
     printer.append("Label(");
-    printer.repr(getCanonicalForm());
+    printer.repr(getCanonicalForm(), semantics);
     printer.append(")");
   }
 

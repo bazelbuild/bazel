@@ -247,15 +247,15 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");
-      parent().repr(printer);
+      parent().repr(printer, semantics);
       printer.append(", ");
     }
     printer.append("[");

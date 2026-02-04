@@ -650,7 +650,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<attr>");
   }
 
@@ -1208,7 +1208,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<attr." + name + ">");
     }
 

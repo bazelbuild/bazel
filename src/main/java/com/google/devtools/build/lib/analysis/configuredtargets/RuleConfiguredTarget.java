@@ -56,6 +56,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -248,7 +249,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public String getErrorMessageForUnknownField(String name) {
     return String.format(
-        "%s (rule '%s') doesn't have provider '%s'", Starlark.repr(this), ruleClassId.name(), name);
+        "%s (rule '%s') doesn't have provider '%s'",
+        Starlark.repr(this, StarlarkSemantics.DEFAULT), ruleClassId.name(), name);
   }
 
   @Override
@@ -281,7 +283,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<target " + getLabel() + ">");
   }
 

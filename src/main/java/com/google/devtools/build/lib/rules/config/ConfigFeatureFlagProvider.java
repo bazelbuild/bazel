@@ -30,6 +30,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
@@ -94,7 +95,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<function FeatureFlagInfo>");
     }
   }

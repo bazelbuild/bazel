@@ -3640,7 +3640,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "seven",
         /* path= */ Starlark.repr(
             "C:\\Program Files\\Microsoft Visual"
-                + " Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin/HostX64/x64/cl.exe"),
+                + " Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin/HostX64/x64/cl.exe",
+            StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3659,7 +3660,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("bin\\HostX64\\x64/cl.exe"),
+        /* path= */ Starlark.repr("bin\\HostX64\\x64/cl.exe", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3679,7 +3680,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolRule(
         "seven",
         /* path= */ Starlark.repr(
-            "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE"),
+            "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE",
+            StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3697,7 +3699,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("/usr/bin/gcc"),
+        /* path= */ Starlark.repr("/usr/bin/gcc", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 
@@ -3714,7 +3716,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomToolRule(
         "seven",
-        /* path= */ Starlark.repr("bin/gcc"),
+        /* path= */ Starlark.repr("bin/gcc", StarlarkSemantics.DEFAULT),
         /* withFeatures= */ "[]",
         /* requirements= */ "[]");
 

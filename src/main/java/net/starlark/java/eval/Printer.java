@@ -83,18 +83,6 @@ public class Printer {
   }
 
   /**
-   * A dummy version of {@link #printList(Iterable, String, String, String)} that accepts an unused
-   * {@link StarlarkSemantics} argument, existing purely for source interop purposes. DO NOT USE in
-   * Bazel. For now, this method exists only for API migration of non-Bazel users of the Starlark
-   * interpreter; see b/478302712.
-   */
-  @CanIgnoreReturnValue
-  public Printer printList(
-      Iterable<?> list, String before, String separator, String after, StarlarkSemantics unused) {
-    return printList(list, before, separator, after);
-  }
-
-  /**
    * Appends a list to the printer's buffer. List elements are rendered with {@code repr}.
    *
    * <p>May be overridden by subclasses.
@@ -105,13 +93,18 @@ public class Printer {
    * @param after a string to print after the list items, e.g. a closing bracket
    */
   @CanIgnoreReturnValue
-  public Printer printList(Iterable<?> list, String before, String separator, String after) {
+  public Printer printList(
+      Iterable<?> list,
+      String before,
+      String separator,
+      String after,
+      StarlarkSemantics semantics) {
     this.append(before);
     String sep = "";
     for (Object elem : list) {
       this.append(sep);
       sep = separator;
-      this.repr(elem);
+      this.repr(elem, semantics);
     }
     return this.append(after);
   }
@@ -154,19 +147,8 @@ public class Printer {
       return this;
 
     } else {
-      return this.repr(o);
+      return this.repr(o, semantics);
     }
-  }
-
-  /**
-   * A dummy version of {@link #repr(Object)} that accepts an unused {@link StarlarkSemantics}
-   * argument, existing purely for source interop purposes. DO NOT USE in Bazel. For now, this
-   * method exists only for API migration of non-Bazel users of the Starlark interpreter; see
-   * b/478302712.
-   */
-  @CanIgnoreReturnValue
-  public Printer repr(Object o, StarlarkSemantics unused) {
-    return repr(o);
   }
 
   /**
@@ -184,63 +166,51 @@ public class Printer {
    * TODO(adonovan): disallow that.
    */
   @CanIgnoreReturnValue
-  public Printer repr(Object o) {
+  public Printer repr(Object o, StarlarkSemantics semantics) {
     // atomic values (leaves of the object graph)
-    if (o == null) {
-      // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
-      // values such as Locations or Nodes.
-      return this.append("null");
-
-    } else if (o instanceof String) {
-      appendQuoted((String) o);
-      return this;
-
-    } else if (o instanceof StarlarkInt) {
-      ((StarlarkInt) o).repr(this);
-      return this;
-
-    } else if (o instanceof Boolean) {
-      this.append(((boolean) o) ? "True" : "False");
-      return this;
-
-    } else if (o instanceof Integer) { // a non-Starlark value
-      this.buffer.append((int) o);
-      return this;
-
-    } else if (o instanceof Class) { // a non-Starlark value
-      this.append(Starlark.classType((Class<?>) o));
-      return this;
+    switch (o) {
+      case null -> {
+        // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
+        // values such as Locations or Nodes.
+        return append("null");
+      }
+      case String s -> {
+        return appendQuoted(s);
+      }
+      case StarlarkInt starlarkInt -> {
+        starlarkInt.repr(this, semantics);
+        return this;
+      }
+      case Boolean b -> {
+        return append(b ? "True" : "False");
+      }
+      case Integer i -> {
+        return append(i); // a non-Starlark value
+      }
+      case Class<?> aClass -> {
+        return append(Starlark.classType(aClass)); // a non-Starlark value
+      }
+      default -> {}
     }
 
     // compound values (may form cycles in the object graph)
 
     if (!push(o)) {
-      return this.append("..."); // elided cycle
+      return append("..."); // elided cycle
     }
     try {
-      if (o instanceof StarlarkValue) {
-        ((StarlarkValue) o).repr(this);
-
+      switch (o) {
+        case StarlarkValue value -> value.repr(this, semantics);
         // -- non-Starlark values --
-
-      } else if (o instanceof Map) {
-        Map<?, ?> dict = (Map<?, ?>) o;
-        this.printList(dict.entrySet(), "{", ", ", "}");
-
-      } else if (o instanceof List) {
-        this.printList((List) o, "[", ", ", "]");
-
-      } else if (o instanceof Map.Entry) {
-        Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
-        this.repr(entry.getKey());
-        this.append(": ");
-        this.repr(entry.getValue());
-
-      } else {
-        // All other non-Starlark Java values (e.g. Node, Location).
-        // Starlark code cannot access values of o that would reach here,
-        // and native code is already trusted to be deterministic.
-        this.append(o.toString());
+        case Map<?, ?> map -> printList(map.entrySet(), "{", ", ", "}", semantics);
+        case List<?> list -> printList(list, "[", ", ", "]", semantics);
+        case Map.Entry<?, ?> entry ->
+            this.repr(entry.getKey(), semantics).append(": ").repr(entry.getValue(), semantics);
+        default ->
+            // All other non-Starlark Java values (e.g. Node, Location).
+            // Starlark code cannot access values of o that would reach here,
+            // and native code is already trusted to be deterministic.
+            append(o.toString());
       }
     } finally {
       pop();
@@ -270,22 +240,19 @@ public class Printer {
     if (c == '"') {
       return backslashChar(c);
     }
-    switch (c) {
-      case '\\':
-        return backslashChar('\\');
-      case '\r':
-        return backslashChar('r');
-      case '\n':
-        return backslashChar('n');
-      case '\t':
-        return backslashChar('t');
-      default:
+    return switch (c) {
+      case '\\' -> backslashChar('\\');
+      case '\r' -> backslashChar('r');
+      case '\n' -> backslashChar('n');
+      case '\t' -> backslashChar('t');
+      default -> {
         if (c < 32) {
           // TODO(bazel-team): support \x escapes
-          return this.append(String.format("\\x%02x", (int) c));
+          yield this.append(String.format("\\x%02x", (int) c));
         }
-        return this.append(c); // no need to support UTF-8
-    }
+        yield this.append(c); // no need to support UTF-8
+      }
+    };
   }
 
   // Reports whether x is already present on the visitation stack, pushing it if not.
@@ -358,7 +325,7 @@ public class Printer {
       }
       if (p == length - 1) {
         throw new MissingFormatWidthException(
-            "incomplete format pattern ends with %: " + Starlark.repr(pattern));
+            "incomplete format pattern ends with %: " + Starlark.repr(pattern, semantics));
       }
       char conv = pattern.charAt(p + 1);
       i = p + 2;
@@ -373,77 +340,63 @@ public class Printer {
       if (a >= argLength) {
         throw new MissingFormatWidthException(
             "not enough arguments for format pattern "
-                + Starlark.repr(pattern)
+                + Starlark.repr(pattern, semantics)
                 + ": "
-                + Starlark.repr(Tuple.copyOf(arguments)));
+                + Starlark.repr(Tuple.copyOf(arguments), semantics));
       }
       Object arg = arguments.get(a++);
 
       switch (conv) {
-        case 'd':
-        case 'o':
-        case 'x':
-        case 'X':
-          {
-            Number n;
-            if (arg instanceof StarlarkInt) {
-              n = ((StarlarkInt) arg).toNumber();
-            } else if (arg instanceof Integer) {
-              n = (Number) arg;
-            } else if (arg instanceof StarlarkFloat) {
-              double d = ((StarlarkFloat) arg).toDouble();
-              try {
-                n = StarlarkInt.ofFiniteDouble(d).toNumber();
-              } catch (IllegalArgumentException unused) {
-                throw new MissingFormatWidthException("got " + arg + ", want a finite number");
-              }
-            } else {
-              throw new MissingFormatWidthException(
-                  String.format(
-                      "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
-            }
-            printer.append(
-                String.format(
-                    conv == 'd' ? "%d" : conv == 'o' ? "%o" : conv == 'x' ? "%x" : "%X", n));
-            continue;
-          }
+        case 'd', 'o', 'x', 'X' -> {
+          Number n =
+              switch (arg) {
+                case StarlarkInt starlarkInt -> starlarkInt.toNumber();
+                case Integer integer -> integer;
+                case StarlarkFloat starlarkFloat -> {
+                  double d = starlarkFloat.toDouble();
+                  try {
+                    yield StarlarkInt.ofFiniteDouble(d).toNumber();
+                  } catch (IllegalArgumentException unused) {
+                    throw new MissingFormatWidthException("got " + arg + ", want a finite number");
+                  }
+                }
+                default ->
+                    throw new MissingFormatWidthException(
+                        String.format(
+                            "got %s for '%%%c' format, want int or float",
+                            Starlark.type(arg), conv));
+              };
+          printer.append(
+              String.format(
+                  conv == 'd' ? "%d" : conv == 'o' ? "%o" : conv == 'x' ? "%x" : "%X", n));
+        }
 
-        case 'e':
-        case 'f':
-        case 'g':
-        case 'E':
-        case 'F':
-        case 'G':
-          double v;
-          if (arg instanceof Integer) {
-            v = (double) (Integer) arg;
-          } else if (arg instanceof StarlarkInt) {
-            v = ((StarlarkInt) arg).toDouble();
-          } else if (arg instanceof StarlarkFloat) {
-            v = ((StarlarkFloat) arg).toDouble();
-          } else {
+        case 'e', 'f', 'g', 'E', 'F', 'G' -> {
+          double v =
+              switch (arg) {
+                case Integer integer -> (double) integer;
+                case StarlarkInt starlarkInt -> starlarkInt.toDouble();
+                case StarlarkFloat starlarkFloat -> starlarkFloat.toDouble();
+                default ->
+                    throw new MissingFormatWidthException(
+                        String.format(
+                            "got %s for '%%%c' format, want int or float",
+                            Starlark.type(arg), conv));
+              };
+          printer.append(StarlarkFloat.format(v, conv));
+        }
+
+        case 'r' -> printer.repr(arg, semantics);
+
+        case 's' -> printer.str(arg, semantics);
+
+        default ->
+            // The call to Starlark.repr doesn't cause an infinite recursion
+            // because it's only used to format a string properly.
             throw new MissingFormatWidthException(
                 String.format(
-                    "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
-          }
-          printer.append(StarlarkFloat.format(v, conv));
-          continue;
-
-        case 'r':
-          printer.repr(arg);
-          continue;
-
-        case 's':
-          printer.str(arg, semantics);
-          continue;
-
-        default:
-          // The call to Starlark.repr doesn't cause an infinite recursion
-          // because it's only used to format a string properly.
-          throw new MissingFormatWidthException(
-              String.format(
-                  "unsupported format character \"%s\" at index %s in %s",
-                  String.valueOf(conv), p + 1, Starlark.repr(pattern)));
+                    "unsupported format character \"%s\" at index %s in %s",
+                    conv, p + 1, Starlark.repr(pattern, semantics)));
       }
     }
     if (a < argLength) {

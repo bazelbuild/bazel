@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 // LINT.IfChange
@@ -196,7 +197,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(Ascii.toLowerCase(toString()));
   }
 

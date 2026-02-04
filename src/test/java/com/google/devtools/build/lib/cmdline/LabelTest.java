@@ -462,11 +462,12 @@ public class LabelTest {
   public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT)).isEqualTo("Label(\"//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@@hello//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT))
+        .isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test

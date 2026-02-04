@@ -243,7 +243,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(
         "<alias target " + actionLookupKey.getLabel() + " of " + actual.getLabel() + ">");
   }

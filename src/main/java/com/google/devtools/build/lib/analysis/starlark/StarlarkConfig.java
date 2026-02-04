@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Starlark namespace for creating build settings. */
 public class StarlarkConfig implements StarlarkConfigApi {
@@ -82,7 +83,7 @@ public class StarlarkConfig implements StarlarkConfigApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<config>");
   }
 }

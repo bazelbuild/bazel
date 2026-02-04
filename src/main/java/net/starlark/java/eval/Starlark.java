@@ -83,7 +83,7 @@ public final class Starlark {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<unbound>");
     }
   }
@@ -551,19 +551,9 @@ public final class Starlark {
     return new Printer().str(x, semantics).toString();
   }
 
-  /**
-   * A dummy version of {@link #repr(Object)} that accepts an unused {@link StarlarkSemantics}
-   * argument, existing purely for source interop purposes. DO NOT USE in Bazel. For now, this
-   * method exists only for API migration of non-Bazel users of the Starlark interpreter; see
-   * b/478302712.
-   */
-  public static String repr(Object x, StarlarkSemantics unused) {
-    return repr(x);
-  }
-
   /** Returns the string form of a value as if by the Starlark expression {@code repr(x)}. */
-  public static String repr(Object x) {
-    return new Printer().repr(x).toString();
+  public static String repr(Object x, StarlarkSemantics semantics) {
+    return new Printer().repr(x, semantics).toString();
   }
 
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */

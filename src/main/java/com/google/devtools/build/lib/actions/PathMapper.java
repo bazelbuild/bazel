@@ -266,7 +266,7 @@ public interface PathMapper {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<mapped root>");
     }
 

@@ -51,7 +51,7 @@ public final class NoneType implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("None");
   }
 }

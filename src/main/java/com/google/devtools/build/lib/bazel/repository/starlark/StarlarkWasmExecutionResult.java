@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 @Immutable
@@ -59,13 +60,13 @@ final class StarlarkWasmExecutionResult implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<wasm_exec_result return_code=");
-    printer.repr(returnCode);
+    printer.repr(returnCode, semantics);
     printer.append(" output=");
-    printer.repr(output);
+    printer.repr(output, semantics);
     printer.append(" error_message=");
-    printer.repr(errorMessage);
+    printer.repr(errorMessage, semantics);
     printer.append(">");
   }
 

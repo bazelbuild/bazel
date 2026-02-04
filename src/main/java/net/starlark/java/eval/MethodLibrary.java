@@ -440,9 +440,10 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String repr(Object x) {
-    return Starlark.repr(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true)
+  public String repr(Object x, StarlarkThread thread) {
+    return Starlark.repr(x, thread.getSemantics());
   }
 
   @StarlarkMethod(

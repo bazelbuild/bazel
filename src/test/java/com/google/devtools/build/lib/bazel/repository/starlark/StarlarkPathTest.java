@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +56,8 @@ public class StarlarkPathTest {
 
   @Test
   public void testStarlarkPathStringifications() throws Exception {
-    assertThat(ev.eval("repr(wd)")).isEqualTo(Starlark.repr(wd.toString()));
+    assertThat(ev.eval("repr(wd)"))
+        .isEqualTo(Starlark.repr(wd.toString(), StarlarkSemantics.DEFAULT));
     assertThat(ev.eval("str(wd)")).isEqualTo(wd.toString());
   }
 }

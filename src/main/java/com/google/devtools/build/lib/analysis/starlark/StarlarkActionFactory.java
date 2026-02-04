@@ -1200,9 +1200,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("actions for");
-    context.repr(printer);
+    context.repr(printer, semantics);
   }
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {

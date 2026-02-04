@@ -213,17 +213,17 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isEmpty()) {
       printer.append("set()");
     } else {
-      printer.printList(this, "set([", ", ", "])");
+      printer.printList(this, "set([", ", ", "])", semantics);
     }
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
@@ -519,7 +519,8 @@ assignment operation.
     Starlark.checkMutable(this);
     Starlark.checkHashable(element);
     if (!contents.remove(element)) {
-      throw Starlark.errorf("element %s not found in set", Starlark.repr(element));
+      throw Starlark.errorf(
+          "element %s not found in set", Starlark.repr(element, StarlarkSemantics.DEFAULT));
     }
   }
 

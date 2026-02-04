@@ -191,7 +191,8 @@ public final class Json implements StarlarkValue {
             encode(m.get(key));
           } catch (EvalException ex) {
             throw Starlark.errorf(
-                "in %s key %s: %s", Starlark.type(x), Starlark.repr(key), ex.getMessage());
+                "in %s key %s: %s",
+                Starlark.type(x), Starlark.repr(key, StarlarkSemantics.DEFAULT), ex.getMessage());
           }
         }
         out.append('}');
@@ -855,6 +856,6 @@ public final class Json implements StarlarkValue {
 
   // Returns a Starlark string literal that denotes c.
   private static String quoteChar(char c) {
-    return Starlark.repr("" + c);
+    return Starlark.repr("" + c, StarlarkSemantics.DEFAULT);
   }
 }

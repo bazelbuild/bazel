@@ -63,7 +63,7 @@ import net.starlark.java.syntax.SyntaxError;
 public final class Benchmarks {
 
   private static final String HELP =
-      """
+"""
 Usage: Benchmarks [--help] [--filter regex] [--seconds float] [--iterations count]
 
 Runs Starlark benchmarks matching the filter for the specified approximate time or
@@ -377,7 +377,7 @@ for example 'bench_int.star:bench_add32'.
     }
 
     @Override
-    public void repr(Printer p) {
+    public void repr(Printer p, StarlarkSemantics semantics) {
       p.append("<Benchmark>");
     }
   }
