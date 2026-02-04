@@ -1,1 +1,12 @@
 bazel-runfiles==0.24.0
+# The following deps are only here because we need markdownify for the docs pipeline.
+beautifulsoup4==4.14.3
+certifi==2026.1.4
+charset-normalizer==3.4.4
+idna==3.11
+markdownify==1.2.2
+requests==2.32.5
+six==1.17.0
+soupsieve==2.8.3
+typing_extensions==4.15.0
+urllib3==2.6.3
