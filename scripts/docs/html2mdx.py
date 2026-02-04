@@ -89,7 +89,13 @@ def _html2md(content):
 def _fix_markdown(content):
   no_templates = _TEMPLATE_RE.sub("", content)
   no_html_links = _HTML_LINK_RE.sub(_fix_link, no_templates)
-  return _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links)
+  fixed_headings = _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links)
+  return _remove_trailing_whitespaces(fixed_headings)
+
+
+def _remove_trailing_whitespaces(content):
+  lines = (l.rstrip() for l in content.split("\n"))
+  return "\n".join(lines)
 
 
 def _fix_link(m):
