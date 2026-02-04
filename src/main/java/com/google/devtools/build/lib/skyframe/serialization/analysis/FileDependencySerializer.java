@@ -91,7 +91,7 @@ import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -160,6 +160,7 @@ final class FileDependencySerializer {
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
+  private final Executor executor;
   private final Counters counters;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
@@ -180,10 +181,14 @@ final class FileDependencySerializer {
               FutureListingDataInfo.class);
 
   FileDependencySerializer(
-      LongVersionGetter versionGetter, InMemoryGraph graph, KeyValueWriter writer) {
+      LongVersionGetter versionGetter,
+      InMemoryGraph graph,
+      KeyValueWriter writer,
+      Executor executor) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.executor = executor;
     this.counters = new Counters();
   }
 
@@ -701,7 +706,7 @@ final class FileDependencySerializer {
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
                   },
-              ForkJoinPool.commonPool());
+              executor);
 
       return Futures.transform(
           dirMtsvFuture,
