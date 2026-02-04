@@ -14,13 +14,19 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.joining;
+
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A visitor for validating that expressions and statements respect the types of the symbols
@@ -53,6 +59,10 @@ public final class TypeChecker extends NodeVisitor {
         binop.getOperator(),
         xType,
         yType);
+  }
+
+  private static String plural(int n) {
+    return n == 1 ? "" : "s";
   }
 
   private TypeChecker(List<SyntaxError> errors) {
@@ -145,6 +155,13 @@ public final class TypeChecker extends NodeVisitor {
         }
         return Types.dict(Types.union(keyTypes), Types.union(valueTypes));
       }
+      case CALL -> {
+        return inferCall((CallExpression) expr);
+      }
+      case CONDITIONAL -> {
+        var cond = (ConditionalExpression) expr;
+        return Types.union(infer(cond.getThenCase()), infer(cond.getElseCase()));
+      }
       case BINARY_OPERATOR -> {
         var binop = (BinaryOperatorExpression) expr;
         TokenKind operator = binop.getOperator();
@@ -222,8 +239,7 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
       default -> {
-        // TODO: #28037 - support call, cast, comprehension, conditional, lambda, and slice
-        // expressions.
+        // TODO: #28037 - support cast, comprehension, lambda, and slice expressions.
         errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
         return Types.ANY;
       }
@@ -306,6 +322,376 @@ public final class TypeChecker extends NodeVisitor {
       errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
       return Types.ANY;
     }
+  }
+
+  private StarlarkType inferCall(CallExpression call) {
+    // Collect and check the shape of the call's *args/**kwargs. (This check is independent of
+    // callFunctionType.)
+    @Nullable VarargsArgument varargs = null;
+    @Nullable KwargsArgument kwargs = null;
+    int numArgs = call.getArguments().size();
+    if (numArgs > 0 && call.getArguments().get(numArgs - 1) instanceof Argument.StarStar arg) {
+      kwargs = KwargsArgument.of(arg, this);
+      if (kwargs == null) {
+        // error already reported
+        return Types.ANY;
+      }
+      numArgs--;
+    }
+    if (numArgs > 0 && call.getArguments().get(numArgs - 1) instanceof Argument.Star arg) {
+      varargs = VarargsArgument.of(arg, this);
+      if (varargs == null) {
+        // error already reported
+        return Types.ANY;
+      }
+      numArgs--;
+    }
+
+    StarlarkType callFunctionType = infer(call.getFunction());
+    if (callFunctionType.equals(Types.ANY)) {
+      return Types.ANY;
+    }
+
+    // Collect call's argument types (excluding *args and **kwargs).
+    ImmutableList<StarlarkType> argTypes =
+        call.getArguments().stream()
+            .limit(numArgs)
+            .map(Argument::getValue)
+            .map(this::infer)
+            .collect(toImmutableList());
+
+    ImmutableCollection<StarlarkType> callFunctionTypes = Types.unfoldUnion(callFunctionType);
+    ArrayList<StarlarkType> returnTypes = new ArrayList<>();
+    for (StarlarkType callFunctionElemType : callFunctionTypes) {
+      if (callFunctionElemType.equals(Types.ANY)) {
+        // Nothing we can check.
+        returnTypes.add(Types.ANY);
+        continue;
+      }
+      Types.CallableType callable = callFunctionElemType instanceof Types.CallableType c ? c : null;
+      if (callable == null) {
+        errorf(
+            call.getFunction(),
+            "'%s' is not callable; got type '%s'",
+            call.getFunction(),
+            callFunctionType);
+        return Types.ANY;
+      }
+      // Indices of residual arguments in call.getArguments() and their corresponding types in
+      // argTypes. (Micro-optimization to avoid allocating <Argument, StarlarkType> pairs.)
+      ArrayList<Integer> residualPositional = new ArrayList<>(0);
+      ArrayList<Integer> residualNamed = new ArrayList<>(0);
+      // Names of mandatory parameters (both positional and named) having a corresponding argument.
+      ArrayList<String> seenMandatoryParameters =
+          new ArrayList<>(callable.getMandatoryParameters().size());
+      for (int i = 0; i < numArgs; i++) {
+        Argument arg = call.getArguments().get(i);
+        int parameterIndex;
+        if (i < call.getNumPositionalArguments()) {
+          // positional argument
+          if (i < callable.getNumPositionalParameters()) {
+            parameterIndex = i;
+          } else {
+            residualPositional.add(i);
+            continue;
+          }
+        } else {
+          // keyword argument
+          parameterIndex = callable.getParameterNames().indexOf(arg.getName());
+          if (parameterIndex < callable.getNumPositionalOnlyParameters()) {
+            // Either no param was found (i<0) or it's positional-only (0<=i<numPosOnly).
+            residualNamed.add(i);
+            continue;
+          }
+        }
+        // Argument is not residual; check it against the corresponding parameter.
+        String parameterName = callable.getParameterNames().get(parameterIndex);
+        StarlarkType parameterType = callable.getParameterTypeByPos(parameterIndex);
+        if (callable.getMandatoryParameters().contains(parameterName)) {
+          seenMandatoryParameters.add(parameterName);
+        }
+        if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i))) {
+          errorf(
+              call.getArguments().get(i),
+              "in call to '%s()', parameter '%s' got value of type '%s', want '%s'",
+              call.getFunction(),
+              parameterName,
+              argTypes.get(i),
+              parameterType);
+          return Types.ANY;
+        }
+      }
+      if (!checkCallResidualPositionals(residualPositional, call, callable, argTypes)
+          || !checkCallResidualNamed(residualNamed, call, callable, argTypes)) {
+        return Types.ANY;
+      }
+      if (!checkCallMissingMandatoryArgs(
+          seenMandatoryParameters,
+          /* callHasVarargs= */ varargs != null,
+          /* callHasKwargs= */ kwargs != null,
+          call,
+          callable)) {
+        return Types.ANY;
+      }
+      // Like mypy, we check that the call's *args/**kwargs values are assignable to the callable's
+      // varargs/kwargs type. This is useful for the common case of a wrapper around a function
+      // which forwards its *args/**kwargs to the wrapped function unchanged; but it also raises
+      // failures for some legitimate uses: `def f(x: Any, **kwargs: str): ... ; f(**{"x" : 42})`.
+      // In that case, the caller can bypass the check by casting to Any: `f(**(cast(Any, ...)))`.
+      // We skip the check if the callable doesn't accept *args/**kwargs because the call's
+      // *args/**kwargs may be used to set any remaining unset arguments, or may be empty.
+      if (varargs != null
+          && !checkAssignable(
+              callable.getVarargsType(),
+              varargs.elementType(),
+              call,
+              varargs.expr(),
+              "elements of argument after *")) {
+        return Types.ANY;
+      }
+      if (kwargs != null
+          && !checkAssignable(
+              callable.getKwargsType(),
+              kwargs.valueType(),
+              call,
+              kwargs.expr(),
+              "values of argument after **")) {
+        return Types.ANY;
+      }
+      returnTypes.add(callable.getReturnType());
+    }
+    return Types.union(returnTypes);
+  }
+
+  private static record VarargsArgument(Expression expr, StarlarkType elementType) {
+    @Nullable
+    static VarargsArgument of(Argument.Star arg, TypeChecker checker) {
+      Expression varargs = arg.getValue();
+      StarlarkType varargsType = checker.infer(varargs);
+      StarlarkType varargsElementType = findElementType(varargsType);
+      if (varargsElementType == null) {
+        checker.errorf(varargs, "argument after * must be a sequence, not '%s'", varargsType);
+        return null;
+      }
+      return new VarargsArgument(varargs, varargsElementType);
+    }
+
+    /**
+     * Finds the smallest {@code Sequence[E]} type which is a supertype of the given type, and
+     * return E; or null if the given type does not have such a supertype.
+     */
+    @Nullable
+    private static StarlarkType findElementType(StarlarkType maybeSequence) {
+      if (maybeSequence.equals(Types.ANY)) {
+        return Types.ANY;
+      }
+      ImmutableCollection<StarlarkType> unfolded = Types.unfoldUnion(maybeSequence);
+      ArrayList<StarlarkType> elements = new ArrayList<>(unfolded.size());
+      for (StarlarkType unfoldedElem : unfolded) {
+        // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
+        if (unfoldedElem instanceof Types.AbstractSequenceType sequence) {
+          elements.add(sequence.getElementType());
+        } else {
+          return null;
+        }
+      }
+      return Types.union(elements);
+    }
+  }
+
+  private static record KwargsArgument(Expression expr, StarlarkType valueType) {
+    @Nullable
+    static KwargsArgument of(Argument.StarStar arg, TypeChecker checker) {
+      Expression kwargs = arg.getValue();
+      StarlarkType kwargsType = checker.infer(kwargs);
+      StarlarkType kwargsValueType = findValueType(kwargsType);
+      if (kwargsValueType == null) {
+        checker.errorf(
+            kwargs, "argument after ** must be a dict with string keys, not '%s'", kwargsType);
+        return null;
+      }
+      return new KwargsArgument(kwargs, kwargsValueType);
+    }
+
+    /**
+     * Finds the smallest {@code Mapping[K, V]} type which is a supertype of the given type such
+     * that K is (a consistent-subtype-of?) str, and returns V; or null if the given type does not
+     * have such a supertype.
+     */
+    @Nullable
+    private static StarlarkType findValueType(StarlarkType maybeMapping) {
+      if (maybeMapping.equals(Types.ANY)) {
+        return Types.ANY;
+      }
+      ImmutableCollection<StarlarkType> unfolded = Types.unfoldUnion(maybeMapping);
+      ArrayList<StarlarkType> values = new ArrayList<>(unfolded.size());
+      for (StarlarkType unfoldedElem : unfolded) {
+        // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
+        if (unfoldedElem instanceof Types.AbstractMappingType mapping
+            && StarlarkType.assignableFrom(Types.STR, mapping.getKeyType())) {
+          values.add(mapping.getValueType());
+        } else {
+          return null;
+        }
+      }
+      return Types.union(values);
+    }
+  }
+
+  /**
+   * Returns true if the call's residual positional arguments (if any) satisfy the type checker.
+   * Otherwise, reports an error and returns false.
+   */
+  private boolean checkCallResidualPositionals(
+      List<Integer> residualPositional,
+      CallExpression call,
+      Types.CallableType callable,
+      List<StarlarkType> argTypes) {
+    if (residualPositional.isEmpty()) {
+      return true;
+    } else if (callable.getVarargsType() == null) {
+      // callable cannot accept residual positional args
+      if (callable.getNumPositionalParameters() > 0) {
+        errorf(
+            call.getArguments().get(callable.getNumPositionalParameters()),
+            "'%s()' accepts no more than %d positional argument%s but got %d",
+            call.getFunction(),
+            callable.getNumPositionalParameters(),
+            plural(callable.getNumPositionalParameters()),
+            call.getNumPositionalArguments());
+      } else {
+        errorf(
+            call.getArguments().getFirst(),
+            "'%s()' does not accept positional arguments, but got %d",
+            call.getFunction(),
+            call.getNumPositionalArguments());
+      }
+      return false;
+    } else {
+      // residual positional args go into callable's varargs
+      for (int argIndex : residualPositional) {
+        Argument arg = call.getArguments().get(argIndex);
+        StarlarkType argType = argTypes.get(argIndex);
+        if (!checkAssignable(
+            callable.getVarargsType(), argType, call, arg, "residual positional arguments")) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if the call's residual named arguments (if any) satisfy the type checker.
+   * Otherwise, reports an error and returns false.
+   */
+  private boolean checkCallResidualNamed(
+      List<Integer> residualNamed,
+      CallExpression call,
+      Types.CallableType callable,
+      List<StarlarkType> argTypes) {
+    if (residualNamed.isEmpty()) {
+      return true;
+    } else if (callable.getKwargsType() == null) {
+      // callable cannot accept residual named args
+      ImmutableList<Argument> residualNamedArgs =
+          residualNamed.stream().map(i -> call.getArguments().get(i)).collect(toImmutableList());
+      errorf(
+          residualNamedArgs.getFirst(),
+          "'%s()' got unexpected keyword argument%s: %s%s",
+          call.getFunction(),
+          plural(residualNamedArgs.size()),
+          residualNamedArgs.stream().map(Argument::getName).collect(joining(", ")),
+          // If there are multiple residual named args, it's likely due to calling the wrong
+          // function or misunderstanding the API, so arg spelling suggestions would not help.
+          residualNamedArgs.size() == 1
+              ? SpellChecker.didYouMean(
+                  residualNamedArgs.getFirst().getName(),
+                  callable
+                      .getParameterNames()
+                      .subList(
+                          callable.getNumPositionalOnlyParameters(),
+                          callable.getParameterNames().size()))
+              : "");
+      return false;
+    } else {
+      // residual named args go into callable's kwargs
+      for (int argIndex : residualNamed) {
+        Argument arg = call.getArguments().get(argIndex);
+        StarlarkType argType = argTypes.get(argIndex);
+        if (!checkAssignable(
+            callable.getKwargsType(), argType, call, arg, "residual keyword arguments")) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if all mandatory parameters were explicitly supplied by the call or potentially
+   * supplied through *args or **kwargs. Otherwise, reports an error and returns false.
+   */
+  private boolean checkCallMissingMandatoryArgs(
+      List<String> seenMandatoryParameters,
+      boolean callHasVarargs,
+      boolean callHasKwargs,
+      CallExpression call,
+      Types.CallableType callable) {
+    if (seenMandatoryParameters.size() < callable.getMandatoryParameters().size()) {
+      ImmutableSet<String> seenMandatorySet = ImmutableSet.copyOf(seenMandatoryParameters);
+      // Identify mandatory parameters which were not seen and which cannot be possibly supplied
+      // from the call's *args or **kwargs.
+      // TODO: #28037 - Perhaps report an error if no element of varargsElementTypes /
+      // kwargsValueTypes is assignable to a missing parameter's type.
+      ArrayList<String> missingMandatory = new ArrayList<>(0);
+      for (int i = 0; i < callable.getParameterNames().size(); i++) {
+        String name = callable.getParameterNames().get(i);
+        if (!seenMandatorySet.contains(name)) {
+          if (i < callable.getNumPositionalOnlyParameters() && !callHasVarargs) {
+            missingMandatory.add(name);
+          } else if (i < callable.getNumPositionalParameters()
+              && !callHasVarargs
+              && !callHasKwargs) {
+            missingMandatory.add(name);
+          } else if (i >= callable.getNumPositionalParameters() && !callHasKwargs) {
+            missingMandatory.add(name);
+          }
+        }
+      }
+      if (!missingMandatory.isEmpty()) {
+        errorf(
+            call.getLparenLocation(),
+            "'%s()' missing %d required argument%s: %s",
+            call.getFunction(),
+            missingMandatory.size(),
+            plural(missingMandatory.size()),
+            Joiner.on(", ").join(missingMandatory));
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean checkAssignable(
+      @Nullable StarlarkType lhs,
+      @Nullable StarlarkType rhs,
+      CallExpression call,
+      Node node,
+      String nodeDescription) {
+    if (lhs != null && rhs != null) {
+      if (!StarlarkType.assignableFrom(lhs, rhs)) {
+        errorf(
+            node,
+            "in call to '%s()', %s must be '%s', not '%s'",
+            call.getFunction(),
+            nodeDescription,
+            lhs,
+            rhs);
+        return false;
+      }
+    }
+    return true;
   }
 
   private static StarlarkType inferTupleRepetition(Types.TupleType tuple, Expression timesExpr) {
@@ -402,6 +788,12 @@ public final class TypeChecker extends NodeVisitor {
     var rhsType = infer(assignment.getRHS());
 
     assign(assignment.getLHS(), rhsType);
+  }
+
+  @Override
+  public void visit(DefStatement def) {
+    // TODO: #28037 - If the def statement is typed, verify default parameters and return type.
+    // The current no-op version exists only for call expression testing.
   }
 
   @Override

@@ -1015,4 +1015,293 @@ public final class TypeCheckerTest {
         "operator 'not in' cannot be applied to types 'list[str]' and 'str'",
         "['e'] not in 'hello'");
   }
+
+  @Test
+  public void infer_conditional() throws Exception {
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: bool; x: int; y: int");
+    assertTypeGivenDecls("x if cond else y", Types.NUMERIC, "cond: bool; x: int; y: float");
+
+    // Any handling; the following test cases assume no Any-simplification in unions.
+    assertTypeGivenDecls(
+        "x if cond else y", Types.union(Types.INT, Types.ANY), "cond: bool; x: int; y: Any");
+    assertTypeGivenDecls(
+        "x if cond else y", Types.union(Types.ANY, Types.FLOAT), "cond: bool; x: Any; y: float");
+    assertTypeGivenDecls("x if cond else y", Types.ANY, "cond: bool; x: Any; y: Any");
+
+    // Condition's type does not matter.
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: float; x: int; y: int");
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: Any; x: int; y: int");
+    assertTypeGivenDecls(
+        "x if cond else y", Types.INT, "def cond() -> int: return 42", "x: int; y: int");
+  }
+
+  @Test
+  public void infer_call() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, y = 'y')",
+        Types.INT,
+        """
+        def f(x: int, y: str, z: int = 42) -> int:
+            return 0
+        """);
+
+    // Function type unions and Any handling
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Any");
+    assertTypeGivenDecls(
+        "(f if 1 else g)(42)",
+        Types.union(Types.INT, Types.STR),
+        """
+        def f(x: int) -> int:
+            return x
+        def g(y: int) -> str:
+            return "hello"
+        """);
+    assertTypeGivenDecls(
+        "(f if 1 else g)(42)",
+        Types.union(Types.INT, Types.ANY),
+        """
+        def f(x: int) -> int:
+            return x
+        g: Any
+        """);
+
+    // Omitted return type is Any
+    assertTypeGivenDecls(
+        "f(42)",
+        Types.ANY,
+        """
+        def f(x: int):
+            return x
+        """);
+
+    // Parameter type unions and Any handling
+    assertTypeGivenDecls(
+        "f(1, y = 'y')",
+        Types.INT,
+        """
+        def f(x: int | str, y) -> int:
+            return 0
+        """);
+
+    // Argument type unions and Any handling
+    assertTypeGivenDecls(
+        "f(X, y = Y)",
+        Types.INT,
+        """
+        def f(x: int | float | str, y: str, z: int = 42) -> int:
+            return 0
+        X: int | str
+        Y: Any
+        """);
+
+    // Cannot call a non-callable
+    assertInvalid(
+        ":2:1: 'f' is not callable; got type 'int'",
+        """
+        f: int
+        f(42)
+        """);
+    assertInvalid(
+        "'f if 1 else g' is not callable; got type 'Callable[[int], int]|int'",
+        """
+        def f(x: int) -> int:
+            return x
+        g: int
+        (f if 1 else g)(42)
+        """);
+  }
+
+  @Test
+  public void infer_call_bad_arguments() throws Exception {
+    // Wrong argument types
+    assertInvalid(
+        "in call to 'f()', parameter 'y' got value of type 'str', want 'int'",
+        """
+        def f(x: Any, y: int) -> int:
+            return 0
+        f(123, "hello")
+        """);
+    // Too many positionals
+    assertInvalid(
+        "'f()' accepts no more than 2 positional arguments but got 3",
+        """
+        def f(x: int, y: int) -> int:
+            return 0
+        f(1, 2, 3)
+        """);
+    // Unexpected arguments
+    assertInvalid(
+        "'f()' got unexpected keyword argument: mispelled (did you mean 'misspelled'?)",
+        """
+        def f(x: int, misspelled: int) -> int:
+            return 0
+        f(x = 1, mispelled = 2)
+        """);
+    // Missing required arguments
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 2 required arguments: y, z",
+        """
+        def f(x: int, y: int, z) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 2 required arguments: y, z",
+        """
+        def f(x: int, y: int, *, z) -> int:
+            return 0
+        f(42)
+        """);
+  }
+
+  @Test
+  public void infer_call_varargs() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        "args: list[str]",
+        """
+        def f(x: int, y: str, *args) -> int:
+            return 0
+        """);
+    // Complex types
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        args: list[str] | tuple[float]
+        """);
+    // Caller varargs satisfy missing positional arguments
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        """
+        def f(x: int, y: str, z: str) -> int:
+            return 0
+        args: list[str]
+        """);
+    // Callable varargs absorb residual positional arguments
+    assertTypeGivenDecls(
+        "f(1, '2', 3.0)",
+        Types.INT,
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        """);
+    // Wrong shape
+    assertInvalid(
+        "argument after * must be a sequence, not 'str'",
+        """
+        def f(*args) -> int:
+            return 0
+        args: str
+        f(*args)
+        """);
+    assertInvalid(
+        "argument after * must be a sequence, not 'str|list[str]'",
+        """
+        def f(*args) -> int:
+            return 0
+        args: str | list[str]
+        f(*args)
+        """);
+    // Wrong element type
+    assertInvalid(
+        "in call to 'f()', elements of argument after * must be 'float', not 'str|float'",
+        """
+        def f(*args: float) -> int:
+            return 0
+        args: list[str] | list[float]
+        f(*args)
+        """);
+    // Wrong type of residual positional arguments
+    assertInvalid(
+        "in call to 'f()', residual positional arguments must be 'str|float', not 'int'",
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        f(1, 2, 3)
+        """);
+  }
+
+  @Test
+  public void infer_call_kwargs() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, y: float, **kwargs) -> int:
+            return 0
+        kwargs: dict[str, float]
+        """);
+    // Complex types
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        kwargs: dict[str, str] | dict[str, float]
+        """);
+    // Caller kwargs satisfy missing keyword arguments
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, y: str, *, z: str) -> int:
+            return 0
+        kwargs: dict[str, str]
+        """);
+    // Callable kwargs absorb residual keyword arguments
+    assertTypeGivenDecls(
+        "f(1, y='2', z=3.0)",
+        Types.INT,
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        """);
+    // Wrong shape
+    assertInvalid(
+        "argument after ** must be a dict with string keys, not 'list[Any]'",
+        """
+        def f(**kwargs) -> int:
+            return 0
+        kwargs: list
+        f(**kwargs)
+        """);
+    assertInvalid(
+        "argument after ** must be a dict with string keys, not 'dict[Any, Any]|list[Any]'",
+        """
+        def f(**kwargs) -> int:
+            return 0
+        kwargs: dict | list
+        f(**kwargs)
+        """);
+    // Wrong element type
+    assertInvalid(
+        "in call to 'f()', values of argument after ** must be 'float', not 'str|float'",
+        """
+        def f(**kwargs: float) -> int:
+            return 0
+        kwargs: dict[str, str] | dict[str, float]
+        f(**kwargs)
+        """);
+    // Wrong type of residual keyword arguments
+    assertInvalid(
+        "in call to 'f()', residual keyword arguments must be 'str|float', not 'int'",
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        f(x=1, y=2, z=3)
+        """);
+  }
 }
