@@ -253,7 +253,6 @@ sh_test(
         "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
 )
 
 sh_test(

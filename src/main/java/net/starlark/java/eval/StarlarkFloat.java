@@ -53,7 +53,7 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(toString());
   }
 

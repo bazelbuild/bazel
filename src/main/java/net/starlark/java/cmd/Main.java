@@ -123,7 +123,7 @@ class Main {
       try {
         Object result = Starlark.execFile(input, OPTIONS, module, thread);
         if (result != Starlark.NONE) {
-          System.out.println(Starlark.repr(result));
+          System.out.println(Starlark.repr(result, thread.getSemantics()));
         }
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError error : ex.errors()) {

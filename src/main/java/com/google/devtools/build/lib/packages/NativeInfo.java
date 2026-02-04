@@ -122,7 +122,7 @@ public abstract class NativeInfo implements Info {
    * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     boolean first = true;
     printer.append("struct(");
     for (var field : getLegacyFields().entrySet()) {
@@ -132,13 +132,13 @@ public abstract class NativeInfo implements Info {
       first = false;
       printer.append(field.getKey());
       printer.append(" = ");
-      printer.repr(field.getValue());
+      printer.repr(field.getValue(), semantics);
     }
     printer.append(")");
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 }

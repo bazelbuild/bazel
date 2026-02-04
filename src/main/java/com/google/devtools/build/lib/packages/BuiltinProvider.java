@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -91,7 +92,7 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     // TODO(adonovan): change to '<provider name>'.
     printer.append("<function " + name + ">");
   }

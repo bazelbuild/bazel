@@ -350,7 +350,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<analysis_test_transition object>");
     }
 
@@ -728,7 +728,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<transition object>");
     }
 

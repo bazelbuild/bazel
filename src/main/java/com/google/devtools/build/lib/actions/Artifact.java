@@ -1253,7 +1253,7 @@ public abstract sealed class Artifact
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isSourceArtifact()) {
       printer.append("<source file " + getRootRelativePathString() + ">");
     } else {

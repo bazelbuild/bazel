@@ -303,7 +303,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   public Order getOrder() {
@@ -316,13 +316,13 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("depset(");
-    printer.printList(set.toList(), "[", ", ", "]");
+    printer.printList(set.toList(), "[", ", ", "]", semantics);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
-      printer.repr(order.getStarlarkName());
+      printer.repr(order.getStarlarkName(), semantics);
     }
     printer.append(")");
   }

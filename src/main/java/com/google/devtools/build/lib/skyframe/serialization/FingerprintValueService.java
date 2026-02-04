@@ -230,9 +230,11 @@ public final class FingerprintValueService implements KeyValueWriter {
   }
 
   /**
-   * Executor for chaining work on top of futures returned by {@link #put} or {@link #get}.
+   * Executor for scheduling work related to serializing and deserializing values from the
+   * fingerprint value store.
    *
-   * <p>Those callbacks may be executing on RPC threads that should not be blocked.
+   * <p>Technically, this should be plumbed separately but for the time being, {@link
+   * FingerprintValueService} is a convenient container for the {@link Executor}.
    */
   public Executor getExecutor() {
     return executor;

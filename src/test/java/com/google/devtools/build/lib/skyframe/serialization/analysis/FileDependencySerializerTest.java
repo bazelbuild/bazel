@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,6 +48,10 @@ import org.mockito.junit.MockitoRule;
 public final class FileDependencySerializerTest {
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
+
+  private static final int THREAD_COUNT = 10;
+
+  private final Executor executor = new ForkJoinPool(THREAD_COUNT);
   @Mock private LongVersionGetter versionGetter;
   @Mock private InMemoryGraph graph;
   @Mock private KeyValueWriter writer;
@@ -59,7 +65,7 @@ public final class FileDependencySerializerTest {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     root = Root.fromPath(fs.getPath("/root"));
     root.asPath().createDirectoryAndParents();
-    serializer = new FileDependencySerializer(versionGetter, graph, writer);
+    serializer = new FileDependencySerializer(versionGetter, graph, writer, executor);
   }
 
   @Test

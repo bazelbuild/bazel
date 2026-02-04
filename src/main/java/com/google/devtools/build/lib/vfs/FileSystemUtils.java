@@ -549,12 +549,13 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void traverseTree(Collection<Path> paths, Path root, Predicate<Path> predicate)
       throws IOException {
-    for (Path p : root.getDirectoryEntries()) {
-      if (predicate.test(p)) {
-        paths.add(p);
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      Path childPath = root.getChild(dirent.getName());
+      if (predicate.test(childPath)) {
+        paths.add(childPath);
       }
-      if (p.isDirectory(Symlinks.NOFOLLOW)) {
-        traverseTree(paths, p, predicate);
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        traverseTree(paths, childPath, predicate);
       }
     }
   }

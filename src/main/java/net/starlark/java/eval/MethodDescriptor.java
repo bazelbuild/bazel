@@ -270,10 +270,16 @@ final class MethodDescriptor {
       buf.append(
           String.format(
               "IllegalArgumentException (%s) in Starlark call of %s, obj=%s (%s), args=[",
-              ex.getMessage(), method, Starlark.repr(obj), Starlark.type(obj)));
+              ex.getMessage(),
+              method,
+              Starlark.repr(obj, StarlarkSemantics.DEFAULT),
+              Starlark.type(obj)));
       String sep = "";
       for (Object arg : args) {
-        buf.append(String.format("%s%s (%s)", sep, Starlark.repr(arg), Starlark.type(arg)));
+        buf.append(
+            String.format(
+                "%s%s (%s)",
+                sep, Starlark.repr(arg, StarlarkSemantics.DEFAULT), Starlark.type(arg)));
         sep = ", ";
       }
       buf.append(']');

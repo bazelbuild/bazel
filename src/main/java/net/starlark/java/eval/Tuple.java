@@ -137,7 +137,7 @@ public abstract class Tuple extends AbstractList<Object>
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /**

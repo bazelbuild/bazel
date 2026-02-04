@@ -57,6 +57,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -428,7 +429,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 

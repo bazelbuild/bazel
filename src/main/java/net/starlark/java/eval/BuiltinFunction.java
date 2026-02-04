@@ -189,7 +189,7 @@ public final class BuiltinFunction implements StarlarkCallable {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (obj instanceof StarlarkValue || obj instanceof String) {
       printer
           .append("<built-in method ")

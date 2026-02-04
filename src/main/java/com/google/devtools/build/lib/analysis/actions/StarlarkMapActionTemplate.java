@@ -252,7 +252,9 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
         throw Starlark.errorf(
             "actions.map_directory() implementation %s at %s may not return a non-None value (got"
                 + " %s)",
-            implementation.getName(), implementation.getLocation(), Starlark.repr(returnValue));
+            implementation.getName(),
+            implementation.getLocation(),
+            Starlark.repr(returnValue, semantics));
       }
 
       ImmutableList<AbstractAction> actions = context.getActions();
@@ -471,13 +473,12 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       return directory;
     }
 
-    // TODO(b/130571505): Switch over to use the new repr(Printer, StarlarkSemantics) method.
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("ExpandedDirectory(directory = ");
-      directory.repr(printer);
+      directory.repr(printer, semantics);
       printer.append(", children = ");
-      children.repr(printer);
+      children.repr(printer, semantics);
       printer.append(")");
     }
   }

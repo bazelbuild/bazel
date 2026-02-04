@@ -464,7 +464,7 @@ public final class MacroClass {
         if (returnValue != Starlark.NONE) {
           throw Starlark.errorf(
               "macro '%s' may not return a non-None value (got %s)",
-              macro.getName(), Starlark.repr(returnValue));
+              macro.getName(), Starlark.repr(returnValue, semantics));
         }
       } catch (EvalException ex) { // from either call() or non-None return
         if (ex.getCallStack().isEmpty()

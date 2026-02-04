@@ -219,7 +219,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     // TODO(adonovan): use the file name instead. But that's a breaking Bazel change.
     Object clientData = module.getClientData();
 

@@ -160,7 +160,8 @@ public class Proto implements StarlarkValue {
             fieldElement("value", entry.getValue());
           } catch (EvalException ex) {
             throw Starlark.errorf(
-                "in value for dict key %s: %s", Starlark.repr(key), ex.getMessage());
+                "in value for dict key %s: %s",
+                Starlark.repr(key, StarlarkSemantics.DEFAULT), ex.getMessage());
           }
           indent--;
           emitLine("}");
