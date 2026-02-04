@@ -1,3 +1,4 @@
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 BUILD_SCM_REV_CMD = "\\\"$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')\\\""
@@ -71,6 +72,18 @@ py_test(
     deps = [
         ":rewriter",
         "//third_party/py/abseil",
+    ],
+)
+
+py_binary(
+    name = "html2mdx",
+    srcs = ["html2mdx.py"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
+    deps = [
+        "//third_party/py/abseil",
+        requirement("markdownify"),
     ],
 )
 
