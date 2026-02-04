@@ -411,12 +411,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Creates a FileArtifactValue used as a 'proxy' input for other ArtifactValues. These are used in
-   * {@link ActionCacheChecker}.
+   * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue}. These
+   * are used in {@link ActionCacheChecker}.
    */
-  public static FileArtifactValue createProxy(byte[] digest) {
+  public static FileArtifactValue createRunfilesProxy(byte[] digest) {
     checkNotNull(digest);
-    return createForNormalFile(digest, /* proxy= */ null, /* size= */ 0);
+    return new RunfilesProxyArtifactValue(digest);
   }
 
   private static String bytesToString(@Nullable byte[] bytes) {
@@ -645,6 +645,62 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
       return size != lastKnown.getSize() || !Objects.equals(proxy, lastKnown.getContentsProxy());
+    }
+  }
+
+  /** Proxy metadata for a runfiles tree. */
+  private static final class RunfilesProxyArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+
+    private RunfilesProxyArtifactValue(byte[] digest) {
+      this.digest = digest;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.DIRECTORY;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException(
+          "runfile proxy's mtime should never be called. (" + this + ")");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RunfilesProxyArtifactValue that)) {
+        return false;
+      }
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("digest", bytesToString(digest)).toString();
     }
   }
 
