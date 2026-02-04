@@ -936,6 +936,7 @@ You can even have a `bind()` target point to an `alias()`, if needed.
 $ cat WORKSPACE
 workspace(name = "myapp")
 bind(name = "openssl", actual = "//:ssl")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(name = "alternative", ...)
 http_archive(name = "boringssl", ...)
 
