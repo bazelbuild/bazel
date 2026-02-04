@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -71,14 +70,14 @@ import net.starlark.java.eval.StarlarkThread;
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** A set of this target's implicitDeps. */
-  private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
+  private final ImmutableList<ConfiguredTargetKey> implicitDeps;
 
   /**
    * An interner for the implicitDeps set. {@link Util.findImplicitDeps} is called upon every
    * construction of a RuleConfiguredTarget and we expect many of these targets to contain the same
    * set of implicit deps so this reduces the memory load per build.
    */
-  private static final Interner<ImmutableSet<ConfiguredTargetKey>> IMPLICIT_DEPS_INTERNER =
+  private static final Interner<ImmutableList<ConfiguredTargetKey>> IMPLICIT_DEPS_INTERNER =
       BlazeInterners.newWeakInterner();
 
   private final TransitiveInfoProviderMap providers;
@@ -93,7 +92,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       boolean isCreatedInSymbolicMacro,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableSet<ConfiguredTargetKey> implicitDeps,
+      ImmutableList<ConfiguredTargetKey> implicitDeps,
       RuleClassId ruleClassId,
       ImmutableList<ActionAnalysisMetadata> actions) {
     super(actionLookupKey, visibility);
@@ -163,7 +162,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         isCreatedInSymbolicMacro,
         providers,
         configConditions,
-        ImmutableSet.of(),
+        ImmutableList.of(),
         ruleClassId,
         ImmutableList.of());
     checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
@@ -180,7 +179,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableSet<ConfiguredTargetKey> implicitDeps,
+      ImmutableList<ConfiguredTargetKey> implicitDeps,
       RuleClassId ruleClassId,
       ImmutableList<ActionAnalysisMetadata> actions) {
     super(lookupKey, visibility);
@@ -217,7 +216,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return true;
   }
 
-  public ImmutableSet<ConfiguredTargetKey> getImplicitDeps() {
+  public ImmutableList<ConfiguredTargetKey> getImplicitDeps() {
     return implicitDeps;
   }
 
