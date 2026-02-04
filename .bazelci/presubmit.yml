@@ -246,21 +246,18 @@ tasks:
     name: "RBE"
     build_flags:
       - "--config=remote"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--config=ci-common"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//..."
     test_flags:
-      - "--config=ci-common"
       - "--config=remote"
+      - "--config=ci-common"
       - "--test_tag_filters=-no_presubmit"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
