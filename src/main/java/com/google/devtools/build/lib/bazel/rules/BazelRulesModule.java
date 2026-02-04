@@ -67,6 +67,9 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        deprecationWarning =
+            "The '--no' prefix is no longer supported for this flag. Please use"
+                + " --build_python_zip=false instead.",
         help = "Deprecated. No-op.")
     public TriState buildPythonZip;
 
