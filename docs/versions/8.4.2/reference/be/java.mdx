@@ -1,0 +1,491 @@
+---
+title: 'Java Rules'
+---
+
+
+## Rules
+
+* [java\_binary](#java_binary)
+* [java\_import](#java_import)
+* [java\_library](#java_library)
+* [java\_test](#java_test)
+* [java\_package\_configuration](#java_package_configuration)
+* [java\_plugin](#java_plugin)
+* [java\_runtime](#java_runtime)
+* [java\_toolchain](#java_toolchain)
+
+## java\_binary
+
+[View rule sourceopen\_in\_new](@rules_java//java/bazel/rules/bazel_java_binary.bzl)
+
+```
+java_binary(name, deps, srcs, data, resources, add_exports, add_opens, args, bootclasspath, classpath_resources, compatible_with, create_executable, deploy_env, deploy_manifest_lines, deprecation, distribs, env, exec_compatible_with, exec_properties, features, javacopts, jvm_flags, launcher, licenses, main_class, neverlink, output_licenses, plugins, resource_strip_prefix, restricted_to, runtime_deps, stamp, tags, target_compatible_with, testonly, toolchains, use_launcher, use_testrunner, visibility)
+```
+
+Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
+The wrapper shell script uses a classpath that includes, among other things, a jar file for each
+library on which the binary depends. When running the wrapper shell script, any nonempty
+`JAVABIN` environment variable will take precedence over the version specified via
+Bazel's `--java_runtime_version` flag.
+
+The wrapper script accepts several unique flags. Refer to
+`java_stub_template.txt`
+for a list of configurable flags and environment variables accepted by the wrapper.
+
+#### Implicit output targets
+
+* `name.jar`: A Java archive, containing the class files and other
+  resources corresponding to the binary's direct dependencies.
+* `name-src.jar`: An archive containing the sources ("source
+  jar").
+* `name_deploy.jar`: A Java archive suitable for deployment (only
+  built if explicitly requested).
+
+  Building the `<name>_deploy.jar` target for your rule
+  creates a self-contained jar file with a manifest that allows it to be run with the
+  `java -jar` command or with the wrapper script's `--singlejar`
+  option. Using the wrapper script is preferred to `java -jar` because it
+  also passes the [JVM flags](#java_binary-jvm_flags) and the options
+  to load native libraries.
+
+  The deploy jar contains all the classes that would be found by a classloader that
+  searched the classpath from the binary's wrapper script from beginning to end. It also
+  contains the native libraries needed for dependencies. These are automatically loaded
+  into the JVM at runtime.
+
+  If your target specifies a [launcher](#java_binary.launcher)
+  attribute, then instead of being a normal JAR file, the \_deploy.jar will be a
+  native binary. This will contain the launcher plus any native (C++) dependencies of
+  your rule, all linked into a static binary. The actual jar file's bytes will be
+  appended to that native binary, creating a single binary blob containing both the
+  executable and the Java code. You can execute the resulting jar file directly
+  like you would execute any native binary.
+* `name_deploy-src.jar`: An archive containing the sources
+  collected from the transitive closure of the target. These will match the classes in the
+  `deploy.jar` except where jars have no matching source jar.
+
+It is good practice to use the name of the source file that is the main entry point of the
+application (minus the extension). For example, if your entry point is called
+`Main.java`, then your name could be `Main`.
+
+A `deps` attribute is not allowed in a `java_binary` rule without
+[`srcs`](#java_binary-srcs); such a rule requires a
+[`main_class`](#java_binary-main_class) provided by
+[`runtime_deps`](#java_binary-runtime_deps).
+
+The following code snippet illustrates a common mistake:
+
+```
+java_binary(
+    name = "DontDoThis",
+    srcs = [
+        ...,
+        "GeneratedJavaFile.java",  # a generated .java file
+    ],
+    deps = [":generating_rule",],  # rule that generates that file
+)
+```
+
+Do this instead:
+
+```
+java_binary(
+    name = "DoThisInstead",
+    srcs = [
+        ...,
+        ":generating_rule",
+    ],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of other libraries to be linked in to the target. See general comments about `deps` at [Typical attributes defined by most build rules](common-definitions#typical-attributes). |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of source files that are processed to create the target. This attribute is almost always required; see exceptions below. Source files of type `.java` are compiled. In case of generated `.java` files it is generally advisable to put the generating rule's name here instead of the name of the file itself. This not only improves readability but makes the rule more resilient to future changes: if the generating rule generates different files in the future, you only need to fix one place: the `outs` of the generating rule. You should not list the generating rule in `deps` because it is a no-op.  Source files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of `.java` files with a genrule.)  Rules: if the rule (typically `genrule` or `filegroup`) generates any of the files listed above, they will be used the same way as described for source files.  This argument is almost always required, except if a [`main_class`](#java_binary.main_class) attribute specifies a class on the runtime classpath or you specify the `runtime_deps` argument. |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this library at runtime. See general comments about `data` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). |
+| `resources` | List of [labels](/concepts/labels); default is `[]` A list of data files to include in a Java jar. Resources may be source files or generated files.  If resources are specified, they will be bundled in the jar along with the usual `.class` files produced by compilation. The location of the resources inside of the jar file is determined by the project structure. Bazel first looks for Maven's [standard directory layout](https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html), (a "src" directory followed by a "resources" directory grandchild). If that is not found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for example, if a resource is at `<workspace root>/x/java/y/java/z`, the path of the resource will be `y/java/z`. This heuristic cannot be overridden, however, the `resource_strip_prefix` attribute can be used to specify a specific alternative directory for resource files. |
+| `add_exports` | List of strings; default is `[]` Allow this library to access the given `module` or `package`. This corresponds to the javac and JVM --add-exports= flags. |
+| `add_opens` | List of strings; default is `[]` Allow this library to reflectively access the given `module` or `package`. This corresponds to the javac and JVM --add-opens= flags. |
+| `bootclasspath` | [Label](/concepts/labels); default is `None` Restricted API, do not use! |
+| `classpath_resources` | List of [labels](/concepts/labels); default is `[]` *DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)* A list of resources that must be located at the root of the java tree. This attribute's only purpose is to support third-party libraries that require that their resources be found on the classpath as exactly `"myconfig.xml"`. It is only allowed on binaries and not libraries, due to the danger of namespace conflicts. |
+| `create_executable` | Boolean; default is `True` Deprecated, use `java_single_jar` instead. |
+| `deploy_env` | List of [labels](/concepts/labels); default is `[]` A list of other `java_binary` targets which represent the deployment environment for this binary. Set this attribute when building a plugin which will be loaded by another `java_binary`.  Setting this attribute excludes all dependencies from the runtime classpath (and the deploy jar) of this binary that are shared between this binary and the targets specified in `deploy_env`. |
+| `deploy_manifest_lines` | List of strings; default is `[]` A list of lines to add to the `META-INF/manifest.mf` file generated for the `*_deploy.jar` target. The contents of this attribute are *not* subject to ["Make variable"](make-variables) substitution. |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this binary. Subject to ["Make variable"](make-variables) substitution and [Bourne shell tokenization](common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `jvm_flags` | List of strings; default is `[]` A list of flags to embed in the wrapper script generated for running this binary. Subject to [$(location)](/reference/be/make-variables#location) and ["Make variable"](make-variables) substitution, and [Bourne shell tokenization](common-definitions#sh-tokenization). The wrapper script for a Java binary includes a CLASSPATH definition (to find all the dependent jars) and invokes the right Java interpreter. The command line generated by the wrapper script includes the name of the main class followed by a `"$@"` so you can pass along other arguments after the classname. However, arguments intended for parsing by the JVM must be specified *before* the classname on the command line. The contents of `jvm_flags` are added to the wrapper script before the classname is listed.  Note that this attribute has *no effect* on `*_deploy.jar` outputs. |
+| `launcher` | [Label](/concepts/labels); default is `None` Specify a binary that will be used to run your Java program instead of the normal `bin/java` program included with the JDK. The target must be a `cc_binary`. Any `cc_binary` that implements the [Java Invocation API](http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html) can be specified as a value for this attribute. By default, Bazel will use the normal JDK launcher (bin/java or java.exe).  The related [`--java_launcher`](/docs/user-manual#flag--java_launcher) Bazel flag affects only those `java_binary` and `java_test` targets that have *not* specified a `launcher` attribute.  Note that your native (C++, SWIG, JNI) dependencies will be built differently depending on whether you are using the JDK launcher or another launcher:   * If you are using the normal JDK launcher (the default), native dependencies are   built as a shared library named `{name}_nativedeps.so`, where   `{name}` is the `name` attribute of this java\_binary rule.   Unused code is *not* removed by the linker in this configuration. * If you are using any other launcher, native (C++) dependencies are statically   linked into a binary named `{name}_nativedeps`, where `{name}`   is the `name` attribute of this java\_binary rule. In this case,   the linker will remove any code it thinks is unused from the resulting binary,   which means any C++ code accessed only via JNI may not be linked in unless   that `cc_library` target specifies `alwayslink = True`.   When using any launcher other than the default JDK launcher, the format of the `*_deploy.jar` output changes. See the main [java\_binary](#java_binary) docs for details. |
+| `main_class` | String; default is `""` Name of class with `main()` method to use as entry point. If a rule uses this option, it does not need a `srcs=[...]` list. Thus, with this attribute one can make an executable from a Java library that already contains one or more `main()` methods. The value of this attribute is a class name, not a source file. The class must be available at runtime: it may be compiled by this rule (from `srcs`) or provided by direct or transitive dependencies (through `runtime_deps` or `deps`). If the class is unavailable, the binary will fail at runtime; there is no build-time check. |
+| `neverlink` | Boolean; default is `False` |
+| `plugins` | List of [labels](/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in this attribute will be run whenever this rule is built. A library may also inherit plugins from dependencies that use `exported_plugins`. Resources generated by the plugin will be included in the resulting jar of this rule. |
+| `resource_strip_prefix` | String; default is `""` The path prefix to strip from Java resources. If specified, this path prefix is stripped from every file in the `resources` attribute. It is an error for a resource file not to be under this directory. If not specified (the default), the path of resource file is determined according to the same logic as the Java package of source files. For example, a source file at `stuff/java/foo/bar/a.txt` will be located at `foo/bar/a.txt`. |
+| `runtime_deps` | List of [labels](/concepts/labels); default is `[]` Libraries to make available to the final binary or test at runtime only. Like ordinary `deps`, these will appear on the runtime classpath, but unlike them, not on the compile-time classpath. Dependencies needed only at runtime should be listed here. Dependency-analysis tools should ignore targets that appear in both `runtime_deps` and `deps`. |
+| `stamp` | Integer; default is `-1` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](/docs/user-manual#flag--stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](/docs/user-manual#flag--stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+| `use_launcher` | Boolean; default is `True` Whether the binary should use a custom launcher. If this attribute is set to false, the [launcher](/reference/be/java#java_binary.launcher) attribute and the related [`--java_launcher`](/docs/user-manual#flag--java_launcher) flag will be ignored for this target. |
+| `use_testrunner` | Boolean; default is `False` Use the test runner (by default `com.google.testing.junit.runner.BazelTestRunner`) class as the main entry point for a Java program, and provide the test class to the test runner as a value of `bazel.test_suite` system property.   You can use this to override the default behavior, which is to use test runner for `java_test` rules, and not use it for `java_binary` rules. It is unlikely you will want to do this. One use is for `AllTest` rules that are invoked by another rule (to set up a database before running the tests, for example). The `AllTest` rule must be declared as a `java_binary`, but should still use the test runner as its main entry point. The name of a test runner class can be overridden with `main_class` attribute. |
+
+## java\_import
+
+[View rule sourceopen\_in\_new](@rules_java//java/bazel/rules/bazel_java_import.bzl)
+
+```
+java_import(name, deps, data, add_exports, add_opens, compatible_with, constraints, deprecation, distribs, exec_compatible_with, exec_properties, exports, features, jars, licenses, neverlink, proguard_specs, restricted_to, runtime_deps, srcjar, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+This rule allows the use of precompiled `.jar` files as
+libraries for `java_library` and
+`java_binary` rules.
+
+#### Examples
+
+```
+    java_import(
+        name = "maven_model",
+        jars = [
+            "maven_model/maven-aether-provider-3.2.3.jar",
+            "maven_model/maven-model-3.2.3.jar",
+            "maven_model/maven-model-builder-3.2.3.jar",
+        ],
+    )
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of other libraries to be linked in to the target. See [java\_library.deps](/reference/be/java#java_library.deps). |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this rule at runtime. |
+| `add_exports` | List of strings; default is `[]` Allow this library to access the given `module` or `package`. This corresponds to the javac and JVM --add-exports= flags. |
+| `add_opens` | List of strings; default is `[]` Allow this library to reflectively access the given `module` or `package`. This corresponds to the javac and JVM --add-opens= flags. |
+| `constraints` | List of strings; default is `[]` Extra constraints imposed on this rule as a Java library. |
+| `exports` | List of [labels](/concepts/labels); default is `[]` Targets to make available to users of this rule. See [java\_library.exports](/reference/be/java#java_library.exports). |
+| `jars` | List of [labels](/concepts/labels); required The list of JAR files provided to Java targets that depend on this target. |
+| `neverlink` | Boolean; default is `False` Only use this library for compilation and not at runtime. Useful if the library will be provided by the runtime environment during execution. Examples of libraries like this are IDE APIs for IDE plug-ins or `tools.jar` for anything running on a standard JDK. |
+| `proguard_specs` | List of [labels](/concepts/labels); default is `[]` Files to be used as Proguard specification. These will describe the set of specifications to be used by Proguard. If specified, they will be added to any `android_binary` target depending on this library. The files included here must only have idempotent rules, namely -dontnote, -dontwarn, assumenosideeffects, and rules that start with -keep. Other options can only appear in `android_binary`'s proguard\_specs, to ensure non-tautological merges. |
+| `runtime_deps` | List of [labels](/concepts/labels); default is `[]` Libraries to make available to the final binary or test at runtime only. See [java\_library.runtime\_deps](/reference/be/java#java_library.runtime_deps). |
+| `srcjar` | [Label](/concepts/labels); default is `None` A JAR file that contains source code for the compiled JAR files. |
+
+## java\_library
+
+[View rule sourceopen\_in\_new](@rules_java//java/bazel/rules/bazel_java_library.bzl)
+
+```
+java_library(name, deps, srcs, data, resources, add_exports, add_opens, bootclasspath, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, exported_plugins, exports, features, javabuilder_jvm_flags, javacopts, licenses, neverlink, plugins, proguard_specs, resource_strip_prefix, restricted_to, runtime_deps, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+This rule compiles and links sources into a `.jar` file.
+
+#### Implicit outputs
+
+* `libname.jar`: A Java archive containing the class files.
+* `libname-src.jar`: An archive containing the sources ("source
+  jar").
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of libraries to link into this library. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). The jars built by `java_library` rules listed in `deps` will be on the compile-time classpath of this rule. Furthermore the transitive closure of their `deps`, `runtime_deps` and `exports` will be on the runtime classpath.  By contrast, targets in the `data` attribute are included in the runfiles but on neither the compile-time nor runtime classpath. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of source files that are processed to create the target. This attribute is almost always required; see exceptions below. Source files of type `.java` are compiled. In case of generated `.java` files it is generally advisable to put the generating rule's name here instead of the name of the file itself. This not only improves readability but makes the rule more resilient to future changes: if the generating rule generates different files in the future, you only need to fix one place: the `outs` of the generating rule. You should not list the generating rule in `deps` because it is a no-op.  Source files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of `.java` files with a genrule.)  Rules: if the rule (typically `genrule` or `filegroup`) generates any of the files listed above, they will be used the same way as described for source files.  Source files of type `.properties` are treated as resources.  All other files are ignored, as long as there is at least one file of a file type described above. Otherwise an error is raised.  This argument is almost always required, except if you specify the `runtime_deps` argument. |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this library at runtime. See general comments about `data` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). When building a `java_library`, Bazel doesn't put these files anywhere; if the `data` files are generated files then Bazel generates them. When building a test that depends on this `java_library` Bazel copies or links the `data` files into the runfiles area. |
+| `resources` | List of [labels](/concepts/labels); default is `[]` A list of data files to include in a Java jar. Resources may be source files or generated files.  If resources are specified, they will be bundled in the jar along with the usual `.class` files produced by compilation. The location of the resources inside of the jar file is determined by the project structure. Bazel first looks for Maven's [standard directory layout](https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html), (a "src" directory followed by a "resources" directory grandchild). If that is not found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for example, if a resource is at `<workspace root>/x/java/y/java/z`, the path of the resource will be `y/java/z`. This heuristic cannot be overridden, however, the `resource_strip_prefix` attribute can be used to specify a specific alternative directory for resource files. |
+| `add_exports` | List of strings; default is `[]` Allow this library to access the given `module` or `package`. This corresponds to the javac and JVM --add-exports= flags. |
+| `add_opens` | List of strings; default is `[]` Allow this library to reflectively access the given `module` or `package`. This corresponds to the javac and JVM --add-opens= flags. |
+| `bootclasspath` | [Label](/concepts/labels); default is `None` Restricted API, do not use! |
+| `exported_plugins` | List of [labels](/concepts/labels); default is `[]` The list of `java_plugin`s (e.g. annotation processors) to export to libraries that directly depend on this library. The specified list of `java_plugin`s will be applied to any library which directly depends on this library, just as if that library had explicitly declared these labels in `plugins`. |
+| `exports` | List of [labels](/concepts/labels); default is `[]` Exported libraries. Listing rules here will make them available to parent rules, as if the parents explicitly depended on these rules. This is not true for regular (non-exported) `deps`.  Summary: a rule *X* can access the code in *Y* if there exists a dependency path between them that begins with a `deps` edge followed by zero or more `exports` edges. Let's see some examples to illustrate this.  Assume *A* depends on *B* and *B* depends on *C*. In this case C is a *transitive* dependency of A, so changing C's sources and rebuilding A will correctly rebuild everything. However A will not be able to use classes in C. To allow that, either A has to declare C in its `deps`, or B can make it easier for A (and anything that may depend on A) by declaring C in its (B's) `exports` attribute.  The closure of exported libraries is available to all direct parent rules. Take a slightly different example: A depends on B, B depends on C and D, and also exports C but not D. Now A has access to C but not to D. Now, if C and D exported some libraries, C' and D' respectively, A could only access C' but not D'.  Important: an exported rule is not a regular dependency. Sticking to the previous example, if B exports C and wants to also use C, it has to also list it in its own `deps`. |
+| `javabuilder_jvm_flags` | List of strings; default is `[]` Restricted API, do not use! |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this library. Subject to ["Make variable"](make-variables) substitution and [Bourne shell tokenization](common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `neverlink` | Boolean; default is `False` Whether this library should only be used for compilation and not at runtime. Useful if the library will be provided by the runtime environment during execution. Examples of such libraries are the IDE APIs for IDE plug-ins or `tools.jar` for anything running on a standard JDK. Note that `neverlink = True` does not prevent the compiler from inlining material from this library into compilation targets that depend on it, as permitted by the Java Language Specification (e.g., `static final` constants of `String` or of primitive types). The preferred use case is therefore when the runtime library is identical to the compilation library.  If the runtime library differs from the compilation library then you must ensure that it differs only in places that the JLS forbids compilers to inline (and that must hold for all future versions of the JLS). |
+| `plugins` | List of [labels](/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in this attribute will be run whenever this rule is built. A library may also inherit plugins from dependencies that use `exported_plugins`. Resources generated by the plugin will be included in the resulting jar of this rule. |
+| `proguard_specs` | List of [labels](/concepts/labels); default is `[]` Files to be used as Proguard specification. These will describe the set of specifications to be used by Proguard. If specified, they will be added to any `android_binary` target depending on this library. The files included here must only have idempotent rules, namely -dontnote, -dontwarn, assumenosideeffects, and rules that start with -keep. Other options can only appear in `android_binary`'s proguard\_specs, to ensure non-tautological merges. |
+| `resource_strip_prefix` | String; default is `""` The path prefix to strip from Java resources. If specified, this path prefix is stripped from every file in the `resources` attribute. It is an error for a resource file not to be under this directory. If not specified (the default), the path of resource file is determined according to the same logic as the Java package of source files. For example, a source file at `stuff/java/foo/bar/a.txt` will be located at `foo/bar/a.txt`. |
+| `runtime_deps` | List of [labels](/concepts/labels); default is `[]` Libraries to make available to the final binary or test at runtime only. Like ordinary `deps`, these will appear on the runtime classpath, but unlike them, not on the compile-time classpath. Dependencies needed only at runtime should be listed here. Dependency-analysis tools should ignore targets that appear in both `runtime_deps` and `deps`. |
+
+## java\_test
+
+[View rule sourceopen\_in\_new](@rules_java//java/bazel/rules/bazel_java_test.bzl)
+
+```
+java_test(name, deps, srcs, data, resources, add_exports, add_opens, args, bootclasspath, classpath_resources, compatible_with, create_executable, deploy_manifest_lines, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, javacopts, jvm_flags, launcher, licenses, local, main_class, neverlink, plugins, resource_strip_prefix, restricted_to, runtime_deps, shard_count, size, stamp, tags, target_compatible_with, test_class, testonly, timeout, toolchains, use_launcher, use_testrunner, visibility)
+```
+
+A `java_test()` rule compiles a Java test. A test is a binary wrapper around your
+test code. The test runner's main method is invoked instead of the main class being compiled.
+
+#### Implicit output targets
+
+* `name.jar`: A Java archive.
+* `name_deploy.jar`: A Java archive suitable
+  for deployment. (Only built if explicitly requested.) See the description of the
+  `name_deploy.jar` output from
+  [java\_binary](#java_binary) for more details.
+
+See the section on `java_binary()` arguments. This rule also
+supports all [attributes common
+to all test rules (\*\_test)](https://bazel.build/reference/be/common-definitions#common-attributes-tests).
+
+#### Examples
+
+```
+java_library(
+    name = "tests",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//java/com/foo/base:testResources",
+        "//java/com/foo/testing/util",
+    ],
+)
+
+java_test(
+    name = "AllTests",
+    size = "small",
+    runtime_deps = [
+        ":tests",
+        "//util/mysql",
+    ],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of other libraries to be linked in to the target. See general comments about `deps` at [Typical attributes defined by most build rules](common-definitions#typical-attributes). |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of source files that are processed to create the target. This attribute is almost always required; see exceptions below. Source files of type `.java` are compiled. In case of generated `.java` files it is generally advisable to put the generating rule's name here instead of the name of the file itself. This not only improves readability but makes the rule more resilient to future changes: if the generating rule generates different files in the future, you only need to fix one place: the `outs` of the generating rule. You should not list the generating rule in `deps` because it is a no-op.  Source files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of `.java` files with a genrule.)  Rules: if the rule (typically `genrule` or `filegroup`) generates any of the files listed above, they will be used the same way as described for source files.  This argument is almost always required, except if a [`main_class`](#java_binary.main_class) attribute specifies a class on the runtime classpath or you specify the `runtime_deps` argument. |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this library at runtime. See general comments about `data` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). |
+| `resources` | List of [labels](/concepts/labels); default is `[]` A list of data files to include in a Java jar. Resources may be source files or generated files.  If resources are specified, they will be bundled in the jar along with the usual `.class` files produced by compilation. The location of the resources inside of the jar file is determined by the project structure. Bazel first looks for Maven's [standard directory layout](https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html), (a "src" directory followed by a "resources" directory grandchild). If that is not found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for example, if a resource is at `<workspace root>/x/java/y/java/z`, the path of the resource will be `y/java/z`. This heuristic cannot be overridden, however, the `resource_strip_prefix` attribute can be used to specify a specific alternative directory for resource files. |
+| `add_exports` | List of strings; default is `[]` Allow this library to access the given `module` or `package`. This corresponds to the javac and JVM --add-exports= flags. |
+| `add_opens` | List of strings; default is `[]` Allow this library to reflectively access the given `module` or `package`. This corresponds to the javac and JVM --add-opens= flags. |
+| `bootclasspath` | [Label](/concepts/labels); default is `None` Restricted API, do not use! |
+| `classpath_resources` | List of [labels](/concepts/labels); default is `[]` *DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)* A list of resources that must be located at the root of the java tree. This attribute's only purpose is to support third-party libraries that require that their resources be found on the classpath as exactly `"myconfig.xml"`. It is only allowed on binaries and not libraries, due to the danger of namespace conflicts. |
+| `create_executable` | Boolean; default is `True` Deprecated, use `java_single_jar` instead. |
+| `deploy_manifest_lines` | List of strings; default is `[]` A list of lines to add to the `META-INF/manifest.mf` file generated for the `*_deploy.jar` target. The contents of this attribute are *not* subject to ["Make variable"](make-variables) substitution. |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this binary. Subject to ["Make variable"](make-variables) substitution and [Bourne shell tokenization](common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `jvm_flags` | List of strings; default is `[]` A list of flags to embed in the wrapper script generated for running this binary. Subject to [$(location)](/reference/be/make-variables#location) and ["Make variable"](make-variables) substitution, and [Bourne shell tokenization](common-definitions#sh-tokenization). The wrapper script for a Java binary includes a CLASSPATH definition (to find all the dependent jars) and invokes the right Java interpreter. The command line generated by the wrapper script includes the name of the main class followed by a `"$@"` so you can pass along other arguments after the classname. However, arguments intended for parsing by the JVM must be specified *before* the classname on the command line. The contents of `jvm_flags` are added to the wrapper script before the classname is listed.  Note that this attribute has *no effect* on `*_deploy.jar` outputs. |
+| `launcher` | [Label](/concepts/labels); default is `None` Specify a binary that will be used to run your Java program instead of the normal `bin/java` program included with the JDK. The target must be a `cc_binary`. Any `cc_binary` that implements the [Java Invocation API](http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html) can be specified as a value for this attribute. By default, Bazel will use the normal JDK launcher (bin/java or java.exe).  The related [`--java_launcher`](/docs/user-manual#flag--java_launcher) Bazel flag affects only those `java_binary` and `java_test` targets that have *not* specified a `launcher` attribute.  Note that your native (C++, SWIG, JNI) dependencies will be built differently depending on whether you are using the JDK launcher or another launcher:   * If you are using the normal JDK launcher (the default), native dependencies are   built as a shared library named `{name}_nativedeps.so`, where   `{name}` is the `name` attribute of this java\_binary rule.   Unused code is *not* removed by the linker in this configuration. * If you are using any other launcher, native (C++) dependencies are statically   linked into a binary named `{name}_nativedeps`, where `{name}`   is the `name` attribute of this java\_binary rule. In this case,   the linker will remove any code it thinks is unused from the resulting binary,   which means any C++ code accessed only via JNI may not be linked in unless   that `cc_library` target specifies `alwayslink = True`.   When using any launcher other than the default JDK launcher, the format of the `*_deploy.jar` output changes. See the main [java\_binary](#java_binary) docs for details. |
+| `main_class` | String; default is `""` Name of class with `main()` method to use as entry point. If a rule uses this option, it does not need a `srcs=[...]` list. Thus, with this attribute one can make an executable from a Java library that already contains one or more `main()` methods. The value of this attribute is a class name, not a source file. The class must be available at runtime: it may be compiled by this rule (from `srcs`) or provided by direct or transitive dependencies (through `runtime_deps` or `deps`). If the class is unavailable, the binary will fail at runtime; there is no build-time check. |
+| `neverlink` | Boolean; default is `False` |
+| `plugins` | List of [labels](/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in this attribute will be run whenever this rule is built. A library may also inherit plugins from dependencies that use `exported_plugins`. Resources generated by the plugin will be included in the resulting jar of this rule. |
+| `resource_strip_prefix` | String; default is `""` The path prefix to strip from Java resources. If specified, this path prefix is stripped from every file in the `resources` attribute. It is an error for a resource file not to be under this directory. If not specified (the default), the path of resource file is determined according to the same logic as the Java package of source files. For example, a source file at `stuff/java/foo/bar/a.txt` will be located at `foo/bar/a.txt`. |
+| `runtime_deps` | List of [labels](/concepts/labels); default is `[]` Libraries to make available to the final binary or test at runtime only. Like ordinary `deps`, these will appear on the runtime classpath, but unlike them, not on the compile-time classpath. Dependencies needed only at runtime should be listed here. Dependency-analysis tools should ignore targets that appear in both `runtime_deps` and `deps`. |
+| `stamp` | Integer; default is `0` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](https://bazel.build/docs/user-manual#stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](https://bazel.build/docs/user-manual#stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+| `test_class` | String; default is `""` The Java class to be loaded by the test runner.  By default, if this argument is not defined then the legacy mode is used and the test arguments are used instead. Set the `--nolegacy_bazel_java_test` flag to not fallback on the first argument.  This attribute specifies the name of a Java class to be run by this test. It is rare to need to set this. If this argument is omitted, it will be inferred using the target's `name` and its source-root-relative path. If the test is located outside a known source root, Bazel will report an error if `test_class` is unset.  For JUnit3, the test class needs to either be a subclass of `junit.framework.TestCase` or it needs to have a public static `suite()` method that returns a `junit.framework.Test` (or a subclass of `Test`).  This attribute allows several `java_test` rules to share the same `Test` (`TestCase`, `TestSuite`, ...). Typically additional information is passed to it (e.g. via `jvm_flags=['-Dkey=value']`) so that its behavior differs in each case, such as running a different subset of the tests. This attribute also enables the use of Java tests outside the `javatests` tree. |
+| `use_launcher` | Boolean; default is `True` Whether the binary should use a custom launcher. If this attribute is set to false, the [launcher](/reference/be/java#java_binary.launcher) attribute and the related [`--java_launcher`](/docs/user-manual#flag--java_launcher) flag will be ignored for this target. |
+| `use_testrunner` | Boolean; default is `True` Use the test runner (by default `com.google.testing.junit.runner.BazelTestRunner`) class as the main entry point for a Java program, and provide the test class to the test runner as a value of `bazel.test_suite` system property.   You can use this to override the default behavior, which is to use test runner for `java_test` rules, and not use it for `java_binary` rules. It is unlikely you will want to do this. One use is for `AllTest` rules that are invoked by another rule (to set up a database before running the tests, for example). The `AllTest` rule must be declared as a `java_binary`, but should still use the test runner as its main entry point. The name of a test runner class can be overridden with `main_class` attribute. |
+
+## java\_package\_configuration
+
+[View rule sourceopen\_in\_new](@rules_java//java/common/rules/java_package_configuration.bzl)
+
+```
+java_package_configuration(name, data, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, javacopts, output_licenses, packages, restricted_to, system, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+Configuration to apply to a set of packages.
+Configurations can be added to
+`java_toolchain.javacopts`s.
+
+#### Example:
+
+```
+java_package_configuration(
+    name = "my_configuration",
+    packages = [":my_packages"],
+    javacopts = ["-Werror"],
+)
+
+package_group(
+    name = "my_packages",
+    packages = [
+        "//com/my/project/...",
+        "-//com/my/project/testing/...",
+    ],
+)
+
+java_toolchain(
+    ...,
+    package_configuration = [
+        ":my_configuration",
+    ]
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this configuration at runtime. |
+| `javacopts` | List of strings; default is `[]` Java compiler flags. |
+| `output_licenses` | List of strings; default is `[]` |
+| `packages` | List of [labels](/concepts/labels); default is `[]` The set of `package_group`s the configuration should be applied to. |
+| `system` | [Label](/concepts/labels); default is `None` Corresponds to javac's --system flag. |
+
+## java\_plugin
+
+[View rule sourceopen\_in\_new](@rules_java//java/bazel/rules/bazel_java_plugin.bzl)
+
+```
+java_plugin(name, deps, srcs, data, resources, add_exports, add_opens, bootclasspath, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, generates_api, javabuilder_jvm_flags, javacopts, licenses, neverlink, output_licenses, plugins, processor_class, proguard_specs, resource_strip_prefix, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+`java_plugin` defines plugins for the Java compiler run by Bazel. The
+only supported kind of plugins are annotation processors. A `java_library` or
+`java_binary` rule can run plugins by depending on them via the `plugins`
+attribute. A `java_library` can also automatically export plugins to libraries that
+directly depend on it using
+`exported_plugins`.
+
+#### Implicit output targets
+
+* `libname.jar`: A Java archive.
+
+Arguments are a subset of (and with identical semantics to) those of
+[java\_library()](/reference/be/java#java_library),
+except for the addition of the `processor_class` and
+`generates_api` arguments.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of libraries to link into this library. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). The jars built by `java_library` rules listed in `deps` will be on the compile-time classpath of this rule. Furthermore the transitive closure of their `deps`, `runtime_deps` and `exports` will be on the runtime classpath.  By contrast, targets in the `data` attribute are included in the runfiles but on neither the compile-time nor runtime classpath. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of source files that are processed to create the target. This attribute is almost always required; see exceptions below. Source files of type `.java` are compiled. In case of generated `.java` files it is generally advisable to put the generating rule's name here instead of the name of the file itself. This not only improves readability but makes the rule more resilient to future changes: if the generating rule generates different files in the future, you only need to fix one place: the `outs` of the generating rule. You should not list the generating rule in `deps` because it is a no-op.  Source files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of `.java` files with a genrule.)  Rules: if the rule (typically `genrule` or `filegroup`) generates any of the files listed above, they will be used the same way as described for source files.  Source files of type `.properties` are treated as resources.  All other files are ignored, as long as there is at least one file of a file type described above. Otherwise an error is raised.  This argument is almost always required, except if you specify the `runtime_deps` argument. |
+| `data` | List of [labels](/concepts/labels); default is `[]` The list of files needed by this library at runtime. See general comments about `data` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical-attributes). When building a `java_library`, Bazel doesn't put these files anywhere; if the `data` files are generated files then Bazel generates them. When building a test that depends on this `java_library` Bazel copies or links the `data` files into the runfiles area. |
+| `resources` | List of [labels](/concepts/labels); default is `[]` A list of data files to include in a Java jar. Resources may be source files or generated files.  If resources are specified, they will be bundled in the jar along with the usual `.class` files produced by compilation. The location of the resources inside of the jar file is determined by the project structure. Bazel first looks for Maven's [standard directory layout](https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html), (a "src" directory followed by a "resources" directory grandchild). If that is not found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for example, if a resource is at `<workspace root>/x/java/y/java/z`, the path of the resource will be `y/java/z`. This heuristic cannot be overridden, however, the `resource_strip_prefix` attribute can be used to specify a specific alternative directory for resource files. |
+| `add_exports` | List of strings; default is `[]` Allow this library to access the given `module` or `package`. This corresponds to the javac and JVM --add-exports= flags. |
+| `add_opens` | List of strings; default is `[]` Allow this library to reflectively access the given `module` or `package`. This corresponds to the javac and JVM --add-opens= flags. |
+| `bootclasspath` | [Label](/concepts/labels); default is `None` Restricted API, do not use! |
+| `generates_api` | Boolean; default is `False` This attribute marks annotation processors that generate API code. If a rule uses an API-generating annotation processor, other rules depending on it can refer to the generated code only if their compilation actions are scheduled after the generating rule. This attribute instructs Bazel to introduce scheduling constraints when --java\_header\_compilation is enabled. *WARNING: This attribute affects build performance, use it only if necessary.* |
+| `javabuilder_jvm_flags` | List of strings; default is `[]` Restricted API, do not use! |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this library. Subject to ["Make variable"](make-variables) substitution and [Bourne shell tokenization](common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `neverlink` | Boolean; default is `False` Whether this library should only be used for compilation and not at runtime. Useful if the library will be provided by the runtime environment during execution. Examples of such libraries are the IDE APIs for IDE plug-ins or `tools.jar` for anything running on a standard JDK. Note that `neverlink = True` does not prevent the compiler from inlining material from this library into compilation targets that depend on it, as permitted by the Java Language Specification (e.g., `static final` constants of `String` or of primitive types). The preferred use case is therefore when the runtime library is identical to the compilation library.  If the runtime library differs from the compilation library then you must ensure that it differs only in places that the JLS forbids compilers to inline (and that must hold for all future versions of the JLS). |
+| `output_licenses` | List of strings; default is `[]` |
+| `plugins` | List of [labels](/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in this attribute will be run whenever this rule is built. A library may also inherit plugins from dependencies that use `exported_plugins`. Resources generated by the plugin will be included in the resulting jar of this rule. |
+| `processor_class` | String; default is `""` The processor class is the fully qualified type of the class that the Java compiler should use as entry point to the annotation processor. If not specified, this rule will not contribute an annotation processor to the Java compiler's annotation processing, but its runtime classpath will still be included on the compiler's annotation processor path. (This is primarily intended for use by [Error Prone plugins](https://errorprone.info/docs/plugins), which are loaded from the annotation processor path using [java.util.ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html).) |
+| `proguard_specs` | List of [labels](/concepts/labels); default is `[]` Files to be used as Proguard specification. These will describe the set of specifications to be used by Proguard. If specified, they will be added to any `android_binary` target depending on this library. The files included here must only have idempotent rules, namely -dontnote, -dontwarn, assumenosideeffects, and rules that start with -keep. Other options can only appear in `android_binary`'s proguard\_specs, to ensure non-tautological merges. |
+| `resource_strip_prefix` | String; default is `""` The path prefix to strip from Java resources. If specified, this path prefix is stripped from every file in the `resources` attribute. It is an error for a resource file not to be under this directory. If not specified (the default), the path of resource file is determined according to the same logic as the Java package of source files. For example, a source file at `stuff/java/foo/bar/a.txt` will be located at `foo/bar/a.txt`. |
+
+## java\_runtime
+
+[View rule sourceopen\_in\_new](@rules_java//java/common/rules/java_runtime.bzl)
+
+```
+java_runtime(name, srcs, compatible_with, default_cds, deprecation, distribs, exec_compatible_with, exec_properties, features, hermetic_srcs, hermetic_static_libs, java, java_home, lib_ct_sym, lib_modules, output_licenses, restricted_to, tags, target_compatible_with, testonly, toolchains, version, visibility)
+```
+
+Specifies the configuration for a Java runtime.
+
+#### Example:
+
+```
+java_runtime(
+    name = "jdk-9-ea+153",
+    srcs = glob(["jdk9-ea+153/**"]),
+    java_home = "jdk9-ea+153",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` All files in the runtime. |
+| `default_cds` | [Label](/concepts/labels); default is `None` Default CDS archive for hermetic `java_runtime`. When hermetic is enabled for a `java_binary` target the `java_runtime` default CDS is packaged in the hermetic deploy JAR. |
+| `hermetic_srcs` | List of [labels](/concepts/labels); default is `[]` Files in the runtime needed for hermetic deployments. |
+| `hermetic_static_libs` | List of [labels](/concepts/labels); default is `[]` The libraries that are statically linked with the launcher for hermetic deployments |
+| `java` | [Label](/concepts/labels); default is `None` The path to the java executable. |
+| `java_home` | String; default is `""` The path to the root of the runtime. Subject to ["Make" variable](/reference/be/make-variables) substitution. If this path is absolute, the rule denotes a non-hermetic Java runtime with a well-known path. In that case, the `srcs` and `java` attributes must be empty. |
+| `lib_ct_sym` | [Label](/concepts/labels); default is `None` The lib/ct.sym file needed for compilation with `--release`. If not specified and there is exactly one file in `srcs` whose path ends with `/lib/ct.sym`, that file is used. |
+| `lib_modules` | [Label](/concepts/labels); default is `None` The lib/modules file needed for hermetic deployments. |
+| `output_licenses` | List of strings; default is `[]` |
+| `version` | Integer; default is `0` The feature version of the Java runtime. I.e., the integer returned by `Runtime.version().feature()`. |
+
+## java\_toolchain
+
+[View rule sourceopen\_in\_new](@rules_java//java/common/rules/java_toolchain.bzl)
+
+```
+java_toolchain(name, android_lint_data, android_lint_jvm_opts, android_lint_opts, android_lint_package_configuration, android_lint_runner, bootclasspath, compatible_javacopts, compatible_with, deprecation, deps_checker, distribs, exec_compatible_with, exec_properties, features, forcibly_disable_header_compilation, genclass, header_compiler, header_compiler_builtin_processors, header_compiler_direct, ijar, jacocorunner, java_runtime, javabuilder, javabuilder_data, javabuilder_jvm_opts, javac_supports_multiplex_workers, javac_supports_worker_cancellation, javac_supports_worker_multiplex_sandboxing, javac_supports_workers, javacopts, jspecify_implicit_deps, jspecify_javacopts, jspecify_packages, jspecify_processor, jspecify_processor_class, jspecify_stubs, jvm_opts, licenses, misc, oneversion, oneversion_allowlist, oneversion_allowlist_for_tests, oneversion_whitelist, package_configuration, proguard_allowlister, reduced_classpath_incompatible_processors, restricted_to, singlejar, source_version, tags, target_compatible_with, target_version, testonly, timezone_data, toolchains, tools, turbine_data, turbine_jvm_opts, visibility, xlint)
+```
+
+Specifies the configuration for the Java compiler. Which toolchain to be used can be changed through
+the --java\_toolchain argument. Normally you should not write those kind of rules unless you want to
+tune your Java compiler.
+
+#### Examples
+
+A simple example would be:
+
+```
+java_toolchain(
+    name = "toolchain",
+    source_version = "7",
+    target_version = "7",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
+    xlint = [ "classfile", "divzero", "empty", "options", "path" ],
+    javacopts = [ "-g" ],
+    javabuilder = ":JavaBuilder_deploy.jar",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `android_lint_data` | List of [labels](/concepts/labels); default is `[]` Labels of tools available for label-expansion in android\_lint\_jvm\_opts. |
+| `android_lint_jvm_opts` | List of strings; default is `[]` The list of arguments for the JVM when invoking Android Lint. |
+| `android_lint_opts` | List of strings; default is `[]` The list of Android Lint arguments. |
+| `android_lint_package_configuration` | List of [labels](/concepts/labels); default is `[]` Android Lint Configuration that should be applied to the specified package groups. |
+| `android_lint_runner` | [Label](/concepts/labels); default is `None` Label of the Android Lint runner, if any. |
+| `bootclasspath` | List of [labels](/concepts/labels); default is `[]` The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag. |
+| `compatible_javacopts` | null; default is `{}` Internal API, do not use! |
+| `deps_checker` | [Label](/concepts/labels); default is `None` Label of the ImportDepsChecker deploy jar. |
+| `forcibly_disable_header_compilation` | Boolean; default is `False` Overrides --java\_header\_compilation to disable header compilation on platforms that do not support it, e.g. JDK 7 Bazel. |
+| `genclass` | [Label](/concepts/labels); default is `None` Label of the GenClass deploy jar. |
+| `header_compiler` | [Label](/concepts/labels); default is `None` Label of the header compiler. Required if --java\_header\_compilation is enabled. |
+| `header_compiler_builtin_processors` | List of strings; default is `[]` Internal API, do not use! |
+| `header_compiler_direct` | [Label](/concepts/labels); default is `None` Optional label of the header compiler to use for direct classpath actions that do not include any API-generating annotation processors. This tool does not support annotation processing. |
+| `ijar` | [Label](/concepts/labels); default is `None` Label of the ijar executable. |
+| `jacocorunner` | [Label](/concepts/labels); default is `None` Label of the JacocoCoverageRunner deploy jar. |
+| `java_runtime` | [Label](/concepts/labels); default is `None` The java\_runtime to use with this toolchain. It defaults to java\_runtime in execution configuration. |
+| `javabuilder` | [Label](/concepts/labels); default is `None` Label of the JavaBuilder deploy jar. |
+| `javabuilder_data` | List of [labels](/concepts/labels); default is `[]` Labels of data available for label-expansion in javabuilder\_jvm\_opts. |
+| `javabuilder_jvm_opts` | List of strings; default is `[]` The list of arguments for the JVM when invoking JavaBuilder. |
+| `javac_supports_multiplex_workers` | Boolean; default is `True` True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't. |
+| `javac_supports_worker_cancellation` | Boolean; default is `True` True if JavaBuilder supports cancellation of persistent workers, false if it doesn't. |
+| `javac_supports_worker_multiplex_sandboxing` | Boolean; default is `False` True if JavaBuilder supports running as a multiplex persistent worker with sandboxing, false if it doesn't. |
+| `javac_supports_workers` | Boolean; default is `True` True if JavaBuilder supports running as a persistent worker, false if it doesn't. |
+| `javacopts` | List of strings; default is `[]` The list of extra arguments for the Java compiler. Please refer to the Java compiler documentation for the extensive list of possible Java compiler flags. |
+| `jspecify_implicit_deps` | [Label](/concepts/labels); default is `None` Experimental, do not use! |
+| `jspecify_javacopts` | List of strings; default is `[]` Experimental, do not use! |
+| `jspecify_packages` | List of [labels](/concepts/labels); default is `[]` Experimental, do not use! |
+| `jspecify_processor` | [Label](/concepts/labels); default is `None` Experimental, do not use! |
+| `jspecify_processor_class` | String; default is `""` Experimental, do not use! |
+| `jspecify_stubs` | List of [labels](/concepts/labels); default is `[]` Experimental, do not use! |
+| `jvm_opts` | List of strings; default is `[]` The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java virtual machine documentation for the extensive list of possible flags for this option. |
+| `misc` | List of strings; default is `[]` Deprecated: use javacopts instead |
+| `oneversion` | [Label](/concepts/labels); default is `None` Label of the one-version enforcement binary. |
+| `oneversion_allowlist` | [Label](/concepts/labels); default is `None` Label of the one-version allowlist. |
+| `oneversion_allowlist_for_tests` | [Label](/concepts/labels); default is `None` Label of the one-version allowlist for tests. |
+| `oneversion_whitelist` | [Label](/concepts/labels); default is `None` Deprecated: use oneversion\_allowlist instead |
+| `package_configuration` | List of [labels](/concepts/labels); default is `[]` Configuration that should be applied to the specified package groups. |
+| `proguard_allowlister` | [Label](/concepts/labels); default is `"@bazel_tools//tools/jdk:proguard_whitelister"` Label of the Proguard allowlister. |
+| `reduced_classpath_incompatible_processors` | List of strings; default is `[]` Internal API, do not use! |
+| `singlejar` | [Label](/concepts/labels); default is `None` Label of the SingleJar deploy jar. |
+| `source_version` | String; default is `""` The Java source version (e.g., '6' or '7'). It specifies which set of code structures are allowed in the Java source code. |
+| `target_version` | String; default is `""` The Java target version (e.g., '6' or '7'). It specifies for which Java runtime the class should be build. |
+| `timezone_data` | [Label](/concepts/labels); default is `None` Label of a resource jar containing timezone data. If set, the timezone data is added as an implicitly runtime dependency of all java\_binary rules. |
+| `tools` | List of [labels](/concepts/labels); default is `[]` Labels of tools available for label-expansion in jvm\_opts. |
+| `turbine_data` | List of [labels](/concepts/labels); default is `[]` Labels of data available for label-expansion in turbine\_jvm\_opts. |
+| `turbine_jvm_opts` | List of strings; default is `[]` The list of arguments for the JVM when invoking turbine. |
+| `xlint` | List of strings; default is `[]` The list of warning to add or removes from default list. Precedes it with a dash to removes it. Please see the Javac documentation on the -Xlint options for more information. |

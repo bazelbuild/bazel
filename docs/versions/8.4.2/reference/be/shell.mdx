@@ -1,0 +1,131 @@
+---
+title: 'Shell Rules'
+---
+
+
+## Rules
+
+* [sh\_binary](#sh_binary)
+* [sh\_library](#sh_library)
+* [sh\_test](#sh_test)
+
+## sh\_binary
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/rules_shell/tree/v0.2.0/shell/private/sh_binary.bzl)
+
+```
+sh_binary(name, deps, srcs, data, args, compatible_with, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, output_licenses, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+The `sh_binary` rule is used to declare executable shell scripts.
+(`sh_binary` is a misnomer: its outputs aren't necessarily binaries.) This rule ensures
+that all dependencies are built, and appear in the `runfiles` area at execution time.
+We recommend that you name your `sh_binary()` rules after the name of the script minus
+the extension (e.g. `.sh`); the rule name and the file name must be distinct.
+`sh_binary` respects shebangs, so any available interpreter may be used (eg.
+`#!/bin/zsh`)
+
+#### Example
+
+For a simple shell script with no dependencies and some data files:
+
+```
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = glob(["datafiles/*.txt"]),
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
+| `env_inherit` | List of strings; default is `[]` |
+
+## sh\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/rules_shell/tree/v0.2.0/shell/private/sh_library.bzl)
+
+```
+sh_library(name, deps, srcs, data, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+The main use for this rule is to aggregate together a logical
+"library" consisting of related scripts—programs in an
+interpreted language that does not require compilation or linking,
+such as the Bourne shell—and any data those programs need at
+run-time. Such "libraries" can then be used from
+the `data` attribute of one or
+more `sh_binary` rules.
+
+You can use the [`filegroup`](/reference/be/general#filegroup) rule to aggregate data
+files.
+
+In interpreted programming languages, there's not always a clear
+distinction between "code" and "data": after all, the program is
+just "data" from the interpreter's point of view. For this reason
+this rule has three attributes which are all essentially equivalent:
+`srcs`, `deps` and `data`.
+The current implementation does not distinguish between the elements of these lists.
+All three attributes accept rules, source files and generated files.
+It is however good practice to use the attributes for their usual purpose (as with other rules).
+
+#### Examples
+
+```
+sh_library(
+    name = "foo",
+    data = [
+        ":foo_service_script",  # an sh_binary with srcs
+        ":deploy_foo",  # another sh_binary with srcs
+    ],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
+
+## sh\_test
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/rules_shell/tree/v0.2.0/shell/private/sh_test.bzl)
+
+```
+sh_test(name, deps, srcs, data, args, compatible_with, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, local, restricted_to, shard_count, size, tags, target_compatible_with, testonly, timeout, toolchains, visibility)
+```
+
+The `sh_binary` rule is used to declare executable shell scripts.
+(`sh_binary` is a misnomer: its outputs aren't necessarily binaries.) This rule ensures
+that all dependencies are built, and appear in the `runfiles` area at execution time.
+We recommend that you name your `sh_binary()` rules after the name of the script minus
+the extension (e.g. `.sh`); the rule name and the file name must be distinct.
+`sh_binary` respects shebangs, so any available interpreter may be used (eg.
+`#!/bin/zsh`)
+
+#### Example
+
+For a simple shell script with no dependencies and some data files:
+
+```
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = glob(["datafiles/*.txt"]),
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |

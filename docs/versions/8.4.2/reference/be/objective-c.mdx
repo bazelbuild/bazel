@@ -1,0 +1,75 @@
+---
+title: 'Objective-C Rules'
+---
+
+
+## Rules
+
+* [objc\_import](#objc_import)
+* [objc\_library](#objc_library)
+
+## objc\_import
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/objc/objc_import.bzl)
+
+```
+objc_import(name, deps, hdrs, alwayslink, archives, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, includes, restricted_to, sdk_dylibs, sdk_frameworks, sdk_includes, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, weak_sdk_frameworks)
+```
+
+This rule encapsulates an already-compiled static library in the form of an
+`.a` file. It also allows exporting headers and resources using the same
+attributes supported by `objc_library`.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of targets that this target depend on. |
+| `hdrs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ header files published by this library to be included by sources in dependent rules. These headers describe the public interface for the library and will be made available for inclusion by sources in this rule or in dependent rules. Headers not meant to be included by a client of this library should be listed in the srcs attribute instead. These will be compiled separately from the source if modules are enabled. |
+| `alwayslink` | Boolean; default is `False` If 1, any bundle or binary that depends (directly or indirectly) on this library will link in all the object files for the files listed in `srcs` and `non_arc_srcs`, even if some contain no symbols referenced by the binary. This is useful if your code isn't explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. |
+| `archives` | List of [labels](/concepts/labels); required The list of `.a` files provided to Objective-C targets that depend on this target. |
+| `includes` | List of strings; default is `[]` List of `#include/#import` search paths to add to this target and all depending targets. This is to support third party and open-sourced libraries that do not specify the entire workspace path in their `#import/#include` statements. The paths are interpreted relative to the package directory, and the genfiles and bin roots (e.g. `blaze-genfiles/pkg/includedir` and `blaze-out/pkg/includedir`) are included in addition to the actual client root. Unlike [COPTS](/reference/be/objective-c#objc_library.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-iquote" flags to [COPTS](/reference/be/objective-c#objc_library.copts) instead. |
+| `sdk_dylibs` | List of strings; default is `[]` Names of SDK .dylib libraries to link with. For instance, "libz" or "libarchive". "libc++" is included automatically if the binary has any C++ or Objective-C++ sources in its dependency tree. When linking a binary, all libraries named in that binary's transitive dependency graph are used. |
+| `sdk_frameworks` | List of strings; default is `[]` Names of SDK frameworks to link with (e.g. "AddressBook", "QuartzCore"). When linking a top level Apple binary, all SDK frameworks listed in that binary's transitive dependency graph are linked. |
+| `sdk_includes` | List of strings; default is `[]` List of `#include/#import` search paths to add to this target and all depending targets, where each path is relative to `$(SDKROOT)/usr/include`. |
+| `textual_hdrs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ files that are included as headers by source files in this rule or by users of this library. Unlike hdrs, these will not be compiled separately from the sources. |
+| `weak_sdk_frameworks` | List of strings; default is `[]` Names of SDK frameworks to weakly link with. For instance, "MediaAccessibility". In difference to regularly linked SDK frameworks, symbols from weakly linked frameworks do not cause an error if they are not present at runtime. |
+
+## objc\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/objc/objc_library.bzl)
+
+```
+objc_library(name, deps, srcs, data, hdrs, alwayslink, compatible_with, conlyopts, copts, cxxopts, defines, deprecation, distribs, enable_modules, exec_compatible_with, exec_properties, features, implementation_deps, includes, linkopts, module_map, module_name, non_arc_srcs, pch, restricted_to, sdk_dylibs, sdk_frameworks, sdk_includes, stamp, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, weak_sdk_frameworks)
+```
+
+This rule produces a static library from the given Objective-C source files.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/concepts/labels); default is `[]` The list of targets that this target depend on. |
+| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ source and header files, and/or (`.s`, `.S`, or `.asm`) assembly source files, that are processed to create the library target. These are your checked-in files, plus any generated files. Source files are compiled into .o files with Clang. Header files may be included/imported by any source or header in the srcs attribute of this target, but not by headers in hdrs or any targets that depend on this rule. Additionally, precompiled .o files may be given as srcs. Be careful to ensure consistency in the architecture of provided .o files and that of the build to avoid missing symbol linker errors. |
+| `hdrs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ header files published by this library to be included by sources in dependent rules. These headers describe the public interface for the library and will be made available for inclusion by sources in this rule or in dependent rules. Headers not meant to be included by a client of this library should be listed in the srcs attribute instead. These will be compiled separately from the source if modules are enabled. |
+| `alwayslink` | Boolean; default is `False` If 1, any bundle or binary that depends (directly or indirectly) on this library will link in all the object files for the files listed in `srcs` and `non_arc_srcs`, even if some contain no symbols referenced by the binary. This is useful if your code isn't explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. |
+| `conlyopts` | List of strings; default is `[]` Extra flags to pass to the compiler for C files. Subject to ["Make variable"](/reference/be/make-variables) substitution and [Bourne shell tokenization](/reference/be/common-definitions#sh-tokenization). These flags will only apply to this target, and not those upon which it depends, or those which depend on it. Note that for the generated Xcode project, directory paths specified using "-I" flags in copts are parsed out, prepended with "$(WORKSPACE\_ROOT)/" if they are relative paths, and added to the header search paths for the associated Xcode target. |
+| `copts` | List of strings; default is `[]` Extra flags to pass to the compiler. Subject to ["Make variable"](/reference/be/make-variables) substitution and [Bourne shell tokenization](/reference/be/common-definitions#sh-tokenization). These flags will only apply to this target, and not those upon which it depends, or those which depend on it. Note that for the generated Xcode project, directory paths specified using "-I" flags in copts are parsed out, prepended with "$(WORKSPACE\_ROOT)/" if they are relative paths, and added to the header search paths for the associated Xcode target. |
+| `cxxopts` | List of strings; default is `[]` Extra flags to pass to the compiler for Objective-C++ and C++ files. Subject to ["Make variable"](/reference/be/make-variables) substitution and [Bourne shell tokenization](/reference/be/common-definitions#sh-tokenization). These flags will only apply to this target, and not those upon which it depends, or those which depend on it. Note that for the generated Xcode project, directory paths specified using "-I" flags in copts are parsed out, prepended with "$(WORKSPACE\_ROOT)/" if they are relative paths, and added to the header search paths for the associated Xcode target. |
+| `defines` | List of strings; default is `[]` Extra `-D` flags to pass to the compiler. They should be in the form `KEY=VALUE` or simply `KEY` and are passed not only to the compiler for this target (as `copts` are) but also to all `objc_` dependers of this target. Subject to ["Make variable"](/reference/be/make-variables) substitution and [Bourne shell tokenization](/reference/be/common-definitions#sh-tokenization). |
+| `enable_modules` | Boolean; default is `False` Enables clang module support (via -fmodules). Setting this to 1 will allow you to @import system headers and other targets: @import UIKit; @import path\_to\_package\_target; |
+| `implementation_deps` | List of [labels](/concepts/labels); default is `[]` The list of other libraries that the library target depends on. Unlike with `deps`, the headers and include paths of these libraries (and all their transitive deps) are only used for compilation of this library, and not libraries that depend on it. Libraries specified with `implementation_deps` are still linked in binary targets that depend on this library. |
+| `includes` | List of strings; default is `[]` List of `#include/#import` search paths to add to this target and all depending targets. This is to support third party and open-sourced libraries that do not specify the entire workspace path in their `#import/#include` statements. The paths are interpreted relative to the package directory, and the genfiles and bin roots (e.g. `blaze-genfiles/pkg/includedir` and `blaze-out/pkg/includedir`) are included in addition to the actual client root. Unlike [COPTS](/reference/be/objective-c#objc_library.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-iquote" flags to [COPTS](/reference/be/objective-c#objc_library.copts) instead. |
+| `linkopts` | List of strings; default is `[]` Extra flags to pass to the linker. |
+| `module_map` | [Label](/concepts/labels); default is `None` custom Clang module map for this target. Use of a custom module map is discouraged. Most users should use module maps generated by Bazel. If specified, Bazel will not generate a module map for this target, but will pass the provided module map to the compiler. |
+| `module_name` | String; default is `""` Sets the module name for this target. By default the module name is the target path with all special symbols replaced by \_, e.g. //foo/baz:bar can be imported as foo\_baz\_bar. |
+| `non_arc_srcs` | List of [labels](/concepts/labels); default is `[]` The list of Objective-C files that are processed to create the library target that DO NOT use ARC. The files in this attribute are treated very similar to those in the srcs attribute, but are compiled without ARC enabled. |
+| `pch` | [Label](/concepts/labels); default is `None` Header file to prepend to every source file being compiled (both arc and non-arc). Use of pch files is actively discouraged in BUILD files, and this should be considered deprecated. Since pch files are not actually precompiled this is not a build-speed enhancement, and instead is just a global dependency. From a build efficiency point of view you are actually better including what you need directly in your sources where you need it. |
+| `sdk_dylibs` | List of strings; default is `[]` Names of SDK .dylib libraries to link with. For instance, "libz" or "libarchive". "libc++" is included automatically if the binary has any C++ or Objective-C++ sources in its dependency tree. When linking a binary, all libraries named in that binary's transitive dependency graph are used. |
+| `sdk_frameworks` | List of strings; default is `[]` Names of SDK frameworks to link with (e.g. "AddressBook", "QuartzCore"). When linking a top level Apple binary, all SDK frameworks listed in that binary's transitive dependency graph are linked. |
+| `sdk_includes` | List of strings; default is `[]` List of `#include/#import` search paths to add to this target and all depending targets, where each path is relative to `$(SDKROOT)/usr/include`. |
+| `stamp` | Boolean; default is `False` |
+| `textual_hdrs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ files that are included as headers by source files in this rule or by users of this library. Unlike hdrs, these will not be compiled separately from the sources. |
+| `weak_sdk_frameworks` | List of strings; default is `[]` Names of SDK frameworks to weakly link with. For instance, "MediaAccessibility". In difference to regularly linked SDK frameworks, symbols from weakly linked frameworks do not cause an error if they are not present at runtime. |
