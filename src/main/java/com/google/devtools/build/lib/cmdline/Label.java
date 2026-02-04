@@ -683,11 +683,25 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return true;
   }
 
+  private String toStringInternal(StarlarkSemantics semantics) {
+    if (getRepository().isMain()
+        && !semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
+      // If this label is in the main repo and we're not using unambiguous label stringification,
+      // the result should always be "//foo:bar".
+      return getCanonicalForm();
+    }
+
+    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
+    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
+    // other repos.
+    return getUnambiguousCanonicalForm();
+  }
+
   @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
-    // TODO: wyv@ - Use StarlarkSemantics here too for optional unambiguity.
     printer.append("Label(");
-    printer.repr(getCanonicalForm(), semantics);
+    printer.repr(toStringInternal(semantics), semantics);
     printer.append(")");
   }
 
@@ -707,19 +721,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
-    if (getRepository().isMain()
-        && !semantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
-      // If this label is in the main repo and we're not using unambiguous label stringification,
-      // the result should always be "//foo:bar".
-      printer.append(getCanonicalForm());
-      return;
-    }
-
-    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
-    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
-    // other repos.
-    printer.append(getUnambiguousCanonicalForm());
+    printer.append(toStringInternal(semantics));
   }
 
   @Override
