@@ -1826,6 +1826,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelReprRoundTrip() throws Exception {
+    // TODO(bazel-team): Test that an actual Label object can be repr'd and then eval'd in any
+    // context (in particular - in a non-main-repo context) to arrive back at the original Label.
+    String labelRepr = "Label(\"@@//:foo\")";
+    assertThat(ev.eval(labelRepr)).isInstanceOf(Label.class);
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isEqualTo(labelRepr);
+
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isNotEqualTo(labelRepr);
+    assertThat((String) ev.eval(String.format("repr(%s)", labelRepr))).doesNotContain("@@");
+  }
+
+  @Test
   public void testRuleLabelDefaultValue() throws Exception {
     evalAndExport(
         ev,
