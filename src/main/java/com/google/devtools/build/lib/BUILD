@@ -740,14 +740,14 @@ genrule(
         "//tools/build_defs/repo:doc",
     ],
     outs = ["mdx-reference-docs.zip"],
-    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
-          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
-          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
-          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
-          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
-          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
+    cmd = "mkdir -p $(@D)/html_for_mdx/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/html_for_mdx/reference/ && " +
+          "unzip -q -d $(@D)/html_for_mdx/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/html_for_mdx/rules/lib/repo && " +
+          "unzip -q -d $(@D)/html_for_mdx/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/html_for_mdx/rules/lib/repo/ && " +
           "mkdir -p $(@D)/mdx_docs && " +
-          "$(location //scripts/docs:html2mdx) --in_dir $(@D)/gen_docs --out_dir $(@D)/mdx_docs && " +
+          "$(location //scripts/docs:html2mdx) --in_dir $(@D)/html_for_mdx --out_dir $(@D)/mdx_docs && " +
           # Ugly hack: we want to preserve paths relative to mdx_docs/,
           # which means we have to temporarily cd into that directory and zip with -r.
           "pushd $(@D)/mdx_docs && " +
