@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatfo
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
+import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
@@ -103,6 +104,7 @@ public final class RemoteWorker {
   private final ContentAddressableStorageImplBase casServer;
   private final ExecutionImplBase execServer;
   private final CapabilitiesImplBase capabilitiesServer;
+  private final FetchImplBase fetchServer;
 
   static FileSystem getFileSystem() {
     final DigestHashFunction hashFunction;
@@ -204,6 +206,7 @@ public final class RemoteWorker {
       execServer = null;
     }
     this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null, workerOptions);
+    this.fetchServer = new FetchServer(cache, digestUtil, workPath.getRelative("fetch-temp"));
   }
 
   public Server startServer() throws IOException {
@@ -221,7 +224,8 @@ public final class RemoteWorker {
             .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
             .addService(ServerInterceptors.intercept(bsServer, interceptors))
             .addService(ServerInterceptors.intercept(casServer, interceptors))
-            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors));
+            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors))
+            .addService(ServerInterceptors.intercept(fetchServer, interceptors));
 
     if (workerOptions.tlsCertificate != null) {
       b.sslContext(getSslContextBuilder(workerOptions).build());
