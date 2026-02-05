@@ -171,9 +171,7 @@ public final class BuildConfigurationKeyProducer<C>
   private StateMachine findBuildOptionsScopes(Tasks tasks) {
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     // including platform-based flags in skykey for scopes lookUp
-    // Skip scope lookups for baseline configurations to avoid a Skyframe cycle with
-    // BaselineOptionsFunction.
-    if (label == null || postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
+    if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
       return this::possiblyApplyScopes;
     }
 

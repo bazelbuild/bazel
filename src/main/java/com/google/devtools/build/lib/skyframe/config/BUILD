@@ -42,6 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_exec_transition_loader",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:baseline_options_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
