@@ -47,15 +47,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSimulatorDevice;
 
   @Option(
-    name = "ios_memleaks",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Enable checking for memory leaks in ios_test targets."
-  )
-  public boolean runMemleaks;
-
-  @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -74,7 +65,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, disallow sdk_frameworks and weak_sdk_frameworks attributes in objc_library and"
-              + "objc_import.")
+              + " objc_import.")
   public boolean incompatibleDisallowSdkFrameworksAttributes;
 
   @Option(

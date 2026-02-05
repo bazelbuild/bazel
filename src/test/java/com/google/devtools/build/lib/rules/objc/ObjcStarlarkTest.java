@@ -1204,17 +1204,6 @@ swift_binary = rule(
   }
 
   @Test
-  public void testStarlarkWithRunMemleaksEnabled() throws Exception {
-    useConfiguration("--ios_memleaks");
-    checkStarlarkRunMemleaksWithExpectedValue(true);
-  }
-
-  @Test
-  public void testStarlarkWithRunMemleaksDisabled() throws Exception {
-    checkStarlarkRunMemleaksWithExpectedValue(false);
-  }
-
-  @Test
   public void testDottedVersion() throws Exception {
     scratch.file("test_starlark/rule/BUILD", "exports_files(['test_artifact'])");
     scratch.file(
@@ -1339,42 +1328,6 @@ swift_binary = rule(
         getConfiguredTarget("//test_starlark/apple_starlark:my_target");
     StarlarkInfo dependerProvider = getObjcInfo(starlarkTarget);
     assertThat(dependerProvider).isNotNull();
-  }
-
-  private void checkStarlarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/apple_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def _test_rule_impl(ctx):
-            return MyInfo(run_memleaks = ctx.fragments.objc.run_memleaks)
-
-        test_rule = rule(
-            implementation = _test_rule_impl,
-            fragments = ["objc"],
-            attrs = {},
-        )
-        """);
-
-    scratch.file(
-        "test_starlark/apple_starlark/BUILD",
-        """
-        load("//test_starlark/rule:apple_rules.bzl", "test_rule")
-
-        package(default_visibility = ["//visibility:public"])
-
-        test_rule(
-            name = "my_target",
-        )
-        """);
-
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/apple_starlark:my_target");
-
-    boolean runMemleaks = (boolean) getMyInfoFromTarget(starlarkTarget).getValue("run_memleaks");
-    assertThat(runMemleaks).isEqualTo(expectedValue);
   }
 
   @Test

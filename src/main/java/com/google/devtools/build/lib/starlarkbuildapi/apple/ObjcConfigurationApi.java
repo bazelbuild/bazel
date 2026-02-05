@@ -49,12 +49,6 @@ public interface ObjcConfigurationApi extends StarlarkValue {
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
-      name = "run_memleaks",
-      structField = true,
-      doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
-  boolean runMemleaks();
-
-  @StarlarkMethod(
       name = "copts_for_current_compilation_mode",
       structField = true,
       doc =
