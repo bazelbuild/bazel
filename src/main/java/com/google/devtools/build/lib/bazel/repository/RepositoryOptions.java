@@ -179,8 +179,8 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "The maximum number of attempts to retry a download error. If set to 0, retries are"
-              + " disabled.")
+          "The maximum number of attempts to retry a download error while fetching external"
+              + " repositories and modules. If set to 0, retries are disabled.")
   public int repositoryDownloaderRetries;
 
   @Option(

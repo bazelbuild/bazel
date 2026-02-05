@@ -37,9 +37,10 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -336,6 +337,13 @@ public class DownloadManager {
             type,
             context);
         break;
+      } catch (SocketTimeoutException e) {
+        // SocketTimeoutExceptions are subclasses of InterruptedIOException, but they do not
+        // necessarily indicate an external interruption. Treat them like ordinary IOExceptions so
+        // they can be retried.
+        if (!shouldRetryDownload(e, attempt)) {
+          throw e;
+        }
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
       } catch (IOException e) {
@@ -360,11 +368,18 @@ public class DownloadManager {
       return false;
     }
 
+    if (isPermanentlyUnretryableException(e)) {
+      return false;
+    }
+
     if (isRetryableException(e)) {
       return true;
     }
 
     for (var suppressed : e.getSuppressed()) {
+      if (isPermanentlyUnretryableException(suppressed)) {
+        continue;
+      }
       if (isRetryableException(suppressed)) {
         return true;
       }
@@ -373,8 +388,13 @@ public class DownloadManager {
     return false;
   }
 
+  private boolean isPermanentlyUnretryableException(Throwable e) {
+    return e instanceof UnrecoverableHttpException || e instanceof FileNotFoundException;
+  }
+
   private boolean isRetryableException(Throwable e) {
-    return e instanceof ContentLengthMismatchException || e instanceof SocketException;
+    // Broad retry policy: retry on most IOExceptions, but not on those we treat as permanent.
+    return e instanceof IOException && !isPermanentlyUnretryableException(e);
   }
 
   /**
@@ -462,6 +482,11 @@ public class DownloadManager {
                 eventHandler,
                 clientEnv);
         break;
+      } catch (SocketTimeoutException e) {
+        // See comment in #downloadInExecutor.
+        if (!shouldRetryDownload(e, attempt)) {
+          throw e;
+        }
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
       } catch (IOException e) {
