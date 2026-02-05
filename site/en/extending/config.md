@@ -335,7 +335,7 @@ the [`configuration_field`](/rules/lib/globals/bzl#configuration_field)
 
 #### `label_flag` and `label_setting` {:#label-flag-setting}
 
-These rules serve as label-typed build settings used for transitions and command-line configuration. They function as aliases that can be redirected by the configuration.
+These rules are label-typed build settings. `label_flag` can be set on the command line, while `label_setting` is for internal configuration (e.g. via transitions). Both function as aliases that can be redirected by the configuration.
 
 **Attributes:**
 
