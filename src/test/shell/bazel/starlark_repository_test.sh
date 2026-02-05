@@ -3600,6 +3600,32 @@ EOF
 
 # Verifies that files without user-readable permissions in archives are made
 # readable after extraction.
+function _run_extract_test() {
+  local archive_path="$1"
+  local path_in_archive="$2"
+  local expected_content="$3"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_path}', 'out_dir')
+  # Verify the file is readable by reading it
+  content = repository_ctx.read('out_dir/${path_in_archive}')
+  if '${expected_content}' not in content:
+    fail('Expected to read file content, got: ' + content)
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
 function test_extract_non_readable_file_tar() {
   local archive_tar="${TEST_TMPDIR}/non_readable.tar.gz"
 
@@ -3617,25 +3643,7 @@ with gzip.open('${archive_tar}', 'wb') as gz:
         tar.addfile(info, io.BytesIO(content))
 "
 
-  cat > $(setup_module_dot_bazel) <<EOF
-repo = use_repo_rule('//:test.bzl', 'repo')
-repo(name = 'foo')
-EOF
-  touch BUILD
-
-  cat >test.bzl <<EOF
-def _impl(repository_ctx):
-  repository_ctx.extract('${archive_tar}', 'out_dir')
-  # Verify the file is readable by reading it
-  content = repository_ctx.read('out_dir/non_readable_dir/non_readable.txt')
-  if 'secret content' not in content:
-    fail('Expected to read file content, got: ' + content)
-  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
-
-repo = repository_rule(implementation=_impl)
-EOF
-
-  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  _run_extract_test "${archive_tar}" "non_readable_dir/non_readable.txt" "secret content"
 }
 
 function test_extract_non_readable_file_zip() {
@@ -3655,25 +3663,7 @@ with zipfile.ZipFile('non_readable.zip', 'w') as zf:
 "
   popd
 
-  cat > $(setup_module_dot_bazel) <<EOF
-repo = use_repo_rule('//:test.bzl', 'repo')
-repo(name = 'foo')
-EOF
-  touch BUILD
-
-  cat >test.bzl <<EOF
-def _impl(repository_ctx):
-  repository_ctx.extract('${archive_zip}', 'out_dir')
-  # Verify the file is readable by reading it
-  content = repository_ctx.read('out_dir/non_readable_zip_dir/non_readable.txt')
-  if 'secret zip content' not in content:
-    fail('Expected to read file content, got: ' + content)
-  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
-
-repo = repository_rule(implementation=_impl)
-EOF
-
-  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  _run_extract_test "${archive_zip}" "non_readable_zip_dir/non_readable.txt" "secret zip content"
 }
 
 function test_extract_non_readable_file_ar() {
@@ -3694,25 +3684,7 @@ with open('non_readable.ar', 'r+b') as f:
 "
   popd
 
-  cat > $(setup_module_dot_bazel) <<EOF
-repo = use_repo_rule('//:test.bzl', 'repo')
-repo(name = 'foo')
-EOF
-  touch BUILD
-
-  cat >test.bzl <<EOF
-def _impl(repository_ctx):
-  repository_ctx.extract('${archive_ar}', 'out_dir')
-  # Verify the file is readable by reading it
-  content = repository_ctx.read('out_dir/non_readable.txt')
-  if 'secret ar content' not in content:
-    fail('Expected to read file content, got: ' + content)
-  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
-
-repo = repository_rule(implementation=_impl)
-EOF
-
-  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  _run_extract_test "${archive_ar}" "non_readable.txt" "secret ar content"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/27446.
