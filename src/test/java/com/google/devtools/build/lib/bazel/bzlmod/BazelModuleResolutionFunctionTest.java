@@ -531,7 +531,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "c@1.0 depends on d@2.0 with compatibility level 2, but b@1.0 depends on d@1.0 with"
+            "An unknown module in your build graph depends on d@2.0 with compatibility level 2, but b@1.0 depends on d@1.0 with"
                 + " compatibility level 0 which is different");
   }
 

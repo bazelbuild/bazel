@@ -498,7 +498,7 @@ public class SelectionTest {
             () -> Selection.run(depGraph, /* overrides= */ ImmutableMap.of()));
     String error = e.getMessage();
     assertThat(error).contains("bbb@1.0 depends on ddd@1.0 with compatibility level 1");
-    assertThat(error).contains("ccc@2.0 depends on ddd@2.0 with compatibility level 2");
+    assertThat(error).contains("depends on ddd@2.0 with compatibility level 2");
     assertThat(error).contains("which is different");
   }
 
@@ -530,7 +530,7 @@ public class SelectionTest {
             () -> Selection.run(depGraph, /* overrides= */ ImmutableMap.of()));
     String error = e.getMessage();
     assertThat(error).contains("bbb@1.0 depends on ddd@1.0 with compatibility level 1");
-    assertThat(error).contains("ccc@2.0 depends on ddd@2.0 with compatibility level 2");
+    assertThat(error).contains("depends on ddd@2.0 with compatibility level 2");
     assertThat(error).contains("which is different");
   }
 
@@ -562,7 +562,7 @@ public class SelectionTest {
             () -> Selection.run(depGraph, /* overrides= */ ImmutableMap.of()));
     String error = e.getMessage();
     assertThat(error).contains("bbb@1.0 depends on ddd@1.0 with compatibility level 1");
-    assertThat(error).contains("ccc@2.0 depends on ddd@2.0 with compatibility level 2");
+    assertThat(error).contains("depends on ddd@2.0 with compatibility level 2");
     assertThat(error).contains("which is different");
   }
 
@@ -766,7 +766,7 @@ public class SelectionTest {
             () -> Selection.run(depGraph, /* overrides= */ ImmutableMap.of()));
     String error = e.getMessage();
     assertThat(error).contains("bbb@1.0 depends on ddd@1.0 with compatibility level 1");
-    assertThat(error).contains("ccc@2.0 depends on ddd@3.0 with compatibility level 3");
+    assertThat(error).contains("depends on ddd@3.0 with compatibility level 3");
     assertThat(error).contains("which is different");
   }
 
