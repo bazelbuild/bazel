@@ -340,7 +340,7 @@ public final class SkyframeBuildView {
                   + " https://bazel.build/advanced/performance/iteration-speed)."));
       logger.atInfo().log(
           "Discarding analysis cache because the build configuration changed: %s", diff);
-      return true;
+      return false;
     }
 
     return false;
