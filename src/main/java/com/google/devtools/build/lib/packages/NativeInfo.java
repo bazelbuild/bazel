@@ -17,6 +17,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
@@ -27,6 +28,8 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.StarlarkEncodable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -36,7 +39,7 @@ import net.starlark.java.syntax.Location;
 // TODO(adonovan): ensure that all subclasses are named *Info and not *Provider.
 // (Info is to object as Provider is to class.)
 @Immutable
-public abstract class NativeInfo implements Info {
+public abstract class NativeInfo implements Info, StarlarkEncodable {
   private final Location location;
 
   protected NativeInfo() {
@@ -123,18 +126,60 @@ public abstract class NativeInfo implements Info {
    */
   @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
-    boolean first = true;
-    printer.append("struct(");
-    for (var field : getLegacyFields().entrySet()) {
-      if (!first) {
-        printer.append(", ");
-      }
-      first = false;
-      printer.append(field.getKey());
-      printer.append(" = ");
-      printer.repr(field.getValue(), semantics);
+    new EncodableStructure(this).repr(printer, semantics);
+  }
+
+  @Override
+  public Object objectForEncoding(StarlarkSemantics semantics) {
+    return new EncodableStructure(this);
+  }
+
+  /**
+   * A {@link Structure} wrapper for a {@link NativeInfo}'s non-method fields; used for text
+   * encoding.
+   */
+  private static final class EncodableStructure implements Structure {
+    private final NativeInfo info;
+    private final ImmutableMap<String, Object> fields;
+
+    private EncodableStructure(NativeInfo info) {
+      this.info = info;
+      this.fields = info.getLegacyFields();
     }
-    printer.append(")");
+
+    @Override
+    @Nullable
+    public Object getValue(String name) {
+      return fields.get(name);
+    }
+
+    @Override
+    @Nullable
+    public ImmutableSet<String> getFieldNames() {
+      return fields.keySet();
+    }
+
+    @Override
+    @Nullable
+    public String getErrorMessageForUnknownField(String field) {
+      return info.getProvider().getErrorMessageForUnknownField(field);
+    }
+
+    @Override
+    public void repr(Printer printer, StarlarkSemantics semantics) {
+      boolean first = true;
+      printer.append("struct(");
+      for (var field : fields.entrySet()) {
+        if (!first) {
+          printer.append(", ");
+        }
+        first = false;
+        printer.append(field.getKey());
+        printer.append(" = ");
+        printer.repr(field.getValue(), semantics);
+      }
+      printer.append(")");
+    }
   }
 
   @Override

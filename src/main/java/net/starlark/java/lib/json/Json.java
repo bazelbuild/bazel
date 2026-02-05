@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -35,7 +34,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
@@ -44,6 +42,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.StarlarkEncodable;
 
 // Tests at //src/test/java/net/starlark/java/eval:testdata/json.sky
 
@@ -65,34 +64,14 @@ public final class Json implements StarlarkValue {
    */
   public static final Json INSTANCE = new Json();
 
-  /** An interface for {@link StarlarkValue} subclasses to define their own JSON encoding. */
-  public interface Encodable {
-    /**
-     * Returns a value which represents this object and which will be encoded by {@link
-     * Json#encode}.
-     *
-     * <p>In other words, the returned value must be one of the following:
-     *
-     * <ul>
-     *   <li>{@link Starlark.NONE};
-     *   <li>a {@link Boolean}, {@link String}, {@link StarlarkInt}, or {@link StarlarkFloat};
-     *   <li>a {@link Map} (with encodable keys and values);
-     *   <li>a {@link StarlarkIterable};
-     *   <li>a {@link Structure} or {@link NativeInfo}; or
-     *   <li>a different {@link Encodable} (but be careful to avoid infinite recursion).
-     * </ul>
-     */
-    Object objectForEncoding(StarlarkSemantics semantics);
-  }
-
   /**
    * Encodes a Starlark value as JSON.
    *
    * <p>An application-defined subclass of StarlarkValue may define its own JSON encoding by
-   * implementing the {@link Encodable} interface. Otherwise, the encoder tests for the {@link Map},
-   * {@link StarlarkIterable}, and {@link Structure} interfaces, in that order, resulting in
-   * dict-like, list-like, and struct-like encoding, respectively. See the Starlark documentation
-   * annotation for more detail.
+   * implementing the {@link StarlarkEncodable} interface. Otherwise, the encoder tests for the
+   * {@link Map}, {@link StarlarkIterable}, and {@link Structure} interfaces, in that order,
+   * resulting in dict-like, list-like, and struct-like encoding, respectively. See the Starlark
+   * documentation annotation for more detail.
    *
    * <p>Encoding any other value yields an error.
    */
@@ -140,8 +119,8 @@ public final class Json implements StarlarkValue {
     }
 
     private void encode(Object x) throws EvalException, InterruptedException {
-      if (x instanceof Encodable) {
-        x = ((Encodable) x).objectForEncoding(semantics);
+      if (x instanceof StarlarkEncodable encodable) {
+        x = encodable.objectForEncoding(semantics);
       }
 
       if (x == Starlark.NONE) {
@@ -218,8 +197,8 @@ public final class Json implements StarlarkValue {
         return;
       }
 
-      // e.g. struct
-      if (x instanceof Structure || x instanceof NativeInfo) {
+      // e.g. struct or a NativeInfo's EncodableStructure proxy.
+      if (x instanceof Structure) {
         // Sort keys for determinism.
         List<String> fields =
             Ordering.natural().sortedCopy(Starlark.dir(Mutability.IMMUTABLE, semantics, x));
@@ -239,11 +218,6 @@ public final class Json implements StarlarkValue {
                     x,
                     field,
                     null); // may fail (field not defined)
-            // This preserves legacy behavior where only struct_fields from NativeInfo were emitted
-            // When serializing non NativeInfo, just let it fail on functions
-            if (x instanceof NativeInfo && v instanceof StarlarkCallable) {
-              continue;
-            }
             encode(v); // may fail (unexpected type)
           } catch (EvalException ex) {
             throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());

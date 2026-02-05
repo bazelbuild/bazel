@@ -2196,6 +2196,49 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testJsonAndProtoNativeInfoEncoding() throws Exception {
+    // FeatureFlagInfo is a NativeInfo having both struct fields (value, error) and non-struct-field
+    // methods (is_valid_value), which makes it a good test case for NativeInfo method filtering in
+    // json and textproto encoding.
+    // Note for future maintainers: If FeatureFlagInfo ever evolves to not have non-struct-field
+    // methods, update this test case to use a different NativeInfo subclass having some
+    // non-constructor @StarlarkMethod-annotatated methods with structField = true, and some
+    // without; for example, PackageSpecificationInfo.
+    // If no such NativeInfo subclass exists or is ever likely to be added, consider removing this
+    // test case and having NativeInfo trivially implement Structure rather than StarlarkEncodable.
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx):
+            feature_flag_info = config_common.FeatureFlagInfo(value = "val")
+            if "is_valid_value" not in dir(feature_flag_info):
+                fail("feature_flag_info.is_valid_value not found, got %s" % repr(dir(feature_flag_info)))
+            json_encoded = json.encode(feature_flag_info)
+            proto_encoded = proto.encode_text(feature_flag_info)
+            # We expect no `is_valid_value` method in json encoding.
+            if json_encoded != '{"error":null,"value":"val"}':
+                fail("json.encode(feature_flag_info) not as expected, got %s" % repr(json_encoded))
+            # We expect no `is_valid_value` method or `error` None-valued field in proto encoding.
+            if proto_encoded != 'value: "val"\\n':
+                fail("proto.encode_text(feature_flag_info) not as expected, got %s" % repr(proto_encoded))
+            return []
+
+        test_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "test_rule")
+        test_rule(name = "test")
+        """);
+
+    var unused = createRuleContext("//test:test");
+    // The rule implementation tests the json and proto encoding internally
+  }
+
+  @Test
   public void testLabelAttrWrongDefault() throws Exception {
     ev.checkEvalErrorContains(
         "got value of type 'int', want 'Label, string, LateBoundDefault, function, or NoneType'",

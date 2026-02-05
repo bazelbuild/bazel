@@ -21,17 +21,17 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.StarlarkEncodable;
 
 /** Proto defines the "proto" Starlark module of utilities for protocol message processing. */
 @StarlarkBuiltin(
@@ -105,12 +105,14 @@ public class Proto implements StarlarkValue {
             name = "x",
             allowedTypes = {
               @ParamType(type = Structure.class),
-              @ParamType(type = NativeInfo.class)
+              @ParamType(type = StarlarkEncodable.class)
             })
-      })
-  public String encodeText(StarlarkValue x) throws EvalException, InterruptedException {
-    TextEncoder enc = new TextEncoder();
-    enc.message(x);
+      },
+      useStarlarkThread = true)
+  public String encodeText(Object x, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    TextEncoder enc = new TextEncoder(thread.getSemantics());
+    enc.message(enc.toStructure(x));
     return enc.out.toString();
   }
 
@@ -118,9 +120,25 @@ public class Proto implements StarlarkValue {
 
     private final StringBuilder out = new StringBuilder();
     private int indent = 0;
+    private final StarlarkSemantics semantics;
+
+    private TextEncoder(StarlarkSemantics semantics) {
+      this.semantics = semantics;
+    }
+
+    private Structure toStructure(Object x) throws EvalException {
+      Object originalX = x;
+      if (x instanceof StarlarkEncodable encodable) {
+        x = encodable.objectForEncoding(semantics);
+      }
+      if (!(x instanceof Structure struct)) {
+        throw Starlark.errorf("invalid message: got %s, want struct", Starlark.type(originalX));
+      }
+      return struct;
+    }
 
     // Encodes Structure x as a protocol message.
-    private void message(StarlarkValue x) throws EvalException, InterruptedException {
+    private void message(Structure x) throws EvalException, InterruptedException {
       // For determinism, sort fields.
       List<String> fields =
           Ordering.natural()
@@ -129,11 +147,6 @@ public class Proto implements StarlarkValue {
         try {
           Object value =
               Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x, field, null);
-          // This preserves legacy behavior where only struct_fields from NativeInfo were emitted
-          // When serializing non NativeInfo, just let it fail on functions
-          if (x instanceof NativeInfo && value instanceof StarlarkCallable) {
-            continue;
-          }
           field(field, value);
         } catch (EvalException ex) {
           throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());
@@ -144,10 +157,12 @@ public class Proto implements StarlarkValue {
     // Encodes Structure field (name, v) as a message field
     // (a repeated field, if v is a dict or sequence.)
     private void field(String name, Object v) throws EvalException, InterruptedException {
-      // dict?
-      if (v instanceof Dict) {
-        Dict<?, ?> dict = (Dict<?, ?>) v;
-        for (Map.Entry<?, ?> entry : dict.entrySet()) {
+      if (v instanceof StarlarkEncodable encodable) {
+        v = encodable.objectForEncoding(semantics);
+      }
+      // dict or other mapping?
+      if (v instanceof Map<?, ?> map) {
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
           Object key = entry.getKey();
           if (!(key instanceof String || key instanceof StarlarkInt)) {
             throw Starlark.errorf(
@@ -170,9 +185,9 @@ public class Proto implements StarlarkValue {
       }
 
       // list or tuple?
-      if (v instanceof Sequence) {
+      if (v instanceof StarlarkIterable<?> sequence) {
         int i = 0;
-        for (Object item : (Sequence<?>) v) {
+        for (Object item : sequence) {
           try {
             fieldElement(name, item);
           } catch (EvalException ex) {
@@ -191,12 +206,17 @@ public class Proto implements StarlarkValue {
     }
 
     // Emits field (name, v) as a message field, or one element of a repeated field.
-    // v must be an int, float, string, bool, or Structure.
+    // v must be an int, float, string, bool, Structure, or a StarlarkEncodable encoding to one of
+    // these.
     private void fieldElement(String name, Object v) throws EvalException, InterruptedException {
-      if (v instanceof Structure) {
+      if (v instanceof StarlarkEncodable encodable) {
+        v = encodable.objectForEncoding(semantics);
+      }
+
+      if (v instanceof Structure struct) {
         emitLine(name, " {");
         indent++;
-        message((Structure) v);
+        message(struct);
         indent--;
         emitLine("}");
 

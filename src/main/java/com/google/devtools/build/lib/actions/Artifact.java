@@ -60,7 +60,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.lib.json.Json;
+import net.starlark.java.lib.StarlarkEncodable;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -123,7 +123,7 @@ public abstract sealed class Artifact
         Comparable<Artifact>,
         CommandLineItem,
         ExecutionPhaseSkyKey,
-        Json.Encodable
+        StarlarkEncodable
     permits SourceArtifact, DerivedArtifact {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
