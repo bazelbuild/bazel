@@ -440,9 +440,8 @@ final class Selection {
               "the root module cannot possibly exist more than once in the dep graph");
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
-              "%s depends on %s with compatibility level %d, but %s depends on %s with"
-                  + " compatibility level %d which is different",
-              from,
+              "An unknown module in your build graph depends on %s with compatibility level %d,"
+                  + " but %s depends on %s with compatibility level %d which is different",
               key,
               module.getCompatibilityLevel(),
               existingModuleWithSameName.dependent(),
