@@ -261,6 +261,31 @@ public final class ArtifactFunction implements SkyFunction {
         }
       }
 
+      for (Map.Entry<Artifact, TreeArtifactValue> entry :
+          actionExecutionValue.getAllTreeArtifactValues().entrySet()) {
+        Artifact artifact = entry.getKey();
+        Preconditions.checkState(
+            artifact.hasParent(),
+            "Parentless artifact %s found in ActionExecutionValue for %s: %s %s",
+            artifact,
+            actionKey,
+            actionExecutionValue,
+            artifactDependencies);
+        Preconditions.checkState(
+            artifact.isSubTreeArtifact(), "Artifact %s is not a subdirectory artifact", artifact);
+
+        if (artifact.getParent().equals(parent)) {
+          sawTreeChild = true;
+          // Flatten the TreeArtifactValue from subdirectories.
+          TreeArtifactValue treeArtifactValue =
+              Preconditions.checkNotNull(actionExecutionValue.getTreeArtifactValue(artifact));
+          for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
+              treeArtifactValue.getChildValues().entrySet()) {
+            treeBuilder.putChild(childEntry.getKey(), childEntry.getValue());
+          }
+        }
+      }
+
       Preconditions.checkState(
           sawTreeChild,
           "Action denoted by %s does not output any TreeFileArtifacts from %s",
@@ -330,7 +355,9 @@ public final class ArtifactFunction implements SkyFunction {
     // the action so that we at least have consistency.
     TraversalRequest request =
         DirectoryArtifactTraversalRequest.create(
-            DirectTraversalRoot.forRootedPath(path), /*skipTestingForSubpackage=*/ true, artifact);
+            DirectTraversalRoot.forRootedPath(path),
+            /* skipTestingForSubpackage= */ true,
+            artifact);
     RecursiveFilesystemTraversalValue value;
     try {
       value =
@@ -523,6 +550,7 @@ public final class ArtifactFunction implements SkyFunction {
           .toString();
     }
   }
+
   /** An {@link Exception} thrown representing a source input {@link IOException}. */
   public static final class SourceArtifactException extends Exception implements DetailedException {
     private final DetailedExitCode detailedExitCode;
