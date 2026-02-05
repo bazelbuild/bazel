@@ -1291,7 +1291,7 @@ You can consume the status information in your build rules. The most common way 
         name = "print_status",
         outs = ["status_info.txt"],
         stamp = 1,  # Required to enable stamping
-        cmd = "grep STABLE_PYTHON_VERSION bazel-out/stable-status.txt > $@",
+        cmd = "grep STABLE_PYTHON_VERSION \$(BINDIR)/stable-status.txt > $@",
     )
     ```
 
