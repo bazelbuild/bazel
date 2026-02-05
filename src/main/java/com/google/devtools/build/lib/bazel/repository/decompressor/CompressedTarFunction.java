@@ -136,7 +136,9 @@ public abstract class CompressedTarFunction implements Decompressor {
             try (OutputStream out = filePath.getOutputStream()) {
               tarStream.transferTo(out);
             }
-            filePath.chmod(entry.getMode());
+            // Ensure that all files are at least user-readable. Some archives contain files that
+            // are not, but many other tools are working around this and thus mask these issues.
+            filePath.chmod(entry.getMode() | 0400);
 
             // This can only be done on real files, not links, or it will skip the reader to
             // the next "real" file to try to find the mod time info.
