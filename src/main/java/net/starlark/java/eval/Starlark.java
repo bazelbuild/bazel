@@ -1056,7 +1056,7 @@ public final class Starlark {
     return StarlarkList.copyOf(mu, fields);
   }
 
-  // --- methods related to StarlarkMethod-annotated classes ---
+  // --- methods related to StarlarkBuiltin-annotated classes ---
 
   /**
    * Returns a map of Java methods and corresponding StarlarkMethod annotations for each annotated

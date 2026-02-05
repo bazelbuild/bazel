@@ -92,15 +92,40 @@ final class CallUtils {
   }
 
   /**
-   * Information derived from a {@link Class} (that has methods annotated with {@link
-   * StarlarkMethod}) based on a {@link StarlarkSemantics}.
+   * Describes the Starlark methods available for a particular Java class under a particular {@link
+   * StarlarkSemantics}.
+   *
+   * <p>Generally, but not always (e.g. in the case of compilations of global functions like {@link
+   * MethodLibrary}), instances of the Java class are valid as Starlark values.
+   *
+   * <p>Although a {@code StarlarkClassDescriptor} does not directly embed the {@code
+   * StarlarkSemantics}, its contents vary based on them. In contrast, {@link MethodDescriptor} and
+   * {@link ParamDescriptor} do not vary with the semantics.
    */
+  // TODO(bazel-team): For context on whether descriptors should depend on the StarlarkSemantics,
+  // see #25743 and the discussion in cl/742265869. The history of this is that eliminating the
+  // dependence on semantics made it simpler to obtain type information and avoid an overreliance on
+  // StarlarkSemantics#DEFAULT. But embedding a semantics may make it simpler to give precise static
+  // type information that takes into account flag-guarding. For the moment it suffices to store a
+  // semantics in BuiltinFunction.
   private static class StarlarkClassDescriptor {
+    /**
+     * The descriptor for the unique {@code @StarlarkMethod}-annotated method on this class that has
+     * {@link StarlarkMethod#selfCall} set to true (ex: "struct" in Bazel), or null if there is no
+     * such method.
+     */
     @Nullable MethodDescriptor selfCall;
 
     /**
-     * All {@link StarlarkMethod}-annotated Java methods, sans ones where {@code selfCall() ==
-     * true}, sorted by Java method name.
+     * A map of the method descriptors that are available as fields of this object.
+     *
+     * <p>This includes methods with {@link StarlarkMethod#structField} set to true, i.e.
+     * non-callable Starlark fields.
+     *
+     * <p>The {@code selfCall} method is omitted (if one even exists). Any methods that are disabled
+     * by flag guarding via the {@link StarlarkSemantics} are also omitted.
+     *
+     * <p>The map is keyed on the Starlark field name, and sorted by Java method name.
      */
     ImmutableMap<String, MethodDescriptor> methods;
   }
