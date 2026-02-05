@@ -1,9 +1,31 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
-BUILD_SCM_REV_CMD = "\\\"$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')\\\""
+BUILD_SCM_REV_CMD = "$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')"
 
 # Requires --config=docs
+genrule(
+    name = "gen_mdx_release_docs",
+    srcs = [
+        "//docs",
+        "//src/main/java/com/google/devtools/build/lib:mdx-reference-docs.zip",
+    ],
+    outs = [
+        "mdx_release_docs.zip",
+    ],
+    cmd = "$(location :create_release_docs)" +
+          " --version=" + BUILD_SCM_REV_CMD +
+          " --narrative_docs_path=$(location //docs)" +
+          " --reference_docs_path=$(location //src/main/java/com/google/devtools/build/lib:mdx-reference-docs.zip)" +
+          " --output_path=$(OUTS)",
+    stamp = 1,
+    tools = [
+        ":create_release_docs",
+    ],
+)
+
+# Requires --config=docs
+# TODO: delete once we've deprecated DevSite.
 genrule(
     name = "gen_release_docs",
     srcs = [
@@ -29,6 +51,7 @@ genrule(
 )
 
 # Requires --config=docs
+# TODO: delete once we've deprecated DevSite.
 genrule(
     name = "gen_new_toc",
     srcs = [
