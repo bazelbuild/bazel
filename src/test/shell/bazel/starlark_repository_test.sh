@@ -3598,6 +3598,123 @@ EOF
   [[ -f "$output_base/external/+repo+foo/ruff" ]] || fail "Expected ruff binary to be extracted"
 }
 
+# Verifies that files without user-readable permissions in archives are made
+# readable after extraction.
+function test_extract_non_readable_file_tar() {
+  local archive_tar="${TEST_TMPDIR}/non_readable.tar.gz"
+
+  python3 -c "
+import tarfile
+import io
+import gzip
+
+content = b'secret content'
+with gzip.open('${archive_tar}', 'wb') as gz:
+    with tarfile.open(fileobj=gz, mode='w') as tar:
+        info = tarfile.TarInfo(name='non_readable_dir/non_readable.txt')
+        info.size = len(content)
+        info.mode = 0o000  # No permissions
+        tar.addfile(info, io.BytesIO(content))
+"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir')
+  # Verify the file is readable by reading it
+  content = repository_ctx.read('out_dir/non_readable_dir/non_readable.txt')
+  if 'secret content' not in content:
+    fail('Expected to read file content, got: ' + content)
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
+function test_extract_non_readable_file_zip() {
+  local archive_zip="${TEST_TMPDIR}/non_readable.zip"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir -p non_readable_zip_dir
+  echo "secret zip content" > non_readable_zip_dir/non_readable.txt
+  python3 -c "
+import zipfile
+with zipfile.ZipFile('non_readable.zip', 'w') as zf:
+    info = zipfile.ZipInfo('non_readable_zip_dir/non_readable.txt')
+    # S_IFREG (0o100000) marks it as a regular file, but with no permission bits.
+    # This ensures getPermissions() returns the actual mode rather than defaulting to 0755.
+    info.external_attr = 0o100000 << 16
+    zf.writestr(info, 'secret zip content')
+"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_zip}', 'out_dir')
+  # Verify the file is readable by reading it
+  content = repository_ctx.read('out_dir/non_readable_zip_dir/non_readable.txt')
+  if 'secret zip content' not in content:
+    fail('Expected to read file content, got: ' + content)
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
+function test_extract_non_readable_file_ar() {
+  local archive_ar="${TEST_TMPDIR}/non_readable.ar"
+
+  # Create a valid AR file, then patch the permission field to 0000
+  pushd "${TEST_TMPDIR}"
+  echo "secret ar content" > non_readable.txt
+  ar rc non_readable.ar non_readable.txt
+  # Patch the mode field (bytes 40-47 after the 8-byte magic) to "0       "
+  python3 -c "
+with open('non_readable.ar', 'r+b') as f:
+    # AR magic is 8 bytes, then header starts
+    # Header format: filename(16) + mtime(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
+    # Mode is at offset 8 + 16 + 12 + 6 + 6 = 48
+    f.seek(48)
+    f.write(b'0       ')  # 8 bytes for mode 0000 in octal
+"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_ar}', 'out_dir')
+  # Verify the file is readable by reading it
+  content = repository_ctx.read('out_dir/non_readable.txt')
+  if 'secret ar content' not in content:
+    fail('Expected to read file content, got: ' + content)
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/27446.
 function do_test_local_module_file_patch() {
   cat > $(setup_module_dot_bazel) <<'EOF'
