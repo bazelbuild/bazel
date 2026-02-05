@@ -1,0 +1,192 @@
+---
+title: 'Runfiles'
+---
+
+[Runfiles are a set of files used by a target at runtime (as opposed to build time)](/extending/rules#runfiles).
+
+Do not hardcode runfiles paths. Those contain the [canonical repository name](/external/overview#canonical-repo-name), but [the canonical repository name format is an implementation detail that may change at any time](/external/module#repository_names_and_strict_deps).
+
+Use one of the language-specific runfiles libraries to access them:
+
+- [rules_cc](https://github.com/bazelbuild/rules_cc/blob/main/cc/runfiles/runfiles.h)
+- [rules_go](https://github.com/bazel-contrib/rules_go/blob/master/go/runfiles/runfiles.go)
+- [rules_python](https://github.com/bazel-contrib/rules_python/blob/main/python/runfiles/runfiles.py)
+- [rules_shell](https://github.com/bazelbuild/rules_shell/blob/main/shell/runfiles/runfiles.bash)
+
+Runfiles are generally referenced by an `rlocationpath` in the form of `$REPO/package/file` where `$REPO` should be the [apparent repository name](/external/overview#apparent-repo-name).
+Most runfiles libraries (see below) support functionality to determine the repository of the currently executed target which is useful to refer to other files in the same repository.
+Many Bazel rules support [Make Variables](/reference/be/make-variables#predefined_label_variables) to translate from a target to an rlocationpath by using the `$(rlocationpath //package:target)` notation.
+
+Examples:
+
+<Tabs>
+
+<Tab title="C++">
+
+```starlark
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "runfile",
+    srcs = ["runfile.cc"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_cc//cc/runfiles"],
+)
+```
+
+```cpp
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include "rules_cc/cc/runfiles/runfiles.h"
+
+using rules_cc::cc::runfiles::Runfiles;
+
+inline constexpr std::string_view someFile = "examples/runfile.txt";
+
+int main(int argc, char **argv) {
+  std::string error;
+  const auto runfiles = Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY, &error);
+  if (runfiles == nullptr) {
+    std::cerr << "Failed to create Runfiles object" << error << "\n";
+    return 1;
+  }
+
+  std::string root = BAZEL_CURRENT_REPOSITORY;
+  if (root == "") {
+    root = "_main";
+  }
+  const std::string realPathToSomeFile = runfiles->Rlocation(std::filesystem::path(root) / someFile);
+
+  std::cout << "The content of the runfile is:\n";
+  std::ifstream fin(realPathToSomeFile);
+  std::string line;
+  while (std::getline(fin, line)) {
+    std::cout << line << "\n";
+  }
+
+  return 0;
+}
+```
+
+</Tab>
+<Tab title="Golang">
+
+```starlark
+load("@rules_go//go:def.bzl", "go_binary")
+
+go_binary(
+    name = "runfile",
+    srcs = ["runfile.go"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_go//go/runfiles:go_default_library"],
+)
+```
+
+```golang
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"github.com/bazelbuild/rules_go/go/runfiles"
+)
+
+const (
+	someFile = "examples/runfile.txt"
+)
+
+func main() {
+	r, err := runfiles.New()
+	if err != nil {
+		log.Fatalf("Failed to create Runfiles object: %v", err)
+	}
+
+	root := runfiles.CallerRepository()
+	if root == "" {
+		root = "_main"
+	}
+
+	path, err := r.Rlocation(filepath.Join(root, someFile))
+	if err != nil {
+		log.Fatalf("Failed to find rlocation: %v", err)
+	}
+
+	fmt.Println("The content of my runfile is:")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("Failed to read file: %v", err)
+	}
+	fmt.Print(string(data))
+}
+```
+
+</Tab>
+<Tab title="Python">
+
+```starlark
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "runfile",
+    srcs = ["runfile.py"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_python//python/runfiles"],
+)
+```
+
+```python
+import pathlib
+
+from python.runfiles import runfiles
+
+SOME_FILE = pathlib.Path('examples/runfile.txt')
+
+r = runfiles.Create()
+root = r.CurrentRepository()
+if root == "":
+  root = "_main"
+realPathToSomeFile = r.Rlocation(str(root / SOME_FILE))
+
+print("The content of the runfile is:")
+with open(realPathToSomeFile, 'r') as f:
+    print(f.read())
+```
+
+</Tab>
+<Tab title="Shell">
+
+```starlark
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "runfile",
+    srcs = ["runfile.sh"],
+    data = ["//examples:runfile.txt"],
+    use_bash_launcher = True,
+)
+```
+
+```bash
+#!/bin/bash
+
+SOME_FILE='examples/runfile.txt'
+
+root="$(runfiles_current_repository)"
+if [ -z "$root" ]; then
+  root="_main"
+fi
+real_path_to_some_file="$(rlocation "${root}/${SOME_FILE}")"
+
+echo "The content of the runfile is:"
+cat "${real_path_to_some_file}"
+```
+
+</Tab>
+
+</Tabs>
