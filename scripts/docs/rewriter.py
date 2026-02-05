@@ -92,7 +92,7 @@ _MD_AND_HTML_ONLY_FIXES = [_set_header_vars]
 _FIXES = {
     ".html": _PURE_HTML_FIXES + _MD_AND_HTML_ONLY_FIXES,
     ".md": _PURE_MD_FIXES + _PURE_HTML_FIXES + _MD_AND_HTML_ONLY_FIXES,
-    ".mdx": [_fix_md_links_and_images],
+    ".mdx": [_fix_md_links_and_images, _fix_html_links],
     ".yaml": _PURE_YAML_FIXES + _PURE_HTML_FIXES,
 }
 
