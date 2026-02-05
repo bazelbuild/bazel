@@ -158,6 +158,22 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   }
 
   @Override
+  public Artifact declareSubdirectory(String subdirectory, FileApi directory) throws EvalException {
+    SpecialArtifact parent = SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory");
+    // We do not support nesting subtrees in subtrees.
+    if (parent.isSubTreeArtifact()) {
+      throw Starlark.errorf(
+          "Cannot declare subdirectory `%s` in another subdirectory %s", subdirectory, directory);
+    }
+    if (!outputDirectories.contains(parent)) {
+      throw Starlark.errorf(
+          "Cannot declare subdirectory `%s` in non-output directory %s", subdirectory, directory);
+    }
+    return SpecialArtifact.createSubTreeArtifact(
+        parent, PathFragment.create(subdirectory), artifactOwner);
+  }
+
+  @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), semantics);
   }
