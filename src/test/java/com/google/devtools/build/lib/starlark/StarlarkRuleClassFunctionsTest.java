@@ -2150,8 +2150,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJsonFileEncoding() throws Exception {
-    // Test that File objects can be encoded as JSON
+  public void testJsonAndProtoFileEncoding() throws Exception {
+    // Test that File objects can be encoded as JSON and proto.
     scratch.file(
         "test/BUILD",
         """
@@ -2166,8 +2166,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "test/rule.bzl",
         """
         def _impl(ctx):
-            input = {"file": ctx.file.src, "other": True}
-            expected_output = {
+            json_input = {"file": ctx.file.src, "other": True}
+            json_expected_output = {
                 "file": {
                     "path": ctx.file.src.path,
                     "short_path": ctx.file.src.short_path,
@@ -2175,11 +2175,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 },
                 "other": True
             }
-            encoded = json.encode(input)
-            decoded = json.decode(encoded)
+            json_encoded = json.encode(json_input)
+            json_decoded = json.decode(json_encoded)
 
-            if decoded != expected_output:
-                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
+            if json_decoded != json_expected_output:
+                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(repr(json_expected_output), repr(json_decoded)))
+
+            proto_input = struct(input = json_input)  # proto input must be wrapped in a struct
+            proto_expected_encoded = 'input {\\n  key: "file"\\n  value {\\n    path: "%s"\\n    root: "%s"\\n    short_path: "%s"\\n  }\\n}\\ninput {\\n  key: "other"\\n  value: true\\n}\\n' % (
+                ctx.file.src.path,
+                ctx.file.src.root.path,
+                ctx.file.src.short_path,
+            )
+            proto_encoded = proto.encode_text(proto_input)
+            if proto_encoded != proto_expected_encoded:
+                fail("Proto encoding of File failed. Expected: {}, actual: {}".format(repr(proto_expected_encoded), repr(proto_encoded)))
 
             return []
 
