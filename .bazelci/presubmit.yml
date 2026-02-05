@@ -294,6 +294,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
       # TODO(pcloudy): Re-enable once https://github.com/bazelbuild/bazel/issues/27982 is fixed.
       - "-//src/test/shell/bazel:srcs_test"
+      # Disable this test since it takes too long on RBE.
+      - "-//src/test/shell/bazel:bazel_proto_library_test"
     include_json_profile:
       - build
       - test
