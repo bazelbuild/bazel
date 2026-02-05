@@ -30,13 +30,13 @@ public final class UnixFileStatus implements FileStatus {
   private final long size;
   private final long ino;
 
-  /** Constructs a UnixFileStatus instance. (Called only from ErrnoUnixFileStatus and JNI code.) */
-  UnixFileStatus(int mode, long mtime, long ctime, long size, long ino) {
-    this.mode = mode;
-    this.mtime = mtime;
-    this.ctime = ctime;
-    this.size = size;
-    this.ino = ino;
+  /** Constructs a {@link UnixFileStatus} from a {@link NativePosixFiles.Stat}. */
+  UnixFileStatus(NativePosixFiles.Stat stat) {
+    this.mode = stat.mode();
+    this.mtime = stat.mtime();
+    this.ctime = stat.ctime();
+    this.size = stat.size();
+    this.ino = stat.ino();
   }
 
   public Dirent.Type getDirentType() {

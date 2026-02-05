@@ -336,15 +336,13 @@ static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
       env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
 }
 
-static jobject NewUnixFileStatus(JNIEnv *env,
-                                 const portable_stat_struct &stat_ref) {
-  static const jclass file_status_class =
-      getClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
+static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
+  static const jclass stat_class =
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFiles$Stat");
   static const jmethodID file_status_class_ctor =
-      getConstructorID(env, file_status_class, "(IJJJJ)V");
+      getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
-      file_status_class, file_status_class_ctor,
-      static_cast<jint>(stat_ref.st_mode),
+      stat_class, file_status_class_ctor, static_cast<jint>(stat_ref.st_mode),
       static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
       static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
       static_cast<jlong>(stat_ref.st_size),
@@ -387,7 +385,7 @@ static jobject StatCommon(JNIEnv *env, jstring path,
     return nullptr;
   }
 
-  return NewUnixFileStatus(env, statbuf);
+  return NewStat(env, statbuf);
 }
 }  // namespace
 

@@ -118,9 +118,10 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return followSymlinks
-          ? NativePosixFiles.stat(name, StatErrorHandling.ALWAYS_THROW)
-          : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW);
+      return new UnixFileStatus(
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.ALWAYS_THROW)
+              : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW));
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -137,9 +138,11 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return followSymlinks
-          ? NativePosixFiles.stat(name, StatErrorHandling.NEVER_THROW)
-          : NativePosixFiles.lstat(name, StatErrorHandling.NEVER_THROW);
+      NativePosixFiles.Stat stat =
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.NEVER_THROW)
+              : NativePosixFiles.lstat(name, StatErrorHandling.NEVER_THROW);
+      return stat != null ? new UnixFileStatus(stat) : null;
     } catch (IOException e) {
       throw new IllegalStateException("unexpected exception", e);
     } finally {
@@ -164,9 +167,11 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return followSymlinks
-          ? NativePosixFiles.stat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND)
-          : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND);
+      NativePosixFiles.Stat stat =
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND)
+              : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND);
+      return stat != null ? new UnixFileStatus(stat) : null;
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.unix;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
 /**
@@ -89,33 +88,36 @@ final class NativePosixFiles {
     }
   }
 
-  static FileStatus stat(String path, StatErrorHandling errorHandling) throws IOException {
-    return stat(path, errorHandling.getCode());
-  }
+  /** File metadata, as returned by stat() or lstat(). */
+  record Stat(int mode, long mtime, long ctime, long size, long ino) {}
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
    *
    * @param path the file to stat.
    * @param errorHandling how to handle errors.
-   * @return a FileStatus instance containing the metadata.
+   * @return a {@link Stat} containing the metadata.
    * @throws IOException if the stat() syscall failed.
    */
-  private static native FileStatus stat(String path, char errorHandling) throws IOException;
-
-  static FileStatus lstat(String path, StatErrorHandling errorHandling) throws IOException {
-    return lstat(path, errorHandling.getCode());
+  static Stat stat(String path, StatErrorHandling errorHandling) throws IOException {
+    return stat(path, errorHandling.getCode());
   }
+
+  private static native Stat stat(String path, char errorHandling) throws IOException;
 
   /**
    * Native wrapper around POSIX lstat(2) syscall.
    *
    * @param path the file to lstat.
    * @param errorHandling how to handle errors.
-   * @return a FileStatus instance containing the metadata.
+   * @return a {@link Stat} containing the metadata.
    * @throws IOException if the lstat() syscall failed.
    */
-  private static native FileStatus lstat(String path, char errorHandling) throws IOException;
+  static Stat lstat(String path, StatErrorHandling errorHandling) throws IOException {
+    return lstat(path, errorHandling.getCode());
+  }
+
+  private static native Stat lstat(String path, char errorHandling) throws IOException;
 
   /**
    * Native wrapper around POSIX utimensat(2) syscall.
