@@ -211,7 +211,7 @@ public class StarlarkSemantics {
    * Returns a possibly different {@link StarlarkSemantics} instance that is equivalent to this one
    * for the purpose of caching the methods available on any given Starlark class.
    */
-  public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+  public StarlarkSemantics getClassDescriptorCacheKey() {
     return this;
   }
 

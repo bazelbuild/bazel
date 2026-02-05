@@ -29,14 +29,12 @@ final class CallUtils {
   private CallUtils() {} // uninstantiable
 
   /**
-   * Returns the {@link StarlarkClassDescriptor} for the given {@link StarlarkSemantics} and {@link
-   * Class}.
+   * Returns the {@link ClassDescriptor} for the given {@link StarlarkSemantics} and {@link Class}.
    *
    * <p>This method is a hotspot! It's called on every function call and field access. A single
    * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
    */
-  private static StarlarkClassDescriptor getStarlarkClassDescriptor(
-      StarlarkSemantics semantics, Class<?> clazz) {
+  private static ClassDescriptor getClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
     if (clazz == String.class) {
       clazz = StringModule.class;
     }
@@ -48,15 +46,14 @@ final class CallUtils {
     // structure, and the GC churn and method call overhead become meaningful at scale.
     //
     // We implement each cache ourselves using CHM#get and CHM#putIfAbsent. We don't use
-    // CHM#computeIfAbsent since it is not reentrant: If #getStarlarkClassDescriptor is called
+    // CHM#computeIfAbsent since it is not reentrant: If #getClassDescriptor is called
     // before Starlark.UNIVERSE is initialized then the computation will re-enter the cache and have
     // a cycle; see b/161479826 for history.
     // TODO(bazel-team): Maybe the above cycle concern doesn't exist now that CallUtils is private.
-    ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> starlarkClassDescriptorCache =
-        starlarkClassDescriptorCachesBySemantics.get(
-            semantics.getStarlarkClassDescriptorCacheKey());
-    if (starlarkClassDescriptorCache == null) {
-      starlarkClassDescriptorCache =
+    ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
+        classDescriptorCachesBySemantics.get(semantics.getClassDescriptorCacheKey());
+    if (classDescriptorCache == null) {
+      classDescriptorCache =
           new ConcurrentHashMap<>(
               // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
               // we presize the CHM accordingly to reduce the chance two entries use the same hash
@@ -71,24 +68,22 @@ final class CallUtils {
               //  concerns, so we can use a more efficient data structure that doesn't need to
               //  handle concurrent writes.
               /* initialCapacity= */ 1000);
-      ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> prev =
-          starlarkClassDescriptorCachesBySemantics.putIfAbsent(
-              semantics, starlarkClassDescriptorCache);
+      ConcurrentHashMap<Class<?>, ClassDescriptor> prev =
+          classDescriptorCachesBySemantics.putIfAbsent(semantics, classDescriptorCache);
       if (prev != null) {
-        starlarkClassDescriptorCache = prev; // first thread wins
+        classDescriptorCache = prev; // first thread wins
       }
     }
 
-    StarlarkClassDescriptor starlarkClassDescriptor = starlarkClassDescriptorCache.get(clazz);
-    if (starlarkClassDescriptor == null) {
-      starlarkClassDescriptor = buildStarlarkClassDescriptor(semantics, clazz);
-      StarlarkClassDescriptor prev =
-          starlarkClassDescriptorCache.putIfAbsent(clazz, starlarkClassDescriptor);
+    ClassDescriptor classDescriptor = classDescriptorCache.get(clazz);
+    if (classDescriptor == null) {
+      classDescriptor = buildClassDescriptor(semantics, clazz);
+      ClassDescriptor prev = classDescriptorCache.putIfAbsent(clazz, classDescriptor);
       if (prev != null) {
-        starlarkClassDescriptor = prev; // first thread wins
+        classDescriptor = prev; // first thread wins
       }
     }
-    return starlarkClassDescriptor;
+    return classDescriptor;
   }
 
   /**
@@ -98,9 +93,9 @@ final class CallUtils {
    * <p>Generally, but not always (e.g. in the case of compilations of global functions like {@link
    * MethodLibrary}), instances of the Java class are valid as Starlark values.
    *
-   * <p>Although a {@code StarlarkClassDescriptor} does not directly embed the {@code
-   * StarlarkSemantics}, its contents vary based on them. In contrast, {@link MethodDescriptor} and
-   * {@link ParamDescriptor} do not vary with the semantics.
+   * <p>Although a {@code ClassDescriptor} does not directly embed the {@code StarlarkSemantics},
+   * its contents vary based on them. In contrast, {@link MethodDescriptor} and {@link
+   * ParamDescriptor} do not vary with the semantics.
    */
   // TODO(bazel-team): For context on whether descriptors should depend on the StarlarkSemantics,
   // see #25743 and the discussion in cl/742265869. The history of this is that eliminating the
@@ -108,7 +103,7 @@ final class CallUtils {
   // StarlarkSemantics#DEFAULT. But embedding a semantics may make it simpler to give precise static
   // type information that takes into account flag-guarding. For the moment it suffices to store a
   // semantics in BuiltinFunction.
-  private static class StarlarkClassDescriptor {
+  private static class ClassDescriptor {
     /**
      * The descriptor for the unique {@code @StarlarkMethod}-annotated method on this class that has
      * {@link StarlarkMethod#selfCall} set to true (ex: "struct" in Bazel), or null if there is no
@@ -130,16 +125,12 @@ final class CallUtils {
     ImmutableMap<String, MethodDescriptor> methods;
   }
 
-  /**
-   * Two-layer cache of {@link #buildStarlarkClassDescriptor}, managed by {@link
-   * #getStarlarkClassDescriptor}.
-   */
+  /** Two-layer cache of {@link #buildClassDescriptor}, managed by {@link #getClassDescriptor}. */
   private static final ConcurrentHashMap<
-          StarlarkSemantics, ConcurrentHashMap<Class<?>, StarlarkClassDescriptor>>
-      starlarkClassDescriptorCachesBySemantics = new ConcurrentHashMap<>();
+          StarlarkSemantics, ConcurrentHashMap<Class<?>, ClassDescriptor>>
+      classDescriptorCachesBySemantics = new ConcurrentHashMap<>();
 
-  private static StarlarkClassDescriptor buildStarlarkClassDescriptor(
-      StarlarkSemantics semantics, Class<?> clazz) {
+  private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
 
@@ -180,10 +171,10 @@ final class CallUtils {
       methods.put(callable.name(), descriptor);
     }
 
-    StarlarkClassDescriptor starlarkClassDescriptor = new StarlarkClassDescriptor();
-    starlarkClassDescriptor.selfCall = selfCall;
-    starlarkClassDescriptor.methods = methods.buildOrThrow();
-    return starlarkClassDescriptor;
+    ClassDescriptor classDescriptor = new ClassDescriptor();
+    classDescriptor.selfCall = selfCall;
+    classDescriptor.methods = methods.buildOrThrow();
+    return classDescriptor;
   }
 
   /**
@@ -192,7 +183,7 @@ final class CallUtils {
    */
   static ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(
       StarlarkSemantics semantics, Class<?> objClass) {
-    return getStarlarkClassDescriptor(semantics, objClass).methods;
+    return getClassDescriptor(semantics, objClass).methods;
   }
 
   /**
@@ -203,7 +194,7 @@ final class CallUtils {
   @Nullable
   static MethodDescriptor getSelfCallMethodDescriptor(
       StarlarkSemantics semantics, Class<?> objClass) {
-    return getStarlarkClassDescriptor(semantics, objClass).selfCall;
+    return getClassDescriptor(semantics, objClass).selfCall;
   }
 
   /**
@@ -212,7 +203,7 @@ final class CallUtils {
    */
   @Nullable
   static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> objClass) {
-    MethodDescriptor descriptor = getStarlarkClassDescriptor(semantics, objClass).selfCall;
+    MethodDescriptor descriptor = getClassDescriptor(semantics, objClass).selfCall;
     if (descriptor == null) {
       return null;
     }

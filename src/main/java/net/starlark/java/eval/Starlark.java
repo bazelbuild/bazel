@@ -334,7 +334,7 @@ public final class Starlark {
       case StarlarkValue x -> {
         @Nullable StarlarkType type = x.getStarlarkType();
         if (type == null) {
-          // TODO: #28325 - For types with StarlarkClassDescriptors, return the type stored in the
+          // TODO: #28325 - For types with ClassDescriptors, return the type stored in the
           // descriptor.
           type = Types.ANY;
         }
