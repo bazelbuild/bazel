@@ -19,11 +19,12 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
+import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
@@ -170,7 +171,9 @@ public final class BuildConfigurationKeyProducer<C>
   private StateMachine findBuildOptionsScopes(Tasks tasks) {
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     // including platform-based flags in skykey for scopes lookUp
-    if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
+    // Skip scope lookups for baseline configurations to avoid a Skyframe cycle with
+    // BaselineOptionsFunction.
+    if (label == null || postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
       return this::possiblyApplyScopes;
     }
 
@@ -284,10 +287,13 @@ public final class BuildConfigurationKeyProducer<C>
           buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
     }
 
-    // TODO: b/390669368 - The same performance issue still exists if we reach this point.
+    var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     tasks.lookUp(
-        PrecomputedValue.BASELINE_CONFIGURATION.getKey(),
-        val -> this.baselineConfiguration = (BuildOptions) ((PrecomputedValue) val).get());
+        BaselineOptionsValue.key(
+            resolvedOptions.get(CoreOptions.class).isExec,
+            !resolvedOptions.contains(TestConfiguration.TestOptions.class),
+            /* newPlatform= */ null),
+        val -> this.baselineConfiguration = ((BaselineOptionsValue) val).toOptions());
     return this::applyScopes;
   }
 

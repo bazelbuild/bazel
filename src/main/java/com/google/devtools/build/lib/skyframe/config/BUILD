@@ -34,6 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/constraint_constants",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:configuration_value_event",

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,6 +63,10 @@ public final class BaselineOptionsFunction implements SkyFunction {
       return BaselineOptionsValue.create(rawBaselineOptions);
     }
 
+    if (key.trimTestOptions()) {
+      rawBaselineOptions = TestTrimmingLogic.trim(rawBaselineOptions);
+    }
+
     // First, make sure platform_mappings applied to the top-level baseline option.
     BuildOptions mappedBaselineOptions = mapBuildOptions(env, rawBaselineOptions);
     if (mappedBaselineOptions == null) {
@@ -97,10 +102,15 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   private static BuildOptions mapBuildOptions(Environment env, BuildOptions rawBaselineOptions)
       throws InterruptedException, BaselineOptionsFunctionException {
-    BuildConfigurationKeyValue.Key bckvk =
-        BuildConfigurationKeyValue.Key.create(rawBaselineOptions);
+    var builder = rawBaselineOptions.toBuilder();
+    rawBaselineOptions.getStarlarkOptions().forEach((key, value) -> {
+      builder.removeScope(key);
+      builder.removeOnLeaveScopeValue(key);
+    });
+    var bckvk =
+        BuildConfigurationKeyValue.Key.create(builder.build());
     try {
-      BuildConfigurationKeyValue buildConfigurationKeyValue =
+      var buildConfigurationKeyValue =
           (BuildConfigurationKeyValue)
               env.getValueOrThrow(
                   bckvk,
