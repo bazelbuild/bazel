@@ -30,6 +30,7 @@ java_library(
     visibility = ["//src/tools/remote:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
@@ -64,6 +65,8 @@ java_library(
         "@googleapis//google/bytestream:bytestream_java_proto",
         "@googleapis//google/longrunning:longrunning_java_proto",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@rules_java//java/runfiles",
