@@ -75,7 +75,9 @@ public class ArFunction implements Decompressor {
           try (OutputStream out = filePath.getOutputStream()) {
             ByteStreams.copy(arStream, out);
           }
-          filePath.chmod(entry.getMode());
+          // Ensure that all files are at least user-readable. Some archives contain files that
+          // are not, but many other tools are working around this and thus mask these issues.
+          filePath.chmod(entry.getMode() | 0400);
           // entry.getLastModified() appears to be in seconds, so we need to convert
           // it into milliseconds for setLastModifiedTime
           filePath.setLastModifiedTime(entry.getLastModified() * 1000L);
