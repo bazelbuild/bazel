@@ -255,11 +255,13 @@ public final class Module implements Resolver.Module {
   @Override
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
-    // TODO: #27728 - Hack until StarlarkType is correctly represented by Starlark runtime symbols:
-    // Hardcoded check for the universal type symbols before looking at the module.
-    TypeConstructor constructor = Types.TYPE_UNIVERSE.get(name);
-    if (constructor != null) {
-      return constructor;
+    // TODO: #28325 - Remove usage of TYPE_UNIVERSE here by retrieving type constructor info
+    // from the universal symbols' dynamic values. For the moment we only do this for None.
+    if (!name.equals("None")) {
+      TypeConstructor constructor = Types.TYPE_UNIVERSE.get(name);
+      if (constructor != null) {
+        return constructor;
+      }
     }
 
     Resolver.Scope scope = resolve(name);

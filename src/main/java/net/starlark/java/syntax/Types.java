@@ -67,6 +67,24 @@ public final class Types {
   public static final CallableType NO_PARAMS_CALLABLE =
       callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
 
+  public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
+  public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
+  public static final TypeConstructor NONE_CONSTRUCTOR = wrapType("None", NONE);
+  public static final TypeConstructor BOOL_CONSTRUCTOR = wrapType("bool", BOOL);
+  public static final TypeConstructor INT_CONSTRUCTOR = wrapType("int", INT);
+  public static final TypeConstructor FLOAT_CONSTRUCTOR = wrapType("float", FLOAT);
+  public static final TypeConstructor STR_CONSTRUCTOR = wrapType("str", STR);
+  public static final TypeConstructor LIST_CONSTRUCTOR = wrapTypeConstructor("list", Types::list);
+  public static final TypeConstructor DICT_CONSTRUCTOR = wrapTypeConstructor("dict", Types::dict);
+  public static final TypeConstructor SET_CONSTRUCTOR = wrapTypeConstructor("set", Types::set);
+  public static final TypeConstructor TUPLE_CONSTRUCTOR = wrapTupleConstructor();
+  public static final TypeConstructor COLLECTION_CONSTRUCTOR =
+      wrapTypeConstructor("Collection", Types::collection);
+  public static final TypeConstructor SEQUENCE_CONSTRUCTOR =
+      wrapTypeConstructor("Sequence", Types::sequence);
+  public static final TypeConstructor MAPPING_CONSTRUCTOR =
+      wrapTypeConstructor("Mapping", Types::mapping);
+
   private Types() {} // uninstantiable
 
   public static final ImmutableMap<String, TypeConstructor> TYPE_UNIVERSE = makeTypeUniverse();
@@ -74,20 +92,20 @@ public final class Types {
   private static ImmutableMap<String, TypeConstructor> makeTypeUniverse() {
     ImmutableMap.Builder<String, TypeConstructor> env = ImmutableMap.builder();
     env //
-        .put("Any", wrapType("Any", ANY))
-        .put("object", wrapType("object", OBJECT))
-        .put("None", wrapType("None", NONE))
-        .put("bool", wrapType("bool", BOOL))
-        .put("int", wrapType("int", INT))
-        .put("float", wrapType("float", FLOAT))
-        .put("str", wrapType("str", STR))
-        .put("list", wrapTypeConstructor("list", Types::list))
-        .put("dict", wrapTypeConstructor("dict", Types::dict))
-        .put("set", wrapTypeConstructor("set", Types::set))
-        .put("tuple", wrapTupleConstructor())
-        .put("Collection", wrapTypeConstructor("Collection", Types::collection))
-        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence))
-        .put("Mapping", wrapTypeConstructor("Mapping", Types::mapping));
+        .put("Any", ANY_CONSTRUCTOR)
+        .put("object", OBJECT_CONSTRUCTOR)
+        .put("None", NONE_CONSTRUCTOR)
+        .put("bool", BOOL_CONSTRUCTOR)
+        .put("int", INT_CONSTRUCTOR)
+        .put("float", FLOAT_CONSTRUCTOR)
+        .put("str", STR_CONSTRUCTOR)
+        .put("list", LIST_CONSTRUCTOR)
+        .put("dict", DICT_CONSTRUCTOR)
+        .put("set", SET_CONSTRUCTOR)
+        .put("tuple", TUPLE_CONSTRUCTOR)
+        .put("Collection", COLLECTION_CONSTRUCTOR)
+        .put("Sequence", SEQUENCE_CONSTRUCTOR)
+        .put("Mapping", MAPPING_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 

@@ -31,7 +31,11 @@ import org.junit.runners.JUnit4;
 /**
  * Integrated tests for static type checking of Starlark code.
  *
- * <p>For tests of the type checker logic in isolation, see syntax/TypeCheckerTest.java.
+ * <p>The test suite {@code syntax/TypeCheckerTest.java} checks the behavior of the static type
+ * checker and the base type definitions in the syntax package. In contrast, this suite checks the
+ * overall process of static type checking on a Starlark program, using the production universal
+ * types defined in the eval/ package. This includes for instance the machinery to generate type
+ * information for {@link StarlarkBuiltin}s.
  */
 @RunWith(JUnit4.class)
 public final class StaticTypeCheckTest {
@@ -67,6 +71,7 @@ public final class StaticTypeCheckTest {
     assertContainsError(ex.errors(), message);
   }
 
+  @SuppressWarnings("UnusedMethod")
   private StarlarkType inferType(String expr) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(expr);
     Expression expression = Expression.parse(input, options.build());
@@ -89,11 +94,42 @@ public final class StaticTypeCheckTest {
   }
 
   @Test
+  public void unknownSymbolAsType() {
+    assertInvalid(
+        "name 'unknown' is not defined",
+        """
+        x : unknown
+        """);
+  }
+
+  @Test
+  public void nonTypeSymbolAsType() {
+    assertInvalid(
+        "universal symbol 'len' cannot be used as a type",
+        """
+        x : len
+        """);
+  }
+
+  @Test
   public void noneAsType() {
+    assertValid("x : None = None");
+
     assertInvalid(
         "cannot assign type 'int' to 'x' of type 'None'",
         """
         x : None = 123
+        """);
+  }
+
+  @Test
+  public void starlarkBuiltinAsType() {
+    assertValid("x : list[int] = [123]");
+
+    assertInvalid(
+        "cannot assign type 'list[str]' to 'x' of type 'list[int]'",
+        """
+        x: list[int] = ["abc"]
         """);
   }
 }

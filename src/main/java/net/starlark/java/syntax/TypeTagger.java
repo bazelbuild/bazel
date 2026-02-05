@@ -118,7 +118,7 @@ public final class TypeTagger extends NodeVisitor {
             app.getArguments().stream().map(this::extractArg).collect(toImmutableList());
 
         try {
-          return constructor.invoke(arguments);
+          return constructor.createStarlarkType(arguments);
         } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
@@ -130,7 +130,7 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
         try {
-          return constructor.invoke(ImmutableList.of());
+          return constructor.createStarlarkType(ImmutableList.of());
         } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
