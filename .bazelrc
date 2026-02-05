@@ -63,7 +63,6 @@ common --tool_java_runtime_version=remotejdk_25
 # TODO: Remove this after migrating more code to use VarHandles.
 common --javacopt=-Xlint:-removal
 common --host_javacopt=-Xlint:-removal
-common --jvmopt=--sun-misc-unsafe-memory-access=allow
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
