@@ -40,9 +40,11 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
 import java.io.File;
@@ -237,16 +239,17 @@ public final class SandboxModule extends BlazeModule {
           trashBase.createDirectory();
         }
         // We can delete other dirs asynchronously (if the flag is on).
-        for (Path entry : sandboxBase.getDirectoryEntries()) {
-          if (entry.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
+        for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
+          Path childPath = sandboxBase.getChild(dirent.getName());
+          if (childPath.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
             continue;
           }
-          if (entry.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
-            entry.deleteTree();
-          } else if (entry.isDirectory()) {
-            treeDeleter.deleteTree(entry);
+          if (childPath.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+            childPath.deleteTree();
+          } else if (dirent.getType() == Dirent.Type.DIRECTORY) {
+            treeDeleter.deleteTree(childPath);
           } else {
-            entry.delete();
+            childPath.delete();
           }
         }
       } catch (IOException e) {
