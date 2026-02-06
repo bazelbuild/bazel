@@ -34,6 +34,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -83,6 +84,10 @@ import net.starlark.java.syntax.Types;
             + "Lists are mutable, as in Python.")
 public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.LIST_CONSTRUCTOR;
+  }
 
   // It's always possible to overeat in small bites but we'll
   // try to stop someone swallowing the world in one gulp.

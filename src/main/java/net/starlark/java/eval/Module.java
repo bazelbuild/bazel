@@ -256,8 +256,8 @@ public final class Module implements Resolver.Module {
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
     // TODO: #28325 - Remove usage of TYPE_UNIVERSE here by retrieving type constructor info
-    // from the universal symbols' dynamic values. For the moment we only do this for None.
-    if (!name.equals("None")) {
+    // from the universal symbols' dynamic values. For the moment we only do this for None and list.
+    if (!(name.equals("None") || name.equals("list"))) {
       TypeConstructor constructor = Types.TYPE_UNIVERSE.get(name);
       if (constructor != null) {
         return constructor;

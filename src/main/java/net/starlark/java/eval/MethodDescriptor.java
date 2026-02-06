@@ -55,6 +55,7 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  @Nullable private final Class<?> typeConstructorProxy;
   private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
   private final StarlarkType starlarkType;
 
@@ -82,7 +83,8 @@ final class MethodDescriptor {
       boolean selfCall,
       boolean allowReturnNones,
       boolean useStarlarkThread,
-      boolean useStarlarkSemantics) {
+      boolean useStarlarkSemantics,
+      boolean isTypeConstructor) {
     this.method = method;
     this.annotation = annotation;
     this.name = name;
@@ -96,6 +98,7 @@ final class MethodDescriptor {
     this.allowReturnNones = allowReturnNones;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
+    this.typeConstructorProxy = isTypeConstructor ? method.getReturnType() : null;
 
     Class<?> ret = method.getReturnType();
     if (ret == void.class || ret == boolean.class) {
@@ -231,7 +234,8 @@ final class MethodDescriptor {
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useStarlarkThread(),
-        annotation.useStarlarkSemantics());
+        annotation.useStarlarkSemantics(),
+        annotation.isTypeConstructor());
   }
 
   private static final Object[] EMPTY = {};
@@ -395,6 +399,11 @@ final class MethodDescriptor {
 
   public StarlarkType getStarlarkType() {
     return starlarkType;
+  }
+
+  @Nullable
+  Class<?> getTypeConstructorProxy() {
+    return typeConstructorProxy;
   }
 
   /**

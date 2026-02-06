@@ -15,13 +15,16 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.TypeConstructor;
 
 /** Helper functions for {@link StarlarkMethod}-annotated methods. */
 final class CallUtils {
@@ -123,6 +126,14 @@ final class CallUtils {
      * <p>The map is keyed on the Starlark field name, and sorted by Java method name.
      */
     ImmutableMap<String, MethodDescriptor> methods;
+
+    /**
+     * The type constructor produced by augmenting this class's base type constructor with method
+     * information; or null if this class cannot be used as a type.
+     *
+     * <p>See {@link StarlarkMethod#isTypeConstructor}.
+     */
+    @Nullable TypeConstructor typeConstructor;
   }
 
   /** Two-layer cache of {@link #buildClassDescriptor}, managed by {@link #getClassDescriptor}. */
@@ -133,6 +144,9 @@ final class CallUtils {
   private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
+
+    TypeConstructor typeConstructor = getBaseTypeConstructor(clazz);
+    // TODO: #28325 - Programmatically augment this type with the @StarlarkMethods.
 
     // Sort methods by Java name, for determinism.
     Method[] classMethods = clazz.getMethods();
@@ -174,7 +188,70 @@ final class CallUtils {
     ClassDescriptor classDescriptor = new ClassDescriptor();
     classDescriptor.selfCall = selfCall;
     classDescriptor.methods = methods.buildOrThrow();
+    classDescriptor.typeConstructor = typeConstructor;
     return classDescriptor;
+  }
+
+  /**
+   * Returns the base type constructor identified by the given class's {@code
+   * getBaseTypeConstructor()} static method, or null if it does not have one.
+   *
+   * <p>The base type constructor is not the final constructor stored on the {@link
+   * ClassDescriptor}; it lacks type information about the class's methods.
+   *
+   * @throws IllegalArgumentException if the method exists but has an unexpected signature, or if it
+   *     does not evaluate successfully
+   */
+  @Nullable
+  private static TypeConstructor getBaseTypeConstructor(Class<?> clazz) {
+    Method found = null;
+    for (Method m : clazz.getDeclaredMethods()) {
+      if (m.getName().equals("getBaseTypeConstructor")) {
+        if (found != null) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Class %s has multiple methods named getBaseTypeConstructor", clazz.getName()));
+        }
+        found = m;
+      }
+    }
+    if (found == null) {
+      return null;
+    }
+
+    // Signature check.
+    if (!Modifier.isPublic(found.getModifiers())
+        || !Modifier.isStatic(found.getModifiers())
+        || !found.getReturnType().equals(TypeConstructor.class)
+        || found.getParameterCount() != 0) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Method %s#getBaseTypeConstructor has an invalid signature; "
+                  + "expected 'public static TypeConstructor getBaseTypeConstructor()'",
+              clazz.getName()));
+    }
+
+    try {
+      return (TypeConstructor) found.invoke(null);
+    } catch (IllegalAccessException | InvocationTargetException | RuntimeException e) {
+      throw new IllegalArgumentException(
+          String.format("Error invoking %s#getBaseTypeConstructor", clazz.getName()), e);
+    }
+  }
+
+  /**
+   * Returns the type constructor associated with the given Java class under a given {@code
+   * StarlarkSemantics}, or null if there is none.
+   *
+   * <p>An example would be getting the type constructor for the {@code list} type from the class
+   * {@code StarlarkList}.
+   *
+   * <p>The returned constructor has complete type information about the available Starlark methods
+   * of the class.
+   */
+  @Nullable
+  static TypeConstructor getTypeConstructor(StarlarkSemantics semantics, Class<?> clazz) {
+    return getClassDescriptor(semantics, clazz).typeConstructor;
   }
 
   /**

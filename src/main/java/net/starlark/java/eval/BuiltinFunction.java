@@ -26,6 +26,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 
 /**
  * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link
@@ -38,10 +39,11 @@ import net.starlark.java.syntax.StarlarkType;
     name = "builtin_function_or_method", // (following Python)
     category = "core",
     doc = "The type of a built-in function, defined by Java code.")
-public final class BuiltinFunction implements StarlarkCallable {
+public sealed class BuiltinFunction implements StarlarkCallable
+    permits BuiltinFunction.BuiltinTypeFunction {
 
-  private final Object obj;
-  private final MethodDescriptor desc;
+  protected final Object obj;
+  protected final MethodDescriptor desc;
 
   /**
    * Constructs a {@code BuiltinFunction} for a {@link StarlarkMethod}-annotated method on the given
@@ -50,7 +52,15 @@ public final class BuiltinFunction implements StarlarkCallable {
    * <p>The method must be a proper Starlark method, not a field; i.e., {@link
    * StarlarkMethod#structField} must be false.
    */
-  BuiltinFunction(Object obj, MethodDescriptor desc) {
+  static BuiltinFunction of(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+    if (desc.getTypeConstructorProxy() == null) {
+      return new BuiltinFunction(obj, desc);
+    } else {
+      return new BuiltinTypeFunction(obj, desc, semantics);
+    }
+  }
+
+  private BuiltinFunction(Object obj, MethodDescriptor desc) {
     Preconditions.checkArgument(!desc.isStructField());
     this.obj = obj;
     this.desc = desc;
@@ -510,6 +520,31 @@ public final class BuiltinFunction implements StarlarkCallable {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
           getName(), param.getName(), Starlark.type(value), param.getTypeErrorMessage());
+    }
+  }
+
+  private static final class BuiltinTypeFunction extends BuiltinFunction
+      implements TypeConstructor {
+
+    private final StarlarkSemantics semantics;
+
+    private BuiltinTypeFunction(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+      super(obj, desc);
+      this.semantics = semantics;
+    }
+
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      // The Preconditions checks could morally be done in the constructor for eagerness.
+      // However, this causes the MethodDescriptors of the proxy class to be materialized
+      // while initializing a Module environment using Starlark#addMethods. That's inconvenient
+      // due to circular dependencies (see the bootstrapping in ParamDescriptor#evalDefault)
+      // and because it complicates unit tests where these preconditions fail.
+      Class<?> tcProxy = desc.getTypeConstructorProxy();
+      Preconditions.checkNotNull(tcProxy);
+      TypeConstructor tc = CallUtils.getTypeConstructor(semantics, tcProxy);
+      Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
+      return tc.createStarlarkType(argsTuple);
     }
   }
 }

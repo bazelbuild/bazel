@@ -395,7 +395,8 @@ class MethodLibrary {
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }

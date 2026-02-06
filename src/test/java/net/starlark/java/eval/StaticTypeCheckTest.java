@@ -14,9 +14,13 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -24,6 +28,7 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TypeConstructor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -131,5 +136,67 @@ public final class StaticTypeCheckTest {
         """
         x: list[int] = ["abc"]
         """);
+  }
+
+  @StarlarkBuiltin(name = "BadBodyTypeBuiltin")
+  public static final class BadBodyTypeBuiltin implements StarlarkValue {
+    @SuppressWarnings("DoNotCallSuggester")
+    public static TypeConstructor getBaseTypeConstructor() {
+      throw new RuntimeException("fail");
+    }
+  }
+
+  @StarlarkBuiltin(name = "BadSignatureTypeBuiltin")
+  public static final class BadSignatureTypeBuiltin implements StarlarkValue {
+    @SuppressWarnings("DoNotCallSuggester")
+    public TypeConstructor getBaseTypeConstructor() { // missing `static`
+      throw new RuntimeException("fail");
+    }
+  }
+
+  @StarlarkBuiltin(name = "MissingStaticMethodTypeBuiltin")
+  public static final class MissingStaticMethodTypeBuiltin implements StarlarkValue {
+    // no getBaseTypeConstructor()
+  }
+
+  public static final class DummyLibrary {
+    @StarlarkMethod(name = "BadSignature", documented = false, isTypeConstructor = true)
+    public BadSignatureTypeBuiltin badSignature() {
+      return new BadSignatureTypeBuiltin();
+    }
+
+    @StarlarkMethod(name = "BadBody", documented = false, isTypeConstructor = true)
+    public BadBodyTypeBuiltin badBody() {
+      return new BadBodyTypeBuiltin();
+    }
+
+    @StarlarkMethod(name = "MissingStaticMethod", documented = false, isTypeConstructor = true)
+    public MissingStaticMethodTypeBuiltin missingStaticMethod() {
+      return new MissingStaticMethodTypeBuiltin();
+    }
+  }
+
+  @Test
+  public void starlarkBuiltinWithBadBaseTypeConstructor() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    Starlark.addMethods(env, new DummyLibrary());
+    module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
+
+    var ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadSignature = None"));
+    assertThat(ex)
+        .hasMessageThat()
+        .containsMatch(".*BadSignatureTypeBuiltin#getBaseTypeConstructor has an invalid signature");
+
+    ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadBody = None"));
+    assertThat(ex)
+        .hasMessageThat()
+        .containsMatch("Error invoking .*BadBodyTypeBuiltin#getBaseTypeConstructor");
+
+    ex =
+        assertThrows(
+            IllegalArgumentException.class, () -> compile("x: MissingStaticMethod = None"));
+    assertThat(ex)
+        .hasMessageThat()
+        .containsMatch("invalid type constructor proxy: .*MissingStaticMethodTypeBuiltin");
   }
 }

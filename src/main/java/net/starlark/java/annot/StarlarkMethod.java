@@ -191,6 +191,29 @@ public @interface StarlarkMethod {
   boolean useStarlarkSemantics() default false;
 
   /**
+   * Whether this method can act as a type in a type expression.
+   *
+   * <p>An example would be the {@code list} builtin symbol.
+   *
+   * <p>If true, the class identified by the Java method's return type is taken to be the Java class
+   * whose instances are Starlark values of this Starlark type. For example, {@code list()} is
+   * implemented by {@link MethodLibrary#list}, whose return type is {@link StarlarkList}, and
+   * instances of {@code StarlarkList} are Starlark values of the {@code list} type.
+   *
+   * <p>The return type's class must define a static method with the signature:
+   *
+   * <pre>
+   *     public static TypeConstructor getBaseTypeConstructor() {...}
+   * </pre>
+   *
+   * which is reflectively invoked to obtain an appropriate base type constructor (e.g. {@link
+   * Types#LIST_CONSTRUCTOR}). The builtin processing machinery will wrap this base type constructor
+   * with generated type information for the class's various {@code @StarlarkMethod}s (such as
+   * {@code list.append}).
+   */
+  boolean isTypeConstructor() default false;
+
+  /**
    * If non-empty, the annotated method will only be callable if the given semantic flag is true.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-empty.
