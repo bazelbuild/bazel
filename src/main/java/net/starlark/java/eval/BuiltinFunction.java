@@ -41,17 +41,18 @@ import net.starlark.java.syntax.StarlarkType;
 public final class BuiltinFunction implements StarlarkCallable {
 
   private final Object obj;
-  private final String methodName;
   private final MethodDescriptor desc;
 
   /**
-   * Constructs a BuiltinFunction for a StarlarkMethod-annotated method (not field) of the given
-   * name (as seen by Starlark, not Java).
+   * Constructs a {@code BuiltinFunction} for a {@link StarlarkMethod}-annotated method on the given
+   * receiver instance {@code obj}.
+   *
+   * <p>The method must be a proper Starlark method, not a field; i.e., {@link
+   * StarlarkMethod#structField} must be false.
    */
-  BuiltinFunction(Object obj, String methodName, MethodDescriptor desc) {
+  BuiltinFunction(Object obj, MethodDescriptor desc) {
     Preconditions.checkArgument(!desc.isStructField());
     this.obj = obj;
-    this.methodName = methodName;
     this.desc = desc;
   }
 
@@ -69,7 +70,7 @@ public final class BuiltinFunction implements StarlarkCallable {
         && positional.length == desc.getParameters().length) {
       vector = positional;
     } else {
-      vector = getPositionalOnlyArgumentVector(thread, desc, positional);
+      vector = getPositionalOnlyArgumentVector(thread, positional);
     }
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
@@ -88,10 +89,7 @@ public final class BuiltinFunction implements StarlarkCallable {
    *     example, if any arguments are of unexpected type, or not all mandatory parameters are
    *     specified by the user
    */
-  private Object[] getPositionalOnlyArgumentVector(
-      StarlarkThread thread,
-      MethodDescriptor desc, // intentionally shadows this.desc
-      Object[] positional)
+  private Object[] getPositionalOnlyArgumentVector(StarlarkThread thread, Object[] positional)
       throws EvalException {
 
     // Overview of steps:
@@ -151,11 +149,11 @@ public final class BuiltinFunction implements StarlarkCallable {
       varargs = Tuple.wrap(Arrays.copyOfRange(positional, argIndex, positional.length));
     } else if (argIndex < positional.length) {
       if (argIndex == 0) {
-        throw Starlark.errorf("%s() got unexpected positional argument", methodName);
+        throw Starlark.errorf("%s() got unexpected positional argument", getName());
       } else {
         throw Starlark.errorf(
             "%s() accepts no more than %d positional argument%s but got %d",
-            methodName, argIndex, plural(argIndex), positional.length);
+            getName(), argIndex, plural(argIndex), positional.length);
       }
     }
 
@@ -185,7 +183,7 @@ public final class BuiltinFunction implements StarlarkCallable {
 
   @Override
   public String getName() {
-    return methodName;
+    return desc.getName();
   }
 
   @Override
@@ -193,18 +191,18 @@ public final class BuiltinFunction implements StarlarkCallable {
     if (obj instanceof StarlarkValue || obj instanceof String) {
       printer
           .append("<built-in method ")
-          .append(methodName)
+          .append(getName())
           .append(" of ")
           .append(Starlark.type(obj))
           .append(" value>");
     } else {
-      printer.append("<built-in function ").append(methodName).append(">");
+      printer.append("<built-in function ").append(getName()).append(">");
     }
   }
 
   @Override
   public String toString() {
-    return methodName;
+    return getName();
   }
 
   @Override
@@ -334,14 +332,14 @@ public final class BuiltinFunction implements StarlarkCallable {
           pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got unexpected keyword argument '%s'%s",
-                  owner.methodName, name, SpellChecker.didYouMean(name, allNames)));
+                  owner.getName(), name, SpellChecker.didYouMean(name, allNames)));
         }
 
         // duplicate named argument?
         if (kwargs.put(name, value) != null) {
           pushCallableAndThrow(
               Starlark.errorf(
-                  "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
+                  "%s() got multiple values for keyword argument '%s'", owner.getName(), name));
         }
         return;
       }
@@ -354,14 +352,14 @@ public final class BuiltinFunction implements StarlarkCallable {
           pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got named argument for positional-only parameter '%s'",
-                  owner.methodName, name));
+                  owner.getName(), name));
         }
 
         // duplicate named argument?
         if (kwargs.put(name, value) != null) {
           pushCallableAndThrow(
               Starlark.errorf(
-                  "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
+                  "%s() got multiple values for keyword argument '%s'", owner.getName(), name));
         }
         return;
       }
@@ -371,7 +369,7 @@ public final class BuiltinFunction implements StarlarkCallable {
         pushCallableAndThrow(
             Starlark.errorf(
                 "in call to %s(), parameter '%s' is %s",
-                owner.methodName, param.getName(), param.getDisabledErrorMessage()));
+                owner.getName(), param.getName(), param.getDisabledErrorMessage()));
       }
 
       checkParamValue(param, value);
@@ -379,7 +377,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       // duplicate?
       if (vector[index] != null) {
         pushCallableAndThrow(
-            Starlark.errorf("%s() got multiple values for argument '%s'", owner.methodName, name));
+            Starlark.errorf("%s() got multiple values for argument '%s'", owner.getName(), name));
       }
 
       vector[index] = value;
@@ -403,7 +401,7 @@ public final class BuiltinFunction implements StarlarkCallable {
         pushCallableAndThrow(
             Starlark.errorf(
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
-                owner.methodName,
+                owner.getName(),
                 param.getName(),
                 Starlark.type(value),
                 param.getTypeErrorMessage()));
@@ -419,14 +417,11 @@ public final class BuiltinFunction implements StarlarkCallable {
     public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
       if (unexpectedPositionalArgCount > 0) {
         if (argIndex == 0) {
-          throw Starlark.errorf("%s() got unexpected positional argument", owner.methodName);
+          throw Starlark.errorf("%s() got unexpected positional argument", owner.getName());
         } else {
           throw Starlark.errorf(
               "%s() accepts no more than %d positional argument%s but got %d",
-              owner.methodName,
-              argIndex,
-              plural(argIndex),
-              argIndex + unexpectedPositionalArgCount);
+              owner.getName(), argIndex, plural(argIndex), argIndex + unexpectedPositionalArgCount);
         }
       }
 
@@ -478,7 +473,7 @@ public final class BuiltinFunction implements StarlarkCallable {
     if (missingPositional != null) {
       throw Starlark.errorf(
           "%s() missing %d required positional argument%s: %s",
-          methodName,
+          getName(),
           missingPositional.size(),
           plural(missingPositional.size()),
           Joiner.on(", ").join(missingPositional));
@@ -486,7 +481,7 @@ public final class BuiltinFunction implements StarlarkCallable {
     if (missingNamed != null) {
       throw Starlark.errorf(
           "%s() missing %d required named argument%s: %s",
-          methodName,
+          getName(),
           missingNamed.size(),
           plural(missingNamed.size()),
           Joiner.on(", ").join(missingNamed));
@@ -514,7 +509,7 @@ public final class BuiltinFunction implements StarlarkCallable {
     if (!ok) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
-          methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
+          getName(), param.getName(), Starlark.type(value), param.getTypeErrorMessage());
     }
   }
 }
