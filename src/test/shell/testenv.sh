@@ -361,8 +361,8 @@ function enable_disk_cache() {
 
 function use_prebuilt_protoc() {
   echo "common --@com_google_protobuf//bazel/toolchains:prefer_prebuilt_protoc" >> $TEST_TMPDIR/bazelrc
-  echo "common --per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--THIS_CC_TOOLCHAIN_IS_BROKEN" >> $TEST_TMPDIR/bazelrc
-  echo "common --host_per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--THIS_CC_TOOLCHAIN_IS_BROKEN" >> $TEST_TMPDIR/bazelrc
+  echo "common --per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+  echo "common --host_per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
 }
 
 function setup_android_sdk_support() {
