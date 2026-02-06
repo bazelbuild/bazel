@@ -64,12 +64,18 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   mkdir "tmp.$$"
   cd "tmp.$$"
   unzip -q "../$fulljdk"
-  cd zulu*
+  cd */
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
   # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
   modules="$modules,jdk.crypto.mscapi"
-  ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
+  # JDK 24+ may not include jmods; jlink can link from the runtime image.
+  if [ -d jmods ]; then
+    module_path_arg="--module-path=./jmods/"
+  else
+    module_path_arg="--module-path=."
+  fi
+  ./bin/jlink $module_path_arg --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --add-options=" ${JVM_OPTIONS}"\
     --output reduced
@@ -81,8 +87,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
     | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
     | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
-    reduced/
+  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -q -X -r ../reduced.zip reduced/
@@ -95,10 +100,23 @@ else
   # root, but fail when running inside Docker, so we explicitly disable it.
   mkdir tool_jdk
   tar xf "$tooljdk" --no-same-owner --strip-components=1 -C tool_jdk
+  # On macOS, the JDK tarball contains a Contents/Home prefix.
+  if [ -d tool_jdk/Contents/Home ]; then
+    mv tool_jdk tool_jdk_outer && mv tool_jdk_outer/Contents/Home tool_jdk && rm -rf tool_jdk_outer
+  fi
   mkdir target_jdk
   tar xf "$fulljdk" --no-same-owner --strip-components=1 -C target_jdk
+  if [ -d target_jdk/Contents/Home ]; then
+    mv target_jdk target_jdk_outer && mv target_jdk_outer/Contents/Home target_jdk && rm -rf target_jdk_outer
+  fi
   cd target_jdk
-  "../tool_jdk/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
+  # JDK 24+ may not include jmods; jlink can link from the runtime image.
+  if [ -d jmods ]; then
+    module_path_arg="--module-path=./jmods/"
+  else
+    module_path_arg="--module-path=."
+  fi
+  "../tool_jdk/bin/jlink" $module_path_arg --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --add-options=" ${JVM_OPTIONS}" \
     --output reduced
