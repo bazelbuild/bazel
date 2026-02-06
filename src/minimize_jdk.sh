@@ -65,16 +65,20 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   cd "tmp.$$"
   unzip -q "../$fulljdk"
   cd */
-  # We have to add this module explicitly because it is windows specific, it allows
-  # the usage of the Windows truststore
-  # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
-  modules="$modules,jdk.crypto.mscapi"
   # JDK 24+ may not include jmods; jlink can link from the runtime image.
   if [ -d jmods ]; then
     module_path_arg="--module-path=./jmods/"
   else
-    module_path_arg="--module-path=."
+    module_path_arg=
+    # ALL-MODULE-PATH requires --module-path, so enumerate modules explicitly.
+    if [ "$modules" = "ALL-MODULE-PATH" ]; then
+      modules=$(./bin/java --list-modules | sed 's/@.*//' | paste -sd "," -)
+    fi
   fi
+  # We have to add this module explicitly because it is windows specific, it allows
+  # the usage of the Windows truststore
+  # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
+  modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink $module_path_arg --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --add-options=" ${JVM_OPTIONS}"\
@@ -114,7 +118,11 @@ else
   if [ -d jmods ]; then
     module_path_arg="--module-path=./jmods/"
   else
-    module_path_arg="--module-path=."
+    module_path_arg=
+    # ALL-MODULE-PATH requires --module-path, so enumerate modules explicitly.
+    if [ "$modules" = "ALL-MODULE-PATH" ]; then
+      modules=$("../tool_jdk/bin/java" --list-modules | sed 's/@.*//' | paste -sd "," -)
+    fi
   fi
   "../tool_jdk/bin/jlink" $module_path_arg --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
