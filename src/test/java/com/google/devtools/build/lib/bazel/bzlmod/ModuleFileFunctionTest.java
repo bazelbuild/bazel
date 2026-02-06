@@ -1912,7 +1912,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .hasMessageThat()
         .isEqualTo(
             "error applying single_version_override patch /workspace/patch.diff to module file:"
-                + " error at line 7: the patch file contains a/b prefixes, did you forget to set"
+                + " error at line 2: the patch file contains a/b prefixes, did you forget to set"
                 + " patch_strip = 1?");
   }
 
