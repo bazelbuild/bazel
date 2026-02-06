@@ -27,6 +27,7 @@ function set_up() {
   add_rules_java "MODULE.bazel"
   # Enable disk cache to avoid compiling protobuf for each test.
   enable_disk_cache
+  use_prebuilt_protoc
 }
 
 # Creates directories and files with the structure:
@@ -805,13 +806,13 @@ message H {
 }
 EOF
 
-  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
 
-  bazel build -s --experimental_sibling_repository_layout //h -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto  -s >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --experimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --experimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build --verbose_failures --experimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 
