@@ -379,11 +379,11 @@ sh_test(
 # TODO(b/324251617): downgrade test size to "large" once we no longer use Intel VMs
 sh_test(
     name = "bazel_proto_library_test",
-    size = "enormous",  # Downloads and compiles protobuf for *every* *test* *case*
+    size = "enormous",  # Downloads and compiles protobuf, which is heavy.
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
-    shard_count = 5,
+    shard_count = 2,
     tags = [
         "no_windows",  # Doesn't work on Windows for unknown reason
         "requires-network",  # Allow this test to access internet to fetch rules_proto dependencies.
