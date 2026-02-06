@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** Helper functions for {@link StarlarkMethod}-annotated methods. */
 final class CallUtils {
@@ -204,6 +205,13 @@ final class CallUtils {
    */
   @Nullable
   private static TypeConstructor getBaseTypeConstructor(Class<?> clazz) {
+    // Special-case bool, which is represented by Java booleans and does not have its own class.
+    // (String.class does not need special-casing because it's already been replaced by
+    // StringModule.class by this point.)
+    if (clazz.equals(Boolean.class) || clazz.equals(boolean.class)) {
+      return Types.BOOL_CONSTRUCTOR;
+    }
+
     Method found = null;
     for (Method m : clazz.getDeclaredMethods()) {
       if (m.getName().equals("getBaseTypeConstructor")) {

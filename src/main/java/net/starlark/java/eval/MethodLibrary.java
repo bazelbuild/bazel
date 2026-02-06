@@ -379,7 +379,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")},
+      isTypeConstructor = true)
   public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple) x;
@@ -431,7 +432,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public String str(Object x, StarlarkThread thread) throws EvalException {
     return Starlark.str(x, thread.getSemantics());
   }
@@ -455,7 +457,8 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")},
+      isTypeConstructor = true)
   public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
@@ -488,7 +491,8 @@ class MethodLibrary {
               @ParamType(type = StarlarkInt.class),
               @ParamType(type = StarlarkFloat.class),
             }),
-      })
+      },
+      isTypeConstructor = true)
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
     if (x instanceof String s) {
       if (s.isEmpty()) {
@@ -611,7 +615,8 @@ class MethodLibrary {
                     + "string.",
             named = true,
             allowedTypes = {@ParamType(type = StarlarkInt.class)})
-      })
+      },
+      isTypeConstructor = true)
   public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
       int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
@@ -654,7 +659,8 @@ class MethodLibrary {
             doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     // common case: dict(k=v, ...)
@@ -685,7 +691,8 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       parameters = {
         @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
       },
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for

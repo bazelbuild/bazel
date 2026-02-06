@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /** A Tuple is an immutable finite sequence of values. */
@@ -45,6 +46,10 @@ import net.starlark.java.syntax.Types;
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
 public abstract class Tuple extends AbstractList<Object>
     implements Sequence<Object>, Comparable<Tuple> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.TUPLE_CONSTRUCTOR;
+  }
 
   // Prohibit instantiation outside of package.
   Tuple() {}

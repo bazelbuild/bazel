@@ -26,7 +26,6 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.TypeConstructor;
-import net.starlark.java.syntax.Types;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -255,15 +254,6 @@ public final class Module implements Resolver.Module {
   @Override
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
-    // TODO: #28325 - Remove usage of TYPE_UNIVERSE here by retrieving type constructor info
-    // from the universal symbols' dynamic values. For the moment we only do this for None and list.
-    if (!(name.equals("None") || name.equals("list"))) {
-      TypeConstructor constructor = Types.TYPE_UNIVERSE.get(name);
-      if (constructor != null) {
-        return constructor;
-      }
-    }
-
     Resolver.Scope scope = resolve(name);
     Object value;
     switch (scope) {

@@ -33,6 +33,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /** A finite, mutable set of Starlark values. */
@@ -151,6 +152,10 @@ operations that attempt to update it will fail.
 """)
 public final class StarlarkSet<E> extends AbstractSet<E>
     implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.SET_CONSTRUCTOR;
+  }
 
   private static final StarlarkSet<?> EMPTY = new StarlarkSet<>(ImmutableSet.of());
 

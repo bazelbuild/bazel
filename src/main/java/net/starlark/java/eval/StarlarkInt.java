@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import java.math.BigInteger;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /** The Starlark int data type. */
@@ -35,6 +36,10 @@ import net.starlark.java.syntax.Types;
             + "int(\"18\")\n"
             + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.INT_CONSTRUCTOR;
+  }
+
   @Override
   public StarlarkType getStarlarkType() {
     return Types.INT;

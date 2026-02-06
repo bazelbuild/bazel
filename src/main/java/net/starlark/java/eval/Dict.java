@@ -34,6 +34,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -112,6 +113,10 @@ public class Dict<K, V>
         Mutability.Freezable,
         StarlarkIndexable,
         StarlarkIterable<K> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.DICT_CONSTRUCTOR;
+  }
 
   private final Map<K, V> contents;
   // Number of active iterators (unused once frozen).
