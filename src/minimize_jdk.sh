@@ -72,7 +72,9 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
     module_path_arg=
     # ALL-MODULE-PATH requires --module-path, so enumerate modules explicitly.
     if [ "$modules" = "ALL-MODULE-PATH" ]; then
-      modules=$(./bin/java --list-modules | sed 's/@.*//' | paste -sd "," -)
+      # jdk.jlink cannot be linked from a runtime image; jdk.jpackage
+      # transitively requires it.
+      modules=$(./bin/java --list-modules | sed 's/@.*//' | grep -v '^jdk\.jlink$' | grep -v '^jdk\.jpackage$' | paste -sd "," -)
     fi
   fi
   # We have to add this module explicitly because it is windows specific, it allows
@@ -121,7 +123,9 @@ else
     module_path_arg=
     # ALL-MODULE-PATH requires --module-path, so enumerate modules explicitly.
     if [ "$modules" = "ALL-MODULE-PATH" ]; then
-      modules=$("../tool_jdk/bin/java" --list-modules | sed 's/@.*//' | paste -sd "," -)
+      # jdk.jlink cannot be linked from a runtime image; jdk.jpackage
+      # transitively requires it.
+      modules=$("../tool_jdk/bin/java" --list-modules | sed 's/@.*//' | grep -v '^jdk\.jlink$' | grep -v '^jdk\.jpackage$' | paste -sd "," -)
     fi
   fi
   "../tool_jdk/bin/jlink" $module_path_arg --add-modules "$modules" \
