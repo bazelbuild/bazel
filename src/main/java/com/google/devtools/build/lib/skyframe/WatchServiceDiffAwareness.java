@@ -247,7 +247,15 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
 
     Set<Path> changedPaths = new HashSet<>();
     for (Path path : createdFilesAndDirectories) {
-      if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+      boolean isDirNoFollow = Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS);
+      if (isWindows) {
+        System.err.println(
+            "JDK27-WIN WatchServiceDiffAwareness created path="
+                + path
+                + " isDirNoFollow="
+                + isDirNoFollow);
+      }
+      if (isDirNoFollow) {
         // This is a new directory, so changes to it since its creation have not been watched.
         // We manually traverse the directory tree to register all the new subdirectories and find
         // all the new subdirectories and files.
@@ -314,6 +322,18 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
 
       // Do not traverse the bazel-* convenience symlinks. On windows these are created as
       // junctions.
+      if (isWindows && (attrs.isOther() || !attrs.isDirectory())) {
+        System.err.println(
+            "JDK27-WIN WatchServiceDiffAwareness preVisitDirectory path="
+                + path
+                + " attrs[dir="
+                + attrs.isDirectory()
+                + " other="
+                + attrs.isOther()
+                + " sym="
+                + attrs.isSymbolicLink()
+                + "]");
+      }
       if (isWindows && attrs.isOther()) {
         return FileVisitResult.SKIP_SUBTREE;
       }

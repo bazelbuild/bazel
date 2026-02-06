@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -421,6 +421,18 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
     } catch (java.nio.file.FileSystemException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
+    System.err.println(
+        "JDK27-WIN JavaIoFileSystem.stat path="
+            + path
+            + " follow="
+            + followSymlinks
+            + " attrs[dir="
+            + attributes.isDirectory()
+            + " other="
+            + attributes.isOther()
+            + " sym="
+            + attributes.isSymbolicLink()
+            + "]");
     FileStatus status =
         new FileStatus() {
           @Override
