@@ -604,7 +604,7 @@ public class PatchUtil {
                   String.format(
                       "error at line %d: the patch file contains a/b prefixes, did you forget to"
                           + " set patch_strip = 1?",
-                      i + 1));
+                      patchStartLocation));
             }
 
             if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
