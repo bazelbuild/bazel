@@ -3080,11 +3080,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }
 
-  @Test
-  public void testOptionConversionCrosstoolTop() throws Exception {
-    // TODO(waltl): check that crosstool_top is parsed properly.
-  }
-
   /**
    * Changing --cpu implicitly changes the target platform. Test that the old value of --platforms
    * gets cleared out (platform mappings can then kick in to set --platforms correctly).

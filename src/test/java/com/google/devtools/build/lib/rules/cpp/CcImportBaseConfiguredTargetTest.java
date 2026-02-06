@@ -162,8 +162,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   @Test
   public void testCcImportWithSharedLibrary() throws Exception {
     useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_enable_cc_toolchain_resolution");
+        "--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -189,8 +188,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   @Test
   public void testCcImportWithVersionedSharedLibrary() throws Exception {
     useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_enable_cc_toolchain_resolution");
+        "--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -216,8 +214,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   @Test
   public void testCcImportWithVersionedSharedLibraryWithDotInTheName() throws Exception {
     useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_enable_cc_toolchain_resolution");
+        "--platforms=" + TestConstants.PLATFORM_LABEL);
 
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -271,8 +268,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   @Test
   public void testCcImportWithInterfaceSharedLibrary() throws Exception {
     useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_enable_cc_toolchain_resolution");
+        "--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "b",
@@ -299,8 +295,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   @Test
   public void testCcImportWithBothStaticAndSharedLibraries() throws Exception {
     useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--noincompatible_enable_cc_toolchain_resolution");
+        "--platforms=" + TestConstants.PLATFORM_LABEL);
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",

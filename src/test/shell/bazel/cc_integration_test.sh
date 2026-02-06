@@ -1985,7 +1985,7 @@ EOF
 function test_find_optional_cpp_toolchain_present_without_toolchain_resolution() {
   setup_find_optional_cpp_toolchain
 
-  bazel build //pkg:my_rule --noincompatible_enable_cc_toolchain_resolution \
+  bazel build //pkg:my_rule \
     &> "$TEST_log" || fail "Build failed"
   assert_contains "Toolchain found" bazel-bin/pkg/my_rule
 }
@@ -1993,7 +1993,7 @@ function test_find_optional_cpp_toolchain_present_without_toolchain_resolution()
 function test_find_optional_cpp_toolchain_present_with_toolchain_resolution() {
   setup_find_optional_cpp_toolchain
 
-  bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
+  bazel build //pkg:my_rule \
     &> "$TEST_log" || fail "Build failed"
   assert_contains "Toolchain found" bazel-bin/pkg/my_rule
 }
@@ -2001,7 +2001,7 @@ function test_find_optional_cpp_toolchain_present_with_toolchain_resolution() {
 function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution() {
   setup_find_optional_cpp_toolchain
 
-  bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
+  bazel build //pkg:my_rule \
     --platforms=//pkg:exotic_platform &> "$TEST_log" || fail "Build failed"
   assert_contains "Toolchain not found" bazel-bin/pkg/my_rule
 }

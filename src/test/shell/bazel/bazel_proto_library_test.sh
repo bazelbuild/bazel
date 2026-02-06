@@ -562,7 +562,7 @@ void f() {
 }
 EOF
 
-  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
+  bazel build //a:c || fail "build failed"
 }
 
 function test_cc_proto_library_import_prefix_stripping() {

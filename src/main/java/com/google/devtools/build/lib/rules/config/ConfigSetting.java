@@ -95,7 +95,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   /** Flags we'd like to remove once there are no more repo references. */
   private static final ImmutableSet<String> DEPRECATED_PRE_PLATFORMS_FLAGS =
-      ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
+      ImmutableSet.of("cpu", "host_cpu");
 
   /**
    * The settings this {@code config_setting} expects.

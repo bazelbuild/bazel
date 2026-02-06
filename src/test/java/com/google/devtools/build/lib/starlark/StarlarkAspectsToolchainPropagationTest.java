@@ -1965,8 +1965,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=True",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=True");
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2043,8 +2042,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=False",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=False");
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2122,8 +2120,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain_exec_1,//toolchain:foo_toolchain_exec_2",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=" + autoExecGroups,
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
 
     var analysisResult = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:t1");
 
@@ -2205,8 +2202,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain",
         "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
-        "--incompatible_auto_exec_groups=" + autoExecGroups,
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
 
     var unused = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
 

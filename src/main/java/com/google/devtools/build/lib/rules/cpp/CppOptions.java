@@ -100,17 +100,6 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
-      name = "crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.NO_OP,
-      },
-      help = "No-op flag. Will be removed in a future release.")
-  public Label crosstoolTop;
-
-  @Option(
       name = "compiler",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -806,15 +795,6 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op flag. Will be removed in a future release.")
   public boolean disableLegacyCcProvider;
-
-  @Option(
-      name = "incompatible_enable_cc_toolchain_resolution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op flag. Will be removed in a future release.")
-  public boolean enableCcToolchainResolutionNoOp;
 
   @Option(
       name = "experimental_save_feature_state",

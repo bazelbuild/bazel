@@ -3007,7 +3007,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}"})
   public void selectOnDeprecatedFlagEmitsWarning(String flag) throws Exception {
     scratch.file(
         "test/BUILD",
@@ -3028,7 +3028,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}"})
   public void selectOnDisabledFlagFails(String flag) throws Exception {
     scratch.file(
         "test/BUILD",
