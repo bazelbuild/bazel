@@ -62,6 +62,10 @@ public class PythonTestUtils {
       case "PyRuntimeInfo":
         bzlFilename = "py_runtime_info.bzl";
         break;
+      case "py_runtime_pair":
+        // rules_python no longer exposes a dedicated py_runtime_pair.bzl file.
+        bzlFilename = "defs.bzl";
+        break;
       default:
         bzlFilename = symbolName + ".bzl";
     }
