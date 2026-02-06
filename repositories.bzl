@@ -81,57 +81,57 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-8XUtAFG2yiM2Jd2ywYyRcO2+VcXuZRW/79jqAZfuHCA=",
-        downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_x64.tar.gz",
+        integrity = "sha256-b9gowm6kpmFM2KspEAqO8A533hpucdkKvEThoNZXkUs=",
+        downloaded_file_path = "adoptium-linux-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_x64_linux_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-9ylaux3ssvbg6p92CnCRfy1HNW20Nm1hXHq5sBw8aGY=",
-        downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_aarch64.tar.gz",
+        integrity = "sha256-MZJzJpCS2Ye9U+cH+InCpfZ2AiVuI36v93N/HZk5/7Q=",
+        downloaded_file_path = "adoptium-linux-aarch64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_aarch64_linux_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-smK3NbIVFzADdm2jZYjV9xfc6toChttBtDn5P7KtpGg=",
-        downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_ppc64le_linux_hotspot_25.0.2_10.tar.gz",
+        integrity = "sha256-sefI2MA1R8VLHmdqOgEkWthPPluLi5dakwyMkMzqUJc=",
+        downloaded_file_path = "adoptium-ppc64le-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_ppc64le_linux_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_linux_riscv64_vanilla",
-        integrity = "sha256-FoEZ5PujUPTms8qSRQorkKhQK4miNaBEFemt+fXTFk4=",
-        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_riscv64_linux_hotspot_25.0.2_10.tar.gz",
+        integrity = "sha256-S90qCRJKfeHODO4LHDzHlVM8Gmm/xog1VKC8QOsHGTE=",
+        downloaded_file_path = "adoptium-riscv64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_riscv64_linux_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-FeXLytzz1DYjwxuCUGPNwoF7nxuoQLUdxu9w5dM8hOM=",
-        downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_s390x_linux_hotspot_25.0.2_10.tar.gz",
+        integrity = "sha256-agnIo5vKuWZB8GxcTXHau7P85VqB5jEXRI4kLSRkeQU=",
+        downloaded_file_path = "adoptium-s390x-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_s390x_linux_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-/iI0bBkpIMW4SyP0qiTj3rsLuU/EKAFvfCssd5DIJ4A=",
-        downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_x64.tar.gz",
+        integrity = "sha256-X0C/c5zZ5bgamwEZ/evyTuGsOjEEN+qxVSJakSGcpe8=",
+        downloaded_file_path = "adoptium-macos-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_x64_mac_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-U3rHT6HKLE3Y9gY93t4BOK5KiW8Si/4QtCin3MSqkp8=",
-        downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_aarch64.tar.gz",
+        integrity = "sha256-2pdlIG0GkWgjO6VrEuvbZQaXxEKqqiA1x5WvCqHp0lc=",
+        downloaded_file_path = "adoptium-macos-aarch64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_aarch64_mac_hotspot_27_7-ea.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-kLy7y+L7euxDzo/S76Ak/MSPALvc16drWPkS1rl+bVY=",
-        downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-win_x64.zip",
+        integrity = "sha256-komnO1phArW70Ms3qI7GZoW+p1FqUGbtcJJZOwPYrDQ=",
+        downloaded_file_path = "adoptium-win-vanilla.zip",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_x64_windows_hotspot_27_7-ea.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-X0R5KhKvIQC025tRIMJ8Qq+AgK1jvJ6q3JyiXlx91ZA=",
-        downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-win_aarch64.zip",
+        integrity = "sha256-tNHfa5AEnZ6h/GbuhyWGzDgsS7EtUMASI8dlVCMJoG8=",
+        downloaded_file_path = "adoptium-win-arm64.zip",
+        url = "https://github.com/adoptium/temurin27-binaries/releases/download/jdk-27%2B7-ea-beta/OpenJDK-jdk_aarch64_windows_hotspot_27_7-ea.zip",
     )
 
 def _async_profiler_repos(ctx):

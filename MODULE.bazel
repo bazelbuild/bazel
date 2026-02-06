@@ -314,6 +314,45 @@ use_repo(
 )
 
 # =========================================
+# JDK 27 EA repositories for testing
+# =========================================
+
+remotejdk27_repos = use_extension("//:extensions.bzl", "remotejdk27_repos")
+use_repo(
+    remotejdk27_repos,
+    "remotejdk27_linux",
+    "remotejdk27_linux_aarch64",
+    "remotejdk27_linux_ppc64le",
+    "remotejdk27_linux_riscv64",
+    "remotejdk27_linux_s390x",
+    "remotejdk27_macos",
+    "remotejdk27_macos_aarch64",
+    "remotejdk27_win",
+    "remotejdk27_win_arm64",
+    "remotejdk27_linux_toolchain_config_repo",
+    "remotejdk27_linux_aarch64_toolchain_config_repo",
+    "remotejdk27_linux_ppc64le_toolchain_config_repo",
+    "remotejdk27_linux_riscv64_toolchain_config_repo",
+    "remotejdk27_linux_s390x_toolchain_config_repo",
+    "remotejdk27_macos_toolchain_config_repo",
+    "remotejdk27_macos_aarch64_toolchain_config_repo",
+    "remotejdk27_win_toolchain_config_repo",
+    "remotejdk27_win_arm64_toolchain_config_repo",
+)
+
+register_toolchains(
+    "@remotejdk27_linux_toolchain_config_repo//:all",
+    "@remotejdk27_linux_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_linux_ppc64le_toolchain_config_repo//:all",
+    "@remotejdk27_linux_s390x_toolchain_config_repo//:all",
+    "@remotejdk27_linux_riscv64_toolchain_config_repo//:all",
+    "@remotejdk27_macos_toolchain_config_repo//:all",
+    "@remotejdk27_macos_aarch64_toolchain_config_repo//:all",
+    "@remotejdk27_win_toolchain_config_repo//:all",
+    "@remotejdk27_win_arm64_toolchain_config_repo//:all",
+)
+
+# =========================================
 # Python dependencies
 # =========================================
 
@@ -461,3 +500,13 @@ register_toolchains("@local_config_winsdk//:all")
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
+
+# JDK 27 compilation toolchains - registered first so they take priority when using remotejdk_27
+register_toolchains(
+    "//tools/jdk:toolchain_jdk_27_definition",
+    "//tools/jdk:toolchain_jdk_27_linux_aarch64_definition",
+    "//tools/jdk:toolchain_jdk_27_macos_definition",
+    "//tools/jdk:toolchain_jdk_27_macos_aarch64_definition",
+    "//tools/jdk:toolchain_jdk_27_win_definition",
+    "//tools/jdk:toolchain_jdk_27_win_arm64_definition",
+)
