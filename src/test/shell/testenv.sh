@@ -668,7 +668,7 @@ function cleanup_workspace() {
     cd ${WORKSPACE_DIR}
 
     if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
-      bazel clean >> "$TEST_log" 2>&1
+      # bazel clean >> "$TEST_log" 2>&1
     fi
 
     for i in *; do
