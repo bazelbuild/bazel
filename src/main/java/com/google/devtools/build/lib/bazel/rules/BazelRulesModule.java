@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter; 
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -43,6 +45,66 @@ public final class BazelRulesModule extends BlazeModule {
    * AllCommandGraveyardOptions}.
    */
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_enable_apple_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleUseToolchainResolution;
+
+    @Option(
+        name = "experimental_objc_provider_from_linked",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean objcProviderFromLinked;
+
+    @Option(
+        name = "build_python_zip",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        deprecationWarning =
+            "The '--no' prefix is no longer supported for this flag. Please use"
+                + " --build_python_zip=false instead.",
+        help = "Deprecated. No-op.")
+    public TriState buildPythonZip;
+
+    @Option(
+        name = "incompatible_default_to_explicit_init_py",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDefaultToExplicitInitPy;
+
+    @Option(
+        name = "python_native_rules_allowlist",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "Deprecated. No-op.")
+    public Label nativeRulesAllowlist;
+
+    @Option(
+        name = "incompatible_python_disallow_native_rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disallowNativeRules;
+
+    @Option(
+        name = "incompatible_remove_ctx_py_fragment",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disablePyFragment;
 
     @Option(
         name = "incompatible_use_python_toolchains",
