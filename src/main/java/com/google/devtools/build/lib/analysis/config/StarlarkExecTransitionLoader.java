@@ -26,10 +26,13 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -130,9 +133,14 @@ public final class StarlarkExecTransitionLoader {
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
 
-    // Load scope info for all starlark flags in the current config.
+    // Load scope info for all starlark build setting flags in the current config.
+    // Filter out config_feature_flags which also live in starlarkOptions but aren't build settings.
     StarlarkBuildSettingsDetailsValue scopeDetails = null;
-    Set<Label> starlarkFlags = options.getStarlarkOptions().keySet();
+    Set<Label> starlarkFlags =
+        options.getStarlarkOptions().entrySet().stream()
+            .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
     if (!starlarkFlags.isEmpty()) {
       scopeDetails = detailsLoader.getValue(starlarkFlags);
       if (scopeDetails == null) {
