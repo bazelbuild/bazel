@@ -152,9 +152,7 @@ public final class StarlarkTransitionCache {
       }
     }
 
-    return optionsWithDefaults == null
-        ? fromOptions
-        : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**
