@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
- * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
- * Scope.ScopeDefinition}.
+ * Scope of a Starlark build setting, defined by the {@link Scope.ScopeType} and {@link
+ * Scope.ScopeDefinition}. Scope determines how a flag's value is affected by configuration
+ * transitions and project boundaries.
  */
 public class Scope {
   public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
