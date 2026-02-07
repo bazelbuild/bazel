@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -78,7 +79,26 @@ public class StarlarkAttributeTransitionProvider
     // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
     // many build graph edges.
     return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+        starlarkDefinedConfigTransition,
+        (ConfiguredAttributeMapper) attributeMap,
+        /* scopeDetails= */ null);
+  }
+
+  /**
+   * Creates a {@link FunctionSplitTransition} with scope details for exec transitions. Only called
+   * by {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionProvider}.
+   */
+  protected SplitTransition createWithScopeDetails(
+      AttributeTransitionData data,
+      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+    AttributeMap attributeMap = data.attributes();
+    Preconditions.checkArgument(
+        attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
+    return new FunctionSplitTransition(
+        starlarkDefinedConfigTransition,
+        (ConfiguredAttributeMapper) attributeMap,
+        scopeDetails);
   }
 
   public boolean allowImmutableFlagChanges() {
@@ -106,12 +126,15 @@ public class StarlarkAttributeTransitionProvider
 
   final class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
+    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
     private final int hashCode;
 
     private FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
-        ConfiguredAttributeMapper attributeMap) {
+        ConfiguredAttributeMapper attributeMap,
+        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(starlarkDefinedConfigTransition);
+      this.scopeDetails = scopeDetails;
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       if (attributeMap != null) {
@@ -152,7 +175,8 @@ public class StarlarkAttributeTransitionProvider
               allowImmutableFlagChanges(),
               isExecTransitionProvider(),
               attrObject,
-              eventHandler);
+              eventHandler,
+              scopeDetails);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }

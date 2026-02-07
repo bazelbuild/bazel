@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
@@ -34,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,6 +101,7 @@ public final class BuildConfigurationKeyProducer<C>
   private final StateMachine runAfter;
   private final C context;
   private final BuildOptions options;
+  private final boolean forBaseline;
   private final Label label;
 
   // -------------------- Internal State --------------------
@@ -111,11 +112,16 @@ public final class BuildConfigurationKeyProducer<C>
   private BuildOptions baselineConfiguration;
 
   BuildConfigurationKeyProducer(
-      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options, Label label) {
+      ResultSink<C> sink,
+      StateMachine runAfter,
+      C context,
+      BuildConfigurationKeyValue.Key key,
+      Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.context = context;
-    this.options = options;
+    this.options = key.buildOptions();
+    this.forBaseline = key.forBaseline();
     this.label = label;
   }
 
@@ -171,35 +177,13 @@ public final class BuildConfigurationKeyProducer<C>
   private StateMachine findBuildOptionsScopes(Tasks tasks) {
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     // including platform-based flags in skykey for scopes lookUp
-    if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
-      return this::possiblyApplyScopes;
-    }
-
-    // the list of flags that are either project scoped or their scopes are not yet resolved.
-    // Lookup via BuildOptionsScopeFunction will be done for these flags
-    List<Label> flagsWithIncompleteScopeInfo = new ArrayList<>();
-    for (Map.Entry<Label, Object> entry :
-        postPlatformProcessedOptions.getStarlarkOptions().entrySet()) {
-      Scope.ScopeType scopeType =
-          this.postPlatformProcessedOptions.getScopeTypeMap().get(entry.getKey());
-      // scope is null is applicable for cases where a transition applies starlark flags that are
-      // not already part of the baseline configuration.
-      if (scopeType == null
-          || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)
-          || scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        flagsWithIncompleteScopeInfo.add(entry.getKey());
-      }
-    }
-
-    // if flagsWithIncompleteScopeInfo is empty, we do not need to do any further lookUp for the
-    // ScopeType and ScopeDefinition
-    if (flagsWithIncompleteScopeInfo.isEmpty()) {
+    if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty() || forBaseline) {
       return this::possiblyApplyScopes;
     }
 
     BuildOptionsScopeValue.Key buildOptionsScopeValueKey =
         BuildOptionsScopeValue.Key.create(
-            this.postPlatformProcessedOptions, flagsWithIncompleteScopeInfo);
+            this.postPlatformProcessedOptions.getStarlarkOptions().keySet());
     tasks.lookUp(buildOptionsScopeValueKey, (Consumer<SkyValue>) this);
     return this::possiblyApplyScopes;
   }
@@ -277,30 +261,30 @@ public final class BuildConfigurationKeyProducer<C>
     }
 
     boolean shouldApplyScopes =
-        buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
+        buildOptionsScopeValue.scopes().values().stream()
             .anyMatch(scope -> scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT));
 
     if (!shouldApplyScopes) {
-      return finishConfigurationKeyProcessing(
-          buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
+      return finishConfigurationKeyProcessing(postPlatformProcessedOptions);
     }
 
-    var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     tasks.lookUp(
         BaselineOptionsValue.key(
-            resolvedOptions.get(CoreOptions.class).isExec,
-            !resolvedOptions.contains(TestConfiguration.TestOptions.class),
+            postPlatformProcessedOptions.get(CoreOptions.class).isExec,
+            !postPlatformProcessedOptions.contains(TestConfiguration.TestOptions.class),
             /* newPlatform= */ null),
         val -> this.baselineConfiguration = ((BaselineOptionsValue) val).toOptions());
     return this::applyScopes;
   }
 
   private StateMachine applyScopes(Tasks tasks) {
-    BuildOptions resolved = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     BuildOptions finalBuildOptions =
-        baselineConfiguration.getStarlarkOptions().equals(resolved.getStarlarkOptions())
-            ? resolved
-            : resetFlags(buildOptionsScopeValue, baselineConfiguration, label);
+        baselineConfiguration
+                .getStarlarkOptions()
+                .equals(postPlatformProcessedOptions.getStarlarkOptions())
+            ? postPlatformProcessedOptions
+            : resetFlags(
+                buildOptionsScopeValue, postPlatformProcessedOptions, baselineConfiguration, label);
     return finishConfigurationKeyProcessing(finalBuildOptions);
   }
 
@@ -325,43 +309,33 @@ public final class BuildConfigurationKeyProducer<C>
    */
   private static BuildOptions resetFlags(
       BuildOptionsScopeValue buildOptionsScopeValue,
+      BuildOptions transitionedOptions,
       BuildOptions baselineConfiguration,
       Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
     Preconditions.checkNotNull(label);
 
-    BuildOptions transitionedOptionsWithScopeType =
-        buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     // If there are no scopes, short circuit.
-    if (buildOptionsScopeValue.getFullyResolvedScopes().isEmpty()) {
-      return transitionedOptionsWithScopeType;
+    if (buildOptionsScopeValue.scopes().isEmpty()) {
+      return transitionedOptions;
     }
 
     Preconditions.checkNotNull(baselineConfiguration);
     boolean flagsRemoved = false;
     boolean flagsResetToBaseline = false;
-    BuildOptions.Builder optionsWithScopeTypesBuilder =
-        transitionedOptionsWithScopeType.toBuilder();
-    for (Map.Entry<Label, Object> flagEntry :
-        transitionedOptionsWithScopeType.getStarlarkOptions().entrySet()) {
+    BuildOptions.Builder optionsBuilder = transitionedOptions.toBuilder();
+    for (Map.Entry<Label, Object> flagEntry : transitionedOptions.getStarlarkOptions().entrySet()) {
       Label flagLabel = flagEntry.getKey();
-      Scope scope = buildOptionsScopeValue.getFullyResolvedScopes().get(flagLabel);
-      if (scope == null) {
-        Verify.verify(
-            !transitionedOptionsWithScopeType
-                .getScopeTypeMap()
-                .get(flagLabel)
-                .scopeType()
-                .equals(Scope.ScopeType.PROJECT));
-      } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
+      Scope scope = buildOptionsScopeValue.scopes().get(flagLabel);
+      if (scope != null && scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
         if (flagValue != baselineValue && !isInScope(label, scope.getScopeDefinition())) {
           if (baselineValue == null) {
-            optionsWithScopeTypesBuilder.removeStarlarkOption(flagLabel);
+            optionsBuilder.removeStarlarkOption(flagLabel);
             flagsRemoved = true;
           } else {
-            optionsWithScopeTypesBuilder.addStarlarkOption(flagLabel, baselineValue);
+            optionsBuilder.addStarlarkOption(flagLabel, baselineValue);
             flagsResetToBaseline = true;
           }
         }
@@ -369,10 +343,10 @@ public final class BuildConfigurationKeyProducer<C>
     }
 
     if (!flagsRemoved && !flagsResetToBaseline) {
-      return transitionedOptionsWithScopeType;
+      return transitionedOptions;
     }
 
-    BuildOptions scopedBuildOptions = optionsWithScopeTypesBuilder.build();
+    BuildOptions scopedBuildOptions = optionsBuilder.build();
     if (scopedBuildOptions.equals(baselineConfiguration)) {
       return baselineConfiguration;
     }
