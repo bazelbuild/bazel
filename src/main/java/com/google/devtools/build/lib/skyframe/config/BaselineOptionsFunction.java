@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -111,18 +110,8 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   private static BuildOptions mapBuildOptions(Environment env, BuildOptions rawBaselineOptions)
       throws InterruptedException, BaselineOptionsFunctionException {
-    // Baseline options have no need to contain scope info. Set all scopes to the default type so
-    // that BuildConfigurationKeyFunction doesn't attempt to apply scopes, which would lead to a
-    // cycle as this requires knowing the baseline options.
-    var builder = rawBaselineOptions.toBuilder();
-    rawBaselineOptions
-        .getStarlarkOptions()
-        .forEach(
-            (key, value) -> {
-              builder.addScopeType(key, new Scope.ScopeType(Scope.ScopeType.DEFAULT));
-              builder.removeOnLeaveScopeValue(key);
-            });
-    var bckvk = BuildConfigurationKeyValue.Key.create(builder.build());
+    var bckvk =
+        BuildConfigurationKeyValue.Key.create(rawBaselineOptions);
     try {
       var buildConfigurationKeyValue =
           (BuildConfigurationKeyValue)

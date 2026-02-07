@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -405,7 +406,12 @@ public final class DependencyResolver {
               targetAndConfiguration.getConfiguration() == null
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
-              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+              (buildSettings) -> {
+                var key =
+                    StarlarkBuildSettingsDetailsValue.key(buildSettings);
+                return (StarlarkBuildSettingsDetailsValue) env.getValue(key);
+              });
       if (starlarkExecTransition == null) {
         return false;
       }

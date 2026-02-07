@@ -147,17 +147,13 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         createBuildOptions("--//test_flags:foo=True", "--//test_flags:bar=True");
 
-    // purposely removing the scope for //test_flags:bar to simulate the case where the scope is
-    // not yet resolved for a flag.
-    BuildOptions inputBuildOptionsWithIncompleteScopeTypeMap =
-        buildOptions.toBuilder().removeScope(Label.parseCanonical("//test_flags:bar")).build();
-
-    ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:bar"));
+    // All starlark flags need scope lookup since scope is no longer stored in BuildOptions.
+    ImmutableList<Label> scopedFlags =
+        ImmutableList.of(
+            Label.parseCanonical("//test_flags:foo"),
+            Label.parseCanonical("//test_flags:bar"));
     BuildOptionsScopeValue.Key key =
-        BuildOptionsScopeValue.Key.create(inputBuildOptionsWithIncompleteScopeTypeMap, scopedFlags);
-
-    // verify that the scope type is not yet resolved for //test_flags:bar
-    assertThat(key.getBuildOptions().getScopeTypeMap()).hasSize(1);
+        BuildOptionsScopeValue.Key.create(buildOptions, scopedFlags);
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
@@ -174,15 +170,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                             new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
                         Label.parseCanonical("//test_flags:bar"),
                         new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
-
-    // verify that the BuildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes() has the
-    // correct ScopeType map for all flags.
-    assertThat(buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes().getScopeTypeMap())
-        .containsExactly(
-            Label.parseCanonical("//test_flags:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonical("//test_flags:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
   }
 
   @Test

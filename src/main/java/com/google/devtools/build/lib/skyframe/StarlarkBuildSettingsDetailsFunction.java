@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
@@ -114,8 +116,26 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
               .filter(entry -> !entry.getKey().equals(entry.getValue().getLabel()))
               .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getLabel()));
 
+      // Calculate scope info based on the actual rules
+      ImmutableMap.Builder<Label, Scope.ScopeType> buildSettingToScopeType =
+          ImmutableMap.builder();
+      ImmutableMap.Builder<Label, Object> buildSettingToOnLeaveScopeValue =
+          ImmutableMap.builder();
+      for (Rule rule : actualRules) {
+        buildSettingToScopeType.put(rule.getLabel(), getScopeType(rule));
+        Object onLeaveScopeValue = getOnLeaveScopeValue(rule);
+        if (onLeaveScopeValue != null) {
+          buildSettingToOnLeaveScopeValue.put(rule.getLabel(), onLeaveScopeValue);
+        }
+      }
+
       return StarlarkBuildSettingsDetailsValue.create(
-          buildSettingToDefault, buildSettingToType, buildSettingIsAllowsMultiple, aliasToActual);
+          buildSettingToDefault,
+          buildSettingToType,
+          buildSettingIsAllowsMultiple,
+          aliasToActual,
+          buildSettingToScopeType.buildOrThrow(),
+          buildSettingToOnLeaveScopeValue.buildOrThrow());
 
     } catch (TransitionException e) {
       throw new StarlarkBuildSettingsDetailsException(e);
@@ -299,6 +319,24 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       throw new IllegalStateException(e);
     }
     return target;
+  }
+
+  private static Scope.ScopeType getScopeType(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.has("scope", Type.STRING)
+        || !attrs.isAttributeValueExplicitlySpecified("scope")) {
+      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
+    }
+    return new Scope.ScopeType(attrs.get("scope", Type.STRING));
+  }
+
+  @Nullable
+  private static Object getOnLeaveScopeValue(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+      return null;
+    }
+    return attrs.get("on_leave_scope", rule.getRuleClassObject().getBuildSetting().getType());
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {

@@ -110,16 +110,6 @@ public final class FakeOptions implements OptionsProvider {
   }
 
   @Override
-  public ImmutableMap<String, String> getScopesAttributes() {
-    return ImmutableMap.of();
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-    return ImmutableMap.of();
-  }
-
-  @Override
   public Map<String, Object> getExplicitStarlarkOptions(
       Predicate<? super ParsedOptionDescription> filter) {
     return ImmutableMap.of();

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.buildtool.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -336,15 +334,6 @@ public class BlazeRuntimeWrapper {
     // Create the options parser and parse all the options collected so far
     optionsParser = createOptionsParser(commandAnnotation, ignoreUserOptions);
     optionsParser.parse(optionsToParse);
-
-    // The exec transition has to know Starlark flags' scope types to figure out which flags should
-    // pass to the exec configuration vs. not. In production builds OptionsParser and
-    // StarlarkOptionsParser handle this. But BlazeRuntimeWrapper injects Starlark flags directly
-    // without going through normal parsing. So we have this extra step to provide default scope
-    // values. Ideally we could more closely match production parsing and avoid extra logic.
-    optionsParser.setScopesAttributes(
-        getStarlarkOptions().entrySet().stream()
-            .collect(toImmutableMap(Map.Entry::getKey, entry -> ScopeType.DEFAULT.toString())));
 
     // Allow the command to edit the options.
     command.editOptions(optionsParser);

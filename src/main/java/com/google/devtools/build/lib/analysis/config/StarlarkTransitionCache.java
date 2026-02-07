@@ -121,9 +121,7 @@ public final class StarlarkTransitionCache {
             maybeAliasSetting, details.buildSettingToDefault().get(setting));
       }
     }
-    return optionsWithDefaults == null
-        ? fromOptions
-        : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**

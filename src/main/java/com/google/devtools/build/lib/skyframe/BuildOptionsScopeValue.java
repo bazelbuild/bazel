@@ -28,9 +28,7 @@ import java.util.Objects;
 /** SkyValue returned by {@link BuildOptionsScopeFunction}. */
 public final class BuildOptionsScopeValue implements SkyValue {
 
-  BuildOptions resolvedBuildOptionsWithScopeTypes;
-  List<Label> scopedFlags;
-  LinkedHashMap<Label, Scope> fullyResolvedScopes;
+  private final LinkedHashMap<Label, Scope> fullyResolvedScopes;
 
   /** Key for {@link BuildOptionsScopeValue}. */
   @ThreadSafety.Immutable
@@ -38,27 +36,24 @@ public final class BuildOptionsScopeValue implements SkyValue {
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
     private final BuildOptions buildOptions;
-    private final List<Label> flagsWithIncompleteScopeInfo;
+    private final List<Label> flagsNeedingScopeLookup;
 
-    public Key(BuildOptions buildOptions, List<Label> flagsWithIncompleteScopeInfo) {
+    public Key(BuildOptions buildOptions, List<Label> flagsNeedingScopeLookup) {
       this.buildOptions = buildOptions;
-      this.flagsWithIncompleteScopeInfo = flagsWithIncompleteScopeInfo;
+      this.flagsNeedingScopeLookup = flagsNeedingScopeLookup;
     }
 
-    public static Key create(BuildOptions buildOptions, List<Label> flagsWithIncompleteScopeInfo) {
-      return interner.intern(new Key(buildOptions, flagsWithIncompleteScopeInfo));
+    public static Key create(BuildOptions buildOptions, List<Label> flagsNeedingScopeLookup) {
+      return interner.intern(new Key(buildOptions, flagsNeedingScopeLookup));
     }
 
     public BuildOptions getBuildOptions() {
       return buildOptions;
     }
 
-    /**
-     * Returns the list of flags that are either project scoped or their scopes are not yet
-     * resolved.
-     */
+    /** Returns the list of flags that need scope resolution via Skyframe. */
     public List<Label> getFlagsWithIncompleteScopeInfo() {
-      return flagsWithIncompleteScopeInfo;
+      return flagsNeedingScopeLookup;
     }
 
     @Override
@@ -81,38 +76,24 @@ public final class BuildOptionsScopeValue implements SkyValue {
       }
       Key key = (Key) o;
       return Objects.equals(buildOptions, key.buildOptions)
-          && Objects.equals(flagsWithIncompleteScopeInfo, key.flagsWithIncompleteScopeInfo);
+          && Objects.equals(flagsNeedingScopeLookup, key.flagsNeedingScopeLookup);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(buildOptions, flagsWithIncompleteScopeInfo);
+      return Objects.hash(buildOptions, flagsNeedingScopeLookup);
     }
   }
 
   public static BuildOptionsScopeValue create(
       BuildOptions inputBuildOptions,
-      // BuildOptions buildOptionsWithScopes,
       List<Label> scopedFlags,
       LinkedHashMap<Label, Scope> fullyResolvedScopes) {
-    return new BuildOptionsScopeValue(inputBuildOptions, scopedFlags, fullyResolvedScopes);
+    return new BuildOptionsScopeValue(fullyResolvedScopes);
   }
 
-  public BuildOptionsScopeValue(
-      BuildOptions resolvedBuildOptionsWithScopeTypes,
-      List<Label> scopedFlags,
-      LinkedHashMap<Label, Scope> fullyResolvedScopes) {
-    this.resolvedBuildOptionsWithScopeTypes = resolvedBuildOptionsWithScopeTypes;
-    this.scopedFlags = scopedFlags;
+  public BuildOptionsScopeValue(LinkedHashMap<Label, Scope> fullyResolvedScopes) {
     this.fullyResolvedScopes = fullyResolvedScopes;
-  }
-
-  /**
-   * Returns the {@link BuildOptions} with the all starlark flags having their {@link
-   * Scope.ScopeType} resolved.
-   */
-  public BuildOptions getResolvedBuildOptionsWithScopeTypes() {
-    return resolvedBuildOptionsWithScopeTypes;
   }
 
   /**

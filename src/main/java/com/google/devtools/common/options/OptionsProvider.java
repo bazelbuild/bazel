@@ -37,16 +37,6 @@ public interface OptionsProvider {
         }
 
         @Override
-        public ImmutableMap<String, String> getScopesAttributes() {
-          return ImmutableMap.of();
-        }
-
-        @Override
-        public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-          return ImmutableMap.of();
-        }
-
-        @Override
         public ImmutableMap<String, Object> getExplicitStarlarkOptions(
             Predicate<? super ParsedOptionDescription> filter) {
           return ImmutableMap.of();
@@ -90,8 +80,4 @@ public interface OptionsProvider {
    * map of option name to the option's {@code expandedFrom}, or "" if the option was not expanded.
    */
   ImmutableMap<String, String> getUserOptions();
-
-  Map<String, String> getScopesAttributes();
-
-  Map<String, Object> getOnLeaveScopeValues();
 }
