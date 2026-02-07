@@ -33,6 +33,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:external_file_system_lock",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
