@@ -231,7 +231,7 @@ public final class ParsedFlagsValue implements SkyValue {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return BuildConfigurationKey.create(builder.addScopeTypeMap(source.getScopeTypeMap()).build());
+    return BuildConfigurationKey.create(builder.build());
   }
 
   private static void updateOptionValue(

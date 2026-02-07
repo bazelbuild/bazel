@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -343,7 +345,11 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
           BuildOptionsScopeFunctionException {
     Sink sink = new Sink();
     BuildConfigurationKeyMapProducer producer =
-        new BuildConfigurationKeyMapProducer(sink, StateMachine.DONE, options, null);
+        new BuildConfigurationKeyMapProducer(
+            sink,
+            StateMachine.DONE,
+            Maps.transformValues(options, BuildConfigurationKeyValue.Key::create),
+            null);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Map;
@@ -98,8 +100,11 @@ final class TransitionApplier
       return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
-          transition.apply(
-              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
+          Maps.transformValues(
+              transition.apply(
+                  TransitionUtil.restrict(transition, fromConfiguration.getOptions()),
+                  eventHandler),
+              BuildConfigurationKeyValue.Key::create),
           this.label);
     }
     if (readsStampSetting.get()
@@ -158,6 +163,9 @@ final class TransitionApplier
     }
 
     return new BuildConfigurationKeyMapProducer(
-        this.sink, this.runAfter, transitionedOptions, this.label);
+        this.sink,
+        this.runAfter,
+        Maps.transformValues(transitionedOptions, BuildConfigurationKeyValue.Key::create),
+        this.label);
   }
 }
