@@ -158,6 +158,12 @@ public class AuthAndTLSOptions extends OptionsBase {
           to use for retrieving authorization credentials for repository
           fetching, remote caching and execution, and the build event service.
 
+          The path to the credential helper may be absolute, relative to the PATH environment variable,
+          or %workspace%-relative. The path may be optionally prefixed by a scope followed by an '='.
+          The scope is a domain name, optionally with a single leading '*' wildcard component. A helper
+          applies to URIs matching its scope, with more specific scopes preferred. If a helper has no
+          scope, it applies to every URI.
+
           Credentials supplied by a helper take precedence over credentials supplied by
           `--google_default_credentials`, `--google_credentials`, a `.netrc` file, or the
            auth parameter to `repository_ctx.download()` and
@@ -222,11 +228,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
     @Override
     public String getTypeDescription() {
-      return "Path to a credential helper. It may be absolute, relative to the PATH environment"
-          + " variable, or %workspace%-relative. The path be optionally prefixed by a scope "
-          + " followed by an '='. The scope is a domain name, optionally with a single leading '*'"
-          + " wildcard component. A helper applies to URIs matching its scope, with more specific"
-          + " scopes preferred. If a helper has no scope, it applies to every URI.";
+      return "Path to a credential helper.";
     }
 
     @Override
