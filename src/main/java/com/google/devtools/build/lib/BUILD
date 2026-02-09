@@ -747,14 +747,14 @@ genrule(
           "unzip -q -d $(@D)/html_for_mdx/rules/lib/ $(location :skylark-library.zip) && " +
           "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/html_for_mdx/rules/lib/repo/ && " +
           "mkdir -p $(@D)/mdx_docs && " +
-          "$(location //scripts/docs:html2mdx) --in_dir $(@D)/html_for_mdx --out_dir $(@D)/mdx_docs && " +
+          "$(location //scripts/docs:docs2mdx) --in_dir $(@D)/html_for_mdx --out_dir $(@D)/mdx_docs && " +
           # Ugly hack: we want to preserve paths relative to mdx_docs/,
           # which means we have to temporarily cd into that directory and zip with -r.
           "pushd $(@D)/mdx_docs && " +
           "zip -qr tmp.zip . && " +
           "popd && mv $(@D)/mdx_docs/tmp.zip $@",
     tools = [
-        "//scripts/docs:html2mdx",
+        "//scripts/docs:docs2mdx",
     ],
     visibility = ["//scripts/docs:__pkg__"],
 )
