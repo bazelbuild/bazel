@@ -180,12 +180,10 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
     outputs = [
         "//command_line_option:macos_minimum_os",
         "//command_line_option:apple_platform_type",
-        "//command_line_option:apple configuration distinguisher",
     ],
     func = lambda settings: {
         "//command_line_option:macos_minimum_os": settings["//command_line_option:host_macos_minimum_os"],
         "//command_line_option:apple_platform_type": "macos",
-        "//command_line_option:apple configuration distinguisher": "unknown",
     },
 )
 
