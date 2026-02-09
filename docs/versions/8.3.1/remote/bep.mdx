@@ -2,8 +2,6 @@
 title: 'Build Event Protocol'
 ---
 
-
-
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
 (BEP) allows third-party programs to gain insight into a Bazel invocation. For
@@ -53,14 +51,14 @@ network transport, some announced build events may never be posted.
 The event graph's structure reflects the lifecycle of a command. Every BEP
 graph has the following characteristic shape:
 
-1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
+1. The root event is always a [`BuildStarted`](/versions/8.3.1/remote/bep-glossary#buildstarted)
    event. All other events are its descendants.
 1. Immediate children of the BuildStarted event contain metadata about the
    command.
 1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
+   results, appear before the [`BuildFinished`](/versions/8.3.1/remote/bep-glossary#buildfinished)
    event.
-1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
+1. The [`BuildFinished`](/versions/8.3.1/remote/bep-glossary#buildfinished) event *may* be followed
    by events containing summary information about the build (for example, metric
    or profiling data).
 
@@ -114,7 +112,7 @@ Bazel has several flags related to the Build Event Service protocol, including:
 *  `--bes_instance_name`
 
 For a description of each of these flags, see the
-[Command-Line Reference](/reference/command-line-reference).
+[Command-Line Reference](/versions/8.3.1/reference/command-line-reference).
 
 ### Authentication and security
 
@@ -131,7 +129,7 @@ authentication and TLS infrastructure.
 *  `--[no]tls_enabled`
 
 For a description of each of these flags, see the
-[Command-Line Reference](/reference/command-line-reference).
+[Command-Line Reference](/versions/8.3.1/reference/command-line-reference).
 
 ### Build Event Service and remote caching
 
@@ -139,7 +137,7 @@ The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
 work around this issue is to use Bazel with [remote
-caching](/remote/caching).
+caching](/versions/8.3.1/remote/caching).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

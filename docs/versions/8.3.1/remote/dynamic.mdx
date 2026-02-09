@@ -13,7 +13,7 @@ This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
 remote execution set up, go to the Bazel [Remote Execution
-Overview](/remote/rbe) first.
+Overview](/versions/8.3.1/remote/rbe) first.
 
 ## Enabling dynamic execution?
 
@@ -45,13 +45,13 @@ longer than cache hits usually take. The actual time depends both on the remote
 system and on how long a round-trip takes. Usually, the value will be the same
 for all users of a given remote system, unless some of them are far enough away
 to add roundtrip latency. You can use the [Bazel profiling
-features](/rules/performance#performance-profiling) to look at how long typical
+features](/versions/8.3.1/rules/performance#performance-profiling) to look at how long typical
 cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
-[persistent workers](/remote/persistent). Persistent workers will automatically
+[persistent workers](/versions/8.3.1/remote/persistent). Persistent workers will automatically
 run with sandboxing when used with dynamic execution, and cannot use [multiplex
-workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
+workers](/versions/8.3.1/remote/multiplex). On Darwin and Windows systems, the sandboxed
 strategy can be slow; you can pass `--reuse_sandbox_directories` to reduce
 overhead of creating sandboxes on these systems.
 
@@ -72,13 +72,13 @@ posts](https://jmmv.dev/series/bazel-dynamic-execution/)
 
 ## When should I use dynamic execution?
 
-Dynamic execution requires some form of [remote execution system](/remote/rbe).
+Dynamic execution requires some form of [remote execution system](/versions/8.3.1/remote/rbe).
 It is not currently possible to use a cache-only remote system, as a cache miss
 would be considered a failed action.
 
 Not all types of actions are well suited for remote execution. The best
 candidates are those that are inherently faster locally, for instance through
-the use of [persistent workers](/remote/persistent), or those that run fast
+the use of [persistent workers](/versions/8.3.1/remote/persistent), or those that run fast
 enough that the overhead of remote execution dominates execution time. Since
 each locally executed action locks some amount of CPU and memory resources,
 running actions that don't fall into those categories merely delays execution
@@ -86,7 +86,7 @@ for those that do.
 
 As of release
 [5.0.0-pre.20210708.4](https://github.com/bazelbuild/bazel/releases/tag/5.0.0-pre.20210708.4),
-[performance profiling](/rules/performance#performance-profiling) contains data
+[performance profiling](/versions/8.3.1/rules/performance#performance-profiling) contains data
 about worker execution, including time spent finishing a work request after
 losing a dynamic execution race. If you see dynamic execution worker threads
 spending significant time acquiring resources, or a lot of time in the
@@ -95,7 +95,7 @@ threads.
 
 <p align="center">
 <img width="596px" alt="Profiling data with poor dynamic execution performance"
- src="/docs/images/dyn-trace-alldynamic.png">
+ src="/versions/8.3.1/docs/images/dyn-trace-alldynamic.png">
 </p>
 
 In the profile above, which uses 8 Javac workers, we see many Javac workers
@@ -105,7 +105,7 @@ delay the workers.
 
 <p align="center">
 <img width="596px" alt="Profiling data with better dynamic execution performance"
- src="/docs/images/dyn-trace-javaconly.png">
+ src="/versions/8.3.1/docs/images/dyn-trace-javaconly.png">
 </p>
 
 When only Javac is run with dynamic execution, only about half of the started
@@ -153,13 +153,13 @@ to monitor your remote system performance if you enable this option.
 `--experimental_dynamic_ignore_local_signals` can be used to let the remote
 branch take over when a local spawn exits due to a given signal. This is
 is mainly useful together with worker resource limits (see
-[`--experimental_worker_memory_limit_mb`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_memory_limit_mb),
-[`--experimental_worker_sandbox_hardening`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_sandbox_hardening),
+[`--experimental_worker_memory_limit_mb`](https://bazel.build/versions/8.3.1/reference/command-line-reference#flag--experimental_worker_memory_limit_mb),
+[`--experimental_worker_sandbox_hardening`](https://bazel.build/versions/8.3.1/reference/command-line-reference#flag--experimental_worker_sandbox_hardening),
 and
-[`--experimental_sandbox_memory_limit_mb`)](https://bazel.build/reference/command-line-reference#flag--experimental_sandbox_memory_limit_mb)),
+[`--experimental_sandbox_memory_limit_mb`)](https://bazel.build/versions/8.3.1/reference/command-line-reference#flag--experimental_sandbox_memory_limit_mb)),
 where worker processes may be killed when they use too many resources.
 
-The [JSON trace profile](/advanced/performance/json-trace-profile) contains a
+The [JSON trace profile](/versions/8.3.1/advanced/performance/json-trace-profile) contains a
 number of performance-related graphs that can help identify ways to improve the
 trade-off of performance and resource usage.
 
