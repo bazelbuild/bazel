@@ -7,7 +7,7 @@ target pattern syntax.
 
 ## Quickstart
 
-To run Bazel, go to your base [workspace](/concepts/build-ref#workspace) directory
+To run Bazel, go to your base [workspace](/versions/8.0.1/concepts/build-ref#workspace) directory
 or any of its subdirectories and type `bazel`. See [build](#bazel-build) if you
 need to make a new workspace.
 
@@ -19,28 +19,28 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 
 ### Available commands
 
-* [`analyze-profile`](/docs/user-manual#analyze-profile): Analyzes build profile data.
-* [`aquery`](/docs/user-manual#aquery): Executes a query on the [post-analysis](#analysis) action graph.
+* [`analyze-profile`](/versions/8.0.1/docs/user-manual#analyze-profile): Analyzes build profile data.
+* [`aquery`](/versions/8.0.1/docs/user-manual#aquery): Executes a query on the [post-analysis](#analysis) action graph.
 * [`build`](#bazel-build): Builds the specified targets.
-* [`canonicalize-flags`](/docs/user-manual#canonicalize-flags): Canonicalize Bazel flags.
-* [`clean`](/docs/user-manual#clean): Removes output files and optionally stops the server.
-* [`cquery`](/query/cquery): Executes a [post-analysis](#analysis) dependency graph query.
-* [`dump`](/docs/user-manual#dump): Dumps the internal state of the Bazel server process.
-* [`help`](/docs/user-manual#help): Prints help for commands, or the index.
-* [`info`](/docs/user-manual#info): Displays runtime info about the bazel server.
+* [`canonicalize-flags`](/versions/8.0.1/docs/user-manual#canonicalize-flags): Canonicalize Bazel flags.
+* [`clean`](/versions/8.0.1/docs/user-manual#clean): Removes output files and optionally stops the server.
+* [`cquery`](/versions/8.0.1/query/cquery): Executes a [post-analysis](#analysis) dependency graph query.
+* [`dump`](/versions/8.0.1/docs/user-manual#dump): Dumps the internal state of the Bazel server process.
+* [`help`](/versions/8.0.1/docs/user-manual#help): Prints help for commands, or the index.
+* [`info`](/versions/8.0.1/docs/user-manual#info): Displays runtime info about the bazel server.
 * [`fetch`](#fetching-external-dependencies): Fetches all external dependencies of a target.
-* [`mobile-install`](/docs/user-manual#mobile-install): Installs apps on mobile devices.
-* [`query`](/query/guide): Executes a dependency graph query.
-* [`run`](/docs/user-manual#running-executables): Runs the specified target.
-* [`shutdown`](/docs/user-manual#shutdown): Stops the Bazel server.
-* [`test`](/docs/user-manual#running-tests): Builds and runs the specified test targets.
-* [`version`](/docs/user-manual#version): Prints version information for Bazel.
+* [`mobile-install`](/versions/8.0.1/docs/user-manual#mobile-install): Installs apps on mobile devices.
+* [`query`](/versions/8.0.1/query/guide): Executes a dependency graph query.
+* [`run`](/versions/8.0.1/docs/user-manual#running-executables): Runs the specified target.
+* [`shutdown`](/versions/8.0.1/docs/user-manual#shutdown): Stops the Bazel server.
+* [`test`](/versions/8.0.1/docs/user-manual#running-tests): Builds and runs the specified test targets.
+* [`version`](/versions/8.0.1/docs/user-manual#version): Prints version information for Bazel.
 
 ### Getting help
 
 * `bazel help {{ '<var>' }}command{{ '</var>' }}`: Prints help and options for
   `{{ '<var>' }}command{{ '</var>' }}`.
-* `bazel help `[`startup_options`](/docs/user-manual#startup-options): Options for the JVM hosting Bazel.
+* `bazel help `[`startup_options`](/versions/8.0.1/docs/user-manual#startup-options): Options for the JVM hosting Bazel.
 * `bazel help `[`target-syntax`](#specifying-build-targets): Explains the syntax for specifying targets.
 * `bazel help info-keys`: Displays a list of keys used by the info command.
 
@@ -89,7 +89,7 @@ the entire action graph, but the number stabilizes within a few seconds.
 At the end of the build, Bazel prints which targets were requested, whether or
 not they were successfully built, and if so, where the output files can be
 found. Scripts that run builds can reliably parse this output; see
-[`--show_result`](/docs/user-manual#show-result) for more details.
+[`--show_result`](/versions/8.0.1/docs/user-manual#show-result) for more details.
 
 If you type the same command again, the build finishes much faster.
 
@@ -114,7 +114,7 @@ Bazel allows a number of ways to specify the targets to be built. Collectively,
 these are known as _target patterns_. This syntax is used in commands like
 `build`, `test`, or `query`.
 
-Whereas [labels](/concepts/labels) are used to specify individual
+Whereas [labels](/versions/8.0.1/concepts/labels) are used to specify individual
 targets, such as for declaring dependencies in `BUILD` files, Bazel's target
 patterns specify multiple targets. Target patterns are a generalization of the
 label syntax for _sets_ of targets, using wildcards. In the simplest case, any
@@ -156,7 +156,7 @@ workspace.
 <tr>
   <td><code>//...</code></td>
   <td>All rule targets in packages in the main repository. Does not include targets
-  from <a href="/docs/external">external repositories</a>.</td>
+  from <a href="/versions/8.0.1/docs/external">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
@@ -354,7 +354,7 @@ The primary difference is that the distribution directory requires manual
 preparation.
 
 Using the
-[`--distdir=/path/to-directory`](/reference/command-line-reference#flag--distdir)
+[`--distdir=/path/to-directory`](/versions/8.0.1/reference/command-line-reference#flag--distdir)
 option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
@@ -384,7 +384,7 @@ airgapped environment with an offline approach.
 ##### Repository cache (with Bazel 7 or later)
 
 To prepare the [repository cache](#repository-cache), use the
-[`--repository_cache`](/reference/command-line-reference#flag--repository_cache)
+[`--repository_cache`](/versions/8.0.1/reference/command-line-reference#flag--repository_cache)
 flag. You will need to do this once for every new Bazel binary version, since
 the implicit dependencies can be different for every release.
 
@@ -430,7 +430,7 @@ common --registry="path/to/local/bcr/registry"
 ##### Distribution directory (with Bazel prior to 7)
 
 To prepare the [distribution directory](#distribution-directory), use the
-[`--distdir`](/reference/command-line-reference#flag--distdir)
+[`--distdir`](/versions/8.0.1/reference/command-line-reference#flag--distdir)
 flag. You will need to do this once for every new Bazel binary version, since
 the implicit dependencies can be different for every release.
 
@@ -630,7 +630,7 @@ the host system in unknown ways. To disable this warning you can pass the
 
 Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
-output files. See [Hermeticity](/basics/hermeticity) for more details.
+output files. See [Hermeticity](/versions/8.0.1/basics/hermeticity) for more details.
 
 On some platforms such as [Google Kubernetes
 Engine](https://cloud.google.com/kubernetes-engine/) cluster nodes or Debian,
@@ -686,7 +686,7 @@ inputs to a rule, and all rule-specific error messages.
 The loading and analysis phases are fast because Bazel avoids unnecessary file
 I/O at this stage, reading only BUILD files in order to determine the work to be
 done. This is by design, and makes Bazel a good foundation for analysis tools,
-such as Bazel's [query](/query/guide) command, which is implemented atop the loading
+such as Bazel's [query](/versions/8.0.1/query/guide) command, which is implemented atop the loading
 phase.
 
 #### Execution phase
