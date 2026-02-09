@@ -2,8 +2,6 @@
 title: 'Bazel Glossary'
 ---
 
-
-
 ### Action
 
 A command to run during the build, for example, a call to a compiler that takes
@@ -11,7 +9,7 @@ A command to run during the build, for example, a call to a compiler that takes
 Includes metadata like the command line arguments, action key, environment
 variables, and declared input/output artifacts.
 
-**See also:** [Rules documentation](/extending/rules#actions)
+**See also:** [Rules documentation](/versions/8.2.1/extending/rules#actions)
 
 ### Action cache
 
@@ -71,7 +69,7 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-**See also:** [Aspects documentation](/extending/aspects)
+**See also:** [Aspects documentation](/versions/8.2.1/extending/aspects)
 
 ### Aspect-on-aspect
 
@@ -81,8 +79,8 @@ IDEs can be applied on top of an aspect that generates `.java` files from a
 proto.
 
 For an aspect `A` to apply on top of aspect `B`, the [providers](#provider) that
-`B` advertises in its [`provides`](/rules/lib/globals#aspect.provides) attribute
-must match what `A` declares it wants in its [`required_aspect_providers`](/rules/lib/globals#aspect.required_aspect_providers)
+`B` advertises in its [`provides`](/versions/8.2.1/rules/lib/globals#aspect.provides) attribute
+must match what `A` declares it wants in its [`required_aspect_providers`](/versions/8.2.1/rules/lib/globals#aspect.required_aspect_providers)
 attribute.
 
 ### Attribute
@@ -128,9 +126,9 @@ A file that defines rules, [macros](#macro), and constants written in
 [Starlark](#starlark). These can then be imported into [`BUILD`
 files](#build-file) using the `load()` function.
 
-// TODO: ### Build event protocol
+<!-- TODO: ### Build event protocol -->
 
-// TODO: ### Build flag
+<!-- TODO: ### Build flag -->
 
 ### Build graph
 
@@ -186,9 +184,9 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, such as for host tools or cross-compilation.
 
-**See also:** [Configurations](/extending/rules#configurations)
+**See also:** [Configurations](/versions/8.2.1/extending/rules#configurations)
 
-// TODO: ### Configuration fragment
+<!-- TODO: ### Configuration fragment -->
 
 ### Configuration trimming
 
@@ -205,7 +203,7 @@ targets](#configured-target) (after the [analysis phase](#analysis-phase)
 completes). This means `select()` and [build flags](#command-flags) (such as
 `--platforms`) are accurately reflected in the results.
 
-**See also:** [cquery documentation](/query/cquery)
+**See also:** [cquery documentation](/versions/8.2.1/query/cquery)
 
 ### Configured target
 
@@ -245,7 +243,7 @@ the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
 
-**See also:** [Depset documentation](/extending/depsets)
+**See also:** [Depset documentation](/versions/8.2.1/extending/depsets)
 
 ### Disk cache
 
@@ -306,7 +304,7 @@ and resource usage. Dependency checking and caching aim to produce correct
 results for this type of build. An incremental build is the opposite of a clean
 build.
 
-// TODO: ### Install base
+<!-- TODO: ### Install base -->
 
 ### Label
 
@@ -318,7 +316,7 @@ target (this directory is also known as the [package](#package)), and `target`
 is the name of the target itself. Depending on the situation, parts of this
 syntax may be omitted.
 
-**See also**: [Labels](/concepts/labels)
+**See also**: [Labels](/versions/8.2.1/concepts/labels)
 
 ### Loading phase
 
@@ -341,7 +339,7 @@ argument.
 
 Contrast with [symbolic macros](#symbolic-macro).
 
-**See also:** [Legacy macro documentation](/extending/legacy-macros)
+**See also:** [Legacy macro documentation](/versions/8.2.1/extending/legacy-macros)
 
 ### Macro
 
@@ -376,7 +374,7 @@ registrations and [module extension](#module-extension) input.
 
 Module metadata is hosted in Bazel registries.
 
-**See also:** [Bazel modules](/external/module)
+**See also:** [Bazel modules](/versions/8.2.1/external/module)
 
 ### Module Extension
 
@@ -385,7 +383,7 @@ inputs from across the [module](#module) dependency graph and invoking [repo
 rules](#repository-rule). Module extensions have capabilities similar to repo
 rules, allowing them to access the internet, perform file I/O, and so on.
 
-**See also:** [Module extensions](/external/extension)
+**See also:** [Module extensions](/versions/8.2.1/external/extension)
 
 ### Native rules
 
@@ -450,7 +448,7 @@ Note: The object holding specific data for a given rule target is
 referred to as a "provider instance", although sometimes this is conflated with
 "provider".
 
-**See also:** [Provider documentation](/extending/rules#providers)
+**See also:** [Provider documentation](/versions/8.2.1/extending/rules#providers)
 
 ### Query (concept)
 
@@ -466,7 +464,7 @@ phase](#loading-phase) [target graph](#target-graph). This is relatively fast,
 but can't analyze the effects of `select()`, [build flags](#command-flags),
 [artifacts](#artifact), or build [actions](#action).
 
-**See also:** [Query how-to](/query/guide), [Query reference](/query/language)
+**See also:** [Query how-to](/versions/8.2.1/query/guide), [Query reference](/versions/8.2.1/query/language)
 
 ### Repository
 
@@ -488,7 +486,7 @@ extensions](#module-extension). They can be fetched on demand to a predetermined
 Each repo has a unique, constant *canonical* name, and potentially different
 *apparent* names when viewed from other repos.
 
-**See also**: [External dependencies overview](/external/overview)
+**See also**: [External dependencies overview](/versions/8.2.1/external/overview)
 
 ### Repository cache
 
@@ -509,7 +507,7 @@ Repo rules can access the internet or perform file I/O; the most common repo
 rule is `http_archive` to download an archive containing source files from the
 internet.
 
-**See also:** [Repo rule documentation](/extending/repo)
+**See also:** [Repo rule documentation](/versions/8.2.1/extending/repo)
 
 ### Reproducibility
 
@@ -539,7 +537,7 @@ Note: Historically the term "rule" has been used to refer to a rule target.
 This usage was inherited from tools like Make, but causes confusion and should
 be avoided for Bazel.
 
-**See also:** [Rules documentation](/extending/rules)
+**See also:** [Rules documentation](/versions/8.2.1/extending/rules)
 
 ### Rule target
 
@@ -554,7 +552,7 @@ data dependencies of the test. Before the invocation of the executable (during
 bazel test), Bazel prepares the tree of runfiles alongside the test executable
 according to their source directory structure.
 
-**See also:** [Runfiles documentation](/extending/rules#runfiles)
+**See also:** [Runfiles documentation](/versions/8.2.1/extending/rules#runfiles)
 
 ### Sandboxing
 
@@ -567,32 +565,32 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
 ### Skyframe
 
-[Skyframe](/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
+[Skyframe](/versions/8.2.1/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
 
-// TODO: ### Spawn strategy
+<!-- TODO: ### Spawn strategy -->
 
 ### Stamping
 
 A feature to embed additional information into Bazel-built
 [artifacts](#artifact). For example, this can be used for source control, build
 time and other workspace or environment-related information for release builds.
-Enable through the `--workspace_status_command` flag and [rules](/extending/rules) that
+Enable through the `--workspace_status_command` flag and [rules](/versions/8.2.1/extending/rules) that
 support the stamp attribute.
 
 ### Starlark
 
-The extension language for writing [rules](/extending/rules) and [macros](#macro). A
+The extension language for writing [rules](/versions/8.2.1/extending/rules) and [macros](#macro). A
 restricted subset of Python (syntactically and grammatically) aimed for the
 purpose of configuration, and for better performance. Uses the [`.bzl`
 file](#bzl-file) extension. [`BUILD` files](#build-file) use an even more
 restricted version of Starlark (such as no `def` function definitions), formerly
 known as Skylark.
 
-**See also:** [Starlark language documentation](/rules/language)
+**See also:** [Starlark language documentation](/versions/8.2.1/rules/language)
 
-// TODO: ### Starlark rules
+<!-- TODO: ### Starlark rules -->
 
-// TODO: ### Starlark rule sandwich
+<!-- TODO: ### Starlark rule sandwich -->
 
 ### Startup flags
 
@@ -610,7 +608,7 @@ A flavor of [macro](#macro) which is declared with a [rule](#rule)-like
 pattern on the targets that the macro declares. Designed to avoid some of the
 problems seen in large [legacy macro](#legacy-macro) codebases.
 
-**See also:** [Symbolic macro documentation](/extending/macros)
+**See also:** [Symbolic macro documentation](/versions/8.2.1/extending/macros)
 
 ### Target
 
@@ -654,7 +652,7 @@ Rule [targets](#target) instantiated from test rules, and therefore contains a
 test executable. A return code of zero from the completion of the executable
 indicates test success. The exact contract between Bazel and tests (such as test
 environment variables, test result collection methods) is specified in the [Test
-Encyclopedia](/reference/test-encyclopedia).
+Encyclopedia](/versions/8.2.1/reference/test-encyclopedia).
 
 ### Toolchain
 
@@ -686,7 +684,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defined transitions](/extending/config#user-defined-transitions)
+**See also:** [User-defined transitions](/versions/8.2.1/extending/config#user-defined-transitions)
 
 ### Tree artifact
 
@@ -702,7 +700,7 @@ upon by other targets; and *load visibility* for controlling whether a `BUILD`
 or `.bzl` file may load a given `.bzl` file. Without context, usually
 "visibility" refers to target visibility.
 
-**See also:** [Visibility documentation](/concepts/visibility)
+**See also:** [Visibility documentation](/versions/8.2.1/concepts/visibility)
 
 ### Workspace
 
