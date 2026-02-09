@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.removeExtension;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.renameToleratingConcurrentCreation;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.traverseTree;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -1014,6 +1015,97 @@ public class FileSystemUtilsTest {
         .isEqualTo(fileSystem.stat(originalPath2.asFragment(), false).getNodeId());
     assertThat(fileSystem.stat(linkPath3.asFragment(), false).getNodeId())
         .isEqualTo(fileSystem.stat(originalPath3.asFragment(), false).getNodeId());
+  }
+
+  @Test
+  public void testRenameToleratingConcurrentCreation_success() throws Exception {
+    Path source = fileSystem.getPath("/source");
+    Path target = fileSystem.getPath("/target");
+    target.getParentDirectory().createDirectoryAndParents();
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello world");
+
+    renameToleratingConcurrentCreation(source, target);
+
+    assertThat(source.exists()).isFalse();
+    assertThat(target.exists()).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void testRenameToleratingConcurrentCreation_sourceDoesNotExist() throws Exception {
+    Path source = fileSystem.getPath("/source");
+    Path target = fileSystem.getPath("/target");
+    target.getParentDirectory().createDirectoryAndParents();
+
+    assertThrows(
+        FileNotFoundException.class, () -> renameToleratingConcurrentCreation(source, target));
+  }
+
+  @Test
+  public void testRenameToleratingConcurrentCreation_targetParentDoesNotExist() throws Exception {
+    Path source = fileSystem.getPath("/source");
+    Path target = fileSystem.getPath("/nonexistent/target");
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello world");
+
+    assertThrows(
+        FileNotFoundException.class, () -> renameToleratingConcurrentCreation(source, target));
+  }
+
+  @Test
+  public void testRenameToleratingConcurrentCreation_toleratesFileAccessExceptionOnWindows()
+      throws Exception {
+    FileSystem fs = new FileAccessExceptionOnRenameFs();
+    Path source = fs.getPath("/source");
+    Path target = fs.getPath("/target");
+    source.getParentDirectory().createDirectoryAndParents();
+    target.getParentDirectory().createDirectoryAndParents();
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello world");
+    FileSystemUtils.writeContent(target, UTF_8, "existing content");
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      renameToleratingConcurrentCreation(source, target);
+
+      assertThat(source.exists()).isFalse();
+      assertThat(target.exists()).isTrue();
+      assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("existing content");
+    } else {
+      assertThrows(
+          FileAccessException.class, () -> renameToleratingConcurrentCreation(source, target));
+
+      assertThat(source.exists()).isTrue();
+    }
+  }
+
+  @Test
+  public void testRenameToleratingConcurrentCreation_throwsIfTargetDoesNotExistAfterException()
+      throws Exception {
+    FileSystem fs = new FileAccessExceptionOnRenameFs();
+    Path source = fs.getPath("/source");
+    Path target = fs.getPath("/target");
+    source.getParentDirectory().createDirectoryAndParents();
+    target.getParentDirectory().createDirectoryAndParents();
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello world");
+
+    assertThrows(
+        FileAccessException.class, () -> renameToleratingConcurrentCreation(source, target));
+
+    assertThat(source.exists()).isTrue();
+  }
+
+  /** A file system that throws FileAccessException on rename, simulating Windows behavior. */
+  static class FileAccessExceptionOnRenameFs extends InMemoryFileSystem {
+    FileAccessExceptionOnRenameFs() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public void renameTo(PathFragment source, PathFragment target) throws IOException {
+      throw new FileAccessException("Access denied (simulated Windows behavior)");
+    }
   }
 
   static class MultipleDeviceFS extends InMemoryFileSystem {
