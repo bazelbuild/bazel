@@ -49,12 +49,13 @@ _HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 _METADATA_PATTERN = re.compile(
     '^((Project|Book):.+\n)', re.MULTILINE# | re.DOTALL
 )
+_TITLE_RE = re.compile(r"^title: '")
 
 def _convert_directory(root_dir, mdx_dir):
   """Converts all .html and .md(x) files to .mdx files.
 
   Args:
-      html_dir: str; full path of the directory with .html/.md(x)
+      root_dir: str; full path of the directory with .html/.md(x)
         files (input).
       mdx_dir: str; full path of the directory where .mdx files should be
         created (output).
@@ -97,7 +98,7 @@ def _fix_markdown(content):
   no_metadata = _METADATA_PATTERN.sub("", no_tags, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
   no_html_links = _HTML_LINK_RE.sub(_fix_link, no_templates)
-  fixed_headings = _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links, count=1)
+  fixed_headings = no_html_links if _TITLE_RE.search(no_html_links) else _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links, count=1)
   no_double_empty_lines = fixed_headings.replace("\n\n\n", "\n\n")
   return _remove_trailing_whitespaces(no_double_empty_lines)
 
