@@ -667,9 +667,9 @@ function cleanup_workspace() {
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
 
-    if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
+    # if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
       # bazel clean >> "$TEST_log" 2>&1
-    fi
+    # fi
 
     for i in *; do
       if ! is_tools_directory "$i"; then
