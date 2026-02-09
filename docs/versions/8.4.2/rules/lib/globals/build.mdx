@@ -2,7 +2,7 @@
 title: 'BUILD files'
 ---
 
-Methods available in BUILD files. See also the Build Encyclopedia for extra [functions](/reference/be/functions) and build rules, which can also be used in BUILD files.
+Methods available in BUILD files. See also the Build Encyclopedia for extra [functions](/versions/8.4.2/reference/be/functions) and build rules, which can also be used in BUILD files.
 
 ## Members
 
@@ -28,7 +28,7 @@ Methods available in BUILD files. See also the Build Encyclopedia for extra [fun
 depset depset(direct=None, order="default", *, transitive=None)
 ```
 
-Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/extending/depsets) for more information.
+Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/8.4.2/extending/depsets) for more information.
 
 All elements (direct and indirect) of a depset must be of the same type, as obtained by the expression `type(x)`.
 
@@ -154,7 +154,7 @@ Declares metadata that applies to every rule in the package. It must be called a
 
 | Parameter | Description |
 | --- | --- |
-| `kwargs` | required  See the [`package()`](/reference/be/functions#package) function in the Build Encyclopedia for applicable arguments. |
+| `kwargs` | required  See the [`package()`](/versions/8.4.2/reference/be/functions#package) function in the Build Encyclopedia for applicable arguments. |
 
 ## package\_group
 
@@ -225,7 +225,7 @@ The canonical name of the repository containing the package currently being eval
 unknown select(x, no_match_error='')
 ```
 
-`select()` is the helper function that makes a rule attribute [configurable](/reference/be/common-definitions#configurable-attributes). See [build encyclopedia](/reference/be/functions#select) for details.
+`select()` is the helper function that makes a rule attribute [configurable](/versions/8.4.2/reference/be/common-definitions#configurable-attributes). See [build encyclopedia](/versions/8.4.2/reference/be/functions#select) for details.
 
 ### Parameters
 

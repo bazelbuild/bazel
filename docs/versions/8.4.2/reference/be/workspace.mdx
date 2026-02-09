@@ -2,12 +2,11 @@
 title: 'Workspace Rules'
 ---
 
-
-Workspace rules are used to pull in [external dependencies](/docs/external), typically
+Workspace rules are used to pull in [external dependencies](/versions/8.4.2/docs/external), typically
 source code located outside the main repository.
 
 *Note:* besides the native workspace rules, Bazel also embeds various
-[Starlark workspace rules](/rules/lib/repo/index), in particular those to deal
+[Starlark workspace rules](/versions/8.4.2/rules/lib/repo/index), in particular those to deal
 with git repositories or archives hosted on the web.
 
 ## Rules
@@ -27,9 +26,9 @@ bind(name, actual, compatible_with, deprecation, distribs, features, licenses, r
 *Warning: use of `bind()` is not recommended. See "[Consider removing bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long
 discussion of its issues and alternatives. In particular, consider the use of
 [`repo_mapping`
-repository attributes](https://bazel.build/rules/repository_rules#attributes).*
+repository attributes](https://bazel.build/versions/8.4.2/rules/repository_rules#attributes).*
 
-*Warning: `select()` cannot be used in `bind()`. See the [Configurable Attributes FAQ](/docs/configurable-attributes#bind-select) for
+*Warning: `select()` cannot be used in `bind()`. See the [Configurable Attributes FAQ](/versions/8.4.2/docs/configurable-attributes#bind-select) for
 details.*
 
 Gives a target an alias in the `//external` package.
@@ -103,8 +102,8 @@ Then `sign_in.cc`'s includes might look like this:
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `actual` | [Label](/concepts/labels); default is `None` The target to be aliased. This target must exist, but can be any type of rule (including bind).  If this attribute is omitted, rules referring to this target in `//external` will simply not see this dependency edge. Note that this is different from omitting the `bind` rule completely: it is an error if an `//external` dependency does not have an associated `bind` rule. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `actual` | [Label](/versions/8.4.2/concepts/labels); default is `None` The target to be aliased. This target must exist, but can be any type of rule (including bind).  If this attribute is omitted, rules referring to this target in `//external` will simply not see this dependency edge. Note that this is different from omitting the `bind` rule completely: it is an error if an `//external` dependency does not have an associated `bind` rule. |
 
 ## local\_repository
 
@@ -116,7 +115,7 @@ local_repository(name, path, repo_mapping)
 
 Allows targets from a local directory to be bound. This means that the current repository can
 use targets defined in this other directory. See the [bind
-section](/reference/be/workspace#bind_examples) for more details.
+section](/versions/8.4.2/reference/be/workspace#bind_examples) for more details.
 
 #### Examples
 
@@ -141,7 +140,7 @@ library.
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
 | `path` | String; required The path to the local repository's directory. This must be a path to the directory containing the repository's *WORKSPACE* file. The path can be either absolute or relative to the main repository's *WORKSPACE* file. |
 | `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
 
@@ -219,10 +218,10 @@ Then targets can depend on `@piano//:play-music` to use piano.jar.
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `build_file` | [Name](/concepts/labels#target-names); default is `None` A file to use as a BUILD file for this directory. Either build\_file or build\_file\_content must be specified.  This attribute is a label relative to the main workspace. The file does not need to be named BUILD, but can be. (Something like BUILD.new-repo-name may work well for distinguishing it from the repository's actual BUILD files.) |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `build_file` | [Name](/versions/8.4.2/concepts/labels#target-names); default is `None` A file to use as a BUILD file for this directory. Either build\_file or build\_file\_content must be specified.  This attribute is a label relative to the main workspace. The file does not need to be named BUILD, but can be. (Something like BUILD.new-repo-name may work well for distinguishing it from the repository's actual BUILD files.) |
 | `build_file_content` | String; default is `""` The content for the BUILD file for this repository. Either build\_file or build\_file\_content must be specified. |
 | `path` | String; required A path on the local filesystem. This can be either absolute or relative to the main repository's WORKSPACE file. |
 | `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
-| `workspace_file` | [Name](/concepts/labels#target-names); default is `None` The file to use as the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both.  This attribute is a label relative to the main workspace. The file does not need to be named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for distinguishing it from the repository's actual WORKSPACE files.) |
+| `workspace_file` | [Name](/versions/8.4.2/concepts/labels#target-names); default is `None` The file to use as the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both.  This attribute is a label relative to the main workspace. The file does not need to be named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for distinguishing it from the repository's actual WORKSPACE files.) |
 | `workspace_file_content` | String; default is `""` The content for the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both. |

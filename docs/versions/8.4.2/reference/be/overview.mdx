@@ -2,29 +2,28 @@
 title: 'Bazel BUILD Encyclopedia of Functions'
 ---
 
-
 ## Concepts and terminology
 
-* [Common definitions](/reference/be/common-definitions)
-  + [Bourne shell tokenization](/reference/be/common-definitions#sh-tokenization)
-  + [Label expansion](/reference/be/common-definitions#label-expansion)
-  + [Typical attributes for most rules](/reference/be/common-definitions#typical-attributes)
-  + [Common attributes for all rules](/reference/be/common-definitions#common-attributes)
-  + [Common attributes for tests](/reference/be/common-definitions#common-attributes-tests)
-  + [Common attributes for binaries](/reference/be/common-definitions#common-attributes-binaries)
-  + [Configurable attributes](/reference/be/common-definitions#configurable-attributes)
-  + [Implicit output targets](/reference/be/common-definitions#implicit-outputs)
-* ["Make" variables](/reference/be/make-variables)
-  + [Use](/reference/be/make-variables#use)
+* [Common definitions](/versions/8.4.2/reference/be/common-definitions)
+  + [Bourne shell tokenization](/versions/8.4.2/reference/be/common-definitions#sh-tokenization)
+  + [Label expansion](/versions/8.4.2/reference/be/common-definitions#label-expansion)
+  + [Typical attributes for most rules](/versions/8.4.2/reference/be/common-definitions#typical-attributes)
+  + [Common attributes for all rules](/versions/8.4.2/reference/be/common-definitions#common-attributes)
+  + [Common attributes for tests](/versions/8.4.2/reference/be/common-definitions#common-attributes-tests)
+  + [Common attributes for binaries](/versions/8.4.2/reference/be/common-definitions#common-attributes-binaries)
+  + [Configurable attributes](/versions/8.4.2/reference/be/common-definitions#configurable-attributes)
+  + [Implicit output targets](/versions/8.4.2/reference/be/common-definitions#implicit-outputs)
+* ["Make" variables](/versions/8.4.2/reference/be/make-variables)
+  + [Use](/versions/8.4.2/reference/be/make-variables#use)
 
 ## Functions
 
-* [package](/reference/be/functions#package)
-* [package\_group](/reference/be/functions#package_group)
-* [exports\_files](/reference/be/functions#exports_files)
-* [glob](/reference/be/functions#glob)
-* [select](/reference/be/functions#select)
-* [workspace](/rules/lib/globals/workspace#workspace)
+* [package](/versions/8.4.2/reference/be/functions#package)
+* [package\_group](/versions/8.4.2/reference/be/functions#package_group)
+* [exports\_files](/versions/8.4.2/reference/be/functions#exports_files)
+* [glob](/versions/8.4.2/reference/be/functions#glob)
+* [select](/versions/8.4.2/reference/be/functions#select)
+* [workspace](/versions/8.4.2/rules/lib/globals/workspace#workspace)
 
 ## Rules
 
@@ -32,7 +31,7 @@ Native rules ship with the Bazel binary and do not require a `load` statement.
 Native rules are available globally in BUILD files. In .bzl files, you can find them in
 the `native` module.
 For non-native Starlark rules that ship separately from Bazel, see the list of
-[recommended rules](/rules/rules#recommended-rules).
+[recommended rules](/versions/8.4.2/rules/rules#recommended-rules).
 
 ### Language-specific native rules
 

@@ -156,8 +156,8 @@ It should be called at most once, and if called, it must be the very first direc
 | Parameter | Description |
 | --- | --- |
 | `name` | [string](../core/string); default is `''`  The name of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). A valid module name must: 1) only contain lowercase letters (a-z), digits (0-9), dots (.), hyphens (-), and underscores (\_); 2) begin with a lowercase letter; 3) end with a lowercase letter or digit. |
-| `version` | [string](../core/string); default is `''`  The version of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). The version must be in a relaxed SemVer format; see [the documentation](/external/module#version_format) for more details. |
-| `compatibility_level` | [int](../core/int); default is `0`  The compatibility level of the module; this should be changed every time a major incompatible change is introduced. This is essentially the "major version" of the module in terms of SemVer, except that it's not embedded in the version string itself, but exists as a separate field. Modules with different compatibility levels participate in version resolution as if they're modules with different names, but the final dependency graph cannot contain multiple modules with the same name but different compatibility levels (unless `multiple_version_override` is in effect). See [the documentation](/external/module#compatibility_level) for more details. |
+| `version` | [string](../core/string); default is `''`  The version of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). The version must be in a relaxed SemVer format; see [the documentation](/versions/8.4.2/external/module#version_format) for more details. |
+| `compatibility_level` | [int](../core/int); default is `0`  The compatibility level of the module; this should be changed every time a major incompatible change is introduced. This is essentially the "major version" of the module in terms of SemVer, except that it's not embedded in the version string itself, but exists as a separate field. Modules with different compatibility levels participate in version resolution as if they're modules with different names, but the final dependency graph cannot contain multiple modules with the same name but different compatibility levels (unless `multiple_version_override` is in effect). See [the documentation](/versions/8.4.2/external/module#compatibility_level) for more details. |
 | `repo_name` | [string](../core/string); default is `''`  The name of the repository representing this module, as seen by the module itself. By default, the name of the repo is the name of the module. This can be specified to ease migration for projects that have been using a repo name for itself that differs from its module name. |
 | `bazel_compatibility` | Iterable of [string](../core/string)s; default is `[]`  A list of bazel versions that allows users to declare which Bazel versions are compatible with this module. It does NOT affect dependency resolution, but bzlmod will use this information to check if your current Bazel version is compatible. The format of this value is a string of some constraint values separated by comma. Three constraints are supported: <=X.X.X: The Bazel version must be equal or older than X.X.X. Used when there is a known incompatible change in a newer version. >=X.X.X: The Bazel version must be equal or newer than X.X.X.Used when you depend on some features that are only available since X.X.X. -X.X.X: The Bazel version X.X.X is not compatible. Used when there is a bug in X.X.X that breaks you, but fixed in later versions. |
 
@@ -167,7 +167,7 @@ It should be called at most once, and if called, it must be the very first direc
 None multiple_version_override(module_name, versions, registry='')
 ```
 
-Specifies that a dependency should still come from a registry, but multiple versions of it should be allowed to coexist. See [the documentation](/external/module#multiple-version_override) for more details. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+Specifies that a dependency should still come from a registry, but multiple versions of it should be allowed to coexist. See [the documentation](/versions/8.4.2/external/module#multiple-version_override) for more details. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
 
 ### Parameters
 
@@ -203,7 +203,7 @@ Use [`inject_repo`](#inject_repo) instead to add a new repo.
 None register_execution_platforms(dev_dependency=False, *platform_labels)
 ```
 
-Specifies already-defined execution platforms to be registered when this module is selected. Should be absolute [target patterns](https://bazel.build/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by name.
+Specifies already-defined execution platforms to be registered when this module is selected. Should be absolute [target patterns](https://bazel.build/versions/8.4.2/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.4.2/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by name.
 
 ### Parameters
 
@@ -218,7 +218,7 @@ Specifies already-defined execution platforms to be registered when this module 
 None register_toolchains(dev_dependency=False, *toolchain_labels)
 ```
 
-Specifies already-defined toolchains to be registered when this module is selected. Should be absolute [target patterns](https://bazel.build/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by target name (not the name of the toolchain implementation).
+Specifies already-defined toolchains to be registered when this module is selected. Should be absolute [target patterns](https://bazel.build/versions/8.4.2/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.4.2/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by target name (not the name of the toolchain implementation).
 
 ### Parameters
 

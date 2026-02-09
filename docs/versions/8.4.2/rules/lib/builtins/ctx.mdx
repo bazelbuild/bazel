@@ -6,7 +6,7 @@ A context object that is passed to the implementation function for a rule or asp
 
 In particular, it lets the implementation function access the current target's label, attributes, configuration, and the providers of its dependencies. It has methods for declaring output files and the actions that produce them.
 
-Context objects essentially live for the duration of the call to the implementation function. It is not useful to access these objects outside of their associated function. See the [Rules page](https://bazel.build/extending/rules#implementation_function) for more information.
+Context objects essentially live for the duration of the call to the implementation function. It is not useful to access these objects outside of their associated function. See the [Rules page](https://bazel.build/versions/8.4.2/extending/rules#implementation_function) for more information.
 
 ## Members
 
@@ -66,7 +66,7 @@ A list of ids for all aspects applied to the target. Only available in aspect im
 struct ctx.attr
 ```
 
-A struct to access the values of the [attributes](https://bazel.build/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
+A struct to access the values of the [attributes](https://bazel.build/versions/8.4.2/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
 
 ## bin\_dir
 
@@ -90,7 +90,7 @@ Deprecated: Use `ctx.label.package + '/BUILD'`. The path to the BUILD file for t
 unknown ctx.build_setting_value
 ```
 
-Value of the build setting represented by the current target. If this isn't the context for an instance of a rule that sets the [`build_setting`](https://bazel.build/extending/config#rule-parameter) attribute, reading this is an error.
+Value of the build setting represented by the current target. If this isn't the context for an instance of a rule that sets the [`build_setting`](https://bazel.build/versions/8.4.2/extending/config#rule-parameter) attribute, reading this is an error.
 
 ## configuration
 
@@ -213,7 +213,7 @@ A `struct` containing files defined in [label type attributes](../toplevel/attr#
 list(ctx.attr.<ATTR>.files)[0]
 ```
 
-In other words, use `file` to access the (singular) [default output](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
+In other words, use `file` to access the (singular) [default output](https://bazel.build/versions/8.4.2/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
 
 ## files
 
@@ -227,7 +227,7 @@ A `struct` containing files defined in [label](../toplevel/attr#label) or [label
 [f for t in ctx.attr.<ATTR> for f in t.files]
 ```
 
-In other words, use `files` to access the  [default outputs](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
+In other words, use `files` to access the  [default outputs](https://bazel.build/versions/8.4.2/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
 
 ## fragments
 
@@ -267,7 +267,7 @@ The label of the target currently being analyzed.
 structure ctx.outputs
 ```
 
-A pseudo-struct containing all the predeclared output files, represented by [`File`](../builtins/File) objects. See the [Rules page](https://bazel.build/extending/rules#files) for more information and examples.
+A pseudo-struct containing all the predeclared output files, represented by [`File`](../builtins/File) objects. See the [Rules page](https://bazel.build/versions/8.4.2/extending/rules#files) for more information and examples.
 
 This field does not exist on aspect contexts, since aspects do not have predeclared outputs.
 
@@ -294,7 +294,7 @@ tuple ctx.resolve_command(command='', attribute=None, expand_locations=False, ma
 | `make_variables` | [dict](../core/dict); or `None`; default is `None`  Make variables to expand, or None. |
 | `tools` | [sequence](../core/list) of [Target](../builtins/Target)s; default is `[]`  List of tools (list of targets). |
 | `label_dict` | [dict](../core/dict); default is `{}`  Dictionary of resolved labels and the corresponding list of Files (a dict of Label : list of Files). |
-| `execution_requirements` | [dict](../core/dict); default is `{}`  Information for scheduling the action to resolve this command. See [tags](/reference/be/common-definitions#common.tags) for useful keys. |
+| `execution_requirements` | [dict](../core/dict); default is `{}`  Information for scheduling the action to resolve this command. See [tags](/versions/8.4.2/reference/be/common-definitions#common.tags) for useful keys. |
 
 ## resolve\_tools
 
@@ -334,10 +334,10 @@ Creates a runfiles object.
 | --- | --- |
 | `files` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  The list of files to be added to the runfiles. |
 | `transitive_files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The (transitive) set of files to be added to the runfiles. The depset should use the `default` order (which, as the name implies, is the default). |
-| `collect_data` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/extending/rules#runfiles)**. Whether to collect the data runfiles from the dependencies in srcs, data and deps attributes. |
-| `collect_default` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/extending/rules#runfiles)**. Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes. |
-| `symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles. Symlinks are always added under the main workspace's runfiles directory (e.g. `<runfiles_root>/_main/<symlink_path>`, **not** the directory corresponding to the current target's repository. See [Runfiles symlinks](https://bazel.build/extending/rules#runfiles_symlinks) in the rules guide. |
-| `root_symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See [Runfiles symlinks](https://bazel.build/extending/rules#runfiles_symlinks) in the rules guide. |
+| `collect_data` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the data runfiles from the dependencies in srcs, data and deps attributes. |
+| `collect_default` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes. |
+| `symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles. Symlinks are always added under the main workspace's runfiles directory (e.g. `<runfiles_root>/_main/<symlink_path>`, **not** the directory corresponding to the current target's repository. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
+| `root_symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
 
 ## split\_attr
 

@@ -2,7 +2,6 @@
 title: 'Protocol Buffer Rules'
 ---
 
-
 ## Rules
 
 * [cc\_proto\_library](#cc_proto_library)
@@ -47,8 +46,8 @@ proto_library(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate C++ code for. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate C++ code for. |
 
 ## java\_lite\_proto\_library
 
@@ -84,8 +83,8 @@ proto_library(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate Java code for. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate Java code for. |
 
 ## java\_proto\_library
 
@@ -121,8 +120,8 @@ proto_library(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate Java code for. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate Java code for. |
 
 ## proto\_library
 
@@ -162,11 +161,11 @@ Recommended code organization:
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of other `proto_library` rules that the target depends upon. A `proto_library` may only depend on other `proto_library` targets. It may not depend on language-specific libraries. |
-| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of `.proto` and `.protodevel` files that are processed to create the target. This is usually a non empty list. One usecase where `srcs` can be empty is an *alias-library*. This is a proto\_library rule having one or more other proto\_library in `deps`. This pattern can be used to e.g. export a public api under a persistent name. |
-| `allow_exports` | [Label](/concepts/labels); default is `None` An optional allowlist that prevents proto library to be reexported or used in lang\_proto\_library that is not in one of the listed packages. |
-| `exports` | List of [labels](/concepts/labels); default is `[]` List of proto\_library targets that can be referenced via "import public" in the proto source. It's an error if you use "import public" but do not list the corresponding library in the exports attribute. Note that you have list the library both in deps and exports since not all lang\_proto\_library implementations have been changed yet. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of other `proto_library` rules that the target depends upon. A `proto_library` may only depend on other `proto_library` targets. It may not depend on language-specific libraries. |
+| `srcs` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of `.proto` and `.protodevel` files that are processed to create the target. This is usually a non empty list. One usecase where `srcs` can be empty is an *alias-library*. This is a proto\_library rule having one or more other proto\_library in `deps`. This pattern can be used to e.g. export a public api under a persistent name. |
+| `allow_exports` | [Label](/versions/8.4.2/concepts/labels); default is `None` An optional allowlist that prevents proto library to be reexported or used in lang\_proto\_library that is not in one of the listed packages. |
+| `exports` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` List of proto\_library targets that can be referenced via "import public" in the proto source. It's an error if you use "import public" but do not list the corresponding library in the exports attribute. Note that you have list the library both in deps and exports since not all lang\_proto\_library implementations have been changed yet. |
 | `import_prefix` | String; default is `""` The prefix to add to the paths of the .proto files in this rule. When set, the .proto source files in the `srcs` attribute of this rule are accessible at is the value of this attribute prepended to their repository-relative path. The prefix in the `strip_import_prefix` attribute is removed before this prefix is added. |
 | `strip_import_prefix` | String; default is `"/"` The prefix to strip from the paths of the .proto files in this rule. When set, .proto source files in the `srcs` attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path (not starting with a slash), it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the `import_prefix` attribute is added after this prefix is stripped. |
 
@@ -202,8 +201,8 @@ srcs = ["foo.proto"],
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of `proto\_library` rules to generate Python libraries for. Usually this is just the one target: the proto library of interest. It can be any target providing `ProtoInfo`. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of `proto\_library` rules to generate Python libraries for. Usually this is just the one target: the proto library of interest. It can be any target providing `ProtoInfo`. |
 
 ## proto\_lang\_toolchain
 
@@ -246,18 +245,18 @@ proto_lang_toolchain(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `allowlist_different_package` | [Label](/concepts/labels); default is `None` |
-| `blacklisted_protos` | List of [labels](/concepts/labels); default is `[]` No code will be generated for files in the `srcs` attribute of `blacklisted_protos`. This is used for .proto files that are already linked into proto runtimes, such as `any.proto`. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `allowlist_different_package` | [Label](/versions/8.4.2/concepts/labels); default is `None` |
+| `blacklisted_protos` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` No code will be generated for files in the `srcs` attribute of `blacklisted_protos`. This is used for .proto files that are already linked into proto runtimes, such as `any.proto`. |
 | `command_line` | String; required This value will be passed to proto-compiler to generate the code. Only include the parts specific to this code-generator/plugin (e.g., do not include -I parameters)  * `$(OUT)` is LANG\_proto\_library-specific. The rules are expected to define   how they interpret this variable. For Java, for example, $(OUT) will be replaced with   the src-jar filename to create. |
 | `mnemonic` | String; default is `"GenProto"` This value will be set as the mnemonic on protoc action. |
 | `output_files` | String; default is `"legacy"` Controls how `$(OUT)` in `command_line` is formatted, either by a path to a single file or output directory in case of multiple files. Possible values are: "single", "multiple". |
-| `plugin` | [Label](/concepts/labels); default is `None` If provided, will be made available to the action that calls the proto-compiler, and will be passed to the proto-compiler: `--plugin=protoc-gen-PLUGIN=<executable>.` |
+| `plugin` | [Label](/versions/8.4.2/concepts/labels); default is `None` If provided, will be made available to the action that calls the proto-compiler, and will be passed to the proto-compiler: `--plugin=protoc-gen-PLUGIN=<executable>.` |
 | `plugin_format_flag` | String; default is `""` If provided, this value will be passed to proto-compiler to use the plugin. The value must contain a single %s which is replaced with plugin executable. `--plugin=protoc-gen-PLUGIN=<executable>.` |
 | `progress_message` | String; default is `"Generating proto_library %{label}"` This value will be set as the progress message on protoc action. |
-| `protoc_minimal_do_not_use` | [Label](/concepts/labels); default is `None` |
-| `runtime` | [Label](/concepts/labels); default is `None` A language-specific library that the generated code is compiled against. The exact behavior is LANG\_proto\_library-specific. Java, for example, should compile against the runtime. |
-| `toolchain_type` | [Label](/concepts/labels); default is `None` |
+| `protoc_minimal_do_not_use` | [Label](/versions/8.4.2/concepts/labels); default is `None` |
+| `runtime` | [Label](/versions/8.4.2/concepts/labels); default is `None` A language-specific library that the generated code is compiled against. The exact behavior is LANG\_proto\_library-specific. Java, for example, should compile against the runtime. |
+| `toolchain_type` | [Label](/versions/8.4.2/concepts/labels); default is `None` |
 
 ## proto\_toolchain
 
@@ -271,9 +270,9 @@ proto_toolchain(name, command_line, compatible_with, deprecation, distribs, exec
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
 | `command_line` | String; default is `"--descriptor_set_out=%s"` |
 | `mnemonic` | String; default is `"GenProtoDescriptorSet"` |
 | `output_files` | String; default is `"single"` |
 | `progress_message` | String; default is `"Generating Descriptor Set proto_library %{label}"` |
-| `proto_compiler` | [Label](/concepts/labels); default is `None` |
+| `proto_compiler` | [Label](/versions/8.4.2/concepts/labels); default is `None` |

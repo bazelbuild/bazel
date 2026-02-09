@@ -2,10 +2,9 @@
 title: 'Platforms and Toolchains Rules'
 ---
 
-
 This set of rules exists to allow you to model specific hardware platforms you are
 building for and specify the specific tools you may need to compile code for those platforms.
-The user should be familiar with the concepts explained [here](/extending/platforms).
+The user should be familiar with the concepts explained [here](/versions/8.4.2/extending/platforms).
 
 ## Rules
 
@@ -27,7 +26,7 @@ This rule is used to introduce a new constraint type for which a platform may sp
 For instance, you might define a `constraint_setting` named "glibc\_version" to represent
 the capability for platforms to have different versions of the glibc library installed.
 For more details, see the
-[Platforms](https://bazel.build/docs/platforms) page.
+[Platforms](https://bazel.build/versions/8.4.2/docs/platforms) page.
 
 Each `constraint_setting` has an extensible set of associated
 `constraint_value`s. Usually these are defined in the same package, but sometimes a
@@ -39,8 +38,8 @@ define a platform targeting an obscure cpu architecture.
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `default_constraint_value` | [Name](/concepts/labels#target-names); [nonconfigurable](common-definitions#configurable-attributes); default is `None` The label of the default value for this setting, to be used if no value is given. If this attribute is present, the `constraint_value` it points to must be defined in the same package as this `constraint_setting`. If a constraint setting has a default value, then whenever a platform does not include any constraint value for that setting, it is the same as if the platform had specified the default value. Otherwise, if there is no default value, the constraint setting is considered to be unspecified by that platform. In that case, the platform would not match against any constraint list (such as for a `config_setting`) that requires a particular value for that setting. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `default_constraint_value` | [Name](/versions/8.4.2/concepts/labels#target-names); [nonconfigurable](common-definitions#configurable-attributes); default is `None` The label of the default value for this setting, to be used if no value is given. If this attribute is present, the `constraint_value` it points to must be defined in the same package as this `constraint_setting`. If a constraint setting has a default value, then whenever a platform does not include any constraint value for that setting, it is the same as if the platform had specified the default value. Otherwise, if there is no default value, the constraint setting is considered to be unspecified by that platform. In that case, the platform would not match against any constraint list (such as for a `config_setting`) that requires a particular value for that setting. |
 
 ## constraint\_value
 
@@ -52,7 +51,7 @@ constraint_value(name, constraint_setting, deprecation, distribs, features, lice
 
 This rule introduces a new value for a given constraint type.
 For more details, see the
-[Platforms](https://bazel.build/docs/platforms) page.
+[Platforms](https://bazel.build/versions/8.4.2/docs/platforms) page.
 
 #### Example
 
@@ -73,8 +72,8 @@ Platforms can then declare that they have the `mips` architecture as an alternat
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `constraint_setting` | [Label](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required The `constraint_setting` for which this `constraint_value` is a possible choice. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `constraint_setting` | [Label](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required The `constraint_setting` for which this `constraint_value` is a possible choice. |
 
 ## platform
 
@@ -87,7 +86,7 @@ platform(name, constraint_values, deprecation, distribs, exec_properties, featur
 This rule defines a new platform -- a named collection of constraint choices
 (such as cpu architecture or compiler version) describing an environment in
 which part of the build may run.
-For more details, see the [Platforms](/extending/platforms) page.
+For more details, see the [Platforms](/versions/8.4.2/extending/platforms) page.
 
 #### Example
 
@@ -278,14 +277,14 @@ In this example, the child platforms have the following properties:
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `constraint_values` | List of [labels](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The combination of constraint choices that this platform comprises. In order for a platform to apply to a given environment, the environment must have at least the values in this list. Each `constraint_value` in this list must be for a different `constraint_setting`. For example, you cannot define a platform that requires the cpu architecture to be both `@platforms//cpu:x86_64` and `@platforms//cpu:arm`. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `constraint_values` | List of [labels](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The combination of constraint choices that this platform comprises. In order for a platform to apply to a given environment, the environment must have at least the values in this list. Each `constraint_value` in this list must be for a different `constraint_setting`. For example, you cannot define a platform that requires the cpu architecture to be both `@platforms//cpu:x86_64` and `@platforms//cpu:arm`. |
 | `exec_properties` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{}` A map of strings that affect the way actions are executed remotely. Bazel makes no attempt to interpret this, it is treated as opaque data that's forwarded via the Platform field of the [remote execution protocol](https://github.com/bazelbuild/remote-apis). This includes any data from the parent platform's `exec_properties` attributes. If the child and parent platform define the same keys, the child's values are kept. Any keys associated with a value that is an empty string are removed from the dictionary. This attribute is a full replacement for the deprecated `remote_execution_properties`. |
 | `flags` | List of strings; [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of flags that will be enabled when this platform is used as the target platform in a configuration. Only flags that can be set in transitions are allowed to be used. |
 | `missing_toolchain_error` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `"For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro."` A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured. Not inherited from parent platforms. |
-| `parents` | List of [labels](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The label of a `platform` target that this platform should inherit from. Although the attribute takes a list, there should be no more than one platform present. Any constraint\_settings not set directly on this platform will be found in the parent platform. See the section on [Platform Inheritance](#platform_inheritance) for details. |
+| `parents` | List of [labels](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The label of a `platform` target that this platform should inherit from. Although the attribute takes a list, there should be no more than one platform present. Any constraint\_settings not set directly on this platform will be found in the parent platform. See the section on [Platform Inheritance](#platform_inheritance) for details. |
 | `remote_execution_properties` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` DEPRECATED. Please use exec\_properties attribute instead. A string used to configure a remote execution platform. Actual builds make no attempt to interpret this, it is treated as opaque data that can be used by a specific SpawnRunner. This can include data from the parent platform's "remote\_execution\_properties" attribute, by using the macro "{PARENT\_REMOTE\_EXECUTION\_PROPERTIES}". See the section on [Platform Inheritance](#platform_inheritance) for details. |
-| `required_settings` | List of [labels](/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this platform to be used as an execution platform during toolchain resolution. Required settings are not inherited from parent platforms. |
+| `required_settings` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this platform to be used as an execution platform during toolchain resolution. Required settings are not inherited from parent platforms. |
 
 ## toolchain
 
@@ -297,19 +296,19 @@ toolchain(name, deprecation, distribs, exec_compatible_with, features, licenses,
 
 This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the
-[Toolchains](https://bazel.build/docs/toolchains) page for more
+[Toolchains](https://bazel.build/versions/8.4.2/docs/toolchains) page for more
 details.
 
 ### Arguments
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `exec_compatible_with` | List of [labels](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of `constraint_value`s that must be satisfied by an execution platform in order for this toolchain to be selected for a target building on that platform. |
-| `target_compatible_with` | List of [labels](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of `constraint_value`s that must be satisfied by the target platform in order for this toolchain to be selected for a target building for that platform. |
-| `target_settings` | List of [labels](/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this toolchain to be selected during toolchain resolution. |
-| `toolchain` | [Name](/concepts/labels#target-names); required The target representing the actual tool or tool suite that is made available when this toolchain is selected. |
-| `toolchain_type` | [Label](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required The label of a `toolchain_type` target that represents the role that this toolchain serves. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `exec_compatible_with` | List of [labels](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of `constraint_value`s that must be satisfied by an execution platform in order for this toolchain to be selected for a target building on that platform. |
+| `target_compatible_with` | List of [labels](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of `constraint_value`s that must be satisfied by the target platform in order for this toolchain to be selected for a target building for that platform. |
+| `target_settings` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this toolchain to be selected during toolchain resolution. |
+| `toolchain` | [Name](/versions/8.4.2/concepts/labels#target-names); required The target representing the actual tool or tool suite that is made available when this toolchain is selected. |
+| `toolchain_type` | [Label](/versions/8.4.2/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required The label of a `toolchain_type` target that represents the role that this toolchain serves. |
 | `use_target_platform_constraints` | Boolean; [nonconfigurable](common-definitions#configurable-attributes); default is `False` If `True`, this toolchain behaves as if its `exec_compatible_with` and `target_compatible_with` constraints are set to those of the current target platform. `exec_compatible_with` and `target_compatible_with` must not be set in that case. |
 
 ## toolchain\_type
@@ -323,7 +322,7 @@ toolchain_type(name, compatible_with, deprecation, features, no_match_error, res
 This rule defines a new type of toolchain -- a simple target that represents a class of tools that
 serve the same role for different platforms.
 
-See the [Toolchains](/docs/toolchains) page for more details.
+See the [Toolchains](/versions/8.4.2/docs/toolchains) page for more details.
 
 #### Example
 
@@ -353,5 +352,5 @@ bar_binary = rule(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
 | `no_match_error` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` A custom error message to display when no matching toolchain is found for this type. |

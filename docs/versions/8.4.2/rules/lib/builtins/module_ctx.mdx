@@ -29,8 +29,7 @@ The context of the module extension containing helper functions and information 
 unknown module_ctx.download(url, output='', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', block=True)
 ```
 
-Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/rules/lib/repo/cache#get_default_canonical_id)
-
+Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/8.4.2/rules/lib/repo/cache#get_default_canonical_id)
 
 ### Parameters
 
@@ -53,8 +52,7 @@ Downloads a file to the output path for the provided url and returns a struct co
 struct module_ctx.download_and_extract(url, output='', sha256='', type='', strip_prefix='', allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', rename_files={})
 ```
 
-Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/rules/lib/repo/cache#get_default_canonical_id)
-
+Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/8.4.2/rules/lib/repo/cache#get_default_canonical_id)
 
 ### Parameters
 

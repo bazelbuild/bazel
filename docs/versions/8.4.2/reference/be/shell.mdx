@@ -2,7 +2,6 @@
 title: 'Shell Rules'
 ---
 
-
 ## Rules
 
 * [sh\_binary](#sh_binary)
@@ -41,9 +40,9 @@ sh_binary(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
-| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/8.4.2/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
 | `env_inherit` | List of strings; default is `[]` |
 
 ## sh\_library
@@ -62,7 +61,7 @@ run-time. Such "libraries" can then be used from
 the `data` attribute of one or
 more `sh_binary` rules.
 
-You can use the [`filegroup`](/reference/be/general#filegroup) rule to aggregate data
+You can use the [`filegroup`](/versions/8.4.2/reference/be/general#filegroup) rule to aggregate data
 files.
 
 In interpreted programming languages, there's not always a clear
@@ -90,9 +89,9 @@ sh_library(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
-| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/8.4.2/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
 
 ## sh\_test
 
@@ -126,6 +125,6 @@ sh_binary(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `deps` | List of [labels](/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
-| `srcs` | List of [labels](/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of "library" targets to be aggregated into this target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/8.4.2/reference/be/common-definitions#typical.deps). This attribute should be used to list other `sh_library` rules that provide interpreted program source code depended on by the code in `srcs`. The files provided by these rules will be present among the `runfiles` of this target. |
+| `srcs` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` The list of input files. This attribute should be used to list shell script source files that belong to this library. Scripts can load other scripts using the shell's `source` or `.` command. |

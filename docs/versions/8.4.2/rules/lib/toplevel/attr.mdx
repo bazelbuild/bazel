@@ -4,8 +4,8 @@ title: 'attr'
 
 This is a top-level module for defining the attribute schemas of a rule or aspect. Each function returns an object representing the schema of a single attribute. These objects are used as the values of the `attrs` dictionary argument of [`rule()`](../globals/bzl#rule), [`aspect()`](../globals/bzl#aspect), [`repository_rule()`](../globals/bzl#repository_rule) and [`tag_class()`](../globals/bzl#tag_class).
 
-See the Rules page for more on [defining](https://bazel.build/extending/rules#attributes)
-and [using](https://bazel.build/extending/rules#implementation_function) attributes.
+See the Rules page for more on [defining](https://bazel.build/versions/8.4.2/extending/rules#attributes)
+and [using](https://bazel.build/versions/8.4.2/extending/rules#implementation_function) attributes.
 
 ## Members
 
@@ -88,7 +88,7 @@ This attribute contains unique [`Label`](../builtins/Label) values. If a string 
 
 At analysis time (within the rule's implementation function), when retrieving the attribute value from `ctx.attr`, labels are replaced by the corresponding [`Target`](../builtins/Target)s. This allows you to access the providers of the current target's dependencies.
 
-In addition to ordinary source files, this kind of attribute is often used to refer to a tool -- for example, a compiler. Such tools are considered to be dependencies, just like source files. To avoid requiring users to specify the tool's label every time they use the rule in their BUILD files, you can hard-code the label of a canonical tool as the `default` value of this attribute. If you also want to prevent users from overriding this default, you can make the attribute private by giving it a name that starts with an underscore. See the [Rules](https://bazel.build/extending/rules#private-attributes) page for more information.
+In addition to ordinary source files, this kind of attribute is often used to refer to a tool -- for example, a compiler. Such tools are considered to be dependencies, just like source files. To avoid requiring users to specify the tool's label every time they use the rule in their BUILD files, you can hard-code the label of a canonical tool as the `default` value of this attribute. If you also want to prevent users from overriding this default, you can make the attribute private by giving it a name that starts with an underscore. See the [Rules](https://bazel.build/versions/8.4.2/extending/rules#private-attributes) page for more information.
 
 ### Parameters
 
@@ -106,7 +106,7 @@ In addition to ordinary source files, this kind of attribute is often used to re
 | `providers` | [sequence](../core/list); default is `[]`  The providers that must be given by any dependency appearing in this attribute. The format of this argument is a list of lists of providers -- `*Info` objects returned by [`provider()`](../globals/bzl#provider) (or in the case of a legacy provider, its string name). The dependency must return ALL providers mentioned in at least ONE of the inner lists. As a convenience, this argument may also be a single-level list of providers, in which case it is wrapped in an outer list with one element. It is NOT required that the rule of the dependency advertises those providers in its `provides` parameter, however, it is considered best practice. |
 | `for_dependency_resolution` | default is `unbound`  If this is set, the attribute is available for materializers. Only rules marked with the flag of the same name are allowed to be referenced through such attributes. |
 | `allow_rules` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatibility), use providers instead. |
-| `cfg` | default is `None`  [Configuration](https://bazel.build/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. This parameter is required if `executable` is True to guard against accidentally building host tools in the target configuration. `"target"` has no semantic effect, so don't set it when `executable` is False unless it really helps clarify your intentions. |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/8.4.2/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. This parameter is required if `executable` is True to guard against accidentally building host tools in the target configuration. `"target"` has no semantic effect, so don't set it when `executable` is False unless it really helps clarify your intentions. |
 | `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
 | `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
 
@@ -136,7 +136,7 @@ At analysis time (within the rule's implementation function), when retrieving th
 | `for_dependency_resolution` | default is `unbound`  If this is set, the attribute is available for materializers. Only rules marked with the flag of the same name are allowed to be referenced through such attributes. |
 | `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
 | `mandatory` | [bool](../core/bool); default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
-| `cfg` | default is `None`  [Configuration](https://bazel.build/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/8.4.2/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
 | `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
 
 ## label\_list
@@ -167,7 +167,7 @@ At analysis time (within the rule's implementation function), when retrieving th
 | `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
 | `mandatory` | [bool](../core/bool); default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
 | `skip_validations` | [bool](../core/bool); default is `False`  If true, validation actions of transitive dependencies from this attribute will not run. This is a temporary mitigation and WILL be removed in the future. |
-| `cfg` | default is `None`  [Configuration](https://bazel.build/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/8.4.2/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
 | `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
 
 ## output
@@ -271,7 +271,7 @@ At analysis time (within the rule's implementation function), when retrieving th
 | `for_dependency_resolution` | default is `unbound`  If this is set, the attribute is available for materializers. Only rules marked with the flag of the same name are allowed to be referenced through such attributes. |
 | `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
 | `mandatory` | [bool](../core/bool); default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
-| `cfg` | default is `None`  [Configuration](https://bazel.build/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/8.4.2/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
 | `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
 
 ## string\_list

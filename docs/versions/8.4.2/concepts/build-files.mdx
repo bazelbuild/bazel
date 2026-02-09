@@ -40,7 +40,7 @@ allowed in `BUILD` files; instead list all the arguments explicitly.
 Crucially, programs in Starlark can't perform arbitrary I/O. This invariant
 makes the interpretation of `BUILD` files hermetic — dependent only on a known
 set of inputs, which is essential for ensuring that builds are reproducible.
-For more details, see [Hermeticity](/basics/hermeticity).
+For more details, see [Hermeticity](/versions/8.4.2/basics/hermeticity).
 
 `BUILD` files should be written using only ASCII characters, although
 technically they are interpreted using the Latin-1 character set.
@@ -67,7 +67,7 @@ additional arguments to the call to `load`. Arguments must be string literals
 (no variable) and `load` statements must appear at top-level — they cannot be
 in a function body.
 
-The first argument of `load` is a [label](/concepts/labels) identifying a
+The first argument of `load` is a [label](/versions/8.4.2/concepts/labels) identifying a
 `.bzl` file. If it's a relative label, it is resolved with respect to the
 package (not directory) containing the current `bzl` file. Relative labels in
 `load` statements should use a leading `:`.
@@ -90,7 +90,7 @@ load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 In a `.bzl` file, symbols starting with `_` are not exported and cannot be
 loaded from another file.
 
-You can use [load visibility](/concepts/visibility#load-visibility) to restrict
+You can use [load visibility](/versions/8.4.2/concepts/visibility#load-visibility) to restrict
 who may load a `.bzl` file.
 
 ## Types of build rules
@@ -101,7 +101,7 @@ and `cc_test` are the build rules for C++ binaries,
 libraries, and tests, respectively. Other languages use the same
 naming scheme, with a different prefix, such as `java_*` for
 Java. Some of these functions are documented in the
-[Build Encyclopedia](/reference/be/overview), but it is possible
+[Build Encyclopedia](/versions/8.4.2/reference/be/overview), but it is possible
 for anyone to create new rules.
 
 * `*_binary` rules build executable programs in a given language. After a
@@ -136,11 +136,11 @@ for anyone to create new rules.
 <table class="columns">
   <tr>
     <td><a class="button button-with-icon button-primary"
-           href="/concepts/labels">
+           href="/versions/8.4.2/concepts/labels">
         <span class="material-icons" aria-hidden="true">arrow_back</span>Labels</a>
     </td>
     <td><a class="button button-with-icon button-primary"
-           href="/concepts/dependencies">
+           href="/versions/8.4.2/concepts/dependencies">
         Dependencies<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
     </td>
   </tr>
