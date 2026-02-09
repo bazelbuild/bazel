@@ -1,11 +1,9 @@
-keywords: bzlmod
-
 ---
 title: 'Bzlmod Migration Guide'
 ---
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
+WORKSPACE](/versions/8.1.1/external/overview#workspace-shortcomings), Bzlmod is going to
 replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
 default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
 This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
@@ -48,7 +46,7 @@ it applies to every command:
 
 *   **WORKSPACE**
 
-    The [`workspace`](/rules/lib/globals/workspace#workspace) function is used
+    The [`workspace`](/versions/8.1.1/rules/lib/globals/workspace#workspace) function is used
     to specify a repository name for your workspace. This allows a target
     `//foo:bar` in the workspace to be referenced as `@<workspace
     name>//foo:bar`. If not specified, the default repository name for your
@@ -64,10 +62,10 @@ it applies to every command:
     It's recommended to reference targets in the same workspace with the
     `//foo:bar` syntax without `@<repo name>`. But if you do need the old syntax
     , you can use the module name specified by the
-    [`module`](/rules/lib/globals/module#module) function as the repository
+    [`module`](/versions/8.1.1/rules/lib/globals/module#module) function as the repository
     name. If the module name is different from the needed repository name, you
     can use `repo_name` attribute of the
-    [`module`](/rules/lib/globals/module#module) function to override the
+    [`module`](/versions/8.1.1/rules/lib/globals/module#module) function to override the
     repository name.
 
     ```python
@@ -86,8 +84,8 @@ Bazel module when it also adopts Bzlmod.
 *   **WORKSPACE**
 
     With WORKSPACE, it's common to use the
-    [`http_archive`](/rules/lib/repo/http#http_archive) or
-    [`git_repository`](/rules/lib/repo/git#git_repository) repository rules to
+    [`http_archive`](/versions/8.1.1/rules/lib/repo/http#http_archive) or
+    [`git_repository`](/versions/8.1.1/rules/lib/repo/git#git_repository) repository rules to
     download the sources of the Bazel project.
 
     ```python
@@ -121,8 +119,8 @@ Bazel module when it also adopts Bzlmod.
 
     With Bzlmod, as long as the your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/external/registry), you can simply depend on it with a
-    [`bazel_dep`](/rules/lib/globals/module#bazel_dep) directive.
+    registry](/versions/8.1.1/external/registry), you can simply depend on it with a
+    [`bazel_dep`](/versions/8.1.1/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
     ## MODULE.bazel
@@ -139,7 +137,7 @@ Bazel module when it also adopts Bzlmod.
 As the root module, you can override Bazel module dependencies in different
 ways.
 
-Please read the [overrides](/external/module#overrides) section for more
+Please read the [overrides](/versions/8.1.1/external/module#overrides) section for more
 information.
 
 You can find some example usages in the
@@ -152,12 +150,12 @@ repository.
 
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
-[`use_repo_rule`](/external/module#use_repo_rule) or [module
-extensions](/external/extension).
+[`use_repo_rule`](/versions/8.1.1/external/module#use_repo_rule) or [module
+extensions](/versions/8.1.1/external/extension).
 
 *   **WORKSPACE**
 
-    Download a file using the [`http_file`](/rules/lib/repo/http#http_file)
+    Download a file using the [`http_file`](/versions/8.1.1/rules/lib/repo/http#http_file)
     repository rule.
 
     ```python
@@ -330,7 +328,7 @@ dependencies and call repository rules to introduce external repositories, this
 provides a great way for rules authors to enhance the rulesets that integrate
 package managers for specific languages.
 
-Please read the [module extensions](/external/extension) page to learn more
+Please read the [module extensions](/versions/8.1.1/external/extension) page to learn more
 about how to use module extensions.
 
 Here is a list of the rulesets that already adopted Bzlmod to fetch dependencies
@@ -457,7 +455,7 @@ toolchain.
 *   **Bzlmod**
 
     With Bzlmod, the
-    [`register_toolchains`](/rules/lib/globals/module#register_toolchains) and
+    [`register_toolchains`](/versions/8.1.1/rules/lib/globals/module#register_toolchains) and
     [`register_execution_platforms`][register_execution_platforms]
     APIs are only available in the MODULE.bazel file. You cannot call
     `native.register_toolchains` in a module extension.
@@ -480,7 +478,7 @@ order of precedence during toolchain selection (from highest to lowest):
 3. toolchains and execution platforms registered by modules that are
    (transitive) dependencies of the root module.
 4. when not using `WORKSPACE.bzlmod`: toolchains registered in the `WORKSPACE`
-   [suffix](/external/migration#builtin-default-deps).
+   [suffix](/versions/8.1.1/external/migration#builtin-default-deps).
 
 [register_execution_platforms]: /rules/lib/globals/module#register_execution_platforms
 
@@ -493,8 +491,8 @@ directory in your workspace as external repository.
 *   **WORKSPACE**
 
     With WORKSPACE, this is achieved by two native repository rules,
-    [`local_repository`](/reference/be/workspace#local_repository) and
-    [`new_local_repository`](/reference/be/workspace#new_local_repository).
+    [`local_repository`](/versions/8.1.1/reference/be/workspace#local_repository) and
+    [`new_local_repository`](/versions/8.1.1/reference/be/workspace#new_local_repository).
 
     ```python
     ## WORKSPACE
@@ -507,7 +505,7 @@ directory in your workspace as external repository.
 *   **Bzlmod**
 
     With Bzlmod, you can use
-    [`local_path_override`](/rules/lib/globals/module#local_path_override) to
+    [`local_path_override`](/versions/8.1.1/rules/lib/globals/module#local_path_override) to
     override a module with a local path.
 
     ```python
@@ -535,7 +533,7 @@ directory in your workspace as external repository.
 
 ### Bind targets
 
-The [`bind`](/reference/be/workspace#bind) rule in WORKSPACE is deprecated and
+The [`bind`](/versions/8.1.1/reference/be/workspace#bind) rule in WORKSPACE is deprecated and
 not supported in Bzlmod. It was introduced to give a target an alias in the
 special `//external` package. All users depending on this should migrate away.
 
@@ -555,7 +553,7 @@ away from this by:
 *   Replace all usages of `//external:openssl` with
     `@my-ssl//src:openssl-lib`.
 
-*   Or use the [`alias`](/reference/be/general#alias) build rule
+*   Or use the [`alias`](/versions/8.1.1/reference/be/general#alias) build rule
     *   Define the following target in a package (e.g. `//third_party`)
 
         ```python
@@ -583,7 +581,7 @@ flag after fetching all repos needed for a build.
 *   **Bzlmod**
 
     The sync command is no longer applicable, but fetch offers
-    [various options](/reference/command-line-reference#fetch-options).
+    [various options](/versions/8.1.1/reference/command-line-reference#fetch-options).
     You can fetch a target, a repository, a set of configured repos or all
     repositories involved in your dependency resolution and module extensions.
     The fetch result is cached and to force a fetch you must include the
@@ -686,7 +684,7 @@ WORKSPACE.bzlmod has the exact same syntax as WORKSPACE. When Bzlmod is enabled,
 if a WORKSPACE.bzlmod file also exists at the workspace root:
 
 *   `WORKSPACE.bzlmod` takes effect and the content of `WORKSPACE` is ignored.
-*   No [prefixes or suffixes](/external/migration#builtin-default-deps) are
+*   No [prefixes or suffixes](/versions/8.1.1/external/migration#builtin-default-deps) are
     added to the WORKSPACE.bzlmod file.
 
 Using the WORKSPACE.bzlmod file can make the migration easier because:
@@ -700,7 +698,7 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 
 Bzlmod is able to control which other repositories are visible from a given
 repository, check [repository names and strict
-deps](/external/module#repository_names_and_strict_deps) for more details.
+deps](/versions/8.1.1/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -714,11 +712,11 @@ repositories when also taking WORKSPACE into consideration.
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
 `@foo` is also used as an [apparent repository
-name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+name](/versions/8.1.1/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as
-an [apparent repository name](/external/overview#apparent-repo-name) of
+an [apparent repository name](/versions/8.1.1/external/overview#apparent-repo-name) of
 another repository generated by the same module extension and direct
 dependencies of the module hosting the module extension, then for repository
 `@bar`, `@foo` refers to the latter.
@@ -800,8 +798,8 @@ the project. Take note of a few things when creating the source archive:
     archive with reduced size by stripping out unnecessary sources, please make
     sure the stripped source tree is a subset of the original source tree. This
     makes it easier for end users to override the module to a non-release
-    version by [`archive_override`](/rules/lib/globals/module#archive_override)
-    and [`git_override`](/rules/lib/globals/module#git_override).
+    version by [`archive_override`](/versions/8.1.1/rules/lib/globals/module#archive_override)
+    and [`git_override`](/versions/8.1.1/rules/lib/globals/module#git_override).
 
 *   **Include a test module in a subdirectory that tests your most common
     APIs.**
@@ -839,8 +837,8 @@ following this practices makes it easier to specify dev dependencies correctly.
 #### Specify dev dependencies
 
 You can set the `dev_dependency` attribute to true for
-[`bazel_dep`](/rules/lib/globals/module#bazel_dep) and
-[`use_extension`](/rules/lib/globals/module#use_extension) directives so that
+[`bazel_dep`](/versions/8.1.1/rules/lib/globals/module#bazel_dep) and
+[`use_extension`](/versions/8.1.1/rules/lib/globals/module#use_extension) directives so that
 they don't propagate to dependent projects. As the root module, you can use the
 [`--ignore_dev_dependency`][ignore_dev_dep_flag] flag to verify if your targets
 still build without dev dependencies and overrides.

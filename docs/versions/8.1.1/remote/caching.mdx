@@ -2,8 +2,6 @@
 title: 'Remote Caching'
 ---
 
-
-
 This page covers remote caching, setting up a server to host the cache, and
 running builds using the remote cache.
 
@@ -36,7 +34,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](/remote/cache-local).
+[estimating cache hits](/versions/8.1.1/remote/cache-local).
 
 ### How a build uses remote caching
 
@@ -102,7 +100,6 @@ change `/path/to/cache/dir` to a valid directory where nginx has permission
 to write and read. You may need to change `client_max_body_size` option to a
 larger value if you have larger output files. The server will require other
 configuration such as authentication.
-
 
 Example configuration for `server` section in `nginx.conf`:
 
@@ -358,8 +355,8 @@ and Bazel must rebuild it before using the remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html)
 in which he benchmarks remote caching in Bazel.
 
-* [Adapting Rules for Remote Execution](/remote/rules)
-* [Troubleshooting Remote Execution](/remote/sandbox)
+* [Adapting Rules for Remote Execution](/versions/8.1.1/remote/rules)
+* [Troubleshooting Remote Execution](/versions/8.1.1/remote/sandbox)
 * [WebDAV module](https://nginx.org/en/docs/http/ngx_http_dav_module.html)
 * [Docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache/)
 * [bazel-remote](https://github.com/buchgr/bazel-remote/)

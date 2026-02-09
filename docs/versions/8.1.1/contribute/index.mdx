@@ -2,8 +2,6 @@
 title: 'Contributing to Bazel'
 ---
 
-
-
 There are many ways to help the Bazel project and ecosystem.
 
 ## Provide feedback
@@ -13,7 +11,7 @@ You can help by [reporting issues](http://github.com/bazelbuild/bazel/issues)
 when:
 
    - Bazel crashes or you encounter a bug that can [only be resolved using `bazel
-     clean`](/run/build#correct-incremental-rebuilds).
+     clean`](/versions/8.1.1/run/build#correct-incremental-rebuilds).
    - The documentation is incomplete or unclear. You can also report issues
      from the page you are viewing by using the "Create issue"
      link at the top right corner of the page.
@@ -52,26 +50,25 @@ include tests and documentation, keeping in mind backward-compatibility,
 portability, and the impact on memory usage and performance.
 
 To learn about how to submit a change, see the
-[patch acceptance process](/contribute/patch-acceptance).
+[patch acceptance process](/versions/8.1.1/contribute/patch-acceptance).
 
 ## Bazel's code description
 
-Bazel has a large codebase with code in multiple locations. See the [codebase guide](/contribute/codebase) for more details.
+Bazel has a large codebase with code in multiple locations. See the [codebase guide](/versions/8.1.1/contribute/codebase) for more details.
 
 Bazel is organized as follows:
 
 *  Client code is in `src/main/cpp` and provides the command-line interface.
 *  Protocol buffers are in `src/main/protobuf`.
 *  Server code is in `src/main/java` and `src/test/java`.
-   *  Core code which is mostly composed of [SkyFrame](/reference/skyframe)
+   *  Core code which is mostly composed of [SkyFrame](/versions/8.1.1/reference/skyframe)
       and some utilities.
    *  Built-in rules are in `com.google.devtools.build.lib.rules` and in
      `com.google.devtools.build.lib.bazel.rules`. You might want to read about
-     the [Challenges of Writing Rules](/rules/challenges) first.
+     the [Challenges of Writing Rules](/versions/8.1.1/rules/challenges) first.
 *  Java native interfaces are in `src/main/native`.
 *  Various tooling for language support are described in the list in the
-   [compiling Bazel](/install/compile-source) section.
-
+   [compiling Bazel](/versions/8.1.1/install/compile-source) section.
 
 ### Searching Bazel's source code
 
@@ -79,4 +76,4 @@ To quickly search through Bazel's source code, use
 [Bazel Code Search](https://source.bazel.build/). You can navigate Bazel's
 repositories, branches, and files. You can also view history, diffs, and blame
 information. To learn more, see the
-[Bazel Code Search User Guide](/contribute/search).
+[Bazel Code Search User Guide](/versions/8.1.1/contribute/search).
