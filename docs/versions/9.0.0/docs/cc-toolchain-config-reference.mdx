@@ -2,7 +2,7 @@
 title: 'C++ Toolchain Configuration'
 ---
 
-## Overview {:#overview}
+## Overview
 
 To invoke the compiler with the right options, Bazel needs some knowledge about
 the compiler internals, such as include directories and important flags.
@@ -59,7 +59,7 @@ The artifacts to be shipped to the sandbox are declared in the `cc_toolchain`
 target. For example, with the `cc_toolchain.linker_files` attribute you can
 specify the linker binary and toolchain libraries to ship into the sandbox.
 
-## Toolchain selection {:#toolchain-selection}
+## Toolchain selection
 
 The toolchain selection logic operates as follows:
 
@@ -93,7 +93,7 @@ fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
-## Features {:#features}
+## Features
 
 A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
@@ -121,7 +121,7 @@ A feature is enabled in one of the following ways:
 Features can have interdependencies, depend on command line flags, `BUILD` file
 settings, and other variables.
 
-### Feature relationships {:#feature-relationships}
+### Feature relationships
 
 Dependencies are typically managed directly with Bazel, which simply enforces
 the requirements and manages conflicts intrinsic to the nature of the features
@@ -195,7 +195,7 @@ support and expansion. These are:
   </tr>
 </table>
 
-## Actions {:#actions}
+## Actions
 
 Actions provide the flexibility to modify the circumstances under
 which an action executes without assuming how the action will be run. An
@@ -216,7 +216,7 @@ that implements an action (such as `CppCompileAction`). In particular, the
 "assembler actions" and "compiler actions" in the table below are
 `CppCompileAction`, while the link actions are `CppLinkAction`.
 
-### Assembler actions {:#assembler-actions}
+### Assembler actions
 
 <table>
   <col width="300">
@@ -241,7 +241,7 @@ that implements an action (such as `CppCompileAction`). In particular, the
   </tr>
 </table>
 
-### Compiler actions {:#compiler-actions}
+### Compiler actions
 
 <table>
   <col width="300">
@@ -280,7 +280,7 @@ that implements an action (such as `CppCompileAction`). In particular, the
   </tr>
 </table>
 
-### Link actions {:#link-actions}
+### Link actions
 
 <table>
   <col width="300">
@@ -311,7 +311,7 @@ that implements an action (such as `CppCompileAction`). In particular, the
   </tr>
 </table>
 
-### AR actions {:#ar-actions}
+### AR actions
 
 AR actions assemble object files into archive libraries (`.a` files) via `ar`
 and encode some semantics into the name.
@@ -333,7 +333,7 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-### LTO actions {:#lto-actions}
+### LTO actions
 
 <table>
   <col width="300">
@@ -358,7 +358,7 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-## Using action_config {:#using-action-config}
+## Using action_config
 
 The `action_config` is a Starlark struct that describes a Bazel
 action by specifying the tool (binary) to invoke during the action and sets of
@@ -424,7 +424,7 @@ within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
-### Using tool constructor {:#using-tool-constructor}
+### Using tool constructor
 
 An`action_config` can specify a set of tools via its `tools` parameter.
 The `tool()` constructor takes in the following parameters:
@@ -461,7 +461,7 @@ with a `with_feature` set matching the feature configuration is found
 for more information). You should end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
-### Example usage {:#example-usage}
+### Example usage
 
 Features and actions can be used together to implement Bazel actions
 with diverse cross-platform semantics. For example, debug symbol generation on
@@ -553,7 +553,7 @@ follows:
         ),
     ]
 
-### Flag groups {:#flag-groups}
+### Flag groups
 
 `CcToolchainConfigInfo` allows you to bundle flags into groups that serve a
 specific purpose. You can specify a flag within using pre-defined variables
@@ -622,7 +622,7 @@ example:
         ],
     )
 
-### Conditional expansion {:#conditional-expansion}
+### Conditional expansion
 
 Flag groups support conditional expansion based on the presence of a particular
 variable or its field using the `expand_if_available`, `expand_if_not_available`,
@@ -654,12 +654,12 @@ Note: The `--whole_archive` and `--no_whole_archive` options are added to
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## CcToolchainConfigInfo reference {:#cctoolchainconfiginfo-reference}
+## CcToolchainConfigInfo reference
 
 This section provides a reference of build variables, features, and other
 information required to successfully configure C++ rules.
 
-### CcToolchainConfigInfo build variables {:#cctoolchainconfiginfo-build-variables}
+### CcToolchainConfigInfo build variables
 
 The following is a reference of `CcToolchainConfigInfo` build variables.
 
@@ -988,7 +988,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
   </tr>
 </table>
 
-### Well-known features {:#wellknown-features}
+### Well-known features
 
 The following is a reference of features and their activation
 conditions.
@@ -1092,7 +1092,7 @@ conditions.
     </tr>
 </table>
 
-#### Legacy features patching logic {:#legacy-features-patching-logic}
+#### Legacy features patching logic
 
 <p>
   Bazel applies the following changes to the toolchain's features for backwards

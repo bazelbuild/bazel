@@ -5,7 +5,7 @@ title: 'Guide for Bazel Maintainers'
 This is a guide for the maintainers of the Bazel open source project.
 
 If you are looking to contribute to Bazel, please read [Contributing to
-Bazel](/contribute) instead.
+Bazel](/versions/9.0.0/contribute) instead.
 
 The objectives of this page are to:
 
@@ -22,18 +22,18 @@ subteams to manage aspects of the open source project. These are:
 * **Developer Experience Gardeners**: Encourage external contributions, review
   issues and pull requests, and make our development workflow more open.
 
-## Releases {:#releases}
+## Releases
 
 * [Release Playbook](https://github.com/bazelbuild/continuous-integration/blob/master/docs/release-playbook.md)
 * [Testing local changes with downstream projects](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md)
 
-## Continuous Integration {:#integration}
+## Continuous Integration
 
 Read the Green team's guide to Bazel's CI infrastructure on the
 [bazelbuild/continuous-integration](https://github.com/bazelbuild/continuous-integration/blob/master/buildkite/README.md)
 repository.
 
-## Lifecycle of an Issue {:#lifecycle-issue}
+## Lifecycle of an Issue
 
 1. A user creates an issue by choosing one of the
 [issue templates](https://github.com/bazelbuild/bazel/issues/new/choose)
@@ -76,7 +76,7 @@ resolution, if possible. If you are an owner of a team label, see [this section
 
 When an issue is resolved, it can be closed.
 
-## Lifecycle of a Pull Request {:#lifecycle-pull-request}
+## Lifecycle of a Pull Request
 
 1. A user creates a pull request.
 1. If you a member of a Bazel team and sending a PR against your own area,
@@ -95,12 +95,12 @@ When an issue is resolved, it can be closed.
    and exported back out to GitHub.
 1. When the commit merges into master, GitHub automatically closes the PR.
 
-## My team owns a label. What should I do? {:#label-own}
+## My team owns a label. What should I do?
 
 Subteams need to triage all issues in the [labels they own](#team-labels),
 preferably on a weekly basis.
 
-### Issues {:#issues}
+### Issues
 
 1. Filter the list of issues by your team label **and** the `untriaged` label.
 1. Review the issue.
@@ -114,7 +114,7 @@ preferably on a weekly basis.
 Note that you need to be in the [bazelbuild
 organization](https://github.com/bazelbuild) to be able to add or remove labels.
 
-### Pull Requests {:#pull-requests}
+### Pull Requests
 
 1. Filter the list of pull requests by your team label.
 1. Review open pull requests.
@@ -128,7 +128,7 @@ organization](https://github.com/bazelbuild) to be able to add or remove labels.
 1. Submit the internal patch. If the patch submits and exports successfully, the
    PR will be closed automatically by GitHub.
 
-## Priority {:#priority}
+## Priority
 
 The following definitions for priority will be used by the maintainers to triage
 issues.
@@ -157,7 +157,7 @@ issues.
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
 
-## Team labels {:#team-labels}
+## Team labels
 
 *   [`team-Android`](https://github.com/bazelbuild/bazel/labels/team-Android): Issues for Android team
     *   Contact: [ahumesky](https://github.com/ahumesky)

@@ -2,15 +2,12 @@
 title: 'Frequently asked questions'
 ---
 
-{# disableFinding("repo") #}
-{# disableFinding(HEADING_STACKED) #}
-
 This page answers some frequently asked questions about external dependencies in
 Bazel.
 
-## MODULE.bazel {:#module-bazel}
+## MODULE.bazel
 
-### How should I version a Bazel module? {:#module-versioning-best-practices}
+### How should I version a Bazel module?
 
 Setting `version` with the [`module`] directive in the source archive
 `MODULE.bazel` can have several downsides and unintended side effects if not
@@ -62,7 +59,7 @@ expected when sorting (the empty string is treated as the highest version).
 [non-registry override]: module.md#non-registry_overrides
 [`rules-template`]: https://github.com/bazel-contrib/rules-template
 
-### When should I increment the compatibility level? {:#incrementing-compatibility-level}
+### When should I increment the compatibility level?
 
 The [`compatibility_level`](module.md#compatibility_level) of a Bazel module
 should be incremented _in the same commit_ that introduces a backwards
@@ -78,7 +75,7 @@ and is discouraged. To avoid this situation, the `compatibility_level` should be
 incremented _only_ when the breaking change affects most use cases and isn't
 easy to migrate and/or work-around.
 
-### Why does MODULE.bazel not support `load`s? {:#why-does-module-bazel-not-support-loads}
+### Why does MODULE.bazel not support `load`s?
 
 During dependency resolution, the MODULE.bazel file of all referenced external
 dependencies are fetched from registries. At this stage, the source archives of
@@ -104,7 +101,7 @@ generally interested in, and they can be solved without `load`s:
     immediately `load`ing from that repo to perform complex logic. This
     capability has been replaced by [module extensions](extension).
 
-### Can I specify a SemVer range for a `bazel_dep`? {:#can-i-specify-a-semver-range-for-a-bazel-dep}
+### Can I specify a SemVer range for a `bazel_dep`?
 
 No. Some other package managers like [npm][npm-semver] and [Cargo][cargo-semver]
 support version ranges (implicitly or explicitly), and this often requires a
@@ -119,7 +116,7 @@ Furthermore, Bazel module versions are [a superset of
 SemVer](module#version-format), so what makes sense in a strict SemVer
 environment doesn't always carry over to Bazel module versions.
 
-### Can I automatically get the latest version for a `bazel_dep`? {:#can-i-automatically-get-the-latest-version-for-a-bazel-dep}
+### Can I automatically get the latest version for a `bazel_dep`?
 
 Some users occasionally ask for the ability to specify `bazel_dep(name = "foo",
 version = "latest")` to automatically get the latest version of a dep. This is
@@ -135,7 +132,7 @@ Sometimes, users asking this question are really looking for a way to quickly
 iterate during local development. This can be achieved by using a
 [`local_path_override`](/versions/9.0.0/rules/lib/globals/module#local_path_override).
 
-### Why all these `use_repo`s? {:#why-all-these-use-repos}
+### Why all these `use_repo`s?
 
 Module extension usages in MODULE.bazel files sometimes come with a big
 `use_repo` directive. For example, a typical usage of the
@@ -172,9 +169,9 @@ an [`extension_metadata`](/versions/9.0.0/rules/lib/builtins/module_ctx#extensio
 object from its implementation function. The user can run the `bazel mod tidy`
 command to update the `use_repo` directives for these module extensions.
 
-## Bzlmod migration {:#bzlmod-migration}
+## Bzlmod migration
 
-### Which is evaluated first, MODULE.bazel or WORKSPACE? {:#which-is-evaluated-first-module-bazel-or-workspace}
+### Which is evaluated first, MODULE.bazel or WORKSPACE?
 
 When both `--enable_bzlmod` and `--enable_workspace` are set, it's natural to
 wonder which system is consulted first. The short answer is that MODULE.bazel
@@ -239,9 +236,9 @@ Of note, labels in the Bazel command line (including Starlark flags, label-typed
 flag values, and build/test target patterns) are treated as having the main repo
 as the context repo.
 
-## Other {:#other}
+## Other
 
-### How do I prepare and run an offline build? {:#how-do-i-prepare-and-run-an-offline-build}
+### How do I prepare and run an offline build?
 
 Use the `bazel fetch` command to prefetch repos. You can use the `--repo` flag
 (like `bazel fetch --repo @foo`) to fetch only the repo `@foo` (resolved in the
@@ -256,13 +253,13 @@ this makes any attempt to run a non-local repository rule fail.
 If you want to fetch repos _and_ modify them to test locally, consider using
 the [`bazel vendor`](vendor) command.
 
-### How do I use HTTP proxies? {:#how-do-i-use-http-proxies}
+### How do I use HTTP proxies?
 
 Bazel respects the `http_proxy` and `HTTPS_PROXY` environment variables commonly
 accepted by other programs, such as
 [curl](https://everything.curl.dev/usingcurl/proxies/env.html).
 
-### How do I make Bazel prefer IPv6 in dual-stack IPv4/IPv6 setups? {:#ipv6}
+### How do I make Bazel prefer IPv6 in dual-stack IPv4/IPv6 setups?
 
 On IPv6-only machines, Bazel can download dependencies with no changes. However,
 on dual-stack IPv4/IPv6 machines Bazel follows the same convention as Java,
@@ -275,7 +272,7 @@ property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-prope
 Specifically:
 
 *   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup
-    option](/docs/user-manual#startup-options), for example by adding the
+    option](/versions/9.0.0/docs/user-manual#startup-options), for example by adding the
     following line in your [`.bazelrc` file](/versions/9.0.0/run/bazelrc):
 
     `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
@@ -283,8 +280,8 @@ Specifically:
 *   When running Java build targets that need to connect to the internet (such
     as for integration tests), use the
     `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool
-    flag](/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
-    file](/run/bazelrc):
+    flag](/versions/9.0.0/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
+    file](/versions/9.0.0/run/bazelrc):
 
     `build --jvmopt=-Djava.net.preferIPv6Addresses`
 
@@ -295,7 +292,7 @@ Specifically:
     variable to [provide JVM options for
     Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts).
 
-### Can repo rules be run remotely with remote execution? {:#can-repo-rules-be-run-remotely-with-remote-execution}
+### Can repo rules be run remotely with remote execution?
 
 No; or at least, not yet. Users employing remote execution services to speed up
 their builds may notice that repo rules are still run locally. For example, an

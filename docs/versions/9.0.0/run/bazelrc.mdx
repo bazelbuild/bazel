@@ -8,7 +8,7 @@ Bazel accepts many options. Some options are varied frequently (for example,
 (and other commands), you can specify options in a configuration file, called
 `.bazelrc`.
 
-### Where are the `.bazelrc` files? {:#bazelrc-file-locations}
+### Where are the `.bazelrc` files?
 
 Bazel looks for optional configuration files in the following locations,
 in the order shown below. The options are interpreted in this order, so
@@ -74,14 +74,14 @@ before the command (`build`, `test`, etc).
 In addition to this optional configuration file, Bazel looks for a global rc
 file. For more details, see the [global bazelrc section](#global-bazelrc).
 
-### `.bazelrc` syntax and semantics {:#bazelrc-syntax-semantics}
+### `.bazelrc` syntax and semantics
 
 Like all UNIX "rc" files, the `.bazelrc` file is a text file with a line-based
 grammar. Empty lines and lines starting with `#` (comments) are ignored. Each
 line contains a sequence of words, which are tokenized according to the same
 rules as the Bourne shell.
 
-#### Imports {:#imports}
+#### Imports
 
 Lines that start with `import`, `try-import` or `try-import-if-bazel-version`
 are special: use these to load other "rc" files. To specify a path that is
@@ -146,7 +146,7 @@ Import precedence:
     options in the imported file.
 -   Options in files imported later take precedence over files imported earlier.
 
-#### Option defaults {:#option-defaults}
+#### Option defaults
 
 Most lines of a bazelrc define default option values. The first word on each
 line specifies when these defaults are applied:
@@ -231,7 +231,7 @@ options specified in the same files, have lower precedence than their siblings
 on the command line, and are always prepended to the explicit list of non-
 option arguments.
 
-#### `--config` {:#config}
+#### `--config`
 
 In addition to setting option defaults, the rc file can be used to group options
 and provide a shorthand for common groupings. This is done by adding a `:name`
@@ -256,7 +256,7 @@ This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults). Setting
 `startup:config-name --some_startup_option` in the .bazelrc will be ignored.
 
-#### `--enable_platform_specific_config` {:#enable_platform_specific_config}
+#### `--enable_platform_specific_config`
 
 Platform specific configs in the `.bazelrc` can be automatically enabled using
 `--enable_platform_specific_config`. For example, if the host OS is Linux and
@@ -267,7 +267,7 @@ automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
 
 See [--enable_platform_specific_config](/versions/9.0.0/reference/command-line-reference#flag--enable_platform_specific_config).
 
-#### Example {:#bazelrc-example}
+#### Example
 
 Here's an example `~/.bazelrc` file:
 
@@ -284,9 +284,9 @@ query --keep_going
 build:memcheck --strip=never --test_timeout=3600
 ```
 
-### Other files governing Bazel's behavior {:#bazel-behavior-files}
+### Other files governing Bazel's behavior
 
-#### `.bazelignore` {:#bazelignore}
+#### `.bazelignore`
 
 You can specify directories within the workspace
 that you want Bazel to ignore, such as related projects
@@ -300,7 +300,7 @@ Bazel 8 introduces the `REPO.bazel` file which allows another directive, `ignore
 It takes a list of directories to ignore just like .bazelignore does, but with glob semantics.
 See [#24203](https://github.com/bazelbuild/bazel/pull/24203).
 
-### The global bazelrc file {:#global-bazelrc}
+### The global bazelrc file
 
 Bazel reads optional bazelrc files in this order:
 

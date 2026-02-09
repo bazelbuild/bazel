@@ -5,7 +5,7 @@ title: 'Module extensions'
 Module extensions allow users to extend the module system by reading input data
 from modules across the dependency graph, performing necessary logic to resolve
 dependencies, and finally creating repos by calling [repo
-rules](/external/repo). These extensions have capabilities similar to repo
+rules](/versions/9.0.0/external/repo). These extensions have capabilities similar to repo
 rules, which enables them to perform file I/O, send network requests, and so on.
 Among other things, they allow Bazel to interact with other package management
 systems while also respecting the dependency graph built out of Bazel modules.
@@ -23,7 +23,7 @@ module, first add a `bazel_dep` on the module hosting the extension, and then
 call the [`use_extension`](/versions/9.0.0/rules/lib/globals/module#use_extension) built-in function
 to bring it into scope. Consider the following example — a snippet from a
 `MODULE.bazel` file to use the "maven" extension defined in the
-[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external){:.external}
+[`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
 module:
 
 ```python

@@ -18,11 +18,11 @@ Before learning the more advanced concepts, first:
 * Learn how you can [share variables](/versions/9.0.0/build/share-variables)
   between two `BUILD` files.
 
-## Macros and rules {:#macros-and-rules}
+## Macros and rules
 
 A macro is a function that instantiates rules. Macros come in two flavors:
 [symbolic macros](/versions/9.0.0/extending/macros) (new in Bazel 8) and [legacy
-macros](/extending/legacy-macros). The two flavors of macros are defined
+macros](/versions/9.0.0/extending/legacy-macros). The two flavors of macros are defined
 differently, but behave almost the same from the point of view of a user. A
 macro is useful when a `BUILD` file is getting too repetitive or too complex, as
 it lets you reuse some code. The function is evaluated as soon as the `BUILD`
@@ -30,7 +30,7 @@ file is read. After the evaluation of the `BUILD` file, Bazel has little
 information about macros. If your macro generates a `genrule`, Bazel will
 behave *almost* as if you declared that `genrule` in the `BUILD` file. (The one
 exception is that targets declared in a symbolic macro have [special visibility
-semantics](/extending/macros#visibility): a symbolic macro can hide its internal
+semantics](/versions/9.0.0/extending/macros#visibility): a symbolic macro can hide its internal
 targets from the rest of the package.)
 
 A [rule](/versions/9.0.0/extending/rules) is more powerful than a macro. It can access Bazel
@@ -43,7 +43,7 @@ complex, it is often a good idea to make it a rule. Support for a new language
 is typically done with a rule. Rules are for advanced users, and most users will
 never have to write one; they will only load and call existing rules.
 
-## Evaluation model {:#evaluation-model}
+## Evaluation model
 
 A build consists of three phases.
 
@@ -78,7 +78,7 @@ they will not be executed.
 
 * [Create your first macro](/versions/9.0.0/rules/macro-tutorial) in order to reuse some code.
   Then [learn more about macros](/versions/9.0.0/extending/macros) and [using them to create
-  "custom verbs"](/rules/verbs-tutorial).
+  "custom verbs"](/versions/9.0.0/rules/verbs-tutorial).
 
 * [Follow the rules tutorial](/versions/9.0.0/rules/rules-tutorial) to get started with rules.
   Next, you can read more about the [rules concepts](/versions/9.0.0/extending/rules).
@@ -94,7 +94,7 @@ them within reach:
 
 In addition to [macros](/versions/9.0.0/extending/macros) and [rules](/versions/9.0.0/extending/rules), you
 may want to write [aspects](/versions/9.0.0/extending/aspects) and [repository
-rules](/external/repo).
+rules](/versions/9.0.0/external/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools)
   consistently to format and lint your code.

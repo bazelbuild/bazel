@@ -1,6 +1,3 @@
-{# disableFinding("Currently") #}
-{# disableFinding(TODO) #}
-
 ---
 title: 'Macros'
 ---
@@ -26,13 +23,13 @@ referring to **symbolic macros**.
 An executable example of symbolic macros can be found in the
 [examples repository](https://github.com/bazelbuild/examples/tree/main/macros).
 
-## Usage {:#usage}
+## Usage
 
 Macros are defined in `.bzl` files by calling the
 [`macro()`](https://bazel.build/versions/9.0.0/rules/lib/globals/bzl.html#macro) function with
 two required parameters: `attrs` and `implementation`.
 
-### Attributes {:#attributes}
+### Attributes
 
 `attrs` accepts a dictionary of attribute name to [attribute
 types](https://bazel.build/rules/lib/toplevel/attr#members), which represents
@@ -41,7 +38,7 @@ are implicitly added to all macros and are not included in the dictionary passed
 to `attrs`.
 
 ```starlark
-# macro/macro.bzl
+# 'macro/macro.bzl'
 my_macro = macro(
     attrs = {
         "deps": attr.label_list(mandatory = True, doc = "The dependencies passed to the inner cc_binary and cc_test targets"),
@@ -59,7 +56,7 @@ Attribute type declarations accept the
 as an unconfigurable `select` – `"foo"` will become
 `select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
 
-#### Attribute inheritance {:#attribute-inheritance}
+#### Attribute inheritance
 
 Macros are often intended to wrap a rule (or another macro), and the macro's
 author often wants to forward the bulk of the wrapped symbol's attributes
@@ -111,7 +108,7 @@ def _my_macro_impl(name, visibility, tags, **kwargs):
     ...
 ```
 
-### Implementation {:#implementation}
+### Implementation
 
 `implementation` accepts a function which contains the logic of the macro.
 Implementation functions often create targets by calling one or more rules, and
@@ -145,7 +142,7 @@ invokes the inherited rule or submacro. (This helps ensure that your macro won't
 be broken if the rule or macro which from which you are inheriting adds a new
 attribute.)
 
-### Declaration {:#declaration}
+### Declaration
 
 Macros are declared by loading and calling their definition in a `BUILD` file.
 
@@ -181,9 +178,9 @@ my_macro(name = "abc", srcs = ["src.cc"])
 This is generally not useful in `BUILD` files, but is helpful when
 programmatically wrapping a macro inside another macro.
 
-## Details {:#usage-details}
+## Details
 
-### Naming conventions for targets created {:#naming}
+### Naming conventions for targets created
 
 The names of any targets or submacros created by a symbolic macro must
 either match the macro's `name` parameter or must be prefixed by `name` followed
@@ -200,7 +197,7 @@ exclusivity is not enforced. We are in the progress of implementing
 [lazy evaluation](#laziness) as a performance improvement for Symbolic macros,
 which will be impaired in packages that violate the naming schema.
 
-### Restrictions {:#restrictions}
+### Restrictions
 
 Symbolic macros have some additional restrictions compared to legacy macros.
 
@@ -220,7 +217,7 @@ Symbolic macros
 *   can't refer to private targets of their callers (see
     [visibility and macros](#visibility) for more details).
 
-### Visibility and macros {:#visibility}
+### Visibility and macros
 
 The [visibility](/versions/9.0.0/concepts/visibility) system helps protect the implementation
 details of both (symbolic) macros and their callers.
@@ -339,7 +336,7 @@ Remember that legacy macros are entirely transparent to the visibility system,
 and behave as though their location is whatever BUILD file or symbolic macro
 they were called from.
 
-#### Finalizers and visibility {:#finalizers-and-visibility}
+#### Finalizers and visibility
 
 Targets declared in a rule finalizer, in addition to seeing targets following
 the usual symbolic macro visibility rules, can *also* see all targets which are
@@ -354,7 +351,7 @@ that a finalizer's targets cannot see it under the visibility system – even
 though the finalizer can *introspect* its attributes using
 `native.existing_rules()`.
 
-### Selects {:#selects}
+### Selects
 
 If an attribute is `configurable` (the default) and its value is not `None`,
 then the macro implementation function will see the attribute value as wrapped
@@ -393,7 +390,7 @@ not always possible for an attribute to take on a `None` value, but it can
 happen for the `attr.label()` type, and for any inherited non-mandatory
 attribute.
 
-## Finalizers {:#finalizers}
+## Finalizers
 
 A rule finalizer is a special symbolic macro which – regardless of its lexical
 position in a BUILD file – is evaluated in the final stage of loading a package,
@@ -425,7 +422,7 @@ my_finalizer = macro(
 )
 ```
 
-## Laziness {:#laziness}
+## Laziness
 
 IMPORTANT: We are in the process of implementing lazy macro expansion and
 evaluation. This feature is not available yet.
@@ -436,7 +433,7 @@ unrelated macros. In the future, non-finalizer symbolic macros will only be
 evaluated if they're required for the build. The prefix naming schema helps
 Bazel determine which macro to expand given a requested target.
 
-## Migration troubleshooting {:#troubleshooting}
+## Migration troubleshooting
 
 Here are some common migration headaches and how to fix them.
 

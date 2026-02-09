@@ -7,7 +7,7 @@ the [abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel
 inside the Bazel container, and how to build this project directly
 from the host machine using the Bazel container with directory mounting.
 
-## Build Abseil project from your host machine with directory mounting {:#build-abseil}
+## Build Abseil project from your host machine with directory mounting
 
 The instructions in this section allow you to build using the Bazel container
 with the sources checked out in your host environment. A container is started up
@@ -57,7 +57,7 @@ docker run \
   build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Build Abseil project from inside the container {:#build-abseil-inside-container}
+## Build Abseil project from inside the container
 
 The instructions in this section allow you to build using the Bazel container
 with the sources inside the container. By starting a container at the beginning
@@ -92,7 +92,7 @@ MemorySanitizer (msan) accordingly.
 ubuntu@5a99103747c6:~/abseil-cpp$ bazel build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Explore the Bazel container {:#explore-bazel-container}
+## Explore the Bazel container
 
 If you haven't already, start an interactive shell inside the Bazel container.
 
@@ -128,6 +128,6 @@ Build timestamp: 1685725198
 Build timestamp as int: 1685725198
 ```
 
-## Explore the Bazel Dockerfile {:#explore-bazel-dockerfile}
+## Explore the Bazel Dockerfile
 
 If you want to check how the Bazel Docker image is built, you can find its Dockerfile at [bazelbuild/continuous-integration/bazel/oci](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).

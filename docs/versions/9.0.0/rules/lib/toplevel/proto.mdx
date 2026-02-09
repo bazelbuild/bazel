@@ -30,105 +30,48 @@ Examples:
 
 ```
 proto.encode_text(struct(field=123))
----
-title: 'field: 123'
----
+# field: 123
 
 proto.encode_text(struct(field=True))
----
-title: 'field: true'
----
+# field: true
 
 proto.encode_text(struct(field=[1, 2, 3]))
----
-title: 'field: 1'
----
----
-title: 'field: 2'
----
----
-title: 'field: 3'
----
+# field: 1
+# field: 2
+ field: 3
 
 proto.encode_text(struct(field='text', ignored_field=None))
----
-title: 'field: "text"'
----
+# field: "text"
 
 proto.encode_text(struct(field=struct(inner_field='text', ignored_field=None)))
----
-title: 'field {'
----
----
-title: '  inner_field: "text"'
----
----
-title: '}'
----
+# field {
+#  inner_field: "text"
+# }
 
 proto.encode_text(struct(field=[struct(inner_field=1), struct(inner_field=2)]))
----
-title: 'field {'
----
----
-title: '  inner_field: 1'
----
----
-title: '}'
----
----
-title: 'field {'
----
----
-title: '  inner_field: 2'
----
----
-title: '}'
----
+# field {
+#   inner_field: 1
+# }
+# field {
+#   inner_field: 2
+# }
 
 proto.encode_text(struct(field=struct(inner_field=struct(inner_inner_field='text'))))
----
-title: 'field {'
----
----
-title: '   inner_field {'
----
----
-title: '    inner_inner_field: "text"'
----
----
-title: '  }'
----
----
-title: '}'
----
+# field {
+#    inner_field {
+#     inner_inner_field: "text"
+#   }
+# }
 
 proto.encode_text(struct(foo={4: 3, 2: 1}))
----
-title: 'foo: {'
----
----
-title: '  key: 4'
----
----
-title: '  value: 3'
----
----
-title: '}'
----
----
-title: 'foo: {'
----
----
-title: '  key: 2'
----
----
-title: '  value: 1'
----
----
-title: '}'
----
-```
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
 
 ### Parameters
 

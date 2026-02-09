@@ -6,7 +6,7 @@ This page contains resources that help you use Bazel with C++ projects. It links
 to a tutorial, build rules, and other information specific to building C++
 projects with Bazel.
 
-## Working with Bazel {:#working-with-bazel}
+## Working with Bazel
 
 The following resources will help you work with Bazel on C++ projects:
 
@@ -21,12 +21,12 @@ The following resources will help you work with Bazel on C++ projects:
 *  [Tutorial: Configuring C++ toolchains](/versions/9.0.0/tutorials/ccp-toolchain-config)
 *  [Integrating with C++ rules](/versions/9.0.0/configure/integrate-cpp)
 
-## Best practices {:#best-practices}
+## Best practices
 
 In addition to [general Bazel best practices](/versions/9.0.0/configure/best-practices), below are
 best practices specific to C++ projects.
 
-### BUILD files {:#build-files}
+### BUILD files
 
 Follow the guidelines below when creating your BUILD files:
 
@@ -62,7 +62,7 @@ Follow the guidelines below when creating your BUILD files:
    )
    ```
 
-### Include paths {:#include-paths}
+### Include paths
 
 Follow these guidelines for include paths:
 
@@ -80,7 +80,7 @@ Follow these guidelines for include paths:
    [`strip_include_prefix`](/versions/9.0.0/reference/be/c-cpp#cc_library.strip_include_prefix)
    arguments on the `cc_library` rule target.
 
-### Toolchain features {:#toolchain-features}
+### Toolchain features
 
 The following optional [features](/versions/9.0.0/docs/cc-toolchain-config-reference#features)
 can improve the hygiene of a C++ project. They can be enabled using the

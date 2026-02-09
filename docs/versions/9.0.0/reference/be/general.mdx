@@ -2,7 +2,6 @@
 title: 'General Rules'
 ---
 
-
 ## Rules
 
 * [alias](#alias)
@@ -485,7 +484,6 @@ applies to all cmd attributes (`cmd`, `cmd_bash`, `cmd_ps`,
 | `output_to_bindir` | Boolean; [nonconfigurable](common-definitions#configurable-attributes); default is `False`  If set to True, this option causes output files to be written into the `bin` directory instead of the `genfiles` directory. |
 | `toolchains` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]`  The set of targets whose [Make variables](/versions/9.0.0/reference/be/make-variables) this genrule is allowed to access, or the [`toolchain_type`](/versions/9.0.0/docs/toolchains) targets that this genrule will access.  Toolchains accessed via `toolchain_type` must also provide a `TemplateVariableInfo` provider, which the target can use to access toolchain details. |
 | `tools` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]` A list of *tool* dependencies for this rule. See the definition of [dependencies](/versions/9.0.0/concepts/build-ref#deps) for more information.   The build system ensures these prerequisites are built before running the genrule command; they are built using the [*exec* configuration](/versions/9.0.0/contribute/guide#configurations), since these tools are executed as part of the build. The path of an individual `tools` target `//x:y` can be obtained using `$(location //x:y)`.  Any `*_binary` or tool to be executed by `cmd` must appear in this list, not in `srcs`, to ensure they are built in the correct configuration. |
-
 
 ## starlark\_doc\_extract
 

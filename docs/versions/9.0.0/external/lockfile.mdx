@@ -1,5 +1,3 @@
-keywords: product:Bazel,lockfile,Bzlmod
-
 ---
 title: 'Bazel Lockfile'
 ---
@@ -14,7 +12,7 @@ in project dependencies. Furthermore, the lockfile improves stability by
 preventing unexpected updates or breaking changes in external libraries, thereby
 reducing the risk of introducing bugs.
 
-## Lockfile Generation {:#lockfile-generation}
+## Lockfile Generation
 
 The lockfile is generated under the workspace root with the name
 `MODULE.bazel.lock`. It is created or updated during the build process,
@@ -28,7 +26,7 @@ remains focused on the specific set of dependencies required for the current
 build, providing an accurate representation of the project's resolved
 dependencies.
 
-## Lockfile Usage {:#lockfile-usage}
+## Lockfile Usage
 
 The lockfile can be controlled by the flag
 [`--lockfile_mode`](/versions/9.0.0/reference/command-line-reference#flag--lockfile_mode) to
@@ -50,7 +48,7 @@ lockfile. The available modes are:
     expected to always produce the same result.
 *   `off`: The lockfile is neither checked nor updated.
 
-## Lockfile Benefits {:#lockfile-benefits}
+## Lockfile Benefits
 
 The lockfile offers several benefits and can be utilized in various ways:
 
@@ -69,7 +67,7 @@ The lockfile offers several benefits and can be utilized in various ways:
     locking the dependencies to specific versions, the risk of introducing bugs
     due to incompatible or untested updates is reduced.
 
-### Hidden lockfile {:#hidden-lockfile}
+### Hidden lockfile
 
 Bazel also maintains another lockfile at
 `"$(bazel info output_base)"/MODULE.bazel.lock`. The format and contents of this
@@ -78,7 +76,7 @@ optimization. While it can be deleted together with the output base via
 `bazel clean --expunge`, any need to do so is a bug in either Bazel itself or a
 module extension.
 
-## Lockfile Contents {:#lockfile-contents}
+## Lockfile Contents
 
 The lockfile contains all the necessary information to determine whether the
 project state has changed. It also includes the result of building the project
@@ -149,7 +147,7 @@ explanations for each section:
 }
 ```
 
-### Registry File Hashes {:#registry-file-hashes}
+### Registry File Hashes
 
 The `registryFileHashes` section contains the hashes of all files from
 remote registries accessed during module resolution. Since the resolution
@@ -165,7 +163,7 @@ Bazel uses the hashes from the lockfile to look up registry files in the
 repository cache before downloading them, which speeds up subsequent
 resolutions.
 
-### Selected Yanked Versions {:#selected-yanked-versions}
+### Selected Yanked Versions
 
 The `selectedYankedVersions` section contains the yanked versions of modules
 that were selected by module resolution. Since this usually result in an error
@@ -177,7 +175,7 @@ This field is needed since, compared to module files, yanked version information
 is inherently mutable and thus can't be referenced by a hash. This information
 can be updated via `bazel mod deps --lockfile_mode=refresh`.
 
-### Module Extensions {:#module-extensions}
+### Module Extensions
 
 The `moduleExtensions` section is a map that includes only the extensions used
 in the current invocation or previously invoked, while excluding any extensions
@@ -212,7 +210,7 @@ Module extensions can opt out of being included in the lockfile by setting the
 returning metadata with `reproducible = True`. By doing so, they promise that
 they will always create the same repositories when given the same inputs.
 
-## Best Practices {:#best-practices}
+## Best Practices
 
 To maximize the benefits of the lockfile feature, consider the following best
 practices:
@@ -238,12 +236,12 @@ By following these best practices, you can effectively utilize the lockfile
 feature in Bazel, leading to more efficient, reliable, and collaborative
 software development workflows.
 
-## Merge Conflicts {:#merge-conflicts}
+## Merge Conflicts
 
 The lockfile format is designed to minimize merge conflicts, but they can still
 happen.
 
-### Automatic Resolution {:#automatic-resolution}
+### Automatic Resolution
 
 Bazel provides a custom
 [git merge driver](https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver)
@@ -271,7 +269,7 @@ git config --global merge.bazel-lockfile-merge.name   "Merge driver for the Baze
 git config --global merge.bazel-lockfile-merge.driver "jq -s '${jq_script}' -- %O %A %B > %A.jq_tmp && mv %A.jq_tmp %A"
 ```
 
-### Manual Resolution {:#manual-resolution}
+### Manual Resolution
 
 Simple merge conflicts in the `registryFileHashes` and `selectedYankedVersions`
 fields can be safely resolved by keeping all the entries from both sides of the

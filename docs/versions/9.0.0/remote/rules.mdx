@@ -21,7 +21,7 @@ environment types or *platforms*:
 *   **Execution platform** - where Bazel actions run.
 *   **Target platform** - where the build outputs (and some actions) run.
 
-## Overview {:#overview}
+## Overview
 
 When configuring a Bazel build for remote execution, you must follow the
 guidelines described in this page to ensure the build executes remotely
@@ -42,7 +42,7 @@ following topics:
 *  [Managing platform-dependent binaries](#manage-binaries)
 *  [Managing configure-style WORKSPACE rules](#manage-workspace-rules)
 
-## Invoking build tools through toolchain rules {:#toolchain-rules}
+## Invoking build tools through toolchain rules
 
 A Bazel toolchain rule is a configuration provider that tells a build rule what
 build tools, such as compilers and linkers, to use and how to configure them
@@ -63,7 +63,7 @@ and new toolchain rules are under way for other languages and tools such as
 If a toolchain rule does not exist for the tool your rule uses, consider
 [creating a toolchain rule](/versions/9.0.0/extending/toolchains#creating-a-toolchain-rule).
 
-## Managing implicit dependencies {:#manage-dependencies}
+## Managing implicit dependencies
 
 If a build tool can access dependencies across build actions, those actions will
 fail when remotely executed because each remote build action is executed
@@ -87,7 +87,7 @@ execution. Use the sandbox to prepare your build for remote execution by
 identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/versions/9.0.0/remote/sandbox)
 for more information.
 
-## Managing platform-dependent binaries {:#manage-binaries}
+## Managing platform-dependent binaries
 
 Typically, a binary built on the host platform cannot safely execute on an
 arbitrary remote execution platform due to potentially mismatched dependencies.
@@ -107,7 +107,7 @@ one of the following:
     toolchain container) if it's stable enough and use toolchain rules to run it
     in your build.
 
-## Managing configure-style WORKSPACE rules {:#manage-workspace-rules}
+## Managing configure-style WORKSPACE rules
 
 Bazel's `WORKSPACE` rules can be used for probing the host platform for tools
 and libraries required by the build, which, for local builds, is also Bazel's

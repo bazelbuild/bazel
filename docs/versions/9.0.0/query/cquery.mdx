@@ -7,7 +7,7 @@ title: 'Configurable Query (cquery)'
 build graph.
 
 It achieves this by running over the results of Bazel's [analysis
-phase](/extending/concepts#evaluation-model),
+phase](/versions/9.0.0/extending/concepts#evaluation-model),
 which integrates these effects. `query`, by contrast, runs over the results of
 Bazel's loading phase, before options are evaluated.
 
@@ -65,7 +65,7 @@ Since `cquery` runs over the configured target graph. it doesn't have insight
 into artifacts like build actions nor access to [`test_suite`](/versions/9.0.0/reference/be/general#test_suite)
 rules as they are not configured targets. For the former, see [`aquery`](/versions/9.0.0/query/aquery).
 
-## Basic syntax {:#basic-syntax}
+## Basic syntax
 
 A simple `cquery` call looks like:
 
@@ -86,7 +86,7 @@ phases. Unless otherwise specified, `cquery` parses the target(s) listed in the
 query expression. See [`--universe_scope`](#universe-scope)
 for querying dependencies of top-level build targets.
 
-## Configurations {:#configurations}
+## Configurations
 
 The line:
 
@@ -110,7 +110,7 @@ prefix of a complete ID, similar to
 [Git short hashes](https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection#_revision_selection).
  To see complete IDs, run `$ bazel config`.
 
-## Target pattern evaluation {:#target-pattern-evaluation}
+## Target pattern evaluation
 
 `//foo` has a different meaning for `cquery` than for `query`. This is because
 `cquery` evaluates _configured_ targets and the build graph may have multiple
@@ -138,10 +138,10 @@ If you want to precisely declare which instance to query over, use
 the [`config`](#config) function.
 
 See `query`'s [target pattern
-documentation](/query/language#target-patterns) for more information on target
+documentation](/versions/9.0.0/query/language#target-patterns) for more information on target
 patterns.
 
-## Functions {:#functions}
+## Functions
 
 Of the [set of functions](/versions/9.0.0/query/language#functions "list of query functions")
 supported by `query`, `cquery` supports all but
@@ -153,7 +153,7 @@ supported by `query`, `cquery` supports all but
 
 `cquery` also introduces the following new functions:
 
-### config {:#config}
+### config
 
 `expr ::= config(expr, word)`
 
@@ -183,17 +183,17 @@ If not all results of the first argument can be found in the specified
 configuration, only those that can be found are returned. If no results
 can be found in the specified configuration, the query fails.
 
-## Options {:#options}
+## Options
 
-### Build options {:#build-options}
+### Build options
 
 `cquery` runs over a regular Bazel build and thus inherits the set of
 [options](/versions/9.0.0/reference/command-line-reference#build-options) available during a
 build.
 
-###  Using cquery options {:#using-cquery-options}
+###  Using cquery options
 
-#### `--universe_scope` (comma-separated list) {:#universe-scope}
+#### `--universe_scope` (comma-separated list)
 
 Often, the dependencies of configured targets go through
 [transitions](/versions/9.0.0/extending/rules#configurations),
@@ -256,13 +256,13 @@ configurations you don't care about. It could also help specify which
 configuration version of a target you're looking for. You should set this flag
 if your query expression is more complex than `deps(//foo)`.
 
-#### `--implicit_deps` (boolean, default=True) {:#implicit-deps}
+#### `--implicit_deps` (boolean, default=True)
 
 Setting this flag to false filters out all results that aren't explicitly set in
 the BUILD file and instead set elsewhere by Bazel. This includes filtering
 resolved toolchains.
 
-#### `--tool_deps` (boolean, default=True) {:#tool-deps}
+#### `--tool_deps` (boolean, default=True)
 
 Setting this flag to false filters out all configured targets for which the
 path from the queried target to them crosses a transition between the target
@@ -274,19 +274,19 @@ non-target configuration, setting `--notool_deps` will only return targets also
 in non-target configurations. This setting generally does not affect filtering
 of resolved toolchains.
 
-#### `--include_aspects` (boolean, default=True) {:#include-aspects}
+#### `--include_aspects` (boolean, default=True)
 
 Include dependencies added by [aspects](/versions/9.0.0/extending/aspects).
 
 If this flag is disabled, `cquery somepath(X, Y)` and
 `cquery deps(X) | grep 'Y'` omit Y if X only depends on it through an aspect.
 
-## Output formats {:#output-formats}
+## Output formats
 
 By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
 There are other options for exposing the results as well.
 
-### Transitions {:#transitions}
+### Transitions
 
 <pre>
 --transitions=lite
@@ -310,7 +310,7 @@ information about rule class transitions and attribute transitions including a
 detailed diff of the options before and after the transition. `LITE` mode
 outputs the same information without the options diff.
 
-### Protocol message output {:#protocol-message-output}
+### Protocol message output
 
 <pre>
 --output=proto
@@ -325,7 +325,7 @@ has a list of `ConfiguredTarget` messages and a list of `Configuration`
 messages. Each `ConfiguredTarget` has a `configuration_id` whose value is equal
 to that of the `id` field from the corresponding `Configuration` message.
 
-#### --[no]proto:include_configurations {:#proto-include-configurations}
+#### --[no]proto:include_configurations
 
 By default, cquery results return configuration information as part of each
 configured target. If you'd like to omit this information and get proto output
@@ -338,7 +338,7 @@ Note: While selects are resolved both at the top level of returned
 targets and within attributes, all possible inputs for selects are still
 included as `rule_input` fields.
 
-### Graph output {:#graph-output}
+### Graph output
 
 <pre>
 --output=graph
@@ -349,7 +349,7 @@ This option generates output as a Graphviz-compatible .dot file. See `query`'s
 also supports [`--graph:node_limit`](/versions/9.0.0/query/language#graph-nodelimit) and
 [`--graph:factored`](/versions/9.0.0/query/language#graph-factored).
 
-### Files output {:#files-output}
+### Files output
 
 <pre>
 --output=files
@@ -373,7 +373,7 @@ files of `//pkg:foo` in *all* configurations that occur in the build (also see
 the [section on target pattern evaluation](#target-pattern-evaluation)). If that
 is not desired, wrap you query in [`config(..., target)`](#config).
 
-### Defining the output format using Starlark {:#output-format-definition}
+### Defining the output format using Starlark
 
 <pre>
 --output=starlark
@@ -388,7 +388,7 @@ in the query result. Alternatively, for convenience, you may specify just the
 body of a function declared as `def format(target): return expr` by using the
 `--starlark:expr` flag.
 
-#### 'cquery' Starlark dialect {:#cquery-starlark}
+#### 'cquery' Starlark dialect
 
 The cquery Starlark environment differs from a BUILD or .bzl file. It includes
 all core Starlark
@@ -396,7 +396,7 @@ all core Starlark
 plus a few cquery-specific ones described below, but not (for example) `glob`,
 `native`, or `rule`, and it does not support load statements.
 
-##### build_options(target) {:#build-options}
+##### build_options(target)
 
 `build_options(target)` returns a map whose keys are build option identifiers
 (see [Configurations](/versions/9.0.0/extending/config)) and whose values are their Starlark
@@ -406,14 +406,14 @@ from this map.
 If the target is an input file, `build_options(target)` returns None, as input
 file targets have a null configuration.
 
-##### providers(target) {:#providers}
+##### providers(target)
 
 `providers(target)` returns a map whose keys are names of
 [providers](/versions/9.0.0/extending/rules#providers)
 (for example, `"DefaultInfo"`) and whose values are their Starlark values.
 Providers whose values are not legal Starlark values are omitted from this map.
 
-#### Examples {:#output-format-definition-examples}
+#### Examples
 
 Print a space-separated list of the base names of all files produced by `//foo`:
 
@@ -514,7 +514,7 @@ Extract a value from a user defined Provider.
   $ bazel cquery //baz --output=starlark --starlark:file=example.cquery
 </pre>
 
-## cquery vs. query {:#cquery-vs-query}
+## cquery vs. query
 
 `cquery` and `query` complement each other and excel in
 different niches. Consider the following to decide which is right for you:
@@ -579,9 +579,9 @@ evaluate.
 To disable this, run `blaze clean` before your `cquery` to ensure a fresh
 analysis graph.
 
-## Troubleshooting {:#troubleshooting}
+## Troubleshooting
 
-### Recursive target patterns (`/...`) {:#recursive-target-patterns}
+### Recursive target patterns (`/...`)
 
 If you encounter:
 

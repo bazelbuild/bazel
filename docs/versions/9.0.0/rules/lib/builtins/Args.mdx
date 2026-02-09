@@ -29,12 +29,8 @@ Example: Suppose we wanted to generate the command line:
 We could use the following `Args` object:
 
 ```
----
-title: 'foo_deps and bar_deps are depsets containing'
----
----
-title: 'File objects for the foo and bar .txt files.'
----
+# foo_deps and bar_deps are depsets containing
+# File objects for the foo and bar .txt files.
 args = ctx.actions.args()
 args.add_all("--foo", foo_deps)
 args.add_joined("--bar", bar_deps, join_with=",")

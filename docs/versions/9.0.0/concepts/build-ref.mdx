@@ -9,7 +9,7 @@ each package is a directory that contains a set of related source files and one
 `BUILD` file. The `BUILD` file specifies what software outputs can be built from
 the source.
 
-### Repositories {:#repositories}
+### Repositories
 
 Source files used in a Bazel build are organized in _repositories_ (often
 shortened to _repos_). A repo is a directory tree with a boundary marker file at
@@ -18,9 +18,9 @@ in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`.
 
 The repo in which the current Bazel command is being run is called the _main
 repo_. Other, (external) repos are defined by _repo rules_; see [external
-dependencies overview](/external/overview) for more information.
+dependencies overview](/versions/9.0.0/external/overview) for more information.
 
-## Workspace {:#workspace}
+## Workspace
 
 A _workspace_ is the environment shared by all Bazel commands run from the same
 main repo. It encompasses the main repo and the set of all defined external
@@ -30,7 +30,7 @@ Note that historically the concepts of "repository" and "workspace" have been
 conflated; the term "workspace" has often been used to refer to the main
 repository, and sometimes even used as a synonym of "repository".
 
-## Packages {:#packages}
+## Packages
 
 The primary unit of code organization in a repository is the _package_. A
 package is a collection of related files and a specification of how they can be
@@ -54,7 +54,7 @@ src/my/app/tests/BUILD
 src/my/app/tests/test.cc
 ```
 
-## Targets {:#targets}
+## Targets
 
 A package is a container of _targets_, which are defined in the package's
 `BUILD` file. Most targets are one of two principal kinds, _files_ and _rules_.
@@ -96,7 +96,7 @@ package groups they include. The only allowed ways to refer to them are from the
 `visibility` attribute of rules or from the `default_visibility` attribute of
 the `package` function; they do not generate or consume files. For more
 information, refer to the [`package_group`
-documentation](/reference/be/functions#package_group).
+documentation](/versions/9.0.0/reference/be/functions#package_group).
 
 <a class="button button-with-icon button-primary" href="/versions/9.0.0/concepts/labels">
   Labels<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>

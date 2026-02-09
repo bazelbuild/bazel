@@ -1,7 +1,3 @@
-{# disableFinding("native") #}
-{# disableFinding("Native") #}
-{# disableFinding(LINE_OVER_80_LINK) #}
-
 ---
 title: 'Legacy Macros'
 ---
@@ -11,7 +7,7 @@ create targets. By the end of the
 [loading phase](/versions/9.0.0/extending/concepts#evaluation-model), legacy macros don't exist
 anymore, and Bazel sees only the concrete set of instantiated rules.
 
-## Why you shouldn't use legacy macros (and should use Symbolic macros instead) {:#no-legacy-macros}
+## Why you shouldn't use legacy macros (and should use Symbolic macros instead)
 
 Where possible you should use [symbolic macros](macros.md#macros).
 
@@ -24,7 +20,7 @@ Symbolic macros
 *   Are more readable
 *   Will soon have [lazy evaluation](macros.md#laziness)
 
-## Usage {:#usage}
+## Usage
 
 The typical use case for a macro is when you want to reuse a rule.
 
@@ -118,7 +114,7 @@ by other targets in the workspace.
 Note: Similar to `$@` for outputs, `$<` expands to the locations of files in the
 `srcs` attribute list.
 
-## Expanding macros {:#expanding-macros}
+## Expanding macros
 
 When you want to investigate what a macro does, use the `query` command with
 `--output=build` to see the expanded form:
@@ -134,7 +130,7 @@ genrule(
 )
 ```
 
-## Instantiating native rules {:#instantiating-native-rules}
+## Instantiating native rules
 
 Native rules (rules that don't need a `load()` statement) can be instantiated
 from the [native](/versions/9.0.0/rules/lib/toplevel/native) module:
@@ -153,7 +149,7 @@ the macro), use the function
 [native.package_name()](/versions/9.0.0/rules/lib/toplevel/native#package_name). Note that
 `native` can only be used in `.bzl` files, and not in `BUILD` files.
 
-## Label resolution in macros {:#label-resolution}
+## Label resolution in macros
 
 Since legacy macros are evaluated in the
 [loading phase](concepts.md#evaluation-model), label strings such as
@@ -192,7 +188,7 @@ relative to the package of the file that contains the `select` call. If this is
 not chosen, wrap the label string with
 [native.package_relative_label()](/versions/9.0.0/rules/lib/toplevel/native#package_relative_label).
 
-## Debugging {:#debugging}
+## Debugging
 
 *   `bazel query --output=build //my/path:all` will show you how the `BUILD`
     file looks after evaluation. All legacy macros, globs, loops are expanded.
@@ -215,7 +211,7 @@ not chosen, wrap the label string with
     `debugging` parameter that defaults to `False` before submitting the code to
     the depot.
 
-## Errors {:#errors}
+## Errors
 
 If you want to throw an error, use the [fail](/versions/9.0.0/rules/lib/globals/all#fail)
 function. Explain clearly to the user what went wrong and how to fix their
@@ -228,7 +224,7 @@ def my_macro(name, deps, visibility=None):
   # ...
 ```
 
-## Conventions {:#conventions}
+## Conventions
 
 *   All public functions (functions that don't start with underscore) that
     instantiate rules must have a `name` argument. This argument should not be

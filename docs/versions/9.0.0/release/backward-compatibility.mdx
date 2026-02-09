@@ -7,12 +7,12 @@ including migrating from one release to another and how to communicate
 incompatible changes.
 
 Bazel is evolving. Minor versions released as part of an [LTS major
-version](/release#bazel-versioning) are fully backward-compatible. New major LTS
+version](/versions/9.0.0/release#bazel-versioning) are fully backward-compatible. New major LTS
 releases may contain incompatible changes that require some migration effort.
 For more information about Bazel's release model, please check out the [Release
-Model](/release) page.
+Model](/versions/9.0.0/release) page.
 
-## Summary {:#summary}
+## Summary
 
 1.  It is recommended to use `--incompatible_*` flags for breaking changes.
 1.  For every `--incompatible_*` flag, a GitHub issue explains the change in
@@ -24,13 +24,13 @@ Model](/release) page.
 1.  Never run production builds with `--experimental_*` or `--incompatible_*`
     flags.
 
-## How to follow this policy {:#policy}
+## How to follow this policy
 
 *   [For Bazel users - how to update Bazel](/versions/9.0.0/install/bazelisk)
 *   [For contributors - best practices for incompatible changes](/versions/9.0.0/contribute/breaking-changes)
 *   [For release managers - how to update issue labels and release](https://github.com/bazelbuild/continuous-integration/tree/master/docs/release-playbook.%6D%64)
 
-## What is stable functionality? {:#stable-functionality}
+## What is stable functionality?
 
 In general, APIs or behaviors without `--experimental_...` flags are considered
 stable, supported features in Bazel.
@@ -42,7 +42,7 @@ This includes:
 *   Bazel APIs such as Remote Execution APIs or Build Event Protocol
 *   Flags and their semantics
 
-## Incompatible changes and migration recipes {:#incompatible-changes}
+## Incompatible changes and migration recipes
 
 For every incompatible change in a new release, the Bazel team aims to provide a
 _migration recipe_ that helps you update your code (`BUILD` and `.bzl` files, as
@@ -56,7 +56,7 @@ the latest LTS release without enabling the flag by default. This allows users
 to migrate for the incompatible changes before the next LTS release is
 available.
 
-## Communicating incompatible changes {:#communicating-incompatible-changes}
+## Communicating incompatible changes
 
 The primary source of information about incompatible changes are GitHub issues
 marked with an ["incompatible-change"

@@ -4,14 +4,14 @@ title: 'Optimize Memory'
 
 This page describes how to limit and reduce the memory Bazel uses.
 
-## Running Bazel with Limited RAM {:#running-bazel}
+## Running Bazel with Limited RAM
 
 In certain situations, you may want Bazel to use minimal memory. You can set the
 maximum heap via the startup flag
 [`--host_jvm_args`](/versions/9.0.0/docs/user-manual#host-jvm-args),
 like `--host_jvm_args=-Xmx2g`.
 
-### Trade incremental build speeds for memory {:#trade-incremental}
+### Trade incremental build speeds for memory
 
 If your builds are too big, Bazel may throw an `OutOfMemoryError` (OOM) when
 it doesn't have enough memory. You can make Bazel use less memory, at the cost
@@ -38,7 +38,7 @@ prevent most re-execution).
  incremental builds have to build from scratch (except for the on-disk action
  cache). Alone, it does not affect the high-water mark of the current build.
 
-### Trade build flexibility for memory with Skyfocus (Experimental) {:#trade-flexibility}
+### Trade build flexibility for memory with Skyfocus (Experimental)
 
 If you want to make Bazel use less memory *and* retain incremental build speeds,
 you can tell Bazel the working set of files that you will be modifying, and
@@ -87,7 +87,7 @@ and incremental builds to handle changes to files under `dir1`, `dir2`, and
 `dir3/subdir` will retain their fast speeds, with the tradeoff that Bazel cannot
 rebuild changed files outside of these directories.
 
-## Memory Profiling {:#memory-profiling}
+## Memory Profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule’s
 memory use. Read more about this process on the

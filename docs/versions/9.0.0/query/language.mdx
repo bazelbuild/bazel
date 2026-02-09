@@ -13,7 +13,7 @@ For practical use cases, see the [Bazel Query How-To](/versions/9.0.0/query/guid
 In addition to `query`, which runs on the post-loading phase target graph,
 Bazel includes *action graph query* and *configurable query*.
 
-### Action graph query {:#aquery}
+### Action graph query
 
 The action graph query (`aquery`) operates on the post-analysis Configured
 Target Graph and exposes information about **Actions**, **Artifacts**, and
@@ -23,7 +23,7 @@ For example, the actual commands run and their inputs, outputs, and mnemonics.
 
 For more details, see the [aquery reference](/versions/9.0.0/query/aquery).
 
-### Configurable query {:#cquery}
+### Configurable query
 
 Traditional Bazel query runs on the post-loading phase target graph and
 therefore has no concept of configurations and their related concepts. Notably,
@@ -34,7 +34,7 @@ doesn't provide all of the functionality of this original query.
 
 For more details, see the [cquery reference](/versions/9.0.0/query/cquery).
 
-## Examples {:#examples}
+## Examples
 
 How do people use `bazel query`?  Here are typical examples:
 
@@ -52,7 +52,7 @@ the `foo_bin` target does not?
 kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo:foo_bin))
 ```
 
-## Tokens: The lexical syntax {:#tokens}
+## Tokens: The lexical syntax
 
 Expressions in the query language are composed of the following
 tokens:
@@ -136,7 +136,7 @@ tokens:
 
 Whitespace characters outside of a quoted word are ignored.
 
-## Bazel query language concepts {:#language-concepts}
+## Bazel query language concepts
 
 The Bazel query language is a language of expressions. Every
 expression evaluates to a **partially-ordered set** of targets,
@@ -149,7 +149,7 @@ aspects of it, for example:
 *   **Set:** The partial order of the targets is not interesting.
 *   **Graph:** The partial order of targets is significant.
 
-### Cycles in the dependency graph {:#dependency-graph-cycles}
+### Cycles in the dependency graph
 
 Build dependency graphs should be acyclic.
 
@@ -161,7 +161,7 @@ operates over may contain cycles that do not exist in the configured target
 graph. Cycles in the configured target graph are detected and reported as errors
 by [`bazel cquery`](/versions/9.0.0/query/cquery) and [`bazel aquery`](/versions/9.0.0/query/aquery).
 
-### Implicit dependencies {:#implicit-dependencies}
+### Implicit dependencies
 
 In addition to build dependencies that are defined explicitly in `BUILD` files,
 Bazel adds additional _implicit_ dependencies to rules. Implicit dependencies
@@ -179,7 +179,7 @@ Note that, as query does not consider configurations, potential toolchain
 required toolchain types. See
 [toolchain documentation](/versions/9.0.0/extending/toolchains#writing-rules-toolchains).
 
-### Soundness {:#soundness}
+### Soundness
 
 Bazel query language expressions operate over the build
 dependency graph, which is the graph implicitly defined by all
@@ -199,7 +199,7 @@ because, for example, the query tool will include all the files
 needed to support message translation, even though you don't intend
 to use that feature in your build.
 
-### On the preservation of graph order {:#graph-order}
+### On the preservation of graph order
 
 Operations preserve any ordering
 constraints inherited from their subexpressions. You can think of
@@ -235,7 +235,7 @@ Operators that introduce ordering constraints include:
 `allpaths`, `deps`, `rdeps`, `somepath`, and the target pattern wildcards
 `package:*`, `dir/...`, etc.
 
-### Sky query {:#sky-query}
+### Sky query
 
 _Sky Query_ is a mode of query that operates over a specified _universe scope_.
 
@@ -299,11 +299,11 @@ As well, Sky Query does its work by introspecting the
 graph, which is what the default implementation does. Thus, there are some circumstances in which
 it is faster and uses less memory.
 
-## Expressions: Syntax and semantics of the grammar {:#expressions}
+## Expressions: Syntax and semantics of the grammar
 
 This is the grammar of the Bazel query language, expressed in EBNF notation:
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= {{ '<var>' }}word{{ '</var>' }}
        | let {{ '<var>' }}name{{ '</var>' }} = {{ '<var>' }}expr{{ '</var>' }} in {{ '<var>' }}expr{{ '</var>' }}
        | ({{ '<var>' }}expr{{ '</var>' }})
@@ -319,7 +319,7 @@ expr ::= {{ '<var>' }}word{{ '</var>' }}
 
 The following sections describe each of the productions of this grammar in order.
 
-### Target patterns {:#target-patterns}
+### Target patterns
 
 ```
 expr ::= {{ '<var>' }}word{{ '</var>' }}
@@ -362,9 +362,9 @@ _graph_ over those targets. (No guarantees are made about the relative ordering
 of the result nodes against other nodes.) For more details, see the
 [graph order](#graph-order) section.
 
-### Variables {:#variables}
+### Variables
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= let {{ '<var>' }}name{{ '</var>' }} = {{ '<var>' }}expr{{ '</var>' }}{{ '<sub>' }}1{{ '</sub>' }} in {{ '<var>' }}expr{{ '</var>' }}{{ '<sub>' }}2{{ '</sub>' }}
        | {{ '<var>' }}$name{{ '</var>' }}
 ```
@@ -400,18 +400,18 @@ the language can also be expressed without them. However, they
 improve the conciseness of many queries, and may also lead to more
 efficient query evaluation.
 
-### Parenthesized expressions {:#parenthesized-expressions}
+### Parenthesized expressions
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= ({{ '<var>' }}expr{{ '</var>' }})
 ```
 
 Parentheses associate subexpressions to force an order of evaluation.
 A parenthesized expression evaluates to the value of its argument.
 
-### Algebraic set operations: intersection, union, set difference {:#algebraic-set-operations}
+### Algebraic set operations: intersection, union, set difference
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= {{ '<var>' }}expr{{ '</var>' }} intersect {{ '<var>' }}expr{{ '</var>' }}
        | {{ '<var>' }}expr{{ '</var>' }} ^ {{ '<var>' }}expr{{ '</var>' }}
        | {{ '<var>' }}expr{{ '</var>' }} union {{ '<var>' }}expr{{ '</var>' }}
@@ -453,9 +453,9 @@ x intersect (y union z)
 Important: Use parentheses where there is any danger of ambiguity in reading a
 query expression.
 
-### Read targets from an external source: set {:#set}
+### Read targets from an external source: set
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= set({{ '<var>' }}word{{ '</var>' }} *)
 ```
 
@@ -491,9 +491,9 @@ Note: `set()` introduces no graph ordering constraints, so path information may
 be lost when saving and reloading sets of nodes using it. For more details,
 see the [graph order](#graph-order) section below.
 
-## Functions {:#functions}
+## Functions
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= {{ '<var>' }}word{{ '</var>' }} '(' {{ '<var>' }}int{{ '</var>' }} | {{ '<var>' }}word{{ '</var>' }} | {{ '<var>' }}expr{{ '</var>' }} ... ')'
 ```
 
@@ -519,10 +519,9 @@ functions are available:
 * [`tests`](#tests)
 * [`visible`](#visible)
 
+### Transitive closure of dependencies: deps
 
-### Transitive closure of dependencies: deps {:#deps}
-
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= deps({{ '<var>' }}expr{{ '</var>' }})
        | deps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}depth{{ '</var>' }})
 ```
@@ -550,9 +549,9 @@ correspond to the ranks shown in the [`minrank`](#output-ranked) output format.)
 If the {{ '<var>' }}depth{{ '</var>' }} parameter is omitted, the search is
 unbounded: it computes the reflexive transitive closure of prerequisites.
 
-### Transitive closure of reverse dependencies: rdeps {:#rdeps}
+### Transitive closure of reverse dependencies: rdeps
 
-```none {:.devsite-disable-click-to-copy}
+```none
 expr ::= rdeps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
        | rdeps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}depth{{ '</var>' }})
 ```
@@ -574,7 +573,7 @@ numbers correspond to the ranks shown in the [`minrank`](#output-ranked) output
 format.) If the {{ '<var>' }}depth{{ '</var>' }} parameter is omitted, the
 search is unbounded.
 
-### Transitive closure of all reverse dependencies: allrdeps {:#allrdeps}
+### Transitive closure of all reverse dependencies: allrdeps
 
 ```
 expr ::= allrdeps({{ '<var>' }}expr{{ '</var>' }})
@@ -589,7 +588,7 @@ evaluated to, instead of being separately specified. Thus, if
 `--universe_scope=//foo/...` was passed, then `allrdeps(//bar)` is
 equivalent to `rdeps(//foo/..., //bar)`.
 
-### Direct reverse dependencies in the same package: same_pkg_direct_rdeps {:#same_pkg_direct_rdeps}
+### Direct reverse dependencies in the same package: same_pkg_direct_rdeps
 
 ```
 expr ::= same_pkg_direct_rdeps({{ '<var>' }}expr{{ '</var>' }})
@@ -598,7 +597,7 @@ expr ::= same_pkg_direct_rdeps({{ '<var>' }}expr{{ '</var>' }})
 The `same_pkg_direct_rdeps({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets
 that are in the same package as a target in the argument set, and which directly depend on it.
 
-### Dealing with a target's package: siblings {:#siblings}
+### Dealing with a target's package: siblings
 
 ```
 expr ::= siblings({{ '<var>' }}expr{{ '</var>' }})
@@ -607,7 +606,7 @@ expr ::= siblings({{ '<var>' }}expr{{ '</var>' }})
 The `siblings({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets that are in
 the same package as a target in the argument set.
 
-### Arbitrary choice: some {:#some}
+### Arbitrary choice: some
 
 ```
 expr ::= some({{ '<var>' }}expr{{ '</var>' }})
@@ -636,7 +635,7 @@ equivalent to `//foo:main`.
 It is an error if the specified argument set is empty, as in the
 expression `some(//foo:main intersect //bar:baz)`.
 
-### Path operators: somepath, allpaths {:#somepath-allpaths}
+### Path operators: somepath, allpaths
 
 ```
 expr ::= somepath({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -753,7 +752,7 @@ See the section on [graph order](#graph-order) for more details.
   </tr>
 </table>
 
-### Target kind filtering: kind {:#kind}
+### Target kind filtering: kind
 
 ```
 expr ::= kind({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -814,7 +813,7 @@ file` and `.*_test`, are not considered words by the parser.
 When matching for `package group`, targets ending in
 `:all` may not yield any results. Use `:all-targets` instead.
 
-### Target name filtering: filter {:#filter}
+### Target name filtering: filter
 
 ```
 expr ::= filter({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -866,7 +865,7 @@ filter("\.cc$", deps(//foo))
 
 will provide a list of all `.cc` files used to build `//foo`.
 
-### Rule attribute filtering: attr {:#attr}
+### Rule attribute filtering: attr
 
 ```
 expr ::= attr({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -959,7 +958,7 @@ some_rule(
 This works because the character before `key=value` will be `{` or a space and
 the character after `key=value` will be a comma or `}`.
 
-### Rule visibility filtering: visible {:#visible}
+### Rule visibility filtering: visible
 
 ```
 expr ::= visible({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -982,7 +981,7 @@ visible(//foo, //bar:*)
 will select all targets in the package `//bar` that `//foo`
 can depend on without violating visibility restrictions.
 
-### Evaluation of rule attributes of type label: labels {:#labels}
+### Evaluation of rule attributes of type label: labels
 
 ```
 expr ::= labels({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
@@ -999,7 +998,7 @@ the `//foo` rule. If there are multiple rules
 with `srcs` attributes in the {{ '<var>' }}inputs{{ '</var>' }} set, the
 union of their `srcs` is returned.
 
-### Expand and filter test_suites: tests {:#tests}
+### Expand and filter test_suites: tests
 
 ```
 expr ::= tests({{ '<var>' }}expr{{ '</var>' }})
@@ -1024,7 +1023,7 @@ foo:*`: this may include tests belonging to other packages,
 that are referenced directly or indirectly
 via `test_suite` rules.
 
-### Package definition files: buildfiles {:#buildfiles}
+### Package definition files: buildfiles
 
 ```
 expr ::= buildfiles({{ '<var>' }}expr{{ '</var>' }})
@@ -1060,7 +1059,7 @@ target `//a:b.bzl`), but this isn't necessarily the case. Therefore,
 misleading when formatted in a structured way, such as
 [`--output=xml`](#xml).
 
-### Package definition files: rbuildfiles {:#rbuildfiles}
+### Package definition files: rbuildfiles
 
 ```
 expr ::= rbuildfiles({{ '<var>' }}word{{ '</var>' }}, ...)
@@ -1092,7 +1091,7 @@ outputs of the `buildfiles` operator are targets corresponding to all packages a
 files needed by a given input. However, the inputs of the `rbuildfiles` operator are
 not those targets, but rather the path fragments that correspond to those targets.
 
-### Package definition files: loadfiles {:#loadfiles}
+### Package definition files: loadfiles
 
 ```
 expr ::= loadfiles({{ '<var>' }}expr{{ '</var>' }})
@@ -1109,7 +1108,7 @@ necessarily the case. Therefore, `loadfiles` doesn't compose well with other que
 operators and its results can be misleading when formatted in a structured way, such as
 [`--output=xml`](#xml).
 
-## Output formats {:#output-formats}
+## Output formats
 
 `bazel query` generates a graph.
 You specify the content, format, and ordering by which
@@ -1128,7 +1127,7 @@ an output format other than `graph` is used. Similarly,
 `--xml:line_numbers` applies only when `--output=xml`
 is being used.
 
-### On the ordering of results {:#results-ordering}
+### On the ordering of results
 
 Although query expressions always follow the "[law of
 conservation of graph order](#graph-order)", _presenting_ the results may be done
@@ -1166,7 +1165,7 @@ in which they were visited.
 Printing nodes in this order may be slower, so it should be used only when determinism is
 important.
 
-### Print the source form of targets as they would appear in BUILD {:#target-source-form}
+### Print the source form of targets as they would appear in BUILD
 
 ```
 --output build
@@ -1182,7 +1181,7 @@ giving the name of the macro that was evaluated to produce the effective rule.
 Although the output uses the same syntax as `BUILD` files, it is not
 guaranteed to produce a valid `BUILD` file.
 
-### Print the label of each target {:#print-label-target}
+### Print the label of each target
 
 ```
 --output label
@@ -1210,7 +1209,7 @@ below) format, the distinction becomes clear: the two targets have
 the same name, but one has kind `sh_binary rule` and the
 other kind `source file`.
 
-### Print the label and kind of each target {:#print-target-label}
+### Print the label and kind of each target
 
 ```
 --output label_kind
@@ -1220,7 +1219,7 @@ Like `label`, this output format prints the labels of
 each target in the resulting graph, in topological order, but it
 additionally precedes the label by the [_kind_](#kind) of the target.
 
-### Print targets in protocol buffer format {:#print-target-proto}
+### Print targets in protocol buffer format
 
 ```
 --output proto
@@ -1230,7 +1229,7 @@ Prints the query output as a
 [`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
 protocol buffer.
 
-### Print targets in length-delimited protocol buffer format {:#print-target-length-delimited-proto}
+### Print targets in length-delimited protocol buffer format
 
 ```
 --output streamed_proto
@@ -1245,7 +1244,7 @@ protocol buffers. This is useful to _(i)_ get around
 of protocol buffers when there are too many targets to fit in a single
 `QueryResult` or _(ii)_ to start processing while Bazel is still outputting.
 
-### Print targets in text proto format {:#print-target-textproto}
+### Print targets in text proto format
 
 ```
 --output textproto
@@ -1256,7 +1255,7 @@ Similar to `--output proto`, prints the
 protocol buffer but in
 [text format](https://protobuf.dev/reference/protobuf/textformat-spec/).
 
-### Print targets in ndjson format {:#print-target-streamed-jsonproto}
+### Print targets in ndjson format
 
 ```
 --output streamed_jsonproto
@@ -1266,7 +1265,7 @@ Similar to `--output streamed_proto`, prints a stream of
 [`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
 protocol buffers but in [ndjson](https://github.com/ndjson/ndjson-spec) format.
 
-### Print the label of each target, in rank order {:#print-target-label-rank-order}
+### Print the label of each target, in rank order
 
 ```
 --output minrank --output maxrank
@@ -1342,7 +1341,7 @@ are specified, respectively.
   </tr>
 </table>
 
-### Print the location of each target {:#print-target-location}
+### Print the location of each target
 
 ```
 --output location
@@ -1365,7 +1364,7 @@ generates it is printed. (The query tool does not have sufficient
 information to find the actual location of the generated file, and
 in any case, it might not exist if a build has not yet been performed.)
 
-### Print the set of packages {:#print-package-set}
+### Print the set of packages
 
 ```--output package```
 
@@ -1383,7 +1382,7 @@ In conjunction with the `deps(...)` query, this output
 option can be used to find the set of packages that must be checked
 out in order to build a given set of targets.
 
-### Display a graph of the result {:#display-result-graph}
+### Display a graph of the result
 
 ```--output graph```
 
@@ -1409,7 +1408,7 @@ same `genrule`; in the factored graph, all these files
 are represented by a single node. This behavior may be disabled
 with the `--nograph:factored` option.
 
-#### `--graph:node_limit {{ '<var>' }}n{{ '</var>' }}` {:#graph-nodelimit}
+#### `--graph:node_limit {{ '<var>' }}n{{ '</var>' }}`
 
 The option specifies the maximum length of the label string for a
 graph node in the output. Longer labels will be truncated; -1
@@ -1419,7 +1418,7 @@ handle labels exceeding 1024 characters, which is the default value
 of this option. This option has no effect unless
 `--output=graph` is being used.
 
-#### `--[no]graph:factored` {:#graph-factored}
+#### `--[no]graph:factored`
 
 By default, graphs are displayed in factored form, as explained
 [above](#output-graph).
@@ -1429,7 +1428,7 @@ impractical, but the simpler format may ease processing by other
 tools (such as grep). This option has no effect
 unless `--output=graph` is being used.
 
-### XML {:#xml}
+### XML
 
 ```--output xml```
 
@@ -1508,12 +1507,12 @@ attribute, whose value is the target's label, and
 a `location` attribute, whose value is the target's
 location as printed by the [`--output location`](#print-target-location).
 
-#### `--[no]xml:line_numbers` {:#xml-linenumbers}
+#### `--[no]xml:line_numbers`
 
 By default, the locations displayed in the XML output contain line numbers.
 When `--noxml:line_numbers` is specified, line numbers are not printed.
 
-#### `--[no]xml:default_values` {:#xml-defaultvalues}
+#### `--[no]xml:default_values`
 
 By default, XML output does not include rule attribute whose value
 is the default value for that kind of attribute (for example, if it
@@ -1521,13 +1520,13 @@ were not specified in the `BUILD` file, or the default value was
 provided explicitly). This option causes such attribute values to
 be included in the XML output.
 
-### Regular expressions {:#regular-expressions}
+### Regular expressions
 
 Regular expressions in the query language use the Java regex library, so you can use the
 full syntax for
 [`java.util.regex.Pattern`](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html).
 
-### Querying with external repositories {:#querying-external-repositories}
+### Querying with external repositories
 
 If the build depends on rules from [external repositories](/versions/9.0.0/external/overview)
 then query results will include these dependencies. For

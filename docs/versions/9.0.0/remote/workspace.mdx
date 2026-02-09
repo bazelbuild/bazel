@@ -12,11 +12,11 @@ host machine for use during execution, your build is likely to break due to
 incompatibilities between the environments.
 
 As part of [adapting Bazel rules for remote
-execution](/remote/rules), you need to find such workspace rules
+execution](/versions/9.0.0/remote/rules), you need to find such workspace rules
 and fix them. This page describes how to find potentially problematic workspace
 rules using the workspace log.
 
-## Finding non-hermetic rules {:#nonhermetic-rules}
+## Finding non-hermetic rules
 
 [Workspace rules](/versions/9.0.0/reference/be/workspace) allow the developer to add dependencies to
 external workspaces, but they are rich enough to allow arbitrary processing to

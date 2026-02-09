@@ -5,7 +5,7 @@ title: 'Hermeticity'
 This page covers hermeticity, the benefits of using hermetic builds, and
 strategies for identifying non-hermetic behavior in your builds.
 
-## Overview {:#overview}
+## Overview
 
 When given the same input source code and product configuration, a hermetic
 build system always returns the same output by isolating the build from changes
@@ -28,7 +28,7 @@ The two important aspects of hermeticity are:
   unique hash code. Hermetic build systems use this hash to identify changes to
   the build's input.
 
-## Benefits {:#benefits}
+## Benefits
 
 The major benefits of hermetic builds are:
 
@@ -43,7 +43,7 @@ The major benefits of hermetic builds are:
 * **Reproducibility**: Hermetic builds are good for troubleshooting because you
   know the exact conditions that produced the build.
 
-## Identifying non-hermeticity {:#nonhermeticity}
+## Identifying non-hermeticity
 
 If you are preparing to switch to Bazel, migration is easier if you improve
 your existing builds' hermeticity in advance. Some common sources of
@@ -59,7 +59,7 @@ non-hermeticity in builds are:
   tree, fixing the source tree for target A. Then trying to build target B may
   fail.
 
-## Troubleshooting non-hermetic builds {:#troubleshooting-nonhermeticity}
+## Troubleshooting non-hermetic builds
 
 Starting with local execution, issues that affect local cache hits reveal
 non-hermetic actions.
@@ -92,7 +92,7 @@ Note: Make your build fully hermetic when mixing remote and local execution,
 using Bazel’s “dynamic strategy” functionality. Running Bazel inside the remote
 Docker container will enable the build to execute the same in both environments.
 
-## Hermeticity with Bazel {:#hermeticity-bazel}
+## Hermeticity with Bazel
 
 For more information about how other projects have had success using hermetic
 builds with Bazel, see these  BazelCon talks:
