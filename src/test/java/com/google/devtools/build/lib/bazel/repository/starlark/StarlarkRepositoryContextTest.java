@@ -292,6 +292,20 @@ public final class StarlarkRepositoryContextTest {
           .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
+    try {
+      context.createFile(
+          Starlark.str(context.getPath(""), StarlarkSemantics.DEFAULT) + "_1",
+          "",
+          true,
+          true,
+          thread);
+      fail("Expected error on creating path outside of the repository directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot write outside of the repository directory for path /outputDir_1");
+    }
   }
 
   @Test
