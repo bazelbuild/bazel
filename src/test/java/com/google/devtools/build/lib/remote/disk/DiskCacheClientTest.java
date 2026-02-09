@@ -359,7 +359,7 @@ public class DiskCacheClientTest {
       throws IOException, ExecutionException, InterruptedException {
     var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
     var nativeClient =
-        new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL, /* verifyDownloads= */ false);
+        new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL, executorService, /* verifyDownloads= */ false);
     var tasks = new ArrayList<Future<?>>();
     // Use 1 MB blobs to increase the window for concurrent access during write/rename.
     var contentSize = 1024 * 1024;
