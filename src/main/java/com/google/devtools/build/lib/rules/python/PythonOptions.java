@@ -35,9 +35,12 @@ public class PythonOptions extends FragmentOptions {
   @Option(
       name = "build_python_zip",
       defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Build python executable zip; on on Windows, off on other platforms")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      deprecationWarning =
+          "The '--no' prefix is no longer supported for this flag. Please use"
+              + " --build_python_zip=false instead.",
+      help = "Deprecated. No-op.")
   public TriState buildPythonZip;
 
   @Option(
