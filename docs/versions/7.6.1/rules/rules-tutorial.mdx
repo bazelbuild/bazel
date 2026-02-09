@@ -2,8 +2,7 @@
 title: 'Rules Tutorial'
 ---
 
-
-
+<!-- [TOC] -->
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like
 configuration language originally developed for use in Bazel and since adopted
@@ -15,7 +14,7 @@ of Bazel. Bazel augments the core language with numerous build-related functions
 such as `glob`, `genrule`, `java_binary`, and so on.
 
 See the
-[Bazel](/start/) and [Starlark](/extending/concepts) documentation for
+[Bazel](/versions/7.6.1/start/) and [Starlark](/versions/7.6.1/extending/concepts) documentation for
 more details, and the
 [Rules SIG template](https://github.com/bazel-contrib/rules-template) as a
 starting point for new rulesets.
@@ -112,7 +111,7 @@ Make a few observations:
 * The callback function `_foo_binary_impl` is not called. Bazel query loads
   `BUILD` files, but doesn't analyze targets.
 
-To analyze the targets, use the [`cquery`](/query/cquery) ("configured
+To analyze the targets, use the [`cquery`](/versions/7.6.1/query/cquery) ("configured
 query") or the `build` command:
 
 ```
@@ -353,7 +352,7 @@ Attributes that start with an underscore are private and cannot be set in a
 `BUILD` file. The template is now an _implicit dependency_: Every `hello_world`
 target has a dependency on this file. Don't forget to make this file visible
 to other packages by updating the `BUILD` file and using
-[`exports_files`](/reference/be/functions#exports_files):
+[`exports_files`](/versions/7.6.1/reference/be/functions#exports_files):
 
 ```python
 exports_files(["file.cc.tpl"])
@@ -361,7 +360,7 @@ exports_files(["file.cc.tpl"])
 
 ## Going further
 
-*   Take a look at the [reference documentation for rules](/extending/rules#contents).
-*   Get familiar with [depsets](/extending/depsets).
+*   Take a look at the [reference documentation for rules](/versions/7.6.1/extending/rules#contents).
+*   Get familiar with [depsets](/versions/7.6.1/extending/depsets).
 *   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/master/rules)
     which includes additional examples of rules.
