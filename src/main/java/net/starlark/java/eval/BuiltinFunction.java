@@ -523,8 +523,17 @@ public sealed class BuiltinFunction implements StarlarkCallable
     }
   }
 
-  private static final class BuiltinTypeFunction extends BuiltinFunction
-      implements TypeConstructor {
+  /**
+   * A {@link BuiltinFunction} whose symbol is also a type constructor; for example, {@code list} is
+   * used both as a function that returns list values ({@code l = list((1, 2, 3))}) and a
+   * constructor for list types ({@code type T = list[int]}).
+   */
+  // Non-private due to what appears to be a javac bug (present at least in JDK 21) causing
+  // scripts/bootstrap/compile.sh and bazel_bootstrap_distfile_tar_test to spuriously fail with
+  // "error: BuiltinTypeFunction has private access in BuiltinFunction".
+  // TODO(bazel-team): check if we can make this class private once Bazel starts using JDK 25 or
+  // newer to bootstrap
+  static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
 
     private final StarlarkSemantics semantics;
 
