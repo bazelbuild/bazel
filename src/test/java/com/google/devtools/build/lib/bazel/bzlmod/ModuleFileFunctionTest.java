@@ -1299,7 +1299,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int or NoneType'");
+    assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
   }
 
   @Test

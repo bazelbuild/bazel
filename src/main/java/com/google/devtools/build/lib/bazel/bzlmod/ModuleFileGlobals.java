@@ -115,11 +115,7 @@ public class ModuleFileGlobals {
             doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None"),
+            defaultValue = "-1"),
         @Param(
             name = "repo_name",
             doc =
@@ -153,7 +149,7 @@ public class ModuleFileGlobals {
   public void module(
       String name,
       String version,
-      Object compatibilityLevel,
+      StarlarkInt compatibilityLevel,
       String repoName,
       Iterable<?> bazelCompatibility,
       StarlarkThread thread)
@@ -162,7 +158,7 @@ public class ModuleFileGlobals {
     if (context.isModuleCalled()) {
       throw Starlark.errorf("the module() directive can only be called once");
     }
-    if (compatibilityLevel != Starlark.NONE && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+    if (compatibilityLevel.toInt("compatibility_level") != -1 && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
       context.addWarning(
           Event.warn(
               thread.getCallerLocation(),
@@ -247,11 +243,7 @@ public class ModuleFileGlobals {
             doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None"),
+            defaultValue = "-1"),
         @Param(
             name = "repo_name",
             allowedTypes = {
@@ -282,7 +274,7 @@ public class ModuleFileGlobals {
   public void bazelDep(
       String name,
       String version,
-      Object maxCompatibilityLevel,
+      StarlarkInt maxCompatibilityLevel,
       Object repoNameArg,
       boolean devDependency,
       StarlarkThread thread)
@@ -296,7 +288,7 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    if (maxCompatibilityLevel != Starlark.NONE
+    if (maxCompatibilityLevel.toInt("max_compatibility_level") != -1
         && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
       context.addWarning(
           Event.warn(
