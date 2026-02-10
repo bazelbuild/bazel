@@ -535,6 +535,42 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertIn('FOO bar', os.linesep.join(stderr))
     self.assertNotIn('null value in entry: FOO=null', os.linesep.join(stderr))
 
+  def testRepoEnvMissingVariable(self):
+    # Test that --repo_env=VAR for a variable not set in the environment
+    # is silently ignored and doesn't crash (regression test for NPE fix).
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'dump_env = use_repo_rule("//:main.bzl", "dump_env")',
+            'dump_env(',
+            '    name = "debug"',
+            ')',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'main.bzl',
+        [
+            'def _dump_env(ctx):',
+            '    val = ctx.os.environ.get("NONEXISTENT_VAR", "not_found")',
+            '    print("NONEXISTENT_VAR", val)',
+            '    ctx.file("BUILD")',
+            'dump_env = repository_rule(',
+            '    implementation = _dump_env,',
+            '    local = True,',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        args=['build', '@debug//:all', '--repo_env=NONEXISTENT_VAR'],
+        env_remove=['NONEXISTENT_VAR'],
+    )
+    stderr_str = os.linesep.join(stderr)
+    self.assertNotIn('NullPointerException', stderr_str)
+    self.assertNotIn('null value in entry', stderr_str)
+    self.assertIn('NONEXISTENT_VAR not_found', stderr_str)
+
   def testRepoEnvUnset(self):
     self.ScratchFile(
         'MODULE.bazel',
