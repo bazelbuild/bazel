@@ -2,8 +2,6 @@
 title: 'Build Event Protocol Glossary'
 ---
 
-
-
 Each BEP event type has its own semantics, minimally documented in
 [build\_event\_stream.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto).
 The following glossary describes each event type.
@@ -38,7 +36,7 @@ BEP contains an event like the following:
 ## ActionExecuted
 
 Provides details about the execution of a specific
-[Action](/rules/lib/actions) in a build. By default, this event is
+[Action](/versions/8.0.1/rules/lib/actions) in a build. By default, this event is
 included in the BEP only for failed actions, to support identifying the root cause
 of build failures. Users may set the `--build_event_publish_all_actions` flag
 to include all `ActionExecuted` events.
@@ -147,7 +145,7 @@ indicates which representation it conveys; three such events appear in the BEP:
 
 ## Configuration
 
-A `Configuration` event is sent for every [`configuration`](/extending/config)
+A `Configuration` event is sent for every [`configuration`](/versions/8.0.1/extending/config)
 used in the top-level targets in a build. At least one configuration event is
 always be present. The `id` is reused by the `TargetConfigured` and
 `TargetComplete` event IDs and is necessary to disambiguate those events in
@@ -218,17 +216,17 @@ appear in the BEP stream.
 ## NamedSetOfFiles
 
 `NamedSetOfFiles` events report a structure matching a
-[`depset`](/extending/depsets) of files produced during command evaluation.
+[`depset`](/versions/8.0.1/extending/depsets) of files produced during command evaluation.
 Transitively included depsets are identified by `NamedSetOfFilesId`.
 
 For more information on interpreting a stream's `NamedSetOfFiles` events, see the
-[BEP examples page](/remote/bep-examples#consuming-namedsetoffiles).
+[BEP examples page](/versions/8.0.1/remote/bep-examples#consuming-namedsetoffiles).
 
 ## OptionsParsed
 
 A single `OptionsParsed` event lists all options applied to the command,
 separating startup options from command options. It also includes the
-[InvocationPolicy](/reference/command-line-reference#flag--invocation_policy), if any.
+[InvocationPolicy](/versions/8.0.1/reference/command-line-reference#flag--invocation_policy), if any.
 
 ```json
 {
@@ -399,7 +397,7 @@ differentiate `FLAKY` tests from `FAILED` tests.
 
 Unlike [CommandLine](#commandline), this event carries the unparsed commandline
 flags in string form as encountered by the build tool after expanding all
-[`.bazelrc`](/run/bazelrc) files and
+[`.bazelrc`](/versions/8.0.1/run/bazelrc) files and
 considering the `--config` flag.
 
 The `UnstructuredCommandLine` event may be relied upon to precisely reproduce a
@@ -413,4 +411,4 @@ workspace, such as the execution root.
 ## WorkspaceStatus
 
 A single `WorkspaceStatus` event contains the result of the [workspace status
-command](/docs/user-manual#workspace-status).
+command](/versions/8.0.1/docs/user-manual#workspace-status).

@@ -2,8 +2,6 @@
 title: 'Release Model'
 ---
 
-
-
 As announced in [the original blog
 post](https://blog.bazel.build/2020/11/10/long-term-support-release.html), Bazel
 4.0 and higher versions provides support for two release tracks: rolling
@@ -14,7 +12,7 @@ information about Bazel's release model.
 
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
-| Bazel 8 | Rolling| [Check rolling release page](https://bazel.build/release/rolling) | N/A |
+| Bazel 8 | Rolling| [Check rolling release page](https://bazel.build/versions/8.0.1/release/rolling) | N/A |
 | Bazel 7 | Active| [7.4.1](https://github.com/bazelbuild/bazel/releases/tag/7.4.1) | Dec 2026 |
 | Bazel 6 | Maintenance | [6.5.0](https://github.com/bazelbuild/bazel/releases/tag/6.5.0) | Dec 2025 |
 | Bazel 5 | Maintenance | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1) | Jan 2025 |
@@ -74,7 +72,7 @@ Bazel regularly publish releases for two release tracks.
 *   Rolling releases can ship incompatible changes. Incompatible flags are
     recommended for major breaking changes, rolling out incompatible changes
     should follow our [backward compatibility
-    policy](/release/backward-compatibility).
+    policy](/versions/8.0.1/release/backward-compatibility).
 
 ### LTS releases
 
@@ -212,4 +210,4 @@ feature.
 
 If you are a rule authors and want to maintain compatibility with different
 Bazel versions, please check out the [Rule
-Compatibility](/release/rule-compatibility) page.
+Compatibility](/versions/8.0.1/release/rule-compatibility) page.
