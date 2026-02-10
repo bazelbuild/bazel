@@ -110,17 +110,7 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "compatibility_level",
-            doc =
-                "The compatibility level of the module; this should be changed every time a major"
-                    + " incompatible change is introduced. This is essentially the \"major"
-                    + " version\" of the module in terms of SemVer, except that it's not embedded"
-                    + " in the version string itself, but exists as a separate field. Modules with"
-                    + " different compatibility levels participate in version resolution as if"
-                    + " they're modules with different names, but the final dependency graph cannot"
-                    + " contain multiple modules with the same name but different compatibility"
-                    + " levels (unless <code>multiple_version_override</code> is in effect). See <a"
-                    + " href=\"/external/module#compatibility_level\">the documentation</a> for"
-                    + " more details.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
             defaultValue = "0"),
@@ -190,7 +180,7 @@ public class ModuleFileGlobals {
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
+        .setCompatibilityLevel(0)
         .addBazelCompatibilityValues(
             checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
@@ -241,11 +231,7 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "max_compatibility_level",
-            doc =
-                "The maximum <code>compatibility_level</code> supported for the module to be added"
-                    + " as a direct dependency. The version of the module implies the minimum"
-                    + " compatibility_level supported, as well as the maximum if this attribute is"
-                    + " not specified.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
             defaultValue = "-1"),
@@ -308,7 +294,7 @@ public class ModuleFileGlobals {
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
           repoName,
-          new DepSpec(name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
+          new DepSpec(name, parsedVersion, -1));
     }
 
     if (repoName.isPresent()) {

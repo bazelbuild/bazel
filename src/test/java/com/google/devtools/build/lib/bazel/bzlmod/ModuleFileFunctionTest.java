@@ -226,7 +226,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("aaa", "0.1", 4)
+            InterimModuleBuilder.create("aaa", "0.1", 0)
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
@@ -747,7 +747,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("bbb", "1.0", 6)
+            InterimModuleBuilder.create("bbb", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "3.0"))
                 .setRegistry(registry2)
                 .build());
