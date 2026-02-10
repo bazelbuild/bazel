@@ -2,7 +2,6 @@
 title: 'Functions'
 ---
 
-
 ## Contents
 
 * [package](#package)
@@ -23,7 +22,7 @@ package. It is used at most once within a package (BUILD file).
 
 For the counterpart that declares metadata applying to every rule in the whole
 *repository*, use the `repo()` function in the
-[`REPO.bazel` file](/external/overview#repo.bazel) at the root of your repo.
+[`REPO.bazel` file](/versions/8.4.2/external/overview#repo.bazel) at the root of your repo.
 The `repo()` function takes exactly the same arguments as `package()`.
 
 The package() function should be called right after all the load() statements at the top of the
@@ -34,9 +33,9 @@ file, before any rule.
 | Attribute | Description |
 | --- | --- |
 | `default_applicable_licenses` | Alias for [`default_package_metadata`](#package.default_package_metadata). |
-| `default_visibility` | List of [labels](/concepts/labels); default is `[]`  The default visibility of the top-level rule targets and symbolic macros in this package — that is, the targets and symbolic macros that are not themselves declared inside a symbolic macro. This attribute is ignored if the target or macro specifies a `visibility` value.  For detailed information about the syntax of this attribute, see the documentation of [visibility](/concepts/visibility). The package default visibility does not apply to [exports\_files](#exports_files), which is public by default. |
+| `default_visibility` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]`  The default visibility of the top-level rule targets and symbolic macros in this package — that is, the targets and symbolic macros that are not themselves declared inside a symbolic macro. This attribute is ignored if the target or macro specifies a `visibility` value.  For detailed information about the syntax of this attribute, see the documentation of [visibility](/versions/8.4.2/concepts/visibility). The package default visibility does not apply to [exports\_files](#exports_files), which is public by default. |
 | `default_deprecation` | String; default is `""`  Sets the default [`deprecation`](common-definitions#common.deprecation) message for all rules in this package. |
-| `default_package_metadata` | List of [labels](/concepts/labels); default is `[]`  Sets a default list of metadata targets which apply to all other targets in the package. These are typically targets related to OSS package and license declarations. See [rules\_license](https://github.com/bazelbuild/rules_license) for examples. |
+| `default_package_metadata` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]`  Sets a default list of metadata targets which apply to all other targets in the package. These are typically targets related to OSS package and license declarations. See [rules\_license](https://github.com/bazelbuild/rules_license) for examples. |
 | `default_testonly` | Boolean; default is `False` except as noted  Sets the default [`testonly`](common-definitions#common.testonly) property for all rules in this package.  In packages under `javatests` the default value is `True`. |
 | `features` | List strings; default is `[]`  Sets various flags that affect the semantics of this BUILD file.  This feature is mainly used by the people working on the build system to tag packages that need some kind of special handling. Do not use this unless explicitly requested by someone working on the build system. |
 
@@ -57,7 +56,7 @@ package(default_visibility = ["//foo:target"])
 package_group(name, packages, includes)
 ```
 
-This function defines a set of [packages](/concepts/build-ref#packages)
+This function defines a set of [packages](/versions/8.4.2/concepts/build-ref#packages)
 and associates a label with the set. The label can be referenced in
 `visibility` attributes.
 
@@ -81,9 +80,9 @@ not themselves have any visibility protection.
 
 | Attribute | Description |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
 | `packages` | List of strings; default is `[]`  A list of zero or more package specifications.  Each package specification string can have one of the following forms:   1. The full name of a package, without its repository, starting with a    double slash. For example, `//foo/bar` specifies the package    having that name and which lives in the same repository as the package    group.- As above, but with a trailing `/...`. For example, `//foo/...` specifies the set of `//foo` and all its      subpackages. `//...` specifies all packages in the current      repository.- The strings `public` or `private`, which        respectively specify every package or no package. (This form requires        the flag `--incompatible_package_group_has_public_syntax` to        be set.)   In addition, the first two kinds of package specifications may also be prefixed with `-` to indicate that they are negated.  The package group contains any package that matches at least one of its positive specifications and none of its negative specifications For instance, the value `[//foo/..., -//foo/tests/...]` includes all subpackages of `//foo` that are not also subpackages of `//foo/tests`. (`//foo` itself is included while //foo/tests itself is not.)  Aside from public visibility, there is no way to directly specify packages outside the current repository.  If this attribute is missing, it is the same as setting it to an empty list, which is also the same as setting it to a list containing only `private`. *Note:* Prior to Bazel 6.0, the specification `//...` had a legacy behavior of being the same as `public`. This behavior is fixed when `--incompatible_fix_package_group_reporoot_syntax` is enabled, which is the default after Bazel 6.0.  *Note:* Prior to Bazel 6.0, when this attribute is serialized as part of `bazel query --output=proto` (or `--output=xml`), the leading slashes are omitted. For instance, `//pkg/foo/...` will output as `\"pkg/foo/...\"`. This behavior is fixed when `--incompatible_package_group_includes_double_slash` is enabled, which is the default after Bazel 6.0. |
-| `includes` | List of [labels](/concepts/labels); default is `[]`  Other package groups that are included in this one.  The labels in this attribute must refer to other package groups. Packages in referenced package groups are taken to be part of this package group. This is transitive — if package group `a` includes package group `b`, and `b` includes package group `c`, then every package in `c` will also be a member of `a`.  When used together with negated package specifications, note that the set of packages for each group is first computed independently and the results are then unioned together. This means that negated specifications in one group have no effect on the specifications in another group. |
+| `includes` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]`  Other package groups that are included in this one.  The labels in this attribute must refer to other package groups. Packages in referenced package groups are taken to be part of this package group. This is transitive — if package group `a` includes package group `b`, and `b` includes package group `c`, then every package in `c` will also be a member of `a`.  When used together with negated package specifications, note that the set of packages for each group is first computed independently and the results are then unioned together. This means that negated specifications in one group have no effect on the specifications in another group. |
 
 ### Examples
 
@@ -145,7 +144,7 @@ this package that are exported to other packages.
 The BUILD file for a package may only refer directly to source files belonging
 to another package if they are explicitly exported with an
 `exports_files()` statement. Read more about
-[visibility of files](/concepts/visibility#source-file-target-visibility).
+[visibility of files](/versions/8.4.2/concepts/visibility#source-file-target-visibility).
 
 As a legacy behaviour, also files mentioned as input to a rule are exported
 with the default visibility until the flag
@@ -171,9 +170,7 @@ packages may use it, for example, in the `data` attribute
 of tests.
 
 ```
----
-title: 'from //test_data/BUILD'
----
+# from //test_data/BUILD
 
 exports_files(["golden.txt"])
 ```
@@ -280,7 +277,7 @@ There are several important limitations and caveats:
    existence of BUILD files — that is, the same glob expression would
    include `x/y/z.cc` if there was no package called
    `x/y` or it was marked as deleted using the
-   [--deleted\_packages](/docs/user-manual#flag--deleted_packages)
+   [--deleted\_packages](/versions/8.4.2/docs/user-manual#flag--deleted_packages)
    flag.
 5. The restriction above applies to all glob expressions,
    no matter which wildcards they use.
@@ -382,9 +379,7 @@ Create an individual genrule for \*\_test.cc in the current directory
 that counts the number of lines in the file.
 
 ```
----
-title: 'Conveniently, the build language supports list comprehensions.'
----
+# Conveniently, the build language supports list comprehensions.
 [genrule(
     name = "count_lines_" + f[:-3],  # strip ".cc"
     srcs = [f],

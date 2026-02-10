@@ -6,7 +6,7 @@ An object that encapsulates, in a memory-efficient way, the data needed to build
 
 It often happens that an action requires a large command line containing values accumulated from transitive dependencies. For example, a linker command line might list every object file needed by all of the libraries being linked. It is best practice to store such transitive data in [`depset`](../builtins/depset)s, so that they can be shared by multiple targets. However, if the rule author had to convert these depsets into lists of strings in order to construct an action command line, it would defeat this memory-sharing optimization.
 
-For this reason, the action-constructing functions accept `Args` objects in addition to strings. Each `Args` object represents a concatenation of strings and depsets, with optional transformations for manipulating the data. `Args` objects do not process the depsets they encapsulate until the execution phase, when it comes time to calculate the command line. This helps defer any expensive copying until after the analysis phase is complete. See the [Optimizing Performance](https://bazel.build/rules/performance) page for more information.
+For this reason, the action-constructing functions accept `Args` objects in addition to strings. Each `Args` object represents a concatenation of strings and depsets, with optional transformations for manipulating the data. `Args` objects do not process the depsets they encapsulate until the execution phase, when it comes time to calculate the command line. This helps defer any expensive copying until after the analysis phase is complete. See the [Optimizing Performance](https://bazel.build/versions/8.4.2/rules/performance) page for more information.
 
 `Args` are constructed by calling [`ctx.actions.args()`](../builtins/actions#args). They can be passed as the `arguments` parameter of [`ctx.actions.run()`](../builtins/actions#run) or [`ctx.actions.run_shell()`](../builtins/actions#run_shell). Each mutation of an `Args` object appends values to the eventual command line.
 
@@ -29,12 +29,8 @@ Example: Suppose we wanted to generate the command line:
 We could use the following `Args` object:
 
 ```
----
-title: 'foo_deps and bar_deps are depsets containing'
----
----
-title: 'File objects for the foo and bar .txt files.'
----
+# foo_deps and bar_deps are depsets containing
+# File objects for the foo and bar .txt files.
 args = ctx.actions.args()
 args.add_all("--foo", foo_deps)
 args.add_joined("--bar", bar_deps, join_with=",")

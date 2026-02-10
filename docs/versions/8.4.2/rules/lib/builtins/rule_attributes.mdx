@@ -20,7 +20,7 @@ Information about attributes of a rule an aspect is applied to.
 struct rule_attributes.attr
 ```
 
-A struct to access the values of the [attributes](https://bazel.build/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
+A struct to access the values of the [attributes](https://bazel.build/versions/8.4.2/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
 
 ## exec\_groups
 
@@ -50,7 +50,7 @@ A `struct` containing files defined in [label type attributes](../toplevel/attr#
 list(ctx.attr.<ATTR>.files)[0]
 ```
 
-In other words, use `file` to access the (singular) [default output](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
+In other words, use `file` to access the (singular) [default output](https://bazel.build/versions/8.4.2/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
 
 ## files
 
@@ -64,7 +64,7 @@ A `struct` containing files defined in [label](../toplevel/attr#label) or [label
 [f for t in ctx.attr.<ATTR> for f in t.files]
 ```
 
-In other words, use `files` to access the  [default outputs](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
+In other words, use `files` to access the  [default outputs](https://bazel.build/versions/8.4.2/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
 
 ## kind
 

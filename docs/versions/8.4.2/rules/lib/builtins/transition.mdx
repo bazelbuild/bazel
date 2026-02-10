@@ -2,7 +2,6 @@
 title: 'transition'
 ---
 
-
 Represents a configuration transition across a dependency edge. For example, if `//package:foo` depends on `//package:bar` with a configuration transition, then the configuration of these two targets will differ: `//package:bar`'s transition will be determined by that of `//package:foo`, as subject to the function defined by a transition object.
 
 ## Members
@@ -33,7 +32,7 @@ build_in_debug_mode = transition(
 )
 ```
 
-For more details see [here](https://bazel.build/rules/config#user-defined-transitions).
+For more details see [here](https://bazel.build/versions/8.4.2/rules/config#user-defined-transitions).
 
 ### Parameters
 

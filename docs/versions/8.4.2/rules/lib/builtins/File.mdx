@@ -2,7 +2,7 @@
 title: 'File'
 ---
 
-This object is created during the analysis phase to represent a file or directory that will be read or written during the execution phase. It is not an open file handle, and cannot be used to directly read or write file contents. Rather, you use it to construct the action graph in a rule implementation function by passing it to action-creating functions. See the [Rules page](https://bazel.build/extending/rules#files) for more information.
+This object is created during the analysis phase to represent a file or directory that will be read or written during the execution phase. It is not an open file handle, and cannot be used to directly read or write file contents. Rather, you use it to construct the action graph in a rule implementation function by passing it to action-creating functions. See the [Rules page](https://bazel.build/versions/8.4.2/extending/rules#files) for more information.
 
 When a `File` is passed to an [`Args`](../builtins/Args) object without using a `map_each` function, it is converted to a string by taking the value of its `path` field.
 

@@ -2,8 +2,7 @@
 title: 'depset'
 ---
 
-
-A specialized data structure that supports efficient merge operations and has a defined traversal order. Commonly used for accumulating data from transitive dependencies in rules and aspects. For more information see [here](/extending/depsets).
+A specialized data structure that supports efficient merge operations and has a defined traversal order. Commonly used for accumulating data from transitive dependencies in rules and aspects. For more information see [here](/versions/8.4.2/extending/depsets).
 
 The elements of a depset must be hashable and all of the same type (as defined by the built-in type(x) function), but depsets are not simply hash sets and do not support fast membership tests. If you need a general set datatype, you can simulate one using a dictionary where all keys map to `True`.
 

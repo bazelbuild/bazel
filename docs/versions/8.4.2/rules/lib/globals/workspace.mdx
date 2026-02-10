@@ -34,7 +34,7 @@ Gives a target an alias in the `//external` package.
 None register_execution_platforms(*platform_labels)
 ```
 
-Specifies already-defined execution platforms to be registered. Should be absolute [target patterns](https://bazel.build/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by name.
+Specifies already-defined execution platforms to be registered. Should be absolute [target patterns](https://bazel.build/versions/8.4.2/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.4.2/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by name.
 
 ### Parameters
 
@@ -48,7 +48,7 @@ Specifies already-defined execution platforms to be registered. Should be absolu
 None register_toolchains(*toolchain_labels)
 ```
 
-Specifies already-defined toolchains to be registered. Should be absolute [target patterns](https://bazel.build/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by target name (not the name of the toolchain implementation).
+Specifies already-defined toolchains to be registered. Should be absolute [target patterns](https://bazel.build/versions/8.4.2/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.4.2/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by target name (not the name of the toolchain implementation).
 
 ### Parameters
 
@@ -68,7 +68,7 @@ Sets the name for this workspace. Workspace names should be a Java-package-style
 
 This name is used for the directory that the repository's runfiles are stored in. For example, if there is a runfile `foo/bar` in the local repository and the WORKSPACE file contains `workspace(name = 'baz')`, then the runfile will be available under `mytarget.runfiles/baz/foo/bar`. If no workspace name is specified, then the runfile will be symlinked to `bar.runfiles/foo/bar`.
 
-[Remote repository](/docs/external) rule names must be valid workspace names. For example, you could have `maven_jar(name = 'foo')`, but not `maven_jar(name = 'foo%bar')`, as Bazel would attempt to write a WORKSPACE file for the `maven_jar` containing `workspace(name = 'foo%bar')`.
+[Remote repository](/versions/8.4.2/docs/external) rule names must be valid workspace names. For example, you could have `maven_jar(name = 'foo')`, but not `maven_jar(name = 'foo%bar')`, as Bazel would attempt to write a WORKSPACE file for the `maven_jar` containing `workspace(name = 'foo%bar')`.
 
 ### Parameters
 

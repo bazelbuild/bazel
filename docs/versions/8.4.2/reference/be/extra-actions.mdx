@@ -2,7 +2,6 @@
 title: 'Extra Actions Rules'
 ---
 
-
 ## Rules
 
 * [action\_listener](#action_listener)
@@ -17,20 +16,20 @@ action_listener(name, compatible_with, deprecation, distribs, exec_compatible_wi
 ```
 
 **WARNING:** Extra actions are deprecated. Use
-[aspects](https://bazel.build/rules/aspects)
+[aspects](https://bazel.build/versions/8.4.2/rules/aspects)
 instead.
 
 An `action_listener` rule doesn't produce any output itself.
 Instead, it allows tool developers to insert
-[`extra_action`](/reference/be/extra-actions#extra_action)s into the build system,
-by providing a mapping from action to [`extra_action`](/reference/be/extra-actions#extra_action).
+[`extra_action`](/versions/8.4.2/reference/be/extra-actions#extra_action)s into the build system,
+by providing a mapping from action to [`extra_action`](/versions/8.4.2/reference/be/extra-actions#extra_action).
 
 This rule's arguments map action mnemonics to
-[`extra_action`](/reference/be/extra-actions#extra_action) rules.
+[`extra_action`](/versions/8.4.2/reference/be/extra-actions#extra_action) rules.
 
-By specifying the option [`--experimental_action_listener=<label>`](/docs/user-manual#flag--experimental_action_listener),
+By specifying the option [`--experimental_action_listener=<label>`](/versions/8.4.2/docs/user-manual#flag--experimental_action_listener),
 the build will use the specified `action_listener` to insert
-[`extra_action`](/reference/be/extra-actions#extra_action)s into the build graph.
+[`extra_action`](/versions/8.4.2/reference/be/extra-actions#extra_action)s into the build graph.
 
 #### Example
 
@@ -63,8 +62,8 @@ extra_action(
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
-| `extra_actions` | List of [labels](/concepts/labels); required A list of `extra_action` targets this `action_listener` should add to the build graph. E.g. `[ "//my/tools:analyzer" ]`. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. |
+| `extra_actions` | List of [labels](/versions/8.4.2/concepts/labels); required A list of `extra_action` targets this `action_listener` should add to the build graph. E.g. `[ "//my/tools:analyzer" ]`. |
 | `mnemonics` | List of strings; required A list of action mnemonics this `action_listener` should listen for, e.g. `[ "Javac" ]`. Mnemonics are not a public interface. There's no guarantee that the mnemonics and their actions don't change. |
 
 ## extra\_action
@@ -76,14 +75,14 @@ extra_action(name, data, cmd, compatible_with, deprecation, distribs, exec_compa
 ```
 
 **WARNING:** Extra actions are deprecated. Use
-[aspects](https://bazel.build/rules/aspects)
+[aspects](https://bazel.build/versions/8.4.2/rules/aspects)
 instead.
 
 An `extra_action` rule doesn't produce any meaningful output
 when specified as a regular build target. Instead, it allows tool developers
 to insert additional actions into the build graph that shadow existing actions.
 
-See [`action_listener`](/reference/be/extra-actions#action_listener) for details
+See [`action_listener`](/versions/8.4.2/reference/be/extra-actions#action_listener) for details
 on how to enable `extra_action`s.
 
 The `extra_action`s run as a command-line. The command-line tool gets
@@ -100,8 +99,8 @@ Just like all other actions, extra actions are sandboxed, and should be designed
 
 | Attributes | |
 | --- | --- |
-| `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. You may refer to this rule by `label` in the `extra_actions` argument of  [`action_listener`](/reference/be/extra-actions#action_listener) rules. |
-| `cmd` | String; required The command to run. Like [genrule cmd attribute](/reference/be/general#genrule.cmd) with the following differences:   1. No heuristic label expansion. Only labels using $(location ...) are expanded. 2. An additional pass is applied to the string to replace all    occurrences of the outputs created from the `out_templates`    attribute. All occurrences of `$(output out_template)`    are replaced with the path to the file denoted by `label`.  E.g. out\_template `$(ACTION_ID).analysis`    can be matched with `$(output $(ACTION_ID).analysis)`.  In effect, this is the same substitution as `$(location)`    but with a different scope. |
+| `name` | [Name](/versions/8.4.2/concepts/labels#target-names); required  A unique name for this target. You may refer to this rule by `label` in the `extra_actions` argument of  [`action_listener`](/versions/8.4.2/reference/be/extra-actions#action_listener) rules. |
+| `cmd` | String; required The command to run. Like [genrule cmd attribute](/versions/8.4.2/reference/be/general#genrule.cmd) with the following differences:   1. No heuristic label expansion. Only labels using $(location ...) are expanded. 2. An additional pass is applied to the string to replace all    occurrences of the outputs created from the `out_templates`    attribute. All occurrences of `$(output out_template)`    are replaced with the path to the file denoted by `label`.  E.g. out\_template `$(ACTION_ID).analysis`    can be matched with `$(output $(ACTION_ID).analysis)`.  In effect, this is the same substitution as `$(location)`    but with a different scope. |
 | `out_templates` | List of strings; default is `[]` A list of templates for files generated by the `extra_action` command. The template can use the following variables:  * $(ACTION\_ID), an id uniquely identifying this `extra_action`.   Used to generate a unique output file. |
 | `requires_action_output` | Boolean; default is `False` Indicates this `extra_action` requires the output of the original action to be present as input to this `extra_action`. When true (default false), the extra\_action can assume that the original action outputs are available as part of its inputs. |
-| `tools` | List of [labels](/concepts/labels); default is `[]` A list of `tool` dependencies for this rule. See the definition of [dependencies](/concepts/build-ref#deps) for more information.  The build system ensures these prerequisites are built before running the `extra_action` command; they are built using the [`exec`configuration](/docs/user-manual#configurations), since they must run as a tool during the build itself. The path of an individual `tools` target `//x:y` can be obtained using `$(location //x:y)`.  All tools and their data dependencies are consolidated into a single tree within which the command can use relative paths. The working directory will be the root of that unified tree. |
+| `tools` | List of [labels](/versions/8.4.2/concepts/labels); default is `[]` A list of `tool` dependencies for this rule. See the definition of [dependencies](/versions/8.4.2/concepts/build-ref#deps) for more information.  The build system ensures these prerequisites are built before running the `extra_action` command; they are built using the [`exec`configuration](/versions/8.4.2/docs/user-manual#configurations), since they must run as a tool during the build itself. The path of an individual `tools` target `//x:y` can be obtained using `$(location //x:y)`.  All tools and their data dependencies are consolidated into a single tree within which the command can use relative paths. The working directory will be the root of that unified tree. |

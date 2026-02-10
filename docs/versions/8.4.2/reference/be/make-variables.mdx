@@ -2,7 +2,6 @@
 title: 'Make Variables'
 ---
 
-
 * [Use](#use)
 * [Predefined variables](#predefined_variables)
 * [Predefined genrule variables](#predefined_genrule_variables)
@@ -66,7 +65,7 @@ and look at the top output lines with capital letters.
 
 * `COMPILATION_MODE`:
   `fastbuild`, `dbg`, or `opt`. ([more
-  details](https://bazel.build/docs/user-manual#flag--compilation_mode))
+  details](https://bazel.build/versions/8.4.2/docs/user-manual#flag--compilation_mode))
 
 **Path variables**
 
@@ -112,7 +111,7 @@ generally important for making that attribute work.
   `//my/pkg:my_genrule` this always ends in `my/pkg`,
   even if `//my/pkg:my_genrule`'s outputs are in subdirectories.
 * `@D`: The output directory. If
-  [outs](/reference/be/general#genrule.outs) has one entry,
+  [outs](/versions/8.4.2/reference/be/general#genrule.outs) has one entry,
   this expands to the directory containing that file. If it has multiple
   entries, this expands to the package's root directory in the
   `genfiles` tree, *even if all output files are in the same
@@ -144,7 +143,7 @@ For files that are outputs of rules, this is the file's *output path*
 [See an example of predefined path variables](https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-path-variables).
 
 * `execpath`: Denotes the path beneath the
-  [execroot](/docs/output_directories)
+  [execroot](/versions/8.4.2/docs/output_directories)
   where Bazel runs build actions.
 
   In the above example, Bazel runs all build actions in the directory linked
@@ -172,7 +171,7 @@ For files that are outputs of rules, this is the file's *output path*
 * `rootpath`: Denotes the path that a built binary can use to
   find a dependency at runtime relative to the subdirectory of its runfiles
   directory corresponding to the main repository.
-  **Note:** This only works if [`--enable_runfiles`](/reference/command-line-reference#flag--enable_runfiles) is enabled, which is not the case on
+  **Note:** This only works if [`--enable_runfiles`](/versions/8.4.2/reference/command-line-reference#flag--enable_runfiles) is enabled, which is not the case on
   Windows by default. Use `rlocationpath` instead for
   cross-platform support.
 
@@ -254,7 +253,7 @@ lengths to ensure the correct inputs, outputs, and command-line flags are set
 on each of potentially multiple internally generated actions.
 
 These variables are a fallback mechanism to be used by language experts in
-rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/help) first.
+rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/versions/8.4.2/help) first.
 
 * `ABI`: The C++ ABI version.
 * `AR`: The "ar" command from crosstool.
@@ -290,7 +289,7 @@ than upstream tools can express, such as interface Jars, header interface
 Jars, and highly optimized Jar packaging and merging implementations.
 
 These variables are a fallback mechanism to be used by language experts in
-rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/help) first.
+rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/versions/8.4.2/help) first.
 
 * `JAVA`: The "java" command (a Java virtual
   machine). Avoid this, and use a `java_binary` rule
@@ -303,9 +302,9 @@ rare cases. If you are tempted to use them, please [contact the Bazel devs](http
 
 **Starlark-defined variables**
 
-Rule and [toolchain](/docs/toolchains) writers can define
+Rule and [toolchain](/versions/8.4.2/docs/toolchains) writers can define
 completely custom variables by returning a
-[TemplateVariableInfo](/rules/lib/TemplateVariableInfo)
+[TemplateVariableInfo](/versions/8.4.2/rules/lib/TemplateVariableInfo)
 provider. Any rules depending on these through the
 `toolchains` attribute can then read their values:
 

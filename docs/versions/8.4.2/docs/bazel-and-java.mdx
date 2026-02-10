@@ -2,8 +2,6 @@
 title: 'Java and Bazel'
 ---
 
-
-
 This page contains resources that help you use Bazel with Java projects. It
 links to a tutorial, build rules, and other information specific to building
 Java projects with Bazel.
@@ -12,15 +10,15 @@ Java projects with Bazel.
 
 The following resources will help you work with Bazel on Java projects:
 
-*   [Tutorial: Building a Java Project](/start/java)
-*   [Java rules](/reference/be/java)
+*   [Tutorial: Building a Java Project](/versions/8.4.2/start/java)
+*   [Java rules](/versions/8.4.2/reference/be/java)
 
 ## Migrating to Bazel
 
 If you currently build your Java projects with Maven, follow the steps in the
 migration guide to start building your Maven projects with Bazel:
 
-*   [Migrating from Maven to Bazel](/migrate/maven)
+*   [Migrating from Maven to Bazel](/versions/8.4.2/migrate/maven)
 
 ## Java versions
 
@@ -38,7 +36,7 @@ sources in the repository add `build --java_language_version={ver}` to
 `.bazelrc` file, where `{ver}` is for example `11`. Bazel repository owners
 should set this flag so that Bazel and its users can reference the source code's
 Java version number. For more details, see
-[Java language version flag](/docs/user-manual#java-language-version).
+[Java language version flag](/versions/8.4.2/docs/user-manual#java-language-version).
 
 ### Configuring the JVM used to execute and test the code
 
@@ -60,7 +58,7 @@ flag. The default value is `local_jdk`.
 To create a hermetic compile, you can use command line flag
 `--java_runtime_version=remotejdk_11`. The code is compiled for, executed, and
 tested on the JVM downloaded from a remote repository. For more details, see
-[Java runtime version flag](/docs/user-manual#java_runtime_version).
+[Java runtime version flag](/versions/8.4.2/docs/user-manual#java_runtime_version).
 
 ### Configuring compilation and execution of build tools in Java
 
@@ -85,7 +83,7 @@ For more details, see
 
 ## Best practices
 
-In addition to [general Bazel best practices](/configure/best-practices), below are
+In addition to [general Bazel best practices](/versions/8.4.2/configure/best-practices), below are
 best practices specific to Java projects.
 
 ### Directory structure
@@ -115,7 +113,7 @@ Follow these guidelines when creating your `BUILD` files:
     `BUILD` file. This makes the label of the library shorter, that is use
     `"//package"` instead of `"//package:package"`.
 
-*   The sources should be a non-recursive [`glob`](/reference/be/functions#glob) of
+*   The sources should be a non-recursive [`glob`](/versions/8.4.2/reference/be/functions#glob) of
     all Java files in the directory.
 
 *   Tests should be in a matching directory under `src/test` and depend on this
@@ -127,19 +125,19 @@ Follow these guidelines when creating your `BUILD` files:
 not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/extending/concepts) when building your Java
+[extend Bazel's capabilities](/versions/8.4.2/extending/concepts) when building your Java
 projects:
 
-*   Main Java module: [`java_common`](/rules/lib/toplevel/java_common)
-*   Main Java provider: [`JavaInfo`](/rules/lib/providers/JavaInfo)
-*   Configuration fragment: [`java`](/rules/lib/fragments/java)
+*   Main Java module: [`java_common`](/versions/8.4.2/rules/lib/toplevel/java_common)
+*   Main Java provider: [`JavaInfo`](/versions/8.4.2/rules/lib/providers/JavaInfo)
+*   Configuration fragment: [`java`](/versions/8.4.2/rules/lib/fragments/java)
 *   Other modules:
 
-    *   [`java_annotation_processing`](/rules/lib/builtins/java_annotation_processing)
-    *   [`java_compilation_info`](/rules/lib/providers/java_compilation_info)
-    *   [`java_output_jars`](/rules/lib/providers/java_output_jars)
-    *   [`JavaRuntimeInfo`](/rules/lib/providers/JavaRuntimeInfo)
-    *   [`JavaToolchainInfo`](/rules/lib/providers/JavaToolchainInfo)
+    *   [`java_annotation_processing`](/versions/8.4.2/rules/lib/builtins/java_annotation_processing)
+    *   [`java_compilation_info`](/versions/8.4.2/rules/lib/providers/java_compilation_info)
+    *   [`java_output_jars`](/versions/8.4.2/rules/lib/providers/java_output_jars)
+    *   [`JavaRuntimeInfo`](/versions/8.4.2/rules/lib/providers/JavaRuntimeInfo)
+    *   [`JavaToolchainInfo`](/versions/8.4.2/rules/lib/providers/JavaToolchainInfo)
 
 ## Configuring the Java toolchains
 
@@ -234,7 +232,7 @@ The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchains` rule to
 the `MODULE.bazel` file or by using
-[`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
+[`--extra_toolchains`](/versions/8.4.2/docs/user-manual#extra-toolchains) flag.
 
 The toolchain is only used when the `source_version` attribute matches the
 value specified by `--java_language_version` flag.
