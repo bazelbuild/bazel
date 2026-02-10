@@ -538,6 +538,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testRepoEnvMissingVariable(self):
     # Test that --repo_env=VAR for a variable not set in the environment
     # is silently ignored and doesn't crash (regression test for NPE fix).
+    # See https://github.com/bazelbuild/bazel/issues/28605
     self.ScratchFile(
         'MODULE.bazel',
         [
