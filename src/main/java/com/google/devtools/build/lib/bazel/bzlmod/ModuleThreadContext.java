@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,6 +56,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
+  private final List<Event> warnings = new ArrayList<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
@@ -137,6 +139,14 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public InterimModule.Builder getModuleBuilder() {
     return module;
+  }
+
+  public void addWarning(Event event) {
+    warnings.add(event);
+  }
+
+  public ImmutableList<Event> getWarnings() {
+    return ImmutableList.copyOf(warnings);
   }
 
   public boolean shouldIgnoreDevDeps() {
