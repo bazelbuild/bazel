@@ -2,8 +2,6 @@
 title: 'A Guide to Skyframe `StateMachine`s'
 ---
 
-
-
 ## Overview
 
 A Skyframe `StateMachine` is a *deconstructed* function-object that resides on
@@ -103,7 +101,7 @@ Note that the method reference `this::step2` is also a `StateMachine` due to
 references are the most common way to specify the next state in a
 `StateMachine`.
 
-![Suspending and resuming](/contribute/images/suspend-resume.svg)
+![Suspending and resuming](/versions/8.3.1/contribute/images/suspend-resume.svg)
 
 Intuitively, breaking a computation down into `StateMachine` steps, instead of a
 monolithic function, provides the hooks needed to *suspend* and *resume* a
@@ -268,13 +266,13 @@ state, it means that concurrency is naturally limited to tree-structures. It's
 possible to create hierarchical[^5] concurrency as shown in the following
 example.
 
-![Structured Concurrency](/contribute/images/structured-concurrency.svg)
+![Structured Concurrency](/versions/8.3.1/contribute/images/structured-concurrency.svg)
 
 It's hard to tell from the *UML* that the concurrency structure forms a tree.
 There's an [alternate view](#concurrency-tree-diagram) that better shows the
 tree structure.
 
-![Unstructured Concurrency](/contribute/images/unstructured-concurrency.svg)
+![Unstructured Concurrency](/versions/8.3.1/contribute/images/unstructured-concurrency.svg)
 
 Structured concurrency is much easier to reason about.
 
@@ -1213,7 +1211,7 @@ The following is an alternative view of the diagram in [Structured
 concurrency](#structured-concurrency) that better depicts the tree structure.
 The blocks form a small tree.
 
-![Structured Concurrency 3D](/contribute/images/structured-concurrency-3d.svg)
+![Structured Concurrency 3D](/versions/8.3.1/contribute/images/structured-concurrency-3d.svg)
 
 [^1]: In contrast to Skyframe's convention of restarting from the beginning when
  values are not available.

@@ -276,7 +276,7 @@ slightly between different versions of clang.
     Bazel needs to know where to search for included headers. There are multiple
     ways to solve this, such as using the `includes` attribute of `cc_binary`,
     but here this is solved at the toolchain level with the
-    [`cxx_builtin_include_directories`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
+    [`cxx_builtin_include_directories`](/versions/8.3.1/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
     parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if you
     are using a different version of `clang`, the include path will be
     different. These paths may also be different depending on the distribution.
@@ -451,11 +451,11 @@ The key takeaways are:
 -   You need to specify a matching `platforms` flag in the command line for
     Bazel to resolve to the toolchain for the same constraint values on the
     platform. The documentation holds more [information about language specific
-    configuration flags](/concepts/platforms).
+    configuration flags](/versions/8.3.1/concepts/platforms).
 -   You have to let the toolchain know where the tools live. In this tutorial
     there is a simplified version where you access the tools from the system. If
     you are interested in a more self-contained approach, you can read about
-    [external dependencies](/external/overview). Your tools could come from a
+    [external dependencies](/versions/8.3.1/external/overview). Your tools could come from a
     different module and you would have to make their files available to the
     `cc_toolchain` with target dependencies on attributes, such as
     `compiler_files`. The `tool_paths` would need to be changed as well.
@@ -465,4 +465,4 @@ The key takeaways are:
 ## Further reading
 
 For more details, see [C++ toolchain
-configuration](/docs/cc-toolchain-config-reference)
+configuration](/versions/8.3.1/docs/cc-toolchain-config-reference)
