@@ -633,6 +633,9 @@ public class ModuleFileFunction implements SkyFunction {
 
       compiledRootModuleFile.runOnThread(thread);
       injectRepos(injectedRepositories, context, thread);
+      for (Event warning : context.getWarnings()) {
+        eventHandler.handle(warning);
+      }
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);

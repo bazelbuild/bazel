@@ -253,7 +253,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("aaa", "0.1", 4)
+            InterimModuleBuilder.create("aaa", "0.1", 0)
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
@@ -765,7 +765,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileValue moduleFileValue = result.get(skyKey);
     assertThat(moduleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("bbb", "1.0", 6)
+            InterimModuleBuilder.create("bbb", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "3.0"))
                 .setRegistry(registry2)
                 .build());
@@ -1300,7 +1300,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testModuleFileExecute_syntaxError() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='aaa',version='0.1',compatibility_level=4)",
+        "module(name='aaa',version='0.1')",
         "foo()");
 
     reporter.removeHandler(failFastHandler); // expect failures
@@ -1318,6 +1318,21 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
+  }
+
+  @Test
+  public void testModuleFileExecute_compatibilityLevelWarning() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1',compatibility_level=4)",
+        "bazel_dep(name='bbb',version='1.0',max_compatibility_level=5)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("The attribute 'compatibility_level' in module() is a no-op");
+    assertContainsEvent("The attribute 'max_compatibility_level' in bazel_dep() is a no-op");
   }
 
   @Test
