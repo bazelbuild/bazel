@@ -404,12 +404,6 @@ public class CommandEnvironment {
           if (value != null) {
             repoEnvBuilder.put(name, value);
             nonstrictRepoEnvBuilder.put(name, value);
-          } else {
-            warnings.add(
-                String.format(
-                    "--repo_env=%s specified, but '%s' is not set in the client environment;"
-                        + " ignoring",
-                    name, name));
           }
         }
         case Converters.EnvVar.Unset(String name) -> {
