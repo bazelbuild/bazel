@@ -527,7 +527,7 @@ public class IndexRegistry implements Registry {
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
-        .setRemotePatches(remotePatches.buildOrThrow())
+        .setRemotePatches(remotePatches.buildKeepingLast())
         .setOverlay(overlay)
         .setRemoteModuleFile(
             new RemoteFile(
@@ -569,7 +569,7 @@ public class IndexRegistry implements Registry {
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
-        .setRemotePatches(remotePatches.buildOrThrow())
+        .setRemotePatches(remotePatches.buildKeepingLast())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
   }

@@ -120,7 +120,7 @@ field, which defaults to `archive`.
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
         the patch files. The patches are applied in the order they appear in
-        the order they appear in `patches`.
+        `patches`.
 *   If `type` is `local_path`, this module version is backed by a
     [`local_repository`](/rules/lib/repo/local#local_repository) repo rule;
     it's symlinked to a directory on local disk. It supports the following
