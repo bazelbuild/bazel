@@ -347,7 +347,7 @@ public class RemoteOutputService implements OutputService {
     * WR: In this case, A_1 attempts to acquire a write lock, which only happens when A_1 is a
           rewound action about to prepare for its (re-)execution. This means that the edge is
           necessarily of the shape A_1 -[WR(A_1)]-> A_2. While a rewound action is waiting for its
-          own write lock in enterActionPeparation, it doesn't hold any locks since
+          own write lock in enterActionPreparation, it doesn't hold any locks since
           enterActionExecution hasn't been called yet in SkyframeActionExecutor and all past
           executions of the action have released all their locks due to use of try-with-resources.
           This means that A_1 can't have any incoming edges in the wait-for graph, which is a
@@ -384,37 +384,28 @@ public class RemoteOutputService implements OutputService {
     private SilentCloseable enterActionPreparationForRewinding(Action action)
         throws InterruptedException {
       var localCoarseLock = coarseLock;
-      Lock writeLock;
-
-      if (localCoarseLock == null) {
-        // Common case after some action has been rewound and thus inflated the fine locks, acquire
-        // the single write lock representing this action and prepare its outputs for rewinding.
-        writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
-        writeLock.lockInterruptibly();
-        prepareOutputsForRewinding(action);
-        return writeLock::unlock;
-      } else {
+      if (localCoarseLock != null) {
         // This is the first time a rewound action has attempted to prepare for its execution.
-        // Atomically switch to the fine locks structure.
+        // Switch to using the fine locks under the protection of the coarse write lock.
         localCoarseLock.writeLock().lockInterruptibly();
-        // At this point, all other actions are blocked on the read lock.
-        var localFineLocks =
-            Caffeine.newBuilder()
-                .weakValues()
-                // TODO: Investigate whether fair locks would be beneficial.
-                .build((ActionLookupData unused) -> new WeakSafeReentrantReadWriteLock());
-        // Lock the corresponding fine lock and publish the fine locks before releasing the coarse
-        // lock.
-        writeLock = localFineLocks.get(outputKeyFor(action)).writeLock();
-        // We just created the lock, so locking it never blocks.
-        writeLock.lock();
-        fineLocks = localFineLocks;
-        coarseLock = null;
-        localCoarseLock.writeLock().unlock();
-        // Safe to continue under the fine write lock only since blocked actions will acquire the
-        // fine read lock after the write lock is released.
+        try {
+          // Check again under the lock to avoid a race between multiple rewound actions attempting
+          // to prepare for execution at the same time.
+          if (fineLocks == null) {
+            fineLocks =
+                Caffeine.newBuilder()
+                    .weakValues()
+                    // TODO: Investigate whether fair locks would be beneficial.
+                    .build((ActionLookupData unused) -> new WeakSafeReentrantReadWriteLock());
+            coarseLock = null;
+          }
+        } finally {
+          localCoarseLock.writeLock().unlock();
+        }
       }
 
+      var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
+      writeLock.lockInterruptibly();
       prepareOutputsForRewinding(action);
       return writeLock::unlock;
     }
@@ -526,14 +517,17 @@ public class RemoteOutputService implements OutputService {
      * <p>{@see https://bugs.openjdk.org/browse/JDK-8189598}
      */
     private static final class WeakSafeReentrantReadWriteLock extends ReentrantReadWriteLock {
+      private final WeakSafeReadLock readLock = new WeakSafeReadLock(this);
+      private final WeakSafeWriteLock writeLock = new WeakSafeWriteLock(this);
+
       @Override
       public WeakSafeReadLock readLock() {
-        return new WeakSafeReadLock(this);
+        return readLock;
       }
 
       @Override
       public WeakSafeWriteLock writeLock() {
-        return new WeakSafeWriteLock(this);
+        return writeLock;
       }
     }
 
