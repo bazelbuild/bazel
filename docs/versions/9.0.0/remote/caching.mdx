@@ -10,7 +10,7 @@ A remote cache is used by a team of developers and/or a continuous integration
 outputs from one machine can be safely reused on another machine, which can
 make builds significantly faster.
 
-## Overview {:#overview}
+## Overview
 
 Bazel breaks a build into discrete steps, which are called actions. Each action
 has inputs, output names, a command line, and environment variables. Required
@@ -36,7 +36,7 @@ Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
 [estimating cache hits](/versions/9.0.0/remote/cache-local).
 
-### How a build uses remote caching {:#remote-caching}
+### How a build uses remote caching
 
 Once a server is set up as the remote cache, you use the cache in multiple
 ways:
@@ -60,7 +60,7 @@ Bazel retrieves the output. This is a cache hit.
 actions locally and creates the required build outputs.
 5. New build outputs are uploaded to the remote cache.
 
-## Setting up a server as the cache's backend {:#cache-backend}
+## Setting up a server as the cache's backend
 
 You need to set up a server to act as the cache's backend. A HTTP/1.1
 server can treat Bazel's data as opaque bytes and so many existing servers
@@ -83,7 +83,7 @@ include:
 * [bazel-remote](#bazel-remote)
 * [Google Cloud Storage](#cloud-storage)
 
-### nginx {:#nginx}
+### nginx
 
 nginx is an open source web server. With its [WebDAV module], it can be
 used as a remote cache for Bazel. On Debian and Ubuntu you can install the
@@ -117,7 +117,7 @@ location /cache/ {
 }
 ```
 
-### bazel-remote {:#bazel-remote}
+### bazel-remote
 
 bazel-remote is an open source remote build cache that you can use on
 your infrastructure. It has been successfully used in production at
@@ -133,7 +133,7 @@ Both the REST and gRPC remote cache APIs are supported.
 Refer to the [GitHub](https://github.com/buchgr/bazel-remote/)
 page for instructions on how to use it.
 
-### Google Cloud Storage {:#cloud-storage}
+### Google Cloud Storage
 
 [Google Cloud Storage] is a fully managed object store which provides an
 HTTP API that is compatible with Bazel's remote caching protocol. It requires
@@ -161,13 +161,13 @@ to/from your GCS bucket.
 5. You can configure Cloud Storage to automatically delete old files. To do so, see
 [Managing Object Lifecycles](https://cloud.google.com/storage/docs/managing-lifecycles).
 
-### Other servers {:#other-servers}
+### Other servers
 
 You can set up any HTTP/1.1 server that supports PUT and GET as the cache's
 backend. Users have reported success with caching backends such as [Hazelcast](https://hazelcast.com),
 [Apache httpd](http://httpd.apache.org), and [AWS S3](https://aws.amazon.com/s3).
 
-## Authentication {:#authentication}
+## Authentication
 
 As of version 0.11.0 support for HTTP Basic Authentication was added to Bazel.
 You can pass a username and password to Bazel via the remote cache URL. The
@@ -175,7 +175,7 @@ syntax is `https://username:password@hostname.com:port/path`. Note that
 HTTP Basic Authentication transmits username and password in plaintext over the
 network and it's thus critical to always use it with HTTPS.
 
-## HTTP caching protocol {:#http-caching}
+## HTTP caching protocol
 
 Bazel supports remote caching via HTTP/1.1. The protocol is conceptually simple:
 Binary data (BLOB) is uploaded via PUT requests and downloaded via GET requests.
@@ -206,7 +206,7 @@ Connection: Keep-Alive
 0x310x320x330x340x350x360x370x380x39
 ```
 
-## Run Bazel using the remote cache {:#run-remote-cache}
+## Run Bazel using the remote cache
 
 Once a server is set up as the remote cache, to use the remote cache you
 need to add flags to your Bazel command. See list of configurations and
@@ -223,7 +223,7 @@ team dynamics, you can add flags to a `.bazelrc` file that is:
 * In your project's workspace, shared with the team
 * On the CI system
 
-### Read from and write to the remote cache {:#read-write-remote-cache}
+### Read from and write to the remote cache
 
 Take care in who has the ability to write to the remote cache. You may want
 only your CI system to be able to write to the remote cache.
@@ -243,7 +243,7 @@ remote cache:
 build --remote_upload_local_results=false
 ```
 
-### Exclude specific targets from using the remote cache {:#targets-remote-cache}
+### Exclude specific targets from using the remote cache
 
 To exclude specific targets from using the remote cache, tag the target with
 `no-remote-cache`. For example:
@@ -255,7 +255,7 @@ java_library(
 )
 ```
 
-### Delete content from the remote cache {:#delete-remote-cache}
+### Delete content from the remote cache
 
 Deleting content from the remote cache is part of managing your server.
 How you delete content from the remote cache depends on the server you have
@@ -271,7 +271,7 @@ You may want to delete content from the cache to:
 * Create a clean cache after a cache was poisoned
 * Reduce the amount of storage used by deleting old outputs
 
-### Unix sockets {:#unix-sockets}
+### Unix sockets
 
 The remote HTTP cache supports connecting over unix domain sockets. The behavior
 is similar to curl's `--unix-socket` flag. Use the following to configure unix
@@ -284,7 +284,7 @@ domain socket:
 
 This feature is unsupported on Windows.
 
-## Disk cache {:#disk-cache}
+## Disk cache
 
 Bazel can use a directory on the file system as a remote cache. This is
 useful for sharing build artifacts when switching branches and/or working
@@ -300,7 +300,7 @@ You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 when enabling the disk cache for all developers of a project via the project's
 checked in `.bazelrc` file.
 
-### Garbage collection {:#disk-cache-gc}
+### Garbage collection
 
 Starting with Bazel 7.4, you can use `--experimental_disk_cache_gc_max_size` and
 `--experimental_disk_cache_gc_max_age` to set a maximum size for the disk cache
@@ -312,7 +312,7 @@ As an alternative to automatic garbage collection, we also provide a [tool](
 https://github.com/bazelbuild/bazel/tree/master/src/tools/diskcache) to run a
 garbage collection on demand.
 
-## Known issues {:#known-issues}
+## Known issues
 
 **Input file modification during a build**
 
@@ -348,7 +348,7 @@ On the server side, Bazel maintains an in-memory state which speeds up builds.
 When running builds inside docker containers such as in CI, the in-memory state is lost
 and Bazel must rebuild it before using the remote cache.
 
-## External links {:#external-links}
+## External links
 
 * **Your Build in a Datacenter:** The Bazel team gave a [talk](https://fosdem.org/2018/schedule/event/datacenter_build/) about remote caching and execution at FOSDEM 2018.
 

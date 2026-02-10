@@ -5,7 +5,7 @@ title: 'Optimize Iteration Speed'
 This page describes how to optimize Bazel's build performance when running Bazel
 repeatedly.
 
-## Bazel's Runtime State {:#bazel-runtime-state}
+## Bazel's Runtime State
 
 A Bazel invocation involves several interacting parts.
 
@@ -30,7 +30,7 @@ A Bazel invocation involves several interacting parts.
 
 *   The result of the Bazel invocation is made available in the output tree.
 
-## Running Bazel Iteratively {:#run-iteratively}
+## Running Bazel Iteratively
 
 In a typical developer workflow, it is common to build (or run) a piece of code
 repeatedly, often at a very high frequency (e.g. to resolve some compilation
@@ -62,7 +62,7 @@ cache can be kept locally
 [remotely](https://bazel.build/versions/9.0.0/remote/caching). The cache can be shared among
 Bazel servers, and indeed among developers.
 
-## Avoid discarding the analysis cache {:#avoid-discarding-cache}
+## Avoid discarding the analysis cache
 
 Bazel will print a warning if either the analysis cache was discarded or the
 server was restarted. Either of these should be avoided during iterative use:

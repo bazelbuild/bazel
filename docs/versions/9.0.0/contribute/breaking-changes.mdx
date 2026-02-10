@@ -22,7 +22,7 @@ change in Bazel to adhere to this policy.
 
 1. [Flip the incompatible flag.](#flip-flag)
 
-## GitHub issue {:#github-issue}
+## GitHub issue
 
 [File a GitHub issue](https://github.com/bazelbuild/bazel/issues)
 in the Bazel repository.
@@ -54,7 +54,7 @@ For the migration tool, consider contributing to
 It is able to apply automated fixes to `BUILD`, `WORKSPACE`, and `.bzl` files.
 It may also report warnings.
 
-## Implementation {:#implementation}
+## Implementation
 
 Create a new flag in Bazel. The default value must be false. The help text
 should contain the URL of the GitHub issue. As the flag name starts with
@@ -75,7 +75,7 @@ window of commits in which the code is inconsistent with the docs. Since our
 documentation is versioned, changes to the docs will not be inadvertently
 released prematurely.
 
-## Labels {:#labels}
+## Labels
 
 Once the commit is merged and the incompatible change is ready to be adopted, add the label
 [`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready)
@@ -86,7 +86,7 @@ remove the flags `migration-ready`.
 
 If you plan to flip the flag in the next major release, add label `breaking-change-X.0" to the issue.
 
-## Updating repositories {:#update-repos}
+## Updating repositories
 
 Bazel CI tests a list of important projects at
 [Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream). Most of them are often
@@ -107,7 +107,7 @@ Migrating projects in the downstream pipeline is NOT entirely the responsibility
 
 1. Reach out to the Bazel community for help on migration (e.g. [Bazel Rules Authors SIG](https://bazel-contrib.github.io/SIG-rules-authors/)).
 
-## Flipping the flag {:#flip-flag}
+## Flipping the flag
 
 Before flipping the default value of the flag to true, please make sure that:
 
@@ -134,7 +134,7 @@ When changing the flag default to true, please:
 * Review and update documentation if needed.
 * File a new issue `#abc` to track the removal of the flag.
 
-## Removing the flag {:#remove-flag}
+## Removing the flag
 
 After the flag is flipped at HEAD, it should be removed from Bazel eventually.
 When you plan to remove the incompatible flag:

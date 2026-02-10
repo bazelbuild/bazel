@@ -4,7 +4,7 @@ title: 'Test encyclopedia'
 
 An exhaustive specification of the test execution environment.
 
-## Background {:#background}
+## Background
 
 The Bazel BUILD language includes rules which can be used to define automated
 test programs in many languages.
@@ -22,7 +22,7 @@ release engineering auditability, and resource isolation of tests (automated
 testing frameworks ought not DDOS a server because some tests happen to talk to
 it).
 
-## Objective {:#objective}
+## Objective
 
 The goal of this page is to formally establish the runtime environment for and
 expected behavior of Bazel tests. It will also impose requirements on the test
@@ -38,13 +38,13 @@ This page is intended to be both normative and authoritative. If this
 specification and the implemented behavior of test runner disagree, the
 specification takes precedence.
 
-## Proposed Specification {:#proposed-specification}
+## Proposed Specification
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" are to be interpreted as
 described in IETF RFC 2119.
 
-## Purpose of tests {:#purpose-of-tests}
+## Purpose of tests
 
 The purpose of Bazel tests is to confirm some property of the source files
 checked into the repository. (On this page, "source files" includes test data,
@@ -64,7 +64,7 @@ Therefore the outcome of a test must depend only on:
 Currently, such behavior is not enforced. However, test runners reserve the
 right to add such enforcement in the future.
 
-## Role of the build system {:#role-build-system}
+## Role of the build system
 
 Test rules are analogous to binary rules in that each must yield an executable
 program. For some languages, this is a stub program which combines a
@@ -81,7 +81,7 @@ should ensure that the generated executable loads these files via the runfiles
 image provided by the test runner, rather than hardcoded references to absolute
 locations in the source or output tree.
 
-## Role of the test runner {:#role-test-runner}
+## Role of the test runner
 
 From the point of view of the test runner, each test is a program which can be
 invoked with `execve()`. There may be other ways to execute tests; for example,
@@ -210,7 +210,7 @@ the test runner should consider the run complete and count it as a success or
 failure based on the exit code observed from the main process. The test runner
 may kill any stray processes. Tests should not leak processes in this fashion.
 
-## Test sharding {:#test-sharding}
+## Test sharding
 
 Tests can be parallelized via test sharding. See
 [`--test_sharding_strategy`](/versions/9.0.0/reference/command-line-reference#flag--test_sharding_strategy)
@@ -226,7 +226,7 @@ modified date of the file specified by
 [`--incompatible_check_sharding_support`](/versions/9.0.0/reference/command-line-reference#flag--incompatible_check_sharding_support)
 is enabled, Bazel will fail the test if it is sharded.
 
-## Initial conditions {:#initial-conditions}
+## Initial conditions
 
 When executing a test, the test runner must establish certain initial
 conditions.
@@ -565,13 +565,13 @@ The initial process times (as returned by `times()`) and resource utilization
 
 The initial scheduling policy and priority are unspecified.
 
-## Role of the host system {:#role-host-system}
+## Role of the host system
 
 In addition to the aspects of user context under direct control of the test
 runner, the operating system on which tests execute must satisfy certain
 properties for a test run to be valid.
 
-#### Filesystem {:#filesystem}
+#### Filesystem
 
 The root directory observed by a test may or may not be the real root directory.
 
@@ -590,7 +590,7 @@ use.
 
 Tests must not assume that atimes are enabled for any mounted filesystem.
 
-#### Users and groups {:#users-groups}
+#### Users and groups
 
 The users root, nobody, and unittest must exist. The groups root, nobody, and
 eng must exist.
@@ -607,13 +607,13 @@ supplementary group ids.
 The current user must have a home directory. It may not be writable. Tests must
 not attempt to write to it.
 
-#### Networking {:#networking}
+#### Networking
 
 The hostname is unspecified. It may or may not contain a dot. Resolving the
 hostname must give an IP address of the current host. Resolving the hostname cut
 after the first dot must also work. The hostname localhost must resolve.
 
-#### Other resources {:#other-resources}
+#### Other resources
 
 Tests are granted at least one CPU core. Others may be available but this is not
 guaranteed. Other performance aspects of this core are not specified. You can
@@ -628,14 +628,14 @@ Tests may create subprocesses, but not process groups or sessions.
 There is a limit on the number of input files a test may consume. This limit is
 subject to change, but is currently in the range of tens of thousands of inputs.
 
-#### Time and date {:#time-and-date}
+#### Time and date
 
 The current time and date are unspecified. The system timezone is unspecified.
 
 X Windows may or may not be available. Tests that need an X server should start
 Xvfb.
 
-## Test interaction with the filesystem {:#test-interaction-filesystem}
+## Test interaction with the filesystem
 
 All file paths specified in test environment variables point to somewhere on the
 local filesystem, unless otherwise specified.
@@ -696,12 +696,12 @@ In order to catch early exit, a test may create a file at the path specified by
 file when the test finishes, it will assume that the test exited prematurely and
 mark it as having failed.
 
-## Execution platform {:#execution-platform}
+## Execution platform
 
 The [execution platform](/versions/9.0.0/extending/platforms) for a test action is determined
 via [toolchain resolution](/versions/9.0.0/extending/toolchains#toolchain-resolution), just
 like for any other action. Each test rule has an implicitly defined [
-`test` exec group](/extending/exec-groups#exec-groups-for-native-rules) that,
+`test` exec group](/versions/9.0.0/extending/exec-groups#exec-groups-for-native-rules) that,
 unless overridden, has a mandatory toolchain requirement on
 `@bazel_tools//tools/test:default_test_toolchain_type`.
 
@@ -738,7 +738,7 @@ behavior and their toolchains will take precedence over the default ones.
 Test rule authors can define their own test toolchain type and also register
 a default toolchain for it.
 
-## Tag conventions {:#tag-conventions}
+## Tag conventions
 
 Some tags in the test rules have a special meaning.
 See also the
@@ -784,19 +784,19 @@ See also the
 
 Note: bazel `query` does not respect the manual tag.
 
-## Runfiles {:#runfiles}
+## Runfiles
 
 In the following, assume there is a *_binary() rule labeled
 `//foo/bar:unittest`, with a run-time dependency on the rule labeled
 `//deps/server:server`.
 
-#### Location {:#runfiles-location}
+#### Location
 
 The runfiles directory for a target `//foo/bar:unittest` is the directory
 `$(WORKSPACE)/$(BINDIR)/foo/bar/unittest.runfiles`. This path is referred to as
 the `runfiles_dir`.
 
-#### Dependencies {:#runfiles-dependencies}
+#### Dependencies
 
 The runfiles directory is declared as a compile-time dependency of the
 `*_binary()` rule. The runfiles directory itself depends on the set of BUILD
@@ -804,7 +804,7 @@ files that affect the `*_binary()` rule or any of its compile-time or run-time
 dependencies. Modifying source files does not affect the structure of the
 runfiles directory, and thus does not trigger any rebuilding.
 
-#### Contents {:#runfiles-contents}
+#### Contents
 
 The runfiles directory contains the following:
 

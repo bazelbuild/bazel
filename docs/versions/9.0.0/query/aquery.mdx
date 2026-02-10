@@ -31,7 +31,7 @@ action 'Writing file some_file_name'
   Outputs: [...]
 </pre>
 
-## Basic syntax {:#basic-syntax}
+## Basic syntax
 
 A simple example of the syntax for `aquery` is as follows:
 
@@ -58,7 +58,7 @@ $ bazel aquery 'deps(//src/target_a)'
 $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 </pre>
 
-## Using aquery functions {:#using-aquery-functions}
+## Using aquery functions
 
 There are three `aquery` functions:
 
@@ -98,17 +98,17 @@ An example of the syntax error produced:
         deps(inputs(".*cpp", //src/target_a))
 </pre>
 
-## Options {:#options}
+## Options
 
-### Build options {:#build-options}
+### Build options
 
 `aquery` runs on top of a regular Bazel build and thus inherits the set of
 [options](/versions/9.0.0/reference/command-line-reference#build-options)
 available during a build.
 
-### Aquery options {:#aquery-options}
+### Aquery options
 
-#### `--output=(text|summary|commands|proto|jsonproto|textproto), default=text` {:#output}
+#### `--output=(text|summary|commands|proto|jsonproto|textproto), default=text`
 
 The default output format (`text`) is human-readable,
 use `proto`, `textproto`, or `jsonproto` for machine-readable format.
@@ -120,25 +120,25 @@ one command per line.
 In general, do not depend on the order of output. For more information,
 see the [core query ordering contract](/versions/9.0.0/query/language#graph-order).
 
-#### `--include_commandline, default=true` {:#include-commandline}
+#### `--include_commandline, default=true`
 
 Includes the content of the action command lines in the output (potentially large).
 
-#### `--include_artifacts, default=true` {:#include-artifacts}
+#### `--include_artifacts, default=true`
 
 Includes names of the action inputs and outputs in the output (potentially large).
 
-#### `--include_aspects, default=true` {:#include-aspects}
+#### `--include_aspects, default=true`
 
 Whether to include Aspect-generated actions in the output.
 
-#### `--include_param_files, default=false` {:#include-param-files}
+#### `--include_param_files, default=false`
 
 Include the content of the param files used in the command (potentially large).
 
 Warning: Enabling this flag will automatically enable the `--include_commandline` flag.
 
-#### `--include_file_write_contents, default=false` {:#include-file-write-contents}
+#### `--include_file_write_contents, default=false`
 
 Include file contents for the `actions.write()` action and the contents of the
 manifest file for the `SourceSymlinkManifest` action The file contents is
@@ -149,16 +149,16 @@ FileWriteContents: [<base64-encoded file contents>]
 ```
 line
 
-#### `--skyframe_state, default=false` {:#skyframe-state}
+#### `--skyframe_state, default=false`
 
 Without performing extra analysis, dump the Action Graph from Skyframe.
 
 Note: Specifying a target with `--skyframe_state` is currently not supported.
 This flag is only available with `--output=proto` or `--output=textproto`.
 
-## Other tools and features {:#other-tools-features}
+## Other tools and features
 
-### Querying against the state of Skyframe {:#querying-against-skyframe}
+### Querying against the state of Skyframe
 
 [Skyframe](/versions/9.0.0/reference/skyframe) is the evaluation and
 incrementality model of Bazel. On each instance of Bazel server, Skyframe stores the dependency graph
@@ -196,14 +196,14 @@ With `--skyframe_state` mode, `aquery` takes the content of the Action Graph
 that Skyframe keeps on the instance of Bazel, (optionally) performs filtering on it and
 outputs the content, without re-running the analysis phase.
 
-#### Special considerations {:#special-considerations}
+#### Special considerations
 
-##### Output format {:#output-format}
+##### Output format
 
 `--skyframe_state` is currently only available for `--output=proto`
 and `--output=textproto`
 
-##### Non-inclusion of target labels in the query expression {:#target-labels-non-inclusion}
+##### Non-inclusion of target labels in the query expression
 
 Currently, `--skyframe_state` queries the whole action graph that exists on Skyframe,
 regardless of the targets. Having the target label specified in the query together with
@@ -223,7 +223,7 @@ regardless of the targets. Having the target label specified in the query togeth
   $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java")'
 </pre>
 
-### Comparing aquery outputs {:#comparing-aquery-outputs}
+### Comparing aquery outputs
 
 You can compare the outputs of two different aquery invocations using the `aquery_differ` tool.
 For instance: when you make some changes to your rule definition and want to verify that the
@@ -262,7 +262,7 @@ command line/inputs in each aquery output, ...). The result of running the above
     ...
 </pre>
 
-#### Command options {:#command-options}
+#### Command options
 
 `--before, --after`: The aquery output files to be compared
 
@@ -272,7 +272,7 @@ files. Support is provided for `proto` and `textproto` aquery output.
 `--attrs=(cmdline|inputs), default=cmdline`: the attributes of actions
 to be compared.
 
-### Aspect-on-aspect {:#aspect-on-aspect}
+### Aspect-on-aspect
 
 It is possible for [Aspects](/versions/9.0.0/extending/aspects)
 to be applied on top of each other. The aquery output of the action generated by
@@ -322,7 +322,7 @@ Each `AspectDescriptor` has the following format:
 sorted in topological order of the
 [dependency graph](/versions/9.0.0/extending/aspects#aspect_basics).
 
-### Linking with the JSON profile {:#linking-with-json-profile}
+### Linking with the JSON profile
 
 While aquery provides information about the actions being run in a build (why they're being run,
 their inputs/outputs), the [JSON profile](/versions/9.0.0/rules/performance#performance-profiling)
@@ -337,9 +337,9 @@ is included by default by aquery.
 We don't currently provide a canonical tool to combine these 2 data sources, but you should be
 able to build your own script with the above information.
 
-## Known issues {:#known-issues}
+## Known issues
 
-### Handling shared actions {:#handling-shared-actions}
+### Handling shared actions
 
 Sometimes actions are
 [shared](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/Actions.java;l=59;drc=146d51aa1ec9dcb721a7483479ef0b1ac21d39f1)
@@ -354,9 +354,9 @@ equivalent Artifacts appear duplicated.
 The list of aquery issues/planned features can be found on
 [GitHub](https://github.com/bazelbuild/bazel/labels/team-Performance).
 
-## FAQs {:#faqs}
+## FAQs
 
-### The ActionKey remains the same even though the content of an input file changed. {:#actionkey-same}
+### The ActionKey remains the same even though the content of an input file changed.
 
 In the context of aquery, the `ActionKey` refers to the `String` gotten from
 [ActionAnalysisMetadata#getKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/ActionAnalysisMetadata.java;l=89;drc=8b856f5484f0117b2aebc302f849c2a15f273310):
@@ -384,6 +384,6 @@ In the context of aquery, the `ActionKey` refers to the `String` gotten from
 This excludes the changes to the content of the input files, and is not to be confused with
 [RemoteCacheClient#ActionKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/remote/common/RemoteCacheClient.java;l=38;drc=21577f202eb90ce94a337ebd2ede824d609537b6).
 
-## Updates {:#updates}
+## Updates
 
 For any issues/feature requests, please file an issue [here](https://github.com/bazelbuild/bazel/issues/new).

@@ -2,7 +2,6 @@
 title: 'C / C++ Rules'
 ---
 
-
 ## Rules
 
 * [cc\_binary](#cc_binary)
@@ -26,7 +25,6 @@ cc_binary(name, deps, srcs, data, additional_linker_inputs, args, aspect_hints, 
 ```
 
 It produces an executable binary.
-
 
 The `name` of the target should be the same as the name of the
 source file that is the main entry point of the application (minus the extension).
@@ -192,9 +190,7 @@ cc_import(
 The remaining is the same on Unix and Windows:
 
 ```
----
-title: 'first will link to libmylib.a (or libmylib.lib)'
----
+# first will link to libmylib.a (or libmylib.lib)
 cc_binary(
   name = "first",
   srcs = ["first.cc"],
@@ -202,9 +198,7 @@ cc_binary(
   linkstatic = 1, # default value
 )
 
----
-title: 'second will link to libmylib.so (or libmylib.lib)'
----
+# second will link to libmylib.so (or libmylib.lib)
 cc_binary(
   name = "second",
   srcs = ["second.cc"],
@@ -487,7 +481,6 @@ See [`cc_binary.linkshared`](/versions/9.0.0/reference/be/c-cpp#cc_binary.linksh
 | `strip_include_prefix` | String; default is `""` The prefix to strip from the paths of the headers of this rule. When set, the headers in the `hdrs` attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path, it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the `include_prefix` attribute is added after this prefix is stripped. This attribute is only legal under `third_party`. |
 | `textual_hdrs` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]` The list of header files published by this library to be textually included by sources in dependent rules. This is the location for declaring header files that cannot be compiled on their own; that is, they always need to be textually included by other source files to build valid code. |
 | `win_def_file` | [Label](/versions/9.0.0/concepts/labels); default is `None` The Windows DEF file to be passed to linker. This attribute should only be used when Windows is the target platform. It can be used to [export symbols](https://msdn.microsoft.com/en-us/library/d91k01sh.aspx) during linking a shared library. |
-
 
 ## cc\_shared\_library
 

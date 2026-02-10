@@ -28,7 +28,7 @@ An index registry must have the following format:
         that this is the `MODULE.bazel` file read during Bazel's external
         dependency resolution, _not_ the one from the source archive (unless
         there's a [non-registry
-        override](/external/module#non-registry_overrides)). Also note that it's
+        override](/versions/9.0.0/external/module#non-registry_overrides)). Also note that it's
         best to use this file to set the version of a release and avoid doing so
         in the source archive `MODULE.bazel` file. To learn more about module
         versioning, [see the FAQ](faq.md#module-versioning-best-practices).
@@ -39,7 +39,7 @@ An index registry must have the following format:
     *   `overlay/`: An optional directory containing overlay files, only used
         when `source.json` has "archive" type
 
-### `bazel_registry.json` {:#bazel-registry-json}
+### `bazel_registry.json`
 
 `bazel_registry.json` is an optional file that specifies metadata applying to
 the entire registry. It can contain the following fields:
@@ -57,7 +57,7 @@ the entire registry. It can contain the following fields:
 *   `module_base_path`: a string, specifying the base path for modules with
     `local_path` type in the `source.json` file
 
-### `metadata.json` {:#metadata-json}
+### `metadata.json`
 
 `metadata.json` is an optional JSON file containing information about the
 module, with the following fields:
@@ -66,14 +66,14 @@ module, with the following fields:
     available in this registry. This array should match the children of the
     module directory.
 *   `yanked_versions`: A JSON object specifying the [*yanked*
-    versions](/external/module#yanked_versions) of this module. The keys
+    versions](/versions/9.0.0/external/module#yanked_versions) of this module. The keys
     should be versions to yank, and the values should be descriptions of
     why the version is yanked, ideally containing a link to more
     information.
 
 Note that the BCR requires more information in the `metadata.json` file.
 
-### `source.json` {:#source-json}
+### `source.json`
 
 `source.json` is a required JSON file containing information about how to fetch
 a specific version of a module. The schema of this file depends on its `type`
@@ -126,7 +126,7 @@ field, which defaults to `archive`.
             `--registry=file://<registry_path>`. Otherwise, Bazel will
             throw an error
 
-## Bazel Central Registry {:#bazel-central-registry}
+## Bazel Central Registry
 
 The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
 registry with contents backed by the GitHub repo

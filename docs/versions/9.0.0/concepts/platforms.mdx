@@ -18,9 +18,9 @@ See also:
 * [Toolchains][Toolchains]
 * [Background][Background]
 
-## Status {:#status}
+## Status
 
-### C++ {:#cxx}
+### C++
 
 C++ rules use platforms to select toolchains when
 `--incompatible_enable_cc_toolchain_resolution` is set.
@@ -43,7 +43,7 @@ To test your C++ project with platforms, see
 [Migrating Your Project](#migrating-your-project) and
 [Configuring C++ toolchains].
 
-### Java {:#java}
+### Java
 
 Java rules use platforms to select toolchains.
 
@@ -52,7 +52,7 @@ This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
 
 See [Java and Bazel](/versions/9.0.0/docs/bazel-and-java) for details.
 
-### Android {:#android}
+### Android
 
 Android rules use platforms to select toolchains when
 `--incompatible_enable_android_toolchain_resolution` is set.
@@ -71,7 +71,7 @@ This will be enabled by default in Bazel 7.0 ([#16285](https://github.com/bazelb
 To test your Android project with platforms, see
 [Migrating Your Project](#migrating-your-project).
 
-### Apple {:#apple}
+### Apple
 
 [Apple rules] do not support platforms and are not yet scheduled
 for support.
@@ -80,7 +80,7 @@ You can still use platform APIs with Apple builds (for example, when building
 with a mixture of Apple rules and pure C++) with [platform
 mappings](#platform-mappings).
 
-### Other languages {:#other-languages}
+### Other languages
 
 * [Go rules] fully support platforms
 * [Rust rules] fully support platforms.
@@ -88,7 +88,7 @@ mappings](#platform-mappings).
 If you own a language rule set, see [Migrating your rule set] for adding
 support.
 
-## Background {:#background}
+## Background
 
 *Platforms* and *toolchains* were introduced to standardize how software
 projects target different architectures and cross-compile.
@@ -108,7 +108,7 @@ Bazel is intended for large, multi-language, multi-platform projects. This
 demands more principled support for these concepts, including a clear
 standard API.
 
-### Need for migration {:#migration}
+### Need for migration
 
 Upgrading to the new API requires two efforts: releasing the API and upgrading
 rule logic to use it.
@@ -123,7 +123,7 @@ plus fair warning for project owners to test against upcoming changes.
 
 This is why this is an ongoing migration.
 
-### Goal {:#goal}
+### Goal
 
 This migration is complete when all projects build with the form:
 
@@ -148,7 +148,7 @@ deprecated and removed as soon as it's safe to do so.
 
 Ultimately, this will be the *sole* way to configure architectures.
 
-## Migrating your project {:#migrating-your-project}
+## Migrating your project
 
 If you build with languages that support platforms, your build should already
 work with an invocation like:
@@ -182,7 +182,7 @@ For your project to build, you need to check the following:
 
 If you still have problems, [reach out](#questions) for support.
 
-### Default platforms {:#default-platforms}
+### Default platforms
 
 Project owners should define explicit
 [platforms][Defining Constraints and Platforms] to describe the architectures
@@ -195,7 +195,7 @@ so there's no need to explicitly define it. It maps the local machine's `OS`
 and `CPU` with `constraint_value`s declared in
 [`@platforms`](https://github.com/bazelbuild/platforms).
 
-### `select()` {:#select}
+### `select()`
 
 Projects can [`select()`][select()] on
 [`constraint_value` targets][constraint_value Rule] but not complete
@@ -232,7 +232,7 @@ When migrating your project to platforms, you must either convert them to
 `constraint_values` or use [platform mappings](#platform-mappings) to support
 both styles during migration.
 
-### Transitions {:#transitions}
+### Transitions
 
 [Starlark transitions][Starlark transitions] change
 flags down parts of your build graph. If your project uses a transition that
@@ -245,7 +245,7 @@ When migrating your project to platforms, you must either convert changes like
 mappings](#platform-mappings) to support both styles during migration.
 window.
 
-## Migrating your rule set  {:#migrating-your-rule-set}
+## Migrating your rule set
 
 If you own a rule set and want to support platforms, you need to:
 
@@ -270,7 +270,7 @@ If you own a rule set and want to support platforms, you need to:
 If you need to mix with rules that don't support platforms, you may need
 [platform mappings](#platform-mappings) to bridge the gap.
 
-### Common platform properties {:#common-platform-properties}
+### Common platform properties
 
 Common, cross-language platform properties like `OS` and `CPU` should be
 declared in [`@platforms`](https://github.com/bazelbuild/platforms).
@@ -284,7 +284,7 @@ If your rules use custom-purpose OSes or CPUs, these should be declared in your
 rule's repo vs.
 [`@platforms`](https://github.com/bazelbuild/platforms).
 
-## Platform mappings {:#platform-mappings}
+## Platform mappings
 
 *Platform mappings* is a temporary API that lets platform-aware logic mix with
 legacy logic in the same build. This is a blunt tool that's only intended to
@@ -324,7 +324,7 @@ workspace root. You can also set
 
 See the [platform mappings design] for details.
 
-## API review {:#api-review}
+## API review
 
 A [`platform`][platform Rule] is a collection of
 [`constraint_value` targets][constraint_value Rule]:
@@ -376,7 +376,7 @@ command line with [`--extra_toolchains`][extra_toolchains Flag].
 
 For more information see [here][Toolchains].
 
-## Questions {:#questions}
+## Questions
 
 For general support and questions about the migration timeline, contact
 [bazel-discuss] or the owners of the appropriate rules.
@@ -384,7 +384,7 @@ For general support and questions about the migration timeline, contact
 For discussions on the design and evolution of the platform/toolchain APIs,
 contact [bazel-dev].
 
-## See also {:#see-also}
+## See also
 
 * [Configurable Builds - Part 1]
 * [Platforms]

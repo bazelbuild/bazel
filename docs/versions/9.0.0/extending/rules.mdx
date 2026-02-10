@@ -168,7 +168,7 @@ dependency graph of targets.
 
 <a name="private-attributes"></a>
 
-### Private attributes and implicit dependencies {:#private_attributes_and_implicit_dependencies}
+### Private attributes and implicit dependencies
 
 A dependency attribute with a default value creates an *implicit dependency*. It
 is implicit because it's a part of the target graph that the user doesn't
@@ -541,7 +541,7 @@ provider instances satisfy certain invariants, or to give users a cleaner API fo
 obtaining an instance.
 
 This is done by passing an `init` callback to the
-[`provider`](/versions/9.0.0/rules/lib/globals/bzl.html#provider) function. If this callback is given, the
+[`provider`](/versions/9.0.0/rules/lib/globals/bzl#provider) function. If this callback is given, the
 return type of `provider()` changes to be a tuple of two values: the provider
 symbol that is the ordinary return value when `init` is not used, and a "raw
 constructor".

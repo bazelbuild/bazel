@@ -7,7 +7,7 @@ describes the differences between Xcode and Bazel, and provides the steps for
 converting an Xcode project to a Bazel project. It also provides troubleshooting
 solutions to address common errors.
 
-## Differences between Xcode and Bazel {:#dif-xcode-bazel}
+## Differences between Xcode and Bazel
 
 *   Bazel requires you to explicitly specify every build target and its
     dependencies, plus the corresponding build settings via build rules.
@@ -26,28 +26,28 @@ solutions to address common errors.
     `bazel build` and `bazel test` commands provide build and test capabilities
     with certain limitations described later in this guide.
 
-## Before you begin {:#before-you-begin}
+## Before you begin
 
 Before you begin, do the following:
 
 1.  [Install Bazel](/versions/9.0.0/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the [iOS app
-    tutorial](/start/ios-app)). You should understand the Bazel workspace,
+    tutorial](/versions/9.0.0/start/ios-app)). You should understand the Bazel workspace,
     including the `MODULE.bazel` and `BUILD` files, as well as the concepts of
     targets, build rules, and Bazel packages.
 
 3.  Analyze and understand the project's dependencies.
 
-### Analyze project dependencies {:#analyze-project-dependencies}
+### Analyze project dependencies
 
 Unlike Xcode, Bazel requires you to explicitly declare all dependencies for
 every target in the `BUILD` file.
 
 For more information on external dependencies, see [Working with external
-dependencies](/docs/external).
+dependencies](/versions/9.0.0/docs/external).
 
-## Build or test an Xcode project with Bazel {:#build-xcode-project}
+## Build or test an Xcode project with Bazel
 
 To build or test an Xcode project with Bazel, do the following:
 
@@ -69,7 +69,7 @@ To build or test an Xcode project with Bazel, do the following:
 
 6.  [Generate the Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
 
-### Step 1: Create the `MODULE.bazel` file {:#create-workspace}
+### Step 1: Create the `MODULE.bazel` file
 
 Create a `MODULE.bazel` file in a new directory. This directory becomes the
 Bazel workspace root. If the project uses no external dependencies, this file
@@ -80,7 +80,7 @@ the project's directories, specify these external dependencies in the
 Note: Place the project source code within the directory tree containing the
 `MODULE.bazel` file.
 
-### Step 2: (Experimental) Integrate SwiftPM dependencies {:#integrate-swiftpm}
+### Step 2: (Experimental) Integrate SwiftPM dependencies
 
 To integrate SwiftPM dependencies into the Bazel workspace with
 [swift_bazel](https://github.com/cgrindel/swift_bazel), you must
@@ -92,7 +92,7 @@ Note: SwiftPM support is a manual process with many variables. SwiftPM
 integration with Bazel has not been fully verified and is not officially
 supported.
 
-### Step 3: Create a `BUILD` file {:#create-build-file}
+### Step 3: Create a `BUILD` file
 
 Once you have defined the workspace and external dependencies, you need to
 create a `BUILD` file that tells Bazel how the project is structured. Create the
@@ -104,9 +104,9 @@ initial build of the project as follows:
 *   [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
 **Tip:** To learn more about packages and other Bazel concepts, see [Workspaces,
-packages, and targets](/concepts/build-ref).
+packages, and targets](/versions/9.0.0/concepts/build-ref).
 
-#### Step 3a: Add the application target {:#add-app-target}
+#### Step 3a: Add the application target
 
 Add a
 [`macos_application`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_application)
@@ -130,7 +130,7 @@ In the target, specify the following at the minimum:
     application supports. This ensures Bazel builds the application with the
     correct API levels.
 
-#### Step 3b: (Optional) Add the test target(s) {:#add-test-target}
+#### Step 3b: (Optional) Add the test target(s)
 
 Bazel's [Apple build
 rules](https://github.com/bazelbuild/rules_apple) support running
@@ -158,7 +158,7 @@ with the project and adjust them as necessary. For tests that require the iOS
 simulator, also specify the `ios_application` target name as the value of the
 `test_host` attribute.
 
-#### Step 3c: Add the library target(s) {:#add-library-target}
+#### Step 3c: Add the library target(s)
 
 Add an [`objc_library`](/versions/9.0.0/reference/be/objective-c#objc_library) target for each
 Objective-C library and a
@@ -198,7 +198,7 @@ At this point, it is a good idea to test the build:
 
 `bazel build //:<application_target>`
 
-### Step 4: (Optional) Granularize the build {:#granularize-build}
+### Step 4: (Optional) Granularize the build
 
 If the project is large, or as it grows, consider chunking it into multiple
 Bazel packages. This increased granularity provides:
@@ -232,7 +232,7 @@ Tips for granularizing the project:
 *   Build the project after each major change to the `BUILD` files and fix build
     errors as you encounter them.
 
-### Step 5: Run the build {:#run-build}
+### Step 5: Run the build
 
 Run the fully migrated build to ensure it completes with no errors or warnings.
 Run every application and test target individually to more easily find sources
@@ -244,7 +244,7 @@ For example:
 bazel build //:my-target
 ```
 
-### Step 6: Generate the Xcode project with rules_xcodeproj {:#generate-the-xcode-project-with-rules_xcodeproj}
+### Step 6: Generate the Xcode project with rules_xcodeproj
 
 When building with Bazel, the `MODULE.bazel` and `BUILD` files become the source
 of truth about the build. To make Xcode aware of this, you must generate a
@@ -252,7 +252,7 @@ Bazel-compatible Xcode project using
 [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj#features)
 .
 
-### Troubleshooting {:#troubleshooting}
+### Troubleshooting
 
 Bazel errors can arise when it gets out of sync with the selected Xcode version,
 like when you apply an update. Here are some things to try if you're

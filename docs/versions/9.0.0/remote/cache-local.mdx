@@ -15,16 +15,16 @@ logs between two Bazel invocations, see
 Everything presented in that guide also applies to remote caching with local
 execution. However, local execution presents some additional challenges.
 
-## Checking your cache hit rate {:#cache-hits}
+## Checking your cache hit rate
 
 Successful remote cache hits will show up in the status line, similar to
 [Cache Hits rate with Remote
-Execution](/remote/cache-remote#check-cache-hits).
+Execution](/versions/9.0.0/remote/cache-remote#check-cache-hits).
 
 In the standard output of your Bazel run, you will see something like the
 following:
 
-```none {:.devsite-disable-click-to-copy}
+```none
    INFO: 7 processes: 3 remote cache hit, 4 linux-sandbox.
 ```
 
@@ -34,11 +34,11 @@ strategy. Local cache hits are not included in this summary. If you are getting
 0 processes (or a number lower than expected), run `bazel clean` followed by
 your build/test command.
 
-## Troubleshooting cache hits {:#troubleshooting-cache-hits}
+## Troubleshooting cache hits
 
 If you are not getting the cache hit rate you are expecting, do the following:
 
-### Ensure successful communication with the remote endpoint {:#remote-endpoint-success}
+### Ensure successful communication with the remote endpoint
 
 To ensure your build is successfully communicating with the remote cache, follow
 the steps in this section.
@@ -50,13 +50,13 @@ the steps in this section.
    cannot cache. Check the output of your Bazel invocation for warnings, such
    as:
 
-   ```none {:.devsite-disable-click-to-copy}
+   ```none
       WARNING: Error reading from the remote cache:
    ```
 
    or
 
-   ```none {:.devsite-disable-click-to-copy}
+   ```none
       WARNING: Error writing to the remote cache:
    ```
 
@@ -67,7 +67,7 @@ the steps in this section.
    `--verbose_failures`.
 
 2. Follow the steps from [Troubleshooting cache hits for remote
-   execution](/remote/cache-remote#troubleshooting_cache_hits) to
+   execution](/versions/9.0.0/remote/cache-remote#troubleshooting_cache_hits) to
    ensure that your cache-writing Bazel invocations are able to get cache hits
    on the same machine and across machines.
 
@@ -82,6 +82,6 @@ the steps in this section.
       cache-writing Bazel invocations.
 
    c. Follow the same steps as to [ensure caching across
-      machines](/remote/cache-remote#caching-across-machines),
+      machines](/versions/9.0.0/remote/cache-remote#caching-across-machines),
       to ensure caching from your cache-writing Bazel invocation to your
       cache-reading Bazel invocation.

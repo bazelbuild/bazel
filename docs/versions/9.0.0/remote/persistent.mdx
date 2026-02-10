@@ -31,7 +31,7 @@ Programs using a NodeJS runtime can use the
 [@bazel/worker](https://www.npmjs.com/package/@bazel/worker) helper library to
 implement the worker protocol.
 
-## Using persistent workers {:#usage}
+## Using persistent workers
 
 [Bazel 0.27 and higher](https://blog.bazel.build/2019/06/19/list-strategy.html)
 uses persistent workers by default when executing builds, though remote
@@ -62,7 +62,7 @@ flag. This strategy automatically enables workers, so there is no need to
 specify the `worker` strategy, but you can still use `local` or `sandboxed` as
 fallbacks.
 
-## Choosing number of workers {:#number-of-workers}
+## Choosing number of workers
 
 The default number of worker instances per mnemonic is 4, but can be adjusted
 with the
@@ -110,7 +110,7 @@ discarded):
 The speed-up depends on the change being made. A speed-up of a factor 6 is
 measured in the above situation when a commonly used constant is changed.
 
-## Modifying persistent workers {:#options}
+## Modifying persistent workers
 
 You can pass the
 [`--worker_extra_flag`](/versions/9.0.0/reference/command-line-reference#flag--worker_extra_flag)
@@ -148,7 +148,7 @@ log files for a given mnemonic.
 For Android builds, see details at the
 [Android Build Performance page](/versions/9.0.0/docs/android-build-performance).
 
-## Implementing persistent workers {:#implementation}
+## Implementing persistent workers
 
 See the [creating persistent workers](/versions/9.0.0/remote/creating) page for more
 information on how to make a worker.
@@ -227,7 +227,7 @@ and
 [nodejs worker example](https://github.com/bazelbuild/rules_nodejs/tree/stable/examples/worker)
 might be helpful.
 
-## How do workers affect sandboxing? {:#sandboxing}
+## How do workers affect sandboxing?
 
 Using the `worker` strategy by default does not run the action in a
 [sandbox](/versions/9.0.0/docs/sandboxing), similar to the `local` strategy. You can set the
@@ -250,7 +250,7 @@ and this sandboxing must be separately enabled with the
 `--experimental_worker_multiplex_sandboxing` flag. See more details in
 [the design doc](https://docs.google.com/document/d/1ncLW0hz6uDhNvci1dpzfEoifwTiNTqiBEm1vi-bIIRM/edit)).
 
-## Further reading {:#further-reading}
+## Further reading
 
 For more information on persistent workers, see:
 

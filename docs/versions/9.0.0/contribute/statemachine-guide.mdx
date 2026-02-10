@@ -50,7 +50,7 @@ virtually all recomputation when a SkyFunction restarts (assuming that
 `SkyKeyComputeState` does not fall out of cache) by exposing suspend and resume
 execution hooks.
 
-### Stateful computations inside `SkyKeyComputeState` {:#stateful-computations}
+### Stateful computations inside `SkyKeyComputeState`
 
 From an object-oriented design standpoint, it makes sense to consider storing
 computational objects inside `SkyKeyComputeState` instead of pure data values.
@@ -162,7 +162,7 @@ subtasks, those lookups and subtasks will complete before the next state begins.
 Tip: (Corollary) If subtasks are complex `StateMachine`s or recursively create
 subtasks, they all *transitively* complete before the next state begins.
 
-### SkyValue lookups {:#skyvalue-lookups}
+### SkyValue lookups
 
 `StateMachine`s use `Tasks.lookUp` overloads to look up SkyValues. They are
 analogous to `SkyFunction.Environment.getValue` and
@@ -259,7 +259,7 @@ Though `Subtask1` and `Subtask2` are logically concurrent, everything runs in a
 single thread so the "concurrent" update of `i` does not need any
 synchronization.
 
-### Structured concurrency {:#structured-concurrency}
+### Structured concurrency
 
 Since every `lookUp` and `enqueue` must resolve before advancing to the next
 state, it means that concurrency is naturally limited to tree-structures. It's
@@ -384,7 +384,7 @@ class M2 implements StateMachine {
 }
 ```
 
-#### `runAfter` injection {:#runafter-injection}
+#### `runAfter` injection
 
 Sometimes, abusing `Tasks.enqueue` is impossible because there are other
 parallel subtasks or `Tasks.lookUp` calls that must be completed before *S*
@@ -549,7 +549,7 @@ There’s an example of implementing a `Tasks.lookUp` callback in [SkyValue
 lookups](#skyvalue-lookups). This section provides rationale and suggests
 approaches for handling multiple SkyValues.
 
-#### `Tasks.lookUp` callbacks {:#tasks-lookup-callbacks}
+#### `Tasks.lookUp` callbacks
 
 The `Tasks.lookUp` method takes a callback, `sink`, as a parameter.
 
@@ -670,7 +670,7 @@ because the value types are different. When that’s not the case, falling back 
 lambda-based implementations or full inner-class instances that implement the
 appropriate callbacks is viable.
 
-### Propagating values between `StateMachine`s {:#propagating-values}
+### Propagating values between `StateMachine`s
 
 So far, this document has only explained how to arrange work in a subtask, but
 subtasks also need to report a values back to the caller. Since subtasks are
@@ -777,7 +777,7 @@ the `Caller.ResultSink`, as required by [Error bubbling](#error-bubbling).
 Alternatives for top-level `StateMachine`s are described in [`Driver`s and
 bridging to SkyFunctions](#drivers-and-bridging).
 
-### Error handling {:#error-handling}
+### Error handling
 
 There's a couple of examples of error handling already in [`Tasks.lookUp`
 callbacks](#tasks-lookup-callbacks) and [Propagating values between
@@ -789,7 +789,7 @@ exactly one of a value or error being passed.
 The next section describes a a subtle, but important interaction with Skyframe
 error handling.
 
-#### Error bubbling (--nokeep\_going) {:#error-bubbling}
+#### Error bubbling (--nokeep\_going)
 
 Warning: Errors need to be eagerly propagated all the way back to the
 SkyFunction for error bubbling to function correctly.
@@ -812,7 +812,7 @@ If a `Driver` is being utilized directly, it is essential to check for
 propagated errors from the SkyFunction, even if the machine has not finished
 processing.
 
-### Event Handling {:#event-handling}
+### Event Handling
 
 For SkyFunctions that need to emit events, a `StoredEventHandler` is injected
 into SkyKeyComputeState and further injected into `StateMachine`s that require
@@ -821,7 +821,7 @@ certain events unless they are replayed but this was subsequently fixed.
 `StoredEventHandler` injection is preserved because it simplifies the
 implementation of events emitted from error handling callbacks.
 
-## `Driver`s and bridging to SkyFunctions {:#drivers-and-bridging}
+## `Driver`s and bridging to SkyFunctions
 
 A `Driver` is responsible for managing the execution of `StateMachine`s,
 beginning with a specified root `StateMachine`. As `StateMachine`s can
@@ -936,7 +936,7 @@ private Result computeResult(State state, Skyfunction.Environment env)
 }
 ```
 
-### Embedding `Driver` {:#embedding-driver}
+### Embedding `Driver`
 
 If the `StateMachine` produces a value and raises no exceptions, embedding
 `Driver` is another possible implementation, as shown in the following example.
@@ -1059,7 +1059,7 @@ performance that approaches hand-written callback code.
 
 ## Appendix
 
-### Callback Hell {:#callback-hell}
+### Callback Hell
 
 Callback hell is an infamous problem in asynchronous code that uses callbacks.
 It stems from the fact that the continuation for a subsequent step is nested
@@ -1112,7 +1112,7 @@ Callback hell may also occur if the [`runAfter` injection](#runafter-injection)
 pattern is used too densely, but this can be avoided by interspersing injections
 with sequential steps.
 
-#### Example: Chained SkyValue lookups {:#chained-skyvalue-lookups}
+#### Example: Chained SkyValue lookups
 
 It is often the case that the application logic requires dependent chains of
 SkyValue lookups, for example, if a second SkyKey depends on the first SkyValue.
@@ -1205,7 +1205,7 @@ state sequence `foo`, followed by `bar`. `foo` no longer includes the behavior
 `bar`. As a result, method names for states tend to be narrower in scope,
 potentially reflecting local behavior.
 
-### Concurrency tree diagram {:#concurrency-tree-diagram}
+### Concurrency tree diagram
 
 The following is an alternative view of the diagram in [Structured
 concurrency](#structured-concurrency) that better depicts the tree structure.

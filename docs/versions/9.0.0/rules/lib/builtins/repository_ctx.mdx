@@ -60,7 +60,6 @@ unknown repository_ctx.download(url, output='', sha256='', executable=False, all
 
 Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/9.0.0/rules/lib/repo/cache#get_default_canonical_id)
 
-
 ### Parameters
 
 | Parameter | Description |
@@ -83,7 +82,6 @@ struct repository_ctx.download_and_extract(url, output='', sha256='', type='', s
 ```
 
 Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/9.0.0/rules/lib/repo/cache#get_default_canonical_id)
-
 
 ### Parameters
 

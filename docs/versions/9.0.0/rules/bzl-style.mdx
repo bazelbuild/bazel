@@ -37,15 +37,15 @@ developers and tools. The
 [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn't
 really apply here.
 
-## General advice {:#general-advice}
+## General advice
 
 *   Use [Buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter)
     as a formatter and linter.
 *   Follow [testing guidelines](/versions/9.0.0/rules/testing).
 
-## Style {:#style}
+## Style
 
-### Python style {:#python-style}
+### Python style
 
 When in doubt, follow the
 [PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/) where possible.
@@ -58,18 +58,18 @@ some aspects of Python style do not apply. For example, PEP 8 advises that
 comparisons to singletons be done with `is`, which is not an operator in
 Starlark.
 
-### Docstring {:#docstring}
+### Docstring
 
 Document files and functions using [docstrings](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#function-docstring).
 Use a docstring at the top of each `.bzl` file, and a docstring for each public
 function.
 
-### Document rules and aspects {:#doc-rules-aspects}
+### Document rules and aspects
 
 Rules and aspects, along with their attributes, as well as providers and their
 fields, should be documented using the `doc` argument.
 
-### Naming convention {:#naming-convention}
+### Naming convention
 
 *   Variables and function names use lowercase with words separated by
     underscores (`[a-z][a-z0-9_]*`), such as `cc_library`.
@@ -77,7 +77,7 @@ fields, should be documented using the `doc` argument.
     private values cannot be used from other files. Local variables should not
     use the underscore prefix.
 
-### Line length {:#line-length}
+### Line length
 
 As in `BUILD` files, there is no strict line length limit as labels can be long.
 When possible, try to use at most 79 characters per line (following Python's
@@ -86,7 +86,7 @@ should not be enforced strictly: editors should display more than 80 columns,
 automated changes will frequently introduce longer lines, and humans shouldn't
 spend time splitting lines that are already readable.
 
-### Keyword arguments {:#keyword-arguments}
+### Keyword arguments
 
 In keyword arguments, spaces around the equal sign are preferred:
 
@@ -100,12 +100,12 @@ def fct(name, srcs):
     )
 ```
 
-### Boolean values {:#boolean-values}
+### Boolean values
 
 Prefer values `True` and `False` (rather than of `1` and `0`) for boolean values
 (such as when using a boolean attribute in a rule).
 
-### Use print only for debugging {:#print-for-debugging}
+### Use print only for debugging
 
 Do not use the `print()` function in production code; it is only intended for
 debugging, and will spam all direct and indirect users of your `.bzl` file. The
@@ -115,7 +115,7 @@ uses of `print()` are guarded by `if DEBUG:` where `DEBUG` is hardcoded to
 `False`. Be mindful of whether these statements are useful enough to justify
 their impact on readability.
 
-## Macros {:#macros}
+## Macros
 
 A macro is a function which instantiates one or more rules during the loading
 phase. In general, use rules whenever possible instead of macros. The build
@@ -168,7 +168,7 @@ As a rule of thumb, the more macros resemble the rules, the better.
 
 See also [macros](/versions/9.0.0/extending/macros#conventions).
 
-## Rules {:#rules}
+## Rules
 
 *   Rules, aspects, and their attributes should use lower_case names ("snake
     case").

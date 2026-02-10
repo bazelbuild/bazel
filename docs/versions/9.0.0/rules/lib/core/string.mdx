@@ -9,15 +9,11 @@ a = 'abc\ndef'
 b = "ab'cd"
 c = """multiline string"""
 
----
-title: 'Strings support slicing (negative index starts from the end):'
----
+# Strings support slicing (negative index starts from the end):
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
 z = "hello"[:4]  # "hell"
----
-title: 'Slice steps can be used, too:'
----
+# Slice steps can be used, too:
 s = "hello"[::2] # "hlo"
 t = "hello"[3:0:-1] # "lle"
 ```
@@ -139,17 +135,11 @@ string string.format(*args, **kwargs)
 Perform string interpolation. Format strings contain replacement fields surrounded by curly braces `{}`. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: `{{` and `}}`A replacement field can be either a name, a number, or empty. Values are converted to strings using the [str](../globals/all#str) function.
 
 ```
----
-title: 'Access in order:'
----
+# Access in order:
 "{} < {}".format(4, 5) == "4 < 5"
----
-title: 'Access by position:'
----
+# Access by position:
 "{1}, {0}".format(2, 1) == "1, 2"
----
-title: 'Access by name:'
----
+# Access by name:
 "x{key}x".format(key = 2) == "x2x"
 ```
 

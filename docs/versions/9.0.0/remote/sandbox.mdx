@@ -44,7 +44,7 @@ You can troubleshoot these issues using one of the following methods:
     build even if portions of the build are failing. This method is experimental
     and not officially supported.
 
-## Prerequisites {:#prerequisites}
+## Prerequisites
 
 Before you begin troubleshooting, do the following if you have not already done so:
 
@@ -85,7 +85,7 @@ If your rules require additional tools, do the following:
 2.  Replace the value of the `--experimental_docker_image` flag above with the
     name of your custom container image.
 
-## Troubleshooting natively {:#troubleshooting-natively}
+## Troubleshooting natively
 
 This method executes Bazel and all of its build actions directly on the local
 machine and is a reliable way to confirm whether your build will succeed when
@@ -96,7 +96,7 @@ into into your build, especially if it uses [configure-style WORKSPACE rules](/v
 Such leaks will cause problems with remote execution; to detect them, [troubleshoot in a Docker container](#troubleshooting-docker-container)
 in addition to troubleshooting natively.
 
-### Step 1: Run the build {:#run-build}
+### Step 1: Run the build
 
 1.  Add the `--config=docker-sandbox` flag to the Bazel command that executes
     your build. For example:
@@ -110,7 +110,7 @@ in addition to troubleshooting natively.
 
 You may encounter the following error:
 
-```none {:.devsite-disable-click-to-copy}
+```none
 ERROR: 'docker' is an invalid value for docker spawn strategy.
 ```
 
@@ -120,7 +120,7 @@ faulty Docker installation or lack of permissions to execute it under the
 current user account. See the [Docker documentation](https://docs.docker.com/install/linux/linux-postinstall/)
 for more information. If problems persist, skip ahead to [Troubleshooting in a Docker container](#troubleshooting-docker-container).
 
-### Step 2: Resolve detected issues {:#resolve-common-issues}
+### Step 2: Resolve detected issues
 
 The following are the most commonly encountered issues and their workarounds.
 
@@ -150,7 +150,7 @@ The following are the most commonly encountered issues and their workarounds.
 
 *  **Other errors.** Contact [bazel-discuss@google.com](mailto:bazel-discuss@google.com) for help.
 
-## Troubleshooting in a Docker container {:#troubleshooting-docker-container}
+## Troubleshooting in a Docker container
 
 With this method, Bazel runs inside a host Docker container, and Bazel's build
 actions execute inside individual toolchain containers spawned by the Docker
@@ -162,7 +162,7 @@ environment. By separating the execution of the build from the execution of its
 build actions and keeping the installed tooling to a minimum, you can verify
 whether your build has any dependencies on the local execution environment.
 
-### Step 1: Build the container {:#build-container}
+### Step 1: Build the container
 
 Note: The commands below are tailored specifically for a  `debian:stretch` base.
 For other bases, modify them as necessary.
@@ -192,7 +192,7 @@ For other bases, modify them as necessary.
     docker build -t bazel_container - < Dockerfile
     ```
 
-### Step 2: Start the container {:#start-container}
+### Step 2: Start the container
 
 Start the Docker container using the command shown below. In the command,
 substitute the path to the source code on your host that you want to build.
@@ -217,7 +217,7 @@ includes binaries incompatible with the `rbe-ubuntu16-04` container used as a
 toolchain container. If binaries from the local environment are leaking into the
 toolchain container, they will cause build errors.
 
-### Step 3: Test the container {:#test-container}
+### Step 3: Test the container
 
 Run the following commands from inside the Docker container to test it:
 
@@ -227,7 +227,7 @@ docker ps
 bazel version
 ```
 
-### Step 4: Run the build {:#run-build-step}
+### Step 4: Run the build
 
 Run the build as shown below. The output user is root so that it corresponds to
 a directory that is accessible with the same absolute path from inside the host
@@ -239,7 +239,7 @@ machine on which the host and action containers run.
 bazel --output_user_root=/tmp/bazel_docker_root --bazelrc=.bazelrc \ build --config=docker-sandbox {{ '<var>' }}target{{ '</var>' }}
 ```
 
-### Step 5: Resolve detected issues {:#resolve-build-failures}
+### Step 5: Resolve detected issues
 
 You can resolve build failures as follows:
 

@@ -21,7 +21,7 @@ how you can use these metrics to detect and fix build performance issues.
 
 There are a few main ways to extract metrics from your Bazel builds, namely:
 
-## Build Event Protocol (BEP) {:#build-event-protocol}
+## Build Event Protocol (BEP)
 
 Bazel outputs a variety of protocol buffers
 [`build_event_stream.proto`](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
@@ -30,7 +30,7 @@ can be aggregated by a backend specified by you. Depending on your use cases,
 you might decide to aggregate the metrics in various ways, but here we will go
 over some concepts and proto fields that would be useful in general to consider.
 
-## Bazel’s query / cquery / aquery commands {:#bazel-commands-query-cquery-aquery}
+## Bazel’s query / cquery / aquery commands
 
 Bazel provides 3 different query modes ([query](/versions/9.0.0/query/quickstart),
 [cquery](/versions/9.0.0/query/cquery) and [aquery](/versions/9.0.0/query/aquery)) that allow users
@@ -39,14 +39,14 @@ respectively. The query language provides a
 [suite of functions](/versions/9.0.0/query/language#functions) usable across the different
 query modes, that allows you to customize your queries according to your needs.
 
-## JSON Trace Profiles {:#json-trace-profiles}
+## JSON Trace Profiles
 
 For every build-like Bazel invocation, Bazel writes a trace profile in JSON
 format. The [JSON trace profile](/versions/9.0.0/advanced/performance/json-trace-profile) can
 be very useful to quickly understand what Bazel spent time on during the
 invocation.
 
-## Execution Log {:#execution-log}
+## Execution Log
 
 The [execution log](/versions/9.0.0/remote/cache-remote) can help you to troubleshoot and fix
 missing remote cache hits due to machine and environment differences or
@@ -58,7 +58,7 @@ make comparisons between local and remote machine performance or to find out
 which part of the spawn execution is consistently slower than expected (for
 example due to queuing).
 
-## Execution Graph Log {:#execution-graph-log}
+## Execution Graph Log
 
 While the JSON trace profile contains the critical path information, sometimes
 you need additional information on the dependency graph of the executed actions.
@@ -74,7 +74,7 @@ by removing a particular node from the execution graph.
 The data helps you predict the impact of changes to the build and action graph
 before you actually do them.
 
-## Benchmarking with bazel-bench {:#bazel-bench}
+## Benchmarking with bazel-bench
 
 [Bazel bench](https://github.com/bazelbuild/bazel-bench) is a
 benchmarking tool for Git projects to benchmark build performance in the

@@ -70,7 +70,7 @@ builds target the same machine Bazel runs on. Build rules can
 [@platforms/cpu](https://github.com/bazelbuild/platforms/blob/main/cpu/BUILD)
 constraints.
 
-## Generally useful constraints and platforms {:#useful-constraints-platforms}
+## Generally useful constraints and platforms
 
 To keep the ecosystem consistent, Bazel team maintains a repository with
 constraint definitions for the most popular CPU architectures and operating
@@ -81,7 +81,7 @@ Bazel ships with the following special platform definition:
 `@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This
 auto-detects the OS and CPU properties of the machine Bazel runs on.
 
-## Defining constraints {:#constraints}
+## Defining constraints
 
 Constraints are modeled with the [`constraint_setting`][constraint_setting] and
 [`constraint_value`][constraint_value] build rules.
@@ -111,7 +111,7 @@ the `x86` constraint as `//cpus:x86`.
 If visibility allows, you can extend an existing `constraint_setting` by
 defining your own value for it.
 
-## Defining platforms {:#platforms}
+## Defining platforms
 
 The [`platform`](/versions/9.0.0/reference/be/platforms-and-toolchains#platform) build rule
 defines a platform as a collection of `constraint_value`s:
@@ -133,7 +133,7 @@ Platforms may only have one `constraint_value` for a given `constraint_setting`.
 This means, for example, a platform can't have two CPUs unless you create another
 `constraint_setting` type to model the second value.
 
-## Skipping incompatible targets {:#skipping-incompatible-targets}
+## Skipping incompatible targets
 
 When building for a specific target platform it is often desirable to skip
 targets that will never work on that platform. For example, your Windows device
@@ -163,7 +163,7 @@ incompatible with all else. Incompatibility is transitive. Any targets
 that transitively depend on an incompatible target are themselves considered
 incompatible.
 
-### When are targets skipped? {:#when-targets-skipped}
+### When are targets skipped?
 
 Targets are skipped when they are considered incompatible and included in the
 build as part of a target pattern expansion. For example, the following two
@@ -198,7 +198,7 @@ FAILED: Build did NOT complete successfully
 Incompatible explicit targets are silently skipped if
 `--skip_incompatible_explicit_targets` is enabled.
 
-### More expressive constraints {:#expressive-constraints}
+### More expressive constraints
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
@@ -250,12 +250,12 @@ cc_library(
 )
 ```
 
-### Detecting incompatible targets using `bazel cquery` {:#cquery-incompatible-target-detection}
+### Detecting incompatible targets using `bazel cquery`
 
 You can use the
 [`IncompatiblePlatformProvider`](/versions/9.0.0/rules/lib/providers/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/query/cquery#output-format-definition) to distinguish
+format](/versions/9.0.0/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will

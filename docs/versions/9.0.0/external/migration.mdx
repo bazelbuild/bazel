@@ -1,18 +1,14 @@
-keywords: bzlmod
-
-{# disableFinding(LINE_OVER_80_LINK) #}
-
 ---
 title: 'Bzlmod Migration Guide'
 ---
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
+WORKSPACE](/versions/9.0.0/external/overview#workspace-shortcomings), Bzlmod is replacing the
 legacy WORKSPACE system. The WORKSPACE file is already disabled in Bazel 8 (late
 2024) and will be removed in Bazel 9 (late 2025). This guide helps you migrate
 your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 
-## Why migrate to Bzlmod? {:#why-migrate-to-bzlmod}
+## Why migrate to Bzlmod?
 
 *   There are many [advantages](overview#benefits) compared to the legacy
     WORKSPACE system, which helps to ensure a healthy growth of the Bazel
@@ -25,7 +21,7 @@ your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 *   Migration to Bzlmod is a necessary step in order to use future Bazel
     versions (mandatory in Bazel 9).
 
-## How to migrate to Bzlmod? {:#how-migrate-to-bzlmod}
+## How to migrate to Bzlmod?
 
 Recommended migration process:
 
@@ -36,13 +32,13 @@ Recommended migration process:
     `WORKSPACE` and `MODULE.bazel` files, check [WORKSPACE versus
     Bzlmod](#workspace-vs-bzlmod) section.
 
-## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
+## WORKSPACE vs Bzlmod
 
 Bazel's WORKSPACE and Bzlmod offer similar features with different syntax. This
 section explains how to migrate from specific WORKSPACE functionalities to
 Bzlmod.
 
-### Define the root of a Bazel workspace {:#define-root}
+### Define the root of a Bazel workspace
 
 The WORKSPACE file marks the source root of a Bazel project, this responsibility
 is replaced by MODULE.bazel in Bazel version 6.3 and later. With Bazel versions
@@ -56,7 +52,7 @@ your workspace root, maybe with comments like:
     # See MODULE.bazel for external dependencies setup.
     ```
 
-### Enable Bzlmod in your bazelrc {:#enable-bzlmod}
+### Enable Bzlmod in your bazelrc
 
 `.bazelrc` lets you set flags that apply every time your run Bazel. To enable
 Bzlmod, use the `--enable_bzlmod` flag, and apply it to the `common` command so
@@ -69,7 +65,7 @@ it applies to every command:
     common --enable_bzlmod
     ```
 
-### Specify repository name for your workspace {:#specify-repo-name}
+### Specify repository name for your workspace
 
 *   **WORKSPACE**
 
@@ -103,7 +99,7 @@ it applies to every command:
     )
     ```
 
-### Fetch external dependencies as Bazel modules {:#fetch-bazel-modules}
+### Fetch external dependencies as Bazel modules
 
 If your dependency is a Bazel project, you should be able to depend on it as a
 Bazel module when it also adopts Bzlmod.
@@ -146,7 +142,7 @@ Bazel module when it also adopts Bzlmod.
 
     With Bzlmod, as long as your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/external/registry), you can simply depend on it with a
+    registry](/versions/9.0.0/external/registry), you can simply depend on it with a
     [`bazel_dep`](/versions/9.0.0/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -159,7 +155,7 @@ Bazel module when it also adopts Bzlmod.
     [MVS](https://research.swtch.com/vgo-mvs) algorithm. Therefore, the maximal
     required version of `platform` is selected automatically.
 
-### Override a dependency as a Bazel module{:#override-modules}
+### Override a dependency as a Bazel module
 
 As the root module, you can override Bazel module dependencies in different
 ways.
@@ -173,12 +169,12 @@ repository.
 
 [override-examples]: https://github.com/bazelbuild/examples/blob/main/bzlmod/02-override_bazel_module
 
-### Fetch external dependencies with module extensions{:#fetch-deps-module-extensions}
+### Fetch external dependencies with module extensions
 
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
 [`use_repo_rule`](/versions/9.0.0/external/module#use_repo_rule) or [module
-extensions](/external/extension).
+extensions](/versions/9.0.0/external/extension).
 
 *   **WORKSPACE**
 
@@ -252,7 +248,7 @@ extensions](/external/extension).
     use_repo(non_module_dependencies, "data_file")
     ```
 
-### Resolve conflict external dependencies with module extension {:#conflict-deps-module-extension}
+### Resolve conflict external dependencies with module extension
 
 A project can provide a macro that introduces external repositories based on
 inputs from its callers. But what if there are multiple callers in the
@@ -262,7 +258,7 @@ Assume the project `foo` provides the following macro which takes `version` as
 an argument.
 
 ```python
-## repositories.bzl in foo {:#repositories.bzl-foo}
+## repositories.bzl in foo
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 def data_deps(version = "1.0"):
     http_file(
@@ -347,7 +343,7 @@ def data_deps(version = "1.0"):
     resolve this conflict and automatically select version `3.0` for the data
     dependency.
 
-### Integrate third party package manager {:#integrate-package-manager}
+### Integrate third party package manager
 
 Following the last section, since module extension provides a way to collect
 information from the dependency graph, perform custom logic to resolve
@@ -371,7 +367,7 @@ repository.
 
 [pkg-mgr-example]: https://github.com/bazelbuild/examples/tree/main/bzlmod/05-integrate_third_party_package_manager
 
-### Detect toolchains on the host machine {:#detect-toolchain}
+### Detect toolchains on the host machine
 
 When Bazel build rules need to detect what toolchains are available on your host
 machine, they use repository rules to inspect the host machine and generate
@@ -444,7 +440,7 @@ toolchain info as external repositories.
     use_repo(sh_config_ext, "local_config_sh")
     ```
 
-### Register toolchains & execution platforms {:#register-toolchains}
+### Register toolchains & execution platforms
 
 Following the last section, after introducing a repository hosting toolchain
 information (e.g. `local_config_sh`), you probably want to register the
@@ -509,7 +505,7 @@ order of precedence during toolchain selection (from highest to lowest):
 
 [register_execution_platforms]: /rules/lib/globals/module#register_execution_platforms
 
-### Introduce local repositories {:#introduce-local-deps}
+### Introduce local repositories
 
 You may need to introduce a dependency as a local repository when you need a
 local version of the dependency for debugging or you want to incorporate a
@@ -558,7 +554,7 @@ directory in your workspace as external repository.
     extension. It's also trivial to implement a custom version of
     `local_repository` repository rule if this is a blocking issue for you.
 
-### Bind targets {:#bind-targets}
+### Bind targets
 
 The [`bind`](/versions/9.0.0/reference/be/workspace#bind) rule in WORKSPACE is deprecated and
 not supported in Bzlmod. It was introduced to give a target an alias in the
@@ -595,7 +591,7 @@ away from this by:
 
     *   Replace all usages of `//external:openssl` with `//third_party:openssl`.
 
-### Fetch versus Sync {:#fetch-sync}
+### Fetch versus Sync
 
 Fetch and sync commands are used to download external repos locally and keep
 them updated. Sometimes also to allow building offline using the `--nofetch`
@@ -616,13 +612,13 @@ flag after fetching all repos needed for a build.
     The fetch result is cached and to force a fetch you must include the
  `--force` option during the fetch process.
 
-## Manual migration {:#manual-migration}
+## Manual migration
 
 This section provides useful information and guidance for your **manual** Bzlmod
 migration process. For more automatized migration process, check [recommended
 migration process](#how-migrate-to-bzlmod) section.
 
-### Know your dependencies in WORKSPACE {:#know-deps-in-workspace}
+### Know your dependencies in WORKSPACE
 
 The first step of migration is to understand what dependencies you have. It
 could be hard to figure out what exact dependencies are introduced in the
@@ -682,7 +678,7 @@ so be careful using it! Querying and inspecting external
 dependencies with Bzlmod is going to achieved by a [new
 subcommand](https://github.com/bazelbuild/bazel/issues/15365).
 
-#### Built-in default dependencies {:#builtin-default-deps}
+#### Built-in default dependencies
 
 If you check the file generated by `--experimental_repository_resolved_file`,
 you are going to find many dependencies that are not defined in your WORKSPACE.
@@ -695,7 +691,7 @@ Bazel module.
 
 [bazel_tools]: https://github.com/bazelbuild/bazel/blob/master/src/MODULE.tools
 
-### Hybrid mode for gradual migration {:#hybrid-mode}
+### Hybrid mode for gradual migration
 
 Bzlmod and WORKSPACE can work side by side, which allows migrating dependencies
 from the WORKSPACE file to Bzlmod to be a gradual process.
@@ -704,7 +700,7 @@ Note: In practice, loading "*_deps" macros in WORKSPACE often causes confusions
 with Bzlmod dependencies, therefore we recommend starting with a
 WORKSPACE.bzlmod file and avoid loading transitive dependencies with macros.
 
-#### WORKSPACE.bzlmod {:#workspace.bzlmod}
+#### WORKSPACE.bzlmod
 
 During the migration, Bazel users may need to switch between builds with and
 without Bzlmod enabled. WORKSPACE.bzlmod support is implemented to make the
@@ -724,11 +720,11 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 *   When Bzlmod is enabled, you can better track what dependencies are left to
     migrate with WORKSPACE.bzlmod.
 
-#### Repository visibility {:#repository-visibility}
+#### Repository visibility
 
 Bzlmod is able to control which other repositories are visible from a given
 repository, check [repository names and strict
-deps](/external/module#repository_names_and_strict_deps) for more details.
+deps](/versions/9.0.0/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -742,7 +738,7 @@ repositories when also taking WORKSPACE into consideration.
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
 `@foo` is also used as an [apparent repository
-name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+name](/versions/9.0.0/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as
@@ -751,7 +747,7 @@ another repository generated by the same module extension and direct
 dependencies of the module hosting the module extension, then for repository
 `@bar`, `@foo` refers to the latter.
 
-### Manual migration process {:#manual-migration-process}
+### Manual migration process
 
 A typical Bzlmod migration process can look like this:
 
@@ -766,7 +762,7 @@ A typical Bzlmod migration process can look like this:
     extension, or leave it in the WORKSPACE.bzlmod for later migration.
 1.  Go back to 4 and repeat until all dependencies are available.
 
-## Publish Bazel modules {:#publish-modules}
+## Publish Bazel modules
 
 If your Bazel project is a dependency for other projects, you can publish your
 project in the [Bazel Central Registry](https://registry.bazel.build/).
@@ -822,7 +818,7 @@ It is **highly recommended** to set up the [Publish to
 BCR](https://github.com/bazel-contrib/publish-to-bcr) GitHub App for your
 repository to automate the process of submitting your module to the BCR.
 
-## Best practices {:#best-practices}
+## Best practices
 
 This section documents a few best practices you should follow for better
 managing your external dependencies.
@@ -847,14 +843,14 @@ still build without dev dependencies and overrides.
 
 {# More best practices here !!! #}
 
-## Community migration progress {:#migration-progress}
+## Community migration progress
 
 You can check the [Bazel Central Registry](https://registry.bazel.build) to find
 out if your dependencies are already available. Otherwise feel free to join this
 [GitHub discussion](https://github.com/bazelbuild/bazel/discussions/18329) to
 upvote or post the dependencies that are blocking your migration.
 
-## Report issues {:#reporting-issues}
+## Report issues
 
 Please check the [Bazel GitHub issue list][bzlmod_github_issue] for known Bzlmod
 issues. Feel free to file new issues or feature requests that can help unblock

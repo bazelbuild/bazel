@@ -23,7 +23,7 @@ and more, all completely from .bzl files (no Bazel release required). See the
 `bazelbuild/examples` repo for
 [examples](https://github.com/bazelbuild/examples/tree/HEAD/configurations).
 
-## User-defined build settings {:#user-defined-build-settings}
+## User-defined build settings
 
 A build setting is a single piece of
 [configuration](/versions/9.0.0/extending/rules#configurations)
@@ -41,11 +41,11 @@ register changes). They also can be set via the command line
 (if they're designated as `flags`, see more below), but can also be
 set via [user-defined transitions](#user-defined-transitions).
 
-### Defining build settings {:#defining-build-settings}
+### Defining build settings
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/basic_build_setting)
 
-#### The `build_setting` `rule()` parameter {:#rule-parameter}
+#### The `build_setting` `rule()` parameter
 
 Build settings are rules like any other rule and are differentiated using the
 Starlark `rule()` function's `build_setting`
@@ -74,7 +74,7 @@ writer have some debug mode that you'd like to turn on inside test rules,
 you don't want to give users the ability to indiscriminately turn on that
 feature inside other non-test rules.
 
-#### Using ctx.build_setting_value {:#ctx-build-setting-value}
+#### Using ctx.build_setting_value
 
 Like all rules, build setting rules have [implementation functions](/versions/9.0.0/extending/rules#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
@@ -110,7 +110,7 @@ But all other references to the value of the build setting (such as in transitio
 will see its basic Starlark-typed value, not this post implementation function
 value.
 
-#### Defining multi-set string flags {:#multi-set-string-flags}
+#### Defining multi-set string flags
 
 String settings have an additional `allow_multiple` parameter which allows the
 flag to be set multiple times on the command line or in bazelrcs. Their default
@@ -143,7 +143,7 @@ $ bazel build //my/target --//example:roasts=blonde \
 The above is parsed to `{"//example:roasts": ["blonde", "medium,dark"]}` and
 `ctx.build_setting_value` returns the list `["blonde", "medium,dark"]`.
 
-#### Instantiating build settings {:#instantiating-build-settings}
+#### Instantiating build settings
 
 Rules defined with the `build_setting` parameter have an implicit mandatory
 `build_setting_default` attribute. This attribute takes on the same type as
@@ -171,7 +171,7 @@ flavor(
 )
 ```
 
-### Predefined settings {:#predefined-settings}
+### Predefined settings
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/use_skylib_build_setting)
 
@@ -195,9 +195,9 @@ string_flag(
 For a complete list, see
 [Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl).
 
-### Using build settings {:#using-build-settings}
+### Using build settings
 
-#### Depending on build settings {:#depending-on-build-settings}
+#### Depending on build settings
 
 If a target would like to read a piece of configuration information, it can
 directly depend on the build setting via a regular attribute dependency.
@@ -262,7 +262,7 @@ kotlin_binary = rule(
 
 ```
 
-#### Using build settings on the command line {:#build-settings-command-line}
+#### Using build settings on the command line
 
 Similar to most native flags, you can use the command line to set build settings
 [that are marked as flags](#rule-parameter). The build
@@ -280,7 +280,7 @@ $ bazel build //my/target --//example:boolean_flag
 $ bazel build //my/target --no//example:boolean_flag
 ```
 
-#### Using build setting aliases {:#using-build-setting-aliases}
+#### Using build setting aliases
 
 You can set an alias for your build setting target path to make it easier to read
 on the command line. Aliases function similarly to native flags and also make use
@@ -312,7 +312,7 @@ $ bazel build //my/target --//experimental/user/starlark_configurations/basic_bu
 Best Practice: While it possible to set aliases on the command line, leaving them
 in a `.bazelrc` reduces command line clutter.
 
-### Label-typed build settings {:#label-typed-build-settings}
+### Label-typed build settings
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/label_typed_build_setting)
 
@@ -366,7 +366,7 @@ label_flag(
 )
 ```
 
-### Build settings and select() {:#build-settings-and-select}
+### Build settings and select()
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/select_on_build_setting)
 
@@ -384,7 +384,7 @@ config_setting(
 )
 ```
 
-## User-defined transitions {:#user-defined-transitions}
+## User-defined transitions
 
 A configuration
 [transition](/versions/9.0.0/rules/lib/builtins/transition#transition)
@@ -393,7 +393,7 @@ build graph.
 
 Important: Transitions have [memory and performance impact](#memory-performance-considerations).
 
-### Defining {:#defining}
+### Defining
 
 Transitions define configuration changes between rules. For example, a request
 like "compile my dependency for a different CPU than its parent" is handled by a
@@ -452,7 +452,7 @@ parameter of the transition function. This is true even if a build setting is
 not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
-### Defining 1:2+ transitions {:#defining-1-2-transitions}
+### Defining 1:2+ transitions
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/multi_arch_binary)
 
@@ -497,7 +497,7 @@ multi_arch_transition = transition(
 )
 ```
 
-### Attaching transitions {:#attaching-transitions}
+### Attaching transitions
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/attaching_transitions_to_rules)
 
@@ -511,7 +511,7 @@ If you need to do this, contact
 bazel-discuss@googlegroups.com
 for help with figuring out workarounds.
 
-### Incoming edge transitions {:#incoming-edge-transitions}
+### Incoming edge transitions
 
 Incoming edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to `rule()`'s `cfg` parameter:
@@ -527,7 +527,7 @@ drink_rule = rule(
 
 Incoming edge transitions must be 1:1 transitions.
 
-### Outgoing edge transitions {:#outgoing-edge-transitions}
+### Outgoing edge transitions
 
 Outgoing edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to an attribute's `cfg` parameter:
@@ -545,7 +545,7 @@ Outgoing edge transitions can be 1:1 or 1:2+.
 See [Accessing attributes with transitions](#accessing-attributes-with-transitions)
 for how to read these keys.
 
-### Transitions on native options {:#transitions-native-options}
+### Transitions on native options
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/transition_on_native_flag)
 
@@ -564,7 +564,7 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
-#### Unsupported native options {:#unsupported-native-options}
+#### Unsupported native options
 
 Bazel doesn't support transitioning on `--define` with
 `"//command_line_option:define"`. Instead, use a custom
@@ -584,7 +584,7 @@ As a workaround, you can explicitly itemize the flags that *are* part of
 the configuration in your transition. This requires maintaining the `--config`'s
 expansion in two places, which is a known UI blemish.
 
-### Transitions on allow multiple build settings {:#transitions-multiple-build-settings}
+### Transitions on allow multiple build settings
 
 When setting build settings that
 [allow multiple values](#defining-multi-set-string-flags), the value of the
@@ -617,7 +617,7 @@ coffee_transition = transition(
 )
 ```
 
-### No-op transitions {:#no-op-transitions}
+### No-op transitions
 
 If a transition returns `{}`, `[]`, or `None`, this is shorthand for keeping all
 settings at their original values. This can be more convenient than explicitly
@@ -646,7 +646,7 @@ hot_chocolate_transition = transition(
 )
 ```
 
-### Accessing attributes with transitions {:#accessing-attributes-with-transitions}
+### Accessing attributes with transitions
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/read_attr_in_transition)
 
@@ -715,14 +715,14 @@ multi_arch_rule = rule(
 See [complete example](https://github.com/bazelbuild/examples/tree/main/configurations/multi_arch_binary)
 here.
 
-## Integration with platforms and toolchains {:#integration-platforms-toolchains}
+## Integration with platforms and toolchains
 
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
 [target platform](/versions/9.0.0/extending/platforms).
 
-## Memory and performance considerations {:#memory-performance-considerations}
+## Memory and performance considerations
 
 Adding transitions, and therefore new configurations, to your build comes at a
 cost: larger build graphs, less comprehensible build graphs, and slower
@@ -730,7 +730,7 @@ builds. It's worth considering these costs when considering
 using transitions in your build rules. Below is an example of how a transition
 might create exponential growth of your build graph.
 
-### Badly behaved builds: a case study {:#badly-behaved-builds}
+### Badly behaved builds: a case study
 
 ![Scalability graph](/versions/9.0.0/rules/scalability-graph.png "Scalability graph")
 
@@ -781,7 +781,7 @@ corresponding memory and performance consequences.
 
 TODO: Add strategies for measurement and mitigation of these issues.
 
-## Further reading {:#further-reading}
+## Further reading
 
 For more details on modifying build configurations, see:
 

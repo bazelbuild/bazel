@@ -98,7 +98,7 @@ built.
 }
 ```
 
-## Aspect Results in BEP {:#aspect-results}
+## Aspect Results in BEP
 
 Ordinary builds evaluate actions associated with `(target, configuration)`
 pairs. When building with [aspects](/versions/9.0.0/extending/aspects) enabled, Bazel
@@ -140,7 +140,7 @@ Note: The only difference between the IDs is the presence of the `aspect`
 field. A tool that does not check the `aspect` ID field and accumulates output
 files by target may conflate target outputs with aspect outputs.
 
-## Consuming `NamedSetOfFiles` {:#consuming-namedsetoffiles}
+## Consuming `NamedSetOfFiles`
 
 Determining the artifacts produced by a given target (or aspect) is a common
 BEP use-case that can be done efficiently with some preparation. This section

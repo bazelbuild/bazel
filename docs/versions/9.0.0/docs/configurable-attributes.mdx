@@ -10,7 +10,7 @@ This can be used, for example, for a multiplatform library that automatically
 chooses the appropriate implementation for the architecture, or for a
 feature-configurable binary that can be customized at build time.
 
-## Example {:#configurable-build-example}
+## Example
 
 ```python
 # myapp/BUILD
@@ -86,7 +86,7 @@ are *non-configurable*, and these are clearly annotated. For example,
 `config_setting`'s own
 [`values`](/versions/9.0.0/reference/be/general#config_setting.values) attribute is non-configurable.
 
-## `select()` and dependencies {:#select-and-dependencies}
+## `select()` and dependencies
 
 Certain attributes change the build parameters for all transitive dependencies
 under a target. For example, `genrule`'s `tools` changes `--cpu` to the CPU of
@@ -142,7 +142,7 @@ build parameters, which include `--cpu=arm`. The `tools` attribute changes
 `--cpu` to `x86` for `tool1` and its transitive dependencies. The `select` on
 `tool1` uses `tool1`'s build parameters, which include `--cpu=x86`.
 
-## Configuration conditions {:#configuration-conditions}
+## Configuration conditions
 
 Each key in a configurable attribute is a label reference to a
 [`config_setting`](/versions/9.0.0/reference/be/general#config_setting) or
@@ -154,7 +154,7 @@ easy to maintain "standard" conditions users can reference from multiple places.
 
 `constraint_value` provides support for [multi-platform behavior](#platforms).
 
-### Built-in flags {:#built-in-flags}
+### Built-in flags
 
 Flags like `--cpu` are built into Bazel: the build tool natively understands
 them for all builds in all projects. These are specified with
@@ -188,7 +188,7 @@ it only affects how Bazel reports progress to the user. Targets can't use that
 flag to construct their results. The exact set of supported flags isn't
 documented. In practice, most flags that "make sense" work.
 
-### Custom flags {:#custom-flags}
+### Custom flags
 
 You can model your own project-specific flags with
 [Starlark build settings][BuildSettings]. Unlike built-in flags, these are
@@ -224,7 +224,7 @@ compatibility. Prefer Starlark build settings whenever possible.
 `values`, `flag_values`, and `define_values` evaluate independently. The
 `config_setting` matches if all values across all of them match.
 
-## The default condition {:#default-condition}
+## The default condition
 
 The built-in condition `//conditions:default` matches when no other condition
 matches.
@@ -260,7 +260,7 @@ Conditions checked:
 For even clearer errors, you can set custom messages with `select()`'s
 [`no_match_error`](#custom-error-messages) attribute.
 
-## Platforms {:#platforms}
+## Platforms
 
 While the ability to specify multiple flags on the command line provides
 flexibility, it can also be burdensome to individually set each one every time
@@ -362,7 +362,7 @@ check against single values.
 Platforms are still under development. See the
 [documentation](/versions/9.0.0/concepts/platforms) for details.
 
-## Combining `select()`s {:#combining-selects}
+## Combining `select()`s
 
 `select` can appear multiple times in the same attribute:
 
@@ -411,7 +411,7 @@ sh_library(
 If you need a `select` to match when multiple conditions match, consider [AND
 chaining](#and-chaining).
 
-## OR chaining {:#or-chaining}
+## OR chaining
 
 Consider the following:
 
@@ -454,7 +454,7 @@ duplication.
 
 For more direct support, use one of the following:
 
-### `selects.with_or` {:#selects-with-or}
+### `selects.with_or`
 
 The
 [with_or](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectswith_or)
@@ -477,7 +477,7 @@ sh_binary(
 )
 ```
 
-### `selects.config_setting_group` {:#selects-config-setting-or-group}
+### `selects.config_setting_group`
 
 The
 [config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectsconfig_setting_group)
@@ -518,7 +518,7 @@ different attributes.
 It's an error for multiple conditions to match unless one is an unambiguous
 "specialization" of the others or they all resolve to the same value. See [here](#configurable-build-example) for details.
 
-## AND chaining {:#and-chaining}
+## AND chaining
 
 If you need a `select` branch to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
@@ -550,7 +550,7 @@ sh_binary(
 Unlike OR chaining, existing `config_setting`s can't be directly `AND`ed
 inside a `select`. You have to explicitly wrap them in a `config_setting_group`.
 
-## Custom error messages {:#custom-error-messages}
+## Custom error messages
 
 By default, when no condition matches, the target the `select()` is attached to
 fails with the error:
@@ -585,7 +585,7 @@ ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## Rules compatibility {:#rules-compatibility}
+## Rules compatibility
 
 Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
@@ -633,7 +633,7 @@ Second, macros that just need to iterate over *all* `select` paths, while
 technically feasible, lack a coherent UI. Further design is necessary to change
 this.
 
-## Bazel query and cquery {:#query-and-cquery}
+## Bazel query and cquery
 
 Bazel [`query`](/versions/9.0.0/query/guide) operates over Bazel's
 [loading phase](/versions/9.0.0/reference/glossary#loading-phase).
@@ -694,9 +694,9 @@ $ bazel cquery 'deps(//myapp:my_lib)' --//myapp:dog_type=pug
 //myapp:bar_dep
 ```
 
-## FAQ {:#faq}
+## FAQ
 
-### Why doesn't select() work in macros? {:#faq-select-macro}
+### Why doesn't select() work in macros?
 
 select() *does* work in rules! See [Rules compatibility](#rules-compatibility) for
 details.
@@ -808,7 +808,7 @@ DEBUG: /myworkspace/myapp/defs.bzl:23:3: Invoking macro sad_macro_less_sad.
 DEBUG: /myworkspace/myapp/defs.bzl:15:3: My name is sad_macro_less_sad with custom message: FIRST STRING.
 ```
 
-### Why does select() always return true? {:#faq-boolean-select}
+### Why does select() always return true?
 
 Because *macros* (but not rules) by definition
 [can't evaluate `select()`s](#faq-select-macro), any attempt to do so
@@ -854,7 +854,7 @@ So what they're really evaluting is the `select()` object itself. According to
 standards, all objects aside from a very small number of exceptions
 automatically return true.
 
-### Can I read select() like a dict? {:#faq-inspectable-select}
+### Can I read select() like a dict?
 
 Macros [can't](#faq-select-macro) evaluate select(s) because macros evaluate before
 Bazel knows what the build's command line parameters are. Can they at least read
@@ -910,7 +910,7 @@ def selecty_genrule(name, select_cmd):
     )
 ```
 
-### Why doesn't select() work with bind()? {:#faq-select-bind}
+### Why doesn't select() work with bind()?
 
 First of all, do not use `bind()`. It is deprecated in favor of `alias()`.
 
@@ -958,7 +958,7 @@ located at `@alternative//:ssl`.
 
 But really, stop using `bind()`.
 
-### Why doesn't my select() choose what I expect? {:#faq-select-choose-condition}
+### Why doesn't my select() choose what I expect?
 
 If `//myapp:foo` has a `select()` that doesn't choose the condition you expect,
 use [cquery](/versions/9.0.0/query/cquery) and `bazel config` to debug:
@@ -1009,7 +1009,7 @@ Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
 same command line flags as the `bazel cquery`. The `config` command relies on
 the configuration nodes from the still-running server of the previous command.
 
-### Why doesn't `select()` work with platforms? {:#faq-select-platforms}
+### Why doesn't `select()` work with platforms?
 
 Bazel doesn't support configurable attributes checking whether a given platform
 is the target platform because the semantics are unclear.

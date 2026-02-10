@@ -16,7 +16,7 @@ languages like Java and Scala, this saves JVM warm-up time and JIT compilation
 time, and in general it allows using one shared cache between all workers of
 the same type.
 
-## Overview {:#overview}
+## Overview
 
 There are two layers between the Bazel server and the worker process. For certain
 mnemonics that can run processes in parallel, Bazel gets a `WorkerProxy` from
@@ -37,7 +37,7 @@ invocation, each unique mnemonic can only have one `WorkerMultiplexer` and one
 worker process. The total number of workers, including regular workers and
 `WorkerProxy`s, is still limited by `--worker_max_instances`.
 
-## Writing multiplex-compatible rules {:#multiplex-rules}
+## Writing multiplex-compatible rules
 
 The rule's worker process should be multi-threaded to take advantage of
 multiplex workers. Protobuf allows a ruleset to parse a single request even
@@ -48,7 +48,7 @@ the same time, the worker process needs to make sure the responses are written
 atomically (messages don't overlap). Responses must contain the
 `request_id` of the request they're handling.
 
-### Handling multiplex output {:#output}
+### Handling multiplex output
 
 Multiplex workers need to be more careful about handling their output than
 singleplex workers. Anything sent to `stderr` will go into a single log file
@@ -59,7 +59,7 @@ field of `WorkResponse`, as that could show the user mangled pieces of output.
 If your tool only sends user-oriented output to `stdout` or `stderr`, you will
 need to change that behaviour before you can enable multiplex workers.
 
-## Enabling multiplex workers {:#multiplex-workers}
+## Enabling multiplex workers
 
 Multiplex workers are not enabled by default. A ruleset can turn on multiplex
 workers by using the `supports-multiplex-workers` tag in the

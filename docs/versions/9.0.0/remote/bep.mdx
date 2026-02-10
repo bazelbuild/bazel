@@ -39,7 +39,7 @@ encoded as a protocol buffer message specific to that event. Note that the
 payload might not be the expected type, but could be an `Aborted` message
 if the build aborted prematurely.
 
-### Build event graph {:#build-event-graph}
+### Build event graph
 
 All build events form a directed acyclic graph through their parent and child
 relationship. Every build event except for the initial build event has one or
@@ -62,9 +62,9 @@ graph has the following characteristic shape:
    by events containing summary information about the build (for example, metric
    or profiling data).
 
-## Consuming Build Event Protocol {:#consuming-bep}
+## Consuming Build Event Protocol
 
-### Consume in binary format {:#consuming-bep-binary}
+### Consume in binary format
 
 To consume the BEP in a binary format:
 
@@ -79,7 +79,7 @@ To consume the BEP in a binary format:
 2. Then, write a program that extracts the relevant information from the
    serialized protocol buffer message.
 
-### Consume in text or JSON formats {:#consuming-bep-text-json}
+### Consume in text or JSON formats
 
 The following Bazel command line flags will output the BEP in
 human-readable formats, such as text and JSON:
@@ -89,7 +89,7 @@ human-readable formats, such as text and JSON:
 --build_event_json_file
 ```
 
-## Build Event Service {:#build-event-service}
+## Build Event Service
 
 The [Build Event
 Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
@@ -101,7 +101,7 @@ events to using the `--bes_backend=HOST:PORT` flag. If your backend uses gRPC,
 you must prefix the address with the appropriate scheme: `grpc://` for plaintext
 gRPC and `grpcs://` for gRPC with TLS enabled.
 
-### Build Event Service flags {:#bes-flags}
+### Build Event Service flags
 
 Bazel has several flags related to the Build Event Service protocol, including:
 
@@ -114,7 +114,7 @@ Bazel has several flags related to the Build Event Service protocol, including:
 For a description of each of these flags, see the
 [Command-Line Reference](/versions/9.0.0/reference/command-line-reference).
 
-### Authentication and security {:#authentication-security}
+### Authentication and security
 
 Bazel’s Build Event Service implementation also supports authentication and TLS.
 These settings can be controlled using the below flags. Please note that these
@@ -131,13 +131,13 @@ authentication and TLS infrastructure.
 For a description of each of these flags, see the
 [Command-Line Reference](/versions/9.0.0/reference/command-line-reference).
 
-### Build Event Service and remote caching {:#bes-remote-caching}
+### Build Event Service and remote caching
 
 The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
 work around this issue is to use Bazel with [remote
-caching](/remote/caching).
+caching](/versions/9.0.0/remote/caching).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

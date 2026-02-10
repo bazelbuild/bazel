@@ -16,7 +16,7 @@ of _actual dependencies_ and the graph of _declared dependencies_. Most of the
 time, the two graphs are so similar that this distinction need not be made, but
 it is useful for the discussion below.
 
-## Actual and declared dependencies {:#actual-and-declared-dependencies}
+## Actual and declared dependencies
 
 A target `X` is _actually dependent_ on target `Y` if `Y` must be present,
 built, and up-to-date in order for `X` to be built correctly. _Built_ could
@@ -57,7 +57,7 @@ dependencies don't appear in the `BUILD` file. Because the rule doesn't
 directly depend on the provider, there is no way to track changes, as shown in
 the following example timeline:
 
-### 1. Declared dependencies match actual dependencies {:#this-is-fine}
+### 1. Declared dependencies match actual dependencies
 
 At first, everything works. The code in package `a` uses code in package `b`.
 The code in package `b` uses code in package `c`, and thus `a` transitively
@@ -127,7 +127,7 @@ function foo() {
 
 The declared dependencies overapproximate the actual dependencies. All is well.
 
-### 2. Adding an undeclared dependency {:#undeclared-dependency}
+### 2. Adding an undeclared dependency
 
 A latent hazard is introduced when someone adds code to `a` that creates a
 direct _actual_ dependency on `c`, but forgets to declare it in the build file
@@ -173,7 +173,7 @@ The declared dependencies no longer overapproximate the actual dependencies.
 This may build ok, because the transitive closures of the two graphs are equal,
 but masks a problem: `a` has an actual but undeclared dependency on `c`.
 
-### 3. Divergence between declared and actual dependency graphs {:#divergence}
+### 3. Divergence between declared and actual dependency graphs
 
 The hazard is revealed when someone refactors `b` so that it no longer depends on
 `c`, inadvertently breaking `a` through no
@@ -236,7 +236,7 @@ dependencies, even when transitively closed; the build is likely to fail.
 The problem could have been averted by ensuring that the actual dependency from
 `a` to `c` introduced in Step 2 was properly declared in the `BUILD` file.
 
-## Types of dependencies {:#types-of-dependencies}
+## Types of dependencies
 
 Most build rules have three attributes for specifying different kinds of
 generic dependencies: `srcs`, `deps` and `data`. These are explained below. For
@@ -247,16 +247,16 @@ Many rules also have additional attributes for rule-specific kinds of
 dependencies, for example, `compiler` or `resources`. These are detailed in the
 [Build Encyclopedia](/versions/9.0.0/reference/be/).
 
-### `srcs` dependencies {:#srcs-dependencies}
+### `srcs` dependencies
 
 Files consumed directly by the rule or rules that output source files.
 
-### `deps` dependencies {:#deps-dependencies}
+### `deps` dependencies
 
 Rule pointing to separately-compiled modules providing header files,
 symbols, libraries, data, etc.
 
-### `data` dependencies {:#data-dependencies}
+### `data` dependencies
 
 A build target might need some data files to run correctly. These data files
 aren't source code: they don't affect how the target is built. For example, a
@@ -293,7 +293,7 @@ you can refer to these files by joining the paths of the test's source
 directory and the workspace-relative path, for example,
 `${TEST_SRCDIR}/workspace/path/to/data/file`.
 
-## Using labels to reference directories {:#using-labels-reference-directories}
+## Using labels to reference directories
 
 As you look over our `BUILD` files, you might notice that some `data` labels
 refer to directories. These labels end with `/.` or `/` like these examples,

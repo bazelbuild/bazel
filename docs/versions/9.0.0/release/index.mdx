@@ -8,7 +8,7 @@ post](https://blog.bazel.build/2020/11/10/long-term-support-release.html), Bazel
 releases and long term support (LTS) releases. This page covers the latest
 information about Bazel's release model.
 
-## Support matrix {:#support-matrix}
+## Support matrix
 
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
@@ -26,7 +26,7 @@ Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
 recommended to upgrade to the latest LTS release or use rolling releases if you
 want to keep up with the latest changes at HEAD.
 
-## Release versioning {:#bazel-versioning}
+## Release versioning
 
 Bazel uses a _major.minor.patch_ [Semantic
 Versioning](https://semver.org/) scheme.
@@ -47,7 +47,7 @@ For example, a new release of each type would result in these version numbers:
 *   Patch: 6.1.2
 *   Pre-release: 7.0.0-pre.20230502.1
 
-## Support stages {:#support-stages}
+## Support stages
 
 For each major Bazel version, there are four support stages:
 
@@ -61,11 +61,11 @@ For each major Bazel version, there are four support stages:
 *   **Deprecated**: The Bazel team no longer provides support for this major
     version, all users should migrate to newer Bazel LTS releases.
 
-## Release cadence {:#release-cadence}
+## Release cadence
 
 Bazel regularly publish releases for two release tracks.
 
-### Rolling releases {:#rolling-releases}
+### Rolling releases
 
 *   Rolling releases are coordinated with Google Blaze release and are released
   from HEAD around every two weeks. It is a preview of the next Bazel LTS
@@ -73,9 +73,9 @@ Bazel regularly publish releases for two release tracks.
 *   Rolling releases can ship incompatible changes. Incompatible flags are
     recommended for major breaking changes, rolling out incompatible changes
     should follow our [backward compatibility
-    policy](/release/backward-compatibility).
+    policy](/versions/9.0.0/release/backward-compatibility).
 
-### LTS releases {:#lts-releases}
+### LTS releases
 
 *   _Major release_: A new LTS release is expected to be cut from HEAD roughly
     every
@@ -93,7 +93,7 @@ For planned releases, please check our [release
 issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Arelease)
 on Github.
 
-## Release procedure & policies {:#release-procedure-policies}
+## Release procedure & policies
 
 For rolling releases, the process is straightforward: about every two weeks, a
 new release is created, aligning with the same baseline as the Google internal
@@ -184,7 +184,7 @@ For LTS releases, the procedure and policies below are followed:
         the Bazel team monitors and addresses community bug reports for the new
      release.
 
-## Report regressions {:#report-regressions}
+## Report regressions
 
 If a user finds a regression in a new Bazel release, release candidate or even
 Bazel at HEAD, please file a bug on
@@ -207,8 +207,8 @@ reproduce the issue. For more details, check out documentation about Bazelisk
 Remember to upgrade Bazelisk to the latest version to use the bisect
 feature.
 
-## Rule compatibility {:#rule-compatibility}
+## Rule compatibility
 
 If you are a rule authors and want to maintain compatibility with different
 Bazel versions, please check out the [Rule
-Compatibility](/release/rule-compatibility) page.
+Compatibility](/versions/9.0.0/release/rule-compatibility) page.

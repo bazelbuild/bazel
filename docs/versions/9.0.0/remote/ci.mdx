@@ -8,7 +8,7 @@ your repository to test your rules for compatibility against a remote execution
 scenario. The instructions on this page apply to projects stored in
 GitHub repositories.
 
-## Prerequisites {:#prerequisites}
+## Prerequisites
 
 Before completing the steps on this page, ensure the following:
 
@@ -17,7 +17,7 @@ Before completing the steps on this page, ensure the following:
 *   You have configured Buildkite for your repository as described in
     [Bazel Continuous Integration](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite).
 
-## Setting up the Bazel CI for testing {:#bazel-ci-testing}
+## Setting up the Bazel CI for testing
 
 1.  In your `.bazelci/presubmit.yml` file, do the following:
 
@@ -56,7 +56,7 @@ rbe_autoconfig(name = "buildkite_config")
 
     ![Branch protection rules settings](/versions/9.0.0/docs/images/rbe-ci-2.png "Branch protection rules")
 
-## Troubleshooting failed builds and tests {:#troubleshooting-failed-builds}
+## Troubleshooting failed builds and tests
 
 If your build or tests fail, it's likely due to the following:
 
@@ -74,7 +74,7 @@ If your build or tests fail, it's likely due to the following:
     [Adapting Bazel Rules for Remote Execution](/versions/9.0.0/remote/rules) for
     details about compatibility with remote execution.
 
-## Using a custom container in the rbe_ubuntu1604 CI config {:#custom-container}
+## Using a custom container in the rbe_ubuntu1604 CI config
 
 The `rbe-ubuntu16-04` container is publicly available at the following URL:
 
@@ -89,7 +89,7 @@ Before you begin, make sure you have installed `gcloud`, `docker`, and `git`.
 If you are building the container from source, you must also install the latest
 version of Bazel.
 
-### Pulling the rbe-ubuntu16-04 from Container Registry {:#container-registry}
+### Pulling the rbe-ubuntu16-04 from Container Registry
 
 To pull the `rbe-ubuntu16-04` container from Container Registry, run the
 following command:
@@ -101,7 +101,7 @@ gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:{{ 
 Replace {{ '<var>' }}sha256-checksum{{ '</var>' }} with the SHA256 checksum value for
 [the latest container](https://console.cloud.google.com/gcr/images/cloud-marketplace/GLOBAL/google/rbe-ubuntu16-04).
 
-### Building the rbe-ubuntu16-04 container from source {:#container-source}
+### Building the rbe-ubuntu16-04 container from source
 
 To build the `rbe-ubuntu16-04` container from source, do the following:
 
@@ -120,7 +120,7 @@ To build the `rbe-ubuntu16-04` container from source, do the following:
 gcloud docker -- pull gcr.io/{{ '<var>' }}project-id{{ '</var>' }}/{{ '<var>' }}custom-container-name{{ '</var>' }}{{ '<var>' }}sha256-checksum{{ '</var>' }}
     ```
 
-### Running the custom container {:#run-custom-container}
+### Running the custom container
 
 To run the custom container, do one of the following:
 
@@ -140,7 +140,7 @@ To run the custom container, do one of the following:
     docker run -it gcr.io/{{ '<var>' }}project-id{{ '</var>' }}/{{ '<var>' }}custom-container-name{{ '</var>' }}@sha256:{{ '<var>' }}sha256sum{{ '</var>' }} /bin/bash
     ```
 
-### Adding resources to the custom container {:#add-resources-container}
+### Adding resources to the custom container
 
 Use a [`Dockerfile`](https://docs.docker.com/engine/reference/builder/) or
 [`rules_docker`](https://github.com/bazelbuild/rules_docker) to add resources or
@@ -157,7 +157,7 @@ FROM gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:{{ '<var>' }}sha256-
 RUN apt-get update && yes | apt-get install -y {{ '<var>' }}my_tool_package{{ '</var>' }}
 ```
 
-### Pushing the custom container to Container Registry {:#push-container-registry}
+### Pushing the custom container to Container Registry
 
 Once you have customized the container, build the container image and push it to
 Container Registry as follows:
@@ -190,7 +190,7 @@ Container Registry as follows:
     For more information, see
     [Pushing and Pulling Images](https://cloud.google.com/container-registry/docs/pushing-and-pulling).
 
-### Specifying the build platform definition {:#platform-definition}
+### Specifying the build platform definition
 
 You must include a [Bazel platform](/versions/9.0.0/extending/platforms) configuration in your
 custom toolchain configuration, which allows Bazel to select a toolchain
