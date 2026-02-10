@@ -1773,12 +1773,15 @@ public class RemoteExecutionService {
                   uploadDone.countDown();
                 }
               });
-      outputService.registerPostExecutionTask(
-          action.getRemoteActionExecutionContext().getSpawnOwner(),
-          () -> {
-            future.cancel(true);
-            uploadDone.await();
-          });
+
+      if (outputService instanceof RemoteOutputService remoteOutputService) {
+        remoteOutputService.registerOutputUploadTask(
+            action.getRemoteActionExecutionContext().getSpawnOwner(),
+            () -> {
+              future.cancel(true);
+              uploadDone.await();
+            });
+      }
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
     }

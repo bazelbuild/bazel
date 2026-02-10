@@ -64,15 +64,19 @@ import javax.annotation.Nullable;
 public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
-  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> postExecutionTasks =
+  private final boolean rewindLostInputs;
+  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> outputUploadTasks =
       new ConcurrentHashMap<>();
+
+  private RewoundActionSynchronizer rewoundActionSynchronizer = RewoundActionSynchronizer.NOOP;
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
 
-  RemoteOutputService(BlazeDirectories directories) {
+  RemoteOutputService(BlazeDirectories directories, boolean rewindLostInputs) {
     this.directories = checkNotNull(directories);
+    this.rewindLostInputs = rewindLostInputs;
   }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
@@ -81,6 +85,9 @@ public class RemoteOutputService implements OutputService {
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
+    if (rewindLostInputs) {
+      rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer();
+    }
   }
 
   void setLeaseService(LeaseService leaseService) {
@@ -242,34 +249,42 @@ public class RemoteOutputService implements OutputService {
     }
   }
 
-  @Override
-  public void registerPostExecutionTask(ActionExecutionMetadata action, Cancellable task) {
-    // We don't expect to have multiple post-execution tasks for the same action registered at the
+  /** A task with a cancellation callback. */
+  public interface Cancellable {
+    void cancel() throws InterruptedException;
+  }
+
+  /**
+   * Registers a cancellation callback for an upload of action outputs that may still be running
+   * after the action has completed.
+   */
+  public void registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
+    // We don't expect to have multiple output upload tasks for the same action registered at the
     // same time.
-    postExecutionTasks.merge(
+    outputUploadTasks.merge(
         action,
         task,
         (oldTask, newTask) -> {
           throw new IllegalStateException(
-              "Attempted to register multiple post-execution tasks for %s: %s and %s"
+              "Attempted to register multiple output upload tasks for %s: %s and %s"
                   .formatted(action, oldTask, newTask));
         });
   }
 
-  @Override
-  public void cancelPostExecutionTasks(ActionExecutionMetadata action) throws InterruptedException {
-    Cancellable task = postExecutionTasks.remove(action);
+  /**
+   * Cancels and awaits the completion of all tasks registered with {@link
+   * #registerOutputUploadTask}.
+   */
+  public void cancelOutputUploadTasks(ActionExecutionMetadata action) throws InterruptedException {
+    Cancellable task = outputUploadTasks.remove(action);
     if (task != null) {
       task.cancel();
     }
   }
 
   @Override
-  public RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
-    if (rewindingEnabled && actionInputFetcher != null) {
-      return new RemoteRewoundActionSynchronizer();
-    }
-    return RewoundActionSynchronizer.NOOP;
+  public RewoundActionSynchronizer getRewoundActionSynchronizer() {
+    return rewoundActionSynchronizer;
   }
 
   /**
@@ -277,7 +292,7 @@ public class RemoteOutputService implements OutputService {
    * backed by actual files on disk and requires synchronization to ensure that action outputs
    * aren't deleted while they are being read.
    */
-  private final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
+  final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
     // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
     // non-rewound actions (readers) as long as no rewound action has attempted to prepare for its
     // execution.
@@ -409,7 +424,7 @@ public class RemoteOutputService implements OutputService {
      * their prefetching state.
      */
     private void prepareOutputsForRewinding(Action action) throws InterruptedException {
-      cancelPostExecutionTasks(action);
+      cancelOutputUploadTasks(action);
       actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());
     }
 
@@ -423,7 +438,11 @@ public class RemoteOutputService implements OutputService {
       }
     }
 
-    @Override
+    /**
+     * Guards a call to {@link
+     * RemoteImportantOutputHandler#processOutputsAndGetLostArtifacts(Iterable,
+     * InputMetadataProvider, InputMetadataProvider)}.
+     */
     public SilentCloseable enterProcessOutputsAndGetLostArtifacts(
         Iterable<Artifact> importantOutputs, InputMetadataProvider fullMetadataProvider)
         throws InterruptedException {

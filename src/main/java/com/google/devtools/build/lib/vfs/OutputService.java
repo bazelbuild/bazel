@@ -268,27 +268,7 @@ public interface OutputService {
     return false;
   }
 
-  /** A task with a cancellation callback. */
-  interface Cancellable {
-    void cancel() throws InterruptedException;
-  }
-
-  /**
-   * Registers a cancellation callback for a task that may still be running after the action has
-   * completed.
-   */
-  default void registerPostExecutionTask(ActionExecutionMetadata action, Cancellable task) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Cancels and awaits the completion of all tasks registered with {@link
-   * #registerPostExecutionTask}.
-   */
-  default void cancelPostExecutionTasks(ActionExecutionMetadata action)
-      throws InterruptedException {}
-
-  default RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
+  default RewoundActionSynchronizer getRewoundActionSynchronizer() {
     return RewoundActionSynchronizer.NOOP;
   }
 
@@ -314,14 +294,6 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
-     * Guards a call to {@link
-     * com.google.devtools.build.lib.actions.ImportantOutputHandler#processOutputsAndGetLostArtifacts}.
-     */
-    SilentCloseable enterProcessOutputsAndGetLostArtifacts(
-        Iterable<Artifact> importantOutputs, InputMetadataProvider fullMetadataProvider)
-        throws InterruptedException;
-
-    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -335,12 +307,6 @@ public interface OutputService {
           @Override
           public SilentCloseable enterActionExecution(
               Action action, InputMetadataProvider metadataProvider) {
-            return () -> {};
-          }
-
-          @Override
-          public SilentCloseable enterProcessOutputsAndGetLostArtifacts(
-              Iterable<Artifact> importantOutputs, InputMetadataProvider fullMetadataProvider) {
             return () -> {};
           }
         };

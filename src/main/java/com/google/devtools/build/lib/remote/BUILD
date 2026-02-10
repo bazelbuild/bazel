@@ -40,7 +40,6 @@ java_library(
             "LeaseService.java",
             "Scrubber.java",
             "Store.java",
-            "RemoteImportantOutputHandler.java",
         ],
     ),
     exports = [
@@ -55,7 +54,6 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":concurrent_artifact_path_trie",
         ":lease_service",
-        ":remote_important_output_handler",
         ":remote_output_checker",
         ":scrubber",
         ":store",
@@ -289,25 +287,6 @@ java_library(
 java_library(
     name = "store",
     srcs = ["Store.java"],
-)
-
-java_library(
-    name = "remote_important_output_handler",
-    srcs = ["RemoteImportantOutputHandler.java"],
-    deps = [
-        ":remote_output_checker",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-    ],
 )
 
 java_library(

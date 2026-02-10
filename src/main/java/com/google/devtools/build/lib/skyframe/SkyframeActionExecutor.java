@@ -113,7 +113,6 @@ import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
-import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -244,7 +243,6 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
-  private RewoundActionSynchronizer rewoundActionSynchronizer;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -348,8 +346,6 @@ public final class SkyframeActionExecutor {
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
-    this.rewoundActionSynchronizer =
-        outputService.createRewoundActionSynchronizer(rewindingEnabled);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
@@ -484,7 +480,6 @@ public final class SkyframeActionExecutor {
     this.executorEngine = null;
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
-    this.rewoundActionSynchronizer = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;
@@ -590,17 +585,6 @@ public final class SkyframeActionExecutor {
     if (actionCacheChecker.enabled()) {
       actionCacheChecker.removeCacheEntry(action);
     }
-  }
-
-  /**
-   * Guards a call to {@link
-   * com.google.devtools.build.lib.actions.ImportantOutputHandler#processOutputsAndGetLostArtifacts}.
-   */
-  public SilentCloseable enterProcessOutputsAndGetLostArtifacts(
-      Iterable<Artifact> importantOutputs, InputMetadataProvider fullMetadataProvider)
-      throws InterruptedException {
-    return rewoundActionSynchronizer.enterProcessOutputsAndGetLostArtifacts(
-        importantOutputs, fullMetadataProvider);
   }
 
   /**
@@ -1113,6 +1097,7 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
+          var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
           try (SilentCloseable outerLock =
               rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
             if (actionFileSystemType().shouldDoEagerActionPrep()) {
