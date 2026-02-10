@@ -32,6 +32,21 @@ final class CallUtils {
 
   private CallUtils() {} // uninstantiable
 
+  /** A map for obtaining a {@link BuiltinManager} from a {@link StarlarkSemantics}. */
+  // Historically, this code used to have a big map from (StarlarkSemantics, Class) pairs to
+  // ClassDescriptors. This caused unnecessary GC churn and method call overhead for the dedicated
+  // tuple objects, which became observable at scale. It was subsequently rewritten to be a
+  // double-layer map from Semantics to Class to ClassDescriptor, which optimized for the common
+  // case of few (typically just one) StarlarkSemantics instances. The inner map was then abstracted
+  // into BuiltinManager.
+  //
+  // Avoid ConcurrentHashMap#computeIfAbsent because it is not reentrant: If a ClassDescriptor is
+  // looked up before Starlark.UNIVERSE is initialized then the computation will re-enter the cache
+  // and have a cycle; see b/161479826 for history.
+  // TODO(bazel-team): Does the above cycle concern still exist?
+  private static final ConcurrentHashMap<StarlarkSemantics, BuiltinManager> managerForSemantics =
+      new ConcurrentHashMap<>();
+
   /**
    * Returns the {@link ClassDescriptor} for the given {@link StarlarkSemantics} and {@link Class}.
    *
@@ -43,46 +58,19 @@ final class CallUtils {
       clazz = StringModule.class;
     }
 
-    // We use two layers of caches, with the first layer being keyed by StarlarkSemantics and the
-    // second layer being keyed by Class. This optimizes for the common case of very few different
-    // StarlarkSemantics instances (typically, one) being in play. In contrast, if we used a single
-    // cache data structure then we'd need to use a dedicated tuple object for the keys of that data
-    // structure, and the GC churn and method call overhead become meaningful at scale.
-    //
-    // We implement each cache ourselves using CHM#get and CHM#putIfAbsent. We don't use
-    // CHM#computeIfAbsent since it is not reentrant: If #getClassDescriptor is called
-    // before Starlark.UNIVERSE is initialized then the computation will re-enter the cache and have
-    // a cycle; see b/161479826 for history.
-    // TODO(bazel-team): Maybe the above cycle concern doesn't exist now that CallUtils is private.
-    ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
-        classDescriptorCachesBySemantics.get(semantics.getClassDescriptorCacheKey());
-    if (classDescriptorCache == null) {
-      classDescriptorCache =
-          new ConcurrentHashMap<>(
-              // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
-              // we presize the CHM accordingly to reduce the chance two entries use the same hash
-              // bucket (in May 2023 this strategy was completely effective!). We used to use the
-              // default capacity, and then the CHM would get dynamically resized to have 256
-              // buckets, many of which had at least 2 entries which is suboptimal for such a hot
-              // data structure.
-              // TODO(bazel-team): Better would be to precompute the entire lookup table on server
-              //  startup (best would be to do this at compile time via an annotation processor),
-              //  rather than rely on it getting built-up dynamically as Starlark code gets
-              //  evaluated over the lifetime of the server. This way there are no concurrency
-              //  concerns, so we can use a more efficient data structure that doesn't need to
-              //  handle concurrent writes.
-              /* initialCapacity= */ 1000);
-      ConcurrentHashMap<Class<?>, ClassDescriptor> prev =
-          classDescriptorCachesBySemantics.putIfAbsent(semantics, classDescriptorCache);
+    BuiltinManager manager = managerForSemantics.get(semantics.getBuiltinManagerCacheKey());
+    if (manager == null) {
+      manager = new BuiltinManager();
+      BuiltinManager prev = managerForSemantics.putIfAbsent(semantics, manager);
       if (prev != null) {
-        classDescriptorCache = prev; // first thread wins
+        manager = prev; // first thread wins
       }
     }
 
-    ClassDescriptor classDescriptor = classDescriptorCache.get(clazz);
+    ClassDescriptor classDescriptor = manager.classDescriptorCache.get(clazz);
     if (classDescriptor == null) {
       classDescriptor = buildClassDescriptor(semantics, clazz);
-      ClassDescriptor prev = classDescriptorCache.putIfAbsent(clazz, classDescriptor);
+      ClassDescriptor prev = manager.classDescriptorCache.putIfAbsent(clazz, classDescriptor);
       if (prev != null) {
         classDescriptor = prev; // first thread wins
       }
@@ -137,10 +125,22 @@ final class CallUtils {
     @Nullable TypeConstructor typeConstructor;
   }
 
-  /** Two-layer cache of {@link #buildClassDescriptor}, managed by {@link #getClassDescriptor}. */
-  private static final ConcurrentHashMap<
-          StarlarkSemantics, ConcurrentHashMap<Class<?>, ClassDescriptor>>
-      classDescriptorCachesBySemantics = new ConcurrentHashMap<>();
+  private static class BuiltinManager {
+    // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
+    // we presize the CHM accordingly to reduce the chance two entries use the same hash
+    // bucket (in May 2023 this strategy was completely effective!). We used to use the
+    // default capacity, and then the CHM would get dynamically resized to have 256
+    // buckets, many of which had at least 2 entries which is suboptimal for such a hot
+    // data structure.
+    // TODO(bazel-team): Better would be to precompute the entire lookup table on server
+    //  startup (best would be to do this at compile time via an annotation processor),
+    //  rather than rely on it getting built-up dynamically as Starlark code gets
+    //  evaluated over the lifetime of the server. This way there are no concurrency
+    //  concerns, so we can use a more efficient data structure that doesn't need to
+    //  handle concurrent writes.
+    final ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
+        new ConcurrentHashMap<>(/* initialCapacity= */ 1000);
+  }
 
   private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
