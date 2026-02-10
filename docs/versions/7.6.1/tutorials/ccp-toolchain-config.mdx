@@ -31,7 +31,7 @@ The tutorial uses `clang version 9.0.1`, which you can install on your system.
 Set up your build environment as follows:
 
 1.  If you have not already done so,
-   [download and install Bazel 0.23](/install/ubuntu) or later.
+   [download and install Bazel 0.23](/versions/7.6.1/install/ubuntu) or later.
 
 2.  Download the
     [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
@@ -67,16 +67,16 @@ Set up your build environment as follows:
 For an entry `build:{config_name} --flag=value`, the command line flag
 `--config={config_name}` is associated with that particular flag. See
 documentation for the flags used:
-[`crosstool_top`](/docs/user-manual#crosstool-top),
-[`cpu`](/docs/user-manual#cpu) and
-[`host_crosstool_top`](/docs/user-manual#host-crosstool-top).
+[`crosstool_top`](/versions/7.6.1/docs/user-manual#crosstool-top),
+[`cpu`](/versions/7.6.1/docs/user-manual#cpu) and
+[`host_crosstool_top`](/versions/7.6.1/docs/user-manual#host-crosstool-top).
 
-When you build your [target](/concepts/build-ref#targets)
+When you build your [target](/versions/7.6.1/concepts/build-ref#targets)
 with `bazel build --config=clang_config //main:hello-world`, Bazel uses your
 custom toolchain from the
-[cc_toolchain_suite](/reference/be/c-cpp#cc_toolchain_suite)
+[cc_toolchain_suite](/versions/7.6.1/reference/be/c-cpp#cc_toolchain_suite)
 `//toolchain:clang_suite`. The suite may list different
-[toolchains](/reference/be/c-cpp#cc_toolchain) for different CPUs,
+[toolchains](/versions/7.6.1/reference/be/c-cpp#cc_toolchain) for different CPUs,
 and that's why it is differentiated with the flag `--cpu=k8`.
 
 Because Bazel uses many internal tools written in C++ during the build, such as
@@ -133,7 +133,7 @@ slightly between different versions of clang.
     ```
 
     Bazel discovered that the `--crosstool_top` flag points to a rule that
-    doesn't provide the necessary [`ToolchainInfo`](/rules/lib/providers/ToolchainInfo)
+    doesn't provide the necessary [`ToolchainInfo`](/versions/7.6.1/rules/lib/providers/ToolchainInfo)
     provider. So you need to point `--crosstool_top` to a rule that does provide
     `ToolchainInfo` - that is the `cc_toolchain_suite` rule. In the
     `toolchain/BUILD` file, replace the empty filegroup with the following:
@@ -324,7 +324,7 @@ slightly between different versions of clang.
      Bazel needs to know where to search for included headers. There are
      multiple ways to solve this, such as using the `includes` attribute of
      `cc_binary`, but here this is solved at the toolchain level with the
-     [`cxx_builtin_include_directories`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
+     [`cxx_builtin_include_directories`](/versions/7.6.1/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
      parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
      you are using a different version of `clang`, the include path will be
      different. These paths may also be different depending on the distribution.
@@ -480,7 +480,7 @@ The key take-aways are:
 - You have to let the toolchain know where the tools live. In this tutorial
   there is a simplified version where you access the tools from the system. If
   you are interested in a more self-contained approach, you can read about
-  workspaces [here](/reference/be/workspace). Your tools could come from a
+  workspaces [here](/versions/7.6.1/reference/be/workspace). Your tools could come from a
   different workspace and you would have to make their files available
   to the `cc_toolchain` with target dependencies on attributes, such as
   `compiler_files`. The `tool_paths` would need to be changed as well.
@@ -490,4 +490,4 @@ The key take-aways are:
 ## Further reading
 
 For more details, see
-[C++ toolchain configuration](/docs/cc-toolchain-config-reference)
+[C++ toolchain configuration](/versions/7.6.1/docs/cc-toolchain-config-reference)
