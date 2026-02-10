@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.events.Event;
+
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.HashBiMap;
@@ -55,6 +57,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
+  private final List<Event> warnings = new ArrayList<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
@@ -137,6 +140,14 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   public InterimModule.Builder getModuleBuilder() {
     return module;
+  }
+
+  public void addWarning(Event event) {
+    warnings.add(event);
+  }
+
+  public ImmutableList<Event> getWarnings() {
+    return ImmutableList.copyOf(warnings);
   }
 
   public boolean shouldIgnoreDevDeps() {

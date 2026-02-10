@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.events.Event;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -113,7 +115,11 @@ public class ModuleFileGlobals {
             doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            defaultValue = "0"),
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None"),
         @Param(
             name = "repo_name",
             doc =
@@ -147,7 +153,7 @@ public class ModuleFileGlobals {
   public void module(
       String name,
       String version,
-      StarlarkInt compatibilityLevel,
+      Object compatibilityLevel,
       String repoName,
       Iterable<?> bazelCompatibility,
       StarlarkThread thread)
@@ -155,6 +161,13 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "module()");
     if (context.isModuleCalled()) {
       throw Starlark.errorf("the module() directive can only be called once");
+    }
+    if (compatibilityLevel != Starlark.NONE && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'compatibility_level' in module() is a no-op and will be removed in a"
+                  + " future Bazel release. Please remove it from your MODULE.bazel file."));
     }
     if (context.hadNonModuleCall()) {
       throw Starlark.errorf("if module() is called, it must be called before any other functions");
@@ -234,7 +247,11 @@ public class ModuleFileGlobals {
             doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            defaultValue = "-1"),
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None"),
         @Param(
             name = "repo_name",
             allowedTypes = {
@@ -265,7 +282,7 @@ public class ModuleFileGlobals {
   public void bazelDep(
       String name,
       String version,
-      StarlarkInt maxCompatibilityLevel,
+      Object maxCompatibilityLevel,
       Object repoNameArg,
       boolean devDependency,
       StarlarkThread thread)
@@ -278,6 +295,15 @@ public class ModuleFileGlobals {
       parsedVersion = Version.parse(version);
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
+    }
+    if (maxCompatibilityLevel != Starlark.NONE
+        && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'max_compatibility_level' in bazel_dep() is a no-op and will be"
+                  + " removed in a future Bazel release. Please remove it from your MODULE.bazel"
+                  + " file."));
     }
 
     Optional<String> repoName =
