@@ -33,9 +33,9 @@ No
 ### Release Notes
 
 <!--
-If this is a new feature, please add 'RELNOTE[NEW]: <description>' here.
-If this is a breaking change, please add 'RELNOTE[INC]: <reason>' here.
-If this change should be mentioned in release notes, please add 'RELNOTE: <reason>' here.
+If this is a new feature, please add 'RELNOTES[NEW]: <description>' here.
+If this is a breaking change, please add 'RELNOTES[INC]: <reason>' here.
+If this change should be mentioned in release notes, please add 'RELNOTES: <reason>' here.
 -->
 
-RELNOTE: None
+RELNOTES: None
