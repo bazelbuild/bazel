@@ -2,8 +2,6 @@
 title: 'Debugging Remote Cache Hits for Remote Execution'
 ---
 
-
-
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
 
@@ -22,7 +20,7 @@ from a remote cache is displayed as `remote cache hit`.
 
 For example:
 
-```none {:.devsite-disable-click-to-copy}
+```none
 INFO: 11 processes: 6 remote cache hit, 3 internal, 2 remote.
 ```
 
@@ -92,7 +90,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    If figuring out the actual command line is difficult, use the canonical
    command line from the
-   [Build Event Protocol](/remote/bep)
+   [Build Event Protocol](/versions/8.1.1/remote/bep)
    as follows:
 
    a. Add `--build_event_text_file=/tmp/bep.txt` to your Bazel command to get
@@ -106,7 +104,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    d. If `remote_accept_cached` is `false`, determine where it is being
       set to `false`: either at the command line or in a
-      [bazelrc](/run/bazelrc#bazelrc-file-locations) file.
+      [bazelrc](/versions/8.1.1/run/bazelrc#bazelrc-file-locations) file.
 
 ### Ensure caching across machines
 

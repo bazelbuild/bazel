@@ -1,14 +1,10 @@
-{# disableFinding("native") #}
-{# disableFinding("Native") #}
-{# disableFinding(LINE_OVER_80_LINK) #}
-
 ---
 title: 'Legacy Macros'
 ---
 
 Legacy macros are unstructured functions called from `BUILD` files that can
 create targets. By the end of the
-[loading phase](/extending/concepts#evaluation-model), legacy macros don't exist
+[loading phase](/versions/8.1.1/extending/concepts#evaluation-model), legacy macros don't exist
 anymore, and Bazel sees only the concrete set of instantiated rules.
 
 ## Why you shouldn't use legacy macros (and should use Symbolic macros instead)
@@ -41,7 +37,7 @@ genrule(
 ```
 
 Note: `$@` is a
-[Make variable](/reference/be/make-variables#predefined_genrule_variables) that
+[Make variable](/versions/8.1.1/reference/be/make-variables#predefined_genrule_variables) that
 refers to the execution-time locations of the files in the `outs` attribute
 list. It is equivalent to `$(locations :file.txt)`.
 
@@ -137,7 +133,7 @@ genrule(
 ## Instantiating native rules
 
 Native rules (rules that don't need a `load()` statement) can be instantiated
-from the [native](/rules/lib/toplevel/native) module:
+from the [native](/versions/8.1.1/rules/lib/toplevel/native) module:
 
 ```python
 def my_macro(name, visibility=None):
@@ -150,7 +146,7 @@ def my_macro(name, visibility=None):
 
 If you need to know the package name (for example, which `BUILD` file is calling
 the macro), use the function
-[native.package_name()](/rules/lib/toplevel/native#package_name). Note that
+[native.package_name()](/versions/8.1.1/rules/lib/toplevel/native#package_name). Note that
 `native` can only be used in `.bzl` files, and not in `BUILD` files.
 
 ## Label resolution in macros
@@ -164,7 +160,7 @@ are meant to be used in other repositories, such as because they are part of a
 published Starlark ruleset.
 
 To get the same behavior as for Starlark rules, wrap the label strings with the
-[`Label`](/rules/lib/builtins/Label#Label) constructor:
+[`Label`](/versions/8.1.1/rules/lib/builtins/Label#Label) constructor:
 
 ```python
 # @my_ruleset//rules:defs.bzl
@@ -203,7 +199,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
     the rule `foo` is created (due to a name conflict), which will show you the
     full stack trace.
 
-*   You can also use [print](/rules/lib/globals/all#print) for debugging. It
+*   You can also use [print](/versions/8.1.1/rules/lib/globals/all#print) for debugging. It
     displays the message as a `DEBUG` log line during the loading phase. Except
     in rare cases, either remove `print` calls, or make them conditional under a
     `debugging` parameter that defaults to `False` before submitting the code to
@@ -211,7 +207,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
 
 ## Errors
 
-If you want to throw an error, use the [fail](/rules/lib/globals/all#fail)
+If you want to throw an error, use the [fail](/versions/8.1.1/rules/lib/globals/all#fail)
 function. Explain clearly to the user what went wrong and how to fix their
 `BUILD` file. It is not possible to catch an error.
 

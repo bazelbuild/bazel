@@ -2,8 +2,6 @@
 title: 'C++ and Bazel'
 ---
 
-
-
 This page contains resources that help you use Bazel with C++ projects. It links
 to a tutorial, build rules, and other information specific to building C++
 projects with Bazel.
@@ -12,27 +10,27 @@ projects with Bazel.
 
 The following resources will help you work with Bazel on C++ projects:
 
-*  [Tutorial: Building a C++ project](/start/cpp)
-*  [C++ common use cases](/tutorials/cpp-use-cases)
-*  [C/C++ rules](/reference/be/c-cpp)
+*  [Tutorial: Building a C++ project](/versions/8.1.1/start/cpp)
+*  [C++ common use cases](/versions/8.1.1/tutorials/cpp-use-cases)
+*  [C/C++ rules](/versions/8.1.1/reference/be/c-cpp)
 *  Essential Libraries
    -  [Abseil](https://abseil.io/docs/cpp/quickstart)
    -  [Boost](https://github.com/nelhage/rules_boost)
    -  [HTTPS Requests: CPR and libcurl](https://github.com/hedronvision/bazel-make-cc-https-easy)
-*  [C++ toolchain configuration](/docs/cc-toolchain-config-reference)
-*  [Tutorial: Configuring C++ toolchains](/tutorials/ccp-toolchain-config)
-*  [Integrating with C++ rules](/configure/integrate-cpp)
+*  [C++ toolchain configuration](/versions/8.1.1/docs/cc-toolchain-config-reference)
+*  [Tutorial: Configuring C++ toolchains](/versions/8.1.1/tutorials/ccp-toolchain-config)
+*  [Integrating with C++ rules](/versions/8.1.1/configure/integrate-cpp)
 
 ## Best practices
 
-In addition to [general Bazel best practices](/configure/best-practices), below are
+In addition to [general Bazel best practices](/versions/8.1.1/configure/best-practices), below are
 best practices specific to C++ projects.
 
 ### BUILD files
 
 Follow the guidelines below when creating your BUILD files:
 
-*  Each `BUILD` file should contain one [`cc_library`](/reference/be/c-cpp#cc_library)
+*  Each `BUILD` file should contain one [`cc_library`](/versions/8.1.1/reference/be/c-cpp#cc_library)
    rule target per compilation unit in the directory.
 
 *  You should granularize your C++ libraries as much as
@@ -78,22 +76,22 @@ Follow these guidelines for include paths:
 
 *  For legacy or `third_party` code that requires includes pointing outside the
    project repository, such as external repository includes requiring a prefix,
-   use the [`include_prefix`](/reference/be/c-cpp#cc_library.include_prefix) and
-   [`strip_include_prefix`](/reference/be/c-cpp#cc_library.strip_include_prefix)
+   use the [`include_prefix`](/versions/8.1.1/reference/be/c-cpp#cc_library.include_prefix) and
+   [`strip_include_prefix`](/versions/8.1.1/reference/be/c-cpp#cc_library.strip_include_prefix)
    arguments on the `cc_library` rule target.
 
 ### Toolchain features
 
-The following optional [features](/docs/cc-toolchain-config-reference#features)
+The following optional [features](/versions/8.1.1/docs/cc-toolchain-config-reference#features)
 can improve the hygiene of a C++ project. They can be enabled using the
 `--features` command-line flag or the `features` attribute of
-[`repo`](/external/overview#repo.bazel),
-[`package`](/reference/be/functions#package) or `cc_*` rules:
+[`repo`](/versions/8.1.1/external/overview#repo.bazel),
+[`package`](/versions/8.1.1/reference/be/functions#package) or `cc_*` rules:
 
 * The `parse_headers` feature makes it so that the C++ compiler is used to parse
   (but not compile) all header files in the built targets and their dependencies
   when using the
-  [`--process_headers_in_dependencies`](/reference/command-line-reference#flag--process_headers_in_dependencies)
+  [`--process_headers_in_dependencies`](/versions/8.1.1/reference/command-line-reference#flag--process_headers_in_dependencies)
   flag. This can help catch issues in header-only libraries and ensure that
   headers are self-contained and independent of the order in which they are
   included.
