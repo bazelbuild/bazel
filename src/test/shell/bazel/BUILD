@@ -379,7 +379,7 @@ sh_test(
 # TODO(b/324251617): downgrade test size to "large" once we no longer use Intel VMs
 sh_test(
     name = "bazel_proto_library_test",
-    size = "enormous",  # Downloads and compiles protobuf for *every* *test* *case*
+    size = "enormous",
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
