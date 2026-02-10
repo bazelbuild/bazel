@@ -62,6 +62,19 @@ public final class StarlarkFile extends Node {
   }
 
   /**
+   * Returns a new StarlarkFile whose statements are {@code getStatements().subList(start, end)},
+   * and no comments.
+   */
+  public StarlarkFile subTree(int start, int end) {
+    return new StarlarkFile(
+        this.locs,
+        this.statements.subList(start, end),
+        this.options,
+        /* comments= */ ImmutableList.of(),
+        errors);
+  }
+
+  /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
    */

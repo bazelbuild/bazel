@@ -94,6 +94,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * Takes a {@link ModuleKey} and its override (if any), retrieves the module file from a registry or
@@ -258,6 +259,10 @@ public class ModuleFileFunction implements SkyFunction {
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
+    } catch (SyntaxError.Exception e) {
+      throw new ModuleFileFunctionException(
+          CompiledModuleFile.handleAndWrapSyntaxErrorException(e, moduleKey, env.getListener()),
+          Transience.PERSISTENT);
     }
     if (!module.getName().equals(moduleKey.name())) {
       throw errorf(
@@ -526,6 +531,10 @@ public class ModuleFileFunction implements SkyFunction {
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
+    } catch (SyntaxError.Exception e) {
+      throw new ModuleFileFunctionException(
+          CompiledModuleFile.handleAndWrapSyntaxErrorException(e, ModuleKey.ROOT, eventHandler),
+          Transience.PERSISTENT);
     }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
       Proxy firstProxy = usage.getProxies().getFirst();
@@ -612,7 +621,11 @@ public class ModuleFileFunction implements SkyFunction {
       throws ModuleFileFunctionException, InterruptedException {
     ModuleThreadContext context =
         new ModuleThreadContext(
-            builtinModules, moduleKey, ignoreDevDeps, includeLabelToParsedModuleFile);
+            builtinModules,
+            moduleKey,
+            ignoreDevDeps,
+            compiledRootModuleFile.delayedSyntaxException(),
+            includeLabelToParsedModuleFile);
     try (SilentCloseable c =
             Profiler.instance()
                 .profile(ProfilerTask.BZLMOD, () -> "evaluate module file: " + moduleKey);
@@ -638,7 +651,13 @@ public class ModuleFileFunction implements SkyFunction {
             }
           });
 
-      compiledRootModuleFile.runOnThread(thread);
+      try {
+        compiledRootModuleFile.runOnThread(thread);
+        context.throwDelayedExceptionIfAny(/* evalException= */ null, eventHandler);
+      } catch (EvalException e) {
+        context.throwDelayedExceptionIfAny(e, eventHandler);
+        throw e;
+      }
       injectRepos(injectedRepositories, context, thread);
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
