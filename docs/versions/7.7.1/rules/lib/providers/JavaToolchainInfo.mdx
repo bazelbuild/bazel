@@ -1,0 +1,204 @@
+---
+title: 'JavaToolchainInfo'
+---
+
+Provides access to information about the Java toolchain rule. Accessible as a 'java\_toolchain' field on a Target struct.
+
+## Members
+
+* [bootclasspath](#bootclasspath)
+* [ijar](#ijar)
+* [jacocorunner](#jacocorunner)
+* [java\_runtime](#java_runtime)
+* [jvm\_opt](#jvm_opt)
+* [label](#label)
+* [proguard\_allowlister](#proguard_allowlister)
+* [single\_jar](#single_jar)
+* [source\_version](#source_version)
+* [target\_version](#target_version)
+* [to\_json](#to_json)
+* [to\_proto](#to_proto)
+* [tools](#tools)
+
+## bootclasspath
+
+```
+depset JavaToolchainInfo.bootclasspath
+```
+
+The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
+
+## ijar
+
+```
+FilesToRunProvider JavaToolchainInfo.ijar
+```
+
+A FilesToRunProvider representing the ijar executable.
+
+## jacocorunner
+
+```
+FilesToRunProvider JavaToolchainInfo.jacocorunner
+```
+
+The jacocorunner used by the toolchain.
+May return `None`.
+
+## java\_runtime
+
+```
+JavaRuntimeInfo JavaToolchainInfo.java_runtime
+```
+
+The java runtime information.
+
+## jvm\_opt
+
+```
+depset JavaToolchainInfo.jvm_opt
+```
+
+The default options for the JVM running the java compiler and associated tools.
+
+## label
+
+```
+Label JavaToolchainInfo.label
+```
+
+The toolchain label.
+
+## proguard\_allowlister
+
+```
+FilesToRunProvider JavaToolchainInfo.proguard_allowlister
+```
+
+Return the binary to validate proguard configuration
+May return `None`.
+
+## single\_jar
+
+```
+FilesToRunProvider JavaToolchainInfo.single_jar
+```
+
+The SingleJar deploy jar.
+
+## source\_version
+
+```
+string JavaToolchainInfo.source_version
+```
+
+The java source version.
+
+## target\_version
+
+```
+string JavaToolchainInfo.target_version
+```
+
+The java target version.
+
+## to\_json
+
+```
+string JavaToolchainInfo.to_json()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:
+
+```
+struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+```
+
+.
+
+Deprecated: instead, use json.encode(x) or json.encode\_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+## to\_proto
+
+```
+string JavaToolchainInfo.to_proto()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:
+
+```
+struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+```
+
+Deprecated: use proto.encode\_text(x) instead.
+
+## tools
+
+```
+depset JavaToolchainInfo.tools
+```
+
+The compilation tools.

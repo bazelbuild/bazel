@@ -1,0 +1,291 @@
+---
+title: 'attr'
+---
+
+This is a top-level module for defining the attribute schemas of a rule or aspect. Each function returns an object representing the schema of a single attribute. These objects are used as the values of the `attrs` dictionary argument of [`rule()`](../globals/bzl#rule) and [`aspect()`](../globals/bzl#aspect).
+
+See the Rules page for more on [defining](https://bazel.build/versions/7.7.1/extending/rules#attributes) and [using](https://bazel.build/versions/7.7.1/extending/rules#implementation_function) attributes.
+
+## Members
+
+* [bool](#bool)
+* [int](#int)
+* [int\_list](#int_list)
+* [label](#label)
+* [label\_keyed\_string\_dict](#label_keyed_string_dict)
+* [label\_list](#label_list)
+* [output](#output)
+* [output\_list](#output_list)
+* [string](#string)
+* [string\_dict](#string_dict)
+* [string\_keyed\_label\_dict](#string_keyed_label_dict)
+* [string\_list](#string_list)
+* [string\_list\_dict](#string_list_dict)
+
+## bool
+
+```
+Attribute attr.bool(default=False, doc=None, mandatory=False)
+```
+
+Creates a schema for a boolean attribute. The corresponding [`ctx.attr`](../builtins/ctx#attr) attribute will be of type [`bool`](../core/bool).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `default` | default is `False`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+
+## int
+
+```
+Attribute attr.int(default=0, doc=None, mandatory=False, values=[])
+```
+
+Creates a schema for an integer attribute. The value must be in the signed 32-bit range. The corresponding [`ctx.attr`](../builtins/ctx#attr) attribute will be of type [`int`](../core/int).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `default` | default is `0`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `values` | [sequence](../core/list) of [int](../core/int)s; default is `[]`  The list of allowed values for the attribute. An error is raised if any other value is given. |
+
+## int\_list
+
+```
+Attribute attr.int_list(mandatory=False, allow_empty=True, *, default=[], doc=None)
+```
+
+Creates a schema for a list-of-integers attribute. Each element must be in the signed 32-bit range.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | [sequence](../core/list) of [int](../core/int)s; default is `[]`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+
+## label
+
+```
+Attribute attr.label(default=None, doc=None, executable=False, allow_files=None, allow_single_file=None, mandatory=False, providers=[], allow_rules=None, cfg=None, aspects=[], flags=[])
+```
+
+Creates a schema for a label attribute. This is a dependency attribute.
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time (within the rule's implementation function), when retrieving the attribute value from `ctx.attr`, labels are replaced by the corresponding [`Target`](../builtins/Target)s. This allows you to access the providers of the current target's dependencies.
+
+In addition to ordinary source files, this kind of attribute is often used to refer to a tool -- for example, a compiler. Such tools are considered to be dependencies, just like source files. To avoid requiring users to specify the tool's label every time they use the rule in their BUILD files, you can hard-code the label of a canonical tool as the `default` value of this attribute. If you also want to prevent users from overriding this default, you can make the attribute private by giving it a name that starts with an underscore. See the [Rules](https://bazel.build/versions/7.7.1/extending/rules#private-attributes) page for more information.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `default` | [Label](../builtins/Label); or [string](../core/string); or [LateBoundDefault](../builtins/LateBoundDefault); or NativeComputedDefault; or [function](../core/function); or `None`; default is `None`  A default value to use if no value for this attribute is given when instantiating the rule.Use a string or the [`Label`](../builtins/Label#Label) function to specify a default value, for example, `attr.label(default = "//a:b")`. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `executable` | default is `False`  True if the dependency has to be executable. This means the label must refer to an executable file, or to a rule that outputs an executable file. Access the label with `ctx.executable.<attribute_name>`. |
+| `allow_files` | [bool](../core/bool); or [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Whether `File` targets are allowed. Can be `True`, `False` (default), or a list of file extensions that are allowed (for example, `[".cc", ".cpp"]`). |
+| `allow_single_file` | default is `None`  This is similar to `allow_files`, with the restriction that the label must correspond to a single [File](../builtins/File). Access it through `ctx.file.<attribute_name>`. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `providers` | default is `[]`  The providers that must be given by any dependency appearing in this attribute. The format of this argument is a list of lists of providers -- `*Info` objects returned by [`provider()`](../globals/bzl#provider) (or in the case of a legacy provider, its string name). The dependency must return ALL providers mentioned in at least ONE of the inner lists. As a convenience, this argument may also be a single-level list of providers, in which case it is wrapped in an outer list with one element. It is NOT required that the rule of the dependency advertises those providers in its `provides` parameter, however, it is considered best practice. |
+| `allow_rules` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatibility), use providers instead. |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/7.7.1/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. This parameter is required if `executable` is True to guard against accidentally building host tools in the target configuration. `"target"` has no semantic effect, so don't set it when `executable` is False unless it really helps clarify your intentions. |
+| `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
+| `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
+
+## label\_keyed\_string\_dict
+
+```
+Attribute attr.label_keyed_string_dict(allow_empty=True, *, default={}, doc=None, allow_files=None, allow_rules=None, providers=[], flags=[], mandatory=False, cfg=None, aspects=[])
+```
+
+Creates a schema for an attribute holding a dictionary, where the keys are labels and the values are strings. This is a dependency attribute.
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time (within the rule's implementation function), when retrieving the attribute value from `ctx.attr`, labels are replaced by the corresponding [`Target`](../builtins/Target)s. This allows you to access the providers of the current target's dependencies.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | [dict](../core/dict); or [function](../core/function); default is `{}`  A default value to use if no value for this attribute is given when instantiating the rule.Use strings or the [`Label`](../builtins/Label#Label) function to specify default values, for example, `attr.label_keyed_string_dict(default = {"//a:b": "value", "//a:c": "string"})`. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `allow_files` | [bool](../core/bool); or [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Whether `File` targets are allowed. Can be `True`, `False` (default), or a list of file extensions that are allowed (for example, `[".cc", ".cpp"]`). |
+| `allow_rules` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatibility), use providers instead. |
+| `providers` | default is `[]`  The providers that must be given by any dependency appearing in this attribute. The format of this argument is a list of lists of providers -- `*Info` objects returned by [`provider()`](../globals/bzl#provider) (or in the case of a legacy provider, its string name). The dependency must return ALL providers mentioned in at least ONE of the inner lists. As a convenience, this argument may also be a single-level list of providers, in which case it is wrapped in an outer list with one element. It is NOT required that the rule of the dependency advertises those providers in its `provides` parameter, however, it is considered best practice. |
+| `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/7.7.1/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
+
+## label\_list
+
+```
+Attribute attr.label_list(allow_empty=True, *, default=[], doc=None, allow_files=None, allow_rules=None, providers=[], flags=[], mandatory=False, cfg=None, aspects=[])
+```
+
+Creates a schema for a list-of-labels attribute. This is a dependency attribute. The corresponding [`ctx.attr`](../builtins/ctx#attr) attribute will be of type [list](../core/list) of [`Target`s](../builtins/Target).
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time (within the rule's implementation function), when retrieving the attribute value from `ctx.attr`, labels are replaced by the corresponding [`Target`](../builtins/Target)s. This allows you to access the providers of the current target's dependencies.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | [sequence](../core/list) of [Label](../builtins/Label)s; or [function](../core/function); default is `[]`  A default value to use if no value for this attribute is given when instantiating the rule.Use strings or the [`Label`](../builtins/Label#Label) function to specify default values, for example, `attr.label_list(default = ["//a:b", "//a:c"])`. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `allow_files` | [bool](../core/bool); or [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Whether `File` targets are allowed. Can be `True`, `False` (default), or a list of file extensions that are allowed (for example, `[".cc", ".cpp"]`). |
+| `allow_rules` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatibility), use providers instead. |
+| `providers` | default is `[]`  The providers that must be given by any dependency appearing in this attribute. The format of this argument is a list of lists of providers -- `*Info` objects returned by [`provider()`](../globals/bzl#provider) (or in the case of a legacy provider, its string name). The dependency must return ALL providers mentioned in at least ONE of the inner lists. As a convenience, this argument may also be a single-level list of providers, in which case it is wrapped in an outer list with one element. It is NOT required that the rule of the dependency advertises those providers in its `provides` parameter, however, it is considered best practice. |
+| `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/7.7.1/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
+
+## output
+
+```
+Attribute attr.output(doc=None, mandatory=False)
+```
+
+Creates a schema for an output (label) attribute.
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time, the corresponding [`File`](../builtins/File) can be retrieved using [`ctx.outputs`](../builtins/ctx#outputs).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+
+## output\_list
+
+```
+Attribute attr.output_list(allow_empty=True, *, doc=None, mandatory=False)
+```
+
+Creates a schema for a list-of-outputs attribute.
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time, the corresponding [`File`](../builtins/File) can be retrieved using [`ctx.outputs`](../builtins/ctx#outputs).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+
+## string
+
+```
+Attribute attr.string(default='', doc=None, mandatory=False, values=[])
+```
+
+Creates a schema for a [string](../core/string#attr) attribute.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `default` | [string](../core/string); or NativeComputedDefault; default is `''`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `values` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  The list of allowed values for the attribute. An error is raised if any other value is given. |
+
+## string\_dict
+
+```
+Attribute attr.string_dict(allow_empty=True, *, default={}, doc=None, mandatory=False)
+```
+
+Creates a schema for an attribute holding a dictionary, where the keys and values are strings.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | default is `{}`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+
+## string\_keyed\_label\_dict
+
+```
+Attribute attr.string_keyed_label_dict(allow_empty=True, *, default={}, doc=None, allow_files=None, allow_rules=None, providers=[], flags=[], mandatory=False, cfg=None, aspects=[])
+```
+
+Creates a schema for an attribute whose value is a dictionary where the keys are strings and the values are labels. This is a dependency attribute.
+
+This attribute contains unique [`Label`](../builtins/Label) values. If a string is supplied in place of a `Label`, it will be converted using the [label constructor](../builtins/Label#Label). The relative parts of the label path, including the (possibly renamed) repository, are resolved with respect to the instantiated target's package.
+
+At analysis time (within the rule's implementation function), when retrieving the attribute value from `ctx.attr`, labels are replaced by the corresponding [`Target`](../builtins/Target)s. This allows you to access the providers of the current target's dependencies.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | [dict](../core/dict); or [function](../core/function); default is `{}`  A default value to use if no value for this attribute is given when instantiating the rule.Use strings or the [`Label`](../builtins/Label#Label) function to specify default values, for example, `attr.string_keyed_label_dict(default = {"foo": "//a:b", "bar": "//a:c"})`. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `allow_files` | [bool](../core/bool); or [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Whether `File` targets are allowed. Can be `True`, `False` (default), or a list of file extensions that are allowed (for example, `[".cc", ".cpp"]`). |
+| `allow_rules` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatibility), use providers instead. |
+| `providers` | default is `[]`  The providers that must be given by any dependency appearing in this attribute. The format of this argument is a list of lists of providers -- `*Info` objects returned by [`provider()`](../globals/bzl#provider) (or in the case of a legacy provider, its string name). The dependency must return ALL providers mentioned in at least ONE of the inner lists. As a convenience, this argument may also be a single-level list of providers, in which case it is wrapped in an outer list with one element. It is NOT required that the rule of the dependency advertises those providers in its `provides` parameter, however, it is considered best practice. |
+| `flags` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Deprecated, will be removed. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `cfg` | default is `None`  [Configuration](https://bazel.build/versions/7.7.1/extending/rules#configurations) of the attribute. It can be either `"exec"`, which indicates that the dependency is built for the `execution platform`, or `"target"`, which indicates that the dependency is build for the `target platform`. A typical example of the difference is when building mobile apps, where the `target platform` is `Android` or `iOS` while the `execution platform` is `Linux`, `macOS`, or `Windows`. |
+| `aspects` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  Aspects that should be applied to the dependency or dependencies specified by this attribute. |
+
+## string\_list
+
+```
+Attribute attr.string_list(mandatory=False, allow_empty=True, *, default=[], doc=None)
+```
+
+Creates a schema for a list-of-strings attribute.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | [sequence](../core/list) of [string](../core/string)s; or NativeComputedDefault; default is `[]`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+
+## string\_list\_dict
+
+```
+Attribute attr.string_list_dict(allow_empty=True, *, default={}, doc=None, mandatory=False)
+```
+
+Creates a schema for an attribute holding a dictionary, where the keys are strings and the values are lists of strings.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `allow_empty` | default is `True`  True if the attribute can be empty. |
+| `default` | default is `{}`  A default value to use if no value for this attribute is given when instantiating the rule. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the attribute that can be extracted by documentation generating tools. |
+| `mandatory` | default is `False`  If true, the value must be specified explicitly (even if it has a `default`). |
