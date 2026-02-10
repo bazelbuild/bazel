@@ -551,7 +551,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // and because it complicates unit tests where these preconditions fail.
       Class<?> tcProxy = desc.getTypeConstructorProxy();
       Preconditions.checkNotNull(tcProxy);
-      TypeConstructor tc = CallUtils.getTypeConstructor(semantics, tcProxy);
+      TypeConstructor tc = CallUtils.getBuiltinManager(semantics).getTypeConstructor(tcProxy);
       Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
       return tc.createStarlarkType(argsTuple);
     }

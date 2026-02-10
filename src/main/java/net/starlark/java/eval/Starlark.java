@@ -924,7 +924,8 @@ public final class Starlark {
     } else {
       // @StarlarkMethod(selfCall)?
       MethodDescriptor desc =
-          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+          CallUtils.getBuiltinManager(thread.getSemantics())
+              .getSelfCallMethodDescriptor(fn.getClass());
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
@@ -992,7 +993,9 @@ public final class Starlark {
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
     return (x instanceof Structure && ((Structure) x).getValue(name) != null)
-        || CallUtils.getAnnotatedMethods(semantics, x.getClass()).containsKey(name);
+        || CallUtils.getBuiltinManager(semantics)
+            .getAnnotatedMethods(x.getClass())
+            .containsKey(name);
   }
 
   /**
@@ -1008,7 +1011,8 @@ public final class Starlark {
       @Nullable Object defaultValue)
       throws EvalException, InterruptedException {
     // StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getAnnotatedMethods(semantics, x.getClass()).get(name);
+    MethodDescriptor method =
+        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(x.getClass()).get(name);
     if (method != null) {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
@@ -1052,7 +1056,8 @@ public final class Starlark {
     if (x instanceof Structure) {
       fields.addAll(((Structure) x).getFieldNames());
     }
-    fields.addAll(CallUtils.getAnnotatedMethods(semantics, x.getClass()).keySet());
+    fields.addAll(
+        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);
   }
 
@@ -1070,7 +1075,9 @@ public final class Starlark {
   public static ImmutableMap<Method, StarlarkMethod> getMethodAnnotations(Class<?> clazz) {
     ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
-        CallUtils.getAnnotatedMethods(StarlarkSemantics.DEFAULT, clazz).values()) {
+        CallUtils.getBuiltinManager(StarlarkSemantics.DEFAULT)
+            .getAnnotatedMethods(clazz)
+            .values()) {
       result.put(desc.getMethod(), desc.getAnnotation());
     }
     return result.build();
@@ -1083,7 +1090,7 @@ public final class Starlark {
    */
   @Nullable
   public static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> clazz) {
-    return CallUtils.getSelfCallMethod(semantics, clazz);
+    return CallUtils.getBuiltinManager(semantics).getSelfCallMethod(clazz);
   }
 
   /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
@@ -1104,7 +1111,7 @@ public final class Starlark {
     Class<?> cls = v.getClass();
     // TODO(adonovan): rather than silently skip the selfCall method, reject it.
     for (Map.Entry<String, MethodDescriptor> e :
-        CallUtils.getAnnotatedMethods(semantics, cls).entrySet()) {
+        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(cls).entrySet()) {
       String name = e.getKey();
 
       // We cannot accept fields, as they are inherently problematic:
