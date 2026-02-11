@@ -26,7 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

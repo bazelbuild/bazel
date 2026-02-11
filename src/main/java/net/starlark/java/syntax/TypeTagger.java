@@ -76,12 +76,17 @@ public final class TypeTagger extends NodeVisitor {
     if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
       // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
       // type name.
-      errorf(id, "local name '%s' cannot be used as a type", name);
+      errorf(id, "local symbol '%s' cannot be used as a type", name);
       return null;
     }
 
     try {
-      return module.resolveTypeConstructor(name);
+      TypeConstructor constructor = module.getTypeConstructor(name);
+      if (constructor == null) {
+        errorf(id, "%s symbol '%s' cannot be used as a type", scope, name);
+        return null;
+      }
+      return constructor;
     } catch (Resolver.Module.Undefined ex) {
       String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
       errorf(id, "%s%s", ex.getMessage(), suggestion);
@@ -113,7 +118,7 @@ public final class TypeTagger extends NodeVisitor {
             app.getArguments().stream().map(this::extractArg).collect(toImmutableList());
 
         try {
-          return constructor.invoke(arguments);
+          return constructor.createStarlarkType(arguments);
         } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
@@ -125,7 +130,7 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
         try {
-          return constructor.invoke(ImmutableList.of());
+          return constructor.createStarlarkType(ImmutableList.of());
         } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
@@ -367,5 +372,39 @@ public final class TypeTagger extends NodeVisitor {
   public static void tagFile(StarlarkFile file, Module module) {
     TypeTagger r = new TypeTagger(file.errors, module);
     r.visit(file);
+  }
+
+  /**
+   * Same as {@link #tagFile}, but for an individual expression.
+   *
+   * <p>Any errors are thrown as a {@link SyntaxError.Exception}.
+   */
+  public static void tagExpr(Expression expr, Module module) throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeTagger r = new TypeTagger(errors, module);
+
+    r.visit(expr);
+
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(errors);
+    }
+  }
+
+  /**
+   * Sets the Starlark type on a {@link Resolver.Function} that the resolver generated to wrap an
+   * expression.
+   */
+  public static void tagExprFunction(Resolver.Function function, StarlarkType exprType) {
+    Types.CallableType functionType =
+        Types.callable(
+            /* parameterNames= */ ImmutableList.of(),
+            /* parameterTypes= */ ImmutableList.of(),
+            /* numPositionalOnlyParameters= */ 0,
+            /* numPositionalParameters= */ 0,
+            /* mandatoryParams= */ ImmutableSet.of(),
+            /* varargsType= */ null,
+            /* kwargsType= */ null,
+            /* returns= */ exprType);
+    setType(function, functionType);
   }
 }

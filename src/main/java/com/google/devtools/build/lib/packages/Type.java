@@ -40,6 +40,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkSet;
 
 /**
@@ -301,7 +302,7 @@ public abstract class Type<T> {
         printer.append(" for ").append(what.toString());
       }
       printer.append(", but got ");
-      printer.repr(value);
+      printer.repr(value, StarlarkSemantics.DEFAULT);
       printer.append(" (").append(Starlark.type(value)).append(")");
       return printer.toString();
     }

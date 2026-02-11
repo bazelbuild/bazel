@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -136,7 +137,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
    * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
@@ -147,7 +148,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
       first = false;
       printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValueOrNull(fieldName));
+      printer.repr(getValueOrNull(fieldName), semantics);
     }
     printer.append(")");
   }
@@ -163,6 +164,6 @@ public abstract class StructImpl implements Info, Structure, StructApi {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 }

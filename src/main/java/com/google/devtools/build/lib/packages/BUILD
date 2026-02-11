@@ -46,7 +46,6 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
-            "AutoloadSymbols.java",
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
             "BuiltinProvider.java",
             "BzlVisibility.java",
@@ -130,6 +129,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:build_java_proto",
@@ -140,25 +140,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "autoload_symbols",
-    srcs = ["AutoloadSymbols.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:provider",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -269,6 +250,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",
         "//third_party:guava",

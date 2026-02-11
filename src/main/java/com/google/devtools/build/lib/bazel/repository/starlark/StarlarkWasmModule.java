@@ -41,6 +41,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 @Immutable
@@ -95,11 +96,11 @@ final class StarlarkWasmModule implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<wasm_module path=");
-    printer.repr(origPath);
+    printer.repr(origPath, semantics);
     printer.append(" allocate_fn=");
-    printer.repr(allocFnName);
+    printer.repr(allocFnName, semantics);
     printer.append(">");
   }
 

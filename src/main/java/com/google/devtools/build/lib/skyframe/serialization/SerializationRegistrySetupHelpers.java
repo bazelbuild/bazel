@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
@@ -159,6 +160,7 @@ public final class SerializationRegistrySetupHelpers {
             RuleConfiguredTarget.class,
             FeatureConfiguration.class,
             RunfilesArtifactValue.class,
+            AspectValue.class,
             AliasConfiguredTarget.class,
             BuildConfigurationValue.class,
             InlineFileArtifactValue.class,

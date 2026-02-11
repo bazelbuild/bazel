@@ -199,7 +199,7 @@ public class BuildTool {
   private static final String SKYFRAME_MEMORY_DUMP_FILE = "skyframe_memory.json";
 
   private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
-      (req, env, runtime, analysisResult) -> {};
+      (unusedRequest, unusedEnv, unusedRuntime, unusedAnalysisResult) -> {};
 
   /** Hook for inserting extra post-analysis-phase processing. Used for implementing {a,c}query. */
   public interface AnalysisPostProcessor {
@@ -1312,7 +1312,7 @@ public class BuildTool {
     private boolean bailedOut;
 
     private final Collection<Label> topLevelTargets;
-    private final boolean discardPackageValuesPostAnalysis;
+    private final boolean minimizeMemory;
 
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env,
@@ -1339,7 +1339,7 @@ public class BuildTool {
               targets,
               userOptions,
               projectSclOptions,
-              options.discardPackageValuesPostAnalysis);
+              options.skycacheMinimizeMemory);
 
       return switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
@@ -1425,12 +1425,12 @@ public class BuildTool {
         Collection<Label> targets,
         Map<String, String> userOptions,
         Set<String> projectSclOptions,
-        boolean discardPackageValuesPostAnalysis)
+        boolean minimizeMemory)
         throws InterruptedException, AbruptExitException {
       RemoteAnalysisCachingOptions options =
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       this.topLevelTargets = targets;
-      this.discardPackageValuesPostAnalysis = discardPackageValuesPostAnalysis;
+      this.minimizeMemory = minimizeMemory;
 
       if (options.jsonLog != null) {
         try {
@@ -1847,8 +1847,8 @@ public class BuildTool {
     }
 
     @Override
-    public void computeSelectionAndDiscardPackageValues(InMemoryGraph graph) {
-      FrontierSerializer.computeSelectionAndDiscardPackageValues(graph, this);
+    public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
+      FrontierSerializer.computeSelectionAndMinimizeMemory(graph, this);
     }
 
     @Override
@@ -1857,8 +1857,8 @@ public class BuildTool {
     }
 
     @Override
-    public boolean shouldDiscardPackageValuesPostAnalysis() {
-      return discardPackageValuesPostAnalysis;
+    public boolean shouldMinimizeMemory() {
+      return minimizeMemory;
     }
   }
 
@@ -1934,7 +1934,8 @@ public class BuildTool {
       bytesReceived += raccStats.bytesReceived();
       requests += raccStats.requestsSent();
     }
-    double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
+    // totalRequests is already checked to be non-zero above.
+    double overallHitRate = (double) totalHits / totalRequests * 100;
     env.getReporter()
         .handle(
             Event.info(

@@ -86,12 +86,15 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /**
-   * Almost all SkyFunctions will break if they receive a cleared value and it should only be used
-   * in situations where that is known to be impossible. It should probably never be used in cases
-   * where a Bazel server instance will be kept running for incremental builds since the graph would
-   * be mutilated. One example of an appropriate use case is an optimization for Skycache primer
-   * builds (which are always cold) that reduces peak heap by discarding values before serialization
-   * that we know we will not need again.
+   * Replaces the SkyValue with a placeholder value indicating that it has been cleared.
+   *
+   * <p>Almost all SkyFunctions will break if they receive a cleared value and it should only be
+   * used in situations where that is known to be impossible. It should never be used in cases where
+   * a Bazel server instance will be kept running for incremental builds since the graph would be
+   * mutilated.
+   *
+   * <p>One appropriate use case is an optimization for Skycache primer builds (which are always
+   * cold) that reduces peak heap by discarding unneeded values before serialization.
    */
   public void clearSkyValue() {
     Preconditions.checkState(isDone());

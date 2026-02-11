@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import java.math.BigInteger;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /** The Starlark int data type. */
@@ -35,6 +36,10 @@ import net.starlark.java.syntax.Types;
             + "int(\"18\")\n"
             + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.INT_CONSTRUCTOR;
+  }
+
   @Override
   public StarlarkType getStarlarkType() {
     return Types.INT;
@@ -139,7 +144,8 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
       // Don't infer base when input starts with '0' due to octal/decimal ambiguity.
       if (s.length() > 1 && s.charAt(0) == '0') {
         throw new NumberFormatException(
-            "cannot infer base when string begins with a 0: " + Starlark.repr(stringForErrors));
+            "cannot infer base when string begins with a 0: "
+                + Starlark.repr(stringForErrors, StarlarkSemantics.DEFAULT));
       }
       base = 10;
     }
@@ -151,7 +157,9 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     // Do not allow Long.parseLong and new BigInteger to accept another +/- sign.
     if (digits.startsWith("+") || digits.startsWith("-")) {
       throw new NumberFormatException(
-          String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+          String.format(
+              "invalid base-%d literal: %s",
+              base, Starlark.repr(stringForErrors, StarlarkSemantics.DEFAULT)));
     }
 
     StarlarkInt result;
@@ -162,7 +170,9 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
         result = StarlarkInt.of(new BigInteger(digits, base));
       } catch (NumberFormatException unused2) {
         throw new NumberFormatException(
-            String.format("invalid base-%d literal: %s", base, Starlark.repr(stringForErrors)));
+            String.format(
+                "invalid base-%d literal: %s",
+                base, Starlark.repr(stringForErrors, StarlarkSemantics.DEFAULT)));
       }
     }
     return isNegative ? StarlarkInt.uminus(result) : result;
@@ -207,7 +217,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(v);
     }
 
@@ -257,7 +267,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(v);
     }
 
@@ -297,7 +307,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(v.toString());
     }
 
@@ -332,7 +342,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   @Override
-  public abstract void repr(Printer printer);
+  public abstract void repr(Printer printer, StarlarkSemantics semantics);
 
   /** Returns the signed int32 value of this StarlarkInt, or fails if not exactly representable. */
   public int toInt(String what) throws EvalException {

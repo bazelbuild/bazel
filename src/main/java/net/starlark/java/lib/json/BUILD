@@ -17,9 +17,9 @@ java_library(
     srcs = ["Json.java"],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib",
         "//third_party:guava",
     ],
 )

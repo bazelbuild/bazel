@@ -2,12 +2,10 @@
 title: '.bzl style guide'
 ---
 
-
-
 This page covers basic style guidelines for Starlark and also includes
 information on macros and rules.
 
-[Starlark](/rules/language) is a
+[Starlark](/versions/8.1.1/rules/language) is a
 language that defines how software is built, and as such it is both a
 programming and a configuration language.
 
@@ -43,7 +41,7 @@ really apply here.
 
 *   Use [Buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier#linter)
     as a formatter and linter.
-*   Follow [testing guidelines](/rules/testing).
+*   Follow [testing guidelines](/versions/8.1.1/rules/testing).
 
 ## Style
 
@@ -55,11 +53,10 @@ In particular, use four rather than two spaces for indentation to follow the
 Python convention.
 
 Since
-[Starlark is not Python](/rules/language#differences-with-python),
+[Starlark is not Python](/versions/8.1.1/rules/language#differences-with-python),
 some aspects of Python style do not apply. For example, PEP 8 advises that
 comparisons to singletons be done with `is`, which is not an operator in
 Starlark.
-
 
 ### Docstring
 
@@ -169,7 +166,7 @@ goals.
 
 As a rule of thumb, the more macros resemble the rules, the better.
 
-See also [macros](/extending/macros#conventions).
+See also [macros](/versions/8.1.1/extending/macros#conventions).
 
 ## Rules
 
@@ -204,9 +201,9 @@ See also [macros](/extending/macros#conventions).
     (named with a leading underscore). A common style is to give the
     implementation function for `myrule` the name `_myrule_impl`.
 *   Pass information between your rules using a well-defined
-    [provider](/extending/rules#providers) interface. Declare and document provider
+    [provider](/versions/8.1.1/extending/rules#providers) interface. Declare and document provider
     fields.
 *   Design your rule with extensibility in mind. Consider that other rules might
     want to interact with your rule, access your providers, and reuse the
     actions you create.
-*   Follow [performance guidelines](/rules/performance) in your rules.
+*   Follow [performance guidelines](/versions/8.1.1/rules/performance) in your rules.

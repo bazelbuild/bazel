@@ -25,6 +25,8 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * Starlark String module.
@@ -60,6 +62,10 @@ import net.starlark.java.annot.StarlarkMethod;
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
 final class StringModule implements StarlarkValue {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.STR_CONSTRUCTOR;
+  }
 
   static final StringModule INSTANCE = new StringModule();
 

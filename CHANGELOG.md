@@ -1,3 +1,33 @@
+## Release 10.0.0-pre.20260128.2 (2026-02-06)
+
+```
+Baseline: 3ad9562ae006151d40a0ebcc90b84889888c2111
+```
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Fabian Meumertzheim, Paul Tarjan.
+
+## Release 10.0.0-pre.20260120.1 (2026-01-29)
+
+```
+Baseline: cc1e0a6ba439764fea48e1f8035419aa44313f05
+```
+
+Incompatible changes:
+
+  - The `config_setting`s
+    `@bazel_tools//src/conditions:{host_windows,remote}` have been
+    removed. Toolchains are usually a better fit as they don't depend
+    on the configuration of the host machine running Bazel and/or
+    fixed execution modes.
+
+Important changes:
+
+  - Reporting of cached test results can now be suppressed with
+    `--test_summary=short_uncached` or
+    `--test_summary=detailed_uncached`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Jordan Mele, Kapunahele Wong, Keith Smiley, Yagiz Nizipli.
+
 ## Release 10.0.0-pre.20260114.1 (2026-01-22)
 
 ```

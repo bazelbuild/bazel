@@ -2201,8 +2201,7 @@ int main() {
 }
 EOF
 
-  # Disabling autoloads, to get direct (non-macro) access to the rule
-  bazel run --incompatible_autoload_externally= //pkg:hello &> $TEST_log || fail "Expected success"
+  bazel run //pkg:hello &> $TEST_log || fail "Expected success"
   expect_log "Hello from my_cc_binary"
   expect_log "Hello from main.cpp"
 }

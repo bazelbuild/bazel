@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -249,14 +250,15 @@ public final class FrontierSerializer {
   }
 
   /**
-   * Discards unneeded {@code PackageValue}s from the graph after analysis.
+   * Discards unneeded {@code PackageValue}s and {@code BzlLoadValue}s from the graph after
+   * analysis.
    *
    * <p>This is a memory optimization to reduce peak heap before the execution phase. It finds all
    * packages associated with selected {@code ConfiguredTargetValue}s and clears the values of all
    * other {@code PackageValue} nodes. The graph is mutilated after this and incremental builds are
    * not possible.
    */
-  public static void computeSelectionAndDiscardPackageValues(
+  public static void computeSelectionAndMinimizeMemory(
       InMemoryGraph graph, RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
     SelectionResult selectionResult =
         computeSelectionResult(
@@ -265,22 +267,28 @@ public final class FrontierSerializer {
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
         node -> {
-          if (!(node.getKey() instanceof ActionLookupKey key) || !node.isDone()) {
-            return;
-          }
-          SkyValue value = node.getValue();
-          if (!selectedKeys.contains(key)) {
-            return;
-          }
-          // An ActionLookupKey can point to ActionLookupValues or ConfiguredTargetValues.
-          // If the key is selected, we must retain the value. If it's a ConfiguredTargetValue,
-          // we also record its package to prevent clearing the corresponding PackageValue later.
-          if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-            Label label =
-                (configuredTargetValue.getConfiguredTarget() instanceof AliasConfiguredTarget alias)
-                    ? alias.getLabel()
-                    : key.getLabel();
-            packageIdentifierSet.add(label.getPackageIdentifier());
+          switch (node.getKey()) {
+            case BzlLoadValue.Key unused -> ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+            case ActionLookupKey key -> {
+              if (!node.isDone() || !selectedKeys.contains(key)) {
+                break;
+              }
+              // An ActionLookupKey can point to ActionLookupValues or
+              // ConfiguredTargetValues. If the key is selected, we must retain
+              // the value. If it's a ConfiguredTargetValue, we also record its
+              // package to prevent clearing the corresponding PackageValue
+              // later.
+              SkyValue value = node.getValue();
+              if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+                Label label =
+                    (configuredTargetValue.getConfiguredTarget()
+                            instanceof AliasConfiguredTarget alias)
+                        ? alias.getLabel()
+                        : key.getLabel();
+                packageIdentifierSet.add(label.getPackageIdentifier());
+              }
+            }
+            default -> {}
           }
         });
     packageIdentifierSet.addAll(
@@ -291,11 +299,15 @@ public final class FrontierSerializer {
     // selected ConfiguredTargetValues.
     graph.parallelForEach(
         node -> {
-          if (node.getKey() instanceof PackageIdentifier key
-              && !packageIdentifierSet.contains(key)) {
-            var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
-            incrementalInMemoryNodeEntry.clearSkyValue();
+          if (!(node.getKey() instanceof PackageIdentifier key)) {
+            return;
           }
+
+          if (packageIdentifierSet.contains(key)) {
+            return;
+          }
+
+          ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
         });
   }
 

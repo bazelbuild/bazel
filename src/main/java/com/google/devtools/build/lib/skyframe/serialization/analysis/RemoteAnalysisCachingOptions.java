@@ -270,13 +270,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   public HashCode serverChecksumOverride;
 
   @Option(
-      name = "experimental_discard_package_values_post_analysis",
+      name = "experimental_skycache_minimize_memory",
       defaultValue = "false",
+      oldName = "experimental_discard_package_values_post_analysis",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "DO NOT USE: This flag is currently in development and does not work with every target."
-              + " If enabled, Blaze will discard package values after the analysis phase is"
-              + " complete.")
-  public boolean discardPackageValuesPostAnalysis;
+              + " If enabled, Blaze will discard values after the analysis phase is"
+              + " complete to provide Skycache writers with more headroom.")
+  public boolean skycacheMinimizeMemory;
 }

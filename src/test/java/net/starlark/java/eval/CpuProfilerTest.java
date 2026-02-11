@@ -109,7 +109,7 @@ public final class CpuProfilerTest {
     boolean ok = true;
     for (String want : new String[] {"flat%", "sorted", "range"}) {
       if (!got.contains(want)) {
-        System.err.println("pprof output does not contain substring: " + got);
+        System.err.println("pprof output does not contain substring: " + want);
         ok = false;
       }
     }

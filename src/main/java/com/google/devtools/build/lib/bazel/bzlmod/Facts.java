@@ -116,7 +116,7 @@ public abstract class Facts implements StarlarkIndexable {
           if (!(entry.getKey() instanceof String string)) {
             throw Starlark.errorf(
                 "Facts keys must be strings, got '%s' (%s)",
-                Starlark.repr(entry), Starlark.type(entry.getKey()));
+                Starlark.repr(entry, StarlarkSemantics.DEFAULT), Starlark.type(entry.getKey()));
           }
           builder.put(string, validateAndNormalize(entry.getValue(), remainingDepth - 1));
         }
@@ -124,7 +124,8 @@ public abstract class Facts implements StarlarkIndexable {
       }
       default ->
           throw Starlark.errorf(
-              "'%s' (%s) is not supported in facts", Starlark.repr(facts), Starlark.type(facts));
+              "'%s' (%s) is not supported in facts",
+              Starlark.repr(facts, StarlarkSemantics.DEFAULT), Starlark.type(facts));
     };
   }
 

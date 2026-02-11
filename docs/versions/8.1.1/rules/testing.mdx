@@ -2,8 +2,6 @@
 title: 'Testing'
 ---
 
-
-
 There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
@@ -25,7 +23,7 @@ Some caveats:
 
 *   It requires a fair amount of boilerplate to set up the rules under test and
     the rules containing test assertions. This boilerplate may seem daunting at
-    first. It helps to [keep in mind](/extending/concepts#evaluation-model) that macros
+    first. It helps to [keep in mind](/versions/8.1.1/extending/concepts#evaluation-model) that macros
     are evaluated and targets generated during the loading phase, while rule
     implementation functions don't run until later, during the analysis phase.
 
@@ -68,7 +66,6 @@ myrule = rule(
 ```
 
 `//mypkg/myrules_test.bzl`:
-
 
 ```python
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "analysistest")
@@ -288,7 +285,6 @@ In the specified `config_settings` dictionary, command line flags must be
 prefixed with a special placeholder value `//command_line_option:`, as is shown
 above.
 
-
 ## Validating artifacts
 
 The main ways to check that your generated files are correct are:
@@ -438,7 +434,6 @@ def myhelper():
 ```
 
 `//mypkg/myhelpers_test.bzl`:
-
 
 ```python
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")

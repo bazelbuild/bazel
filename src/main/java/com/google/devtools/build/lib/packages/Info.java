@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -63,7 +64,7 @@ public interface Info extends StarlarkValue {
   }
 
   @Override
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<instance of provider ");
     printer.append(getProvider().getPrintableName());
     printer.append(">");

@@ -296,6 +296,9 @@ final class AspectFunction implements SkyFunction {
     Target target = targetAndConfiguration.getTarget();
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
 
+    // PrerequisitesProducer should skip creating aspects on materializer targets.
+    Preconditions.checkState(!target.isMaterializerRule());
+
     // If the target is incompatible, then there's not much to do. The intent here is to create an
     // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
     // against this aspect.

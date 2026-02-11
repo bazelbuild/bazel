@@ -701,8 +701,6 @@ component_selector = materializer_rule(
 AspectInfo = provider(fields = ["info_artifact"])
 
 def _mt_aspect_impl(target, ctx):
-    if ctx.rule.kind != "component":
-        return []
     artifact = ctx.actions.declare_file(target.label.name + ".info")
     ctx.actions.write(artifact, str(target.label))
     return AspectInfo(info_artifact = artifact)

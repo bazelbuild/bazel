@@ -74,7 +74,13 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
             .build();
     seenNodes.addAll(roots.keySet());
     for (Map.Entry<SkyKey, ? extends NodeEntry> rootEntry : roots.entrySet()) {
-      quiescingExecutor.execute(new MarkCycle(rootEntry, evaluatorContext, quiescingExecutor));
+      if (evaluatorContext.keepGoing(rootEntry.getKey())) {
+        // In keepGoing mode we want to visit the DTC of the cycle root node and mark all undone
+        // nodes as being done with a cycle.
+        quiescingExecutor.execute(new MarkCycle(rootEntry, evaluatorContext, quiescingExecutor));
+      }
+      // In contrast, in noKeepGoing mode we don't want to touch the graph at all, so that way the
+      // inflight nodes get deleted and have the chance to be recreated on future evaluations.
       result.addError(rootEntry.getKey(), CYCLE_ERROR_INFO);
     }
     try {
@@ -115,6 +121,9 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
           // nokeep_going build. Tolerate that situation, even though it currently only occurs in
           // tests.
           // Tell entry we're about to check some of its deps so it lets us build it.
+          //
+          //
+          // TODO(b/456225011): Both the above comment and this code are probably stale.
           dirtyDeps = entry.getNextDirtyDirectDeps();
           entry.addTemporaryDirectDepGroup(dirtyDeps);
           for (SkyKey dep : dirtyDeps) {

@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
  */
 public interface TypeConstructor {
 
-  /** Exception thrown when a {@link TypeConstructor} is invoked with invalid arguments. */
+  /** Exception thrown when a {@link TypeConstructor} is called with invalid arguments. */
   class Failure extends Exception {
     Failure(String message) {
       super(message);
@@ -36,7 +36,7 @@ public interface TypeConstructor {
   }
 
   /**
-   * An argument to a type constructor's {@link #invoke} method.
+   * An argument to a type constructor's {@link #createStarlarkType} method.
    *
    * <p>Conceptually, a type argument is the result of evaluating a subexpression of a type
    * expression. Whereas the overall type expression must yield a {@link StarlarkType}, a
@@ -53,5 +53,5 @@ public interface TypeConstructor {
    * @throws Failure if the usage of this constructor is invalid (typically due to a mismatch in the
    *     number of arguments)
    */
-  StarlarkType invoke(ImmutableList<Arg> argsTuple) throws Failure;
+  StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure;
 }

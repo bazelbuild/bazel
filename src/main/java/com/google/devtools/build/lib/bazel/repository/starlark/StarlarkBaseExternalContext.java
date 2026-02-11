@@ -633,7 +633,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(String.format("<pending download to '%s'>", outputPath));
     }
   }

@@ -1,0 +1,76 @@
+---
+title: 'PyInfo'
+---
+
+Encapsulates information provided by the Python rules.
+
+## Members
+
+* [PyInfo](#PyInfo)
+* [has\_py2\_only\_sources](#has_py2_only_sources)
+* [has\_py3\_only\_sources](#has_py3_only_sources)
+* [imports](#imports)
+* [transitive\_sources](#transitive_sources)
+* [uses\_shared\_libraries](#uses_shared_libraries)
+
+## PyInfo
+
+```
+PyInfo PyInfo(transitive_sources, uses_shared_libraries=False, imports=unbound, has_py2_only_sources=False, has_py3_only_sources=False)
+```
+
+The `PyInfo` constructor.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `transitive_sources` | [depset](../builtins/depset) of [File](../builtins/File)s; required  The value for the new object's `transitive_sources` field. |
+| `uses_shared_libraries` | default is `False`  The value for the new object's `uses_shared_libraries` field. |
+| `imports` | [depset](../builtins/depset) of [string](../core/string)s; default is `unbound`  The value for the new object's `imports` field. |
+| `has_py2_only_sources` | default is `False`  The value for the new object's `has_py2_only_sources` field. |
+| `has_py3_only_sources` | default is `False`  The value for the new object's `has_py3_only_sources` field. |
+
+## has\_py2\_only\_sources
+
+```
+bool PyInfo.has_py2_only_sources
+```
+
+Whether any of this target's transitive sources requires a Python 2 runtime.
+
+## has\_py3\_only\_sources
+
+```
+bool PyInfo.has_py3_only_sources
+```
+
+Whether any of this target's transitive sources requires a Python 3 runtime.
+
+## imports
+
+```
+depset PyInfo.imports
+```
+
+A depset of import path strings to be added to the `PYTHONPATH` of executable Python targets. These are accumulated from the transitive `deps`.
+
+The order of the depset is not guaranteed and may be changed in the future. It is recommended to use `default` order (the default).
+
+## transitive\_sources
+
+```
+depset PyInfo.transitive_sources
+```
+
+A (`postorder`-compatible) depset of `.py` files appearing in the target's `srcs` and the `srcs` of the target's transitive `deps`.
+
+## uses\_shared\_libraries
+
+```
+bool PyInfo.uses_shared_libraries
+```
+
+Whether any of this target's transitive `deps` has a shared library file (such as a `.so` file).
+
+This field is currently unused in Bazel and may go away in the future.

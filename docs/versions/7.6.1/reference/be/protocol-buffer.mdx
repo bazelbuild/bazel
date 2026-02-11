@@ -1,0 +1,104 @@
+---
+title: 'Protocol Buffer Rules'
+---
+
+## Rules
+
+* [proto\_lang\_toolchain](#proto_lang_toolchain)
+* [proto\_library](#proto_library)
+
+## proto\_lang\_toolchain
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/proto/ProtoLangToolchainRule.java)
+
+```
+proto_lang_toolchain(name, blacklisted_protos, command_line, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, licenses, mnemonic, output_files, plugin, plugin_format_flag, progress_message, proto_compiler, restricted_to, runtime, tags, target_compatible_with, testonly, visibility)
+```
+
+If using Bazel, please load the rule from <https://github.com/bazelbuild/rules_proto>.
+
+Specifies how a LANG\_proto\_library rule (e.g., `java_proto_library`) should invoke the
+proto-compiler.
+Some LANG\_proto\_library rules allow specifying which toolchain to use using command-line flags;
+consult their documentation.
+
+Normally you should not write those kind of rules unless you want to
+tune your Java compiler.
+
+There's no compiler. The proto-compiler is taken from the proto\_library rule we attach to. It is
+passed as a command-line flag to Blaze.
+Several features require a proto-compiler to be invoked on the proto\_library rule itself.
+It's beneficial to enforce the compiler that LANG\_proto\_library uses is the same as the one
+`proto_library` does.
+
+#### Examples
+
+A simple example would be:
+
+```
+proto_lang_toolchain(
+    name = "javalite_toolchain",
+    command_line = "--javalite_out=shared,immutable:$(OUT)",
+    plugin = ":javalite_plugin",
+    runtime = ":protobuf_lite",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `blacklisted_protos` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` No code will be generated for files in the `srcs` attribute of `blacklisted_protos`. This is used for .proto files that are already linked into proto runtimes, such as `any.proto`. |
+| `command_line` | String; required This value will be passed to proto-compiler to generate the code. Only include the parts specific to this code-generator/plugin (e.g., do not include -I parameters)  * `$(OUT)` is LANG\_proto\_library-specific. The rules are expected to define   how they interpret this variable. For Java, for example, $(OUT) will be replaced with   the src-jar filename to create. |
+| `mnemonic` | String; default is `"GenProto"` This value will be set as the mnemonic on protoc action. |
+| `output_files` | String; default is `"legacy"` Controls how `$(OUT)` in `command_line` is formatted, either by a path to a single file or output directory in case of multiple files. Possible values are: "single", "multiple". |
+| `plugin` | [Label](/versions/7.6.1/concepts/labels); default is `None` If provided, will be made available to the action that calls the proto-compiler, and will be passed to the proto-compiler: `--plugin=protoc-gen-PLUGIN=<executable>.` |
+| `plugin_format_flag` | String; default is `""` If provided, this value will be passed to proto-compiler to use the plugin. The value must contain a single %s which is replaced with plugin executable. `--plugin=protoc-gen-PLUGIN=<executable>.` |
+| `progress_message` | String; default is `"Generating proto_library %{label}"` This value will be set as the progress message on protoc action. |
+| `proto_compiler` | [Label](/versions/7.6.1/concepts/labels); default is `None` The proto compiler executable. If provided, this target will be used as a proto-compiler to generate the code. |
+| `runtime` | [Label](/versions/7.6.1/concepts/labels); default is `None` A language-specific library that the generated code is compiled against. The exact behavior is LANG\_proto\_library-specific. Java, for example, should compile against the runtime. |
+
+## proto\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/proto/BazelProtoLibraryRule.java)
+
+```
+proto_library(name, deps, srcs, data, allow_exports, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, exports, features, import_prefix, licenses, restricted_to, strip_import_prefix, tags, target_compatible_with, testonly, visibility)
+```
+
+Deprecated. Please use <https://github.com/bazelbuild/rules_proto> instead.
+
+Use `proto_library` to define libraries of protocol buffers
+which may be used from multiple languages. A `proto_library` may be listed
+in the `deps` clause of supported rules, such as `java_proto_library`.
+
+When compiled on the command-line, a `proto_library` creates a file named
+`foo-descriptor-set.proto.bin`, which is the descriptor set for the
+messages the rule srcs. The file is a serialized `FileDescriptorSet`, which is
+described in
+<https://developers.google.com/protocol-buffers/docs/techniques#self-description>.
+
+It only contains information about the `.proto` files directly mentioned by a
+`proto_library` rule; the collection of transitive descriptor sets is available through
+the `[ProtoInfo].transitive_descriptor_sets` Starlark provider.
+See documentation in `ProtoInfo.java`.
+
+Recommended code organization:
+
+* One `proto_library` rule per `.proto` file.* A file named `foo.proto` will be in a rule named `foo_proto`, which
+    is located in the same package.* A `[language]_proto_library` that wraps a `proto_library` named
+      `foo_proto` should be called
+      `foo_[language]_proto`, and be located in the same package.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other `proto_library` rules that the target depends upon. A `proto_library` may only depend on other `proto_library` targets. It may not depend on language-specific libraries. |
+| `srcs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of `.proto` and `.protodevel` files that are processed to create the target. This is usually a non empty list. One usecase where `srcs` can be empty is an *alias-library*. This is a proto\_library rule having one or more other proto\_library in `deps`. This pattern can be used to e.g. export a public api under a persistent name. |
+| `allow_exports` | [Label](/versions/7.6.1/concepts/labels); default is `None` An optional allowlist that prevents proto library to be reexported or used in lang\_proto\_library that is not in one of the listed packages. |
+| `exports` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` List of proto\_library targets that can be referenced via "import public" in the proto source. |
+| `import_prefix` | String; default is `""` The prefix to add to the paths of the .proto files in this rule. When set, the .proto source files in the `srcs` attribute of this rule are accessible at is the value of this attribute prepended to their repository-relative path. The prefix in the `strip_import_prefix` attribute is removed before this prefix is added. |
+| `strip_import_prefix` | String; default is `""` The prefix to strip from the paths of the .proto files in this rule. When set, .proto source files in the `srcs` attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path (not starting with a slash), it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the `import_prefix` attribute is added after this prefix is stripped. |

@@ -188,9 +188,9 @@ public final class BuildOptions implements Cloneable {
             for (FragmentOptions options : fragmentOptionsMap.values()) {
               fingerprint.addString(options.cacheKey());
             }
-            fingerprint.addString(OptionsBase.mapToCacheKey(starlarkOptionsMap));
+            fingerprint.addString(OptionsBase.starlarkMapToCacheKey(starlarkOptionsMap));
             fingerprint.addString(OptionsBase.mapToCacheKey(scopes));
-            fingerprint.addString(OptionsBase.mapToCacheKey(onLeaveScopeValuesMap));
+            fingerprint.addString(OptionsBase.starlarkMapToCacheKey(onLeaveScopeValuesMap));
             checksum = fingerprint.hexDigestAndReset();
           }
         }

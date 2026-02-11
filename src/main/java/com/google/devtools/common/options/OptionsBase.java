@@ -17,9 +17,11 @@ package com.google.devtools.common.options;
 import com.google.common.collect.Maps;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
@@ -84,8 +86,8 @@ public abstract class OptionsBase {
   }
 
   /**
-   * Returns a string that uniquely identifies the options. This value is
-   * intended for analysis caching.
+   * Returns a string that uniquely identifies the options. This value is intended for analysis
+   * caching.
    */
   public final String cacheKey() {
     StringBuilder result = new StringBuilder(getClass().getName()).append("{");
@@ -93,23 +95,40 @@ public abstract class OptionsBase {
     return result.append("}").toString();
   }
 
+  /**
+   * Like {@link #mapToCacheKey} but the returned key is sensitive to the {@link Starlark#type} of
+   * values in the map.
+   *
+   * <p>This is important because types are observable to starlark code. See b/478938163.
+   */
+  public static String starlarkMapToCacheKey(Map<?, ?> starlarkOptionsMap) {
+    return mapToCacheKey(starlarkOptionsMap, /* distinguishStarlarkTypes= */ true);
+  }
+
   public static String mapToCacheKey(Map<?, ?> optionsMap) {
+    return mapToCacheKey(optionsMap, /* distinguishStarlarkTypes= */ false);
+  }
+
+  private static String mapToCacheKey(Map<?, ?> optionsMap, boolean distinguishStarlarkTypes) {
     StringBuilder result = new StringBuilder();
     for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
       result.append(entry.getKey()).append("=");
 
       Object value = entry.getValue();
-      // This special case is needed because List.toString() prints the same
-      // ("[]") for an empty list and for a list with a single empty string.
-      if (value instanceof List<?> && ((List<?>) value).isEmpty()) {
-        result.append("EMPTY");
-      } else if (value == null) {
+
+      if (value == null) {
         result.append("NULL");
       } else {
-        result
-            .append('"')
-            .append(ESCAPER.escape(value.toString()))
-            .append('"');
+        if (distinguishStarlarkTypes) {
+          result.append(Starlark.type(value));
+        }
+        // This special case is needed because Collection.toString() prints the same ("[]") for an
+        // empty collection and for a collection with a single empty string.
+        if (value instanceof Collection<?> c && c.isEmpty()) {
+          result.append("EMPTY");
+        } else {
+          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
+        }
       }
       result.append(", ");
     }

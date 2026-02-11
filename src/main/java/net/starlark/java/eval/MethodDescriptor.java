@@ -55,6 +55,7 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  @Nullable private final Class<?> typeConstructorProxy;
   private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
   private final StarlarkType starlarkType;
 
@@ -82,7 +83,8 @@ final class MethodDescriptor {
       boolean selfCall,
       boolean allowReturnNones,
       boolean useStarlarkThread,
-      boolean useStarlarkSemantics) {
+      boolean useStarlarkSemantics,
+      boolean isTypeConstructor) {
     this.method = method;
     this.annotation = annotation;
     this.name = name;
@@ -96,6 +98,7 @@ final class MethodDescriptor {
     this.allowReturnNones = allowReturnNones;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
+    this.typeConstructorProxy = isTypeConstructor ? method.getReturnType() : null;
 
     Class<?> ret = method.getReturnType();
     if (ret == void.class || ret == boolean.class) {
@@ -231,7 +234,8 @@ final class MethodDescriptor {
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useStarlarkThread(),
-        annotation.useStarlarkSemantics());
+        annotation.useStarlarkSemantics(),
+        annotation.isTypeConstructor());
   }
 
   private static final Object[] EMPTY = {};
@@ -270,10 +274,16 @@ final class MethodDescriptor {
       buf.append(
           String.format(
               "IllegalArgumentException (%s) in Starlark call of %s, obj=%s (%s), args=[",
-              ex.getMessage(), method, Starlark.repr(obj), Starlark.type(obj)));
+              ex.getMessage(),
+              method,
+              Starlark.repr(obj, StarlarkSemantics.DEFAULT),
+              Starlark.type(obj)));
       String sep = "";
       for (Object arg : args) {
-        buf.append(String.format("%s%s (%s)", sep, Starlark.repr(arg), Starlark.type(arg)));
+        buf.append(
+            String.format(
+                "%s%s (%s)",
+                sep, Starlark.repr(arg, StarlarkSemantics.DEFAULT), Starlark.type(arg)));
         sep = ", ";
       }
       buf.append(']');
@@ -389,6 +399,11 @@ final class MethodDescriptor {
 
   public StarlarkType getStarlarkType() {
     return starlarkType;
+  }
+
+  @Nullable
+  Class<?> getTypeConstructorProxy() {
+    return typeConstructorProxy;
   }
 
   /**

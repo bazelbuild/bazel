@@ -196,6 +196,28 @@ java_test(
     ],
 )
 
+java_test(
+    name = "FileDependencySerializerTest",
+    size = "small",
+    srcs = ["FileDependencySerializerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_serializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:invalidation_data_reference_or_future",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:missing_skyframe_entry_exception",
+        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "controllable_file_dependencies",
     srcs = ["ControllableFileDependencies.java"],

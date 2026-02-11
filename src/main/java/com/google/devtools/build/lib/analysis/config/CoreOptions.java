@@ -312,16 +312,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "implementations only access things they should. Causes a performance hit.")
   public boolean extendedSanityChecks;
 
-  @Option(
-      name = "strict_filesets",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors.")
-  public boolean strictFilesets;
-
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -332,17 +322,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, the file permissions of action outputs are set to `0755` instead of `0555`")
   public boolean experimentalWritableOutputs;
-
-  @Option(
-      name = "experimental_strict_fileset_output",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If this option is enabled, filesets will treat all output artifacts as regular files. "
-              + "They will not traverse directories or be sensitive to symlinks.")
-  public boolean strictFilesetOutput;
 
   @Option(
       name = "stamp",

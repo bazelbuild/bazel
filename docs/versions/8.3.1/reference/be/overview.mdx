@@ -1,0 +1,54 @@
+---
+title: 'Bazel BUILD Encyclopedia of Functions'
+---
+
+## Concepts and terminology
+
+* [Common definitions](/versions/8.3.1/reference/be/common-definitions)
+  + [Bourne shell tokenization](/versions/8.3.1/reference/be/common-definitions#sh-tokenization)
+  + [Label expansion](/versions/8.3.1/reference/be/common-definitions#label-expansion)
+  + [Typical attributes for most rules](/versions/8.3.1/reference/be/common-definitions#typical-attributes)
+  + [Common attributes for all rules](/versions/8.3.1/reference/be/common-definitions#common-attributes)
+  + [Common attributes for tests](/versions/8.3.1/reference/be/common-definitions#common-attributes-tests)
+  + [Common attributes for binaries](/versions/8.3.1/reference/be/common-definitions#common-attributes-binaries)
+  + [Configurable attributes](/versions/8.3.1/reference/be/common-definitions#configurable-attributes)
+  + [Implicit output targets](/versions/8.3.1/reference/be/common-definitions#implicit-outputs)
+* ["Make" variables](/versions/8.3.1/reference/be/make-variables)
+  + [Use](/versions/8.3.1/reference/be/make-variables#use)
+
+## Functions
+
+* [package](/versions/8.3.1/reference/be/functions#package)
+* [package\_group](/versions/8.3.1/reference/be/functions#package_group)
+* [exports\_files](/versions/8.3.1/reference/be/functions#exports_files)
+* [glob](/versions/8.3.1/reference/be/functions#glob)
+* [select](/versions/8.3.1/reference/be/functions#select)
+* [workspace](/versions/8.3.1/rules/lib/globals/workspace#workspace)
+
+## Rules
+
+Native rules ship with the Bazel binary and do not require a `load` statement.
+Native rules are available globally in BUILD files. In .bzl files, you can find them in
+the `native` module.
+For non-native Starlark rules that ship separately from Bazel, see the list of
+[recommended rules](/versions/8.3.1/rules/rules#recommended-rules).
+
+### Language-specific native rules
+
+| Language | Binary rules | Library rules | Test rules | Other rules |
+| --- | --- | --- | --- | --- |
+| C / C++ | [cc\_binary](c-cpp#cc_binary) | [cc\_import](c-cpp#cc_import)   [cc\_library](c-cpp#cc_library)   [cc\_shared\_library](c-cpp#cc_shared_library)   [cc\_static\_library](c-cpp#cc_static_library) | [cc\_test](c-cpp#cc_test) | [cc\_toolchain](c-cpp#cc_toolchain)   [cc\_toolchain\_suite](c-cpp#cc_toolchain_suite)   [fdo\_prefetch\_hints](c-cpp#fdo_prefetch_hints)   [fdo\_profile](c-cpp#fdo_profile)   [memprof\_profile](c-cpp#memprof_profile)   [propeller\_optimize](c-cpp#propeller_optimize) |
+| Java | [java\_binary](java#java_binary) | [java\_import](java#java_import)   [java\_library](java#java_library) | [java\_test](java#java_test) | [java\_package\_configuration](java#java_package_configuration)   [java\_plugin](java#java_plugin)   [java\_runtime](java#java_runtime)   [java\_toolchain](java#java_toolchain) |
+| Objective-C |  | [objc\_import](objective-c#objc_import)   [objc\_library](objective-c#objc_library) |  |  |
+| Protocol Buffer |  | [cc\_proto\_library](protocol-buffer#cc_proto_library)   [java\_lite\_proto\_library](protocol-buffer#java_lite_proto_library)   [java\_proto\_library](protocol-buffer#java_proto_library)   [proto\_library](protocol-buffer#proto_library)   [py\_proto\_library](protocol-buffer#py_proto_library) |  | [proto\_lang\_toolchain](protocol-buffer#proto_lang_toolchain)   [proto\_toolchain](protocol-buffer#proto_toolchain) |
+| Python | [py\_binary](python#py_binary) | [py\_library](python#py_library) | [py\_test](python#py_test) | [py\_runtime](python#py_runtime) |
+| Shell | [sh\_binary](shell#sh_binary) | [sh\_library](shell#sh_library) | [sh\_test](shell#sh_test) |  |
+
+### Language-agnostic native rules
+
+| Family | Rules |
+| --- | --- |
+| Extra Actions | * [action\_listener](extra-actions#action_listener)* [extra\_action](extra-actions#extra_action) |
+| General | * [alias](general#alias)* [config\_setting](general#config_setting)* [filegroup](general#filegroup)* [genquery](general#genquery)* [genrule](general#genrule)* [starlark\_doc\_extract](general#starlark_doc_extract)* [test\_suite](general#test_suite) |
+| Platforms and Toolchains | * [constraint\_setting](platforms-and-toolchains#constraint_setting)* [constraint\_value](platforms-and-toolchains#constraint_value)* [platform](platforms-and-toolchains#platform)* [toolchain](platforms-and-toolchains#toolchain)* [toolchain\_type](platforms-and-toolchains#toolchain_type) |
+| Workspace | * [bind](workspace#bind)* [local\_repository](workspace#local_repository)* [new\_local\_repository](workspace#new_local_repository) |

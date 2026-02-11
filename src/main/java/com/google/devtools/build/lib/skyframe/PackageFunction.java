@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -478,22 +477,14 @@ public abstract class PackageFunction implements SkyFunction {
 
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
-      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
-      if (autoloadSymbols == null) {
-        return null;
-      }
-      boolean requiresAutoloads =
-          !autoloadSymbols.autoloadsDisabledInBuildForRepo(packageId.getRepository());
       if (bzlLoadFunctionForInlining == null) {
         starlarkBuiltinsValue =
             (StarlarkBuiltinsValue)
-                env.getValueOrThrow(
-                    StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
-                    BuiltinsFailedException.class);
+                env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
       } else {
         starlarkBuiltinsValue =
             StarlarkBuiltinsFunction.computeInline(
-                StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
+                StarlarkBuiltinsValue.key(),
                 BzlLoadFunction.InliningState.create(env),
                 packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);

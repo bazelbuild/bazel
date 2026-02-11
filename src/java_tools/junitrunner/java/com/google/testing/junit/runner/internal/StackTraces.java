@@ -14,20 +14,25 @@
 
 package com.google.testing.junit.runner.internal;
 
+import com.sun.management.HotSpotDiagnosticMXBean;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-/**
- * Utilities for stack traces.
- */
+/** Utilities for stack traces. */
 public class StackTraces {
 
   /**
@@ -36,6 +41,16 @@ public class StackTraces {
    * @param out Stream to print to
    */
   public static void printAll(PrintStream out) {
+    printAll(out, /* emitJsonThreadDump= */ false);
+  }
+
+  /**
+   * Prints all stack traces to the given stream.
+   *
+   * @param out Stream to print to
+   * @param emitJsonThreadDump Whether to also emit a JSON thread dump to a file
+   */
+  public static void printAll(PrintStream out, boolean emitJsonThreadDump) {
     out.println("Starting full thread dump ...\n");
     ThreadMXBean mb = ManagementFactory.getThreadMXBean();
 
@@ -67,29 +82,74 @@ public class StackTraces {
 
     long[] deadlockedThreads = mb.findDeadlockedThreads();
     if (deadlockedThreads != null) {
-      out.println("Detected deadlocked threads: " +
-                Arrays.toString(deadlockedThreads));
+      out.println("Detected deadlocked threads: " + Arrays.toString(deadlockedThreads));
     }
     long[] monitorDeadlockedThreads = mb.findMonitorDeadlockedThreads();
     if (monitorDeadlockedThreads != null) {
-      out.println("Detected monitor deadlocked threads: " +
-                  Arrays.toString(monitorDeadlockedThreads));
+      out.println(
+          "Detected monitor deadlocked threads: " + Arrays.toString(monitorDeadlockedThreads));
     }
     out.println("\nDone full thread dump.");
     out.flush();
+
+    if (!emitJsonThreadDump) {
+      return;
+    }
+    // The thread dump above does not include virtual threads, so also capture a structured dump
+    // that includes virtual threads. Since the dump is potentially large, we write it to a file in
+    // the test outputs directory instead of printing it to the console.
+    // Find the dumpThreads(String, ThreadDumpFormat) method via reflection to maintain
+    // compatibility with JDKs prior to 21.
+    Optional<Method> dumpThreadsMethod =
+        Arrays.stream(HotSpotDiagnosticMXBean.class.getMethods())
+            .filter(
+                m ->
+                    m.getName().equals("dumpThreads")
+                        && m.getParameterCount() == 2
+                        && m.getParameterTypes()[0] == String.class
+                        && m.getParameterTypes()[1].isEnum())
+            .findFirst();
+    if (dumpThreadsMethod.isEmpty()) {
+      return;
+    }
+    Optional<?> threadDumpFormatJson =
+        Arrays.stream(dumpThreadsMethod.get().getParameterTypes()[1].getEnumConstants())
+            .filter(e -> e.toString().equalsIgnoreCase("JSON"))
+            .findFirst();
+    if (threadDumpFormatJson.isEmpty()) {
+      return;
+    }
+    HotSpotDiagnosticMXBean diagnosticBean =
+        ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
+    String testOutputsDir = System.getenv("TEST_UNDECLARED_OUTPUTS_DIR");
+    if (testOutputsDir == null) {
+      return;
+    }
+    try {
+      Path jsonDump = Files.createTempFile(Paths.get(testOutputsDir), "thread_dump", ".json");
+      Files.delete(jsonDump);
+      out.println("Writing JSON thread dump to " + jsonDump);
+      dumpThreadsMethod
+          .get()
+          .invoke(diagnosticBean, jsonDump.toString(), threadDumpFormatJson.get());
+      out.println("Done writing JSON thread dump to " + jsonDump);
+    } catch (ReflectiveOperationException | IOException e) {
+      out.println("Failed to write JSON thread dump:");
+      e.printStackTrace(out);
+    } finally {
+      out.flush();
+    }
   }
 
   // Adopted from ThreadInfo.toString(), without MAX_FRAMES limit
   private static void dumpThreadInfo(ThreadInfo t, Thread thread, PrintStream out) {
-    out.print("\"" + t.getThreadName() + "\"" +
-              " Id=" + t.getThreadId() + " " +
-              t.getThreadState());
+    out.print(
+        "\"" + t.getThreadName() + "\"" + " Id=" + t.getThreadId() + " " + t.getThreadState());
     if (t.getLockName() != null) {
       out.print(" on " + t.getLockName());
     }
     if (t.getLockOwnerName() != null) {
-      out.print(" owned by \"" + t.getLockOwnerName() +
-                "\" Id=" + t.getLockOwnerId());
+      out.print(" owned by \"" + t.getLockOwnerName() + "\" Id=" + t.getLockOwnerId());
     }
     if (t.isSuspended()) {
       out.print(" (suspended)");

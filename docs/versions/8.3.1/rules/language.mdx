@@ -6,7 +6,7 @@ title: 'Starlark Language'
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
 formerly known as Skylark, the language used in Bazel. For a complete list of
-functions and types, see the [Bazel API reference](/rules/lib/overview).
+functions and types, see the [Bazel API reference](/versions/8.3.1/rules/lib/overview).
 
 For more information about the language, see [Starlark's GitHub repo](https://github.com/bazelbuild/starlark/).
 
@@ -94,7 +94,7 @@ values returned by rules are immutable.
 `BUILD` files register targets via making calls to rules. `.bzl` files provide
 definitions for constants, rules, macros, and functions.
 
-[Native functions](/reference/be/functions) and [native rules](
+[Native functions](/versions/8.3.1/reference/be/functions) and [native rules](
 /reference/be/overview#language-specific-native-rules) are global symbols in
 `BUILD` files. `bzl` files need to load them using the [`native` module](
 /rules/lib/toplevel/native).
@@ -140,7 +140,7 @@ The following Python features are not supported:
 * implicit string concatenation (use explicit `+` operator).
 * Chained comparisons (such as `1 < x < 5`).
 * `class` (see [`struct`](lib/struct#struct) function).
-* `import` (see [`load`](/extending/concepts#loading-an-extension) statement).
+* `import` (see [`load`](/versions/8.3.1/extending/concepts#loading-an-extension) statement).
 * `while`, `yield`.
 * float and set types.
 * generators and generator expressions.

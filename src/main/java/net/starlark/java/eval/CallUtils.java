@@ -15,108 +15,200 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** Helper functions for {@link StarlarkMethod}-annotated methods. */
 final class CallUtils {
 
   private CallUtils() {} // uninstantiable
 
-  /**
-   * Returns the {@link StarlarkClassDescriptor} for the given {@link StarlarkSemantics} and {@link
-   * Class}.
-   *
-   * <p>This method is a hotspot! It's called on every function call and field access. A single
-   * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
-   */
-  private static StarlarkClassDescriptor getStarlarkClassDescriptor(
-      StarlarkSemantics semantics, Class<?> clazz) {
-    if (clazz == String.class) {
-      clazz = StringModule.class;
-    }
+  /** A map for obtaining a {@link BuiltinManager} from a {@link StarlarkSemantics}. */
+  // Historically, this code used to have a big map from (StarlarkSemantics, Class) pairs to
+  // ClassDescriptors. This caused unnecessary GC churn and method call overhead for the dedicated
+  // tuple objects, which became observable at scale. It was subsequently rewritten to be a
+  // double-layer map from Semantics to Class to ClassDescriptor, which optimized for the common
+  // case of few (typically just one) StarlarkSemantics instances. The inner map was then abstracted
+  // into BuiltinManager.
+  //
+  // Avoid ConcurrentHashMap#computeIfAbsent because it is not reentrant: If a ClassDescriptor is
+  // looked up before Starlark.UNIVERSE is initialized then the computation will re-enter the cache
+  // and have a cycle; see b/161479826 for history.
+  // TODO(bazel-team): Does the above cycle concern still exist?
+  private static final ConcurrentHashMap<StarlarkSemantics, BuiltinManager> managerForSemantics =
+      new ConcurrentHashMap<>();
 
-    // We use two layers of caches, with the first layer being keyed by StarlarkSemantics and the
-    // second layer being keyed by Class. This optimizes for the common case of very few different
-    // StarlarkSemantics instances (typically, one) being in play. In contrast, if we used a single
-    // cache data structure then we'd need to use a dedicated tuple object for the keys of that data
-    // structure, and the GC churn and method call overhead become meaningful at scale.
-    //
-    // We implement each cache ourselves using CHM#get and CHM#putIfAbsent. We don't use
-    // CHM#computeIfAbsent since it is not reentrant: If #getStarlarkClassDescriptor is called
-    // before Starlark.UNIVERSE is initialized then the computation will re-enter the cache and have
-    // a cycle; see b/161479826 for history.
-    // TODO(bazel-team): Maybe the above cycle concern doesn't exist now that CallUtils is private.
-    ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> starlarkClassDescriptorCache =
-        starlarkClassDescriptorCachesBySemantics.get(
-            semantics.getStarlarkClassDescriptorCacheKey());
-    if (starlarkClassDescriptorCache == null) {
-      starlarkClassDescriptorCache =
-          new ConcurrentHashMap<>(
-              // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
-              // we presize the CHM accordingly to reduce the chance two entries use the same hash
-              // bucket (in May 2023 this strategy was completely effective!). We used to use the
-              // default capacity, and then the CHM would get dynamically resized to have 256
-              // buckets, many of which had at least 2 entries which is suboptimal for such a hot
-              // data structure.
-              // TODO(bazel-team): Better would be to precompute the entire lookup table on server
-              //  startup (best would be to do this at compile time via an annotation processor),
-              //  rather than rely on it getting built-up dynamically as Starlark code gets
-              //  evaluated over the lifetime of the server. This way there are no concurrency
-              //  concerns, so we can use a more efficient data structure that doesn't need to
-              //  handle concurrent writes.
-              /* initialCapacity= */ 1000);
-      ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> prev =
-          starlarkClassDescriptorCachesBySemantics.putIfAbsent(
-              semantics, starlarkClassDescriptorCache);
+  static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
+    BuiltinManager manager = managerForSemantics.get(semantics.getBuiltinManagerCacheKey());
+    if (manager == null) {
+      manager = new BuiltinManager(semantics);
+      BuiltinManager prev = managerForSemantics.putIfAbsent(semantics, manager);
       if (prev != null) {
-        starlarkClassDescriptorCache = prev; // first thread wins
+        manager = prev; // first thread wins
       }
     }
-
-    StarlarkClassDescriptor starlarkClassDescriptor = starlarkClassDescriptorCache.get(clazz);
-    if (starlarkClassDescriptor == null) {
-      starlarkClassDescriptor = buildStarlarkClassDescriptor(semantics, clazz);
-      StarlarkClassDescriptor prev =
-          starlarkClassDescriptorCache.putIfAbsent(clazz, starlarkClassDescriptor);
-      if (prev != null) {
-        starlarkClassDescriptor = prev; // first thread wins
-      }
-    }
-    return starlarkClassDescriptor;
+    return manager;
   }
 
   /**
-   * Information derived from a {@link Class} (that has methods annotated with {@link
-   * StarlarkMethod}) based on a {@link StarlarkSemantics}.
+   * Describes the Starlark methods available for a particular Java class under a particular {@link
+   * StarlarkSemantics}.
+   *
+   * <p>Generally, but not always (e.g. in the case of compilations of global functions like {@link
+   * MethodLibrary}), instances of the Java class are valid as Starlark values.
+   *
+   * <p>Although a {@code ClassDescriptor} does not directly embed the {@code StarlarkSemantics},
+   * its contents vary based on them. In contrast, {@link MethodDescriptor} and {@link
+   * ParamDescriptor} do not vary with the semantics.
    */
-  private static class StarlarkClassDescriptor {
+  // TODO(bazel-team): For context on whether descriptors should depend on the StarlarkSemantics,
+  // see #25743 and the discussion in cl/742265869. The history of this is that eliminating the
+  // dependence on semantics made it simpler to obtain type information and avoid an overreliance on
+  // StarlarkSemantics#DEFAULT. But embedding a semantics may make it simpler to give precise static
+  // type information that takes into account flag-guarding. For the moment it suffices to store a
+  // semantics in BuiltinFunction.
+  private static class ClassDescriptor {
+    /**
+     * The descriptor for the unique {@code @StarlarkMethod}-annotated method on this class that has
+     * {@link StarlarkMethod#selfCall} set to true (ex: "struct" in Bazel), or null if there is no
+     * such method.
+     */
     @Nullable MethodDescriptor selfCall;
 
     /**
-     * All {@link StarlarkMethod}-annotated Java methods, sans ones where {@code selfCall() ==
-     * true}, sorted by Java method name.
+     * A map of the method descriptors that are available as fields of this object.
+     *
+     * <p>This includes methods with {@link StarlarkMethod#structField} set to true, i.e.
+     * non-callable Starlark fields.
+     *
+     * <p>The {@code selfCall} method is omitted (if one even exists). Any methods that are disabled
+     * by flag guarding via the {@link StarlarkSemantics} are also omitted.
+     *
+     * <p>The map is keyed on the Starlark field name, and sorted by Java method name.
      */
     ImmutableMap<String, MethodDescriptor> methods;
+
+    /**
+     * The type constructor produced by augmenting this class's base type constructor with method
+     * information; or null if this class cannot be used as a type.
+     *
+     * <p>See {@link StarlarkMethod#isTypeConstructor}.
+     */
+    @Nullable TypeConstructor typeConstructor;
   }
 
   /**
-   * Two-layer cache of {@link #buildStarlarkClassDescriptor}, managed by {@link
-   * #getStarlarkClassDescriptor}.
+   * A manager for obtaining descriptors for native-defined Starlark objects and methods, under a
+   * specific {@code StarlarkSemantics}.
    */
-  private static final ConcurrentHashMap<
-          StarlarkSemantics, ConcurrentHashMap<Class<?>, StarlarkClassDescriptor>>
-      starlarkClassDescriptorCachesBySemantics = new ConcurrentHashMap<>();
+  static class BuiltinManager {
 
-  private static StarlarkClassDescriptor buildStarlarkClassDescriptor(
-      StarlarkSemantics semantics, Class<?> clazz) {
+    private final StarlarkSemantics semantics;
+
+    // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
+    // we presize the CHM accordingly to reduce the chance two entries use the same hash
+    // bucket (in May 2023 this strategy was completely effective!). We used to use the
+    // default capacity, and then the CHM would get dynamically resized to have 256
+    // buckets, many of which had at least 2 entries which is suboptimal for such a hot
+    // data structure.
+    // TODO(bazel-team): Better would be to precompute the entire lookup table on server
+    //  startup (best would be to do this at compile time via an annotation processor),
+    //  rather than rely on it getting built-up dynamically as Starlark code gets
+    //  evaluated over the lifetime of the server. This way there are no concurrency
+    //  concerns, so we can use a more efficient data structure that doesn't need to
+    //  handle concurrent writes.
+    private final ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
+        new ConcurrentHashMap<>(/* initialCapacity= */ 1000);
+
+    private BuiltinManager(StarlarkSemantics semantics) {
+      this.semantics = semantics;
+    }
+
+    /**
+     * Returns the {@link ClassDescriptor} for the given {@link StarlarkSemantics} and {@link
+     * Class}.
+     *
+     * <p>This method is a hotspot! It's called on every function call and field access. A single
+     * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
+     */
+    private ClassDescriptor getClassDescriptor(Class<?> clazz) {
+      if (clazz == String.class) {
+        clazz = StringModule.class;
+      }
+
+      ClassDescriptor classDescriptor = classDescriptorCache.get(clazz);
+      if (classDescriptor == null) {
+        classDescriptor = buildClassDescriptor(semantics, clazz);
+        ClassDescriptor prev = classDescriptorCache.putIfAbsent(clazz, classDescriptor);
+        if (prev != null) {
+          classDescriptor = prev; // first thread wins
+        }
+      }
+      return classDescriptor;
+    }
+
+    /**
+     * Returns the type constructor associated with the given Java class under a given {@code
+     * StarlarkSemantics}, or null if there is none.
+     *
+     * <p>An example would be getting the type constructor for the {@code list} type from the class
+     * {@code StarlarkList}.
+     *
+     * <p>The returned constructor has complete type information about the available Starlark
+     * methods of the class.
+     */
+    @Nullable
+    TypeConstructor getTypeConstructor(Class<?> clazz) {
+      return getClassDescriptor(clazz).typeConstructor;
+    }
+
+    /**
+     * Returns the set of all StarlarkMethod-annotated Java methods (excluding the self-call method)
+     * of the specified class.
+     */
+    ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(Class<?> objClass) {
+      return getClassDescriptor(objClass).methods;
+    }
+
+    /**
+     * Returns a {@link MethodDescriptor} object representing a function which calls the selfCall
+     * java method of the given object (the {@link StarlarkMethod} method with {@link
+     * StarlarkMethod#selfCall()} set to true). Returns null if no such method exists.
+     */
+    @Nullable
+    MethodDescriptor getSelfCallMethodDescriptor(Class<?> objClass) {
+      return getClassDescriptor(objClass).selfCall;
+    }
+
+    /**
+     * Returns a {@code selfCall=true} method for the given class under the given Starlark
+     * semantics, or null if no such method exists.
+     */
+    @Nullable
+    Method getSelfCallMethod(Class<?> objClass) {
+      MethodDescriptor descriptor = getClassDescriptor(objClass).selfCall;
+      if (descriptor == null) {
+        return null;
+      }
+      return descriptor.getMethod();
+    }
+  }
+
+  private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
+
+    TypeConstructor typeConstructor = getBaseTypeConstructor(clazz);
+    // TODO: #28325 - Programmatically augment this type with the @StarlarkMethods.
 
     // Sort methods by Java name, for determinism.
     Method[] classMethods = clazz.getMethods();
@@ -155,42 +247,64 @@ final class CallUtils {
       methods.put(callable.name(), descriptor);
     }
 
-    StarlarkClassDescriptor starlarkClassDescriptor = new StarlarkClassDescriptor();
-    starlarkClassDescriptor.selfCall = selfCall;
-    starlarkClassDescriptor.methods = methods.buildOrThrow();
-    return starlarkClassDescriptor;
+    ClassDescriptor classDescriptor = new ClassDescriptor();
+    classDescriptor.selfCall = selfCall;
+    classDescriptor.methods = methods.buildOrThrow();
+    classDescriptor.typeConstructor = typeConstructor;
+    return classDescriptor;
   }
 
   /**
-   * Returns the set of all StarlarkMethod-annotated Java methods (excluding the self-call method)
-   * of the specified class.
-   */
-  static ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(
-      StarlarkSemantics semantics, Class<?> objClass) {
-    return getStarlarkClassDescriptor(semantics, objClass).methods;
-  }
-
-  /**
-   * Returns a {@link MethodDescriptor} object representing a function which calls the selfCall java
-   * method of the given object (the {@link StarlarkMethod} method with {@link
-   * StarlarkMethod#selfCall()} set to true). Returns null if no such method exists.
+   * Returns the base type constructor identified by the given class's {@code
+   * getBaseTypeConstructor()} static method, or null if it does not have one.
+   *
+   * <p>The base type constructor is not the final constructor stored on the {@link
+   * ClassDescriptor}; it lacks type information about the class's methods.
+   *
+   * @throws IllegalArgumentException if the method exists but has an unexpected signature, or if it
+   *     does not evaluate successfully
    */
   @Nullable
-  static MethodDescriptor getSelfCallMethodDescriptor(
-      StarlarkSemantics semantics, Class<?> objClass) {
-    return getStarlarkClassDescriptor(semantics, objClass).selfCall;
-  }
+  private static TypeConstructor getBaseTypeConstructor(Class<?> clazz) {
+    // Special-case bool, which is represented by Java booleans and does not have its own class.
+    // (String.class does not need special-casing because it's already been replaced by
+    // StringModule.class by this point.)
+    if (clazz.equals(Boolean.class) || clazz.equals(boolean.class)) {
+      return Types.BOOL_CONSTRUCTOR;
+    }
 
-  /**
-   * Returns a {@code selfCall=true} method for the given class under the given Starlark semantics,
-   * or null if no such method exists.
-   */
-  @Nullable
-  static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> objClass) {
-    MethodDescriptor descriptor = getStarlarkClassDescriptor(semantics, objClass).selfCall;
-    if (descriptor == null) {
+    Method found = null;
+    for (Method m : clazz.getDeclaredMethods()) {
+      if (m.getName().equals("getBaseTypeConstructor")) {
+        if (found != null) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Class %s has multiple methods named getBaseTypeConstructor", clazz.getName()));
+        }
+        found = m;
+      }
+    }
+    if (found == null) {
       return null;
     }
-    return descriptor.getMethod();
+
+    // Signature check.
+    if (!Modifier.isPublic(found.getModifiers())
+        || !Modifier.isStatic(found.getModifiers())
+        || !found.getReturnType().equals(TypeConstructor.class)
+        || found.getParameterCount() != 0) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Method %s#getBaseTypeConstructor has an invalid signature; "
+                  + "expected 'public static TypeConstructor getBaseTypeConstructor()'",
+              clazz.getName()));
+    }
+
+    try {
+      return (TypeConstructor) found.invoke(null);
+    } catch (IllegalAccessException | InvocationTargetException | RuntimeException e) {
+      throw new IllegalArgumentException(
+          String.format("Error invoking %s#getBaseTypeConstructor", clazz.getName()), e);
+    }
   }
 }

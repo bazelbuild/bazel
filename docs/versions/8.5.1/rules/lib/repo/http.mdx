@@ -1,0 +1,1099 @@
+---
+title: 'http repository rules'
+---
+
+The following functions can be loaded from
+`@bazel_tools//tools/build_defs/repo:http.bzl`.
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+Rules for downloading files and archives over HTTP.
+
+### Setup
+
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `http_archive`:
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def _my_extension_impl(mctx):
+  http_archive(name = "foo", urls = [...])
+
+my_extension = module_extension(implementation = _my_extension_impl)
+```
+
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(name = "foo", urls = [...])
+```
+
+<a id="http_archive"></a>
+
+## http_archive
+
+<pre>
+load("@bazel//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(<a href="#http_archive-name">name</a>, <a href="#http_archive-add_prefix">add_prefix</a>, <a href="#http_archive-auth_patterns">auth_patterns</a>, <a href="#http_archive-build_file">build_file</a>, <a href="#http_archive-build_file_content">build_file_content</a>, <a href="#http_archive-canonical_id">canonical_id</a>, <a href="#http_archive-files">files</a>,
+             <a href="#http_archive-integrity">integrity</a>, <a href="#http_archive-netrc">netrc</a>, <a href="#http_archive-patch_args">patch_args</a>, <a href="#http_archive-patch_cmds">patch_cmds</a>, <a href="#http_archive-patch_cmds_win">patch_cmds_win</a>, <a href="#http_archive-patch_strip">patch_strip</a>, <a href="#http_archive-patch_tool">patch_tool</a>,
+             <a href="#http_archive-patches">patches</a>, <a href="#http_archive-remote_file_integrity">remote_file_integrity</a>, <a href="#http_archive-remote_file_urls">remote_file_urls</a>, <a href="#http_archive-remote_module_file_integrity">remote_module_file_integrity</a>,
+             <a href="#http_archive-remote_module_file_urls">remote_module_file_urls</a>, <a href="#http_archive-remote_patch_strip">remote_patch_strip</a>, <a href="#http_archive-remote_patches">remote_patches</a>, <a href="#http_archive-repo_mapping">repo_mapping</a>, <a href="#http_archive-sha256">sha256</a>,
+             <a href="#http_archive-strip_prefix">strip_prefix</a>, <a href="#http_archive-type">type</a>, <a href="#http_archive-url">url</a>, <a href="#http_archive-urls">urls</a>, <a href="#http_archive-workspace_file">workspace_file</a>, <a href="#http_archive-workspace_file_content">workspace_file_content</a>)
+</pre>
+
+Downloads a Bazel repository as a compressed archive file, decompresses it,
+and makes its targets available for binding.
+
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
+
+Examples:
+  Suppose the current repository contains the source code for a chat program,
+  rooted at the directory `~/chat-app`. It needs to depend on an SSL library
+  which is available from http://example.com/openssl.zip. This `.zip` file
+  contains the following directory structure:
+
+  ```
+  WORKSPACE
+  src/
+    openssl.cc
+    openssl.h
+  ```
+
+  In the local repository, the user creates a `openssl.BUILD` file which
+  contains the following target definition:
+
+  ```python
+  cc_library(
+      name = "openssl-lib",
+      srcs = ["src/openssl.cc"],
+      hdrs = ["src/openssl.h"],
+  )
+  ```
+
+  Targets in the `~/chat-app` repository can depend on this target if the
+  following lines are added to `~/chat-app/WORKSPACE`:
+
+  ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+  http_archive(
+      name = "my_ssl",
+      url = "http://example.com/openssl.zip",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      build_file = "@//:openssl.BUILD",
+  )
+  ```
+
+  Then targets would specify `@my_ssl//:openssl-lib` as a dependency.
+
+**ATTRIBUTES**
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="http_archive-name">
+<td><code>name</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels#target-names">Name</a>; required
+
+<p>
+
+A unique name for this repository.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-add_prefix">
+<td><code>add_prefix</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Destination directory relative to the repository directory.
+
+The archive will be unpacked into this directory, after applying `strip_prefix`
+(if any) to the file paths within the archive. For example, file
+`foo-1.2.3/src/foo.h` will be unpacked to `bar/src/foo.h` if `add_prefix = "bar"`
+and `strip_prefix = "foo-1.2.3"`.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-auth_patterns">
+<td><code>auth_patterns</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+An optional dict mapping host names to custom authorization patterns.
+
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
+
+The pattern currently supports 2 tokens: <code>&lt;login&gt;</code> and
+<code>&lt;password&gt;</code>, which are replaced with their equivalent value
+in the netrc file for the same host name. After formatting, the result is set
+as the value for the <code>Authorization</code> field of the HTTP request.
+
+Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
+
+<pre>
+auth_patterns = {
+    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+}
+</pre>
+
+netrc:
+
+<pre>
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+</pre>
+
+The final HTTP request would have the following header:
+
+<pre>
+Authorization: Bearer RANDOM-TOKEN
+</pre>
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-build_file">
+<td><code>build_file</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels">Label</a>; optional
+
+<p>
+
+The file to use as the BUILD file for this repository.This attribute is an absolute label (use '@//' for the main repo). The file does not need to be named BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it from the repository's actual BUILD files. Either build_file or build_file_content can be specified, but not both.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-build_file_content">
+<td><code>build_file_content</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The content for the BUILD file for this repository. Either build_file or build_file_content can be specified, but not both.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-canonical_id">
+<td><code>canonical_id</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A canonical ID of the file downloaded.
+
+If specified and non-empty, Bazel will not take the file from cache, unless it
+was added to the cache by a request with the same canonical ID.
+
+If unspecified or empty, Bazel by default uses the URLs of the file as the
+canonical ID. This helps catch the common mistake of updating the URLs without
+also updating the hash, resulting in builds that succeed locally but fail on
+machines without the file in the cache. This behavior can be disabled with
+--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-files">
+<td><code>files</code></td>
+<td>
+
+Dictionary: String -> Label; optional
+
+<p>
+
+A map of relative paths (key) to a file label (value) that overlaid on the repo as
+a symlink. This is useful when you want to add REPO.bazel or BUILD.bazel files atop an existing
+repository. Files are symlinked after remote files are downloaded and patches (`remote_patches`,
+`patches`) are applied. Existing files will be overwritten.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-integrity">
+<td><code>integrity</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-netrc">
+<td><code>netrc</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Location of the .netrc file to use for authentication
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patch_args">
+<td><code>patch_args</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+The arguments given to the patch tool. Defaults to -p0 (see the `patch_strip` attribute), however -p1 will usually be needed for patches generated by git. If multiple -p arguments are specified, the last one will take effect.If arguments other than -p are specified, Bazel will fall back to use patch command line tool instead of the Bazel-native patch implementation. When falling back to patch command line tool and patch_tool attribute is not specified, `patch` will be used. This only affects patch files in the `patches` attribute.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patch_cmds">
+<td><code>patch_cmds</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+Sequence of Bash commands to be applied on Linux/Macos after patches are applied.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patch_cmds_win">
+<td><code>patch_cmds_win</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+Sequence of Powershell commands to be applied on Windows after patches are applied. If this attribute is not set, patch_cmds will be executed on Windows, which requires Bash binary to exist.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patch_strip">
+<td><code>patch_strip</code></td>
+<td>
+
+Integer; optional
+
+<p>
+
+When set to `N`, this is equivalent to inserting `-pN` to the beginning of `patch_args`.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patch_tool">
+<td><code>patch_tool</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The patch(1) utility to use. If this is specified, Bazel will use the specified patch tool instead of the Bazel-native patch implementation.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-patches">
+<td><code>patches</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels">List of labels</a>; optional
+
+<p>
+
+A list of files that are to be applied as patches after extracting the archive. By default, it uses the Bazel-native patch implementation which doesn't support fuzz match and binary patch, but Bazel will fall back to use patch command line tool if `patch_tool` attribute is specified or there are arguments other than `-p` in `patch_args` attribute.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_file_integrity">
+<td><code>remote_file_integrity</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+A map of file relative paths (key) to its integrity value (value). These relative paths should map to the files (key) in the `remote_file_urls` attribute.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_file_urls">
+<td><code>remote_file_urls</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> List of strings</a>; optional
+
+<p>
+
+A map of relative paths (key) to a list of URLs (value) that are to be downloaded
+and made available as overlaid files on the repo. This is useful when you want to add REPO.bazel or
+BUILD.bazel files atop an existing repository. The files are downloaded before `files` are
+symlinked and patches (`remote_patches`, `patches`) are applied. The list of URLs should all be
+possible mirrors of the same file. The URLs are tried in order until one succeeds. Existing files
+will be overwritten.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_module_file_integrity">
+<td><code>remote_module_file_integrity</code></td>
+<td>
+
+String; optional
+
+<p>
+
+For internal use only.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_module_file_urls">
+<td><code>remote_module_file_urls</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+For internal use only.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_patch_strip">
+<td><code>remote_patch_strip</code></td>
+<td>
+
+Integer; optional
+
+<p>
+
+The number of leading slashes to be stripped from the file name in the remote patches.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-remote_patches">
+<td><code>remote_patches</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+A map of patch file URL to its integrity value, they are applied after extracting the archive and before applying patch files from the `patches` attribute. It uses the Bazel-native patch implementation, you can specify the patch strip number with `remote_patch_strip`
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-repo_mapping">
+<td><code>repo_mapping</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.
+
+For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
+
+This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-sha256">
+<td><code>sha256</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `integrity` should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-strip_prefix">
+<td><code>strip_prefix</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A directory prefix to strip from the extracted files.
+
+Many archives contain a top-level directory that contains all of the useful
+files in archive. Instead of needing to specify this prefix over and over
+in the `build_file`, this field can be used to strip it from all of the
+extracted files.
+
+For example, suppose you are using `foo-lib-latest.zip`, which contains the
+directory `foo-lib-1.2.3/` under which there is a `WORKSPACE` file and are
+`src/`, `lib/`, and `test/` directories that contain the actual code you
+wish to build. Specify `strip_prefix = "foo-lib-1.2.3"` to use the
+`foo-lib-1.2.3` directory as your top-level directory.
+
+Note that if there are files outside of this directory, they will be
+discarded and inaccessible (e.g., a top-level license file). This includes
+files/directories that start with the prefix but are not in the directory
+(e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
+match a directory in the archive, Bazel will return an error.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-type">
+<td><code>type</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The archive type of the downloaded file.
+
+By default, the archive type is determined from the file extension of the
+URL. If the file has no extension, you can explicitly specify one of the
+following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, or `"deb"`.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-url">
+<td><code>url</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A URL to a file that will be made available to Bazel.
+
+This must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+More flexibility can be achieved by the urls parameter that allows
+to specify alternative URLs to fetch from.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-urls">
+<td><code>urls</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-workspace_file">
+<td><code>workspace_file</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels">Label</a>; optional
+
+<p>
+
+No-op attribute; do not use.
+
+</p>
+</td>
+</tr>
+<tr id="http_archive-workspace_file_content">
+<td><code>workspace_file_content</code></td>
+<td>
+
+String; optional
+
+<p>
+
+No-op attribute; do not use.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+**ENVIRONMENT VARIABLES**
+
+This repository rule depends on the following environment variables:
+
+* `BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID`
+
+<a id="http_file"></a>
+
+## http_file
+
+<pre>
+load("@bazel//tools/build_defs/repo:http.bzl", "http_file")
+
+http_file(<a href="#http_file-name">name</a>, <a href="#http_file-auth_patterns">auth_patterns</a>, <a href="#http_file-canonical_id">canonical_id</a>, <a href="#http_file-downloaded_file_path">downloaded_file_path</a>, <a href="#http_file-executable">executable</a>, <a href="#http_file-integrity">integrity</a>, <a href="#http_file-netrc">netrc</a>,
+          <a href="#http_file-repo_mapping">repo_mapping</a>, <a href="#http_file-sha256">sha256</a>, <a href="#http_file-url">url</a>, <a href="#http_file-urls">urls</a>)
+</pre>
+
+Downloads a file from a URL and makes it available to be used as a file
+group.
+
+Examples:
+  Suppose you need to have a debian package for your custom rules. This package
+  is available from http://example.com/package.deb. Then you can add to your
+  WORKSPACE file:
+
+  ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+  http_file(
+      name = "my_deb",
+      url = "http://example.com/package.deb",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  )
+  ```
+
+  Targets would specify `@my_deb//file` as a dependency to depend on this file.
+
+**ATTRIBUTES**
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="http_file-name">
+<td><code>name</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels#target-names">Name</a>; required
+
+<p>
+
+A unique name for this repository.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-auth_patterns">
+<td><code>auth_patterns</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+An optional dict mapping host names to custom authorization patterns.
+
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
+
+The pattern currently supports 2 tokens: <code>&lt;login&gt;</code> and
+<code>&lt;password&gt;</code>, which are replaced with their equivalent value
+in the netrc file for the same host name. After formatting, the result is set
+as the value for the <code>Authorization</code> field of the HTTP request.
+
+Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
+
+<pre>
+auth_patterns = {
+    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+}
+</pre>
+
+netrc:
+
+<pre>
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+</pre>
+
+The final HTTP request would have the following header:
+
+<pre>
+Authorization: Bearer RANDOM-TOKEN
+</pre>
+
+</p>
+</td>
+</tr>
+<tr id="http_file-canonical_id">
+<td><code>canonical_id</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A canonical ID of the file downloaded.
+
+If specified and non-empty, Bazel will not take the file from cache, unless it
+was added to the cache by a request with the same canonical ID.
+
+If unspecified or empty, Bazel by default uses the URLs of the file as the
+canonical ID. This helps catch the common mistake of updating the URLs without
+also updating the hash, resulting in builds that succeed locally but fail on
+machines without the file in the cache. This behavior can be disabled with
+--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-downloaded_file_path">
+<td><code>downloaded_file_path</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Path assigned to the file downloaded
+
+</p>
+</td>
+</tr>
+<tr id="http_file-executable">
+<td><code>executable</code></td>
+<td>
+
+Boolean; optional
+
+<p>
+
+If the downloaded file should be made executable.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-integrity">
+<td><code>integrity</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-netrc">
+<td><code>netrc</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Location of the .netrc file to use for authentication
+
+</p>
+</td>
+</tr>
+<tr id="http_file-repo_mapping">
+<td><code>repo_mapping</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.
+
+For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
+
+This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).
+
+</p>
+</td>
+</tr>
+<tr id="http_file-sha256">
+<td><code>sha256</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-url">
+<td><code>url</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A URL to a file that will be made available to Bazel.
+
+This must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+More flexibility can be achieved by the urls parameter that allows
+to specify alternative URLs to fetch from.
+
+</p>
+</td>
+</tr>
+<tr id="http_file-urls">
+<td><code>urls</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+**ENVIRONMENT VARIABLES**
+
+This repository rule depends on the following environment variables:
+
+* `BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID`
+
+<a id="http_jar"></a>
+
+## http_jar
+
+<pre>
+load("@bazel//tools/build_defs/repo:http.bzl", "http_jar")
+
+http_jar(<a href="#http_jar-name">name</a>, <a href="#http_jar-auth_patterns">auth_patterns</a>, <a href="#http_jar-canonical_id">canonical_id</a>, <a href="#http_jar-downloaded_file_name">downloaded_file_name</a>, <a href="#http_jar-integrity">integrity</a>, <a href="#http_jar-netrc">netrc</a>, <a href="#http_jar-repo_mapping">repo_mapping</a>,
+         <a href="#http_jar-sha256">sha256</a>, <a href="#http_jar-url">url</a>, <a href="#http_jar-urls">urls</a>)
+</pre>
+
+Downloads a jar from a URL and makes it available as java_import
+
+Downloaded files must have a .jar extension.
+
+Examples:
+  Suppose the current repository contains the source code for a chat program, rooted at the
+  directory `~/chat-app`. It needs to depend on an SSL library which is available from
+  `http://example.com/openssl-0.2.jar`.
+
+  Targets in the `~/chat-app` repository can depend on this target if the following lines are
+  added to `~/chat-app/WORKSPACE`:
+
+  ```python
+  load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
+
+  http_jar(
+      name = "my_ssl",
+      url = "http://example.com/openssl-0.2.jar",
+      sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  )
+  ```
+
+  Targets would specify `@my_ssl//jar` as a dependency to depend on this jar.
+
+  You may also reference files on the current system (localhost) by using "file:///path/to/file"
+  if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+  examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
+  one belongs to the absolute path to the file.
+
+**ATTRIBUTES**
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="http_jar-name">
+<td><code>name</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/concepts/labels#target-names">Name</a>; required
+
+<p>
+
+A unique name for this repository.
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-auth_patterns">
+<td><code>auth_patterns</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+An optional dict mapping host names to custom authorization patterns.
+
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
+
+The pattern currently supports 2 tokens: <code>&lt;login&gt;</code> and
+<code>&lt;password&gt;</code>, which are replaced with their equivalent value
+in the netrc file for the same host name. After formatting, the result is set
+as the value for the <code>Authorization</code> field of the HTTP request.
+
+Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
+
+<pre>
+auth_patterns = {
+    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+}
+</pre>
+
+netrc:
+
+<pre>
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+</pre>
+
+The final HTTP request would have the following header:
+
+<pre>
+Authorization: Bearer RANDOM-TOKEN
+</pre>
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-canonical_id">
+<td><code>canonical_id</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A canonical ID of the file downloaded.
+
+If specified and non-empty, Bazel will not take the file from cache, unless it
+was added to the cache by a request with the same canonical ID.
+
+If unspecified or empty, Bazel by default uses the URLs of the file as the
+canonical ID. This helps catch the common mistake of updating the URLs without
+also updating the hash, resulting in builds that succeed locally but fail on
+machines without the file in the cache. This behavior can be disabled with
+--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0.
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-downloaded_file_name">
+<td><code>downloaded_file_name</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Filename assigned to the jar downloaded
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-integrity">
+<td><code>integrity</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-netrc">
+<td><code>netrc</code></td>
+<td>
+
+String; optional
+
+<p>
+
+Location of the .netrc file to use for authentication
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-repo_mapping">
+<td><code>repo_mapping</code></td>
+<td>
+
+<a href="https://bazel.build/versions/8.5.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.
+
+For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
+
+This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-sha256">
+<td><code>sha256</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `integrity` should be set before shipping.
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-url">
+<td><code>url</code></td>
+<td>
+
+String; optional
+
+<p>
+
+A URL to a file that will be made available to Bazel.
+
+This must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+More flexibility can be achieved by the urls parameter that allows
+to specify alternative URLs to fetch from.
+
+The URL must end in `.jar`.
+
+</p>
+</td>
+</tr>
+<tr id="http_jar-urls">
+<td><code>urls</code></td>
+<td>
+
+List of strings; optional
+
+<p>
+
+A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail.
+
+All URLs must end in `.jar`.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+**ENVIRONMENT VARIABLES**
+
+This repository rule depends on the following environment variables:
+
+* `BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID`
+

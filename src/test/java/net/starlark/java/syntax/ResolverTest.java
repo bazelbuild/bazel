@@ -34,7 +34,7 @@ public class ResolverTest {
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    Resolver.resolveFile(file, new TestUtils.ModuleWithPredeclared("pre"));
+    Resolver.resolveFile(file, TestUtils.Module.withPredeclared("pre"));
     return file;
   }
 

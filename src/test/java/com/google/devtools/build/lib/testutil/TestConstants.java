@@ -159,9 +159,7 @@ public class TestConstants {
           "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
-      ImmutableList.of(
-          // Don't apply autoloads in unit tests, because not all repos are available
-          "--incompatible_autoload_externally=");
+      ImmutableList.of();
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =

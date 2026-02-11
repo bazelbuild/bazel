@@ -162,8 +162,16 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    // TODO: #27370 - This utility method should also have some form of type checking applied to it,
-    // using whatever type definitions are available in the given module.
+
+    if (options.resolveTypeSyntax()) {
+      TypeTagger.tagExpr(expr, module);
+    }
+
+    if (options.staticTypeChecking()) {
+      StarlarkType exprType = TypeChecker.inferTypeOf(expr);
+      TypeTagger.tagExprFunction(body, exprType);
+    }
+
     return new Program(
         body,
         /* loads= */ ImmutableList.of(),

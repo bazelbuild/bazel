@@ -77,7 +77,7 @@ public interface PathMapper {
       // comparisons of equal but not reference equal semantics maps, which regresses CPU (~7% on
       // a benchmark with ~10 semantics options).
       @Override
-      public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+      public StarlarkSemantics getBuiltinManagerCacheKey() {
         return semantics;
       }
     };
@@ -266,7 +266,7 @@ public interface PathMapper {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<mapped root>");
     }
 

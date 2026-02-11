@@ -149,7 +149,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -1379,8 +1378,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * the Bazel server.
    */
   public void clearPackageValues() {
-    if (remoteAnalysisCachingDependenciesProvider.shouldDiscardPackageValuesPostAnalysis()) {
-      remoteAnalysisCachingDependenciesProvider.computeSelectionAndDiscardPackageValues(
+    if (remoteAnalysisCachingDependenciesProvider.shouldMinimizeMemory()) {
+      remoteAnalysisCachingDependenciesProvider.computeSelectionAndMinimizeMemory(
           memoizingEvaluator.getInMemoryGraph());
     }
   }
@@ -1529,12 +1528,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
-  private void setAutoloadsConfiguration(AutoloadSymbols autoloadSymbols) {
-    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
-  }
 
   private void setLazyMacroExpansionPackages(LazyMacroExpansionPackages packages) {
     PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable(), packages);
+  }
+
+  private void setStampSettingMarker() {
+    PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
   }
 
   public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
@@ -1722,11 +1722,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setAutoloadsConfiguration(new AutoloadSymbols(ruleClassProvider, starlarkSemantics));
     setSiblingDirectoryLayout(
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.lazyMacroExpansionPackages);
+    setStampSettingMarker();
 
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(

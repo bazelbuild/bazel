@@ -32,6 +32,7 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "StaticTypeCheckTest.java",
         "SymbolGeneratorTest.java",
     ],
     jvm_flags = [

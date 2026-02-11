@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /** Provider for a platform, which is a group of constraints and values. */
@@ -138,7 +139,7 @@ public class PlatformInfo extends NativeInfo
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
   }
 

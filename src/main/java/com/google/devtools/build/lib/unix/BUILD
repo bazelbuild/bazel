@@ -5,11 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-PROCESS_UTILS_SRCS = [
-    "ProcessUtilsService.java",
-    "ProcessUtilsServiceImpl.java",
-]
-
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
@@ -17,15 +12,16 @@ filegroup(
 )
 
 java_library(
-    name = "unix",
-    srcs = glob(
-        ["*.java"],
-        exclude = PROCESS_UTILS_SRCS + ["ProcMeminfoParser.java"],
-    ),
+    name = "unix_file_system",
+    srcs = [
+        "InvalidArgumentIOException.java",
+        "UnixFileStatus.java",
+        "UnixFileSystem.java",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        ":native_posix_files",
+        ":unix_mode",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:blocker",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -34,6 +30,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "unix_mode",
+    srcs = ["UnixMode.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
+java_library(
+    name = "native_posix_files",
+    srcs = ["NativePosixFiles.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )
 

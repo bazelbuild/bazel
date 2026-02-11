@@ -21,7 +21,7 @@ java_library(
     exports = [
         ":util_internal",
     ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
+    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix:unix_file_system"],
 )
 
 java_library(

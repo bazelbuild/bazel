@@ -1,0 +1,190 @@
+---
+title: 'local repository rules'
+---
+
+The following functions can be loaded from
+`@bazel_tools//tools/build_defs/repo:local.bzl`.
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+Rules for making directories in the local filesystem available as repos.
+
+### Setup
+
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `local_repository`:
+
+```python
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+def _my_extension_impl(mctx):
+  local_repository(name = "foo", path = "foo")
+
+my_extension = module_extension(implementation = _my_extension_impl)
+```
+
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = "foo", path = "foo")
+```
+
+<a id="local_repository"></a>
+
+## local_repository
+
+<pre>
+load("@bazel//tools/build_defs/repo:local.bzl", "local_repository")
+
+local_repository(<a href="#local_repository-name">name</a>, <a href="#local_repository-path">path</a>, <a href="#local_repository-repo_mapping">repo_mapping</a>)
+</pre>
+
+Makes a local directory that already contains Bazel files available as a repo. This directory should contain Bazel BUILD files and a repo boundary file already. If it doesn't contain these files, consider using <a href="#new_local_repository"><code>new_local_repository</code></a> instead.
+
+**ATTRIBUTES**
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="local_repository-name">
+<td><code>name</code></td>
+<td>
+
+<a href="https://bazel.build/versions/7.7.1/concepts/labels#target-names">Name</a>; required
+
+<p>
+
+A unique name for this repository.
+
+</p>
+</td>
+</tr>
+<tr id="local_repository-path">
+<td><code>path</code></td>
+<td>
+
+String; required
+
+<p>
+
+The path to the directory to make available as a repo. <p>The path can be either absolute, or relative to the workspace root.
+
+</p>
+</td>
+</tr>
+<tr id="local_repository-repo_mapping">
+<td><code>repo_mapping</code></td>
+<td>
+
+<a href="https://bazel.build/versions/7.7.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.
+
+For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
+
+This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+<a id="new_local_repository"></a>
+
+## new_local_repository
+
+<pre>
+load("@bazel//tools/build_defs/repo:local.bzl", "new_local_repository")
+
+new_local_repository(<a href="#new_local_repository-name">name</a>, <a href="#new_local_repository-build_file">build_file</a>, <a href="#new_local_repository-build_file_content">build_file_content</a>, <a href="#new_local_repository-path">path</a>, <a href="#new_local_repository-repo_mapping">repo_mapping</a>)
+</pre>
+
+Makes a local directory that doesn't contain Bazel files available as a repo. This directory need not contain Bazel BUILD files or a repo boundary file; they will be created by this repo rule. If the directory already contains Bazel files, consider using <a href="#local_repository"><code>local_repository</code></a> instead.
+
+**ATTRIBUTES**
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="new_local_repository-name">
+<td><code>name</code></td>
+<td>
+
+<a href="https://bazel.build/versions/7.7.1/concepts/labels#target-names">Name</a>; required
+
+<p>
+
+A unique name for this repository.
+
+</p>
+</td>
+</tr>
+<tr id="new_local_repository-build_file">
+<td><code>build_file</code></td>
+<td>
+
+<a href="https://bazel.build/versions/7.7.1/concepts/labels">Label</a>; optional
+
+<p>
+
+A file to use as a BUILD file for this repo. <p>Exactly one of <code>build_file</code> and <code>build_file_content</code> must be specified. <p>The file addressed by this label does not need to be named BUILD, but can be. Something like <code>BUILD.new-repo-name</code> may work well to distinguish it from actual BUILD files.
+
+</p>
+</td>
+</tr>
+<tr id="new_local_repository-build_file_content">
+<td><code>build_file_content</code></td>
+<td>
+
+String; optional
+
+<p>
+
+The content of the BUILD file to be created for this repo. <p>Exactly one of <code>build_file</code> and <code>build_file_content</code> must be specified.
+
+</p>
+</td>
+</tr>
+<tr id="new_local_repository-path">
+<td><code>path</code></td>
+<td>
+
+String; required
+
+<p>
+
+The path to the directory to make available as a repo. <p>The path can be either absolute, or relative to the workspace root.
+
+</p>
+</td>
+</tr>
+<tr id="new_local_repository-repo_mapping">
+<td><code>repo_mapping</code></td>
+<td>
+
+<a href="https://bazel.build/versions/7.7.1/rules/lib/dict">Dictionary: String -> String</a>; optional
+
+<p>
+
+In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.
+
+For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
+
+This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+

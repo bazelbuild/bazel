@@ -67,6 +67,9 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        deprecationWarning =
+            "The '--no' prefix is no longer supported for this flag. Please use"
+                + " --build_python_zip=false instead.",
         help = "Deprecated. No-op.")
     public TriState buildPythonZip;
 
@@ -589,6 +592,35 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_autoload_externally",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> incompatibleAutoloadExternally;
+
+    @Option(
+        name = "repositories_without_autoloads",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> repositoriesWithoutAutoloads;
+
+    @Option(
+        name = "incompatible_disable_autoloads_in_main_repo",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDisableAutoloadsInMainRepo;
 
     @Option(
         name = "experimental_py_binaries_include_label",

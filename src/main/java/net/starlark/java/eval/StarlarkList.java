@@ -34,6 +34,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -83,6 +84,10 @@ import net.starlark.java.syntax.Types;
             + "Lists are mutable, as in Python.")
 public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.LIST_CONSTRUCTOR;
+  }
 
   // It's always possible to overeat in small bites but we'll
   // try to stop someone swallowing the world in one gulp.
@@ -264,14 +269,14 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(this, "[", ", ", "]");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(this, "[", ", ", "]", semantics);
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
@@ -361,7 +366,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         return;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(
@@ -422,7 +427,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         return i;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(

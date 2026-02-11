@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintSetting
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @Immutable
@@ -86,10 +87,10 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append("ConstraintSettingInfo(").append(label.toString());
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append("ConstraintSettingInfo(").str(label, semantics);
     if (defaultConstraintValueLabel != null) {
-      printer.append(", default_constraint_value=").append(defaultConstraintValueLabel.toString());
+      printer.append(", default_constraint_value=").str(defaultConstraintValueLabel, semantics);
     }
     printer.append(")");
   }

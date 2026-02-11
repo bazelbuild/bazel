@@ -111,11 +111,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   boolean areMetadataQueriesEnabled();
 
-  void computeSelectionAndDiscardPackageValues(InMemoryGraph graph);
+  void computeSelectionAndMinimizeMemory(InMemoryGraph graph);
 
   Collection<Label> getTopLevelTargets();
 
-  boolean shouldDiscardPackageValuesPostAnalysis();
+  boolean shouldMinimizeMemory();
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -223,7 +223,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public void computeSelectionAndDiscardPackageValues(InMemoryGraph graph) {
+    public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
       throw new UnsupportedOperationException();
     }
 
@@ -233,7 +233,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public boolean shouldDiscardPackageValuesPostAnalysis() {
+    public boolean shouldMinimizeMemory() {
       throw new UnsupportedOperationException();
     }
   }

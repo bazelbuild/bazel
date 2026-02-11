@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Support for license and distribution checking. */
 @Immutable
@@ -207,7 +208,7 @@ public final class License implements LicenseApi {
    * License#parseLicense} to get back an equal License.
    */
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     // The order of license types is guaranteed to be canonical by EnumSet, and the order of
     // exceptions is guaranteed to be lexicographic order by TreeSet.
     printer.printList(
@@ -217,6 +218,7 @@ public final class License implements LicenseApi {
             .collect(toImmutableList()),
         "[",
         ", ",
-        "]");
+        "]",
+        semantics);
   }
 }

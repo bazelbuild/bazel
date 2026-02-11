@@ -628,7 +628,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };
@@ -654,7 +654,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };

@@ -2,11 +2,9 @@
 title: 'Rules'
 ---
 
-
-
 The Bazel ecosystem has a growing and evolving set of rules to support popular
 languages and packages. Much of Bazel's strength comes from the ability to
-[define new rules](/extending/concepts) that can be used by others.
+[define new rules](/versions/8.0.1/extending/concepts) that can be used by others.
 
 This page describes the recommended, native, and non-native Bazel rules.
 
@@ -14,21 +12,21 @@ This page describes the recommended, native, and non-native Bazel rules.
 
 Here is a selection of recommended rules:
 
-* [Android](/docs/bazel-and-android)
-* [C / C++](/docs/bazel-and-cpp)
+* [Android](/versions/8.0.1/docs/bazel-and-android)
+* [C / C++](/versions/8.0.1/docs/bazel-and-cpp)
 * [Docker/OCI](https://github.com/bazel-contrib/rules_oci)
 * [Go](https://github.com/bazelbuild/rules_go)
 * [Haskell](https://github.com/tweag/rules_haskell)
-* [Java](/docs/bazel-and-java)
+* [Java](/versions/8.0.1/docs/bazel-and-java)
 * [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs)
 * [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external)
-* [Objective-C](/docs/bazel-and-apple)
+* [Objective-C](/versions/8.0.1/docs/bazel-and-apple)
 * [Package building](https://github.com/bazelbuild/rules_pkg)
 * [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel)
 * [Python](https://github.com/bazelbuild/rules_python)
 * [Rust](https://github.com/bazelbuild/rules_rust)
 * [Scala](https://github.com/bazelbuild/rules_scala)
-* [Shell](/reference/be/shell)
+* [Shell](/versions/8.0.1/reference/be/shell)
 * [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
 
 The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
@@ -36,7 +34,7 @@ additional functions that can be useful when writing new rules and new
 macros.
 
 The rules above were reviewed and follow our
-[requirements for recommended rules](/community/recommended-rules).
+[requirements for recommended rules](/versions/8.0.1/community/recommended-rules).
 Contact the respective rule set's maintainers regarding issues and feature
 requests.
 
@@ -50,36 +48,36 @@ Native rules are shipped with the Bazel binary, they are always available in
 BUILD files without a `load` statement.
 
 * Extra actions
-  - [`extra_action`](/reference/be/extra-actions#extra_action)
-  - [`action_listener`](/reference/be/extra-actions#action_listener)
+  - [`extra_action`](/versions/8.0.1/reference/be/extra-actions#extra_action)
+  - [`action_listener`](/versions/8.0.1/reference/be/extra-actions#action_listener)
 * General
-  - [`filegroup`](/reference/be/general#filegroup)
-  - [`genquery`](/reference/be/general#genquery)
-  - [`test_suite`](/reference/be/general#test_suite)
-  - [`alias`](/reference/be/general#alias)
-  - [`config_setting`](/reference/be/general#config_setting)
-  - [`genrule`](/reference/be/general#genrule)
+  - [`filegroup`](/versions/8.0.1/reference/be/general#filegroup)
+  - [`genquery`](/versions/8.0.1/reference/be/general#genquery)
+  - [`test_suite`](/versions/8.0.1/reference/be/general#test_suite)
+  - [`alias`](/versions/8.0.1/reference/be/general#alias)
+  - [`config_setting`](/versions/8.0.1/reference/be/general#config_setting)
+  - [`genrule`](/versions/8.0.1/reference/be/general#genrule)
 * Platform
-  - [`constraint_setting`](/reference/be/platforms-and-toolchains#constraint_setting)
-  - [`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value)
-  - [`platform`](/reference/be/platforms-and-toolchains#platform)
-  - [`toolchain`](/reference/be/platforms-and-toolchains#toolchain)
-  - [`toolchain_type`](/reference/be/platforms-and-toolchains#toolchain_type)
+  - [`constraint_setting`](/versions/8.0.1/reference/be/platforms-and-toolchains#constraint_setting)
+  - [`constraint_value`](/versions/8.0.1/reference/be/platforms-and-toolchains#constraint_value)
+  - [`platform`](/versions/8.0.1/reference/be/platforms-and-toolchains#platform)
+  - [`toolchain`](/versions/8.0.1/reference/be/platforms-and-toolchains#toolchain)
+  - [`toolchain_type`](/versions/8.0.1/reference/be/platforms-and-toolchains#toolchain_type)
 * Workspace
-  - [`bind`](/reference/be/workspace#bind)
-  - [`local_repository`](/reference/be/workspace#local_repository)
-  - [`new_local_repository`](/reference/be/workspace#new_local_repository)
-  - [`xcode_config`](/reference/be/objective-c#xcode_config)
-  - [`xcode_version`](/reference/be/objective-c#xcode_version)
+  - [`bind`](/versions/8.0.1/reference/be/workspace#bind)
+  - [`local_repository`](/versions/8.0.1/reference/be/workspace#local_repository)
+  - [`new_local_repository`](/versions/8.0.1/reference/be/workspace#new_local_repository)
+  - [`xcode_config`](/versions/8.0.1/reference/be/objective-c#xcode_config)
+  - [`xcode_version`](/versions/8.0.1/reference/be/objective-c#xcode_version)
 
 ## Embedded non-native rules
 
-Bazel also embeds additional rules written in [Starlark](/rules/language). Those can be loaded from
+Bazel also embeds additional rules written in [Starlark](/versions/8.0.1/rules/language). Those can be loaded from
 the `@bazel_tools` built-in external repository.
 
 * Repository rules
-  - [`git_repository`](/rules/lib/repo/git#git_repository)
-  - [`http_archive`](/rules/lib/repo/http#http_archive)
-  - [`http_file`](/rules/lib/repo/http#http_archive)
-  - [`http_jar`](/rules/lib/repo/http#http_jar)
-  - [Utility functions on patching](/rules/lib/repo/utils)
+  - [`git_repository`](/versions/8.0.1/rules/lib/repo/git#git_repository)
+  - [`http_archive`](/versions/8.0.1/rules/lib/repo/http#http_archive)
+  - [`http_file`](/versions/8.0.1/rules/lib/repo/http#http_archive)
+  - [`http_jar`](/versions/8.0.1/rules/lib/repo/http#http_jar)
+  - [Utility functions on patching](/versions/8.0.1/rules/lib/repo/utils)

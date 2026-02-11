@@ -2,33 +2,32 @@
 title: 'Extension Overview'
 ---
 
-
-
+<!-- [TOC] -->
 
 This page describes how to extend the BUILD language using macros
 and rules.
 
 Bazel extensions are files ending in `.bzl`. Use a
-[load statement](/concepts/build-files#load) to import a symbol from an extension.
+[load statement](/versions/7.6.1/concepts/build-files#load) to import a symbol from an extension.
 
 Before learning the more advanced concepts, first:
 
-* Read about the [Starlark language](/rules/language), used in both the
+* Read about the [Starlark language](/versions/7.6.1/rules/language), used in both the
   `BUILD` and `.bzl` files.
 
-* Learn how you can [share variables](/build/share-variables)
+* Learn how you can [share variables](/versions/7.6.1/build/share-variables)
   between two `BUILD` files.
 
 ## Macros and rules
 
-A [macro](/extending/macros) is a function that instantiates rules. It is useful when a
+A [macro](/versions/7.6.1/extending/macros) is a function that instantiates rules. It is useful when a
 `BUILD` file is getting too repetitive or too complex, as it allows you to reuse
 some code. The function is evaluated as soon as the `BUILD` file is read. After
 the evaluation of the `BUILD` file, Bazel has little information about macros:
 if your macro generates a `genrule`, Bazel will behave as if you wrote the
 `genrule`. As a result, `bazel query` will only list the generated `genrule`.
 
-A [rule](/extending/rules) is more powerful than a macro. It can access Bazel
+A [rule](/versions/7.6.1/extending/rules) is more powerful than a macro. It can access Bazel
 internals and have full control over what is going on. It may for example pass
 information to other rules.
 
@@ -71,34 +70,34 @@ they will not be executed.
 
 ## Creating extensions
 
-* [Create your first macro](/rules/macro-tutorial) in order to
-  reuse some code. Then [learn more about macros](/extending/macros) and
-  [using them to create "custom verbs"](/rules/verbs-tutorial).
+* [Create your first macro](/versions/7.6.1/rules/macro-tutorial) in order to
+  reuse some code. Then [learn more about macros](/versions/7.6.1/extending/macros) and
+  [using them to create "custom verbs"](/versions/7.6.1/rules/verbs-tutorial).
 
-* [Follow the rules tutorial](/rules/rules-tutorial) to get started with rules.
-  Next, you can read more about the [rules concepts](/extending/rules).
+* [Follow the rules tutorial](/versions/7.6.1/rules/rules-tutorial) to get started with rules.
+  Next, you can read more about the [rules concepts](/versions/7.6.1/extending/rules).
 
 The two links below will be very useful when writing your own extensions. Keep
 them within reach:
 
-* The [API reference](/rules/lib)
+* The [API reference](/versions/7.6.1/rules/lib)
 
 * [Examples](https://github.com/bazelbuild/examples/tree/master/rules)
 
 ## Going further
 
-In addition to [macros](/extending/macros) and [rules](/extending/rules), you may want to write
-[aspects](/extending/aspects) and [repository rules](/extending/repo).
+In addition to [macros](/versions/7.6.1/extending/macros) and [rules](/versions/7.6.1/extending/rules), you may want to write
+[aspects](/versions/7.6.1/extending/aspects) and [repository rules](/versions/7.6.1/extending/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools)
   consistently to format and lint your code.
 
-* Follow the [`.bzl` style guide](/rules/bzl-style).
+* Follow the [`.bzl` style guide](/versions/7.6.1/rules/bzl-style).
 
-* [Test](/rules/testing) your code.
+* [Test](/versions/7.6.1/rules/testing) your code.
 
 * [Generate documentation](https://skydoc.bazel.build/) to help your users.
 
-* [Optimize the performance](/rules/performance) of your code.
+* [Optimize the performance](/versions/7.6.1/rules/performance) of your code.
 
-* [Deploy](/rules/deploying) your extensions to other people.
+* [Deploy](/versions/7.6.1/rules/deploying) your extensions to other people.

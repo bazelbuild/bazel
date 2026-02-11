@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -110,20 +111,10 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "compatibility_level",
-            doc =
-                "The compatibility level of the module; this should be changed every time a major"
-                    + " incompatible change is introduced. This is essentially the \"major"
-                    + " version\" of the module in terms of SemVer, except that it's not embedded"
-                    + " in the version string itself, but exists as a separate field. Modules with"
-                    + " different compatibility levels participate in version resolution as if"
-                    + " they're modules with different names, but the final dependency graph cannot"
-                    + " contain multiple modules with the same name but different compatibility"
-                    + " levels (unless <code>multiple_version_override</code> is in effect). See <a"
-                    + " href=\"/external/module#compatibility_level\">the documentation</a> for"
-                    + " more details.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
-            defaultValue = "0"),
+            defaultValue = "-1"),
         @Param(
             name = "repo_name",
             doc =
@@ -166,6 +157,14 @@ public class ModuleFileGlobals {
     if (context.isModuleCalled()) {
       throw Starlark.errorf("the module() directive can only be called once");
     }
+    if (compatibilityLevel.toInt("compatibility_level") != -1
+        && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'compatibility_level' in module() is a no-op and will be removed in a"
+                  + " future Bazel release. Please remove it from your MODULE.bazel file."));
+    }
     if (context.hadNonModuleCall()) {
       throw Starlark.errorf("if module() is called, it must be called before any other functions");
     }
@@ -190,7 +189,7 @@ public class ModuleFileGlobals {
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
+        .setCompatibilityLevel(0)
         .addBazelCompatibilityValues(
             checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
@@ -241,11 +240,7 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "max_compatibility_level",
-            doc =
-                "The maximum <code>compatibility_level</code> supported for the module to be added"
-                    + " as a direct dependency. The version of the module implies the minimum"
-                    + " compatibility_level supported, as well as the maximum if this attribute is"
-                    + " not specified.",
+            doc = "Deprecated. This is now a no-op and has no effect.",
             named = true,
             positional = false,
             defaultValue = "-1"),
@@ -293,6 +288,15 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
+    if (maxCompatibilityLevel.toInt("max_compatibility_level") != -1
+        && context.getModuleBuilder().getKey().equals(ModuleKey.ROOT)) {
+      context.addWarning(
+          Event.warn(
+              thread.getCallerLocation(),
+              "The attribute 'max_compatibility_level' in bazel_dep() is a no-op and will be"
+                  + " removed in a future Bazel release. Please remove it from your MODULE.bazel"
+                  + " file."));
+    }
 
     Optional<String> repoName =
         switch (repoNameArg) {
@@ -306,9 +310,7 @@ public class ModuleFileGlobals {
         };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
-      context.addDep(
-          repoName,
-          new DepSpec(name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
+      context.addDep(repoName, new DepSpec(name, parsedVersion, -1));
     }
 
     if (repoName.isPresent()) {

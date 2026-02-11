@@ -2,7 +2,6 @@
 
 tasks:
   rockylinux8:
-    shards: 4
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -20,12 +19,16 @@ tasks:
       - "--config=ci-linux"
       - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//..."
-      # These tests are not compatible with the gcov version of Rocky Linux 8.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
-      - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
-      - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/py/bazel:bazel_module_test"
+      - "//src/test/py/bazel:mod_command_test"
+      - "//src/test/shell/bazel:bazel_example_test"
+      - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:external_integration_test"
+      - "//src/test/shell/bazel:help_test"
+      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
@@ -59,7 +62,7 @@ tasks:
       - build
       - test
   ubuntu2404:
-    shards: 4
+    shards: 8
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -102,7 +105,6 @@ tasks:
       - build
       - test
   ubuntu2004:
-    shards: 4
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -117,7 +119,16 @@ tasks:
       - "--config=ci-linux"
       - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//..."
+      - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/py/bazel:bazel_module_test"
+      - "//src/test/py/bazel:mod_command_test"
+      - "//src/test/shell/bazel:bazel_example_test"
+      - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:external_integration_test"
+      - "//src/test/shell/bazel:help_test"
+      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
@@ -134,7 +145,7 @@ tasks:
     include_json_profile:
       - build
   macos_arm64:
-    shards: 10
+    shards: 6
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -153,14 +164,27 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
-      - "//..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
+      - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
+      - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
+      - "//src/test/java/com/google/devtools/build/lib/skyframe:MacOSXFsEventsDiffAwarenessTest"
+      - "//src/test/py/bazel:bazel_module_test"
+      - "//src/test/py/bazel:mod_command_test"
+      - "//src/test/shell/bazel:bazel_example_test"
+      - "//src/test/shell/bazel:bazel_java_test"
+      - "//src/test/shell/bazel:cc_integration_test"
+      - "//src/test/shell/bazel:cpp_darwin_integration_test"
+      - "//src/test/shell/bazel:external_integration_test"
+      - "//src/test/shell/bazel:help_test"
+      - "//src/test/shell/bazel/apple:bazel_apple_test"
+      - "//src/test/shell/bazel/apple:bazel_objc_test"
+      - "//src/test/shell/integration:bazel_query_test"
     include_json_profile:
       - build
       - test
   windows:
-    shards: 4
+    shards: 8
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
@@ -222,21 +246,18 @@ tasks:
     name: "RBE"
     build_flags:
       - "--config=remote"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--config=ci-common"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//..."
     test_flags:
-      - "--config=ci-common"
       - "--config=remote"
+      - "--config=ci-common"
       - "--test_tag_filters=-no_presubmit"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
@@ -273,6 +294,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
       # TODO(pcloudy): Re-enable once https://github.com/bazelbuild/bazel/issues/27982 is fixed.
       - "-//src/test/shell/bazel:srcs_test"
+      # Disable this test since it takes too long on RBE.
+      - "-//src/test/shell/bazel:bazel_proto_library_test"
     include_json_profile:
       - build
       - test

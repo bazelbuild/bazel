@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A ConfiguredTarget for an InputFile.
@@ -97,7 +98,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<input file target " + getLabel() + ">");
   }
 

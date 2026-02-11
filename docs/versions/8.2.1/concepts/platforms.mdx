@@ -2,8 +2,6 @@
 title: 'Migrating to Platforms'
 ---
 
-
-
 Bazel has sophisticated [support](#background) for modeling
 [platforms][Platforms] and [toolchains][Toolchains] for multi-architecture and
 cross-compiled builds.
@@ -52,7 +50,7 @@ Java rules use platforms to select toolchains.
 This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
 `--javabase`, and `--host_javabase`.
 
-See [Java and Bazel](/docs/bazel-and-java) for details.
+See [Java and Bazel](/versions/8.2.1/docs/bazel-and-java) for details.
 
 ### Android
 
@@ -150,7 +148,6 @@ deprecated and removed as soon as it's safe to do so.
 
 Ultimately, this will be the *sole* way to configure architectures.
 
-
 ## Migrating your project
 
 If you build with languages that support platforms, your build should already
@@ -173,8 +170,8 @@ For your project to build, you need to check the following:
 
 1. The toolchains you want to use must exist. If using stock toolchains, the
    language owners should include instructions for how to register them. If
-   writing your own custom toolchains, you need to [register](https://bazel.build/extending/toolchains#registering-building-toolchains) them in your
-   `MODULE.bazel` file or with [`--extra_toolchains`](https://bazel.build/reference/command-line-reference#flag--extra_toolchains).
+   writing your own custom toolchains, you need to [register](https://bazel.build/versions/8.2.1/extending/toolchains#registering-building-toolchains) them in your
+   `MODULE.bazel` file or with [`--extra_toolchains`](https://bazel.build/versions/8.2.1/reference/command-line-reference#flag--extra_toolchains).
 
 1. `select()`s and [configuration transitions][Starlark transitions] must
   resolve properly. See [select()](#select) and [Transitions](#transitions).
@@ -263,7 +260,7 @@ If you own a rule set and want to support platforms, you need to:
    [Common platform properties](#common-platform-properties)
 
 1. Define standard toolchains and make them accessible to users through your
-   rule's registration instructions ([details](https://bazel.build/extending/toolchains#registering-building-toolchains))
+   rule's registration instructions ([details](https://bazel.build/versions/8.2.1/extending/toolchains#registering-building-toolchains))
 
 1. Ensure [`select()`s](#select) and
    [configuration transitions](#transitions) support platforms. This is the

@@ -11,9 +11,9 @@ build settings and provides examples.
 This makes it possible to:
 
 *   define custom flags for your project, obsoleting the need for
-     [`--define`](/docs/configurable-attributes#custom-keys)
+     [`--define`](/versions/8.4.2/docs/configurable-attributes#custom-keys)
 *   write
-    [transitions](/rules/lib/builtins/transition#transition) to configure deps in
+    [transitions](/versions/8.4.2/rules/lib/builtins/transition#transition) to configure deps in
     different configurations than their parents
     (such as `--compilation_mode=opt` or `--cpu=arm`)
 *   bake better defaults into rules (such as automatically build `//my:android_app`
@@ -26,7 +26,7 @@ and more, all completely from .bzl files (no Bazel release required). See the
 ## User-defined build settings
 
 A build setting is a single piece of
-[configuration](/extending/rules#configurations)
+[configuration](/versions/8.4.2/extending/rules#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
 and `--copt="-DFoo"` produces a configuration that looks like
 `{cpu: ppc, copt: "-DFoo"}`. Each entry is a build setting.
@@ -49,7 +49,7 @@ set via [user-defined transitions](#user-defined-transitions).
 
 Build settings are rules like any other rule and are differentiated using the
 Starlark `rule()` function's `build_setting`
-[attribute](/rules/lib/globals/bzl#rule.build_setting).
+[attribute](/versions/8.4.2/rules/lib/globals/bzl#rule.build_setting).
 
 ```python
 # example/buildsettings/build_settings.bzl
@@ -62,13 +62,13 @@ string_flag = rule(
 The `build_setting` attribute takes a function that designates the type of the
 build setting. The type is limited to a set of basic Starlark types like
 `bool` and `string`. See the `config` module
-[documentation](/rules/lib/toplevel/config)  for details. More complicated typing can be
+[documentation](/versions/8.4.2/rules/lib/toplevel/config)  for details. More complicated typing can be
 done in the rule's implementation function. More on this below.
 
 The `config` module's functions takes an optional boolean parameter, `flag`,
 which is set to false by default. if `flag` is set to true, the build setting
 can be set on the command line by users as well as internally by rule writers
-via default values and [transitions](/rules/lib/builtins/transition#transition).
+via default values and [transitions](/versions/8.4.2/rules/lib/builtins/transition#transition).
 Not all settings should be settable by users. For example, if you as a rule
 writer have some debug mode that you'd like to turn on inside test rules,
 you don't want to give users the ability to indiscriminately turn on that
@@ -76,10 +76,10 @@ feature inside other non-test rules.
 
 #### Using ctx.build_setting_value
 
-Like all rules, build setting rules have [implementation functions](/extending/rules#implementation-function).
+Like all rules, build setting rules have [implementation functions](/versions/8.4.2/extending/rules#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
 `ctx.build_setting_value` method. This method is only available to
-[`ctx`](/rules/lib/builtins/ctx) objects of build setting rules. These implementation
+[`ctx`](/versions/8.4.2/rules/lib/builtins/ctx) objects of build setting rules. These implementation
 methods can directly forward the build settings value or do additional work on
 it, like type checking or more complex struct creation. Here's how you would
 implement an `enum`-typed build setting:
@@ -327,7 +327,7 @@ can't customely defined.
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose
 final values can be affected by configuration. In Starlark, this will replace
-the [`configuration_field`](/rules/lib/globals/bzl#configuration_field)
+the [`configuration_field`](/versions/8.4.2/rules/lib/globals/bzl#configuration_field)
  API.
 
 ```python
@@ -371,7 +371,7 @@ label_flag(
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/select_on_build_setting)
 
 Users can configure attributes on build settings by using
- [`select()`](/reference/be/functions#select). Build setting targets can be passed to the `flag_values` attribute of
+ [`select()`](/versions/8.4.2/reference/be/functions#select). Build setting targets can be passed to the `flag_values` attribute of
 `config_setting`. The value to match to the configuration is passed as a
 `String` then parsed to the type of the build setting for matching.
 
@@ -387,7 +387,7 @@ config_setting(
 ## User-defined transitions
 
 A configuration
-[transition](/rules/lib/builtins/transition#transition)
+[transition](/versions/8.4.2/rules/lib/builtins/transition#transition)
 maps the transformation from one configured target to another within the
 build graph.
 
@@ -406,7 +406,7 @@ with special restrictions.
 
 In Starlark, transitions are defined much like rules, with a defining
 `transition()`
-[function](/rules/lib/builtins/transition#transition)
+[function](/versions/8.4.2/rules/lib/builtins/transition#transition)
 and an implementation function.
 
 ```python
@@ -576,7 +576,7 @@ an "expansion" flag that expands to other flags.
 
 Crucially, `--config` may include flags that don't affect build configuration,
 such as
-[`--spawn_strategy`](/docs/user-manual#spawn-strategy)
+[`--spawn_strategy`](/versions/8.4.2/docs/user-manual#spawn-strategy)
 . Bazel, by design, can't bind such flags to individual targets. This means
 there's no coherent way to apply them in transitions.
 
@@ -720,7 +720,7 @@ here.
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](/extending/platforms).
+[target platform](/versions/8.4.2/extending/platforms).
 
 ## Memory and performance considerations
 
@@ -732,7 +732,7 @@ might create exponential growth of your build graph.
 
 ### Badly behaved builds: a case study
 
-![Scalability graph](/rules/scalability-graph.png "Scalability graph")
+![Scalability graph](/versions/8.4.2/rules/scalability-graph.png "Scalability graph")
 
 **Figure 1.** Scalability graph showing a top level target and its dependencies.
 
@@ -756,7 +756,7 @@ Imagine you [implement](#user-defined-build-settings) a flag
 In other words, `//pkg:i_b` appends `b` to the old value of `--owner` for all
 its deps.
 
-This produces the following [configured targets](/reference/glossary#configured-target):
+This produces the following [configured targets](/versions/8.4.2/reference/glossary#configured-target):
 
 ```
 //pkg:app                              //foo:owner=""
@@ -786,5 +786,5 @@ TODO: Add strategies for measurement and mitigation of these issues.
 For more details on modifying build configurations, see:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
- * [Bazel Configurability Roadmap](https://bazel.build/community/roadmaps-configurability)
+ * [Bazel Configurability Roadmap](https://bazel.build/versions/8.4.2/community/roadmaps-configurability)
  * Full [set](https://github.com/bazelbuild/examples/tree/HEAD/configurations) of end to end examples
