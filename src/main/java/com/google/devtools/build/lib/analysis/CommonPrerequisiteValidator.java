@@ -201,7 +201,14 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       if (mainAspect != null) {
         state.owningAspect = ((StarlarkAspectClass) mainAspect.getAspectClass());
       } else {
-        state.owningRule = rule.getRuleClassObject();
+        // Rule extensions can't override private attributes, so we can just walk up the chain to
+        // find the rule class that actually introduced the attribute and thus its default.
+        var owningRule = rule.getRuleClassObject();
+        while (owningRule.getStarlarkParent() instanceof RuleClass parent
+            && parent.getAttributeProvider().getAttributeByNameMaybe(attrName) != null) {
+          owningRule = parent;
+        }
+        state.owningRule = owningRule;
       }
 
       if (!isVisibleToLocation(

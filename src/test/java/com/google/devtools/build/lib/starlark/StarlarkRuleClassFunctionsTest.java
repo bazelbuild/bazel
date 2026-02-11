@@ -5768,6 +5768,63 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void extendRule_parentPrivateAttrDefault_visibilityCheckedAgainstParent() throws Exception {
+    scratch.file(
+        "extend_rule_testing/parent/BUILD",
+        """
+        exports_files(
+            ["parent_tool.txt"],
+            visibility = ["//extend_rule_testing/parent:__pkg__"],
+        )
+        """);
+    scratch.file("extend_rule_testing/parent/parent_tool.txt");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        parent_library = rule(
+            implementation = _impl,
+            extendable = True,
+            attrs = {
+                "_tool": attr.label(
+                    allow_single_file = True,
+                    default = "//extend_rule_testing/parent:parent_tool.txt",
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        load("//extend_rule_testing/parent:parent.bzl", "parent_library")
+
+        def _impl(ctx):
+            return ctx.super()
+
+        my_library = rule(
+            implementation = _impl,
+            parent = parent_library,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "my_library")
+
+        my_library(name = "my_target")
+        """);
+
+    // This should succeed because the visibility of the parent's private attribute default should
+    // be checked against the parent rule's package, not the child rule's package.
+    // See https://github.com/bazelbuild/bazel/issues/28618
+    getConfiguredTarget("//extend_rule_testing:my_target");
+
+    assertNoEvents();
+  }
+
+  @Test
   public void extendRule_attributeOverrideDefault() throws Exception {
     scratch.file("extend_rule_testing/parent/BUILD");
     scratch.file(
