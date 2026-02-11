@@ -31,18 +31,6 @@ java_test(
 )
 
 java_test(
-    name = "JavaCompileOnlyTest",
-    srcs = ["JavaCompileOnlyTest.java"],
-    runtime_deps = ["//src/test/java/com/google/devtools/build/lib/analysis/util"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "JavaPluginConfiguredTargetTest",
     srcs = ["JavaPluginConfiguredTargetTest.java"],
     deps = [
