@@ -49,7 +49,7 @@ _HTML_LINK_RE = re.compile(r"\]\(([^)]+)\.html")
 _METADATA_PATTERN = re.compile(
     '^((Project|Book):.+\n)', re.MULTILINE# | re.DOTALL
 )
-_TITLE_RE = re.compile(r"^title: '")
+_TITLE_RE = re.compile(r"^title: '", re.MULTILINE)
 
 def _convert_directory(root_dir, mdx_dir):
   """Converts all .html and .md(x) files to .mdx files.
