@@ -68,6 +68,8 @@ public final class StarlarkThread {
 
   private boolean interruptible = true;
 
+  private final CallUtils.BuiltinManager builtinManager;
+
   long steps; // count of logical computation steps executed so far
   long stepLimit = Long.MAX_VALUE; // limit on logical computation steps
 
@@ -492,6 +494,7 @@ public final class StarlarkThread {
       setUncheckedExceptionContext(() -> contextDescription);
     }
     this.symbolGenerator = symbolGenerator;
+    this.builtinManager = CallUtils.getBuiltinManager(semantics);
   }
 
   /**
@@ -665,6 +668,10 @@ public final class StarlarkThread {
 
   Object getOwner() {
     return symbolGenerator.getOwner();
+  }
+
+  CallUtils.BuiltinManager getBuiltinManager() {
+    return builtinManager;
   }
 
   @Nullable private static CallProfiler callProfiler = null;

@@ -923,9 +923,7 @@ public final class Starlark {
       callable = starlarkCallable;
     } else {
       // @StarlarkMethod(selfCall)?
-      MethodDescriptor desc =
-          CallUtils.getBuiltinManager(thread.getSemantics())
-              .getSelfCallMethodDescriptor(fn.getClass());
+      MethodDescriptor desc = thread.getBuiltinManager().getSelfCallMethodDescriptor(fn.getClass());
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
@@ -992,10 +990,21 @@ public final class Starlark {
    */
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
+    return hasattr(CallUtils.getBuiltinManager(semantics), x, name);
+  }
+
+  /**
+   * Optimized version of {@link #hasattr(StarlarkSemantics, Object, String)} that avoids a map
+   * lookup for the {@link BuiltinManager}.
+   */
+  static boolean hasattr(StarlarkThread thread, Object x, String name) throws EvalException {
+    return hasattr(thread.getBuiltinManager(), x, name);
+  }
+
+  private static boolean hasattr(CallUtils.BuiltinManager manager, Object x, String name)
+      throws EvalException {
     return (x instanceof Structure && ((Structure) x).getValue(name) != null)
-        || CallUtils.getBuiltinManager(semantics)
-            .getAnnotatedMethods(x.getClass())
-            .containsKey(name);
+        || manager.getAnnotatedMethods(x.getClass()).containsKey(name);
   }
 
   /**
@@ -1010,9 +1019,34 @@ public final class Starlark {
       String name,
       @Nullable Object defaultValue)
       throws EvalException, InterruptedException {
+    return getattr(mu, semantics, CallUtils.getBuiltinManager(semantics), x, name, defaultValue);
+  }
+
+  /**
+   * Optimized version of {@link #getattr(Mutability, StarlarkSemantics, Object, String, Object)}
+   * that avoids a map lookup for the {@link BuiltinManager}.
+   */
+  static Object getattr(StarlarkThread thread, Object x, String name, @Nullable Object defaultValue)
+      throws EvalException, InterruptedException {
+    return getattr(
+        thread.mutability(),
+        thread.getSemantics(),
+        thread.getBuiltinManager(),
+        x,
+        name,
+        defaultValue);
+  }
+
+  private static Object getattr(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      CallUtils.BuiltinManager manager,
+      Object x,
+      String name,
+      @Nullable Object defaultValue)
+      throws EvalException, InterruptedException {
     // StarlarkMethod-annotated field or method?
-    MethodDescriptor method =
-        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(x.getClass()).get(name);
+    MethodDescriptor method = manager.getAnnotatedMethods(x.getClass()).get(name);
     if (method != null) {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
@@ -1043,7 +1077,7 @@ public final class Starlark {
 
     throw Starlark.errorf(
         "'%s' value has no field or method '%s'%s",
-        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, semantics, x)));
+        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, manager, x)));
   }
 
   /**
@@ -1051,13 +1085,25 @@ public final class Starlark {
    * the specified value, as if by the Starlark expression {@code dir(x)}.
    */
   public static StarlarkList<String> dir(Mutability mu, StarlarkSemantics semantics, Object x) {
+    return dir(mu, CallUtils.getBuiltinManager(semantics), x);
+  }
+
+  /**
+   * Optimized version of {@link #dir(Mutability, StarlarkSemantics, Object)} that avoids a map
+   * lookup for the {@link BuiltinManager}.
+   */
+  static StarlarkList<String> dir(StarlarkThread thread, Object x) {
+    return dir(thread.mutability(), thread.getBuiltinManager(), x);
+  }
+
+  private static StarlarkList<String> dir(
+      Mutability mu, CallUtils.BuiltinManager manager, Object x) {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
     if (x instanceof Structure) {
       fields.addAll(((Structure) x).getFieldNames());
     }
-    fields.addAll(
-        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(x.getClass()).keySet());
+    fields.addAll(manager.getAnnotatedMethods(x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);
   }
 

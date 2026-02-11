@@ -456,13 +456,7 @@ final class Eval {
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
-        Object x =
-            Starlark.getattr(
-                fr.thread.mutability(),
-                fr.thread.getSemantics(),
-                object,
-                field,
-                /* defaultValue= */ null);
+        Object x = Starlark.getattr(fr.thread, object, field, /* defaultValue= */ null);
         Object y = eval(fr, rhs);
         Object z;
         try {
@@ -662,8 +656,7 @@ final class Eval {
     Object object = eval(fr, dot.getObject());
     String name = dot.getField().getName();
     try {
-      return Starlark.getattr(
-          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /* defaultValue= */ null);
+      return Starlark.getattr(fr.thread, object, name, /* defaultValue= */ null);
     } catch (EvalException ex) {
       fr.setErrorLocation(dot.getDotLocation());
       throw ex;

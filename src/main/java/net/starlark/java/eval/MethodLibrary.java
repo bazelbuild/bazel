@@ -804,7 +804,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       },
       useStarlarkThread = true)
   public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    return Starlark.hasattr(thread.getSemantics(), obj, name);
+    return Starlark.hasattr(thread, obj, name);
   }
 
   @StarlarkMethod(
@@ -829,11 +829,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return Starlark.getattr(
-        thread.mutability(),
-        thread.getSemantics(),
-        obj,
-        name,
-        defaultValue == Starlark.UNBOUND ? null : defaultValue);
+        thread, obj, name, defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -844,7 +840,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
   public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
-    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
+    return Starlark.dir(thread, object);
   }
 
   @StarlarkMethod(
