@@ -98,8 +98,8 @@ py_test(
 )
 
 py_binary(
-    name = "html2mdx",
-    srcs = ["html2mdx.py"],
+    name = "docs2mdx",
+    srcs = ["docs2mdx.py"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
