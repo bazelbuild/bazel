@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -191,7 +192,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void globalInit(OptionsParsingResult startupOptions) {
+  public void globalInit(
+      OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
     outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
     useRemoteRepoContentsCache =
         startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;

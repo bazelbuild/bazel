@@ -1352,7 +1352,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     for (BlazeModule module : blazeModules) {
-      module.globalInit(options);
+      module.globalInit(options, blazeServices);
     }
 
     String productName = startupOptions.productName.toLowerCase(Locale.US);
@@ -1711,10 +1711,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
       }
 
-      var blazeServicesCopy = ImmutableList.copyOf(blazeServices);
-      for (BlazeModule module : blazeModules) {
-        module.blazeServicesAvailable(blazeServicesCopy);
-      }
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,
