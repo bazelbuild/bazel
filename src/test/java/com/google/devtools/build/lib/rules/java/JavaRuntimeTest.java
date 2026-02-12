@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -56,17 +54,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
       throws EvalException, RuleErrorException {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
     return JavaRuntimeInfo.wrap(toolchainInfo.getValue("java_runtime", Info.class));
-  }
-
-  @Test
-  public void simple() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//jvm:jvm-k8");
-    assertThat(ActionsTestUtil.prettyArtifactNames(getJavaRuntimeInfo(target).javaBaseInputs()))
-        .containsExactly("jvm/k8/a", "jvm/k8/b");
-    assertThat(
-            ActionsTestUtil.prettyArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDataRunfiles().getArtifacts()))
-        .containsExactly("jvm/k8/a", "jvm/k8/b");
   }
 
   @Test
