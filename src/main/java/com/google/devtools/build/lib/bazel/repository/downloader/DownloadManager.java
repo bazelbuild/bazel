@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -384,6 +385,7 @@ public class DownloadManager {
   private boolean isRetryableException(Throwable e) {
     return e instanceof ContentLengthMismatchException
         || e instanceof SocketException
+        || e instanceof SocketTimeoutException
         || e instanceof UnknownHostException;
   }
 
