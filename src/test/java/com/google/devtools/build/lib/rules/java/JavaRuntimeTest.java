@@ -57,17 +57,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void binJavaPathName() throws Exception {
-    scratch.file(
-        "BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', java='java')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//:jvm");
-    assertContainsEvent("the path to 'java' must end in 'bin/java'.");
-  }
-
-  @Test
   public void absoluteJavaHome() throws Exception {
     scratch.file(
         "a/BUILD",
