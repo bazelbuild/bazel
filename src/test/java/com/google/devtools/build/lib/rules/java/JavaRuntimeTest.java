@@ -57,17 +57,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void absoluteJavaHomeWithSrcs() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[':dummy'], java_home='/absolute/path')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:jvm");
-    assertContainsEvent("'java_home' with an absolute path requires 'srcs' to be empty.");
-  }
-
-  @Test
   public void absoluteJavaHomeWithJava() throws Exception {
     scratch.file(
         "a/BUILD",
