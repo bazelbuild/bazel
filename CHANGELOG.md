@@ -1,3 +1,24 @@
+## Release 10.0.0-pre.20260204.1 (2026-02-12)
+
+```
+Baseline: 0a2574e8a302d1edc91a83fee825961a090e1573
+```
+
+Important changes:
+
+  - Bazel now fails over immediately to mirror URLs if a TLS
+    handshake error occurs.
+
+This release contains contributions from many people at Google, as well as ashutosh0x, Fabian Meumertzheim, Keith Smiley, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260128.2 (2026-02-06)
+
+```
+Baseline: 3ad9562ae006151d40a0ebcc90b84889888c2111
+```
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Fabian Meumertzheim, Paul Tarjan.
+
 ## Release 10.0.0-pre.20260120.1 (2026-01-29)
 
 ```
