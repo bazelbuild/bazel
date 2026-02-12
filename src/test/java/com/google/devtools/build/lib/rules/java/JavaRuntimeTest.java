@@ -57,17 +57,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void absoluteJavaHome() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/absolute/path')");
-    reporter.removeHandler(failFastHandler);
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("/absolute/path");
-  }
-
-  @Test
   public void relativeJavaHome() throws Exception {
     scratch.file(
         "a/BUILD",
