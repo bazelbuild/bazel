@@ -1876,6 +1876,47 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testSingleVersionOverridePatches_defaultPatchStripForGitPatch() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,1 @@
+        -module(name='bbb',version='1.0')
+        +module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        """);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        single_version_override(
+          module_name="bbb",
+          patches = [
+            "//:patch.diff",
+          ],
+        )
+        """);
+
+    var moduleFileKey = ModuleFileValue.key(bbb);
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "error applying single_version_override patch /workspace/patch.diff to module file:"
+                + " error at line 2: the patch file contains a/b prefixes, did you forget to set"
+                + " patch_strip = 1?");
+  }
+
+  @Test
   public void testSingleVersionOverridePatches_failsOnRename() throws Exception {
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
