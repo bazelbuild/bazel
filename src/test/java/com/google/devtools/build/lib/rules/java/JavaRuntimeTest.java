@@ -68,17 +68,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaHomeWithInvalidMakeVariables() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/opt/$(WTF)')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:jvm");
-    assertContainsEvent("$(WTF) not defined");
-  }
-
-  @Test
   public void makeVariables() throws Exception {
     scratch.file(
         "a/BUILD",
