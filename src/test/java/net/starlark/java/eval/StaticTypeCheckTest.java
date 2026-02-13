@@ -95,6 +95,7 @@ public final class StaticTypeCheckTest {
         "operator '+' cannot be applied to types 'int' and 'str'",
         """
         n = 123 + 'abc'
+        _unused : bool  # ensure file uses type syntax
         """);
   }
 

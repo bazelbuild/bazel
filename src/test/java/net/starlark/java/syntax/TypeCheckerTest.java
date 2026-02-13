@@ -81,7 +81,7 @@ public final class TypeCheckerTest {
   /** As in {@link #typecheckFilePossiblyFailing} but asserts that even type checking succeeded. */
   private StarlarkFile assertValid(String... lines) throws Exception {
     StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertThat(file.ok()).isTrue();
+    assertThat(file.errors()).isEmpty();
     return file;
   }
 
@@ -588,10 +588,10 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("~x", Types.ANY, "x: Any");
 
     // Unsupported operations.
-    assertInvalid(":1:1: operator '-' cannot be applied to type 'str'", "-'hello'");
-    assertInvalid(":1:1: operator '+' cannot be applied to type 'str'", "+'hello'");
-    assertInvalid(":1:1: operator '~' cannot be applied to type 'str'", "~'hello'");
-    assertInvalid(":1:15: operator '-' cannot be applied to type 'str|int'", "x: str | int; -x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str'", "x: str", "-x");
+    assertInvalid(":2:1: operator '+' cannot be applied to type 'str'", "x: str", "+x");
+    assertInvalid(":2:1: operator '~' cannot be applied to type 'str'", "x: str", "~x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str|int'", "x: str | int", "-x");
   }
 
   @Test
@@ -644,12 +644,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("[] > []", Types.BOOL);
 
     // unsupported operations
-    assertInvalid(":1:5: operator '<' cannot be applied to types 'str' and 'int'", "'0' < 1");
     assertInvalid(
-        ":1:14: operator '>' cannot be applied to types 'float' and 'bool'", "x: bool; 0.0 > x");
+        "operator '<' cannot be applied to types 'str' and 'int'", "x: str; y: int; x < y");
+    assertInvalid("operator '>' cannot be applied to types 'float' and 'bool'", "x: bool; 0.0 > x");
     assertInvalid(
-        ":1:10: operator '>=' cannot be applied to types 'dict[str, int]' and 'dict[str, int]'",
-        "{'a': 1} >= {'b': 2}");
+        "operator '>=' cannot be applied to types 'dict[str, int]' and 'dict[str, int]'",
+        "x: str; y: str; {x: 1} >= {y: 2}");
     assertInvalid(
         "operator '<' cannot be applied to types 'dict[str, int]' and 'Any'",
         "x: dict[str, int]; y: Any; x < y");
@@ -686,7 +686,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("[] + [1]", Types.list(Types.INT));
     assertTypeGivenDecls("['hello'] + []", Types.list(Types.STR));
     assertTypeGivenDecls(
-        "[1, 2.0] + [3, '4']", Types.list(Types.union(Types.INT, Types.FLOAT, Types.STR)));
+        "[1, 2.0] + [3, 'four']", Types.list(Types.union(Types.INT, Types.FLOAT, Types.STR)));
     assertTypeGivenDecls(
         "x + y",
         Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.STR)),
@@ -718,7 +718,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x + y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:9: operator '+' cannot be applied to types 'str' and 'int'", "'hello' + 1");
+    assertInvalid("operator '+' cannot be applied to types 'str' and 'int'", "x: str; x + 1");
     assertInvalid(
         "operator '+' cannot be applied to types 'int|str' and 'str'", "x: int|str; y: str; x + y");
   }
@@ -755,7 +755,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x | y", Types.ANY, "x: int | bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '|' cannot be applied to types 'int' and 'float'", "1 | 2.0");
+    assertInvalid("operator '|' cannot be applied to types 'int' and 'float'", "x: int; x | 2.0");
     assertInvalid(
         "operator '|' cannot be applied to types 'int|set[int]' and 'int|set[int]'",
         "x: int|set[int]; y: int|set[int]; x | y");
@@ -778,7 +778,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x & y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '&' cannot be applied to types 'int' and 'float'", "1 & 2.0");
+    assertInvalid("operator '&' cannot be applied to types 'int' and 'float'", "x: int; x & 2.0");
     assertInvalid(
         "operator '&' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x & y");
@@ -802,7 +802,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x ^ y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '^' cannot be applied to types 'int' and 'float'", "1 ^ 2.0");
+    assertInvalid(
+        "operator '^' cannot be applied to types 'int' and 'float'", "x: int; y: float; x ^ y");
     assertInvalid(
         "operator '^' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x ^ y");
@@ -823,7 +824,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x >> y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '<<' cannot be applied to types 'int' and 'float'", "1 << 2.0");
+    assertInvalid("operator '<<' cannot be applied to types 'int' and 'float'", "x: int; x << 2.0");
     assertInvalid(
         "operator '>>' cannot be applied to types 'bool' and 'int'", "x: bool; y: int; x >> y");
   }
@@ -849,7 +850,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x - y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:5: operator '-' cannot be applied to types 'str' and 'int'", "'2' - 1");
+    assertInvalid("operator '-' cannot be applied to types 'str' and 'int'", "x: str; x - 1");
     assertInvalid(
         "operator '-' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x - y");
@@ -919,8 +920,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x * y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(
-        ":1:9: operator '*' cannot be applied to types 'str' and 'float'", "'hello' * 1.0");
+    assertInvalid("operator '*' cannot be applied to types 'str' and 'float'", "x: str; x * 1.0");
     assertInvalid(
         "operator '*' cannot be applied to types 'bool' and 'int'", "x: bool; y: int; x * y");
   }
@@ -952,8 +952,10 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x // y", Types.ANY, "x: float; y: Any");
 
     // unsupported operations
-    assertInvalid("operator '/' cannot be applied to types 'int' and 'str'", "1 / '2'");
-    assertInvalid("operator '//' cannot be applied to types 'str' and 'float'", "'2' // 3.0");
+    assertInvalid(
+        "operator '/' cannot be applied to types 'int' and 'str'", "x: int; y: str; x / y");
+    assertInvalid(
+        "operator '//' cannot be applied to types 'str' and 'float'", "x: str; y: float; x // y");
   }
 
   @Test
@@ -982,7 +984,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x % y", Types.STR, "x: str; y: Any");
 
     // unsupported operations
-    assertInvalid("operator '%' cannot be applied to types 'float' and 'str'", "1.0 % 'hello'");
+    assertInvalid(
+        "operator '%' cannot be applied to types 'float' and 'str'", "x: float; x % 'hello'");
   }
 
   @Test
@@ -1013,7 +1016,7 @@ public final class TypeCheckerTest {
     assertInvalid("operator 'in' cannot be applied to types 'Any' and 'int'", "x: Any; x in 42");
     assertInvalid(
         "operator 'not in' cannot be applied to types 'list[str]' and 'str'",
-        "['e'] not in 'hello'");
+        "x: str; ['e'] not in x");
   }
 
   @Test
@@ -1191,7 +1194,7 @@ public final class TypeCheckerTest {
         """);
     // Callable varargs absorb residual positional arguments
     assertTypeGivenDecls(
-        "f(1, '2', 3.0)",
+        "f(1, 'two', 3.0)",
         Types.INT,
         """
         def f(x: int, *args: str|float) -> int:
@@ -1263,7 +1266,7 @@ public final class TypeCheckerTest {
         """);
     // Callable kwargs absorb residual keyword arguments
     assertTypeGivenDecls(
-        "f(1, y='2', z=3.0)",
+        "f(1, y='two', z=3.0)",
         Types.INT,
         """
         def f(x: int, **kwargs: str|float) -> int:
@@ -1302,6 +1305,93 @@ public final class TypeCheckerTest {
         def f(x: int, **kwargs: str|float) -> int:
             return 0
         f(x=1, y=2, z=3)
+        """);
+  }
+
+  @Test
+  public void def_argument_defaults() throws Exception {
+    assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
+    String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";
+    assertInvalid("f(): parameter 'x' has default value of type 'float', declares 'int'", invalid);
+    assertInvalid("f(): parameter 'y' has default value of type 'int', declares 'str'", invalid);
+  }
+
+  @Test
+  public void def_return_type() throws Exception {
+    assertValid("def f(): pass");
+    assertValid("def f(): return 42");
+    assertValid("def f() -> int: return 42");
+    assertValid("def f() -> None: pass");
+    assertValid("def f() -> None: return");
+    assertValid(
+        """
+        def f() -> int|None:
+            if 2 + 2 == 4:
+                return 42
+        """);
+    assertValid(
+        """
+        def f() -> int|float|str:
+            if 2 + 2 == 4:
+                return 42
+            elif 2.0 + 2.0 == 4.0:
+                return 42.0
+            else:
+                return 'abc'
+        """);
+
+    assertInvalid(
+        ":2:5: f() declares return type 'int' but may exit without an explicit 'return'",
+        """
+        def f() -> int:
+            if 2 + 2 == 4:
+                return 42
+        """);
+    assertInvalid(
+        ":3:16: f() declares return type 'None' but may return 'int'",
+        """
+        def f() -> None:
+            if 2 + 2 == 4:
+                return 42
+        """);
+  }
+
+  @Test
+  public void def_body_checked_iff_function_uses_type_syntax() throws Exception {
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        X: int = 42
+        def typed() -> int:
+            return X + "abc"
+        """);
+    assertValid(
+        """
+        X: int = 42
+        def untyped():
+            # error ignored by static type checker because function is untyped
+            return X + "abc"
+        """);
+    assertValid(
+        """
+        X: int = 42
+        def untyped():
+            # type syntax in nested defs does not affect outer function
+            def get_int() -> int:
+                return X
+            # error ignored by static type checker because outer function is untyped
+            return get_int() + "abc"
+        """);
+
+    assertInvalid(
+        ":5:18: operator '%' cannot be applied to types 'int' and 'str'",
+        """
+        X: int = 42
+        def untyped():
+            def get_int() -> int:
+                # type syntax in nested typed defs is checked even if the outer def is untyped
+                return X % "abc"
+            return get_int() + "def"
         """);
   }
 }
