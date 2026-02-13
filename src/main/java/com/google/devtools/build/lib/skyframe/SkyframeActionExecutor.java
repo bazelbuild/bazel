@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionSuccessEvent;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1253,6 +1254,7 @@ public final class SkyframeActionExecutor {
             Profiler.instance().profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
           actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
+        eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);

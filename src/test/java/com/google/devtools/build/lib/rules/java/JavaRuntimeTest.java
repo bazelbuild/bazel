@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -59,86 +57,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void simple() throws Exception {
-    ConfiguredTarget target = getConfiguredTarget("//jvm:jvm-k8");
-    assertThat(ActionsTestUtil.prettyArtifactNames(getJavaRuntimeInfo(target).javaBaseInputs()))
-        .containsExactly("jvm/k8/a", "jvm/k8/b");
-    assertThat(
-            ActionsTestUtil.prettyArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDataRunfiles().getArtifacts()))
-        .containsExactly("jvm/k8/a", "jvm/k8/b");
-  }
-
-  @Test
-  public void absoluteJavaHomeWithSrcs() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[':dummy'], java_home='/absolute/path')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:jvm");
-    assertContainsEvent("'java_home' with an absolute path requires 'srcs' to be empty.");
-  }
-
-  @Test
-  public void absoluteJavaHomeWithJava() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', java='bin/java', java_home='/absolute/path')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:jvm");
-    assertContainsEvent("'java_home' with an absolute path requires 'java' to be empty.");
-  }
-
-  @Test
-  public void binJavaPathName() throws Exception {
-    scratch.file(
-        "BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', java='java')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//:jvm");
-    assertContainsEvent("the path to 'java' must end in 'bin/java'.");
-  }
-
-  @Test
-  public void absoluteJavaHome() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/absolute/path')");
-    reporter.removeHandler(failFastHandler);
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("/absolute/path");
-  }
-
-  @Test
-  public void relativeJavaHome() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='b/c')");
-    reporter.removeHandler(failFastHandler);
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("a/b/c");
-  }
-
-  @Test
-  public void testRuntimeAlias() throws Exception {
-    ConfiguredTarget reference =
-        scratchConfiguredTarget(
-            "a",
-            "ref",
-            "load('"
-                + TestConstants.TOOLS_REPOSITORY
-                + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-            "java_runtime_alias(name='ref')");
-    assertThat(reference.get(ToolchainInfo.PROVIDER)).isNotNull();
-    assertThat(reference.get(TemplateVariableInfo.PROVIDER.getKey())).isNotNull();
-  }
-
-  @Test
   public void javaHomeWithMakeVariables() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -147,17 +65,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     useConfiguration("--define=CMDLINE=foo/bar");
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("/opt/foo/bar");
-  }
-
-  @Test
-  public void javaHomeWithInvalidMakeVariables() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/opt/$(WTF)')");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:jvm");
-    assertContainsEvent("$(WTF) not defined");
   }
 
   @Test

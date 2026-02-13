@@ -78,9 +78,11 @@ public abstract class BlazeModule implements OptionsSupplier {
    * #blazeStartup}.
    *
    * @param startupOptions the server's startup options
+   * @param blazeServices the available services
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
+  public void globalInit(OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices)
+      throws AbruptExitException {}
 
   /**
    * Returns the file system implementation used by Bazel.
@@ -153,15 +155,8 @@ public abstract class BlazeModule implements OptionsSupplier {
   }
 
   /**
-   * Called to provide the list of available Blaze services to the module.
-   *
-   * <p>This is called after {@link #getFileSystem} and before {@link #blazeStartup}.
-   */
-  public void blazeServicesAvailable(Iterable<BlazeService> blazeServices) {}
-
-  /**
-   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, {@link
-   * #getFileSystem}, and {@link #blazeServicesAvailable}.
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit} and {@link
+   * #getFileSystem}.
    *
    * @param startupOptions the server's startup options
    * @param versionInfo the Bazel version currently running

@@ -1348,11 +1348,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     for (BlazeService service : blazeServices) {
-      service.globalInit();
+      service.globalInit(options);
     }
 
     for (BlazeModule module : blazeModules) {
-      module.globalInit(options);
+      module.globalInit(options, blazeServices);
     }
 
     String productName = startupOptions.productName.toLowerCase(Locale.US);
@@ -1703,21 +1703,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Preconditions.checkNotNull(clock);
 
-      int metricsModules = 0;
+      BlazeModule metricsModule = null;
       for (BlazeModule module : blazeModules) {
         if (module.postsBuildMetricsEvent()) {
-          metricsModules++;
+          checkState(metricsModule == null, "more than one module may post a BuildMetricsEvent");
+          metricsModule = module;
         }
       }
-      Preconditions.checkArgument(
-          metricsModules < 2, "At most one module may post a BuildMetricsEvent");
-      if (metricsModules == 0) {
-        blazeModules.add(new DummyMetricsModule());
-      }
-      var blazeServicesCopy = ImmutableList.copyOf(blazeServices);
-      for (BlazeModule module : blazeModules) {
-        module.blazeServicesAvailable(blazeServicesCopy);
-      }
+
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,

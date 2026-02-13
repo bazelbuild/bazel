@@ -73,5 +73,6 @@ java_library(
         ":process_utils_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )

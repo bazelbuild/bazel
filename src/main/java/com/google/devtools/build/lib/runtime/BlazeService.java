@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
  * Provides a piece of functionality in the Service Component (SC).
@@ -45,6 +47,10 @@ public interface BlazeService extends OptionsSupplier {
     return ImmutableList.of();
   }
 
-  /** Called at the beginning of Bazel startup, right before {@link BlazeModule#globalInit}. */
-  default void globalInit() {}
+  /**
+   * Called at the beginning of Bazel startup, right before {@link BlazeModule#globalInit}.
+   *
+   * @throws AbruptExitException to shut down the server immediately
+   */
+  default void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
 }

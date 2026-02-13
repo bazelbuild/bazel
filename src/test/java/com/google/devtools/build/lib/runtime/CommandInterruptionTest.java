@@ -380,8 +380,10 @@ public final class CommandInterruptionTest {
   @Before
   public void setUp() throws Exception {
     executor = Executors.newSingleThreadExecutor();
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     for (var service : BAZEL_SERVICES) {
-      service.globalInit();
+      service.globalInit(startupOptionsProvider);
     }
     Scratch scratch = new Scratch();
     isTestShuttingDown = new AtomicBoolean(false);
@@ -394,8 +396,7 @@ public final class CommandInterruptionTest {
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override

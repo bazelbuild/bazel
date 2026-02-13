@@ -59,6 +59,7 @@ java_library(
         ":store",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",

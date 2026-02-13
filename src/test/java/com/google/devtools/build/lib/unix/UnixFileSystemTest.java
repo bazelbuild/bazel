@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.TraceProfilerService;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -136,6 +139,48 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   @Test
+  public void testGetxattr() throws Exception {
+    assumeXattrsSupported();
+
+    Path file = absolutize("file");
+    FileSystemUtils.writeContent(file, UTF_8, "hello world");
+
+    assertThat(
+            new ProcessBuilder("xattr", "-w", "foo", "bar", file.getPathString()).start().waitFor())
+        .isEqualTo(0);
+
+    assertThat(testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ false))
+        .isEqualTo("bar".getBytes(UTF_8));
+    assertThat(testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ true))
+        .isEqualTo("bar".getBytes(UTF_8));
+  }
+
+  @Test
+  public void testGetxattrAttributeNotFound() throws Exception {
+    assumeXattrsSupported();
+
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    assertThat(testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ false)).isNull();
+    assertThat(testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ true)).isNull();
+  }
+
+  @Test
+  public void testGetxattrFileNotFound() throws Exception {
+    assumeXattrsSupported();
+
+    Path file = absolutize("file");
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ false));
+    assertThrows(
+        FileNotFoundException.class,
+        () -> testFS.getxattr(file.asFragment(), "foo", /* followSymlinks= */ false));
+  }
+
+  @Test
   public void testTransferToWorksWhenCallingThreadHasInterruptBitSet(
       @TestParameter boolean profiling) throws Throwable {
     try (var m = new MaybeWithMockProfiler(profiling)) {
@@ -211,5 +256,23 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
         Profiler.setTraceProfilerService(null);
       }
     }
+  }
+
+  @Test
+  public void testExceptionContainsFileAndLine() throws Exception {
+    Path file = absolutize("non-existent");
+
+    IOException e = assertThrows(IOException.class, () -> file.stat());
+
+    assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
+    assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
+  }
+
+  /** Skips the test if the file system does not support extended attributes. */
+  private static void assumeXattrsSupported() throws Exception {
+    // The standard file systems on macOS support extended attributes by default, so we can assume
+    // that the test will work on that platform. For other systems, we currently don't have a
+    // mechanism to validate this so the tests are skipped unconditionally.
+    assumeTrue(OS.getCurrent() == OS.DARWIN);
   }
 }

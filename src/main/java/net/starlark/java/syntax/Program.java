@@ -164,7 +164,7 @@ public final class Program {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
 
     if (options.resolveTypeSyntax()) {
-      TypeTagger.tagExpr(expr, module);
+      TypeTagger.tagExpr(expr, body, module);
     }
 
     if (options.staticTypeChecking()) {

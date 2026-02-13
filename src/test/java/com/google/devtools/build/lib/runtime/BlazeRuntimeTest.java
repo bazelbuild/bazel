@@ -344,8 +344,7 @@ public class BlazeRuntimeTest {
 
     BlazeRuntime runtime = createRuntime(ImmutableList.of(module), ImmutableList.of(service));
 
-    // Additional modules may be registered internally, e.g. DummyMetricsModule.
-    assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
+    assertThat(runtime.getOptionsSuppliers()).containsExactly(module, service);
   }
 
   private BlazeRuntime createRuntime() throws Exception {

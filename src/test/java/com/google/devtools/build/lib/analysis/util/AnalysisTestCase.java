@@ -63,9 +63,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -291,6 +293,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -303,6 +306,18 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
+
+    if (!optionsParser.getSkippedArgs().isEmpty()) {
+      var done =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(
+                  new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                      skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+              .nativeOptionsParser(optionsParser)
+              .build()
+              .parse();
+      Preconditions.checkState(done);
+    }
 
     buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);

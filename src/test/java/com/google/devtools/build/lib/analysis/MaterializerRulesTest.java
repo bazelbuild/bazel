@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Rule;
@@ -2466,5 +2467,256 @@ ERROR /workspace/binary/BUILD:3:7: in binary rule //binary:bin: Visibility error
 target '//components:foo_b' is not visible from
 target '//binary:bin'
 """);
+  }
+
+  @Test
+  public void materializerRuleUnderFailureAnalysisTest_works() throws Exception {
+    scratch.file(
+        "defs.bzl",
+"""
+ComponentInfo = provider()
+
+def _component_impl(ctx):
+    return ComponentInfo()
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+def _component_selector_impl(ctx):
+    selected = []
+    for c in ctx.attr.all_components:
+        if "fail" in str(c.label):
+            fail("Intentional failure on " + str(c.label))
+        if "yes" in str(c.label):
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    allow_real_deps = True,
+    attrs = {
+        "all_components": attr.label_list(),
+    },
+)
+
+def _my_test_impl(ctx):
+    if len(ctx.attr.targets_under_test) != 1:
+        return [AnalysisTestResultInfo(
+            success = False, message = "Wrong number of targets under test")]
+    causes = ctx.attr.targets_under_test[0][AnalysisFailureInfo].causes.to_list()
+    if len(causes) != 1:
+        return [AnalysisTestResultInfo(success = False, message = "Wrong number of causes")]
+    if "Intentional failure on @@//:fail_a" not in causes[0].message:
+        return [AnalysisTestResultInfo(
+            success = False, message = "Wrong cause: " + causes[0].message)]
+    return [AnalysisTestResultInfo(success = True, message = "Success!")]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    attrs = {
+        "targets_under_test": attr.label_list(
+            cfg = analysis_test_transition(
+                settings = {
+                    "//command_line_option:allow_analysis_failures": "True",
+                },
+            ),
+        ),
+    },
+    test = True,
+    analysis_test = True,
+)
+""");
+
+    scratch.file(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "my_test")
+
+component(name = "fail_a")
+component(name = "fail_b")
+component(name = "yes_a")
+component(name = "yes_b")
+
+component_selector(
+    name = "component_selector",
+    all_components = [
+        ":fail_a",
+        ":fail_b",
+        ":yes_a",
+        ":yes_b",
+    ],
+)
+
+my_test(
+    name = "my_test",
+    targets_under_test = [":component_selector"],
+)
+""");
+
+    update("//:my_test");
+    ConfiguredTarget target = getConfiguredTarget("//:my_test");
+    AnalysisTestResultInfo info = target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR);
+    assertThat(info.getSuccess()).isTrue();
+  }
+
+  /**
+   * Tests that a materializer rule works correctly when it is under a split transition where the
+   * failure happens in only some parts of the split.
+   */
+  @Test
+  public void materializerRuleUnderFailureAnalysisTestWithSplitTransition_works() throws Exception {
+    scratch.file(
+        "defs.bzl",
+"""
+# Component selector setting ###########################################
+
+ComponentSelectorProvider = provider(fields = ["selector"])
+
+def _component_selector_setting_impl(ctx):
+    return ComponentSelectorProvider(selector = ctx.build_setting_value)
+
+component_selector_setting = rule(
+    implementation = _component_selector_setting_impl,
+    build_setting = config.string()
+)
+
+# Component transition
+
+def _component_selector_setting_transition_impl(settings, attr):
+    return [
+        {"//:component_selector_setting" : "foo"},
+        {"//:component_selector_setting" : "bar"},
+        {"//:component_selector_setting" : "baz"},
+    ]
+
+component_transition = transition(
+    implementation = _component_selector_setting_transition_impl,
+    inputs = [],
+    outputs = ["//:component_selector_setting"],
+)
+
+# Component ############################################################
+
+ComponentInfo = provider()
+
+def _component_impl(ctx):
+    return ComponentInfo()
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+# Component selector ###################################################
+
+def _component_selector_impl(ctx):
+    selector = ctx.attr._component_selector_setting[ComponentSelectorProvider].selector
+    # This causes failures in the "bar" and "baz" splits of the transition.
+    if selector != "foo":
+        fail("Bad selector " + selector)
+    selected = []
+    for c in ctx.attr.all_components:
+        if selector in str(c.label):
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    allow_real_deps = True,
+    attrs = {
+        "all_components": attr.label_list(),
+        "_component_selector_setting": attr.label(default = "//:component_selector_setting"),
+    },
+)
+
+# Binary ###############################################################
+
+def _binary_impl(ctx):
+    return DefaultInfo()
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(cfg = component_transition),
+    },
+)
+
+# Analysis Test ##################################
+
+def _my_test_impl(ctx):
+    if len(ctx.attr.targets_under_test) != 1:
+        return [AnalysisTestResultInfo(
+            success = False, message = "Wrong number of targets under test")]
+    causes = ctx.attr.targets_under_test[0][AnalysisFailureInfo].causes.to_list()
+    if len(causes) != 2:
+        return [AnalysisTestResultInfo(success = False, message = "Wrong number of causes")]
+    messages = "\\n".join([c.message for c in causes])
+    if ("Bad selector baz" not in messages) or ("Bad selector bar" not in messages):
+        return [AnalysisTestResultInfo(
+            success = False, message = "Wrong causes: " + str(messages))]
+    return [AnalysisTestResultInfo(success = True, message = "Success!")]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    attrs = {
+        "targets_under_test": attr.label_list(
+            cfg = analysis_test_transition(
+                settings = {
+                    "//command_line_option:allow_analysis_failures": "True",
+                },
+            ),
+        ),
+    },
+    test = True,
+    analysis_test = True,
+)
+""");
+
+    scratch.file(
+        "BUILD",
+"""
+load(":defs.bzl", "binary", "component", "component_selector", "component_selector_setting", "my_test")
+
+component(name = "foo_1")
+component(name = "foo_2")
+component(name = "bar_1")
+component(name = "bar_2")
+component(name = "baz_1")
+component(name = "baz_2")
+
+component_selector_setting(
+    name = "component_selector_setting",
+    build_setting_default = "foo",
+)
+
+component_selector(
+    name = "component_selector",
+    all_components = [
+        ":foo_1",
+        ":foo_2",
+        ":bar_1",
+        ":bar_2",
+        ":baz_1",
+        ":baz_2",
+    ],
+)
+
+binary(
+    name = "binary",
+    deps = [":component_selector"],
+)
+
+my_test(
+    name = "my_test",
+    targets_under_test = [":binary"],
+)
+""");
+
+    update("//:my_test");
+    ConfiguredTarget target = getConfiguredTarget("//:my_test");
+    AnalysisTestResultInfo info = target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR);
+    assertThat(info.getSuccess()).isTrue();
   }
 }
