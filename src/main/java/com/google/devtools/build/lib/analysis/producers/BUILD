@@ -43,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_dependency_state",
