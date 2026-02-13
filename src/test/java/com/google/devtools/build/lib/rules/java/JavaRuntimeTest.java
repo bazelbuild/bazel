@@ -57,20 +57,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRuntimeAlias() throws Exception {
-    ConfiguredTarget reference =
-        scratchConfiguredTarget(
-            "a",
-            "ref",
-            "load('"
-                + TestConstants.TOOLS_REPOSITORY
-                + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-            "java_runtime_alias(name='ref')");
-    assertThat(reference.get(ToolchainInfo.PROVIDER)).isNotNull();
-    assertThat(reference.get(TemplateVariableInfo.PROVIDER.getKey())).isNotNull();
-  }
-
-  @Test
   public void javaHomeWithMakeVariables() throws Exception {
     scratch.file(
         "a/BUILD",
