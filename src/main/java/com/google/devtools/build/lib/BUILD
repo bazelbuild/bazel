@@ -307,6 +307,7 @@ java_library(
     srcs = ["runtime/BlazeService.java"],
     deps = [
         ":runtime/options_supplier",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
@@ -438,7 +439,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/metrics:garbage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath",
         "//src/main/java/com/google/devtools/build/lib/packages",

@@ -397,7 +397,7 @@ public abstract class BuildIntegrationTestCase {
     // BlazeRuntime. The idea is for them to be run early enough during the server startup.
     // For tests, we have to do this here in order to mimic this behavior.
     for (BlazeService service : getBlazeServices()) {
-      service.globalInit();
+      service.globalInit(getStartupOptionsProvider());
     }
   }
 
@@ -617,9 +617,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser =
-        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
-    startupOptionsParser.parse(getStartupOptions());
+    OptionsParsingResult startupOptionsProvider = getStartupOptionsProvider();
     BlazeModule connectivityModule = getConnectivityModule();
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
@@ -629,7 +627,7 @@ public abstract class BuildIntegrationTestCase {
             .setFileSystem(fileSystem)
             .setProductName(TestConstants.PRODUCT_NAME)
             .setBugReporter(bugReporter)
-            .setStartupOptionsProvider(startupOptionsParser)
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
@@ -662,6 +660,13 @@ public abstract class BuildIntegrationTestCase {
     builder.addBlazeModule(new MetricsModule());
 
     return builder;
+  }
+
+  private OptionsParsingResult getStartupOptionsProvider() throws Exception {
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
+    startupOptionsParser.parse(getStartupOptions());
+    return startupOptionsParser;
   }
 
   protected List<String> getStartupOptions() {

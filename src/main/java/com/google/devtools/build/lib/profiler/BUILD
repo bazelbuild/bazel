@@ -89,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",

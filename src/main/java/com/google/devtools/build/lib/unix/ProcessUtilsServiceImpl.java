@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /** Various utilities related to UNIX processes. */
 public final class ProcessUtilsServiceImpl implements ProcessUtilsService {
 
   @Override
-  public void globalInit() {
+  public void globalInit(OptionsParsingResult startupOptions) {
     ProcessUtilsService.registerJniService(this);
   }
 
