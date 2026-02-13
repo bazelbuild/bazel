@@ -27,7 +27,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -60,7 +60,7 @@ final class HttpStream extends FilterInputStream {
 
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        URI originalUrl,
         Optional<Checksum> checksum,
         Reconnector reconnector)
         throws IOException {
@@ -70,12 +70,13 @@ final class HttpStream extends FilterInputStream {
     @SuppressWarnings("resource")
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        URI originalUrl,
         Optional<Checksum> checksum,
         Reconnector reconnector,
         Optional<String> type)
         throws IOException {
       InputStream stream = new InterruptibleInputStream(connection.getInputStream());
+      URI connectionUrl = HttpUtils.toURI(connection);
       try {
         // If server supports range requests, we can retry on read errors. See RFC7233 § 2.3.
         RetryingInputStream retrier = null;
@@ -100,7 +101,7 @@ final class HttpStream extends FilterInputStream {
         }
 
         stream =
-            progressInputStreamFactory.create(stream, connection.getURL(), originalUrl, totalBytes);
+            progressInputStreamFactory.create(stream, connectionUrl, originalUrl, totalBytes);
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note
         // that some web servers will send Content-Encoding: gzip even when we didn't request it if
@@ -108,7 +109,7 @@ final class HttpStream extends FilterInputStream {
         // in consideration. If the repository/file that we are downloading is already compressed we
         // should not decompress it to preserve the desired file format.
         if (GZIP_CONTENT_ENCODING.contains(Strings.nullToEmpty(connection.getContentEncoding()))
-            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connection.getURL().getPath()))
+            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connectionUrl.getPath()))
             && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()))
             && !typeIsGZIP(type)) {
           stream = new GZIPInputStream(stream, GZIP_BUFFER_BYTES);
@@ -141,7 +142,7 @@ final class HttpStream extends FilterInputStream {
         }
         throw e;
       }
-      return new HttpStream(stream, connection.getURL());
+      return new HttpStream(stream, connectionUrl);
     }
 
     /**
@@ -165,15 +166,15 @@ final class HttpStream extends FilterInputStream {
     }
   }
 
-  private final URL url;
+  private final URI url;
 
-  HttpStream(@WillCloseWhenClosed InputStream delegate, URL url) {
+  HttpStream(@WillCloseWhenClosed InputStream delegate, URI url) {
     super(delegate);
     this.url = url;
   }
 
-  /** Returns final redirected URL. */
-  URL getUrl() {
+  /** Returns final redirected URI. */
+  URI getUrl() {
     return url;
   }
 }

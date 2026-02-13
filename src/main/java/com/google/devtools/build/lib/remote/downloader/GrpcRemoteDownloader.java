@@ -51,8 +51,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -135,7 +134,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -147,7 +146,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       String context)
       throws IOException, InterruptedException {
     // file: URLs can't use the gRPC downloader.
-    if (urls.stream().anyMatch(url -> url.getProtocol().equals("file"))) {
+    if (urls.stream().anyMatch(url -> "file".equals(url.getScheme()))) {
       httpDownloader.download(
           urls,
           headers,
@@ -242,7 +241,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       boolean remoteDownloaderPropagateCredentials,
-      List<URL> urls,
+      List<URI> urls,
       Optional<Checksum> checksum,
       String canonicalId,
       DigestFunction.Value digestFunction,
@@ -261,19 +260,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         continue;
       }
 
-      try {
-        var metadata = credentials.getRequestMetadata(url.toURI());
-        for (var entry : metadata.entrySet()) {
-          for (var value : entry.getValue()) {
-            requestBuilder.addQualifiers(
-                Qualifier.newBuilder()
-                    .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
-                    .setValue(value)
-                    .build());
-          }
+      var metadata = credentials.getRequestMetadata(url);
+      for (var entry : metadata.entrySet()) {
+        for (var value : entry.getValue()) {
+          requestBuilder.addQualifiers(
+              Qualifier.newBuilder()
+                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                  .setValue(value)
+                  .build());
         }
-      } catch (URISyntaxException e) {
-        throw new IOException(e);
       }
     }
 

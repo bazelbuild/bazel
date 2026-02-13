@@ -21,7 +21,6 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -50,84 +49,84 @@ public class HttpUtilsTest {
   @Test
   public void getLocation_missingInRedirect_throwsIOException() throws Exception {
     thrown.expect(IOException.class);
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     HttpUtils.getLocation(connection);
   }
 
   @Test
   public void getLocation_absoluteInRedirect_returnsNewUrl() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://new.example/hi");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("http://new.example/hi"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("http://new.example/hi"));
   }
 
   @Test
   public void getLocation_redirectOnlyHasPath_mergesHostFromOriginalUrl() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("/hi");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("http://lol.example/hi"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("http://lol.example/hi"));
   }
 
   @Test
   public void getLocation_onlyHasPathWithoutSlash_failsToMerge() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("Could not merge");
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("omg");
     HttpUtils.getLocation(connection);
   }
 
   @Test
   public void getLocation_hasFragment_prefersNewFragment() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://lol.example#a"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example#a").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://new.example/hi#b");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("http://new.example/hi#b"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("http://new.example/hi#b"));
   }
 
   @Test
   public void getLocation_hasNoFragmentButOriginalDoes_mergesOldFragment() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://lol.example#a"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example#a").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://new.example/hi");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("http://new.example/hi#a"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("http://new.example/hi#a"));
   }
 
   @Test
   public void getLocation_oldUrlHasPassRedirectingToSameDomain_mergesPassword() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://a:b@lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://a:b@lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://lol.example/hi");
     assertThat(HttpUtils.getLocation(connection))
-        .isEqualTo(new URL("http://a:b@lol.example/hi"));
-    when(connection.getURL()).thenReturn(new URL("http://a:b@lol.example"));
+        .isEqualTo(URI.create("http://a:b@lol.example/hi"));
+    when(connection.getURL()).thenReturn(URI.create("http://a:b@lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("/hi");
     assertThat(HttpUtils.getLocation(connection))
-        .isEqualTo(new URL("http://a:b@lol.example/hi"));
+        .isEqualTo(URI.create("http://a:b@lol.example/hi"));
   }
 
   @Test
   public void getLocation_oldUrlHasPasswordRedirectingToNewServer_doesntMerge() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://a:b@lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://a:b@lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://new.example/hi");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("http://new.example/hi"));
-    when(connection.getURL()).thenReturn(new URL("http://a:b@lol.example"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("http://new.example/hi"));
+    when(connection.getURL()).thenReturn(URI.create("http://a:b@lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("http://lol.example:81/hi");
     assertThat(HttpUtils.getLocation(connection))
-        .isEqualTo(new URL("http://lol.example:81/hi"));
+        .isEqualTo(URI.create("http://lol.example:81/hi"));
   }
 
   @Test
   public void getLocation_redirectToFtp_throwsIOException() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("Bad Location");
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("ftp://lol.example");
     HttpUtils.getLocation(connection);
   }
 
   @Test
   public void getLocation_redirectToHttps_works() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://lol.example"));
+    when(connection.getURL()).thenReturn(URI.create("http://lol.example").toURL());
     when(connection.getHeaderField("Location")).thenReturn("https://lol.example");
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("https://lol.example"));
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create("https://lol.example"));
   }
 
   @Test
@@ -135,9 +134,9 @@ public class HttpUtilsTest {
     String redirect =
         "http://redirected.example.org/foo?"
             + "response-content-disposition=attachment%3Bfilename%3D%22bar.tar.gz%22";
-    when(connection.getURL()).thenReturn(new URL("http://original.example.org"));
+    when(connection.getURL()).thenReturn(URI.create("http://original.example.org").toURL());
     when(connection.getHeaderField("Location")).thenReturn(redirect);
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect).toURL());
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect));
   }
 
   @Test
@@ -145,8 +144,8 @@ public class HttpUtilsTest {
     String redirect =
         "http://redirected.example.org/foo?"
             + "response-content-disposition=attachment%3Bfilename%3D%22bar.tar.gz%22";
-    when(connection.getURL()).thenReturn(new URL("http://a:b@original.example.org"));
+    when(connection.getURL()).thenReturn(URI.create("http://a:b@original.example.org").toURL());
     when(connection.getHeaderField("Location")).thenReturn(redirect);
-    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect).toURL());
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect));
   }
 }

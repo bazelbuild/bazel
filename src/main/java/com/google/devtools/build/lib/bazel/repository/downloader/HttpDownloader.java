@@ -33,7 +33,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +74,7 @@ public class HttpDownloader implements Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -93,7 +93,7 @@ public class HttpDownloader implements Downloader {
 
     List<IOException> ioExceptions = ImmutableList.of();
 
-    for (URL url : urls) {
+    for (URI url : urls) {
       semaphore.acquire();
 
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
@@ -145,7 +145,7 @@ public class HttpDownloader implements Downloader {
 
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
-      URL url,
+      URI url,
       Credentials credentials,
       Optional<Checksum> checksum,
       ExtendedEventHandler eventHandler,
