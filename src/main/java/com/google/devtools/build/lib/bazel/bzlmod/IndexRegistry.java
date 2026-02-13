@@ -473,9 +473,9 @@ public class IndexRegistry implements Registry {
       } catch (URISyntaxException e) {
         throw new IOException("Malformed mirror URL specified in bazel_registry.json of " + uri, e);
       }
-      String authority = sourceUrl.getAuthority();
-      String path = sourceUrl.getPath();
-      String query = sourceUrl.getQuery();
+      String authority = sourceUrl.getRawAuthority();
+      String path = sourceUrl.getRawPath();
+      String query = sourceUrl.getRawQuery();
       urls.add(
           constructUrl(mirror, authority != null ? authority : "", path != null ? path : "")
               + (query != null ? "?" + query : ""));
