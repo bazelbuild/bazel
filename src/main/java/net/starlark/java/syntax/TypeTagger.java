@@ -14,12 +14,14 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -30,9 +32,10 @@ import net.starlark.java.syntax.Resolver.Scope;
 /**
  * A visitor for tagging the data structures of a resolved file with type information.
  *
- * <p>This populates the function type on the {@link Resolver.Function} objects in the AST, and the
- * variable types on the {@link Resolver.Binding} objects. These type fields must all be null prior
- * to running the visitor.
+ * <p>This populates the function type on the {@link Resolver.Function} objects in the AST and
+ * records whether or not a given {@link Resolver.Function} is considered to use static type syntax;
+ * and populates the variable types on the {@link Resolver.Binding} objects. These type fields must
+ * all be null prior to running the visitor.
  *
  * <p>The types assigned to the fields are based solely on the type annotations in the program. No
  * type inference is done here.
@@ -45,6 +48,10 @@ public final class TypeTagger extends NodeVisitor {
   private final Module module;
 
   private final List<SyntaxError> errors;
+
+  // Empty if we are tagging a type expression (inside which no function definitions are allowed).
+  // Populated and mutated by visitation.
+  private final ArrayDeque<Resolver.Function> functionStack = new ArrayDeque<>();
 
   // Formats and reports an error at the start of the specified node.
   @FormatMethod
@@ -61,6 +68,11 @@ public final class TypeTagger extends NodeVisitor {
   private TypeTagger(List<SyntaxError> errors, Module module) {
     this.errors = errors;
     this.module = module;
+  }
+
+  private TypeTagger(List<SyntaxError> errors, Module module, Resolver.Function toplevel) {
+    this(errors, module);
+    functionStack.push(toplevel);
   }
 
   /**
@@ -301,8 +313,20 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   @Override
+  public void visit(StarlarkFile file) {
+    checkState(
+        functionStack.isEmpty(),
+        "When tagging a StarlarkFile, functionStack is expected to be initially empty");
+    Resolver.Function toplevel = file.getResolvedFunction();
+    this.functionStack.push(toplevel);
+    super.visit(file);
+    checkState(functionStack.pop().equals(toplevel));
+  }
+
+  @Override
   public void visit(AssignmentStatement assignment) {
     if (assignment.getType() != null) {
+      setUsesTypeSyntax();
       StarlarkType type = extractType(assignment.getType());
       setType(assignment, (Identifier) assignment.getLHS(), type);
     }
@@ -313,11 +337,18 @@ public final class TypeTagger extends NodeVisitor {
 
   @Override
   public void visit(DefStatement def) {
+    Resolver.Function resolvedFunction = def.getResolvedFunction();
+    functionStack.push(resolvedFunction);
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
-    setType(def.getResolvedFunction(), type);
+    setType(resolvedFunction, type);
     setType(def, def.getIdentifier(), type);
+    // Parameter types handled by visit(Parameter).
+    if (def.getReturnType() != null || !def.getTypeParameters().isEmpty()) {
+      setUsesTypeSyntax();
+    }
 
     super.visit(def);
+    checkState(functionStack.pop().equals(resolvedFunction));
   }
 
   @Override
@@ -327,6 +358,7 @@ public final class TypeTagger extends NodeVisitor {
       // This matches the behavior for the Resolver.Function's type.
       StarlarkType type = Types.ANY;
       if (param.getType() != null) {
+        setUsesTypeSyntax();
         type = extractType(param.getType());
       }
       setType(param, param.getIdentifier(), type);
@@ -336,15 +368,28 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   @Override
+  public void visit(TypeAliasStatement node) {
+    setUsesTypeSyntax();
+    super.visit(node);
+  }
+
+  @Override
   public void visit(VarStatement var) {
     StarlarkType type = extractType(var.getType());
     setType(var, var.getIdentifier(), type);
+    setUsesTypeSyntax();
 
     // No need to descend into type expression child.
   }
 
   // TODO: #28325 - Ensure we assign the type of an identifier referencing a universal/predeclared
   // symbol, i.e. with no binding occurrences in the file.
+
+  @Override
+  public void visit(CastExpression cast) {
+    setUsesTypeSyntax();
+    super.visit(cast);
+  }
 
   @Override
   public void visit(LambdaExpression lambda) {
@@ -378,10 +423,14 @@ public final class TypeTagger extends NodeVisitor {
    * Same as {@link #tagFile}, but for an individual expression.
    *
    * <p>Any errors are thrown as a {@link SyntaxError.Exception}.
+   *
+   * @param function the {@link Resolver.Function} that the resolver generated to wrap an
+   *     expression.
    */
-  public static void tagExpr(Expression expr, Module module) throws SyntaxError.Exception {
+  public static void tagExpr(Expression expr, Resolver.Function function, Module module)
+      throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    TypeTagger r = new TypeTagger(errors, module);
+    TypeTagger r = new TypeTagger(errors, module, function);
 
     r.visit(expr);
 
@@ -406,5 +455,14 @@ public final class TypeTagger extends NodeVisitor {
             /* kwargsType= */ null,
             /* returns= */ exprType);
     setType(function, functionType);
+  }
+
+  private void setUsesTypeSyntax() {
+    // If anything in the file (or in the expr if TypeTagger is invoked via tagExpr()) uses type
+    // syntax, the toplevel is considered to use type syntax.
+    functionStack.peekLast().setUsesTypeSyntax();
+    // If anything nested in the most proximate def statement uses type syntax, the def statement
+    // is considered to use type syntax
+    functionStack.peek().setUsesTypeSyntax();
   }
 }
