@@ -144,6 +144,22 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
+    boolean attrOther = attributes.isOther();
+    boolean attrSym = attributes.isSymbolicLink();
+    boolean link = !followSymlinks && fileIsSymbolicLink(file);
+    System.err.println(
+        "JDK27-WIN WindowsFileSystem.stat path="
+            + path
+            + " follow="
+            + followSymlinks
+            + " attrs[dir="
+            + attributes.isDirectory()
+            + " other="
+            + attrOther
+            + " sym="
+            + attrSym
+            + "] isLink="
+            + link);
 
     FileStatus status =
         new FileStatus() {
