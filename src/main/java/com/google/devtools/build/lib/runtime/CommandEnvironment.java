@@ -400,8 +400,11 @@ public class CommandEnvironment {
           nonstrictRepoEnvBuilder.put(name, value);
         }
         case Converters.EnvVar.Inherit(String name) -> {
-          repoEnvBuilder.put(name, clientEnv.get(name));
-          nonstrictRepoEnvBuilder.put(name, clientEnv.get(name));
+          String value = clientEnv.get(name);
+          if (value != null) {
+            repoEnvBuilder.put(name, value);
+            nonstrictRepoEnvBuilder.put(name, value);
+          }
         }
         case Converters.EnvVar.Unset(String name) -> {
           repoEnvBuilder.remove(name);
