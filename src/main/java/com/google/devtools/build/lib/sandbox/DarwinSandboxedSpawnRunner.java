@@ -341,7 +341,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sb.append("(deny file-write*)\n");
               sb.append("(allow file-write*\n");
               for (String path : k.writableDirPaths()) {
-                sb.append("    (subpath \"" + path + "\")\n");
+                sb.append("    (subpath \"" + escape(path) + "\")\n");
               }
               // statisticsPath placeholder marker
               sb.append("%%STATISTICS_PATH%%");
@@ -350,7 +350,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               if (!k.inaccessiblePaths().isEmpty()) {
                 sb.append("(deny file-read*\n");
                 for (String inaccessiblePath : k.inaccessiblePaths()) {
-                  sb.append("    (subpath \"" + inaccessiblePath + "\")\n");
+                  sb.append("    (subpath \"" + escape(inaccessiblePath) + "\")\n");
                 }
                 sb.append(")\n");
               }
@@ -360,7 +360,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // Substitute the per-action statistics path into the cached profile.
     String statsReplacement =
         statisticsPath != null
-            ? "    (literal \"" + statisticsPath.getPathString() + "\")\n"
+            ? "    (literal \"" + escape(statisticsPath.getPathString()) + "\")\n"
             : "";
     String configContent = cachedProfileBody.replace("%%STATISTICS_PATH%%", statsReplacement);
 
@@ -402,10 +402,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       out.println("(allow file-write*");
       for (Path path : writableDirs) {
-        out.println("    (subpath \"" + path.getPathString() + "\")");
+        out.println("    (subpath \"" + escape(path.getPathString()) + "\")");
       }
       if (statisticsPath != null) {
-        out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
+        out.println("    (literal \"" + escape(statisticsPath.getPathString()) + "\")");
       }
       out.println(")");
 
@@ -414,7 +414,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         // The sandbox configuration file is not part of a cache key and sandbox-exec doesn't care
         // about ordering of paths in expressions, so it's fine if the iteration order is random.
         for (Path inaccessiblePath : inaccessiblePaths) {
-          out.println("    (subpath \"" + inaccessiblePath + "\")");
+          out.println("    (subpath \"" + escape(inaccessiblePath.getPathString()) + "\")");
         }
         out.println(")");
       }
@@ -424,5 +424,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   public String getName() {
     return "darwin-sandbox";
+  }
+
+  /**
+   * Escapes a string for use in a sandbox profile (Apple's sandbox-exec format).
+   * Double quotes and backslashes are escaped to prevent injection vulnerabilities.
+   */
+  private static String escape(String s) {
+    return s.replace("\\", "\\\\").replace("\"", "\\\"");
   }
 }
