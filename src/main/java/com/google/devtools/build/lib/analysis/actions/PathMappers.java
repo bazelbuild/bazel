@@ -44,6 +44,7 @@ public final class PathMappers {
   //  their execution info instead.
   private static final ImmutableSet<String> SUPPORTED_MNEMONICS =
       ImmutableSet.of(
+          // Android-specific actions
           "AndroidLint",
           "CompileAndroidResources",
           "DeJetify",
@@ -59,6 +60,22 @@ public final class PathMappers {
           "StarlarkAARGenerator",
           "StarlarkMergeCompiledAndroidResources",
           "StarlarkRClassGenerator",
+          // Common build actions safe for path stripping (GH-6526)
+          "Genrule",
+          "CopyFile",
+          "FileWrite",
+          "SourceSymlinkManifest",
+          "SymlinkAction",
+          "TemplateExpand",
+          // Proto/gRPC actions
+          "GenProto",
+          "GenProtoDescriptorSet",
+          // Go actions
+          "GoCompilePkg",
+          "GoStdlib",
+          // Python actions
+          "PyWrapCc",
+          // Test infrastructure
           "Mock action");
 
   /**
