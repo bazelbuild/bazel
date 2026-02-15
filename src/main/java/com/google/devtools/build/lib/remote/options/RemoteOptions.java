@@ -780,6 +780,22 @@ public final class RemoteOptions extends CommonRemoteOptions {
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
+  @Option(
+      name = "experimental_remote_execution_stall_timeout",
+      defaultValue = "600s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time to wait without receiving any progress updates from the "
+              + "remote execution server before considering the execution stalled and retrying. "
+              + "This prevents Bazel from hanging indefinitely when the remote execution server "
+              + "stops responding (GH-21626). Set to 0 to disable stall detection. "
+              + "Following units can be used: Days (d), hours (h), minutes (m), seconds (s), "
+              + "and milliseconds (ms). If the unit is omitted, the value is interpreted as "
+              + "seconds.")
+  public Duration remoteExecutionStallTimeout;
+
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
 

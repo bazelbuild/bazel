@@ -174,7 +174,8 @@ public class GrpcRemoteExecutorTest {
             RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
 
-    return new GrpcRemoteExecutor(channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);
+    return new GrpcRemoteExecutor(
+        channel, CallCredentialsProvider.NO_CREDENTIALS, retrier, java.time.Duration.ZERO);
   }
 
   @Test

@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -38,7 +39,9 @@ import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Iterator;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -47,25 +50,46 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor implements RemoteExecutionClient {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
+  private final Duration stallTimeout;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
+  /**
+   * Creates a new GrpcRemoteExecutor.
+   *
+   * @param stallTimeout the maximum duration to wait without receiving any progress updates
+   *     from the server before considering the execution stalled. A zero or negative duration
+   *     disables stall detection. This addresses GH-21626 where Bazel can hang indefinitely.
+   */
   public GrpcRemoteExecutor(
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
-      RemoteRetrier retrier) {
+      RemoteRetrier retrier,
+      Duration stallTimeout) {
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
+    this.stallTimeout = stallTimeout;
   }
 
-  private ExecutionBlockingStub execBlockingStub(RequestMetadata metadata, Channel channel) {
-    return ExecutionGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials());
+  private ExecutionBlockingStub execBlockingStub(
+      RequestMetadata metadata, Channel channel, boolean applyStallTimeout) {
+    ExecutionBlockingStub stub =
+        ExecutionGrpc.newBlockingStub(channel)
+            .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
+            .withCallCredentials(callCredentialsProvider.getCallCredentials());
+    // Apply stall timeout as a gRPC deadline. When the server stops sending messages,
+    // the deadline will expire causing a DEADLINE_EXCEEDED StatusRuntimeException,
+    // which is caught by the existing retry logic (GH-21626).
+    if (applyStallTimeout && !stallTimeout.isZero() && !stallTimeout.isNegative()) {
+      stub = stub.withDeadlineAfter(stallTimeout.toMillis(), TimeUnit.MILLISECONDS);
+    }
+    return stub;
   }
 
   private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
@@ -164,19 +188,29 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
                             WaitExecutionRequest.newBuilder()
                                 .setName(operation.get().getName())
                                 .build();
+                        // Apply stall timeout to WaitExecution calls to prevent indefinite
+                        // hangs when the server stops sending progress (GH-21626).
                         replies =
                             channel.withChannelBlocking(
                                 channel ->
-                                    execBlockingStub(context.getRequestMetadata(), channel)
+                                    execBlockingStub(
+                                            context.getRequestMetadata(),
+                                            channel,
+                                            /* applyStallTimeout= */ true)
                                         .waitExecution(wr));
                       } else {
                         try (SilentCloseable c =
                             Profiler.instance()
                                 .profile(ProfilerTask.REMOTE_EXECUTION, "send Execute request")) {
+                          // Don't apply stall timeout to the initial Execute call since
+                          // the action may genuinely take a long time to schedule.
                           replies =
                               channel.withChannelBlocking(
                                   channel ->
-                                      execBlockingStub(context.getRequestMetadata(), channel)
+                                      execBlockingStub(
+                                              context.getRequestMetadata(),
+                                              channel,
+                                              /* applyStallTimeout= */ false)
                                           .execute(request));
                         }
                       }
@@ -223,6 +257,18 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
                         if (e.getStatus().getCode() == Code.NOT_FOUND) {
                           // Operation was lost on the server. Retry Execute.
                           waitExecution.set(false);
+                        } else if (e.getStatus().getCode() == Code.DEADLINE_EXCEEDED
+                            && waitExecution.get()) {
+                          // Stall detection triggered (GH-21626): the server stopped sending
+                          // progress updates within the configured stall timeout. Retry the
+                          // WaitExecution call to re-establish the stream.
+                          logger.atWarning().log(
+                              "Remote execution stall detected for operation %s. "
+                                  + "Retrying WaitExecution (stall timeout: %s).",
+                              operation.get().getName(), stallTimeout);
+                          // Don't rethrow — keeping waitExecution=true causes a WaitExecution
+                          // retry on the next loop iteration.
+                          continue;
                         }
                         throw e;
                       } finally {

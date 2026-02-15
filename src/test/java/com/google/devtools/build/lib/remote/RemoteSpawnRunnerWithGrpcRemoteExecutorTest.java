@@ -328,7 +328,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             });
 
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
+        new GrpcRemoteExecutor(
+            channel.retain(),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            retrier,
+            java.time.Duration.ZERO);
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(null);
     GrpcCacheClient cacheProtocol =
