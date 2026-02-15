@@ -46,6 +46,7 @@ import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
@@ -115,6 +116,27 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final ImmutableSet<Path> alwaysWritableDirs;
 
   private final LocalEnvProvider localEnvProvider;
+
+  /**
+   * Cache of sandbox profiles keyed by their configuration. Most actions share the same writable
+   * directories and network policy, so we can avoid regenerating the .sb file every time. This is
+   * the key optimization for GH-8230: reducing per-action overhead on macOS.
+   *
+   * <p>The cache maps a profile key (writable dirs + inaccessible paths + network flag) to a
+   * pre-generated sandbox config string. The per-action statisticsPath is written separately
+   * since it varies per action.
+   */
+  private final ConcurrentHashMap<SandboxProfileKey, String> profileCache =
+      new ConcurrentHashMap<>();
+
+  /**
+   * Key for the sandbox profile cache. Two profiles are equivalent if they have the same writable
+   * directories, inaccessible paths, and network policy.
+   */
+  private record SandboxProfileKey(
+      ImmutableSet<String> writableDirPaths,
+      ImmutableSet<String> inaccessiblePaths,
+      boolean allowNetwork) {}
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
@@ -261,7 +283,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       @Override
       public void createFileSystem() throws IOException, InterruptedException {
         super.createFileSystem();
-        writeConfig(
+        writeConfigCached(
             sandboxConfigPath,
             writableDirs,
             getInaccessiblePaths(),
@@ -269,6 +291,86 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             statisticsPath);
       }
     };
+  }
+
+  /**
+   * Writes a sandbox configuration file, using a cache to avoid regenerating identical profiles.
+   * This is the key optimization for GH-8230. Most actions in a build share the same sandbox
+   * profile (same writable dirs, same network policy), so we generate the profile body once and
+   * reuse it for subsequent actions.
+   */
+  private void writeConfigCached(
+      Path sandboxConfigPath,
+      Set<Path> writableDirs,
+      Set<Path> inaccessiblePaths,
+      boolean allowNetwork,
+      @Nullable Path statisticsPath)
+      throws IOException {
+    // Build the cache key from the immutable parts of the profile.
+    ImmutableSet<String> writableDirStrings =
+        writableDirs.stream()
+            .map(Path::getPathString)
+            .sorted()
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<String> inaccessiblePathStrings =
+        inaccessiblePaths.stream()
+            .map(Path::toString)
+            .sorted()
+            .collect(ImmutableSet.toImmutableSet());
+    SandboxProfileKey key =
+        new SandboxProfileKey(writableDirStrings, inaccessiblePathStrings, allowNetwork);
+
+    // Get or compute the cached profile body (without the per-action statisticsPath).
+    String cachedProfileBody =
+        profileCache.computeIfAbsent(
+            key,
+            k -> {
+              StringBuilder sb = new StringBuilder();
+              sb.append("(version 1)\n");
+              sb.append("(debug deny)\n");
+              sb.append("(allow default)\n");
+              sb.append("(allow process-exec (with no-sandbox) (literal \"/bin/ps\"))\n");
+
+              if (!k.allowNetwork()) {
+                sb.append("(deny network*)\n");
+                sb.append("(allow network-inbound (local ip \"localhost:*\"))\n");
+                sb.append("(allow network* (remote ip \"localhost:*\"))\n");
+                sb.append("(allow network* (remote unix-socket))\n");
+              }
+
+              sb.append("(deny file-write*)\n");
+              sb.append("(allow file-write*\n");
+              for (String path : k.writableDirPaths()) {
+                sb.append("    (subpath \"" + path + "\")\n");
+              }
+              // statisticsPath placeholder marker
+              sb.append("%%STATISTICS_PATH%%");
+              sb.append(")\n");
+
+              if (!k.inaccessiblePaths().isEmpty()) {
+                sb.append("(deny file-read*\n");
+                for (String inaccessiblePath : k.inaccessiblePaths()) {
+                  sb.append("    (subpath \"" + inaccessiblePath + "\")\n");
+                }
+                sb.append(")\n");
+              }
+              return sb.toString();
+            });
+
+    // Substitute the per-action statistics path into the cached profile.
+    String statsReplacement =
+        statisticsPath != null
+            ? "    (literal \"" + statisticsPath.getPathString() + "\")\n"
+            : "";
+    String configContent = cachedProfileBody.replace("%%STATISTICS_PATH%%", statsReplacement);
+
+    // Write the final config.
+    try (PrintWriter out =
+        new PrintWriter(
+            new BufferedWriter(
+                new OutputStreamWriter(sandboxConfigPath.getOutputStream(), UTF_8)))) {
+      out.print(configContent);
+    }
   }
 
   private static void writeConfig(
