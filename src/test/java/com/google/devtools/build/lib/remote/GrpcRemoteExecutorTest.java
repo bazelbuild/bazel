@@ -509,4 +509,60 @@ public class GrpcRemoteExecutorTest {
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
   }
+
+  @Test
+  public void executeRemotely_waitExecutionStall_detectAndRetry() throws Exception {
+    // Specifically test the stall detection logic added for GH-21626.
+    // We use a non-zero stall timeout and verify that DEADLINE_EXCEEDED during WaitExecution
+    // triggers a retry that DOES NOT count against the MAX_RETRY_ATTEMPTS.
+    java.time.Duration stallTimeout = java.time.Duration.ofSeconds(1);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions),
+            RemoteRetrier.GRPC_RESULT_CLASSIFIER,
+            retryService);
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(
+            new ChannelConnectionWithServerCapabilitiesFactory() {
+              @Override
+              public Single<ChannelConnectionWithServerCapabilities> create() {
+                // Return a dummy channel, we'll use the fakeServer from setUp
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(
+                        io.grpc.inprocess.InProcessChannelBuilder.forName(
+                                "fake server for " + GrpcRemoteExecutorTest.class)
+                            .directExecutor()
+                            .build(),
+                        Single.just(ServerCapabilities.getDefaultInstance())));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 1;
+              }
+            });
+
+    GrpcRemoteExecutor stallExecutor =
+        new GrpcRemoteExecutor(
+            channel, CallCredentialsProvider.NO_CREDENTIALS, retrier, stallTimeout);
+
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+
+    // Simulate more stalls than the allowed MAX_RETRY_ATTEMPTS.
+    // If our logic works, this should still succeed because stalls don't count as failures.
+    int stallCount = MAX_RETRY_ATTEMPTS + 2;
+    for (int i = 0; i < stallCount; ++i) {
+      executionService
+          .whenWaitExecution(DUMMY_REQUEST)
+          .thenError(Status.DEADLINE_EXCEEDED.asRuntimeException());
+    }
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        stallExecutor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+    assertThat(executionService.getWaitTimes()).isEqualTo(stallCount + 1);
+  }
 }
