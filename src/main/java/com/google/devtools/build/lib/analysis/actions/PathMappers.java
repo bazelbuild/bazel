@@ -61,12 +61,10 @@ public final class PathMappers {
           "StarlarkMergeCompiledAndroidResources",
           "StarlarkRClassGenerator",
           // Common build actions safe for path stripping (GH-6526)
-          "Genrule",
           "CopyFile",
           "FileWrite",
           "SourceSymlinkManifest",
           "SymlinkAction",
-          "TemplateExpand",
           // Proto/gRPC actions
           "GenProto",
           "GenProtoDescriptorSet",
