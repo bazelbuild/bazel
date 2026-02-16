@@ -18,12 +18,11 @@ import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLConnection;
 import java.util.Collection;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** HTTP utilities. */
 public final class HttpUtils {
@@ -58,14 +57,13 @@ public final class HttpUtils {
     return Ascii.toLowerCase(path.substring(index + 1));
   }
 
-  static URI getLocation(HttpURLConnection connection) throws IOException {
-    String newLocation = connection.getHeaderField("Location");
-    if (newLocation == null) {
+  static URI getLocation(URI currentUri, @Nullable String locationHeader) throws IOException {
+    if (locationHeader == null) {
       throw new IOException("Remote redirect missing Location.");
     }
-    URI result = mergeUrls(URI.create(newLocation), toURI(connection));
+    URI result = mergeUrls(URI.create(locationHeader), currentUri);
     if (!isHttp(result)) {
-      throw new IOException("Bad Location: " + newLocation);
+      throw new IOException("Bad Location: " + locationHeader);
     }
     return result;
   }
@@ -120,18 +118,6 @@ public final class HttpUtils {
       throw new IOException("Could not merge " + preferred + " into " + original, e);
     }
     return result;
-  }
-
-  /**
-   * Converts a {@link URLConnection}'s URL to a {@link URI}. Since the URL comes from an active
-   * connection, it should always be a valid URI.
-   */
-  static URI toURI(URLConnection connection) {
-    try {
-      return connection.getURL().toURI();
-    } catch (URISyntaxException e) {
-      throw new IllegalStateException("Invalid URI from connection URL: " + connection.getURL(), e);
-    }
   }
 
   private HttpUtils() {}

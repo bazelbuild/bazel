@@ -45,7 +45,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URLConnection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -110,7 +109,7 @@ public class HttpConnectorTest {
             ByteStreams.toByteArray(
                 connector
                     .connect(createTempFile(fileContents).toURI(), url -> ImmutableMap.of())
-                    .getInputStream()))
+                    .body()))
         .isEqualTo(fileContents);
   }
 
@@ -152,7 +151,7 @@ public class HttpConnectorTest {
                   .connect(
                       URI.create(String.format("http://localhost:%d/boo", server.getLocalPort())),
                       url -> ImmutableMap.of("Content-Encoding", ImmutableList.of("gzip")))
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
       }
@@ -204,7 +203,7 @@ public class HttpConnectorTest {
                   .connect(
                       URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isGreaterThan(50L);
@@ -263,7 +262,7 @@ public class HttpConnectorTest {
               connector
                   .connect(
                       URI.create(String.format("http://localhost:%d", port)), url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
       }
@@ -323,7 +322,7 @@ public class HttpConnectorTest {
                   .connect(
                       URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isEqualTo(1);
@@ -356,7 +355,7 @@ public class HttpConnectorTest {
                   .connect(
                       URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         fail("Should have thrown");
       } catch (IOException expected) {
@@ -366,9 +365,8 @@ public class HttpConnectorTest {
           assertThat(expected).hasCauseThat().hasMessageThat().ignoringCase().contains("timed out");
         } else {
           // For windows, it is possible that the thrown exception is a ConnectException (no cause)
-          // from {@code HttpURLConnection.connect()} rather than a SocketTimeoutException from
-          // {@code HttpURLConnection.getResponseCode()}. In the former case, we expect the
-          // SocketTimeoutException to have already occurred but gets suppressed within the final
+          // from the connect rather than a SocketTimeoutException. In the former case, we expect
+          // the SocketTimeoutException to have already occurred but gets suppressed within the final
           // ConnectException (upon max retry).
           ImmutableList<Throwable> suppressed = ImmutableList.copyOf(expected.getSuppressed());
           Optional<Throwable> ste =
@@ -406,7 +404,7 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("401 Unauthorized");
+      thrown.expectMessage("GET returned 401");
       connector.connect(
           URI.create(String.format("http://localhost:%d", server.getLocalPort())),
           url -> ImmutableMap.of());
@@ -438,7 +436,7 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(FileNotFoundException.class);
-      thrown.expectMessage("404 Not Found");
+      thrown.expectMessage("GET returned 404");
       connector.connect(
           URI.create(String.format("http://localhost:%d", server.getLocalPort())),
           url -> ImmutableMap.of());
@@ -515,7 +513,7 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("500 Oh My");
+      thrown.expectMessage("GET returned 500");
       try {
         connector.connect(
             URI.create(String.format("http://localhost:%d", server.getLocalPort())),
@@ -554,7 +552,7 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("403 Forbidden");
+      thrown.expectMessage("GET returned 403");
       try {
         connector.connect(
             URI.create(String.format("http://localhost:%d", server.getLocalPort())),
@@ -626,13 +624,13 @@ public class HttpConnectorTest {
                   return null;
                 }
               });
-      URLConnection connection =
+      DownloadResponse response =
           connector.connect(
               URI.create(String.format("http://localhost:%d", server.getLocalPort())),
               url -> ImmutableMap.of());
-      assertThat(connection.getURL()).isEqualTo(
-          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())).toURL());
-      try (InputStream input = connection.getInputStream()) {
+      assertThat(response.uri()).isEqualTo(
+          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
+      try (InputStream input = response.body()) {
         assertThat(ByteStreams.toByteArray(input)).isEmpty();
       }
     }
@@ -706,12 +704,12 @@ public class HttpConnectorTest {
               }
             }
           };
-      URLConnection connection =
+      DownloadResponse response =
           connector.connect(
               URI.create(String.format("http://localhost:%d", server1.getLocalPort())), authHeaders);
-      assertThat(connection.getURL()).isEqualTo(
-          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())).toURL());
-      try (InputStream input = connection.getInputStream()) {
+      assertThat(response.uri()).isEqualTo(
+          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())));
+      try (InputStream input = response.body()) {
         assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
       }
       // Verify that the correct form of authentication is used for each server.

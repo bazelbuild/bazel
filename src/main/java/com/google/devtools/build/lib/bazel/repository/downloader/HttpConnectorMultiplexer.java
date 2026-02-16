@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -111,16 +110,16 @@ final class HttpConnectorMultiplexer {
 
     Function<URI, ImmutableMap<String, List<String>>> headerFunction =
         getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
-    URLConnection connection = connector.connect(url, headerFunction);
+    DownloadResponse response = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
-        connection,
+        response,
         url,
         checksum,
         (Throwable cause, ImmutableMap<String, List<String>> extraHeaders) -> {
           eventHandler.handle(
               Event.progress(String.format("Lost connection for %s due to %s", url, cause)));
           return connector.connect(
-              HttpUtils.toURI(connection),
+              response.uri(),
               newUrl ->
                   new ImmutableMap.Builder<String, List<String>>()
                       .putAll(headerFunction.apply(newUrl))

@@ -425,7 +425,7 @@ http_file(
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
-  expect_log "404 Not Found"
+  expect_log "GET returned 404"
 }
 
 function test_deferred_download_unwaited() {

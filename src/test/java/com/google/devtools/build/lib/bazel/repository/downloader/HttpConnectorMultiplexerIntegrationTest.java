@@ -185,7 +185,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
                   multiplexer.connect(
                       URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       HELLO_SHA256));
-      assertThat(e).hasMessageThat().contains("GET returned 503 MELTDOWN");
+      assertThat(e).hasMessageThat().contains("GET returned 503");
     }
   }
 }

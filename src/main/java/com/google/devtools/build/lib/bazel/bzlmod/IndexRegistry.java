@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +47,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -232,9 +234,11 @@ public class IndexRegistry implements Registry {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawUrl)) {
       return downloadManager.downloadAndReadOneUrlForBzlmod(url, clientEnv, checksum);
-    } catch (FileNotFoundException e) {
-      throw new NotFoundException(String.format("%s: not found", rawUrl));
     } catch (IOException e) {
+      var rootCause = Throwables.getRootCause(e);
+      if (rootCause instanceof NoSuchFileException || rootCause instanceof FileNotFoundException) {
+        throw new NotFoundException(String.format("%s: not found", rawUrl));
+      }
       // Include the URL in the exception message for easier debugging.
       throw new IOException(
           "Failed to fetch registry file %s: %s".formatted(rawUrl, e.getMessage()), e);

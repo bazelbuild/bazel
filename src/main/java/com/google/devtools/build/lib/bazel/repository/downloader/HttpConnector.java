@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
@@ -29,16 +28,30 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.net.HttpURLConnection;
+import java.net.Authenticator;
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.ProxySelector;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URLConnection;
 import java.net.UnknownHostException;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.channels.UnresolvedAddressException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
 import javax.net.ssl.SSLException;
@@ -63,6 +76,24 @@ class HttpConnector {
       ImmutableSet.of("bz2", "gz", "jar", "tgz", "war", "xz", "zip");
   private static final String USER_AGENT_VALUE =
       "bazel/" + BlazeVersionInfo.instance().getVersion();
+
+  // Shared executor for HttpClient instances to avoid thread pool proliferation.
+  private static final Executor HTTP_CLIENT_EXECUTOR =
+      Executors.newCachedThreadPool(
+          r -> {
+            Thread t = new Thread(r, "http-client-worker");
+            t.setDaemon(true);
+            return t;
+          });
+
+  // Shared watchdog for ReadTimeoutInputStream.
+  private static final ScheduledExecutorService READ_TIMEOUT_WATCHDOG =
+      Executors.newSingleThreadScheduledExecutor(
+          r -> {
+            Thread t = new Thread(r, "read-timeout-watchdog");
+            t.setDaemon(true);
+            return t;
+          });
 
   private final Locale locale;
   private final EventHandler eventHandler;
@@ -107,7 +138,7 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(
+  DownloadResponse connect(
       URI originalUrl, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
@@ -116,28 +147,61 @@ class HttpConnector {
     }
     URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.toURL().openConnection();
+      InputStream body = Files.newInputStream(Path.of(url));
+      return new DownloadResponse(url, Collections.emptyMap(), body);
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
     int redirects = 0;
     int connectTimeout = scale(MIN_CONNECT_TIMEOUT_MS);
     while (true) {
-      HttpURLConnection connection = null;
+      InputStream responseBody = null;
       try {
         ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
-        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
-        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
-        // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
-        // Authenticator we set in ProxyHelper.
-        if (proxyInfo.hasCredentials()) {
-          connection.setRequestProperty(
-              "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
+
+        // Build HttpClient per retry iteration (needed for connect timeout scaling).
+        HttpClient.Builder clientBuilder =
+            HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(connectTimeout))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .version(HttpClient.Version.HTTP_2)
+                .executor(HTTP_CLIENT_EXECUTOR);
+
+        if (proxyInfo.proxy().type() == java.net.Proxy.Type.HTTP) {
+          InetSocketAddress proxyAddress =
+              (InetSocketAddress) proxyInfo.proxy().address();
+          clientBuilder.proxy(
+              ProxySelector.of(proxyAddress));
+          if (proxyInfo.hasCredentials()) {
+            String proxyAuthHeader = proxyInfo.getProxyAuthorizationHeader();
+            clientBuilder.authenticator(
+                new Authenticator() {
+                  @Override
+                  protected PasswordAuthentication getPasswordAuthentication() {
+                    if (getRequestorType() == RequestorType.PROXY) {
+                      // Extract username/password from ProxyInfo's auth header.
+                      // The ProxyHelper already decodes credentials, but Authenticator
+                      // needs them split. We parse from the Base64 header.
+                      return decodeBasicAuth(proxyAuthHeader);
+                    }
+                    return null;
+                  }
+                });
+          }
         }
+
+        HttpClient client = clientBuilder.build();
+
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
-        connection.setInstanceFollowRedirects(false);
+
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+            .uri(url)
+            .GET()
+            .timeout(Duration.ofMillis(scale(READ_TIMEOUT_MS)));
+
+        boolean hasUserAgent = false;
         for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
@@ -145,113 +209,116 @@ class HttpConnector {
             continue;
           }
           String key = entry.getKey();
+          if (Ascii.equalsIgnoreCase(key, "User-Agent")) {
+            hasUserAgent = true;
+          }
           for (String value : entry.getValue()) {
-            connection.addRequestProperty(key, value);
+            requestBuilder.header(key, value);
           }
         }
-        if (connection.getRequestProperty("User-Agent") == null) {
-          connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);
+        if (!hasUserAgent) {
+          requestBuilder.header("User-Agent", USER_AGENT_VALUE);
         }
-        connection.setConnectTimeout(connectTimeout);
-        // The read timeout is always large because it stays in effect after this method.
-        connection.setReadTimeout(scale(READ_TIMEOUT_MS));
-        // Java tries to abstract HTTP error responses for us. We don't want that. So we're going
-        // to try and undo any IOException that doesn't appear to be a legitimate I/O exception.
-        int code;
+        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
+        if (proxyInfo.hasCredentials()) {
+          requestBuilder.header("Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
+        }
+
+        HttpRequest request = requestBuilder.build();
+
+        HttpResponse<InputStream> response;
         try {
-          connection.connect();
-          code = connection.getResponseCode();
-        } catch (FileNotFoundException ignored) {
-          code = connection.getResponseCode();
-        } catch (SSLException e) {
-          // Check if the exception is due to a permanent error, such as a certificate validation
-          // issue.
-          // These errors are unlikely to be resolved by retrying.
-          if (e.getMessage() != null
-              && (e.getMessage().contains("certificate")
-                  || e.getMessage().contains("CertPathValidatorException"))) {
-            String message = "TLS error: " + e.getMessage();
-            eventHandler.handle(Event.progress(message));
-            IOException httpException = new UnrecoverableHttpException(message);
-            httpException.addSuppressed(e);
-            throw httpException;
+          response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        } catch (HttpConnectTimeoutException e) {
+          // HttpConnectTimeoutException is thrown by HttpClient on connect timeout.
+          // Convert to SocketTimeoutException so the retry logic handles it.
+          SocketTimeoutException wrapper = new SocketTimeoutException(e.getMessage());
+          wrapper.initCause(e);
+          throw wrapper;
+        } catch (ConnectException e) {
+          if (hasCause(e, UnresolvedAddressException.class)) {
+            // HttpClient throws ConnectException wrapping UnresolvedAddressException
+            // for unresolvable hosts, instead of UnknownHostException.
+            throw new UnknownHostException(url.getHost());
           }
-          // Otherwise, treat it as a potentially transient network error and let it fall through
-          // to the standard IOException handler for retries.
           throw e;
-        } catch (UnknownHostException e) {
-          String message = "Unknown host: " + e.getMessage();
-          eventHandler.handle(Event.progress(message));
-          IOException httpException = new UnrecoverableHttpException(message);
-          httpException.addSuppressed(e);
-          throw httpException;
-        } catch (IllegalArgumentException e) {
-          // This will happen if the user does something like specify a port greater than 2^16-1.
-          throw new UnrecoverableHttpException(e.getMessage());
-        } catch (IOException e) {
-          // Some HTTP error status codes are converted to IOExceptions, which we can only
-          // disambiguate from other IOExceptions by checking the exception message. We need to be
-          // careful because some exceptions (e.g., SocketTimeoutException) may have a null message.
-          if (e.getMessage() == null || !e.getMessage().startsWith("Server returned")) {
-            throw e;
-          }
-          code = connection.getResponseCode();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new InterruptedIOException();
         }
+
+        int code = response.statusCode();
+        responseBody = response.body();
+
         // 206 means partial content and only happens if caller specified Range. See RFC7233 § 4.1.
         if (code == 200 || code == 206) {
-          return connection;
+          InputStream wrappedBody =
+              new ReadTimeoutInputStream(responseBody, READ_TIMEOUT_WATCHDOG, scale(READ_TIMEOUT_MS));
+          DownloadResponse result =
+              new DownloadResponse(url, response.headers().map(), wrappedBody);
+          responseBody = null; // ownership transferred
+          return result;
         } else if (code == 301 || code == 302 || code == 303 || code == 307) {
-          readAllBytesAndClose(connection.getInputStream());
+          readAllBytesAndClose(responseBody);
+          responseBody = null;
           if (++redirects == MAX_REDIRECTS) {
             eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
             throw new UnrecoverableHttpException("Redirect loop detected");
           }
-          url = HttpUtils.getLocation(connection);
+          url = HttpUtils.getLocation(url,
+              response.headers().firstValue("Location").orElse(null));
           if (code == 301) {
             originalUrl = url;
           }
         } else if (code == 403) {
           // jart@ has noticed BitBucket + Amazon AWS downloads frequently flake with this code.
-          throw new IOException(describeHttpResponse(connection));
+          throw new IOException(describeHttpResponse(code));
         } else if (code == 408) {
-          // The 408 (Request Timeout) status code indicates that the server did not receive a
-          // complete request message within the time that it was prepared to wait. Server SHOULD
-          // send the "close" connection option (Section 6.1 of [RFC7230]) in the response, since
-          // 408 implies that the server has decided to close the connection rather than continue
-          // waiting.  If the client has an outstanding request in transit, the client MAY repeat
-          // that request on a new connection. Quoth RFC7231 § 6.5.7
-          throw new IOException(describeHttpResponse(connection));
+          throw new IOException(describeHttpResponse(code));
         } else if (code == 429) {
-          // The 429 (Too Many Requests) status code could result from Bazel temporarily overloading
-          // the server and is typically resolved by retrying.
-          throw new IOException(describeHttpResponse(connection));
+          throw new IOException(describeHttpResponse(code));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
-          readAllBytesAndClose(connection.getErrorStream());
+          readAllBytesAndClose(responseBody);
+          responseBody = null;
           if (code == 404 || code == 410) {
-            // For Not Found, we throw a separate unrecoverable exception so that callers can
-            // distinguish between the resource being not found and the server being unavailable.
-            throw new FileNotFoundException(describeHttpResponse(connection));
+            throw new FileNotFoundException(describeHttpResponse(code));
           }
-          throw new UnrecoverableHttpException(describeHttpResponse(connection));
+          throw new UnrecoverableHttpException(describeHttpResponse(code));
         } else {
           // However we will retry on some 5xx errors, particularly 500, 502 and 503.
-          throw new IOException(describeHttpResponse(connection));
+          throw new IOException(describeHttpResponse(code));
         }
+      } catch (SSLException e) {
+        if (e.getMessage() != null
+            && (e.getMessage().contains("certificate")
+                || e.getMessage().contains("CertPathValidatorException"))) {
+          String message = "TLS error: " + e.getMessage();
+          eventHandler.handle(Event.progress(message));
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
+        }
+        throw e;
+      } catch (UnknownHostException e) {
+        String message = "Unknown host: " + e.getMessage();
+        eventHandler.handle(Event.progress(message));
+        IOException httpException = new UnrecoverableHttpException(message);
+        httpException.addSuppressed(e);
+        throw httpException;
       } catch (UnrecoverableHttpException | FileNotFoundException e) {
         throw e;
       } catch (IllegalArgumentException e) {
         throw new UnrecoverableHttpException(e.getMessage());
       } catch (IOException e) {
-        if (connection != null) {
-          // If we got here, it means we might not have consumed the entire payload of the
-          // response, if any. So we're going to force this socket to disconnect and not be
-          // reused. This is particularly important if multiple threads end up establishing
-          // connections to multiple mirrors simultaneously for a large file. We don't want to
-          // download that large file twice.
-          connection.disconnect();
+        if (responseBody != null) {
+          try {
+            responseBody.close();
+          } catch (IOException ignored) {
+            // Best effort cleanup.
+          }
         }
         // We don't respect the Retry-After header (RFC7231 § 7.1.3) because it's rarely used and
         // tends to be too conservative when it is. We're already being good citizens by using
@@ -297,8 +364,12 @@ class HttpConnector {
           throw new InterruptedIOException();
         }
       } catch (RuntimeException e) {
-        if (connection != null) {
-          connection.disconnect();
+        if (responseBody != null) {
+          try {
+            responseBody.close();
+          } catch (IOException ignored) {
+            // Best effort cleanup.
+          }
         }
         eventHandler.handle(Event.progress(format("Unknown error connecting to %s: %s", url, e)));
         throw e;
@@ -306,19 +377,16 @@ class HttpConnector {
     }
   }
 
-  private String describeHttpResponse(HttpURLConnection connection) throws IOException {
-    return format(
-        "%s returned %d %s",
-        connection.getRequestMethod(),
-        connection.getResponseCode(),
-        Strings.nullToEmpty(connection.getResponseMessage()));
+  private String describeHttpResponse(int statusCode) {
+    return format("GET returned %d", statusCode);
   }
 
   private String format(String format, Object... args) {
     return String.format(locale, format, args);
   }
 
-  // Exhausts all bytes in an HTTP to make it easier for Java infrastructure to reuse sockets.
+  // Exhausts all bytes in an HTTP response to make it easier for Java infrastructure to reuse
+  // sockets.
   private static void readAllBytesAndClose(
       @WillClose @Nullable InputStream stream)
           throws IOException {
@@ -326,5 +394,35 @@ class HttpConnector {
       ByteStreams.exhaust(stream);
       stream.close();
     }
+  }
+
+  private static boolean hasCause(Throwable t, Class<? extends Throwable> causeType) {
+    for (Throwable cause = t.getCause(); cause != null; cause = cause.getCause()) {
+      if (causeType.isInstance(cause)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Decodes a Basic authentication header value into username/password.
+   * Expected format: "Basic base64encoded"
+   */
+  @Nullable
+  private static PasswordAuthentication decodeBasicAuth(String authHeader) {
+    if (authHeader == null || !authHeader.startsWith("Basic ")) {
+      return null;
+    }
+    String decoded =
+        new String(
+            java.util.Base64.getDecoder().decode(authHeader.substring(6)),
+            java.nio.charset.StandardCharsets.UTF_8);
+    int colon = decoded.indexOf(':');
+    if (colon < 0) {
+      return null;
+    }
+    return new PasswordAuthentication(
+        decoded.substring(0, colon), decoded.substring(colon + 1).toCharArray());
   }
 }

@@ -136,7 +136,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "Failed to fetch registry file %s: GET returned 401 Unauthorized"
+            "Failed to fetch registry file %s: GET returned 401"
                 .formatted(server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
 
     downloadManager.setNetrcCreds(new NetrcCredentials(netrc));

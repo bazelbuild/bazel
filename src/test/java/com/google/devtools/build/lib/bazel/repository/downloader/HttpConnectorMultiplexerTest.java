@@ -38,7 +38,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.URLConnection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,7 +73,8 @@ public class HttpConnectorMultiplexerTest {
 
   private final HttpStream stream = new HttpStream(new ByteArrayInputStream(TEST_DATA), TEST_URL);
   private final HttpConnector connector = mock(HttpConnector.class);
-  private final URLConnection connection = mock(URLConnection.class);
+  private final DownloadResponse response =
+      new DownloadResponse(TEST_URL, Collections.emptyMap(), new ByteArrayInputStream(TEST_DATA));
   private final EventHandler eventHandler = mock(EventHandler.class);
   private final HttpStream.Factory streamFactory = mock(HttpStream.Factory.class);
   private final HttpConnectorMultiplexer multiplexer =
@@ -81,9 +82,9 @@ public class HttpConnectorMultiplexerTest {
 
   @Before
   public void before() throws Exception {
-    when(connector.connect(eq(TEST_URL), any(Function.class))).thenReturn(connection);
+    when(connector.connect(eq(TEST_URL), any(Function.class))).thenReturn(response);
     when(streamFactory.create(
-            same(connection),
+            same(response),
             any(URI.class),
             any(Optional.class),
             any(Reconnector.class),
@@ -129,7 +130,7 @@ public class HttpConnectorMultiplexerTest {
     verify(connector).connect(eq(TEST_URL), any(Function.class));
     verify(streamFactory)
         .create(
-            any(URLConnection.class),
+            any(DownloadResponse.class),
             any(URI.class),
             eq(DUMMY_CHECKSUM),
             any(Reconnector.class),
