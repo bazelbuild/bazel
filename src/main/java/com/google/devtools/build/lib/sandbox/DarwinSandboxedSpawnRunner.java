@@ -134,7 +134,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * directories, inaccessible paths, and network policy.
    */
   private record SandboxProfileKey(
-      ImmutableSet<String> writableDirPaths,
       ImmutableSet<String> inaccessiblePaths,
       boolean allowNetwork) {}
 
@@ -232,8 +231,15 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
-    final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
+    // "extraWritableDirs" contains the sandboxExecRoot and other action-specific paths.
+    // We keep them separate from "alwaysWritableDirs" to allow caching the profile body
+    // for the common paths.
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
+    
+    // We need to resolve symlinks in alwaysWritableDirs because they may point to locations
+    // that change across builds (though usually they are stable system paths). 
+    // In strictness, we just use the set derived in the constructor.
+    final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     writableDirs.addAll(extraWritableDirs);
 
     SandboxInputs inputs =
@@ -285,7 +291,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         super.createFileSystem();
         writeConfigCached(
             sandboxConfigPath,
-            writableDirs,
+            alwaysWritableDirs,
+            extraWritableDirs,
             getInaccessiblePaths(),
             allowNetworkForThisSpawn,
             statisticsPath);
@@ -295,32 +302,31 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /**
    * Writes a sandbox configuration file, using a cache to avoid regenerating identical profiles.
-   * This is the key optimization for GH-8230. Most actions in a build share the same sandbox
-   * profile (same writable dirs, same network policy), so we generate the profile body once and
-   * reuse it for subsequent actions.
+   * This is the key optimization for GH-8230. We separate the profile into a cached base
+   * (containing system paths, network rules, etc.) and a dynamic appendage (containing
+   * the action-specific sandbox root).
    */
   private void writeConfigCached(
       Path sandboxConfigPath,
-      Set<Path> writableDirs,
+      Set<Path> alwaysWritableDirs,
+      Set<Path> extraWritableDirs,
       Set<Path> inaccessiblePaths,
       boolean allowNetwork,
       @Nullable Path statisticsPath)
       throws IOException {
     // Build the cache key from the immutable parts of the profile.
-    ImmutableSet<String> writableDirStrings =
-        writableDirs.stream()
-            .map(Path::getPathString)
-            .sorted()
-            .collect(ImmutableSet.toImmutableSet());
+    // distinct from the action-specific paths.
     ImmutableSet<String> inaccessiblePathStrings =
         inaccessiblePaths.stream()
             .map(Path::toString)
             .sorted()
             .collect(ImmutableSet.toImmutableSet());
+            
     SandboxProfileKey key =
-        new SandboxProfileKey(writableDirStrings, inaccessiblePathStrings, allowNetwork);
+        new SandboxProfileKey(inaccessiblePathStrings, allowNetwork);
 
-    // Get or compute the cached profile body (without the per-action statisticsPath).
+    // Get or compute the cached profile body.
+    // This includes everything EXCEPT the action-specific writable dirs and statistics path.
     String cachedProfileBody =
         profileCache.computeIfAbsent(
             key,
@@ -339,12 +345,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               }
 
               sb.append("(deny file-write*)\n");
+              
+              // Add the always-writable directories (system paths) to the cached body.
               sb.append("(allow file-write*\n");
-              for (String path : k.writableDirPaths()) {
-                sb.append("    (subpath \"" + escape(path) + "\")\n");
+              for (Path path : alwaysWritableDirs) {
+                sb.append("    (subpath \"" + escape(path.getPathString()) + "\")\n");
               }
-              // statisticsPath placeholder marker
-              sb.append("%%STATISTICS_PATH%%");
               sb.append(")\n");
 
               if (!k.inaccessiblePaths().isEmpty()) {
@@ -357,19 +363,28 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               return sb.toString();
             });
 
-    // Substitute the per-action statistics path into the cached profile.
-    String statsReplacement =
-        statisticsPath != null
-            ? "    (literal \"" + escape(statisticsPath.getPathString()) + "\")\n"
-            : "";
-    String configContent = cachedProfileBody.replace("%%STATISTICS_PATH%%", statsReplacement);
-
-    // Write the final config.
+    // Write the final config by appending the dynamic parts.
     try (PrintWriter out =
         new PrintWriter(
             new BufferedWriter(
                 new OutputStreamWriter(sandboxConfigPath.getOutputStream(), UTF_8)))) {
-      out.print(configContent);
+      out.print(cachedProfileBody);
+      
+      // Append the action-specific writable directories (e.g. sandbox root).
+      if (!extraWritableDirs.isEmpty()) {
+         out.println("(allow file-write*");
+         for (Path path : extraWritableDirs) {
+           out.println("    (subpath \"" + escape(path.getPathString()) + "\")");
+         }
+         out.println(")");
+      }
+      
+      // Append statistics path if present.
+      if (statisticsPath != null) {
+        out.println("(allow file-write*");
+        out.println("    (literal \"" + escape(statisticsPath.getPathString()) + "\")");
+        out.println(")");
+      }
     }
   }
 
@@ -380,6 +395,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       boolean allowNetwork,
       @Nullable Path statisticsPath)
       throws IOException {
+    // Legacy method kept for reference or fallback if needed, though unused in cached flow.
+    // ... handling logic same as original but without caching ...
     try (PrintWriter out =
         new PrintWriter(
             new BufferedWriter(
