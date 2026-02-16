@@ -19,10 +19,12 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.Collection;
 
 /** HTTP utilities. */
@@ -30,7 +32,28 @@ public final class HttpUtils {
 
   /** Returns {@code true} if {@code url} is supported by {@link HttpDownloader}. */
   public static boolean isUrlSupportedByDownloader(URL url) {
-    return isHttp(url) || isProtocol(url, "file");
+    if (isProtocol(url, "file")) {
+      return true;
+    }
+    if (!isHttp(url)) {
+      return false;
+    }
+    String host = url.getHost();
+    if (host == null || host.isEmpty()) {
+      return false;
+    }
+    try {
+      InetAddress address = InetAddress.getByName(host);
+      if (address.isLoopbackAddress()
+          || address.isLinkLocalAddress()
+          || address.isSiteLocalAddress()
+          || address.isAnyLocalAddress()) {
+        return false;
+      }
+    } catch (UnknownHostException e) {
+      return false;
+    }
+    return true;
   }
 
   static boolean isHttp(URL url) {
