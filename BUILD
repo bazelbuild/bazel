@@ -322,6 +322,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     for platform_name in REMOTE_PLATFORMS
 ]
 
+# LINT.IfChange
 [
     default_java_toolchain(
         name = "java_toolchain_%s" % language_version,
@@ -337,3 +338,4 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
         21,
     ])
 ]
+# LINT.ThenChange(//.bazelrc)

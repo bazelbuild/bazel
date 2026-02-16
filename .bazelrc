@@ -54,10 +54,13 @@ common:windows --define=protobuf_allow_msvc=true
 
 # Enable Java 21 language features and compile for a Java 25 runtime, matching
 # version of the embedded JDK.
+# Keep in sync with //:java_toolchain_%d.
+# LINT.IfChange
 common --java_language_version=21
 common --tool_java_language_version=21
 common --java_runtime_version=remotejdk_25
 common --tool_java_runtime_version=remotejdk_25
+# LINT.ThenChange(//BUILD)
 # Reduce the amount of warnings shown due to the deprecation of most Unsafe
 # methods.
 # TODO: Remove this after migrating more code to use VarHandles.
