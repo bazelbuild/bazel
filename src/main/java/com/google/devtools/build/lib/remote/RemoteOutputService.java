@@ -314,8 +314,7 @@ public class RemoteOutputService implements OutputService {
     // action of its inputs before it starts executing.
     // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
     // are no longer needed.
-    @Nullable
-    private volatile LoadingCache<ActionLookupData, WeakSafeReentrantReadWriteLock> fineLocks;
+    @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks;
 
     /*
     Proof of deadlock freedom:
@@ -343,7 +342,8 @@ public class RemoteOutputService implements OutputService {
           block any other thread from acquiring its read lock, this case doesn't occur.
     * WW: The write lock of A_3 is only ever (attempted to be) acquired by A_3 itself when it is
           rewound, which means that the edge would necessarily be of the shape A_3 -[WW(A_3)]-> A_3.
-          But this isn't possible since the read-write locks are reentrant.
+          But this isn't possible since the write lock for an action is only acquired in one place (
+          enterActionPreparationForRewinding) and not recursively.
     * WR: In this case, A_1 attempts to acquire a write lock, which only happens when A_1 is a
           rewound action about to prepare for its (re-)execution. This means that the edge is
           necessarily of the shape A_1 -[WR(A_1)]-> A_2. While a rewound action is waiting for its
