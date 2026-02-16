@@ -17,6 +17,11 @@ load("@rules_license//rules:license.bzl", "license")
 
 licenses(["notice"])  # Apache v2
 
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
+
 license(
     name = "license",
     package_name = "grpc",
@@ -27,16 +32,9 @@ license(
     package_version = "1.48",
 )
 
-package(
-    default_applicable_licenses = [":license"],
-    default_visibility = ["//visibility:public"],
-)
-
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
-        "//third_party/grpc/bazel:srcs",
-    ],
+    srcs = glob(["**"]),
 )
 
 alias(
