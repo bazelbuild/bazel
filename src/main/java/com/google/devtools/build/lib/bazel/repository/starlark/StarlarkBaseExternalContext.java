@@ -314,7 +314,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
       throws RepositoryFunctionException {
-    if (!path.getPath().getPathString().startsWith(workingDirectory.getPathString())) {
+    if (!path.getPath().startsWith(workingDirectory)) {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Cannot %s outside of the repository directory for path %s", operation, path),
