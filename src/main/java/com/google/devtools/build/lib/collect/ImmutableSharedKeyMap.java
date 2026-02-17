@@ -41,7 +41,7 @@ import javax.annotation.concurrent.Immutable;
  * lot of GC churn.
  */
 @Immutable
-public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
+public class ImmutableSharedKeyMap<K, V> implements CompactImmutableMap<K, V> {
   private static final Interner<OffsetTable<?>> offsetTables = BlazeInterners.newWeakInterner();
 
   private final OffsetTable<K> offsetTable;
