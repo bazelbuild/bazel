@@ -75,7 +75,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isFalse();
@@ -96,7 +96,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
@@ -106,7 +106,7 @@ public class WorkerModuleTest {
     WorkerPool oldPool = module.workerPool;
     options.workerSandboxing = !options.workerSandboxing;
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(module.workerPool).isSameInstanceAs(oldPool);
     assertThat(aLog.exists()).isTrue();
@@ -120,7 +120,7 @@ public class WorkerModuleTest {
     setupEnvironment("/outputRoot");
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     // Log file from old root, doesn't get cleaned
@@ -132,7 +132,7 @@ public class WorkerModuleTest {
     WorkerPool oldPool = module.workerPool;
     setupEnvironment("/otherRootDir");
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
@@ -155,7 +155,7 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
@@ -165,7 +165,7 @@ public class WorkerModuleTest {
     when(request.getOptions(WorkerOptions.class)).thenReturn(newOptions);
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker factory configuration has changed");
@@ -185,7 +185,7 @@ public class WorkerModuleTest {
     oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
 
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     assertThat(storedEventHandler.getEvents()).isEmpty();
     assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
@@ -202,13 +202,13 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
     options.workerMaxMultiplexInstances = Lists.newArrayList(Maps.immutableEntry("foo", 42));
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker pool configuration has changed");
@@ -225,13 +225,13 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).isEmpty();
 
     WorkerPool oldPool = module.workerPool;
     options.workerMaxInstances = Lists.newArrayList(Maps.immutableEntry("bar", 3));
     module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
         .contains("Worker pool configuration has changed");
@@ -250,7 +250,7 @@ public class WorkerModuleTest {
     Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
 
     // Check that new pools/factories can be created without a worker dir.
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
 
     // But once we try to get a worker, it should fail. This forces a situation where we can't
     // have a workerDir.
@@ -279,12 +279,12 @@ public class WorkerModuleTest {
     Path staleTrash = trashBase.getChild("random-trash");
 
     staleTrash.createDirectoryAndParents();
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     // Trash is cleaned upon first build.
     assertThat(staleTrash.exists()).isFalse();
 
     staleTrash.createDirectoryAndParents();
-    module.buildStarting(BuildStartingEvent.create(env, request));
+    module.buildStarting(buildStartingEvent(request));
     // Trash is not cleaned upon subsequent builds.
     assertThat(staleTrash.exists()).isTrue();
   }
@@ -327,6 +327,9 @@ public class WorkerModuleTest {
     EventBus eventBus = new EventBus();
     when(env.getEventBus()).thenReturn(eventBus);
     when(env.getReporter()).thenReturn(new Reporter(eventBus, storedEventHandler));
-    when(env.determineOutputFileSystem()).thenReturn("OutputFileSystem");
+  }
+
+  private static BuildStartingEvent buildStartingEvent(BuildRequest request) {
+    return BuildStartingEvent.create("", false, request, "/workspace", "/workspace");
   }
 }

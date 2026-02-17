@@ -287,7 +287,8 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(BuildStartingEvent.create(env, request));
+        env.getEventBus()
+            .post(BuildStartingEvent.create(env.getDirectories(), env.getOutputService(), request));
       }
       logger.atInfo().log("Build identifier: %s", request.getId());
 
