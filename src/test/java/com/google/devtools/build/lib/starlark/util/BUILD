@@ -19,6 +19,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/ui_options",
         "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_config",

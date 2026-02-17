@@ -314,6 +314,16 @@ java_library(
 )
 
 java_library(
+    name = "runtime/ui_options",
+    srcs = ["runtime/UiOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -339,6 +349,7 @@ java_library(
             "runtime/OptionsSupplier.java",
             "runtime/StarlarkOptionsParser.java",
             "runtime/TestSummaryOptions.java",
+            "runtime/UiOptions.java",
         ],
     ),
     deps = [
@@ -355,6 +366,7 @@ java_library(
         ":runtime/memory_pressure",
         ":runtime/options_supplier",
         ":runtime/test_summary_options",
+        ":runtime/ui_options",
         ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_execution_inactivity_event",
