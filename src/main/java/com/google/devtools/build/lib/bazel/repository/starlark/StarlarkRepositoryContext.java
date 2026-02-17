@@ -190,6 +190,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         method);
   }
 
+  // This method must not be moved to ModuleExtensionContext as the FS-specific watch in its
+  // implementation would cause lock files to differ across platforms. If this is ever needed, add
+  // a `copy` method instead.
   @StarlarkMethod(
       name = "symlink",
       doc = "Creates a symlink on the filesystem.",
@@ -227,6 +230,13 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       checkInOutputDirectory("write", linkPath);
       makeDirectories(linkPath.getPath());
       linkPath.getPath().createSymbolicLink(targetPath.getPath());
+      if (!linkPath
+          .getPath()
+          .getFileSystem()
+          .supportsSymbolicLinksNatively(linkPath.getPath().asFragment())) {
+        // The symlink may be emulated as a copy, which would need to be tracked for invalidation.
+        maybeWatch(targetPath, ShouldWatch.AUTO);
+      }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
