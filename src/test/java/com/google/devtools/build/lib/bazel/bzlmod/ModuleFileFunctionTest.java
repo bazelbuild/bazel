@@ -1864,7 +1864,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .containsExactly(">=7.0.0");
     assertThat(result.get(moduleFileKey).module().getDeps())
         .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("3.0"))));
+            "ccc", new ModuleKey("ccc", Version.parse("3.0")));
 
     FileSystemUtils.writeContentAsLatin1(
         otherPatch,
@@ -1887,7 +1887,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .containsExactly(">=7.0.0");
     assertThat(result.get(moduleFileKey).module().getDeps())
         .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("2.0"))));
+            "ccc", new ModuleKey("ccc", Version.parse("2.0")));
   }
 
   @Test

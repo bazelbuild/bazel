@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createDepSpec;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 
@@ -366,8 +365,8 @@ public class SelectionTest {
             .put(
                 InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("bbb_from_aaa", createDepSpec("bbb", "1.0"))
-                    .addDep("ccc_from_aaa", createDepSpec("ccc", "1.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
                 InterimModuleBuilder.create("bbb", "1.0")
@@ -392,10 +391,10 @@ public class SelectionTest {
         .containsExactly(
             InterimModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("bbb_from_aaa", createDepSpec("bbb", "2.0"))
-                .addOriginalDep("bbb_from_aaa", createDepSpec("bbb", "1.0"))
-                .addDep("ccc_from_aaa", createDepSpec("ccc", "2.0"))
-                .addOriginalDep("ccc_from_aaa", createDepSpec("ccc", "1.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "2.0"))
+                .addOriginalDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                .addOriginalDep("ccc_from_aaa", createModuleKey("ccc", "1.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "2.0")
                 .addDep("ccc_from_bbb", createModuleKey("ccc", "2.0"))
@@ -411,10 +410,10 @@ public class SelectionTest {
         .containsExactly(
             InterimModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("bbb_from_aaa", createDepSpec("bbb", "2.0"))
-                .addOriginalDep("bbb_from_aaa", createDepSpec("bbb", "1.0"))
-                .addDep("ccc_from_aaa", createDepSpec("ccc", "2.0"))
-                .addOriginalDep("ccc_from_aaa", createDepSpec("ccc", "1.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "2.0"))
+                .addOriginalDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                .addOriginalDep("ccc_from_aaa", createModuleKey("ccc", "1.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
                 .addDep("ccc_from_bbb", createModuleKey("ccc", "2.0"))

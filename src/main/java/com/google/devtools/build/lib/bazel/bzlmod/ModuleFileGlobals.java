@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -311,7 +311,7 @@ public class ModuleFileGlobals {
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
           repoName,
-          new DepSpec(name, parsedVersion));
+          new ModuleKey(name, parsedVersion));
     }
 
     if (repoName.isPresent()) {

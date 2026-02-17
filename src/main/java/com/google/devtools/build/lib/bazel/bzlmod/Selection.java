@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -176,7 +176,7 @@ final class Selection {
       selectedVersions.merge(selectionGroup, key.version(), Comparators::max);
     }
 
-    Function<DepSpec, Version> resolutionStrategy =
+    Function<ModuleKey, Version> resolutionStrategy =
         depSpec ->
             selectedVersions.get(
                 computeSelectionGroup(depSpec.name(), depSpec.version(), allowedVersionSets));
@@ -199,7 +199,7 @@ final class Selection {
                 depGraph,
                 module ->
                     module.withDepsTransformed(
-                        depSpec -> depSpec.withVersion(resolutionStrategy.apply(depSpec)))));
+                        depSpec -> new ModuleKey(depSpec.name(), resolutionStrategy.apply(depSpec)))));
 
     return new Result(prunedDepGraph, unprunedDepGraph);
   }
@@ -228,7 +228,7 @@ final class Selection {
      * root module. The returned map has a guaranteed breadth-first iteration order.
      */
     ImmutableMap<ModuleKey, InterimModule> walk(
-        Function<DepSpec, Version> resolutionStrategy, boolean ignoreNodeps)
+        Function<ModuleKey, Version> resolutionStrategy, boolean ignoreNodeps)
         throws ExternalDepsException {
       HashMap<String, ExistingModule> moduleByName = new HashMap<>();
       ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
@@ -249,15 +249,15 @@ final class Selection {
         }
         InterimModule module =
             oldModule.withDepsTransformed(
-                depSpec -> depSpec.withVersion(resolutionStrategy.apply(depSpec)));
+                depSpec -> new ModuleKey(depSpec.name(), resolutionStrategy.apply(depSpec)));
         visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
 
-        for (DepSpec depSpec :
+        for (ModuleKey depSpec :
             ignoreNodeps
                 ? module.getDeps().values()
                 : Iterables.concat(module.getDeps().values(), module.getNodepDeps())) {
-          if (known.add(depSpec.toModuleKey())) {
-            toVisit.add(new ModuleKeyAndDependent(depSpec.toModuleKey(), key));
+          if (known.add(depSpec)) {
+            toVisit.add(new ModuleKeyAndDependent(depSpec, key));
           }
         }
         newDepGraph.put(key, module);
@@ -298,10 +298,10 @@ final class Selection {
 
       // Make sure that we don't have `module` depending on the same dependency version twice.
       HashMap<ModuleKey, String> depKeyToRepoName = new HashMap<>();
-      for (Map.Entry<String, DepSpec> depEntry : module.getDeps().entrySet()) {
+      for (Map.Entry<String, ModuleKey> depEntry : module.getDeps().entrySet()) {
         String repoName = depEntry.getKey();
-        DepSpec depSpec = depEntry.getValue();
-        String previousRepoName = depKeyToRepoName.put(depSpec.toModuleKey(), repoName);
+        ModuleKey depSpec = depEntry.getValue();
+        String previousRepoName = depKeyToRepoName.put(depSpec, repoName);
         if (previousRepoName != null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -309,7 +309,7 @@ final class Selection {
                   + " multiple_version_override if you want to depend on multiple versions of"
                   + " %s simultaneously",
               key,
-              depSpec.toModuleKey(),
+              depSpec,
               repoName,
               previousRepoName,
               depSpec.name());
