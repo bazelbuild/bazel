@@ -646,8 +646,11 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
         .setTerminationExpected(result.shutdown());
 
     if (result.getExecRequest() != null) {
-      response.setExitCode(0);
+      response.setExitCode(result.getExitCode().getNumericExitCode());
       response.setExecRequest(result.getExecRequest());
+      if (result.getFailureDetail() != null) {
+        response.setFailureDetail(result.getFailureDetail());
+      }
     } else {
       response.setExitCode(result.getExitCode().getNumericExitCode());
       if (result.getFailureDetail() != null) {
