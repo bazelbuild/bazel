@@ -860,11 +860,11 @@ public class RemoteExecutionService {
     if (captureCorruptedOutputsDir != null) {
       if (e instanceof BulkTransferException) {
         for (Throwable suppressed : e.getSuppressed()) {
-          if (suppressed instanceof OutputDigestMismatchException) {
+          if (suppressed instanceof OutputDigestMismatchException outputDigestMismatchException) {
             // Capture corrupted outputs
             try {
-              String outputPath = ((OutputDigestMismatchException) suppressed).getOutputPath();
-              Path localPath = ((OutputDigestMismatchException) suppressed).getLocalPath();
+              String outputPath = outputDigestMismatchException.getOutputPath();
+              Path localPath = outputDigestMismatchException.getLocalPath();
               Path dst = captureCorruptedOutputsDir.getRelative(outputPath);
               dst.createDirectoryAndParents();
 

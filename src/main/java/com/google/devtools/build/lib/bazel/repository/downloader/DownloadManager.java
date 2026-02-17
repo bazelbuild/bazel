@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
@@ -66,7 +66,6 @@ public class DownloadManager {
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
-  private final HttpDownloader bzlmodHttpDownloader;
   private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
@@ -83,17 +82,11 @@ public class DownloadManager {
    *
    * @param downloader The (delegating) downloader to use to download files. Is either a
    *     HttpDownloader, or a GrpcRemoteDownloader.
-   * @param bzlmodHttpDownloader The downloader to use for downloading files from the bzlmod
-   *     registry.
    */
   public DownloadManager(
-      DownloadCache downloadCache,
-      Downloader downloader,
-      HttpDownloader bzlmodHttpDownloader,
-      ExtendedEventHandler eventHandler) {
+      DownloadCache downloadCache, Downloader downloader, ExtendedEventHandler eventHandler) {
     this.downloadCache = downloadCache;
     this.downloader = downloader;
-    this.bzlmodHttpDownloader = bzlmodHttpDownloader;
     this.eventHandler = eventHandler;
   }
 
@@ -174,7 +167,7 @@ public class DownloadManager {
    * Downloads file to disk and returns path.
    *
    * <p>If the checksum and path to the repository cache is specified, attempt to load the file from
-   * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
+   * the {@link DownloadCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
    *
    * @param originalUrls list of mirror URLs with identical content
@@ -394,7 +387,7 @@ public class DownloadManager {
    * <code>--repository_disable_download</code>.
    *
    * <p>If the checksum and path to the repository cache is specified, attempt to load the file from
-   * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
+   * the {@link DownloadCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
    *
    * @param originalUrl the original URL of the file
@@ -457,16 +450,21 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
     }
 
-    byte[] content;
+    var contentOut = new ByteArrayOutputStream();
     for (int attempt = 0; ; ++attempt) {
       try {
-        content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
-                credentialFactory.create(authHeaders),
-                checksum,
-                eventHandler,
-                clientEnv);
+        downloader.download(
+            rewrittenUrls,
+            ImmutableMap.of(),
+            credentialFactory.create(authHeaders),
+            checksum,
+            /* canonicalId= */ null,
+            contentOut,
+            /* destinationPath= */ null,
+            eventHandler,
+            clientEnv,
+            Optional.empty(),
+            "Bazel registry download");
         break;
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
@@ -476,13 +474,12 @@ public class DownloadManager {
         }
       }
     }
-    if (content == null) {
-      throw new IllegalStateException("Unexpected error: file should have been downloaded.");
-    }
+    byte[] content = contentOut.toByteArray();
 
     if (downloadCache.isEnabled()) {
       if (checksum.isPresent()) {
-        downloadCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
+        downloadCache.put(
+            checksum.get().toString(), content, checksum.get().getKeyType());
       } else {
         downloadCache.put(content, KeyType.SHA256);
       }
