@@ -126,24 +126,11 @@ public abstract class CompressedTarFunction implements Decompressor {
                     prefix,
                     descriptor.destinationPath());
 
-            Path resolvedTargetPath =
-                (entry.isSymbolicLink()
-                        ? filePath.getParentDirectory()
-                        : descriptor.destinationPath())
-                    .getRelative(targetName);
-            if (!targetName.isAbsolute()
-                && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
-              throw new IOException(
-                  String.format(
-                      "Tar entries cannot refer to files outside of their directory: %s has a"
-                          + " link %s pointing to %s",
-                      descriptor.archivePath(), entryName, targetName));
-            }
-
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
-              if (filePath.equals(resolvedTargetPath)) {
+              Path targetPath = descriptor.destinationPath().getRelative(targetName);
+              if (filePath.equals(targetPath)) {
                 // The behavior here is semantically different, depending on whether the underlying
                 // filesystem is case-sensitive or case-insensitive. However, it is effectively the
                 // same: we drop the link entry.
@@ -157,7 +144,7 @@ public abstract class CompressedTarFunction implements Decompressor {
                 if (filePath.exists()) {
                   filePath.delete();
                 }
-                FileSystemUtils.createHardLink(filePath, resolvedTargetPath);
+                FileSystemUtils.createHardLink(filePath, targetPath);
               }
             }
           } else {
