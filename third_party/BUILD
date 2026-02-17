@@ -136,7 +136,6 @@ java_plugin(
         ":auto_value_lib",
         ":guava",
         ":jsr305",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -190,7 +189,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -204,7 +202,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -218,7 +215,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -242,7 +238,6 @@ java_library(
     ],
     exports = [
         ":auto_value_api",
-        ":tomcat_annotations_api",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
@@ -488,6 +483,12 @@ java_library(
     exports = ["@maven//:javax_annotation_javax_annotation_api"],
 )
 
+distrib_jar_filegroup(
+    name = "javax_annotations-jars",
+    srcs = ["@maven//:javax_annotation_javax_annotation_api_file"],
+    enable_distributions = ["debian"],
+)
+
 alias(
     name = "rxjava3",
     actual = "@maven//:io_reactivex_rxjava3_rxjava",
@@ -593,18 +594,6 @@ distrib_java_import(
         "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//conditions:default": [],
     }),
-)
-
-alias(
-    name = "tomcat_annotations_api",
-    actual = "@maven//:org_apache_tomcat_tomcat_annotations_api",
-)
-
-# For bootstrapping JavaBuilder
-distrib_jar_filegroup(
-    name = "tomcat_annotations_api-jars",
-    srcs = ["@maven//:org_apache_tomcat_tomcat_annotations_api_file"],
-    enable_distributions = ["debian"],
 )
 
 alias(

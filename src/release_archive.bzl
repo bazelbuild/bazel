@@ -18,15 +18,15 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@with_cfg.bzl", "with_cfg")
 
 # The minimum --java_{tool_,}runtime_version supported by prebuilt Java tools.
-_MINIMUM_JAVA_RUNTIME_VERSION = 8
+MINIMUM_JAVA_RUNTIME_VERSION = 8
 
 # The minimum version of a java_toolchain's java_runtime supported by prebuilt Java tools.
-_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 21
+MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = 21
 
 minimum_java_runtime_java_binary, _minimum_java_runtime_java_binary = (
     # Don't warn about targeting very old Java versions.
     with_cfg(java_binary)
-        .set("java_language_version", str(_MINIMUM_JAVA_RUNTIME_VERSION))
+        .set("java_language_version", str(MINIMUM_JAVA_RUNTIME_VERSION))
         .extend("javacopt", ["-Xlint:-options"])
         .build()
 )
@@ -34,14 +34,14 @@ minimum_java_runtime_java_binary, _minimum_java_runtime_java_binary = (
 minimum_java_runtime_filegroup, _minimum_java_runtime_filegroup = (
     # Don't warn about targeting very old Java versions.
     with_cfg(native.filegroup)
-        .set("java_language_version", str(_MINIMUM_JAVA_RUNTIME_VERSION))
+        .set("java_language_version", str(MINIMUM_JAVA_RUNTIME_VERSION))
         .extend("javacopt", ["-Xlint:-options"])
         .build()
 )
 
 minimum_java_compilation_runtime_filegroup, _minimum_java_compilation_runtime_filegroup = (
     with_cfg(native.filegroup)
-        .set("java_language_version", str(_MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION))
+        .set("java_language_version", str(MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION))
         .build()
 )
 
