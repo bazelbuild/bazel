@@ -153,11 +153,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public void addDep(Optional<String> repoName, ModuleKey depSpec) {
+  public void addDep(Optional<String> repoName, ModuleKey depKey) {
     if (repoName.isPresent()) {
-      deps.put(repoName.get(), depSpec);
+      deps.put(repoName.get(), depKey);
     } else {
-      module.addNodepDep(depSpec);
+      module.addNodepDep(depKey);
     }
   }
 
