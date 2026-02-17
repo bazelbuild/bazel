@@ -21,7 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -45,7 +45,7 @@ public class ProxyHelperTest {
   @Test
   public void testCreateIfNeededHttpLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("http://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("http://www.something.com"));
     assertThat(proxyInfo.proxy().toString())
         .containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
@@ -53,7 +53,7 @@ public class ProxyHelperTest {
   @Test
   public void testCreateIfNeededHttpUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTP_PROXY", "http://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("http://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("http://www.something.com"));
     assertThat(proxyInfo.proxy().toString())
         .containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
@@ -61,7 +61,7 @@ public class ProxyHelperTest {
   @Test
   public void testCreateIfNeededHttpsLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("https_proxy", "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxyInfo.proxy().toString())
         .containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
@@ -69,7 +69,7 @@ public class ProxyHelperTest {
   @Test
   public void testCreateIfNeededHttpsUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxyInfo.proxy().toString())
         .containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
@@ -83,7 +83,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -96,7 +96,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -109,7 +109,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -122,7 +122,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -135,13 +135,13 @@ public class ProxyHelperTest {
                 "something.com ,   example.com, localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
 
-    ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxyInfo2.proxy()).isEqualTo(Proxy.NO_PROXY);
 
-    ProxyInfo proxyInfo3 = helper.createProxyIfNeeded(new URL("https://localhost"));
+    ProxyInfo proxyInfo3 = helper.createProxyIfNeeded(URI.create("https://localhost"));
     assertThat(proxyInfo3.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -154,7 +154,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.not-example.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.not-example.com"));
     assertThat(proxyInfo.proxy().toString())
         .containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
@@ -168,7 +168,7 @@ public class ProxyHelperTest {
                 ".something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.my.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.my.something.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -182,7 +182,7 @@ public class ProxyHelperTest {
                 "HTTPS_PROXY",
                 "https://my.example.com"));
     ProxyInfo proxyInfo =
-        helper.createProxyIfNeeded(new URL("https://www.my.subdomain.something.com"));
+        helper.createProxyIfNeeded(URI.create("https://www.my.subdomain.something.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -195,7 +195,7 @@ public class ProxyHelperTest {
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
     Map<String, String> env = ImmutableMap.of();
     ProxyHelper helper = new ProxyHelper(env);
-    proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -394,11 +394,11 @@ public class ProxyHelperTest {
       ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://proxy:8080"));
 
       // Exact match should bypass proxy
-      ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("http://example.com/foo"));
+      ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("http://example.com/foo"));
       assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
 
       // Non-match should use proxy
-      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(new URL("http://other.com/foo"));
+      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(URI.create("http://other.com/foo"));
       assertThat(proxyInfo2.proxy()).isNotEqualTo(Proxy.NO_PROXY);
     } finally {
       if (oldValue != null) {
@@ -417,11 +417,11 @@ public class ProxyHelperTest {
       ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://proxy:8080"));
 
       // Wildcard match should bypass proxy
-      ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("http://foo.example.com/bar"));
+      ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("http://foo.example.com/bar"));
       assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
 
       // Non-match should use proxy
-      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(new URL("http://example.com/bar"));
+      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(URI.create("http://example.com/bar"));
       assertThat(proxyInfo2.proxy()).isNotEqualTo(Proxy.NO_PROXY);
     } finally {
       if (oldValue != null) {
@@ -440,10 +440,10 @@ public class ProxyHelperTest {
       ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://proxy:8080"));
 
       // Wildcard match should bypass proxy
-      ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("http://localhost/bar"));
+      ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("http://localhost/bar"));
       assertThat(proxyInfo.proxy()).isEqualTo(Proxy.NO_PROXY);
 
-      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(new URL("http://localserver/bar"));
+      ProxyInfo proxyInfo2 = helper.createProxyIfNeeded(URI.create("http://localserver/bar"));
       assertThat(proxyInfo2.proxy()).isEqualTo(Proxy.NO_PROXY);
     } finally {
       if (oldValue != null) {

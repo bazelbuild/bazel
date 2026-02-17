@@ -3,6 +3,7 @@ java.instrument
 java.logging
 java.management
 java.naming
+java.net.http
 java.sql
 java.xml
 jdk.management

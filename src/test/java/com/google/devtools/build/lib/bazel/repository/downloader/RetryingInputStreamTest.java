@@ -32,7 +32,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
-import java.net.URLConnection;
+import java.net.URI;
+import java.util.Collections;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,10 +43,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RetryingInputStreamTest {
 
+  private static final URI TEST_URI = URI.create("http://test.example");
+
   private final InputStream delegate = mock(InputStream.class);
   private final InputStream newDelegate = mock(InputStream.class);
   private final Reconnector reconnector = mock(Reconnector.class);
-  private final URLConnection connection = mock(URLConnection.class);
   private final RetryingInputStream stream = new RetryingInputStream(delegate, reconnector);
 
   @After
@@ -88,11 +90,14 @@ public class RetryingInputStreamTest {
   @Test
   @SuppressWarnings("unchecked")
   public void readTimesOut_retries() throws Exception {
+    DownloadResponse response =
+        new DownloadResponse(
+            TEST_URI,
+            ImmutableMap.of("Content-Range", ImmutableList.of("bytes 1-42/42")),
+            newDelegate);
     when(delegate.read()).thenReturn(1).thenThrow(new SocketTimeoutException());
-    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(connection);
-    when(connection.getInputStream()).thenReturn(newDelegate);
+    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(response);
     when(newDelegate.read()).thenReturn(2);
-    when(connection.getHeaderField("Content-Range")).thenReturn("bytes 1-42/42");
     assertThat(stream.read()).isEqualTo(1);
     assertThat(stream.read()).isEqualTo(2);
     verify(reconnector)
@@ -105,10 +110,11 @@ public class RetryingInputStreamTest {
   @Test
   @SuppressWarnings("unchecked")
   public void failureWhenNoBytesAreRead_doesntUseRange() throws Exception {
+    DownloadResponse response =
+        new DownloadResponse(TEST_URI, Collections.emptyMap(), newDelegate);
     when(delegate.read()).thenThrow(new SocketTimeoutException());
     when(newDelegate.read()).thenReturn(1);
-    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(connection);
-    when(connection.getInputStream()).thenReturn(newDelegate);
+    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(response);
     assertThat(stream.read()).isEqualTo(1);
     verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.of()));
     verify(delegate).read();
@@ -131,15 +137,18 @@ public class RetryingInputStreamTest {
   @Test
   @SuppressWarnings("unchecked")
   public void maxRetries_givesUp() throws Exception {
+    DownloadResponse response =
+        new DownloadResponse(
+            TEST_URI,
+            ImmutableMap.of("Content-Range", ImmutableList.of("bytes 1-42/42")),
+            delegate);
     when(delegate.read())
         .thenReturn(1)
         .thenThrow(new IOException())
         .thenThrow(new IOException())
         .thenThrow(new IOException())
         .thenThrow(new SocketTimeoutException());
-    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(connection);
-    when(connection.getInputStream()).thenReturn(delegate);
-    when(connection.getHeaderField("Content-Range")).thenReturn("bytes 1-42/42");
+    when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(response);
     stream.read();
     SocketTimeoutException e = assertThrows(SocketTimeoutException.class, () -> stream.read());
     assertThat(e.getSuppressed()).hasLength(3);

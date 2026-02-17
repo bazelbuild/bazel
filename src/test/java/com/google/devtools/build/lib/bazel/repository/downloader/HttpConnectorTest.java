@@ -44,8 +44,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -95,7 +94,7 @@ public class HttpConnectorTest {
 
   @Before
   public void before() throws Exception {
-    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(ProxyInfo.NO_PROXY);
+    when(proxyHelper.createProxyIfNeeded(any(URI.class))).thenReturn(ProxyInfo.NO_PROXY);
   }
 
   @After
@@ -109,8 +108,8 @@ public class HttpConnectorTest {
     assertThat(
             ByteStreams.toByteArray(
                 connector
-                    .connect(createTempFile(fileContents).toURI().toURL(), url -> ImmutableMap.of())
-                    .getInputStream()))
+                    .connect(createTempFile(fileContents).toURI(), url -> ImmutableMap.of())
+                    .body()))
         .isEqualTo(fileContents);
   }
 
@@ -118,7 +117,7 @@ public class HttpConnectorTest {
   public void badHost_throwsIOException() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("Unknown host: bad.example");
-    connector.connect(new URL("http://bad.example"), url -> ImmutableMap.of());
+    connector.connect(URI.create("http://bad.example"), url -> ImmutableMap.of());
   }
 
   @Test
@@ -150,9 +149,9 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d/boo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/boo", server.getLocalPort())),
                       url -> ImmutableMap.of("Content-Encoding", ImmutableList.of("gzip")))
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
       }
@@ -202,9 +201,9 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isGreaterThan(50L);
@@ -262,8 +261,8 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d", port)), url -> ImmutableMap.of())
-                  .getInputStream(),
+                      URI.create(String.format("http://localhost:%d", port)), url -> ImmutableMap.of())
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
       }
@@ -321,9 +320,9 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
         assertThat(clock.currentTimeMillis()).isEqualTo(1);
@@ -354,9 +353,9 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       url -> ImmutableMap.of())
-                  .getInputStream(),
+                  .body(),
               ISO_8859_1)) {
         fail("Should have thrown");
       } catch (IOException expected) {
@@ -366,9 +365,8 @@ public class HttpConnectorTest {
           assertThat(expected).hasCauseThat().hasMessageThat().ignoringCase().contains("timed out");
         } else {
           // For windows, it is possible that the thrown exception is a ConnectException (no cause)
-          // from {@code HttpURLConnection.connect()} rather than a SocketTimeoutException from
-          // {@code HttpURLConnection.getResponseCode()}. In the former case, we expect the
-          // SocketTimeoutException to have already occurred but gets suppressed within the final
+          // from the connect rather than a SocketTimeoutException. In the former case, we expect
+          // the SocketTimeoutException to have already occurred but gets suppressed within the final
           // ConnectException (upon max retry).
           ImmutableList<Throwable> suppressed = ImmutableList.copyOf(expected.getSuppressed());
           Optional<Throwable> ste =
@@ -406,9 +404,9 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("401 Unauthorized");
+      thrown.expectMessage("GET returned 401");
       connector.connect(
-          new URL(String.format("http://localhost:%d", server.getLocalPort())),
+          URI.create(String.format("http://localhost:%d", server.getLocalPort())),
           url -> ImmutableMap.of());
     }
   }
@@ -438,9 +436,9 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(FileNotFoundException.class);
-      thrown.expectMessage("404 Not Found");
+      thrown.expectMessage("GET returned 404");
       connector.connect(
-          new URL(String.format("http://localhost:%d", server.getLocalPort())),
+          URI.create(String.format("http://localhost:%d", server.getLocalPort())),
           url -> ImmutableMap.of());
     }
   }
@@ -475,7 +473,7 @@ public class HttpConnectorTest {
                 }
               });
       connector.connect(
-          new URL(String.format("http://localhost:%d", server.getLocalPort())),
+          URI.create(String.format("http://localhost:%d", server.getLocalPort())),
           url -> ImmutableMap.of());
       fail();
     } catch (IOException ignored) {
@@ -515,10 +513,10 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("500 Oh My");
+      thrown.expectMessage("GET returned 500");
       try {
         connector.connect(
-            new URL(String.format("http://localhost:%d", server.getLocalPort())),
+            URI.create(String.format("http://localhost:%d", server.getLocalPort())),
             url -> ImmutableMap.of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -554,10 +552,10 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("403 Forbidden");
+      thrown.expectMessage("GET returned 403");
       try {
         connector.connect(
-            new URL(String.format("http://localhost:%d", server.getLocalPort())),
+            URI.create(String.format("http://localhost:%d", server.getLocalPort())),
             url -> ImmutableMap.of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -626,13 +624,13 @@ public class HttpConnectorTest {
                   return null;
                 }
               });
-      URLConnection connection =
+      DownloadResponse response =
           connector.connect(
-              new URL(String.format("http://localhost:%d", server.getLocalPort())),
+              URI.create(String.format("http://localhost:%d", server.getLocalPort())),
               url -> ImmutableMap.of());
-      assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
-      try (InputStream input = connection.getInputStream()) {
+      assertThat(response.uri()).isEqualTo(
+          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
+      try (InputStream input = response.body()) {
         assertThat(ByteStreams.toByteArray(input)).isEmpty();
       }
     }
@@ -693,10 +691,10 @@ public class HttpConnectorTest {
               });
       // Header function that provides different auth headers for
       // the two servers.
-      Function<URL, ImmutableMap<String, List<String>>> authHeaders =
+      Function<URI, ImmutableMap<String, List<String>>> authHeaders =
           new Function<>() {
             @Override
-            public ImmutableMap<String, List<String>> apply(URL url) {
+            public ImmutableMap<String, List<String>> apply(URI url) {
               if (url.getPort() == server1.getLocalPort()) {
                 return ImmutableMap.of("Authentication", ImmutableList.of(basic1));
               } else if (url.getPort() == server2.getLocalPort()) {
@@ -706,12 +704,12 @@ public class HttpConnectorTest {
               }
             }
           };
-      URLConnection connection =
+      DownloadResponse response =
           connector.connect(
-              new URL(String.format("http://localhost:%d", server1.getLocalPort())), authHeaders);
-      assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())));
-      try (InputStream input = connection.getInputStream()) {
+              URI.create(String.format("http://localhost:%d", server1.getLocalPort())), authHeaders);
+      assertThat(response.uri()).isEqualTo(
+          URI.create(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())));
+      try (InputStream input = response.body()) {
         assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
       }
       // Verify that the correct form of authentication is used for each server.

@@ -27,8 +27,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.zip.GZIPInputStream;
@@ -59,30 +58,31 @@ final class HttpStream extends FilterInputStream {
     }
 
     HttpStream create(
-        @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        @WillCloseWhenClosed DownloadResponse response,
+        URI originalUrl,
         Optional<Checksum> checksum,
         Reconnector reconnector)
         throws IOException {
-      return create(connection, originalUrl, checksum, reconnector, Optional.<String>empty());
+      return create(response, originalUrl, checksum, reconnector, Optional.<String>empty());
     }
 
     @SuppressWarnings("resource")
     HttpStream create(
-        @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        @WillCloseWhenClosed DownloadResponse response,
+        URI originalUrl,
         Optional<Checksum> checksum,
         Reconnector reconnector,
         Optional<String> type)
         throws IOException {
-      InputStream stream = new InterruptibleInputStream(connection.getInputStream());
+      InputStream stream = new InterruptibleInputStream(response.body());
+      URI connectionUrl = response.uri();
       try {
         // If server supports range requests, we can retry on read errors. See RFC7233 § 2.3.
         RetryingInputStream retrier = null;
         if (Iterables.contains(
                 Splitter.on(',')
                     .trimResults()
-                    .split(Strings.nullToEmpty(connection.getHeaderField("Accept-Ranges"))),
+                    .split(Strings.nullToEmpty(response.headerValue("Accept-Ranges"))),
                 "bytes")) {
           retrier = new RetryingInputStream(stream, reconnector);
           stream = retrier;
@@ -90,7 +90,7 @@ final class HttpStream extends FilterInputStream {
 
         OptionalLong totalBytes = OptionalLong.empty();
         try {
-          String contentLength = connection.getHeaderField("Content-Length");
+          String contentLength = response.headerValue("Content-Length");
           if (contentLength != null) {
             totalBytes = OptionalLong.of(Long.parseUnsignedLong(contentLength));
             stream = new CheckContentLengthInputStream(stream, totalBytes.getAsLong());
@@ -100,15 +100,15 @@ final class HttpStream extends FilterInputStream {
         }
 
         stream =
-            progressInputStreamFactory.create(stream, connection.getURL(), originalUrl, totalBytes);
+            progressInputStreamFactory.create(stream, connectionUrl, originalUrl, totalBytes);
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note
         // that some web servers will send Content-Encoding: gzip even when we didn't request it if
         // the file is a .gz file. Therefore we take the type parameter from the rule http_archive
         // in consideration. If the repository/file that we are downloading is already compressed we
         // should not decompress it to preserve the desired file format.
-        if (GZIP_CONTENT_ENCODING.contains(Strings.nullToEmpty(connection.getContentEncoding()))
-            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connection.getURL().getPath()))
+        if (GZIP_CONTENT_ENCODING.contains(Strings.nullToEmpty(response.contentEncoding()))
+            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connectionUrl.getPath()))
             && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()))
             && !typeIsGZIP(type)) {
           stream = new GZIPInputStream(stream, GZIP_BUFFER_BYTES);
@@ -141,7 +141,7 @@ final class HttpStream extends FilterInputStream {
         }
         throw e;
       }
-      return new HttpStream(stream, connection.getURL());
+      return new HttpStream(stream, connectionUrl);
     }
 
     /**
@@ -165,15 +165,15 @@ final class HttpStream extends FilterInputStream {
     }
   }
 
-  private final URL url;
+  private final URI url;
 
-  HttpStream(@WillCloseWhenClosed InputStream delegate, URL url) {
+  HttpStream(@WillCloseWhenClosed InputStream delegate, URI url) {
     super(delegate);
     this.url = url;
   }
 
-  /** Returns final redirected URL. */
-  URL getUrl() {
+  /** Returns final redirected URI. */
+  URI getUrl() {
     return url;
   }
 }

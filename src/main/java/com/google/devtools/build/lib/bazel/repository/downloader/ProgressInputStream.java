@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicLong;
@@ -53,8 +53,8 @@ final class ProgressInputStream extends InputStream {
 
     InputStream create(
         @WillCloseWhenClosed InputStream delegate,
-        URL url,
-        URL originalUrl,
+        URI url,
+        URI originalUrl,
         OptionalLong totalBytes) {
       return new ProgressInputStream(
           locale,
@@ -73,8 +73,8 @@ final class ProgressInputStream extends InputStream {
   private final ExtendedEventHandler eventHandler;
   private final InputStream delegate;
   private final long intervalMs;
-  private final URL url;
-  private final URL originalUrl;
+  private final URI url;
+  private final URI originalUrl;
   private final OptionalLong totalBytes;
   private final AtomicLong toto = new AtomicLong();
   private final AtomicLong nextEvent;
@@ -85,8 +85,8 @@ final class ProgressInputStream extends InputStream {
       ExtendedEventHandler eventHandler,
       long intervalMs,
       InputStream delegate,
-      URL url,
-      URL originalUrl,
+      URI url,
+      URI originalUrl,
       OptionalLong totalBytes) {
     Preconditions.checkArgument(intervalMs >= 0);
     this.locale = locale;

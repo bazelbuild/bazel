@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +38,7 @@ class RetryingInputStream extends InputStream {
   /** Lambda for establishing a connection. */
   interface Reconnector {
     /** Establishes a connection with the same parameters as what was passed to us initially. */
-    URLConnection connect(Throwable cause, ImmutableMap<String, List<String>> extraHeaders)
+    DownloadResponse connect(Throwable cause, ImmutableMap<String, List<String>> extraHeaders)
         throws IOException;
   }
 
@@ -113,22 +112,22 @@ class RetryingInputStream extends InputStream {
 
   private void reconnectWhereWeLeftOff(IOException cause) throws IOException {
     try {
-      URLConnection connection;
+      DownloadResponse response;
       long amountRead = toto;
       if (amountRead == 0) {
-        connection = reconnector.connect(cause, ImmutableMap.of());
+        response = reconnector.connect(cause, ImmutableMap.of());
       } else {
-        connection =
+        response =
             reconnector.connect(
                 cause,
                 ImmutableMap.of("Range", ImmutableList.of(String.format("bytes=%d-", amountRead))));
-        if (!Strings.nullToEmpty(connection.getHeaderField("Content-Range"))
+        if (!Strings.nullToEmpty(response.headerValue("Content-Range"))
                 .startsWith(String.format("bytes %d-", amountRead))) {
           throw new IOException(String.format(
               "Tried to reconnect at offset %,d but server didn't support it", amountRead));
         }
       }
-      delegate = new InterruptibleInputStream(connection.getInputStream());
+      delegate = new InterruptibleInputStream(response.body());
     } catch (InterruptedIOException e) {
       throw e;
     } catch (IOException e) {

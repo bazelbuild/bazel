@@ -42,8 +42,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +122,7 @@ public class DownloadManager {
 
   public Future<Path> startDownload(
       ExecutorService executorService,
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
@@ -190,7 +188,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   private Path downloadInExecutor(
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
@@ -210,24 +208,24 @@ public class DownloadManager {
     //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from a
     //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
     //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
-    ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
+    ImmutableList<URI> rewrittenUrls = ImmutableList.copyOf(originalUrls);
     Map<URI, Map<String, List<String>>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
       ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
       rewrittenUrls =
-          rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
+          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
       rewrittenAuthHeaders =
           rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    URL mainUrl; // The "main" URL for this request
+    URI mainUrl; // The "main" URL for this request
     // Used for reporting only and determining the file name only.
     if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe." + type.get());
+        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe");
+        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe");
       }
     } else {
       mainUrl = rewrittenUrls.get(0);
@@ -406,7 +404,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrlForBzlmod(
-      URL originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
+      URI originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -428,19 +426,19 @@ public class DownloadManager {
     }
 
     Map<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
-    ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
+    ImmutableList<URI> rewrittenUrls = ImmutableList.of(originalUrl);
 
     if (netrcCreds != null) {
       try {
-        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl.toURI());
+        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl);
         if (!metadata.isEmpty()) {
           Entry<String, List<String>> headers = metadata.entrySet().iterator().next();
           authHeaders =
               ImmutableMap.of(
-                  originalUrl.toURI(),
+                  originalUrl,
                   ImmutableMap.of(headers.getKey(), ImmutableList.of(headers.getValue().get(0))));
         }
-      } catch (URISyntaxException e) {
+      } catch (IOException e) {
         // If the credentials extraction failed, we're letting bazel try without credentials.
       }
     }
@@ -491,7 +489,7 @@ public class DownloadManager {
   }
 
   @Nullable
-  private String getRewriterBlockedAllUrlsMessage(List<URL> originalUrls) {
+  private String getRewriterBlockedAllUrlsMessage(List<URI> originalUrls) {
     if (rewriter == null) {
       return null;
     }
@@ -513,7 +511,7 @@ public class DownloadManager {
           .or(CharMatcher.anyOf(".-_"))
           .negate();
 
-  private Path getDownloadDestination(URL url, Optional<String> type, Path output) {
+  private Path getDownloadDestination(URI url, Optional<String> type, Path output) {
     if (!type.isPresent()) {
       return output;
     }
@@ -536,7 +534,7 @@ public class DownloadManager {
    * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
    * specified in ctx.download.
    */
-  private static ImmutableSet<String> getCandidateFileNames(URL url, Path destination) {
+  private static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
     String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
     if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());

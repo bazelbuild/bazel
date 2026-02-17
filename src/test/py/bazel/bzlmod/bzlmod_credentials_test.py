@@ -113,7 +113,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
           ],
           allow_failure=True,
       )
-      self.assertIn('GET returned 401 Unauthorized', '\n'.join(stderr))
+      self.assertIn('GET returned 401', '\n'.join(stderr))
 
   def testCredentialsFromHelper(self):
     with StaticHTTPServer(

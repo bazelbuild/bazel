@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.util.Collection;
@@ -184,7 +184,7 @@ public class VendorManager {
    * @return true if the URL is vendored, false otherwise.
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
-  public boolean isUrlVendored(URL url) throws UnsupportedEncodingException {
+  public boolean isUrlVendored(URI url) throws UnsupportedEncodingException {
     return getVendorPathForUrl(url).isFile();
   }
 
@@ -195,7 +195,7 @@ public class VendorManager {
    * @param content The content to write.
    * @throws IOException if an I/O error occurs.
    */
-  public void vendorRegistryUrl(URL url, byte[] content) throws IOException {
+  public void vendorRegistryUrl(URI url, byte[] content) throws IOException {
     Path outputPath = getVendorPathForUrl(url);
     Objects.requireNonNull(outputPath.getParentDirectory()).createDirectoryAndParents();
     FileSystemUtils.writeContent(outputPath, content);
@@ -209,7 +209,7 @@ public class VendorManager {
    * @return The content of the registry URL.
    * @throws IOException if an I/O error occurs or the checksum verification fails.
    */
-  public byte[] readRegistryUrl(URL url, Checksum checksum) throws IOException {
+  public byte[] readRegistryUrl(URI url, Checksum checksum) throws IOException {
     byte[] content = FileSystemUtils.readContent(getVendorPathForUrl(url));
     Hasher hasher = checksum.getKeyType().newHasher();
     hasher.putBytes(content);
@@ -259,7 +259,7 @@ public class VendorManager {
    * @return The vendor path.
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
-  public Path getVendorPathForUrl(URL url) throws UnsupportedEncodingException {
+  public Path getVendorPathForUrl(URI url) throws UnsupportedEncodingException {
     String host = url.getHost().toLowerCase(Locale.ROOT); // Host names are case-insensitive
     String path = url.getPath();
     path = URLDecoder.decode(path, "UTF-8");

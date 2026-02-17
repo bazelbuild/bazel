@@ -73,10 +73,8 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.time.Duration;
@@ -336,7 +334,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
-        URL url = new URL(entry.getKey());
+        URI url = new URI(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
@@ -348,7 +346,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             }
             String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
-                url.toURI(),
+                url,
                 ImmutableMap.of(
                     "Authorization",
                     ImmutableList.of(
@@ -380,11 +378,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               result = result.replaceAll(demarcatedComponent, (String) authMap.get(component));
             }
 
-            headers.put(url.toURI(), ImmutableMap.of("Authorization", ImmutableList.of(result)));
+            headers.put(url, ImmutableMap.of("Authorization", ImmutableList.of(result)));
           }
         }
-      } catch (MalformedURLException e) {
-        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       } catch (URISyntaxException e) {
         throw new EvalException(e);
       }
@@ -442,7 +438,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return result.build();
   }
 
-  private static ImmutableList<URL> getUrls(
+  private static ImmutableList<URI> getUrls(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
     ImmutableList<String> urlStrings;
@@ -454,28 +450,28 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
-    ImmutableList.Builder<URL> urls = ImmutableList.builder();
+    ImmutableList.Builder<URI> urls = ImmutableList.builder();
     for (String urlString : urlStrings) {
-      URL url;
+      URI url;
       try {
-        url = new URL(urlString);
-      } catch (MalformedURLException e) {
+        url = new URI(urlString);
+      } catch (URISyntaxException e) {
         throw new RepositoryFunctionException(
             new IOException("Bad URL: " + urlString, e), Transience.PERSISTENT);
       }
       if (!HttpUtils.isUrlSupportedByDownloader(url)) {
         throw new RepositoryFunctionException(
-            new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
+            new IOException("Unsupported protocol: " + url.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getScheme())) {
           urls.add(url);
         }
       } else {
         urls.add(url);
       }
     }
-    ImmutableList<URL> urlsResult = urls.build();
+    ImmutableList<URI> urlsResult = urls.build();
     if (ensureNonEmpty && urlsResult.isEmpty()) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -486,7 +482,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return urlsResult;
   }
 
-  private void warnAboutChecksumError(List<URL> urls, String errorMessage) {
+  private void warnAboutChecksumError(List<URI> urls, String errorMessage) {
     // Inform the user immediately, even though the file will still be downloaded.
     // This cannot be done by a regular error event, as all regular events are recorded
     // and only shown once the execution of the repository rule is finished.
@@ -495,7 +491,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
-  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
+  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URI> urls)
       throws RepositoryFunctionException, EvalException {
     if (!sha256.isEmpty()) {
       if (!integrity.isEmpty()) {
@@ -797,7 +793,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 
     ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
-    ImmutableList<URL> urls =
+    ImmutableList<URI> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
@@ -1052,7 +1048,7 @@ the same path on case-insensitive filesystems.
 
     ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
-    ImmutableList<URL> urls =
+    ImmutableList<URI> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,

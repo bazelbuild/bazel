@@ -20,20 +20,10 @@ import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.Socket;
-import java.net.URL;
 import javax.annotation.WillNotClose;
 
 final class DownloaderTestUtils {
-
-  static URL makeUrl(String url) {
-    try {
-      return new URL(url);
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   static void sendLines(@WillNotClose Socket socket, String... data) throws IOException {
     ByteStreams.copy(
