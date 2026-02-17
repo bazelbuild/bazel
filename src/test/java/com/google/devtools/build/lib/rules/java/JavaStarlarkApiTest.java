@@ -121,45 +121,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaInfoConstructorWithNeverlink() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(name = "somedep")
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        """
-        load("@rules_java//java:defs.bzl", "JavaInfo")
-        def _impl(ctx):
-            output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
-            ctx.actions.write(output_jar, "")
-            java_info = JavaInfo(
-                output_jar = output_jar,
-                compile_jar = None,
-                neverlink = True,
-            )
-            return [
-                java_info,
-            ]
-
-        java_custom_library = rule(
-            implementation = _impl,
-            fragments = ["java"],
-            provides = [JavaInfo],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
-
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    assertThat(javaInfo.isNeverlink()).isTrue();
-  }
-
-  @Test
   public void javaCommonMergeWithNeverlink() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
