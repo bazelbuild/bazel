@@ -276,9 +276,6 @@ public class UploadManifest {
             addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
           } else {
             // Symlink to file uploaded as a symlink.
-            if (target.isAbsolute()) {
-              checkAbsoluteSymlinkAllowed(file, target);
-            }
             addFileSymbolicLink(file, target);
           }
           continue;
@@ -289,9 +286,6 @@ public class UploadManifest {
             addDirectory(file);
           } else {
             // Symlink to directory uploaded as a symlink.
-            if (target.isAbsolute()) {
-              checkAbsoluteSymlinkAllowed(file, target);
-            }
             addDirectorySymbolicLink(file, target);
           }
           continue;
