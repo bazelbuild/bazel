@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
-import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -87,9 +86,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   void recordSerializationException(SerializationException e, SkyKey key);
 
-  void setTopLevelConfigChecksum(String checksum);
-
-  void setConfigMetadata(BuildOptions buildOptions);
+  void setTopLevelBuildOptions(BuildOptions buildOptions);
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;
 
@@ -102,8 +99,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
       ImmutableSet<SkyKey> keysToLookup,
       RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException;
-
-  SkycacheMetadataParams getSkycacheMetadataParams();
 
   default boolean bailedOut() {
     return false;
@@ -191,12 +186,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setConfigMetadata(BuildOptions buildOptions) {
+    public void setTopLevelBuildOptions(BuildOptions buildOptions) {
       throw new UnsupportedOperationException();
     }
 
@@ -209,11 +199,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     public ImmutableSet<SkyKey> lookupKeysToInvalidate(
         ImmutableSet<SkyKey> keysToLookup,
         RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public SkycacheMetadataParams getSkycacheMetadataParams() {
       throw new UnsupportedOperationException();
     }
 

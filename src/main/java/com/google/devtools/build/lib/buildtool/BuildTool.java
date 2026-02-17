@@ -1302,7 +1302,7 @@ public class BuildTool {
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
     // object was created in BuildTool.
-    private String topLevelConfigChecksum;
+    private BuildOptions topLevelBuildOptions;
 
     private final ExtendedEventHandler eventHandler;
 
@@ -1489,11 +1489,9 @@ public class BuildTool {
       this.listener = env.getRemoteAnalysisCachingEventListener();
       if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
         // null at construction time during deserializing build. Will be set later during analysis.
-        this.topLevelConfigChecksum =
+        this.topLevelBuildOptions =
             BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
-                    env.getSkyframeBuildView().getBuildConfiguration().getOptions(),
-                    env.getReporter())
-                .checksum();
+                env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
       }
 
       if (options.serverChecksumOverride != null) {
@@ -1627,7 +1625,7 @@ public class BuildTool {
           if (frontierNodeVersionSingleton == null) {
             frontierNodeVersionSingleton =
                 new FrontierNodeVersion(
-                    topLevelConfigChecksum,
+                    topLevelBuildOptions.checksum(),
                     blazeInstallMD5,
                     evaluatingVersion,
                     nullToEmpty(distinguisher),
@@ -1711,15 +1709,13 @@ public class BuildTool {
     }
 
     @Override
-    public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
-      this.topLevelConfigChecksum = topLevelConfigChecksum;
-    }
-
-    @Override
-    public void setConfigMetadata(BuildOptions buildOptions) {
-      skycacheMetadataParams.setConfigurationHash(buildOptions.checksum());
-      skycacheMetadataParams.setOriginalConfigurationOptions(
-          getConfigurationOptionsAsStrings(buildOptions));
+    public void setTopLevelBuildOptions(BuildOptions buildOptions) {
+      this.topLevelBuildOptions = buildOptions;
+      if (skycacheMetadataParams != null) {
+        skycacheMetadataParams.setConfigurationHash(buildOptions.checksum());
+        skycacheMetadataParams.setOriginalConfigurationOptions(
+            getConfigurationOptionsAsStrings(buildOptions));
+      }
     }
 
     @Override
@@ -1829,11 +1825,6 @@ public class BuildTool {
         }
       }
       return localRef;
-    }
-
-    @Override
-    public SkycacheMetadataParams getSkycacheMetadataParams() {
-      return skycacheMetadataParams;
     }
 
     @Override

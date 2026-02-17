@@ -328,12 +328,8 @@ public class BuildView {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
     if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
-      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
-          topLevelConfigurationTrimmedOfTestOptions.checksum());
-      if (remoteAnalysisCachingDependenciesProvider.areMetadataQueriesEnabled()) {
-        remoteAnalysisCachingDependenciesProvider.setConfigMetadata(
-            topLevelConfigurationTrimmedOfTestOptions);
-      }
+      remoteAnalysisCachingDependenciesProvider.setTopLevelBuildOptions(
+          topLevelConfigurationTrimmedOfTestOptions);
     }
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
