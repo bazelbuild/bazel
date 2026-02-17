@@ -177,9 +177,9 @@ final class Selection {
     }
 
     Function<ModuleKey, Version> resolutionStrategy =
-        depSpec ->
+        depKey ->
             selectedVersions.get(
-                computeSelectionGroup(depSpec.name(), depSpec.version(), allowedVersionSets));
+                computeSelectionGroup(depKey.name(), depKey.version(), allowedVersionSets));
 
     DepGraphWalker depGraphWalker = new DepGraphWalker(depGraph, overrides, selectionGroups);
 
@@ -199,7 +199,7 @@ final class Selection {
                 depGraph,
                 module ->
                     module.withDepsTransformed(
-                        depSpec -> new ModuleKey(depSpec.name(), resolutionStrategy.apply(depSpec)))));
+                        depKey -> new ModuleKey(depKey.name(), resolutionStrategy.apply(depKey)))));
 
     return new Result(prunedDepGraph, unprunedDepGraph);
   }
@@ -249,15 +249,15 @@ final class Selection {
         }
         InterimModule module =
             oldModule.withDepsTransformed(
-                depSpec -> new ModuleKey(depSpec.name(), resolutionStrategy.apply(depSpec)));
+                depKey -> new ModuleKey(depKey.name(), resolutionStrategy.apply(depKey)));
         visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
 
-        for (ModuleKey depSpec :
+        for (ModuleKey depKey :
             ignoreNodeps
                 ? module.getDeps().values()
                 : Iterables.concat(module.getDeps().values(), module.getNodepDeps())) {
-          if (known.add(depSpec)) {
-            toVisit.add(new ModuleKeyAndDependent(depSpec, key));
+          if (known.add(depKey)) {
+            toVisit.add(new ModuleKeyAndDependent(depKey, key));
           }
         }
         newDepGraph.put(key, module);
@@ -300,8 +300,8 @@ final class Selection {
       HashMap<ModuleKey, String> depKeyToRepoName = new HashMap<>();
       for (Map.Entry<String, ModuleKey> depEntry : module.getDeps().entrySet()) {
         String repoName = depEntry.getKey();
-        ModuleKey depSpec = depEntry.getValue();
-        String previousRepoName = depKeyToRepoName.put(depSpec, repoName);
+        ModuleKey depKey = depEntry.getValue();
+        String previousRepoName = depKeyToRepoName.put(depKey, repoName);
         if (previousRepoName != null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -309,10 +309,10 @@ final class Selection {
                   + " multiple_version_override if you want to depend on multiple versions of"
                   + " %s simultaneously",
               key,
-              depSpec,
+              depKey,
               repoName,
               previousRepoName,
-              depSpec.name());
+              depKey.name());
         }
       }
     }
