@@ -1,0 +1,62 @@
+name: Community Review Labeler
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label_community_reviewed:
+    # Trigger if the review is an approval, changes requested, or if a review was dismissed
+    if: github.event.review.state == 'approved' || github.event.action == 'dismissed' || github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout master branch
+        # We checkout master to ensure we use the authoritative list of trusted contributors,
+        # preventing PR authors from adding themselves to the list in their own branch.
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Check if reviewer is trusted
+        id: check_reviewer
+        run: |
+          REVIEWER="${{ github.event.review.user.login }}"
+          echo "Reviewer: $REVIEWER"
+
+          # Check if the reviewer is in our trusted_contributors.yaml list
+          # We use yq to parse the YAML file and check for the reviewer
+          if yq e ".trusted_contributors | any_c(. == \"$REVIEWER\")" .github/config/trusted_contributors.yaml | grep -q "true"; then
+            echo "is_trusted=true" >> $GITHUB_OUTPUT
+            echo "Result: Reviewer is a trusted community contributor."
+          else
+            echo "is_trusted=false" >> $GITHUB_OUTPUT
+            echo "Result: Reviewer is not in the trusted list."
+          fi
+
+      - name: Add community-reviewed label
+        if: github.event.action == 'submitted' && github.event.review.state == 'approved' && steps.check_reviewer.outputs.is_trusted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Adding 'community-reviewed' label to PR #$PR_NUMBER"
+          gh pr edit "$PR_NUMBER" --add-label "community-reviewed"
+
+      - name: Remove community-reviewed label
+        if: (github.event.action == 'dismissed' || github.event.review.state == 'changes_requested') && steps.check_reviewer.outputs.is_trusted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Removing 'community-reviewed' label from PR #$PR_NUMBER"
+          gh pr edit "$PR_NUMBER" --remove-label "community-reviewed"
+
