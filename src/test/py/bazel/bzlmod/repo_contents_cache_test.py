@@ -17,6 +17,7 @@
 import json
 import os
 import pathlib
+import shutil
 import tempfile
 import time
 
@@ -67,6 +68,38 @@ class RepoContentsCacheTest(test_base.TestBase):
     canonical_repo_name = mapping[repo_name]
 
     return output_base + '/external/' + canonical_repo_name
+
+  def assertRepoCached(self, repo_dir):
+    """Assert that a repo dir is a symlink into the repo contents cache."""
+    try:
+      target_path = os.readlink(repo_dir)
+      real_target_path = os.path.realpath(target_path)
+      real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
+      for parent in pathlib.Path(real_target_path).parents:
+        if parent.samefile(real_repo_contents_cache):
+          return
+      self.fail(
+          'repo target dir %s is not in the repo contents cache %s'
+          % (real_target_path, real_repo_contents_cache)
+      )
+    except OSError:
+      self.fail('repo_dir %s is not a symlink or junction' % repo_dir)
+
+  def assertRepoNotCached(self, repo_dir):
+    """Assert that a repo dir is NOT a symlink into the repo contents cache."""
+    try:
+      target_path = os.readlink(repo_dir)
+      real_target_path = os.path.realpath(target_path)
+      real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
+      for parent in pathlib.Path(real_target_path).parents:
+        if parent.samefile(real_repo_contents_cache):
+          self.fail(
+              'repo with cross-repo symlinks should not be cached, but %s'
+              ' points into %s'
+              % (real_target_path, real_repo_contents_cache)
+          )
+    except OSError:
+      pass  # Not a symlink means not cached, which is expected
 
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
@@ -605,6 +638,128 @@ class RepoContentsCacheTest(test_base.TestBase):
   def testRepoContentsCacheDeleted_withoutCheckExternalRepositoryFiles(self):
     self.doTestRepoContentsCacheDeleted(check_external_repository_files=False)
 
+  def doTestCachedRepoWithSymlinks(self, expect_cross_repo_cached=False):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "foo", "bar")',
+        ],
+    )
+    # Create the external file outside the workspace so it's not treated as
+    # a cross-repo symlink (workspace files go through _main redirect).
+    abs_file = os.path.join(self._tests_root, 'abs_external')
+    with open(abs_file, 'w') as f:
+      f.write('Hello from abs!\n')
+    abs_foo = abs_file.replace('\\', '/')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_foo_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from foo!\\n")',
+            '    ctx.file("sub/data", "Hello from sub!\\n")',
+            # Relative same-repo symlink (not touched by replanting)
+            '    ctx.symlink("data", "sym_rel")',
+            # Absolute same-repo symlink (replanted to relative before caching)
+            '    ctx.symlink(ctx.path("data"), "sym_abs_self")',
+            # Absolute same-repo symlink to a file in a subdirectory
+            '    ctx.symlink(ctx.path("sub/data"), "sym_abs_sub")',
+            # Absolute symlink outside of Bazel (not touched by replanting)
+            f'    ctx.symlink("{abs_foo}", "sym_ext")',
+            (
+                '    ctx.file("BUILD", "exports_files([\'sym_rel\','
+                " 'sym_abs_self', 'sym_abs_sub', 'sym_ext'])\")"
+            ),
+            '    return ctx.repo_metadata(reproducible=True)',
+            'repo_foo = repository_rule(implementation=_repo_foo_impl)',
+            '',
+            'def _repo_bar_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from bar!\\n")',
+            # Cross-repo symlink: prevents local caching on Unix
+            '    ctx.symlink(ctx.path(Label("@foo//:data")), "sym_cross")',
+            '    ctx.file("BUILD", "exports_files([\'data\', \'sym_cross\'])")',
+            '    return ctx.repo_metadata(reproducible=True)',
+            'repo_bar = repository_rule(implementation=_repo_bar_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_foo(name="foo")',
+            '    repo_bar(name="bar")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "print_paths",',
+            (
+                '  srcs = ["@foo//:sym_rel", "@foo//:sym_abs_self",'
+                ' "@foo//:sym_abs_sub", "@foo//:sym_ext", "@bar//:sym_cross"],'
+            ),
+            '  outs = ["output.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+    # First build: fetches and caches the repos.
+    self.RunBazel(['build', '//:print_paths'])
+    output = os.path.join(self._test_cwd, 'bazel-bin/output.txt')
+    self.AssertFileContentContains(
+        output,
+        'Hello from foo!\nHello from foo!\nHello from sub!\nHello from abs!'
+        '\nHello from foo!\n',
+    )
+    # Verify that foo (only same-repo symlinks) is cached.
+    foo_dir = self.repoDir('foo')
+    self.assertRepoCached(foo_dir)
+
+    bar_dir = self.repoDir('bar')
+    if expect_cross_repo_cached:
+      self.assertRepoCached(bar_dir)
+    else:
+      self.assertRepoNotCached(bar_dir)
+
+    # Copy the workspace to a new location and use a new output base to
+    # verify that the cached same-repo symlinks are portable.
+    new_wd = self._test_cwd + '/new'
+    shutil.copytree(self._test_cwd, new_wd, symlinks=True)
+    output_base = tempfile.mkdtemp(dir=self._tests_root)
+    self.RunBazel([
+        f'--output_base={output_base}',
+        'build',
+        '//:print_paths',
+        '--verbose_failures',
+    ], cwd=new_wd)
+    output = os.path.join(new_wd, 'bazel-bin/output.txt')
+    self.AssertFileContentContains(
+        output,
+        'Hello from foo!\nHello from foo!\nHello from sub!\nHello from abs!'
+        '\nHello from foo!\n',
+    )
+
+  def testCachedRepoWithSymlinks(self):
+    # On Windows without --windows_enable_symlinks, symlinks are just file
+    # copies, so the cross-repo repo is still cached.
+    # TODO: Ensure that symlinks that are created as copies are tracked for
+    #  invalidation.
+    self.doTestCachedRepoWithSymlinks(
+        expect_cross_repo_cached=self.IsWindows())
+
+  def testCachedRepoWithSymlinks_symlinksEnabledOnWindows(self):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.ScratchFile(
+      '.bazelrc',
+      [
+          'startup --windows_enable_symlinks',
+      ],
+      mode='a',
+    )
+    # With --windows_enable_symlinks, real symlinks are created and detected
+    # by the replanting logic, so cross-repo symlinks prevent caching.
+    self.doTestCachedRepoWithSymlinks(expect_cross_repo_cached=False)
 
 if __name__ == '__main__':
   absltest.main()
