@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -166,6 +167,7 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -1990,6 +1992,8 @@ public class RemoteExecutionService {
     if (!shutdown.compareAndSet(false, true)) {
       return;
     }
+
+    logger.atInfo().log("MerkleTreeComputer stats: %s", merkleTreeComputer.getStats());
 
     if (buildInterrupted.get()) {
       backgroundTaskExecutor.shutdownNow();

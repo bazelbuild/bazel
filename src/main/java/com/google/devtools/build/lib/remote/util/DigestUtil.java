@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
+import com.google.common.primitives.Longs;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -173,6 +174,29 @@ public class DigestUtil {
 
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
+  }
+
+  public static byte[] pack(Digest digest) {
+    byte[] packed = new byte[digest.getHash().length() / 2 + 8];
+    HashCode.fromString(digest.getHash()).writeBytesTo(packed, 0, packed.length - 8);
+    System.arraycopy(Longs.toByteArray(digest.getSizeBytes()), 0, packed, packed.length - 8, 8);
+    return packed;
+  }
+
+  public static Digest unpack(byte[] packed) {
+    byte[] hash = new byte[packed.length - 8];
+    System.arraycopy(packed, 0, hash, 0, hash.length);
+    long size =
+        Longs.fromBytes(
+            packed[packed.length - 8],
+            packed[packed.length - 7],
+            packed[packed.length - 6],
+            packed[packed.length - 5],
+            packed[packed.length - 4],
+            packed[packed.length - 3],
+            packed[packed.length - 2],
+            packed[packed.length - 1]);
+    return buildDigest(HashCode.fromBytes(hash).toString(), size);
   }
 
   public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {

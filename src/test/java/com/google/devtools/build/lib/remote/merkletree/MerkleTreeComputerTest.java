@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -222,10 +222,10 @@ public class MerkleTreeComputerTest {
               }
 
               @Override
-              public ListenableFuture<Void> uploadVirtualActionInput(
+              public ListenableFuture<Void> uploadDeterministicWriterOutput(
                   RemoteActionExecutionContext context,
                   Digest digest,
-                  VirtualActionInput virtualActionInput) {
+                  DeterministicWriter deterministicWriter) {
                 return immediateVoidFuture();
               }
 

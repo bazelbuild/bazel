@@ -35,7 +35,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
@@ -217,15 +217,17 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   }
 
   @Override
-  public ListenableFuture<Void> uploadVirtualActionInput(
-      RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput) {
+  public ListenableFuture<Void> uploadDeterministicWriterOutput(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      DeterministicWriter deterministicWriter) {
     return remoteCacheClient.uploadBlob(
-        context, digest, new VirtualActionInputBlob(virtualActionInput));
+        context, digest, new DeterministicWriterBlob(deterministicWriter));
   }
 
-  private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
+  private record DeterministicWriterBlob(DeterministicWriter deterministicWriter) implements Blob {
     @SuppressWarnings("AllowVirtualThreads")
-    private static final ExecutorService VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR =
+    private static final ExecutorService DETERMINISTIC_WRITER_PIPE_EXECUTOR =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("virtual-action-input-pipe-", 0).factory());
 
@@ -246,10 +248,10 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       // pipedIn are sent out via gRPC before more bytes are read. As a result, pipedOut is expected
       // to block frequently enough to make virtual threads suitable here.
       var unused =
-          VIRTUAL_ACTION_INPUT_PIPE_EXECUTOR.submit(
+          DETERMINISTIC_WRITER_PIPE_EXECUTOR.submit(
               () -> {
                 try (pipedOut) {
-                  virtualActionInput.writeTo(pipedOut);
+                  deterministicWriter.writeTo(pipedOut);
                 } catch (IOException e) {
                   // Since VirtualActionInput#writeTo only throws when pipedOut does, this means
                   // that the reader has closed pipedIn early, perhaps due to interruption. Since

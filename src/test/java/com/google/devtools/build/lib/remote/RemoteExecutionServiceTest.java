@@ -111,6 +111,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -142,6 +143,8 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -163,6 +166,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.openjdk.jol.info.GraphLayout;
 
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(TestParameterInjector.class)
@@ -788,6 +792,48 @@ public class RemoteExecutionServiceTest {
         combinedException.addSuppressed(e);
       }
       throw combinedException;
+    }
+
+    // Use JOL to assert on the retained size of an uploadable Merkle tree. These should use as
+    // little memory as possible since they are kept in memory during the whole remote execution.
+    // Memory usage isn't expected to differ by seed, so only check for one of them.
+    if (seed == 1) {
+      var merkleTree =
+          service
+              .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
+              .getMerkleTree();
+      assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
+      // These are roots that are already retained while a remote action is being executed or are
+      // effectively global singletons.
+      var otherInput = ActionsTestUtil.createArtifact(artifactRoot, "some/other/input/file.txt");
+      fakeFileCache.createScratchInput(otherInput, "some other content");
+      var otherSpawn = new SpawnBuilder().withInput(otherInput).withOutput("foo").build();
+      var someOtherMerkleTree =
+          service.buildRemoteAction(otherSpawn, newSpawnExecutionContext(otherSpawn));
+
+      // JOL tracks objects by their native address, so run GC to minimize noise from moved objects.
+      System.gc();
+      var alreadyRetainedObjects =
+          GraphLayout.parseInstance(spawn, fakeFileCache, digestUtil, someOtherMerkleTree);
+      // This covers objects internal to JOL itself as well as metadata lazily attached to classes
+      // related to MerkleTree.
+      var jolInternalObjects =
+          GraphLayout.parseInstance(alreadyRetainedObjects, someOtherMerkleTree);
+      var merkleTreeTransitiveRetention = GraphLayout.parseInstance(merkleTree);
+
+      var merkleTreeOnlyRetention =
+          merkleTreeTransitiveRetention
+              .subtract(alreadyRetainedObjects)
+              .subtract(jolInternalObjects);
+      // Output the objects that are transitively retained by merkleTreeTransitiveRetention but
+      // neither by alreadyRetainedObjects nor jolInternalObjects for manual inspection.
+      var footprintOut =
+          Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
+      Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
+      // TODO: Get this number down.
+      assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(2064);
+      assertThat(merkleTreeOnlyRetention.totalSize())
+          .isEqualTo(((MerkleTree.Uploadable) merkleTree).retainedBytes());
     }
   }
 
