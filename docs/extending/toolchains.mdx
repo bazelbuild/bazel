@@ -626,6 +626,12 @@ If the rule uses [execution groups](/extending/exec-groups), each execution
 group performs toolchain resolution separately, and each has its own execution
 platform and toolchains.
 
+**TIP:** For a toolchain to match a platform, the platform must define *all* of
+the toolchain's constraints. But the reverse isn't true: the platform may define
+additional constraints not specified by the toolchain. This lets developers
+define arbitrarily precise platforms that don't lose toolchain compatibility
+because of unrelated hardware variants.
+
 ## Debugging toolchains
 
 If you are adding toolchain support to an existing rule, use the
