@@ -189,7 +189,6 @@ public class ModuleFileGlobals {
         .getModuleBuilder()
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(0)
         .addBazelCompatibilityValues(
             checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
@@ -310,7 +309,9 @@ public class ModuleFileGlobals {
         };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
-      context.addDep(repoName, new DepSpec(name, parsedVersion, -1));
+      context.addDep(
+          repoName,
+          new DepSpec(name, parsedVersion));
     }
 
     if (repoName.isPresent()) {
