@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -269,15 +269,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     boolean failure = false;
-    for (Map.Entry<String, DepSpec> dep : discoveredRootModule.getDeps().entrySet()) {
-      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey()).toModuleKey();
-      if (!dep.getValue().toModuleKey().equals(resolved)) {
+    for (Map.Entry<String, ModuleKey> dep : discoveredRootModule.getDeps().entrySet()) {
+      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey());
+      if (!dep.getValue().equals(resolved)) {
         String message =
             String.format(
                 "For repository '%s', the root module requires module version %s, but got %s in the"
                     + " resolved dependency graph. Please update the version in your MODULE.bazel"
                     + " or set --check_direct_dependencies=off",
-                dep.getKey(), dep.getValue().toModuleKey(), resolved);
+                dep.getKey(), dep.getValue(), resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
           eventHandler.handle(Event.warn(message));
         } else {

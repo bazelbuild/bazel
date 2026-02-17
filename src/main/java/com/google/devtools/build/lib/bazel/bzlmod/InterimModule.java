@@ -50,29 +50,7 @@ public abstract class InterimModule extends ModuleBase {
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
 
-  /** The specification of a dependency. */
-  @AutoCodec
-  public record DepSpec(String name, Version version) {
-    public DepSpec {
-      requireNonNull(name, "name");
-      requireNonNull(version, "version");
-    }
 
-    public static final DepSpec ROOT_MODULE = fromModuleKey(ModuleKey.ROOT);
-
-    @VisibleForTesting
-    public static DepSpec fromModuleKey(ModuleKey key) {
-      return new DepSpec(key.name(), key.version());
-    }
-
-    public DepSpec withVersion(Version version) {
-      return new DepSpec(name(), version);
-    }
-
-    public ModuleKey toModuleKey() {
-      return new ModuleKey(name(), version());
-    }
-  }
 
   /**
    * The resolved direct dependencies of this module, which can be either the original ones,
@@ -80,20 +58,20 @@ public abstract class InterimModule extends ModuleBase {
    * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
    * dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getDeps();
+  public abstract ImmutableMap<String, ModuleKey> getDeps();
 
   /**
    * The original direct dependencies of this module as they are declared in their MODULE file. The
    * key type is the repo name of the dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
+  public abstract ImmutableMap<String, ModuleKey> getOriginalDeps();
 
   /**
    * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
    * module, but if specified module is somehow in the dependency graph, it'll be at least at this
    * version.
    */
-  public abstract ImmutableList<DepSpec> getNodepDeps();
+  public abstract ImmutableList<ModuleKey> getNodepDeps();
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -117,7 +95,7 @@ public abstract class InterimModule extends ModuleBase {
    * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
    * #getNodepDeps} transformed using the given function.
    */
-  public InterimModule withDepsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<ModuleKey> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
         .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
@@ -173,19 +151,19 @@ public abstract class InterimModule extends ModuleBase {
       return this;
     }
 
-    public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
 
-    public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
-    abstract ImmutableList.Builder<DepSpec> nodepDepsBuilder();
+    abstract ImmutableList.Builder<ModuleKey> nodepDepsBuilder();
 
     @CanIgnoreReturnValue
-    public final Builder addNodepDep(DepSpec value) {
+    public final Builder addNodepDep(ModuleKey value) {
       nodepDepsBuilder().add(value);
       return this;
     }
 
-    public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
+    public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
     public abstract Builder setRegistry(Registry value);
 
@@ -233,7 +211,7 @@ public abstract class InterimModule extends ModuleBase {
         .setRepoName(interim.getRepoName())
         .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
         .setToolchainsToRegister(interim.getToolchainsToRegister())
-        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setDeps(interim.getDeps())
         .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
         .setExtensionUsages(interim.getExtensionUsages())
         .setFlagAliases(interim.getFlagAliases())

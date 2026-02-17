@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,10 +37,9 @@ public class InterimModuleTest {
                 .build()
                 .withDepsTransformed(
                     depSpec ->
-                        DepSpec.fromModuleKey(
-                            createModuleKey(
-                                depSpec.name() + "_new",
-                                depSpec.version().getNormalized() + ".1"))))
+                        createModuleKey(
+                            depSpec.name() + "_new",
+                            depSpec.version().getNormalized() + ".1")))
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
