@@ -46,9 +46,9 @@ public final class BzlmodTestUtil {
     }
   }
 
-  public static DepSpec createDepSpec(String name, String version, int maxCompatibilityLevel) {
+  public static DepSpec createDepSpec(String name, String version) {
     try {
-      return new DepSpec(name, Version.parse(version), maxCompatibilityLevel);
+      return new DepSpec(name, Version.parse(version));
     } catch (Version.ParseException e) {
       throw new IllegalArgumentException(e);
     }
@@ -74,31 +74,17 @@ public final class BzlmodTestUtil {
 
     private InterimModuleBuilder() {}
 
-    public static InterimModuleBuilder create(
-        String name, Version version, int compatibilityLevel) {
+    public static InterimModuleBuilder create(String name, Version version) {
       InterimModuleBuilder moduleBuilder = new InterimModuleBuilder();
       ModuleKey key = new ModuleKey(name, version);
       moduleBuilder.key = key;
       moduleBuilder.builder =
-          InterimModule.builder()
-              .setName(name)
-              .setVersion(version)
-              .setKey(key)
-              .setCompatibilityLevel(compatibilityLevel);
+          InterimModule.builder().setName(name).setVersion(version).setKey(key);
       return moduleBuilder;
     }
 
-    public static InterimModuleBuilder create(String name, String version, int compatibilityLevel)
-        throws ParseException {
-      return create(name, Version.parse(version), compatibilityLevel);
-    }
-
     public static InterimModuleBuilder create(String name, String version) throws ParseException {
-      return create(name, Version.parse(version), 0);
-    }
-
-    public static InterimModuleBuilder create(String name, Version version) throws ParseException {
-      return create(name, version, 0);
+      return create(name, Version.parse(version));
     }
 
     @CanIgnoreReturnValue

@@ -41,24 +41,18 @@ import net.starlark.java.eval.StarlarkList;
  * after discovery but before selection, or when there's a multiple_version_override in play).
  *
  * <p>Compared to {@link Module}, which is used after module resolution, this class holds some more
- * information that's useful only during resolution, such as the {@code max_compatibility_level} for
- * each dep, the {@code compatibility_level}, the {@code registry} the module comes from, etc.
+ * information that's useful only during resolution, such as the {@code registry} the module comes
+ * from, etc.
  */
 @AutoValue
 public abstract class InterimModule extends ModuleBase {
-
-  /**
-   * The compatibility level of the module, which essentially signifies the "major version" of the
-   * module in terms of SemVer.
-   */
-  public abstract int getCompatibilityLevel();
 
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
 
   /** The specification of a dependency. */
   @AutoCodec
-  public record DepSpec(String name, Version version, int maxCompatibilityLevel) {
+  public record DepSpec(String name, Version version) {
     public DepSpec {
       requireNonNull(name, "name");
       requireNonNull(version, "version");
@@ -68,11 +62,11 @@ public abstract class InterimModule extends ModuleBase {
 
     @VisibleForTesting
     public static DepSpec fromModuleKey(ModuleKey key) {
-      return new DepSpec(key.name(), key.version(), -1);
+      return new DepSpec(key.name(), key.version());
     }
 
     public DepSpec withVersion(Version version) {
-      return new DepSpec(name(), version, maxCompatibilityLevel());
+      return new DepSpec(name(), version);
     }
 
     public ModuleKey toModuleKey() {
@@ -116,8 +110,7 @@ public abstract class InterimModule extends ModuleBase {
     return new AutoValue_InterimModule.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
-        .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0);
+        .setKey(ModuleKey.ROOT);
   }
 
   /**
@@ -143,8 +136,6 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
 
-    /** Optional; defaults to {@code 0}. */
-    public abstract Builder setCompatibilityLevel(int value);
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
