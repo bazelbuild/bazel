@@ -135,9 +135,13 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         // Never null since we already checked that the aspect is Starlark-defined.
         implicitDefinition = checkNotNull(aspectClass.getExtensionLabel());
       } else {
-        // Never null since we already checked that the rule is a Starlark rule.
-        implicitDefinition =
-            checkNotNull(rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel());
+        var owningRule = rule.getRuleClassObject();
+        com.google.devtools.build.lib.packages.RuleClass parent;
+        while ((parent = owningRule.getStarlarkParent()) != null
+            && parent.getAttributeProvider().getAttributeByNameMaybe(attrName) != null) {
+          owningRule = parent;
+        }
+        implicitDefinition = checkNotNull(owningRule.getRuleDefinitionEnvironmentLabel());
       }
       // Validate with respect to the defining .bzl.
       if (!isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())) {
