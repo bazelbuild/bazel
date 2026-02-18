@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
 import javax.annotation.Nullable;
 
@@ -81,12 +81,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     boolean existingDirectory = stat != null && stat.isDirectory();
 
     try {
-      File link = getIoFile(linkPath);
-      File target = getIoFile(targetPath);
+      Path link = getNioPath(linkPath);
+      Path target = getNioPath(targetPath);
 
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
-        Files.copy(target.toPath(), link.toPath());
+        Files.copy(target, link);
       } else if (createSymbolicLinks
           && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
         // If symlinks are enabled and the target is not an existing or future directory, create a
@@ -120,15 +120,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected boolean fileIsSymbolicLink(File file) {
+  protected boolean fileIsSymbolicLink(java.nio.file.Path nioPath) {
     try {
-      if (isSymlinkOrJunction(file)) {
+      if (isSymlinkOrJunction(nioPath)) {
         return true;
       }
     } catch (IOException e) {
       // Did not work, try in another way
     }
-    return super.fileIsSymbolicLink(file);
+    return super.fileIsSymbolicLink(nioPath);
   }
 
   public static LinkOption[] symlinkOpts(boolean followSymlinks) {
@@ -137,91 +137,62 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    File file = getIoFile(path);
-    final DosFileAttributes attributes;
+    java.nio.file.Path nioPath = getNioPath(path);
     try {
-      attributes = getAttribs(file, followSymlinks);
+      return new WindowsFileStatus(
+          Files.readAttributes(nioPath, DosFileAttributes.class, symlinkOpts(followSymlinks)),
+          followSymlinks,
+          nioPath);
     } catch (IOException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      throw translateNioToIoException(path, e);
     }
+  }
 
-    FileStatus status =
-        new FileStatus() {
-          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
-          volatile long lastChangeTime = -1;
+  @Override
+  @Nullable
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+    try {
+      java.nio.file.Path nioPath = getNioPath(path);
+      DosFileAttributes attributes =
+          nioPath
+              .getFileSystem()
+              .provider()
+              .readAttributesIfExists(
+                  nioPath, DosFileAttributes.class, symlinkOpts(followSymlinks));
+      if (attributes == null) {
+        return null;
+      }
+      return new WindowsFileStatus(attributes, followSymlinks, nioPath);
+    } catch (IOException e) {
+      // A parent of the path is not a directory, which means that the path doesn't exist - but the
+      // JDK reports this as a separate exception.
+      // https://bugs.openjdk.org/browse/JDK-8374441
+      if (e instanceof FileSystemException fse && "Not a directory".equals(fse.getReason())) {
+        return null;
+      }
+      throw translateNioToIoException(path, e);
+    }
+  }
 
-          @Override
-          public boolean isFile() {
-            return !isSymbolicLink() && (attributes.isRegularFile() || isSpecialFile());
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            // attributes.isOther() returns false for symlinks but returns true for junctions.
-            // Bazel treats junctions like symlinks. So let's return false here for junctions.
-            // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink() && attributes.isOther();
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return !isSymbolicLink() && attributes.isDirectory();
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
-            }
-            return isSymbolicLink;
-          }
-
-          @Override
-          public long getSize() {
-            return attributes.size();
-          }
-
-          @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
-          }
-
-          @Override
-          public long getLastChangeTime() throws IOException {
-            if (lastChangeTime == -1) {
-              lastChangeTime =
-                  WindowsFileOperations.getLastChangeTime(
-                      getNioPath(path).toString(), followSymlinks);
-            }
-            return lastChangeTime;
-          }
-
-          @Override
-          public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
-          }
-
-          @Override
-          public int getPermissions() {
-            // Files on Windows are implicitly readable and executable.
-            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
-          }
-        };
-
-    return status;
+  @Override
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+    try {
+      return statIfFound(path, followSymlinks);
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   @Override
   public boolean isSymbolicLink(PathFragment path) {
-    return fileIsSymbolicLink(getIoFile(path));
+    return fileIsSymbolicLink(getNioPath(path));
   }
 
   @Override
   public boolean isDirectory(PathFragment path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (isSymlinkOrJunction(getIoFile(path))) {
+        if (isSymlinkOrJunction(getNioPath(path))) {
           return false;
         }
       } catch (IOException e) {
@@ -245,13 +216,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    // Windows does not have a notion of read-only directories.
-    // See https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants.
-    // JavaIoFileSystem#setWritable(dir, true) would throw, so reimplement it here as a no-op.
-    if (isDirectory(path, /* followSymlinks= */ true)) {
-      return;
+    // Windows does not have a notion of read-only directories, for which the readonly flag is
+    // ignored.
+    // https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+    try {
+      Files.setAttribute(getNioPath(path), "dos:readonly", !writable);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
-    super.setWritable(path, writable);
   }
 
   /**
@@ -274,13 +246,85 @@ public class WindowsFileSystem extends JavaIoFileSystem {
    * they are dangling), though only directory junctions and directory symlinks are useful.
    */
   @VisibleForTesting
-  static boolean isSymlinkOrJunction(File file) throws IOException {
-    return WindowsFileOperations.isSymlinkOrJunction(file.getPath());
+  static boolean isSymlinkOrJunction(Path file) throws IOException {
+    return WindowsFileOperations.isSymlinkOrJunction(file.toString());
   }
 
-  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
-      throws IOException {
-    return Files.readAttributes(
-        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
+  private class WindowsFileStatus implements FileStatus {
+    private final DosFileAttributes attributes;
+    private final boolean followSymlinks;
+    private final java.nio.file.Path nioPath;
+    @Nullable volatile Boolean isSymbolicLink; // null if not yet known
+    volatile long lastChangeTime = -1;
+
+    public WindowsFileStatus(
+        DosFileAttributes attributes, boolean followSymlinks, java.nio.file.Path nioPath) {
+      this.attributes = attributes;
+      this.followSymlinks = followSymlinks;
+      if (followSymlinks) {
+        isSymbolicLink = false;
+      }
+      this.nioPath = nioPath;
+    }
+
+    @Override
+    public boolean isFile() {
+      return !isSymbolicLink() && (attributes.isRegularFile() || isSpecialFile());
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      // attributes.isOther() returns false for symlinks but returns true for junctions.
+      // Bazel treats junctions like symlinks. So let's return false here for junctions.
+      // This fixes https://github.com/bazelbuild/bazel/issues/9176
+      return !isSymbolicLink() && attributes.isOther();
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return !isSymbolicLink() && attributes.isDirectory();
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      Boolean localIsSymbolicLink = isSymbolicLink;
+      if (localIsSymbolicLink == null) {
+        isSymbolicLink = fileIsSymbolicLink(nioPath);
+        localIsSymbolicLink = isSymbolicLink;
+      }
+      return localIsSymbolicLink;
+    }
+
+    @Override
+    public long getSize() {
+      return attributes.size();
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      return attributes.lastModifiedTime().toMillis();
+    }
+
+    @Override
+    public long getLastChangeTime() throws IOException {
+      if (lastChangeTime == -1) {
+        lastChangeTime =
+            WindowsFileOperations.getLastChangeTime(nioPath.toString(), followSymlinks);
+      }
+      return lastChangeTime;
+    }
+
+    @Override
+    public long getNodeId() {
+      // TODO(bazel-team): Consider making use of attributes.fileKey().
+      return -1;
+    }
+
+    @Override
+    public int getPermissions() {
+      // Files and directories on Windows are implicitly readable and executable, directories are
+      // also implicitly writable.
+      return 0555 | (attributes.isReadOnly() && !attributes.isDirectory() ? 0 : 0200);
+    }
   }
 }

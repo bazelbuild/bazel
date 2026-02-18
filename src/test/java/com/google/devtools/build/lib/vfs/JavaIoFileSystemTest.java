@@ -46,12 +46,6 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
 
   // Tests are inherited from the FileSystemTest
 
-  // JavaIoFileSystem incorrectly throws a FileNotFoundException for all IO errors. This means that
-  // statIfFound incorrectly suppresses those errors.
-  @Override
-  @Test
-  public void testBadPermissionsThrowsExceptionOnStatIfFound() {}
-
   @Override
   protected boolean isHardLinked(Path a, Path b) throws IOException {
     return Files.readAttributes(
