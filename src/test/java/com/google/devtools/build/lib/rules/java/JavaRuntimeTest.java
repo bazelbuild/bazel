@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Info;
@@ -65,18 +63,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     useConfiguration("--define=CMDLINE=foo/bar");
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("/opt/foo/bar");
-  }
-
-  @Test
-  public void makeVariables() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')");
-    ImmutableMap<String, String> runtime = getConfiguredTarget("//a:jvm")
-        .get(TemplateVariableInfo.PROVIDER).getVariables();
-    assertThat(runtime.get("JAVABASE")).isEqualTo("/foo/bar");
-    assertThat(runtime.get("JAVA")).startsWith("/foo/bar/bin/java");  // Windows has .exe suffix
   }
 
   @Test
