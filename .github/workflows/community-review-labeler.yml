@@ -1,7 +1,7 @@
 name: Community Review Labeler
 
 on:
-  pull_request_review:
+  pull_request_target:
     types: [submitted, dismissed]
 
 permissions:
