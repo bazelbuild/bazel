@@ -447,7 +447,7 @@ public class UploadManifest {
           checkState(subdir.getParentDirectory().equals(dir));
           builder
               .addDirectoriesBuilder()
-              .setName(subdir.getBaseName())
+              .setName(internalToUnicode(subdir.getBaseName()))
               .setDigest(dirToDigest.get(subdir));
         }
         ByteString dirBlob = builder.build().toByteString();
@@ -535,7 +535,7 @@ public class UploadManifest {
       Digest digest = digestUtil.compute(path);
       FileNode node =
           FileNode.newBuilder()
-              .setName(path.getBaseName())
+              .setName(internalToUnicode(path.getBaseName()))
               .setDigest(digest)
               .setIsExecutable(!preserveExecutableBit || (stat.getPermissions() & 0100) != 0)
               .build();
@@ -546,7 +546,10 @@ public class UploadManifest {
     private void visitAsSymlink(Path path, PathFragment target) {
       Path parentPath = path.getParentDirectory();
       SymlinkNode node =
-          SymlinkNode.newBuilder().setName(path.getBaseName()).setTarget(target.toString()).build();
+          SymlinkNode.newBuilder()
+              .setName(internalToUnicode(path.getBaseName()))
+              .setTarget(internalToUnicode(target.toString()))
+              .build();
       dirToSymlinks.put(parentPath, node);
     }
   }
