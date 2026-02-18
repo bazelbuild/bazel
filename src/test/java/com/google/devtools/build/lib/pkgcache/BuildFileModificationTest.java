@@ -78,7 +78,6 @@ public class BuildFileModificationTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     PackageFactory pkgFactory =
         analysisMock

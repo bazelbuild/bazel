@@ -32,7 +32,6 @@ public final class BlazeDirectoriesTest extends FoundationTestCase {
               FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
               FsUtils.TEST_FILESYSTEM.getPath("/user_root")),
           FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
-          /* defaultSystemJavabase= */ null,
           /* productName= */ "bazel");
 
   @Test

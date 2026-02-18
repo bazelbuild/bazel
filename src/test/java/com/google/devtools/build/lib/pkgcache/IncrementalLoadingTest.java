@@ -494,7 +494,6 @@ public class IncrementalLoadingTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
-              /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       PackageFactory pkgFactory =

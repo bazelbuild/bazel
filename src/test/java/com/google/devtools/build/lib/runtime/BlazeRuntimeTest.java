@@ -65,8 +65,7 @@ public class BlazeRuntimeTest {
       new ServerDirectories(
           fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
   private final BlazeDirectories blazeDirectories =
-      new BlazeDirectories(
-          serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
+      new BlazeDirectories(serverDirectories, fs.getPath("/workspace"), "blaze");
   private final OptionsParser optionsParser =
       OptionsParser.builder()
           .optionsClasses(

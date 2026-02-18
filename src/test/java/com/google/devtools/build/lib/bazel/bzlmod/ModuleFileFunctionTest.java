@@ -116,7 +116,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             AnalysisMock.get().getProductName());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(

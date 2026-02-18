@@ -1358,7 +1358,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     String productName = startupOptions.productName.toLowerCase(Locale.US);
 
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
-    PathFragment defaultSystemJavabase = startupOptions.defaultSystemJavabase;
+
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
@@ -1490,10 +1490,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
     }
-    Path defaultSystemJavabasePath = null;
-    if (!defaultSystemJavabase.equals(PathFragment.EMPTY_FRAGMENT)) {
-      defaultSystemJavabasePath = fs.getPath(defaultSystemJavabase);
-    }
+
 
     ServerDirectories serverDirectories =
         new ServerDirectories(
@@ -1537,8 +1534,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomExitCodePublisher.maybeDeleteAbruptExitStatusFile();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, workspaceDirectoryPath, defaultSystemJavabasePath, productName);
+        new BlazeDirectories(serverDirectories, workspaceDirectoryPath, productName);
     BinTools binTools;
     try {
       binTools = BinTools.forProduction(directories);

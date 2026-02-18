@@ -307,8 +307,7 @@ public class WorkerModuleTest {
             .setStartupOptionsProvider(startupOptionsProvider)
             .build();
     when(env.getRuntime()).thenReturn(blazeRuntime);
-    BlazeDirectories blazeDirectories =
-        new BlazeDirectories(serverDirectories, null, null, "blaze");
+    BlazeDirectories blazeDirectories = new BlazeDirectories(serverDirectories, null, "blaze");
     BlazeWorkspace blazeWorkspace =
         new BlazeWorkspace(
             blazeRuntime,

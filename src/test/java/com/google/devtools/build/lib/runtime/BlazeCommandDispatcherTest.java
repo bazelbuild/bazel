@@ -132,7 +132,6 @@ public final class BlazeCommandDispatcherTest {
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("scratch"),
-            /* defaultSystemJavabase= */ null,
             productName);
     runtime.initWorkspace(directories, /*binTools=*/null);
     errorOnAfterCommand = null;

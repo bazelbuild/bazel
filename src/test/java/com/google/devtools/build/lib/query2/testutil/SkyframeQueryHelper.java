@@ -130,7 +130,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
                 FAKE_INSTALL_MD5_STRING),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 

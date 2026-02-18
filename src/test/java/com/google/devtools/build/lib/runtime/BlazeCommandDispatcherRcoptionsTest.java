@@ -140,8 +140,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, scratch.dir("pkg"), /* defaultSystemJavabase= */ null, productName);
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
     this.runtime.initWorkspace(directories, /* binTools= */ null);
   }
 

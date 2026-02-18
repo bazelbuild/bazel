@@ -96,7 +96,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(

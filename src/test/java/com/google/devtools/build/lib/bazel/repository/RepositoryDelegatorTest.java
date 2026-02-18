@@ -117,7 +117,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootPath, rootPath, rootPath),
             rootPath,
-            /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     RepositoryFetchFunction delegatorFunction =
         new RepositoryFetchFunction(

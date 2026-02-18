@@ -416,7 +416,6 @@ public final class CommandInterruptionTest {
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("workspace"),
-            /* defaultSystemJavabase= */ null,
             productName);
     runtime.initWorkspace(blazeDirectories, /* binTools= */ null);
   }

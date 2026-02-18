@@ -268,12 +268,7 @@ public abstract class BuildIntegrationTestCase {
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
-    directories =
-        new BlazeDirectories(
-            serverDirectories,
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+    directories = new BlazeDirectories(serverDirectories, workspace, TestConstants.PRODUCT_NAME);
     binTools = IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();

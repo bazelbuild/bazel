@@ -183,7 +183,6 @@ public final class StarlarkRepositoryContextTest {
         new BlazeDirectories(
             new ServerDirectories(root.asPath(), outputBase, root.asPath()),
             root.asPath(),
-            /* defaultSystemJavabase= */ null,
             AnalysisMock.get().getProductName());
     context =
         new StarlarkRepositoryContext(

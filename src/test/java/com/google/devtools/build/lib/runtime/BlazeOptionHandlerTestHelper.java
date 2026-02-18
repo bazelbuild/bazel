@@ -64,7 +64,6 @@ class BlazeOptionHandlerTestHelper {
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("workspace"),
-            /* defaultSystemJavabase= */ null,
             productName);
     runtime.initWorkspace(directories, /*binTools=*/ null);
 
