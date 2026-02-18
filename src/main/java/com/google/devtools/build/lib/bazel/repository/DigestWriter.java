@@ -63,8 +63,13 @@ public class DigestWriter {
       RepoDefinition repoDefinition,
       StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
+    boolean supportsSymlinks =
+        directories
+            .getOutputBase()
+            .getFileSystem()
+            .supportsSymbolicLinksNatively(directories.getOutputBase().asFragment());
     String predeclaredInputHash =
-        computePredeclaredInputHash(env, repoDefinition, starlarkSemantics);
+        computePredeclaredInputHash(env, repoDefinition, starlarkSemantics, supportsSymlinks);
     if (predeclaredInputHash == null) {
       return null;
     }
@@ -166,7 +171,10 @@ public class DigestWriter {
 
   @Nullable
   static String computePredeclaredInputHash(
-      Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
+      Environment env,
+      RepoDefinition repoDefinition,
+      StarlarkSemantics starlarkSemantics,
+      boolean supportsSymlinks)
       throws InterruptedException {
     var environ =
         RepoEnvironmentFunction.getEnvironmentView(env, repoDefinition.repoRule().environ());
@@ -199,6 +207,13 @@ public class DigestWriter {
               fp.addString(entry.getColumnKey());
               fp.addString(entry.getValue().getName());
             });
+    // Whether the filesystem supports symlinks natively determines how rctx.symlink() behaves with
+    // respect to file watches. It is difficult to reason about invalidation if this behavior change
+    // itself is not captured. Don't record this unconditionally to preserve preexisting marker
+    // files on filesystems that do support symlinks.
+    if (!supportsSymlinks) {
+      fp.addBoolean(false);
+    }
     return fp.hexDigestAndReset();
   }
 
