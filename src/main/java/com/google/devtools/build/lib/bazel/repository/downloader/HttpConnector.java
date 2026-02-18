@@ -31,7 +31,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.time.Duration;
@@ -108,15 +108,15 @@ class HttpConnector {
   }
 
   URLConnection connect(
-      URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
+      URI originalUrl, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    URL url = originalUrl;
+    URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.openConnection();
+      return url.toURL().openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
@@ -126,7 +126,7 @@ class HttpConnector {
       HttpURLConnection connection = null;
       try {
         ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
-        connection = (HttpURLConnection) url.openConnection(proxyInfo.proxy());
+        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
         // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
         // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
         // Authenticator we set in ProxyHelper.

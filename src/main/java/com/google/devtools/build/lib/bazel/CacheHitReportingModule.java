@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Pair;
-import java.net.URL;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.Set;
 /** Module reporting about cache hits in external repositories in case of failures */
 public final class CacheHitReportingModule extends BlazeModule {
   private Reporter reporter;
-  private Map<String, Set<Pair<String, URL>>> cacheHitsByContext;
+  private Map<String, Set<Pair<String, URI>>> cacheHitsByContext;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -49,22 +49,22 @@ public final class CacheHitReportingModule extends BlazeModule {
   @Subscribe
   public synchronized void cacheHit(DownloadCacheHitEvent event) {
     cacheHitsByContext
-        .computeIfAbsent(event.getContext(), k -> new HashSet<>())
-        .add(Pair.of(event.getFileHash(), event.getUrl()));
+        .computeIfAbsent(event.context(), k -> new HashSet<>())
+        .add(Pair.of(event.fileHash(), event.uri()));
   }
 
   @Subscribe
   public void failed(RepositoryFailedEvent event) {
     // TODO(wyv): add an event for the failure of a module extension too
     String context = RepositoryFetchProgress.repositoryFetchContextString(event.getRepo());
-    Set<Pair<String, URL>> cacheHits = cacheHitsByContext.get(context);
+    Set<Pair<String, URI>> cacheHits = cacheHitsByContext.get(context);
     if (cacheHits != null && !cacheHits.isEmpty()) {
       StringBuilder info = new StringBuilder();
 
       info.append(context)
           .append(
               "' used the following cache hits instead of downloading the corresponding file.\n");
-      for (Pair<String, URL> hit : cacheHits) {
+      for (Pair<String, URI> hit : cacheHits) {
         info.append(" * Hash '")
             .append(hit.getFirst())
             .append("' for ")

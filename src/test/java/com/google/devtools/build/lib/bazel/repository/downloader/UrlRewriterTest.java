@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.net.URI;
-import java.net.URL;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -56,8 +55,8 @@ public class UrlRewriterTest {
   public void byDefaultTheUrlRewriterDoesNothing() throws Exception {
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(""));
 
-    List<URL> urls = ImmutableList.of(new URL("http://example.com"));
-    ImmutableList<URL> amended =
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("http://example.com"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended).isEqualTo(urls);
@@ -67,8 +66,6 @@ public class UrlRewriterTest {
   public void constructorMustHaveTheSameNumberOfFilePathsAndReaders()
       throws UrlRewriterParseException {
     // This has one file path and one reader - no exception is thrown.
-    UrlRewriter munger =
-        new UrlRewriter(ImmutableList.of("/dev/null"), ImmutableList.of(new StringReader("")));
 
     // Two file paths, but one reader - this will fail the precondition.
     assertThrows(
@@ -85,15 +82,15 @@ public class UrlRewriterTest {
     String config = "block example.com";
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> urls =
+    ImmutableList<URI> urls =
         ImmutableList.of(
-            new URL("http://example.com"),
-            new URL("https://example.com"),
-            new URL("http://localhost"));
-    ImmutableList<URL> amended =
+            URI.create("http://example.com"),
+            URI.create("https://example.com"),
+            URI.create("http://localhost"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("http://localhost"));
+    assertThat(amended).containsExactly(URI.create("http://localhost"));
   }
 
   @Test
@@ -101,11 +98,11 @@ public class UrlRewriterTest {
     String config = "rewrite example.com/foo/(.*) mycorp.com/$1/foo";
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
-    ImmutableList<URL> amended =
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("https://example.com/foo/bar"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://mycorp.com/bar/foo"));
+    assertThat(amended).containsExactly(URI.create("https://mycorp.com/bar/foo"));
   }
 
   @Test
@@ -115,13 +112,13 @@ public class UrlRewriterTest {
             + "rewrite example.com/foo/(.*) mycorp.com/$1/elsewhere";
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
-    ImmutableList<URL> amended =
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("https://example.com/foo/bar"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     // There's no guarantee about the ordering of the rewrites
-    assertThat(amended).contains(new URL("https://mycorp.com/bar/somewhere"));
-    assertThat(amended).contains(new URL("https://mycorp.com/bar/elsewhere"));
+    assertThat(amended).contains(URI.create("https://mycorp.com/bar/somewhere"));
+    assertThat(amended).contains(URI.create("https://mycorp.com/bar/elsewhere"));
   }
 
   /** Same as {@link #rewritesCanExpandToMoreThanOneUrl()} but spread across two config files. */
@@ -134,13 +131,13 @@ public class UrlRewriterTest {
             ImmutableList.of("/dev/null", "/dev/null"),
             ImmutableList.of(new StringReader(config), new StringReader(config2)));
 
-    List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
-    ImmutableList<URL> amended =
+    ImmutableList<URI> urls = ImmutableList.of(URI.create("https://example.com/foo/bar"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     // There's no guarantee about the ordering of the rewrites
-    assertThat(amended).contains(new URL("https://mycorp.com/bar/somewhere"));
-    assertThat(amended).contains(new URL("https://mycorp.com/bar/elsewhere"));
+    assertThat(amended).contains(URI.create("https://mycorp.com/bar/somewhere"));
+    assertThat(amended).contains(URI.create("https://mycorp.com/bar/elsewhere"));
   }
 
   @Test
@@ -149,17 +146,18 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> urls =
+    ImmutableList<URI> urls =
         ImmutableList.of(
-            new URL("https://foo.com"),
-            new URL("https://example.com/foo/bar"),
-            new URL("https://subdomain.example.com/qux"));
-    ImmutableList<URL> amended =
+            URI.create("https://foo.com"),
+            URI.create("https://example.com/foo/bar"),
+            URI.create("https://subdomain.example.com/qux"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
     assertThat(amended)
         .containsExactly(
-            new URL("https://example.com/foo/bar"), new URL("https://subdomain.example.com/qux"));
+            URI.create("https://example.com/foo/bar"),
+            URI.create("https://subdomain.example.com/qux"));
   }
 
   @Test
@@ -173,11 +171,12 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> urls = ImmutableList.of(new URL("https://foo.com"), new URL("https://example.com"));
-    ImmutableList<URL> amended =
+    ImmutableList<URI> urls =
+        ImmutableList.of(URI.create("https://foo.com"), URI.create("https://example.com"));
+    ImmutableList<URI> amended =
         munger.amend(urls).stream().map(url -> url.url()).collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://example.com"));
+    assertThat(amended).containsExactly(URI.create("https://example.com"));
   }
 
   @Test
@@ -186,12 +185,12 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    ImmutableList<URL> amended =
-        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+    ImmutableList<URI> amended =
+        munger.amend(ImmutableList.of(URI.create("https://subdomain.example.com"))).stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://subdomain.example.com"));
+    assertThat(amended).containsExactly(URI.create("https://subdomain.example.com"));
   }
 
   @Test
@@ -200,8 +199,8 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    ImmutableList<URL> amended =
-        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+    ImmutableList<URI> amended =
+        munger.amend(ImmutableList.of(URI.create("https://subdomain.example.com"))).stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
@@ -214,12 +213,12 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    ImmutableList<URL> amended =
-        munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
+    ImmutableList<URI> amended =
+        munger.amend(ImmutableList.of(URI.create("https://subdomain.example.com"))).stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://subdomain.example.com"));
+    assertThat(amended).containsExactly(URI.create("https://subdomain.example.com"));
   }
 
   @Test
@@ -228,16 +227,16 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> amended =
+    ImmutableList<URI> amended =
         munger
             .amend(
                 ImmutableList.of(
-                    new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")))
+                    URI.create("https://www.bad.com"), URI.create("https://bad.com/foo/bar")))
             .stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://mycorp.com/bar"));
+    assertThat(amended).containsExactly(URI.create("https://mycorp.com/bar"));
   }
 
   @Test
@@ -247,16 +246,16 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> amended =
+    ImmutableList<URI> amended =
         munger
             .amend(
                 ImmutableList.of(
-                    new URL("https://www.bad.com"), new URL("https://bad.com/foo/bar")))
+                    URI.create("https://www.bad.com"), URI.create("https://bad.com/foo/bar")))
             .stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
-    assertThat(amended).containsExactly(new URL("https://mycorp.com/bar"));
+    assertThat(amended).containsExactly(URI.create("https://mycorp.com/bar"));
   }
 
   @Test
@@ -309,20 +308,20 @@ public class UrlRewriterTest {
 
     UrlRewriter munger = testUrlRewriter("/dev/null", new StringReader(config));
 
-    List<URL> amended =
+    ImmutableList<URI> amended =
         munger
             .amend(
                 ImmutableList.of(
-                    new URL("https://www.bad.com"),
-                    new URL("https://bad.com/foo/bar"),
-                    new URL("http://bad.com/bar/xyz")))
+                    URI.create("https://www.bad.com"),
+                    URI.create("https://bad.com/foo/bar"),
+                    URI.create("http://bad.com/bar/xyz")))
             .stream()
             .map(url -> url.url())
             .collect(toImmutableList());
 
     assertThat(amended)
         .containsExactly(
-            new URL("http://mycorp.com/bar"), new URL("https://othercorp.com/bar/xyz"));
+            URI.create("http://mycorp.com/bar"), URI.create("https://othercorp.com/bar/xyz"));
   }
 
   @Test
@@ -356,11 +355,11 @@ public class UrlRewriterTest {
     ImmutableList<UrlRewriter.RewrittenURL> amended =
         munger.amend(
             ImmutableList.of(
-                new URL("https://my.example.com/foo/bar"),
-                new URL("https://my.example.com/from_netrc/bar"),
-                new URL("https://my.example.com/from_other_netrc_entry/bar"),
-                new URL("https://my.example.com/no_creds/bar"),
-                new URL("https://should-not-be-overridden.com/")));
+                URI.create("https://my.example.com/foo/bar"),
+                URI.create("https://my.example.com/from_netrc/bar"),
+                URI.create("https://my.example.com/from_other_netrc_entry/bar"),
+                URI.create("https://my.example.com/no_creds/bar"),
+                URI.create("https://should-not-be-overridden.com/")));
     Map<URI, Map<String, List<String>>> updatedAuthHeaders =
         munger.updateAuthHeaders(amended, ImmutableMap.of(), netrc);
 
@@ -383,13 +382,14 @@ public class UrlRewriterTest {
     assertThat(amended)
         .containsExactly(
             UrlRewriter.RewrittenURL.create(
-                new URL("https://user:password@mycorp.com/foo/bar"), true),
-            UrlRewriter.RewrittenURL.create(new URL("https://mycorp.com/from_netrc/bar"), true),
+                URI.create("https://user:password@mycorp.com/foo/bar"), true),
+            UrlRewriter.RewrittenURL.create(URI.create("https://mycorp.com/from_netrc/bar"), true),
             UrlRewriter.RewrittenURL.create(
-                new URL("https://myothercorp.com/from_netrc/bar"), true),
-            UrlRewriter.RewrittenURL.create(new URL("https://myopencorp.com/no_creds/bar"), true),
+                URI.create("https://myothercorp.com/from_netrc/bar"), true),
             UrlRewriter.RewrittenURL.create(
-                new URL("https://should-not-be-overridden.com/"), false));
+                URI.create("https://myopencorp.com/no_creds/bar"), true),
+            UrlRewriter.RewrittenURL.create(
+                URI.create("https://should-not-be-overridden.com/"), false));
   }
 
   @Test
