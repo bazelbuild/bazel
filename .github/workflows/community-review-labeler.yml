@@ -29,7 +29,7 @@ jobs:
       - name: Check if reviewer is trusted
         id: check_reviewer
         run: |
-          REVIEWER="${{ github.event.review.user.login }}"
+          REVIEWER="${GITHUB_EVENT_REVIEW_USER_LOGIN}"
           echo "Reviewer: $REVIEWER"
 
           # Check if the reviewer is in our trusted_contributors.yaml list
@@ -41,6 +41,8 @@ jobs:
             echo "is_trusted=false" >> $GITHUB_OUTPUT
             echo "Result: Reviewer is not in the trusted list."
           fi
+        env:
+          GITHUB_EVENT_REVIEW_USER_LOGIN: ${{ github.event.review.user.login }}
 
       - name: Add community-reviewed label
         if: steps.check_reviewer.outputs.is_trusted == 'true'
