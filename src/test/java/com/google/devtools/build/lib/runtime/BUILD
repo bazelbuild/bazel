@@ -40,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib:runtime/command_line_event",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",

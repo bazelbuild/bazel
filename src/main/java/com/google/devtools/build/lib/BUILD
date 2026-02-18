@@ -308,6 +308,23 @@ java_library(
 )
 
 java_library(
+    name = "runtime/command_line_event",
+    srcs = ["runtime/CommandLineEvent.java"],
+    deps = [
+        ":runtime/blaze_server_startup_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:command_line_java_proto",
+        "//src/main/protobuf:option_filters_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "runtime/command_line_path_factory",
     srcs = [
         "runtime/CommandLinePathFactory.java",
@@ -421,6 +438,7 @@ java_library(
             "runtime/BlazeCommandResult.java",
             "runtime/BlazeService.java",
             "runtime/CommandDispatcher.java",
+            "runtime/CommandLineEvent.java",
             "runtime/CommandLinePathFactory.java",
             "runtime/ConfigFlagDefinitions.java",
             "runtime/GcThrashingDetector.java",
@@ -448,6 +466,7 @@ java_library(
         ":runtime/blaze_command_result",
         ":runtime/blaze_service",
         ":runtime/command_dispatcher",
+        ":runtime/command_line_event",
         ":runtime/command_line_path_factory",
         ":runtime/config_flag_definitions",
         ":runtime/memory_pressure",
