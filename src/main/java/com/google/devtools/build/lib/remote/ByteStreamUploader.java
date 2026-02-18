@@ -38,6 +38,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.util.ResourceNameInterceptor;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.Channel;
@@ -313,7 +314,8 @@ final class ByteStreamUploader {
     private ByteStreamFutureStub bsFutureStub(Channel channel) {
       return ByteStreamGrpc.newFutureStub(channel)
           .withInterceptors(
-              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+              new ResourceNameInterceptor(this.resourceName))
           .withCallCredentials(callCredentialsProvider.getCallCredentials())
           .withDeadlineAfter(callTimeoutSecs, SECONDS);
     }
@@ -321,7 +323,8 @@ final class ByteStreamUploader {
     private ByteStreamStub bsAsyncStub(Channel channel) {
       return ByteStreamGrpc.newStub(channel)
           .withInterceptors(
-              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
+              new ResourceNameInterceptor(this.resourceName))
           .withCallCredentials(callCredentialsProvider.getCallCredentials())
           .withDeadlineAfter(callTimeoutSecs, SECONDS);
     }

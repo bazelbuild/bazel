@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.remote.util.ResourceNameInterceptor.RESOURCE_NAME_KEY;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -159,6 +160,77 @@ public class ByteStreamUploaderTest {
 
     server.shutdownNow();
     server.awaitTermination();
+  }
+
+  @Test
+  public void uploadBlob_shouldIncludeResourceNameHeader() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+
+    String expectedResourceNamePrefix = INSTANCE_NAME + "/uploads/";
+    String expectedResourceNameSuffix =
+        String.format("/blobs/%s/%d", digest.getHash(), digest.getSizeBytes());
+
+    BindableService bsService =
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called: " + throwable);
+              }
+
+              @Override
+              public void onCompleted() {
+                WriteResponse response =
+                    WriteResponse.newBuilder().setCommittedSize(blob.length).build();
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        };
+    ServerInterceptor headerValidator =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+            if (call.getMethodDescriptor()
+                .getFullMethodName()
+                .equals(
+                    com.google.bytestream.ByteStreamGrpc.getWriteMethod().getFullMethodName())) {
+              String resourceNameHeaderValue = headers.get(RESOURCE_NAME_KEY);
+              assertThat(resourceNameHeaderValue).isNotNull();
+              assertThat(resourceNameHeaderValue).startsWith(expectedResourceNamePrefix);
+              assertThat(resourceNameHeaderValue).endsWith(expectedResourceNameSuffix);
+            }
+            return next.startCall(call, headers);
+          }
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(bsService, headerValidator));
+
+    uploadBlob(uploader, context, digest, chunker);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyNoInteractions(mockBackoff);
   }
 
   @Test
