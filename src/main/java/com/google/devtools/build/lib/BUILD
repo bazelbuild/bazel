@@ -378,6 +378,33 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/execution_progress_receiver",
+    srcs = ["buildtool/ExecutionProgressReceiver.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_execution_inactivity_event",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_action_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -389,6 +416,7 @@ java_library(
             "buildtool/BuildRequestOptions.java",
             "buildtool/BuildRequest.java",
             "buildtool/BuildResult.java",
+            "buildtool/ExecutionProgressReceiver.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/BlazeService.java",
@@ -412,6 +440,7 @@ java_library(
         ":build-request-options",
         ":buildtool/build_request",
         ":buildtool/build_result",
+        ":buildtool/execution_progress_receiver",
         ":buildtool/symlink_forest",
         ":keep-going-option",
         ":keep-state-after-build-option",
