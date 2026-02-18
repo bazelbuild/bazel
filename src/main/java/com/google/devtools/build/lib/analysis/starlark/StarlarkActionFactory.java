@@ -804,7 +804,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
+    if (mnemonicUnchecked == Starlark.NONE
+        && getSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+      throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
+    }
+
     String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
+
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
