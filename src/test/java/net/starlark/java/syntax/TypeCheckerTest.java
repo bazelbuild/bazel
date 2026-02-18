@@ -169,6 +169,54 @@ public final class TypeCheckerTest {
         """
         n: int = "abc"
         """);
+
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'n' of type 'int'",
+        """
+        n: int
+        n = "abc"
+        """);
+  }
+
+  @Test
+  public void infer_assignment() throws Exception {
+    assertValid(
+        """
+        n = 123
+        n + 456
+        x: bool  # ensure toplevel code is type-checked
+        """);
+
+    assertValid(
+        """
+        n = 123
+        n + "456"  # not a static type error in untyped code
+        """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        n = 123
+        n + "456"
+        x: bool  # ensure toplevel code is type-checked
+        """);
+
+    assertInvalid(
+        "cannot assign type 'str' to 'n' of type 'int'",
+        """
+        n = 123
+        n = "456"  # subsequent assignments do not change the type
+        x: bool    # ensure toplevel code is type-checked
+        """);
+
+    // TODO: #28037 - infer LHSs with multiple identifier targets
+    assertInvalid(
+        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        """
+        x: list[int] = [0]
+        x[0], y, z = 1, 2, "3"
+        y + z
+        """);
   }
 
   @Test

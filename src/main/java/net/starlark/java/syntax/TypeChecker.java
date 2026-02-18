@@ -37,7 +37,9 @@ import net.starlark.java.spelling.SpellChecker;
  *
  * <p>In addition, this visitor modifies the function type on the {@link Resolver.Function} objects
  * of {@link LambdaExpression}s in the AST (originally populated by the {@link TypeTagger}) to have
- * a more precise return type, if possible.
+ * a more precise return type, if possible; and populates the types on the {@link Resolver.Binding}
+ * objects of untyped variables with the inferred types of their values in their first assignments
+ * in typed code.
  *
  * <p>Type annotations are not traversed by this visitor.
  */
@@ -775,6 +777,8 @@ public final class TypeChecker extends NodeVisitor {
    * {@code t : Tuple[int, int] = [1, 2]}).
    */
   private void assign(Expression lhs, StarlarkType rhsType) {
+    checkState(usesTypeSyntax());
+
     // infer() handles Identifier and DotExpression. The type for evaluating these expressions in a
     // read context is the same as its type for assignment purposes.
     StarlarkType lhsType = infer(lhs);
@@ -795,6 +799,12 @@ public final class TypeChecker extends NodeVisitor {
           rhsType,
           lhs,
           lhsType);
+      return;
+    }
+
+    if (lhs instanceof Identifier id && id.getBinding().getType() == null) {
+      // If a variable has not been typed, infer its type from the rhs of the first assignment.
+      id.getBinding().setType(rhsType);
     }
   }
 
