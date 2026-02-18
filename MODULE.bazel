@@ -483,10 +483,8 @@ register_execution_platforms("//:default_host_platform")
 
 register_toolchains("//:all")
 
-register_toolchains("@local_config_winsdk//:all")
+register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
-
-register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")
