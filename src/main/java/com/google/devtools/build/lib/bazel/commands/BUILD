@@ -22,6 +22,7 @@ java_library(
         "vendor.txt",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",

@@ -30,6 +30,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -163,7 +164,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:junit4",
@@ -177,9 +177,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",

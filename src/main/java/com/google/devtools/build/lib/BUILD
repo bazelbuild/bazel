@@ -126,6 +126,38 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/build_request",
+    srcs = ["buildtool/BuildRequest.java"],
+    deps = [
+        ":build-request-options",
+        ":keep-going-option",
+        ":loading-phase-threads-option",
+        ":runtime/ui_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "buildtool/symlink_forest",
     srcs = ["buildtool/SymlinkForest.java"],
     deps = [
@@ -333,6 +365,7 @@ java_library(
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "buildtool/BuildRequest.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/BlazeService.java",
@@ -354,6 +387,7 @@ java_library(
     ),
     deps = [
         ":build-request-options",
+        ":buildtool/build_request",
         ":buildtool/symlink_forest",
         ":keep-going-option",
         ":keep-state-after-build-option",

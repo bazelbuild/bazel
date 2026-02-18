@@ -23,6 +23,7 @@ java_library(
         ":builtins_bzl_zip",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
