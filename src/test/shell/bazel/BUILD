@@ -1181,6 +1181,17 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_repo_contents_cache_test",
+    size = "small",
+    srcs = ["bazel_repo_contents_cache_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_with_jdk_test",
     size = "medium",
     srcs = ["bazel_with_jdk_test.sh"],
