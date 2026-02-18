@@ -111,6 +111,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -139,9 +140,12 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.Message;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -163,6 +167,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.openjdk.jol.info.GraphLayout;
 
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(TestParameterInjector.class)
@@ -517,6 +522,11 @@ public class RemoteExecutionServiceTest {
         TreeArtifactValue.newBuilder(emptyDirWithDifferentOwner).build());
     inputs.add(emptyDirWithDifferentOwner);
 
+    var unresolvedSymlink =
+        ActionsTestUtil.createUnresolvedSymlinkArtifact(artifactRoot, "dir/some_link");
+    fakeFileCache.createScratchInputSymlink(unresolvedSymlink, "some/target");
+    inputs.add(unresolvedSymlink);
+
     var runfilesTreeRoot = artifactRoot.getExecPath().getRelative("dir/my_tool.runfiles");
     var runfilesTree =
         ActionsTestUtil.createRunfilesArtifact(artifactRoot, runfilesTreeRoot.getPathString());
@@ -638,7 +648,8 @@ public class RemoteExecutionServiceTest {
                             ImmutableList.of(
                                 file("file1", "content of dir/file1"),
                                 file("file2", "content of dir/file2"),
-                                file("file3", "content of dir/file3")),
+                                file("file3", "content of dir/file3"),
+                                symlink("some_link", "some/target")),
                             ImmutableMap.of(
                                 "subdir",
                                 dir(
@@ -686,7 +697,8 @@ public class RemoteExecutionServiceTest {
             ImmutableList.of(
                 file("file1", "content of dir/file1"),
                 file("file2", "content of dir/file2"),
-                file("file3", "content of dir/file3")),
+                file("file3", "content of dir/file3"),
+                symlink("some_link", "some/target")),
             ImmutableMap.of(
                 "my_tool.runfiles",
                 runfilesDirectory,
@@ -756,9 +768,9 @@ public class RemoteExecutionServiceTest {
               // The product name and the main workspace name differ between Bazel and Blaze,
               // both of them making their way into paths.
               case "bazel" ->
-                  "e0407f49daf38d1cd7a5565a1078269a59997301d17ac53f964f0ff3c047bfba/164";
+                  "ff6cfaefd3fe05996e6e06e818ff462b7e5632a730e48111a8643bbf58d6e01f/164";
               case "blaze" ->
-                  "8917a131ce93e7cc22bfde300dfb377018bf11263cfeb346f66f7aabb33a20fd/164";
+                  "53a0d960028fceda7b7f7108721f0d5fae190710c4e78fd7385851648958f220/164";
               default ->
                   throw new IllegalArgumentException(
                       "Unknown product name " + TestConstants.PRODUCT_NAME);
@@ -789,6 +801,52 @@ public class RemoteExecutionServiceTest {
       }
       throw combinedException;
     }
+
+    // Use JOL to assert on the retained size of an uploadable Merkle tree. These should use as
+    // little memory as possible since they are kept in memory during the whole remote execution.
+    // Memory usage isn't expected to differ by seed, so only check for one of them.
+    if (seed == 1) {
+      var merkleTree =
+          service
+              .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
+              .getMerkleTree();
+      assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
+      // These are roots that are already retained while a remote action is being executed or are
+      // effectively global singletons.
+      var otherInput = ActionsTestUtil.createArtifact(artifactRoot, "some/other/input/file.txt");
+      fakeFileCache.createScratchInput(otherInput, "some other content");
+      var otherSpawn = new SpawnBuilder().withInput(otherInput).withOutput("foo").build();
+      var someOtherMerkleTree =
+          service.buildRemoteAction(otherSpawn, newSpawnExecutionContext(otherSpawn));
+
+      // JOL tracks objects by their native address, so run GC to minimize noise from moved objects.
+      System.gc();
+      var alreadyRetainedObjects =
+          GraphLayout.parseInstance(spawn, fakeFileCache, digestUtil, someOtherMerkleTree);
+      // This covers objects internal to JOL itself as well as metadata lazily attached to classes
+      // related to MerkleTree. Note that this has to be computed in a separate parseInstance call
+      // since the first call on someOtherMerkleTree may thus not have captured the metadata
+      // attached to the Class objects it references (e.g. cached field lists).
+      var jolInternalObjects =
+          GraphLayout.parseInstance(alreadyRetainedObjects, someOtherMerkleTree);
+      var merkleTreeTransitiveRetention = GraphLayout.parseInstance(merkleTree);
+
+      var merkleTreeOnlyRetention =
+          merkleTreeTransitiveRetention
+              .subtract(alreadyRetainedObjects)
+              .subtract(jolInternalObjects);
+      // Output the objects that are transitively retained by merkleTreeTransitiveRetention but
+      // neither by alreadyRetainedObjects nor jolInternalObjects for manual inspection.
+      var footprintOut =
+          Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
+      Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
+      // TODO: Get this number down.
+      // TODO: Assert the size exactly after switching to an ImmutableSortedMap rather than an
+      //       ImmutableMap - proto messages don't have deterministic hash codes, which makes the
+      //       exact size vary slightly between runs.
+      assertThat(merkleTreeOnlyRetention.totalSize()).isAtLeast(8400);
+      assertThat(merkleTreeOnlyRetention.totalSize()).isAtMost(9500);
+    }
   }
 
   private FileNode file(String name, String content) {
@@ -799,8 +857,21 @@ public class RemoteExecutionServiceTest {
         .build();
   }
 
-  private Directory dir(ImmutableList<FileNode> files, ImmutableMap<String, Directory> dirs) {
-    var builder = Directory.newBuilder().addAllFiles(files);
+  private SymlinkNode symlink(String name, String target) {
+    return SymlinkNode.newBuilder().setName(name).setTarget(target).build();
+  }
+
+  private Directory dir(
+      ImmutableList<Message> filesAndSymlinks, ImmutableMap<String, Directory> dirs) {
+    var builder = Directory.newBuilder();
+    for (var entry : filesAndSymlinks) {
+      switch (entry) {
+        case FileNode fileNode -> builder.addFiles(fileNode);
+        case SymlinkNode symlinkNode -> builder.addSymlinks(symlinkNode);
+        default ->
+            throw new IllegalArgumentException("Unsupported entry type: " + entry.getClass());
+      }
+    }
     dirs.forEach(
         (name, dir) ->
             builder.addDirectories(
