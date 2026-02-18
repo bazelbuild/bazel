@@ -58,6 +58,10 @@ class RcFile {
   // Command -> all options for that command (in order of appearance).
   using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
 
+  static bool ReadFileDefault(const std::string& filename,
+                              std::string* contents, std::string* error_msg);
+  static std::string CanonicalizePathDefault(const std::string& filename);
+
   static std::unique_ptr<RcFile> Create(
       std::vector<std::string> canonical_rcfile_paths, OptionMap options);
 
@@ -90,10 +94,6 @@ class RcFile {
       const WorkspaceLayout& workspace_layout, ReadFileFn read_file,
       CanonicalizePathFn canonicalize_path,
       std::vector<std::string>& import_stack, std::string* error_text);
-
-  static bool ReadFileDefault(const std::string& filename,
-                              std::string* contents, std::string* error_msg);
-  static std::string CanonicalizePathDefault(const std::string& filename);
 
   // Full closure of rcfile paths imported from this file (including itself).
   // These are all canonical paths, created with blaze_util::MakeCanonical.
