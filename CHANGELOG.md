@@ -1,3 +1,35 @@
+## Release 10.0.0-pre.20260211.1 (2026-02-18)
+
+```
+Baseline: 6edc9a8b61395ca54794479d2e9fee47a68dd4b6
+```
+
+Important changes:
+
+  - Labels in the main repo will now have a `repr` form that reliably
+    evaluates back to themselves (that is, `repr(Label("@@//:foo"))
+    == "Label(\"@@//:foo\")"`).
+  - The `compatibility_level` and `max_compatibility_level`
+    attributes of `module` in MODULE.bazel are now no-ops. Module
+    maintainers should stop specifying those attributes and provide
+    clear build time error messages and actionable migration paths
+    when making major breaking changes.
+
+This release contains contributions from many people at Google, as well as Damian Banki, dependabot[bot], Fabian Meumertzheim, giria660.
+
+## Release 10.0.0-pre.20260204.1 (2026-02-12)
+
+```
+Baseline: 0a2574e8a302d1edc91a83fee825961a090e1573
+```
+
+Important changes:
+
+  - Bazel now fails over immediately to mirror URLs if a TLS
+    handshake error occurs.
+
+This release contains contributions from many people at Google, as well as ashutosh0x, Fabian Meumertzheim, Keith Smiley, Tyler French, Will Stranton.
+
 ## Release 10.0.0-pre.20260128.2 (2026-02-06)
 
 ```
