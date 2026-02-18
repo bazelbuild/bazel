@@ -34,8 +34,9 @@ import net.starlark.java.syntax.Resolver.Scope;
  *
  * <p>This populates the function type on the {@link Resolver.Function} objects in the AST and
  * records whether or not a given {@link Resolver.Function} is considered to use static type syntax;
- * and populates the variable types on the {@link Resolver.Binding} objects. These type fields must
- * all be null prior to running the visitor.
+ * populates the variable types on the {@link Resolver.Binding} objects; and populates the Starlark
+ * type stored in {@link CastExpression}s. These type fields must all be null prior to running the
+ * visitor.
  *
  * <p>The types assigned to the fields are based solely on the type annotations in the program. No
  * type inference is done here.
@@ -388,6 +389,7 @@ public final class TypeTagger extends NodeVisitor {
   @Override
   public void visit(CastExpression cast) {
     setUsesTypeSyntax();
+    cast.setStarlarkType(extractType(cast.getType()));
     super.visit(cast);
   }
 

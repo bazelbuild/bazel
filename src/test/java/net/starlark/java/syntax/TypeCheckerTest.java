@@ -1372,6 +1372,13 @@ public final class TypeCheckerTest {
             # error ignored by static type checker because function is untyped
             return X + "abc"
         """);
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        def typed(x):
+            # type syntax in nested lambdas causes outer function to be type-checked.
+            return (lambda x: cast(int, x))(x) + "abc"
+        """);
     assertValid(
         """
         X: int = 42
@@ -1393,5 +1400,24 @@ public final class TypeCheckerTest {
                 return X % "abc"
             return get_int() + "def"
         """);
+  }
+
+  @Test
+  public void infer_cast() throws Exception {
+    assertTypeGivenDecls("cast(int, x)", Types.INT, "x: Any");
+    // cast expression allows casting to the wrong type
+    assertTypeGivenDecls(
+        "cast(list[int] | bool, 42)", Types.union(Types.list(Types.INT), Types.BOOL));
+    // cast expression always checks that its second argument is well-typed
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'", "cast(int, 1 + 'two')");
+  }
+
+  @Test
+  public void infer_lambda() throws Exception {
+    // no inference on the type of a lamda's argument
+    assertTypeGivenDecls("(lambda x: x + y)(42)", Types.ANY, "y: int");
+    // ... but a cast in the body allows inferring the return type
+    assertTypeGivenDecls("(lambda x: cast(int, x) + 1)(42)", Types.INT);
   }
 }

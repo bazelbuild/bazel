@@ -35,6 +35,10 @@ import net.starlark.java.spelling.SpellChecker;
  * A visitor for validating that expressions and statements respect the types of the symbols
  * appearing within them, as determined by the type tagger.
  *
+ * <p>In addition, this visitor modifies the function type on the {@link Resolver.Function} objects
+ * of {@link LambdaExpression}s in the AST (originally populated by the {@link TypeTagger}) to have
+ * a more precise return type, if possible.
+ *
  * <p>Type annotations are not traversed by this visitor.
  */
 public final class TypeChecker extends NodeVisitor {
@@ -122,6 +126,11 @@ public final class TypeChecker extends NodeVisitor {
       case FLOAT_LITERAL -> {
         return Types.FLOAT;
       }
+      case CAST -> {
+        var cast = (CastExpression) expr;
+        var unused = infer(cast.getValue()); // only to verify the value expr is well-typed
+        return cast.getStarlarkType();
+      }
       case DOT -> {
         var dot = (DotExpression) expr;
         StarlarkType objType = infer(dot.getObject());
@@ -140,6 +149,27 @@ public final class TypeChecker extends NodeVisitor {
       }
       case INDEX -> {
         return inferIndex((IndexExpression) expr);
+      }
+      case LAMBDA -> {
+        var lambda = (LambdaExpression) expr;
+        StarlarkType inferedReturnType = infer(lambda.getBody());
+        Types.CallableType originalType = lambda.getResolvedFunction().getFunctionType();
+        if (!originalType.getReturnType().equals(inferedReturnType)) {
+          // Update the lambda function type with a more precise return type.
+          lambda
+              .getResolvedFunction()
+              .setFunctionType(
+                  Types.callable(
+                      originalType.getParameterNames(),
+                      originalType.getParameterTypes(),
+                      originalType.getNumPositionalOnlyParameters(),
+                      originalType.getNumPositionalParameters(),
+                      originalType.getMandatoryParameters(),
+                      originalType.getVarargsType(),
+                      originalType.getKwargsType(),
+                      inferedReturnType));
+        }
+        return lambda.getResolvedFunction().getFunctionType();
       }
       case LIST_EXPR -> {
         var list = (ListExpression) expr;
@@ -245,7 +275,7 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
       default -> {
-        // TODO: #28037 - support cast, comprehension, lambda, and slice expressions.
+        // TODO: #28037 - support comprehension and slice expressions.
         errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
         return Types.ANY;
       }
