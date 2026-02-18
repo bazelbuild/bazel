@@ -71,6 +71,7 @@ java_library(
     testonly = True,
     srcs = ["SkycacheIntegrationTestHelpers.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",

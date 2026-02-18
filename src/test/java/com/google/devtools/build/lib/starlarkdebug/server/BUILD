@@ -79,6 +79,7 @@ java_test(
     jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
     deps = [
         ":utils",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -89,6 +90,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

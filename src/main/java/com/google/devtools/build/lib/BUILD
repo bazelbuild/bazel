@@ -126,6 +126,28 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/build_result",
+    srcs = ["buildtool/BuildResult.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "buildtool/build_request",
     srcs = ["buildtool/BuildRequest.java"],
     deps = [
@@ -366,6 +388,7 @@ java_library(
         exclude = [
             "buildtool/BuildRequestOptions.java",
             "buildtool/BuildRequest.java",
+            "buildtool/BuildResult.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/BlazeService.java",
@@ -388,6 +411,7 @@ java_library(
     deps = [
         ":build-request-options",
         ":buildtool/build_request",
+        ":buildtool/build_result",
         ":buildtool/symlink_forest",
         ":keep-going-option",
         ":keep-state-after-build-option",

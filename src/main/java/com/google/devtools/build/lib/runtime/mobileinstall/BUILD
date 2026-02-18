@@ -19,6 +19,7 @@ java_library(
     ]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
