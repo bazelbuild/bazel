@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -46,7 +46,7 @@ public final class SkyValueRetrieverUtils {
   public static RetrievalResult retrieveRemoteSkyValue(
       SkyKey key,
       Environment env,
-      RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,
+      RemoteAnalysisCacheReaderDepsProvider analysisCachingDeps,
       Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
     if (env.inErrorBubbling()) {

@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -71,6 +72,7 @@ import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -92,6 +94,20 @@ public final class FrontierSerializer {
     PRE_SERIALIZATION,
   }
 
+  /** Various bits of data and functionality serialization needs. */
+  public interface SerializationDependenciesProvider {
+    String getSerializedFrontierProfile();
+
+    Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
+
+    Collection<Label> getTopLevelTargets();
+
+    /** Returns the desination for file invalidation data when uploading. */
+    KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
+
+    RemoteAnalysisMetadataWriter getMetadataWriter();
+  }
+
   /**
    * Serializes the frontier contained in the current Skyframe graph into a {@link ProfileCollector}
    * writing the resulting proto to {@code path}.
@@ -100,6 +116,7 @@ public final class FrontierSerializer {
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
+      SerializationDependenciesProvider serializationDependenciesProvider,
       MemoizingEvaluator evaluator,
       LongVersionGetter versionGetter,
       Reporter reporter,
@@ -111,7 +128,9 @@ public final class FrontierSerializer {
 
     SelectionResult selectionResult =
         computeSelectionResult(
-            graph, dependenciesProvider, /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
+            graph,
+            serializationDependenciesProvider.getActiveDirectoriesMatcher(),
+            /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selectedKeys();
     clearActionLookupValues(graph, selectedKeys);
 
@@ -141,7 +160,7 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
 
-    String profilePath = dependenciesProvider.serializedFrontierProfile();
+    String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
@@ -191,7 +210,7 @@ public final class FrontierSerializer {
             frontierVersion,
             selectedKeys,
             dependenciesProvider.getFingerprintValueService(),
-            dependenciesProvider.getFileInvalidationWriter(),
+            serializationDependenciesProvider.getFileInvalidationWriter(),
             dependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,
@@ -259,10 +278,12 @@ public final class FrontierSerializer {
    * not possible.
    */
   public static void computeSelectionAndMinimizeMemory(
-      InMemoryGraph graph, RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
+      InMemoryGraph graph,
+      Collection<Label> topLevelTargets,
+      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher) {
     SelectionResult selectionResult =
         computeSelectionResult(
-            graph, dependenciesProvider, /* traversalMode= */ TraversalMode.POST_ANALYSIS);
+            graph, activeDirectoriesMatcher, /* traversalMode= */ TraversalMode.POST_ANALYSIS);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selection().keySet();
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
@@ -292,7 +313,7 @@ public final class FrontierSerializer {
           }
         });
     packageIdentifierSet.addAll(
-        dependenciesProvider.getTopLevelTargets().stream()
+        topLevelTargets.stream()
             .map(Label::getPackageIdentifier)
             .collect(ImmutableSet.toImmutableSet()));
     // We can clear the values of PackageIdentifier nodes whose package we have not seen in any
@@ -314,11 +335,11 @@ public final class FrontierSerializer {
   /** If there are no active directories then it falls back to full selection. */
   private static SelectionResult computeSelectionResult(
       InMemoryGraph graph,
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
+      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       TraversalMode traversalMode) {
-    if (dependenciesProvider.hasActiveDirectoriesMatcher()) {
+    if (activeDirectoriesMatcher.isPresent()) {
       ImmutableMap<SkyKey, SelectionMarking> selection =
-          computeSelection(graph, dependenciesProvider::withinActiveDirectories, traversalMode);
+          computeSelection(graph, activeDirectoriesMatcher.get(), traversalMode);
       return new SelectionResult(selection);
     } else {
       ImmutableMap<SkyKey, SelectionMarking> selection = computeFullSelection(graph, traversalMode);

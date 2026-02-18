@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -179,59 +178,22 @@ project = project_pb2.Project.create(project_directories = []) # empty
     writeProjectSclWithActiveDirs(
         /* path= */ "foo",
         /* activeDirs...= */
-        "foo",
-        "-bar",
-        "baz/qux",
-        "-baz/qux/quux",
-        "-zee",
-        "zee/yee");
+        "foo");
+
     addOptions(UPLOAD_MODE_OPTION);
     buildTarget("//foo:A");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isAtLeast(1);
-
-    RemoteAnalysisCachingDependenciesProvider providerWithProjectScl =
-        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
+    int serializedNodesWithProjectScl =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
+    assertThat(serializedNodesWithProjectScl).isAtLeast(1);
 
     getSkyframeExecutor().resetEvaluator();
 
-    addOptions("--experimental_active_directories=foo,-bar,baz/qux,-baz/qux/quux,-zee,zee/yee");
+    addOptions("--experimental_active_directories=foo");
     buildTarget("//foo:A");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isAtLeast(1);
-
-    RemoteAnalysisCachingDependenciesProvider providerWithActiveDirectories =
-        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
-
-    assertThat(providerWithActiveDirectories).isNotSameInstanceAs(providerWithProjectScl);
-
-    ImmutableList<PackageIdentifier> testCases =
-        ImmutableList.of(
-            PackageIdentifier.createInMainRepo("foo"),
-            PackageIdentifier.createInMainRepo("foo/bar"),
-            PackageIdentifier.createInMainRepo("bar"),
-            PackageIdentifier.createInMainRepo("baz/qux"),
-            PackageIdentifier.createInMainRepo("baz/qux/quux"),
-            PackageIdentifier.createInMainRepo("zee"),
-            PackageIdentifier.createInMainRepo("zee/yee"),
-            PackageIdentifier.createInMainRepo(""),
-            PackageIdentifier.createInMainRepo("nonexistent"));
-
-    for (PackageIdentifier testCase : testCases) {
-      var activeDirectoriesResult = providerWithActiveDirectories.withinActiveDirectories(testCase);
-      var projectSclResult = providerWithProjectScl.withinActiveDirectories(testCase);
-      assertWithMessage(
-              "for %s: active directories: %s, projectScl: %s",
-              testCase, activeDirectoriesResult, projectSclResult)
-          .that(activeDirectoriesResult)
-          .isEqualTo(projectSclResult);
-    }
+    int serializedNodesWithActiveDirectories =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
+    assertThat(serializedNodesWithActiveDirectories).isAtLeast(1);
+    assertThat(serializedNodesWithActiveDirectories).isEqualTo(serializedNodesWithProjectScl);
   }
 
   @Test

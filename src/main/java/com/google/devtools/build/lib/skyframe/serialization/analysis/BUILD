@@ -28,13 +28,15 @@ java_library(
 
 java_library(
     name = "dependencies_provider",
-    srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
+    srcs = [
+        "RemoteAnalysisCacheReaderDepsProvider.java",
+        "RemoteAnalysisCachingDependenciesProvider.java",
+    ],
     deps = [
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
         ":remote_analysis_json_log_writer",
-        ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -62,6 +64,7 @@ java_library(
         ":missing_skyframe_entry_exception",
         ":options",
         ":remote_analysis_json_log_writer",
+        ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

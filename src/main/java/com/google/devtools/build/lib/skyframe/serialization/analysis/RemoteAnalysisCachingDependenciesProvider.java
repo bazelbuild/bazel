@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -34,58 +32,8 @@ import javax.annotation.Nullable;
  * An interface providing the functionalities used for analysis caching serialization and
  * deserialization.
  */
-public interface RemoteAnalysisCachingDependenciesProvider {
-
-  RemoteAnalysisCacheMode mode();
-
-  default boolean isRetrievalEnabled() {
-    return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
-  }
-
-  /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
-  String serializedFrontierProfile();
-
-  /**
-   * True if matching for active directories is available.
-   *
-   * <p>If this is false, it is illegal to call {@link #withinActiveDirectories}.
-   */
-  boolean hasActiveDirectoriesMatcher();
-
-  /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
-  boolean withinActiveDirectories(PackageIdentifier pkg);
-
-  /**
-   * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
-   * SkyKey.
-   */
-  FrontierNodeVersion getSkyValueVersion() throws SerializationException;
-
-  /**
-   * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
-   *
-   * <p>Calling this can be an expensive process as the codec registry will be initialized.
-   */
-  ObjectCodecs getObjectCodecs() throws InterruptedException;
-
-  /** Returns the {@link FingerprintValueService} implementation. */
-  FingerprintValueService getFingerprintValueService() throws InterruptedException;
-
-  /** Returns the desination for file invalidation data when uploading. */
-  KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
-
-  RemoteAnalysisCacheClient getAnalysisCacheClient();
-
-  RemoteAnalysisMetadataWriter getMetadataWriter();
-
-  /** Returns the JSON log writer or null if this log is not enabled. */
-  @Nullable
-  RemoteAnalysisJsonLogWriter getJsonLogWriter();
-
-  void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
-
-  void recordSerializationException(SerializationException e, SkyKey key);
-
+public interface RemoteAnalysisCachingDependenciesProvider
+    extends RemoteAnalysisCacheReaderDepsProvider {
   void setTopLevelBuildOptions(BuildOptions buildOptions);
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;
@@ -104,8 +52,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     return false;
   }
 
-  boolean areMetadataQueriesEnabled();
-
   void computeSelectionAndMinimizeMemory(InMemoryGraph graph);
 
   Collection<Label> getTopLevelTargets();
@@ -113,7 +59,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   boolean shouldMinimizeMemory();
 
   /** A stub dependencies provider for when analysis caching is disabled. */
-  final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
+  final class DisabledDependenciesProvider
+      implements RemoteAnalysisCachingDependenciesProvider, RemoteAnalysisCacheReaderDepsProvider {
 
     public static final DisabledDependenciesProvider INSTANCE = new DisabledDependenciesProvider();
 
@@ -125,18 +72,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public String serializedFrontierProfile() {
-      return "";
-    }
-
-    @Override
-    public boolean hasActiveDirectoriesMatcher() {
+    public boolean isRetrievalEnabled() {
       return false;
-    }
-
-    @Override
-    public boolean withinActiveDirectories(PackageIdentifier pkg) {
-      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -155,17 +92,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public KeyValueWriter getFileInvalidationWriter() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public RemoteAnalysisCacheClient getAnalysisCacheClient() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public RemoteAnalysisMetadataWriter getMetadataWriter() {
       throw new UnsupportedOperationException();
     }
 
@@ -199,11 +126,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     public ImmutableSet<SkyKey> lookupKeysToInvalidate(
         ImmutableSet<SkyKey> keysToLookup,
         RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean areMetadataQueriesEnabled() {
       throw new UnsupportedOperationException();
     }
 

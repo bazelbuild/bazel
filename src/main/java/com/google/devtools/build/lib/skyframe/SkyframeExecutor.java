@@ -233,6 +233,7 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
@@ -566,6 +567,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCachingDependenciesProvider;
   }
 
+  private RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
+    return remoteAnalysisCachingDependenciesProvider;
+  }
+
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
     this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
@@ -857,7 +862,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldUnblockCpuWorkWhenFetchingDeps,
             analysisProgress,
             this::getExistingPackage,
-            this::getRemoteAnalysisCachingDependenciesProvider));
+            this::getRemoteAnalysisCacheReaderDepsProvider));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -866,7 +871,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl(),
-            this::getRemoteAnalysisCachingDependenciesProvider,
+            this::getRemoteAnalysisCacheReaderDepsProvider,
             analysisProgress));
     map.put(
         SkyFunctions.TOP_LEVEL_ASPECTS,
@@ -931,7 +936,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             sourceArtifactsSeen,
             syscallCache,
             skyframeActionExecutor,
-            this::getRemoteAnalysisCachingDependenciesProvider));
+            this::getRemoteAnalysisCacheReaderDepsProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
@@ -995,7 +1000,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
-        this::getRemoteAnalysisCachingDependenciesProvider,
+        this::getRemoteAnalysisCacheReaderDepsProvider,
         this::getConsumedArtifactsTracker);
   }
 

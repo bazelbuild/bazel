@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRo
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
@@ -74,7 +74,7 @@ public final class ArtifactFunction implements SkyFunction {
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
   private final SkyframeActionExecutor actionExecutor;
-  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
 
   /** A {@link SkyValue} representing a missing input file. */
   public static final class MissingArtifactValue implements SkyValue {
@@ -118,7 +118,7 @@ public final class ArtifactFunction implements SkyFunction {
       MetadataConsumerForMetrics sourceArtifactsSeen,
       XattrProvider xattrProvider,
       SkyframeActionExecutor actionExecutor,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.xattrProvider = xattrProvider;
@@ -140,7 +140,7 @@ public final class ArtifactFunction implements SkyFunction {
 
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
-    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.isRetrievalEnabled()
         && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {

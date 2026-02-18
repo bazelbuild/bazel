@@ -85,7 +85,7 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.Rew
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
@@ -149,7 +149,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
   private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
-  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
 
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
@@ -158,7 +158,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier,
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier,
       Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
@@ -175,7 +175,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.isRetrievalEnabled()
         && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
