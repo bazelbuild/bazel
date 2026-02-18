@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,7 +81,7 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
 
                   @Override
                   public void createSymlinkTree(
-                      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {}
+                      Supplier<Map<PathFragment, PathFragment>> symlinks, PathFragment symlinkTreeRoot) {}
 
                   @Override
                   public void clean() {}
