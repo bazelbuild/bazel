@@ -229,6 +229,7 @@ maven.install(
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
+        "org.openjdk.jol:jol-core:0.17",
         "org.ow2.asm:asm:9.9",
         "org.ow2.asm:asm-analysis:9.9",
         "org.ow2.asm:asm-commons:9.9",
