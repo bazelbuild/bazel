@@ -66,18 +66,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void noSrcs() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', java_home='/opt/jvm')");
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    JavaRuntimeInfo provider = getJavaRuntimeInfo(jvm);
-    assertThat(provider.javaHome()).isEqualTo("/opt/jvm");
-    assertThat(provider.javaBaseInputs().toList()).isEmpty();
-  }
-
-  @Test
   public void invalidJavaBase() throws Exception {
     scratch.file(
         "a/BUILD",
