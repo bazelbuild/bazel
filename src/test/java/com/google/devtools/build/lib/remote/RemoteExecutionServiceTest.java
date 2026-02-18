@@ -2707,6 +2707,7 @@ public class RemoteExecutionServiceTest {
     Spawn spawn =
         new SpawnBuilder("@flagfile")
             .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+            .withExecutionInfo(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "json")
             .withInputs(input, toolInput, runfilesArtifact)
             .withTools(toolInput, runfilesArtifact)
             .setPathMapper(
@@ -2797,9 +2798,15 @@ public class RemoteExecutionServiceTest {
                 (byte[]) merkleTree.blobs().get(merkleTree.digest()),
                 ExtensionRegistry.getEmptyRegistry()))
         .isEqualTo(rootDirectory);
-    assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(2);
     assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
         .isEqualTo("persistentWorkerKey");
+
+    // Ensure the worker protocol is communicated.
+    assertThat(remoteAction1.getAction().getPlatform().getProperties(1).getName())
+        .isEqualTo("persistentWorkerProtocol");
+    assertThat(remoteAction1.getAction().getPlatform().getProperties(1).getValue())
+        .isEqualTo("json");
 
     // Check that if a non-tool input changes, the persistent worker key does not change.
     fakeFileCache.createScratchInput(input, "value2");
@@ -2810,7 +2817,7 @@ public class RemoteExecutionServiceTest {
     // Check that if a tool input changes, the persistent worker key changes.
     fakeFileCache.createScratchInput(toolInput, "worker value2");
     var remoteAction3 = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction3.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction3.getAction().getPlatform().getPropertiesList()).hasSize(2);
     assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getName())
         .isEqualTo("persistentWorkerKey");
     assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getValue())
