@@ -488,3 +488,5 @@ register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
+
+register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")

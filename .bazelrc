@@ -49,6 +49,10 @@ common:macos --host_per_file_copt=external/.*@-w
 common:windows --per_file_copt=external/.*@/w
 common:windows --host_per_file_copt=external/.*@/w
 
+# TODO: grpc doesn't compile with layering_check on macOS.
+common:macos --features=-layering_check
+common:macos --host_features=-layering_check
+
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true
 
