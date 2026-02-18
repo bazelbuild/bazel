@@ -851,6 +851,38 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   @Override
+  public void visit(ForStatement node) {
+    if (usesTypeSyntax()) {
+      StarlarkType collectionType = infer(node.getCollection());
+      StarlarkType varsRhsType; // The type of the value assigned to the vars expression.
+      if (collectionType.equals(Types.ANY)) {
+        varsRhsType = Types.ANY;
+      } else {
+        ArrayList<StarlarkType> varUnionElements = new ArrayList<>();
+        for (StarlarkType collectionUnionElement : Types.unfoldUnion(collectionType)) {
+          // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
+          // TODO: #28037 - Introduce an Iterable type and use it here to match language spec.
+          if (collectionUnionElement.equals(Types.ANY)) {
+            varUnionElements.add(Types.ANY);
+          } else if (collectionUnionElement instanceof Types.AbstractCollectionType collection) {
+            varUnionElements.add(collection.getElementType());
+          } else {
+            errorf(
+                node.getCollection(),
+                "'for' loop operand must be an iterable, got '%s'",
+                collectionType);
+            return;
+          }
+        }
+        varsRhsType = Types.union(varUnionElements);
+      }
+      assign(node.getVars(), varsRhsType);
+    }
+    // Visit the for loop body even in untyped code; it may contain nested typed def statements.
+    visitBlock(node.getBody());
+  }
+
+  @Override
   public void visit(DefStatement def) {
     Resolver.Function function = def.getResolvedFunction();
     functionStack.push(function);
@@ -885,8 +917,22 @@ public final class TypeChecker extends NodeVisitor {
       }
     }
 
+    // Visit body even in untyped code; it may contain nested typed def statements.
     visitBlock(def.getBody());
     checkState(functionStack.poll() == function);
+  }
+
+  @Override
+  public void visit(IfStatement node) {
+    if (usesTypeSyntax()) {
+      // Check type constraints in the condition.
+      infer(node.getCondition());
+    }
+    // Visit then/else blocks even in untyped code; they may contain nested typed def statements.
+    visitBlock(node.getThenBlock());
+    if (node.getElseBlock() != null) {
+      visitBlock(node.getElseBlock());
+    }
   }
 
   @Override
@@ -934,8 +980,6 @@ public final class TypeChecker extends NodeVisitor {
   public void visit(VarStatement var) {
     // Don't descend into children.
   }
-
-  // TODO: #28037 - Support `for` statement.
 
   /**
    * Heuristically checks whether a function body ends with an implicit {@code None} return, i.e. a

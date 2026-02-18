@@ -209,6 +209,18 @@ public final class TypeCheckerTest {
         x: bool    # ensure toplevel code is type-checked
         """);
 
+    // TODO: #28037 - in mypy, this is an error (attempt to use a variable of unknown type, since
+    // the assignment is lexically below first use). We should treat it the same.
+    assertValid(
+        """
+        def f() -> None:  # ensure function is type-checked
+            for i in [0, 1]:
+                if i == 1:
+                    n + "456"
+                else:
+                    n = 123
+        """);
+
     // TODO: #28037 - infer LHSs with multiple identifier targets
     assertInvalid(
         "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
@@ -1467,5 +1479,200 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("(lambda x: x + y)(42)", Types.ANY, "y: int");
     // ... but a cast in the body allows inferring the return type
     assertTypeGivenDecls("(lambda x: cast(int, x) + 1)(42)", Types.INT);
+  }
+
+  @Test
+  public void if_statement() throws Exception {
+    // condition
+    assertInvalid(
+        "operator '+' cannot be applied to types 'float' and 'str'",
+        """
+        def _wrapper() -> None:
+            if 12.3 + '45.6' > 0:
+                pass
+        """);
+    // then body
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        def _wrapper() -> None:
+            if 1 == 2:
+                123 + '456'
+        """);
+    // else body
+    assertInvalid(
+        "operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        def _wrapper() -> None:
+            if 1 == 2:
+                pass
+            else:
+                '123' + 456
+        """);
+  }
+
+  @Test
+  public void if_statement_in_untyped_code() throws Exception {
+    // In untyped code, don't type-check the condition or non-def statements in then/else blocks ...
+    assertValid(
+        """
+        def _untyped_wrapper():
+            if 1 + "two":   # type error ignored in untyped code
+                3 + "four"  # type error ignored in untyped code
+            else:
+                5 + "six"   # type error ignored in untyped code
+        """);
+    // ... but do recurse into inner typed defs in then/else blocks
+    assertInvalid(
+        ":4:20: typed() declares return type 'int' but may return 'str'",
+        """
+        def _untyped_wrapper():
+            if 1 + "two":         # type error ignored in untyped code
+                def typed() -> int:
+                    return "abc"  # type error checked in typed innner def
+        """);
+    assertInvalid(
+        ":6:20: typed() declares return type 'int' but may return 'float'",
+        """
+        def _untyped_wrapper():
+            if 1 + "two":        # type error ignored in untyped code
+                pass
+            else:
+                def typed() -> int:
+                    return 3.14  # type error checked in typed innner def
+        """);
+  }
+
+  @Test
+  public void for_statement_operand() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in [1, 2, 3]:
+                pass
+        """);
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in (1, 2, 3):
+                pass
+        """);
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in {'a': 'b', 'c': 'd'}:
+                pass
+        """);
+    assertValid(
+        """
+        y: Any
+        def _wrapper() -> None:
+            for x in y:
+                pass
+        """);
+    assertValid(
+        """
+        y: Any | list[int]
+        def f(x: int) -> None: pass  # to verify type of x
+        def _wrapper() -> None:
+            for x in y:
+                f(x)
+        """);
+
+    assertInvalid(
+        "'for' loop operand must be an iterable, got 'int'",
+        """
+        def _wrapper() -> None:
+            for x in 42:
+                pass
+        """);
+
+    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
+    assertInvalid(
+        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        """
+        def _wrapper() -> None:
+            for x, y in [(1, 2)]:
+                pass
+        """);
+  }
+
+  @Test
+  public void for_statement_operand_with_previously_typed_vars() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            x: int
+            for x in [1, 2, 3]:
+                pass
+
+            for x in (1, 2, 3):
+                pass
+
+            y: str
+            for y in {'a': 'b', 'c': 'd'}:
+                pass
+
+            z: Any
+            for z in [1, "two", 3.14, None]:
+                pass
+        """);
+    assertInvalid(
+        ":3:9: cannot assign type 'int|str' to 'x' of type 'int'",
+        """
+        def _wrapper() -> None:
+            x: int
+            for x in [1, "two"]:
+                pass
+        """);
+
+    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
+    assertInvalid(
+        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        """
+        def _wrapper() -> None:
+            x: int
+            y: str
+            for x, y in [(1, "two")]:
+                pass
+        """);
+  }
+
+  @Test
+  public void for_statement_body() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in [1, 2, 3]:
+                x + 1
+        """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        def _wrapper() -> None:
+            for x in ['a', 'b', 'c']:
+                x + 1
+        """);
+  }
+
+  @Test
+  public void for_statement_in_untyped_code() throws Exception {
+    // In untyped code, don't type-check the operand or non-def statements in body ...
+    assertValid(
+        """
+        def _untyped_wrapper():
+            for x in (1, "two", 3.14):  # type error ignored in untyped code
+                x / "bad"               # type error ignored in untyped code
+        """);
+    // ... but do recurse into inner typed defs in body
+    assertInvalid(
+        ":4:20: typed() declares return type 'int' but may return 'str'",
+        """
+        def _untyped_wrapper():
+            for x in (1, "two", 3.14):  # type error ignored in untyped code
+                def typed() -> int:
+                    return "abc"        # type error checked in typed innner def
+        """);
   }
 }
