@@ -71,6 +71,7 @@ java_library(
         ":remote_action_file_system_test_base",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
+        "//src/main/java/com/google/devtools/build/lib:runtime/common_command_options",
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",

@@ -325,6 +325,20 @@ java_library(
 )
 
 java_library(
+    name = "runtime/common_command_options",
+    srcs = ["runtime/CommonCommandOptions.java"],
+    deps = [
+        ":runtime/command_line_event",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime/command_line_path_factory",
     srcs = [
         "runtime/CommandLinePathFactory.java",
@@ -440,6 +454,7 @@ java_library(
             "runtime/CommandDispatcher.java",
             "runtime/CommandLineEvent.java",
             "runtime/CommandLinePathFactory.java",
+            "runtime/CommonCommandOptions.java",
             "runtime/ConfigFlagDefinitions.java",
             "runtime/GcThrashingDetector.java",
             "runtime/KeepGoingOption.java",
@@ -468,6 +483,7 @@ java_library(
         ":runtime/command_dispatcher",
         ":runtime/command_line_event",
         ":runtime/command_line_path_factory",
+        ":runtime/common_command_options",
         ":runtime/config_flag_definitions",
         ":runtime/memory_pressure",
         ":runtime/options_supplier",
