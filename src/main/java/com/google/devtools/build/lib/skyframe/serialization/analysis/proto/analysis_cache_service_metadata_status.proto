@@ -28,6 +28,7 @@ enum TopLevelTargetsMatchStatus {
   MATCH_STATUS_FAILURE = 5;
   MATCH_STATUS_DIFFERENT_CONFIG = 7;
   MATCH_STATUS_DIFFERENT_CL_AND_CONFIG = 8;
+  MATCH_STATUS_CL_TOO_OLD = 9;
   reserved 4;
   reserved 6;
 }
