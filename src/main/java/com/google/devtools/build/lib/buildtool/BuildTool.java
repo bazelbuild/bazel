@@ -379,7 +379,8 @@ public class BuildTool {
         env.getEventBus()
             .post(
                 new CanonicalCommandLineEvent(
-                    runtime,
+                    runtime.getProductName(),
+                    runtime.getStartupOptionsProvider(),
                     request.getCommandName(),
                     optionsParser.getResidue(),
                     optionsParser.getOptions(BuildEventProtocolOptions.class)

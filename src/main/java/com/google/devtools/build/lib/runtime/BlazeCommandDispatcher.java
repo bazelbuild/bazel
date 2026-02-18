@@ -709,7 +709,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =
           new CommandLineEvent.OriginalCommandLineEvent(
-              runtime,
+              runtime.getProductName(),
+              runtime.getStartupOptionsProvider(),
               commandName,
               options.getResidue(),
               includeResidueInRunBepEvent,
@@ -719,7 +720,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
-              runtime,
+              runtime.getProductName(),
+              runtime.getStartupOptionsProvider(),
               commandName,
               options.getResidue(),
               includeResidueInRunBepEvent,
