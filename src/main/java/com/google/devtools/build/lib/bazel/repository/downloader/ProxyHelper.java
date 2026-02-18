@@ -26,7 +26,7 @@ import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Map;
 import java.util.Objects;
@@ -71,7 +71,7 @@ public class ProxyHelper {
    * @param requestedUrl remote resource that may need to be retrieved through a proxy
    * @return ProxyInfo containing the proxy and optional credentials
    */
-  public ProxyInfo createProxyIfNeeded(URL requestedUrl) throws IOException {
+  public ProxyInfo createProxyIfNeeded(URI requestedUrl) throws IOException {
     String proxyAddress = null;
     String proxyUserProperty = null;
     String proxyPasswordProperty = null;

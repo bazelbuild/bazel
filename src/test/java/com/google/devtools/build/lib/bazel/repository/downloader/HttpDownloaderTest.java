@@ -46,7 +46,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URL;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -122,7 +121,7 @@ public class HttpDownloaderTest {
           download(
               downloadManager,
               Collections.singletonList(
-                  new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                  URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
               Collections.emptyMap(),
               Optional.empty(),
@@ -162,7 +161,8 @@ public class HttpDownloaderTest {
           download(
               downloadManager,
               Collections.singletonList(
-                  new URL(String.format("http://localhost:%d/arch:ve.zip", server.getLocalPort()))),
+                  URI.create(
+                      String.format("http://localhost:%d/arch:ve.zip", server.getLocalPort()))),
               Collections.emptyMap(),
               Collections.emptyMap(),
               Optional.empty(),
@@ -222,9 +222,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
           download(
@@ -291,9 +291,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
           download(
@@ -361,9 +361,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path outputFile = fs.getPath(workingDir.newFile().getAbsolutePath());
       try {
@@ -422,10 +422,10 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
+      final List<URI> urls = new ArrayList<>(2);
       // Use https for the first one to trigger SSL handshake
-      urls.add(new URL(String.format("https://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      urls.add(URI.create(String.format("https://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile = fs.getPath(workingDir.newFile().getAbsolutePath());
 
@@ -477,7 +477,7 @@ public class HttpDownloaderTest {
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
           Collections.singletonList(
-              new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+              URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
           Collections.emptyMap(),
           StaticCredentials.EMPTY,
           Optional.empty(),
@@ -518,7 +518,7 @@ public class HttpDownloaderTest {
           () ->
               httpDownloader.download(
                   Collections.singletonList(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
                   Collections.emptyMap(),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
@@ -574,9 +574,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
@@ -620,7 +620,7 @@ public class HttpDownloaderTest {
       assertThat(
               new String(
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.empty(),
                       eventHandler,
@@ -656,7 +656,7 @@ public class HttpDownloaderTest {
           IOException.class,
           () ->
               httpDownloader.downloadAndReadOneUrl(
-                  new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
                   eventHandler,
@@ -690,7 +690,7 @@ public class HttpDownloaderTest {
       assertThat(
               new String(
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
@@ -730,7 +730,7 @@ public class HttpDownloaderTest {
               UnrecoverableHttpException.class,
               () ->
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
@@ -766,7 +766,7 @@ public class HttpDownloaderTest {
         () ->
             download(
                 downloadManager,
-                ImmutableList.of(new URL("http://localhost")),
+                ImmutableList.of(URI.create("http://localhost")),
                 Collections.emptyMap(),
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -808,7 +808,7 @@ public class HttpDownloaderTest {
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
@@ -856,7 +856,7 @@ public class HttpDownloaderTest {
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
@@ -900,7 +900,7 @@ public class HttpDownloaderTest {
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
@@ -948,7 +948,7 @@ public class HttpDownloaderTest {
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
@@ -965,7 +965,7 @@ public class HttpDownloaderTest {
 
   public Path download(
       DownloadManager downloadManager,
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,

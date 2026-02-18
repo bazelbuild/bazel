@@ -67,7 +67,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -351,8 +350,8 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URL url = URI.create(entry.getKey()).toURL();
-      if (url.getProtocol().equals("file")) {
+      URI url = URI.create(entry.getKey());
+      if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
 
@@ -369,7 +368,7 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
+                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
                 entry.getKey(),
                 outputPath));
       }

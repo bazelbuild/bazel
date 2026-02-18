@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.util.Utils;
-import java.net.URL;
+import java.net.URI;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
@@ -27,14 +27,14 @@ import java.util.OptionalLong;
  * being downloaded and the number of bytes read so far.
  */
 public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress {
-  private final URL originalUrl;
-  private final URL actualUrl;
+  private final URI originalUrl;
+  private final URI actualUrl;
   private final long bytesRead;
   private final OptionalLong totalBytes;
   private final boolean downloadFinished;
 
   public DownloadProgressEvent(
-      URL originalUrl, URL actualUrl, long bytesRead, OptionalLong totalBytes, boolean finished) {
+      URI originalUrl, URI actualUrl, long bytesRead, OptionalLong totalBytes, boolean finished) {
     this.originalUrl = originalUrl;
     this.actualUrl = actualUrl;
     this.bytesRead = bytesRead;
@@ -42,19 +42,19 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
     this.downloadFinished = finished;
   }
 
-  public DownloadProgressEvent(URL originalUrl, long bytesRead, boolean finished) {
+  public DownloadProgressEvent(URI originalUrl, long bytesRead, boolean finished) {
     this(originalUrl, null, bytesRead, OptionalLong.empty(), finished);
   }
 
-  public DownloadProgressEvent(URL url, long bytesRead) {
+  public DownloadProgressEvent(URI url, long bytesRead) {
     this(url, bytesRead, false);
   }
 
-  public DownloadProgressEvent(URL url) {
+  public DownloadProgressEvent(URI url) {
     this(url, 0);
   }
 
-  public URL getOriginalUrl() {
+  public URI getOriginalUrl() {
     return originalUrl;
   }
 
@@ -63,7 +63,7 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
     return originalUrl.toString();
   }
 
-  public URL getActualUrl() {
+  public URI getActualUrl() {
     return actualUrl;
   }
 
