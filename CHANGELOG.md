@@ -1,3 +1,22 @@
+## Release 10.0.0-pre.20260211.1 (2026-02-18)
+
+```
+Baseline: 6edc9a8b61395ca54794479d2e9fee47a68dd4b6
+```
+
+Important changes:
+
+  - Labels in the main repo will now have a `repr` form that reliably
+    evaluates back to themselves (that is, `repr(Label("@@//:foo"))
+    == "Label(\"@@//:foo\")"`).
+  - The `compatibility_level` and `max_compatibility_level`
+    attributes of `module` in MODULE.bazel are now no-ops. Module
+    maintainers should stop specifying those attributes and provide
+    clear build time error messages and actionable migration paths
+    when making major breaking changes.
+
+This release contains contributions from many people at Google, as well as Damian Banki, dependabot[bot], Fabian Meumertzheim, giria660.
+
 ## Release 10.0.0-pre.20260204.1 (2026-02-12)
 
 ```
