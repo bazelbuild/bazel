@@ -130,11 +130,7 @@ JAVA_TOOLS = [
     ],
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
-    "_jdk_minimal": select({
-        # We cannot minimize the JDK during cross compiling for Windows arm64
-        "//src/conditions:windows_arm64": [":embedded_jdk_vanilla"],
-        "//conditions:default": [":embedded_jdk_minimal"],
-    }),
+    "_jdk_minimal": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
