@@ -140,7 +140,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     Facts lockfileFacts = Facts.EMPTY;
     // Store workspace lockfile facts separately for validation in ERROR mode
-    Facts workspaceLockfileFacts = null;
+    Facts workspaceLockfileFacts = Facts.EMPTY;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
@@ -155,6 +155,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       lockfileFacts = workspaceLockfileFacts;
       if (lockfileFacts == null) {
         lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+        workspaceLockfileFacts = Facts.EMPTY;
       }
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
@@ -244,17 +245,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // In ERROR mode, validate facts only against the workspace lockfile, not the hidden lockfile.
     // The hidden lockfile may contain stale facts from a different version (e.g., after a
     // rollback), which would cause false-positive validation errors.
-    Facts factsToValidate =
-        lockfileMode.equals(LockfileMode.ERROR)
-            ? (workspaceLockfileFacts != null ? workspaceLockfileFacts : Facts.EMPTY)
-            : lockfileFacts;
-    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(factsToValidate)) {
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(workspaceLockfileFacts)) {
       String reason =
           "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
                   Starlark.repr(newFacts.value(), starlarkSemantics),
-                  Starlark.repr(factsToValidate.value(), starlarkSemantics));
+                  Starlark.repr(workspaceLockfileFacts.value(), starlarkSemantics));
       throw createOutdatedLockfileException(reason);
     }
 
