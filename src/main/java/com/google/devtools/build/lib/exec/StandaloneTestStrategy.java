@@ -642,7 +642,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       Spawn spawn,
       SpawnStrategyResolver resolver,
       ResolvedPaths resolvedPaths,
-      FileOutErr fileOutErr,
+      FileOutErr fileOutErr,// dis...
       Closeable streamed,
       long startTimeMillis)
       throws InterruptedException, ExecException, IOException {
@@ -661,7 +661,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // that is created right here, or one that is read back from disk.
     TestResultData.Builder testResultDataBuilder;
     try {
-      spawnResults = resolver.exec(spawn, actionExecutionContext.withFileOutErr(fileOutErr));
+      spawnResults = resolver.exec(spawn, actionExecutionContext.withFileOutErr(fileOutErr));// here?
       testResultDataBuilder = TestResultData.newBuilder();
       testResultDataBuilder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
     } catch (SpawnExecException e) {

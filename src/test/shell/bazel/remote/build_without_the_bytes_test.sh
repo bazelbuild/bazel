@@ -2897,4 +2897,88 @@ EOF
       || fail "Failed second build after moving sh_binary to a subpackage"
 }
 
+function write_stdouterr_test_build_defs() {
+  add_rules_cc MODULE.bazel
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = """
+echo some_stdout
+echo some_stderr 1>&2
+touch $@
+""",
+)
+cc_test(
+  name = "test",
+  srcs = ["test.cc"],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+}
+
+function test_download_stdouterr_uncached() {
+  # Test that action stderr and stdout of cached actions are not downloaded with
+  # `--remote_download_stdouterr=uncached`.
+  write_stdouterr_test_build_defs
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=uncached \
+    //a:all >& $TEST_log || fail "Failed to build+test //a:all"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+
+  # Ensure test.log exists and is populated
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_contains "Hello test!" bazel-testlogs/a/test/test.log
+
+  bazel clean
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=uncached \
+    //a:all >& $TEST_log || fail "Failed to build+test //a:all"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+
+  # Ensure test.log exists and is populated (no `--remote_download_minimal` so should be downloaded)
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_contains "Hello test!" bazel-testlogs/a/test/test.log
+}
+
+function test_download_stdouterr_failed() {
+  # Test that action stderr and stdout of successful actions are not downloaded with
+  # `--remote_download_stdouterr=failed`.
+  write_stdouterr_test_build_defs
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=failed \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+}
+
+function test_download_stdouterr_all() {
+  # Test that action stderr and stdout of all actions are downloaded with
+  # `--remote_download_stdouterr=all`.
+  write_stdouterr_test_build_defs
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=all \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+}
+
 run_suite "Build without the Bytes tests"
