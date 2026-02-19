@@ -74,6 +74,10 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     assertContainsEvent("does not provide ToolchainInfo");
   }
 
+  // This test is here to ensure that the java_runtime version is accessible by native code.
+  // It needs to stay in native as long as the native class
+  // bazel/src/main/java/com/google/devtools/build/lib/rules/java/JavaRuntimeInfo.java exists.
+  // copybara:strip see cl/613242078
   @Test
   public void javaRuntimeVersion_isAccessibleByNativeCode() throws Exception {
     scratch.file(
