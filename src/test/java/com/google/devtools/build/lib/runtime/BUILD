@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib:runtime/common_command_options",
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
+        "//src/main/java/com/google/devtools/build/lib:runtime/instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib:runtime/test_summary_options",

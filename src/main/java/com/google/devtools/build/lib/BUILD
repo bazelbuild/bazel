@@ -436,6 +436,15 @@ java_library(
 )
 
 java_library(
+    name = "runtime/instrumentation_output",
+    srcs = ["runtime/InstrumentationOutput.java"],
+    deps = [
+        ":buildtool/build_result",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -467,6 +476,7 @@ java_library(
             "runtime/StarlarkOptionsParser.java",
             "runtime/TestSummaryOptions.java",
             "runtime/UiOptions.java",
+            "runtime/InstrumentationOutput.java",
         ],
     ),
     deps = [
@@ -485,6 +495,7 @@ java_library(
         ":runtime/command_line_path_factory",
         ":runtime/common_command_options",
         ":runtime/config_flag_definitions",
+        ":runtime/instrumentation_output",
         ":runtime/memory_pressure",
         ":runtime/options_supplier",
         ":runtime/test_summary_options",
