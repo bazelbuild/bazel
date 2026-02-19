@@ -244,6 +244,15 @@ public class SandboxOptions extends OptionsBase {
   public boolean dockerSandboxUseSymlinks;
 
   @Option(
+      name = "experimental_docker_sandbox_network_config",
+      defaultValue = "host",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "When Docker-based sandboxing is enabled and the action has network access, specifies what to pass to --network")
+  public String dockerSandboxNetworkConfig;
+
+  @Option(
           name = "experimental_docker_sandbox_executable",
           defaultValue = "docker",
           documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

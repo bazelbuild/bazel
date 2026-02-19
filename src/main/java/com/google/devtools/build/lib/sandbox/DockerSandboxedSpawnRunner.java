@@ -252,9 +252,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
-        .setCreateNetworkNamespace(
-            !(allowNetwork
-                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
+        .setNetworkMode(getNetworkMode(spawn))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
@@ -306,6 +304,15 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               /* statisticsPath= */ null,
               () -> containersToCleanup.remove(uuid),
               spawn.getMnemonic());
+    }
+  }
+
+  private String getNetworkMode(Spawn spawn) {
+    var networkRequested = allowNetwork || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
+    if (networkRequested) {
+      return getSandboxOptions().dockerSandboxNetworkConfig;
+    } else {
+      return "none";
     }
   }
 

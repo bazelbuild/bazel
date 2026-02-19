@@ -37,7 +37,6 @@ final class DockerCommandLineBuilder {
   private Path sandboxExecRoot;
   private Map<String, String> environmentVariables;
   private Duration timeout;
-  private boolean createNetworkNamespace;
   private UUID uuid;
   private int uid;
   private int gid;
@@ -45,6 +44,7 @@ final class DockerCommandLineBuilder {
   private boolean privileged;
   private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
   private List<Map.Entry<String, String>> additionalMounts = ImmutableList.of();
+  private String networkMode;
 
   @CanIgnoreReturnValue
   public DockerCommandLineBuilder setProcessWrapper(ProcessWrapper processWrapper) {
@@ -86,12 +86,6 @@ final class DockerCommandLineBuilder {
   @CanIgnoreReturnValue
   public DockerCommandLineBuilder setTimeout(Duration timeout) {
     this.timeout = timeout;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public DockerCommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
-    this.createNetworkNamespace = createNetworkNamespace;
     return this;
   }
 
@@ -139,21 +133,24 @@ final class DockerCommandLineBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public DockerCommandLineBuilder setNetworkMode(String networkMode) {
+    this.networkMode = networkMode;
+    return this;
+  }
+
   public ImmutableList<String> build() {
     Preconditions.checkNotNull(sandboxExecRoot, "sandboxExecRoot must be set");
     Preconditions.checkState(!imageName.isEmpty(), "imageName must be set");
     Preconditions.checkState(!commandArguments.isEmpty(), "commandArguments must be set");
+    Preconditions.checkState(networkMode != null, "networkMode must be set");
 
     ImmutableList.Builder<String> dockerCmdLine = ImmutableList.builder();
 
     dockerCmdLine.add(dockerClient.getPathString());
     dockerCmdLine.add("run");
     dockerCmdLine.add("--rm");
-    if (createNetworkNamespace) {
-      dockerCmdLine.add("--network=none");
-    } else {
-      dockerCmdLine.add("--network=host");
-    }
+    dockerCmdLine.add("--network=" + networkMode);
     if (privileged) {
       dockerCmdLine.add("--privileged");
     }
