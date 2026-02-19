@@ -134,7 +134,7 @@ public final class BuildConfigurationKeyProducer<C>
       tasks.enqueue(
           new PlatformProducer(
               targetPlatforms.getFirst(),
-              options.get(CoreOptions.class).commandLineFlagAliases,
+              options.get(CoreOptions.class).getCommandLineFlagAliases(),
               this,
               this::checkTargetPlatformFlags));
       return runAfter;

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
@@ -23,8 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -48,7 +47,7 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static Key key(Label platformLabel, List<Map.Entry<String, String>> flagAliasMappings) {
+  public static Key key(Label platformLabel, ImmutableMap<String, Label> flagAliasMappings) {
     return Key.create(platformLabel, flagAliasMappings);
   }
 
@@ -59,12 +58,11 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
    * @param flagAliasMappings {@code --flag_alias} maps that apply to this build.
    */
   @AutoCodec
-  public record Key(Label label, List<Map.Entry<String, String>> flagAliasMappings)
-      implements SkyKey {
+  public record Key(Label label, ImmutableMap<String, Label> flagAliasMappings) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = new SkyKeyInterner<>();
 
     @AutoCodec.Instantiator
-    static Key create(Label label, List<Map.Entry<String, String>> flagAliasMappings) {
+    static Key create(Label label, ImmutableMap<String, Label> flagAliasMappings) {
       return interner.intern(new Key(label, flagAliasMappings));
     }
 

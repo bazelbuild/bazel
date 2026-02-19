@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 import static java.util.stream.Collectors.joining;
 
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,8 +73,7 @@ import net.starlark.java.eval.StarlarkInt;
 public final class FunctionTransitionUtil {
 
   private static final Predicate<String> IS_NATIVE_OPTION =
-      setting -> setting.startsWith(COMMAND_LINE_OPTION_PREFIX);
-  private static final Predicate<String> IS_STARLARK_OPTION = not(IS_NATIVE_OPTION);
+      setting -> setting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX);
 
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
@@ -108,14 +109,13 @@ public final class FunctionTransitionUtil {
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(fromOptions);
-      ImmutableMap<String, String> flagsAliases;
+      ImmutableMap<String, Label> flagsAliases;
       if (isExecTransition) {
         // Ignore flag aliases for exec transitions. Starlark flags will provide their exec
         // transition semantics in the flag definition.
         flagsAliases = ImmutableMap.of();
       } else {
-        flagsAliases =
-            ImmutableMap.copyOf(fromOptions.get(CoreOptions.class).commandLineFlagAliases);
+        flagsAliases = fromOptions.get(CoreOptions.class).getCommandLineFlagAliases();
       }
 
       validateInputOptions(
@@ -138,7 +138,7 @@ public final class FunctionTransitionUtil {
       // for why the exec transition is different.
       BuildOptions baselineToOptions = maybeGetExecDefaults(fromOptions, starlarkTransition);
 
-      ImmutableMap<String, Map<String, Object>> transitions =
+      ImmutableMap<String, Map<Label, Object>> transitions =
           starlarkTransition.evaluate(settings, attrObject, optionInfoMap, handler);
       if (transitions == null) {
         return null; // errors reported to handler
@@ -147,8 +147,8 @@ public final class FunctionTransitionUtil {
         return ImmutableMap.of(PATCH_TRANSITION_KEY, baselineToOptions);
       }
 
-      for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
-        Map<String, Object> newValues =
+      for (Map.Entry<String, Map<Label, Object>> entry : transitions.entrySet()) {
+        Map<Label, Object> newValues =
             handleImplicitPlatformChange(
                 baselineToOptions, applyStarlarkFlagsAliases(flagsAliases, entry.getValue()));
 
@@ -282,6 +282,11 @@ public final class FunctionTransitionUtil {
     return ans.buildOrThrow();
   }
 
+  private static final Label CPU_OPTION =
+      Label.createUnvalidated(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, "cpu");
+  private static final Label PLATFORMS_OPTION =
+      Label.createUnvalidated(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, "platforms");
+
   /**
    * If the transition changes --cpu but not --platforms, clear out --platforms.
    *
@@ -298,38 +303,38 @@ public final class FunctionTransitionUtil {
    *
    * <p>Platform mappings: https://bazel.build/concepts/platforms-intro#platform-mappings.
    */
-  private static Map<String, Object> handleImplicitPlatformChange(
-      BuildOptions options, Map<String, Object> rawTransitionOutput) {
-    Object newCpu = rawTransitionOutput.get(COMMAND_LINE_OPTION_PREFIX + "cpu");
+  private static Map<Label, Object> handleImplicitPlatformChange(
+      BuildOptions options, Map<Label, Object> rawTransitionOutput) {
+    Object newCpu = rawTransitionOutput.get(CPU_OPTION);
     if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).cpu)) {
       // No effective change to --cpu, so no need to prevent the platform mapping from resetting it.
       return rawTransitionOutput;
     }
-    if (rawTransitionOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms")) {
+    if (rawTransitionOutput.containsKey(PLATFORMS_OPTION)) {
       // Explicitly setting --platforms overrides the implicit clearing.
       return rawTransitionOutput;
     }
-    return ImmutableMap.<String, Object>builder()
+    return ImmutableMap.<Label, Object>builder()
         .putAll(rawTransitionOutput)
-        .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
+        .put(PLATFORMS_OPTION, ImmutableList.<Label>of())
         .buildOrThrow();
   }
 
   /** Set the Starlark flag value to the value of its alias. */
-  private static Map<String, Object> applyStarlarkFlagsAliases(
-      ImmutableMap<String, String> flagsAliases, Map<String, Object> rawTransitionOutput)
+  private static Map<Label, Object> applyStarlarkFlagsAliases(
+      ImmutableMap<String, Label> flagsAliases, Map<Label, Object> rawTransitionOutput)
       throws ValidationException {
     if (flagsAliases.isEmpty()) {
       return rawTransitionOutput;
     }
 
-    LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-    result.putAll(rawTransitionOutput);
+    LinkedHashMap<Label, Object> result = new LinkedHashMap<>(rawTransitionOutput);
 
-    for (Map.Entry<String, String> flagAlias : flagsAliases.entrySet()) {
-      String nativeFlag = COMMAND_LINE_OPTION_PREFIX + flagAlias.getKey();
-      String starlarkFlag =
-          Label.parseCanonicalUnchecked(flagAlias.getValue()).getUnambiguousCanonicalForm();
+    for (Map.Entry<String, Label> flagAlias : flagsAliases.entrySet()) {
+      Label nativeFlag =
+          Label.createUnvalidated(
+              LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, flagAlias.getKey());
+      Label starlarkFlag = flagAlias.getValue();
 
       if (rawTransitionOutput.containsKey(starlarkFlag)
           && rawTransitionOutput.containsKey(nativeFlag)) {
@@ -356,10 +361,8 @@ public final class FunctionTransitionUtil {
 
   private static boolean isNativeOptionValid(
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases,
-      String flag) {
-    String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
-
+      ImmutableMap<String, Label> flagsAliases,
+      String optionName) {
     // Make sure the option exists, or it is an alias.
     return optionInfoMap.containsKey(optionName) || flagsAliases.containsKey(optionName);
   }
@@ -372,9 +375,8 @@ public final class FunctionTransitionUtil {
    */
   private static boolean isNativeOptionNonConfigurable(
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases,
-      String flag) {
-    String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
+      ImmutableMap<String, Label> flagsAliases,
+      String optionName) {
     OptionInfo optionInfo = optionInfoMap.get(optionName);
     if (optionInfo == null) {
       if (flagsAliases.containsKey(optionName)) {
@@ -382,7 +384,7 @@ public final class FunctionTransitionUtil {
         return false;
       }
       throw new VerifyException(
-          "Cannot check if option " + flag + " is non-configurable: it does not exist");
+          "Cannot check if option %s is non-configurable: it does not exist".formatted(optionName));
     }
     return optionInfo.hasOptionMetadataTag(OptionMetadataTag.NON_CONFIGURABLE);
   }
@@ -391,7 +393,7 @@ public final class FunctionTransitionUtil {
       ImmutableList<String> options,
       boolean allowNonConfigurableFlagChanges,
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases)
+      ImmutableMap<String, Label> flagsAliases)
       throws ValidationException {
     checkForInvalidNativeOptions(
         /* transitionParameterType= */ "inputs", options, optionInfoMap, flagsAliases);
@@ -405,10 +407,10 @@ public final class FunctionTransitionUtil {
   }
 
   private static void validateOutputOptions(
-      ImmutableList<String> options,
+      Collection<String> options,
       boolean allowNonConfigurableFlagChanges,
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases)
+      ImmutableMap<String, Label> flagsAliases)
       throws ValidationException {
     if (options.contains("//command_line_option:define")) {
       throw new ValidationException(
@@ -432,14 +434,19 @@ public final class FunctionTransitionUtil {
 
   private static void checkForInvalidNativeOptions(
       String transitionParameterType,
-      ImmutableList<String> options,
+      Collection<String> options,
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases)
+      ImmutableMap<String, Label> flagsAliases)
       throws ValidationException {
     ImmutableList<String> invalidNativeOptions =
         options.stream()
             .filter(IS_NATIVE_OPTION)
-            .filter(optionName -> !isNativeOptionValid(optionInfoMap, flagsAliases, optionName))
+            .filter(
+                option ->
+                    !isNativeOptionValid(
+                        optionInfoMap,
+                        flagsAliases,
+                        option.substring(COMMAND_LINE_OPTION_PREFIX.length())))
             .collect(toImmutableList());
     if (!invalidNativeOptions.isEmpty()) {
       throw ValidationException.format(
@@ -450,18 +457,21 @@ public final class FunctionTransitionUtil {
 
   private static void checkForNonConfigurableOptions(
       String transitionParameterType,
-      ImmutableList<String> options,
+      Collection<String> options,
       boolean allowNonConfigurableFlagChanges,
       ImmutableMap<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases)
+      ImmutableMap<String, Label> flagsAliases)
       throws ValidationException {
     if (!allowNonConfigurableFlagChanges) {
       ImmutableList<String> nonConfigurableNativeOptions =
           options.stream()
               .filter(IS_NATIVE_OPTION)
               .filter(
-                  optionName ->
-                      isNativeOptionNonConfigurable(optionInfoMap, flagsAliases, optionName))
+                  option ->
+                      isNativeOptionNonConfigurable(
+                          optionInfoMap,
+                          flagsAliases,
+                          option.substring(COMMAND_LINE_OPTION_PREFIX.length())))
               .collect(toImmutableList());
       if (!nonConfigurableNativeOptions.isEmpty()) {
         throw ValidationException.format(
@@ -487,34 +497,25 @@ public final class FunctionTransitionUtil {
   private static ImmutableMap<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases,
+      ImmutableMap<String, Label> flagsAliases,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
-    ImmutableMap<String, String> inputsCanonicalizedToGiven =
+    ImmutableMap<Label, String> inputsCanonicalizedToGiven =
         starlarkTransition.getInputsCanonicalizedToGiven();
 
     ImmutableMap.Builder<String, Object> optionsBuilder = ImmutableMap.builder();
 
-    // Handle native options.
-    starlarkTransition.getInputsCanonicalizedToGiven().keySet().stream()
-        .filter(IS_NATIVE_OPTION)
-        .forEach(
-            setting -> {
-              Optional<Object> result =
-                  findNativeOptionValue(buildOptions, optionInfoMap, flagsAliases, setting);
-              result.ifPresent(optionValue -> optionsBuilder.put(setting, optionValue));
-            });
-
-    // Handle starlark options.
-    starlarkTransition.getInputsCanonicalizedToGiven().keySet().stream()
-        .filter(IS_STARLARK_OPTION)
-        .forEach(
-            setting -> {
-              Object optionValue = findStarlarkOptionValue(buildOptions, setting);
-              // Convert the canonical form to the user requested form that they expect to see.
-              String userRequestedLabelForm = inputsCanonicalizedToGiven.get(setting);
-              optionsBuilder.put(userRequestedLabelForm, optionValue);
-            });
+    // Convert the canonical form to the user requested form that they expect to see.
+    inputsCanonicalizedToGiven.forEach(
+        (canonical, given) -> {
+          if (canonical.getPackageIdentifier().equals(COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
+            findNativeOptionValue(buildOptions, optionInfoMap, flagsAliases, canonical)
+                .ifPresent(optionValue -> optionsBuilder.put(given, optionValue));
+          } else {
+            Object optionValue = findStarlarkOptionValue(buildOptions, canonical);
+            optionsBuilder.put(given, optionValue);
+          }
+        });
 
     ImmutableMap<String, Object> result = optionsBuilder.buildOrThrow();
     SetView<String> remainingInputs =
@@ -531,18 +532,18 @@ public final class FunctionTransitionUtil {
   private static Optional<Object> findNativeOptionValue(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
-      ImmutableMap<String, String> flagsAliases,
-      String setting) {
-    setting = setting.substring(COMMAND_LINE_OPTION_PREFIX.length());
-    if (flagsAliases.containsKey(setting)) {
+      ImmutableMap<String, Label> flagsAliases,
+      Label setting) {
+    String optionName = setting.getName();
+    if (flagsAliases.containsKey(optionName)) {
       // If the setting is an alias to a starlark option, use the starlark option value.
-      return Optional.of(findStarlarkOptionValue(buildOptions, flagsAliases.get(setting)));
+      return Optional.of(findStarlarkOptionValue(buildOptions, flagsAliases.get(optionName)));
     }
 
-    if (!optionInfoMap.containsKey(setting)) {
+    if (!optionInfoMap.containsKey(optionName)) {
       return Optional.empty();
     }
-    OptionInfo optionInfo = optionInfoMap.get(setting);
+    OptionInfo optionInfo = optionInfoMap.get(optionName);
     FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
     // Get the raw value to avoid the default handling for null values.
     Object optionValue = optionInfo.getDefinition().getRawValue(options);
@@ -550,9 +551,8 @@ public final class FunctionTransitionUtil {
     return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
   }
 
-  private static Object findStarlarkOptionValue(BuildOptions buildOptions, String setting) {
-    Label settingLabel = Label.parseCanonicalUnchecked(setting);
-    return buildOptions.getStarlarkOptions().get(settingLabel);
+  private static Object findStarlarkOptionValue(BuildOptions buildOptions, Label setting) {
+    return buildOptions.getStarlarkOptions().get(setting);
   }
 
   /**
@@ -560,7 +560,7 @@ public final class FunctionTransitionUtil {
    * info.
    *
    * @param fromOptions the pre-transition build options
-   * @param newValues a map of option name: option value entries to override current option values
+   * @param newValues a map of option Label: option value entries to override current option values
    *     in the buildOptions param
    * @param optionInfoMap a map of all native options (name -> OptionInfo) present in {@code
    *     toOptions}.
@@ -571,7 +571,7 @@ public final class FunctionTransitionUtil {
    */
   private static BuildOptions applyTransition(
       BuildOptions fromOptions,
-      Map<String, Object> newValues,
+      Map<Label, Object> newValues,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
@@ -587,14 +587,15 @@ public final class FunctionTransitionUtil {
     // BuildOptions objects more immutable. Native options use the latter approach for legacy
     // reasons. While not preferred, direct mutation doesn't require expensive cloning.
     Map<Label, Object> changedStarlarkOptions = new LinkedHashMap<>();
-    for (Map.Entry<String, Object> entry : newValues.entrySet()) {
-      String optionKey = entry.getKey();
+    for (Map.Entry<Label, Object> entry : newValues.entrySet()) {
+      Label optionKey = entry.getKey();
       Object optionValue = entry.getValue();
 
-      if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+      if (!optionKey
+          .getPackageIdentifier()
+          .equals(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
         // The transition changes a Starlark option.
-        Label optionLabel = Label.parseCanonicalUnchecked(optionKey);
-        Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
+        Object oldValue = fromOptions.getStarlarkOptions().get(optionKey);
         if (oldValue instanceof Label) {
           // If this is a label-typed build setting, we need to convert the provided new value into
           // a Label object.
@@ -624,12 +625,12 @@ public final class FunctionTransitionUtil {
           }
         }
         if (!Objects.equals(oldValue, optionValue)) {
-          changedStarlarkOptions.put(optionLabel, optionValue);
-          convertedAffectedOptions.add(optionLabel.toString());
+          changedStarlarkOptions.put(optionKey, optionValue);
+          convertedAffectedOptions.add(optionKey.toString());
         }
       } else {
         // The transition changes a native option.
-        String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        String optionName = optionKey.getName();
         OptionInfo optionInfo = optionInfoMap.get(optionName);
 
         // Convert NoneType to null.

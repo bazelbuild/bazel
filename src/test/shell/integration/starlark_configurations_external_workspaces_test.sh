@@ -217,6 +217,72 @@ EOF
   expect_log "value after transition: prickly-pear"
 }
 
+function test_rc_flag_alias_external_repo() {
+  local -r pkg=$FUNCNAME
+  local -r subpkg="$pkg/sub"
+  mkdir -p $subpkg
+
+  ## set up outer repo
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "sub",
+  path = "./sub")
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("@sub//:rules.bzl", "flag_reader")
+flag_reader(
+    name = "reader",
+    flag = "@sub//:my_flag",
+)
+EOF
+
+  ## set up inner repo with a flag and a rule that reads it
+  cat > $subpkg/BUILD <<EOF
+load(":rules.bzl", "my_flag")
+my_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > $subpkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+
+def _flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+my_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.string(flag = True),
+)
+
+def _flag_reader_impl(ctx):
+    print("flag value: " + ctx.attr.flag[BuildSettingInfo].value)
+    return []
+
+flag_reader = rule(
+    implementation = _flag_reader_impl,
+    attrs = {
+        "flag": attr.label(),
+    },
+)
+EOF
+
+  cat > $(setup_module_dot_bazel "$subpkg/MODULE.bazel") <<EOF
+module(name = "sub")
+EOF
+
+  cd $pkg
+
+  # Test that flag alias for external repo flag works correctly.
+  bazel build :reader --flag_alias=myflag=@sub//:my_flag --myflag=custom_value \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "flag value: custom_value"
+}
+
 function test_bzl_module_flag_alias_function() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -264,11 +330,11 @@ EOF
   # This is important because select() and transitions read --flag_alias to
   # correctly map aliases.
   # This regex checks that the line starts with "flag_alias:" and contains
-  # both "compilation_mode=@//:my_flag" and "user_set=//:fake_flag" in any order.
+  # both "compilation_mode=//:my_flag" and "user_set=//:fake_flag" in any order.
   local flag_alias_regex="flag_alias:.*\\("
-  flag_alias_regex+="compilation_mode=@//:my_flag.*user_set=//:fake_flag"
+  flag_alias_regex+="compilation_mode=//:my_flag.*user_set=//:fake_flag"
   flag_alias_regex+="\\|"
-  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=@//:my_flag"
+  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=//:my_flag"
   flag_alias_regex+="\\)"
 
   expect_log "$flag_alias_regex" \
