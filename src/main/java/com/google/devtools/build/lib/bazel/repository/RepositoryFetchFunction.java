@@ -208,7 +208,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
    * The actual SkyFunction logic, run in a worker thread. Note that, although the worker thread
    * never sees Skyframe restarts, {@code env.valuesMissing()} can still be true due to deps in
    * error. So this function still needs to return {@code null} when appropriate. See Javadoc of
-   * {@link WorkerSkyFunctionEnvironment} for more information.
+   * {@link com.google.devtools.build.skyframe.WorkerSkyFunctionEnvironment} for more information.
    */
   @Nullable
   private RepositoryDirectoryValue computeInternal(
@@ -281,7 +281,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       if (remoteRepoContentsCache != null) {
         try {
           if (remoteRepoContentsCache.lookupCache(
-              repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+              repositoryName, repoRoot, digestWriter.predeclaredInputHash, env)) {
             return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
           }
         } catch (IOException e) {
