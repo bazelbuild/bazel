@@ -15,6 +15,14 @@ filegroup(
 )
 
 java_library(
+    name = "decimal_bucketer",
+    srcs = ["DecimalBucketer.java"],
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
