@@ -764,6 +764,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .add(testAction.getCoverageDirectoryTreeArtifact())
               .build();
 
+      // Make coverage directory writable for post-processing.
+      // The directory may have been made read-only after the test action completed.
+      Path coverageDirPath =
+          actionExecutionContext.getInputPath(testAction.getCoverageDirectoryTreeArtifact());
+      coverageDirPath.setWritable(true);
+
       Spawn coveragePostProcessingSpawn =
           createCoveragePostProcessingSpawn(
               actionExecutionContext,
