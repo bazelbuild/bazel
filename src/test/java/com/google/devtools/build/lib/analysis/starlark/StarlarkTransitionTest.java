@@ -163,8 +163,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//test:arizona");
-    assertContainsEvent(
-        "Transition declares duplicate build setting '@@//test:formation' in INPUTS");
+    assertContainsEvent("Transition declares duplicate build setting '//test:formation' in INPUTS");
   }
 
   @Test
@@ -213,7 +212,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
-        "Transition declares duplicate build setting '@@//test:formation' in OUTPUTS");
+        "Transition declares duplicate build setting '//test:formation' in OUTPUTS");
   }
 
   @Test
@@ -802,7 +801,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     getConfiguredTarget("//test:t1");
     assertContainsEvent(
         String.format(
-            "Starlark flag '@@//test:foo_starlark' and its alias '//command_line_option:%s'"
+            "Starlark flag '//test:foo_starlark' and its alias '//command_line_option:%s'"
                 + " have different values: 'val_for_starlark' and 'val_for_native'",
             nativeFlagName));
   }

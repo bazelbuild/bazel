@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -931,11 +930,6 @@ public class BuildConfigurationValue
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
-  }
-
-  public ImmutableMap<String, String> getCommandLineFlagAliases() {
-    return options.commandLineFlagAliases.stream()
-        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Nullable
