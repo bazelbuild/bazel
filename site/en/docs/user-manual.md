@@ -1262,8 +1262,41 @@ echo "STABLE_GIT_COMMIT $(git rev-parse HEAD)"
 echo "STABLE_USER_NAME $USER"
 </pre>
 
-Pass this program's path with `--workspace_status_command`, and the stable status file
 will include the STABLE lines and the volatile status file will include the rest of the lines.
+
+##### Usage {:#workspace-status-usage}
+
+You can consume the status information in your build rules. The most common way is using a `genrule` with `stamp = 1` or language-specific rules that support stamping (like `cc_binary` with `linkstamp`).
+
+**Example: Using a Python status script**
+
+1.  Create a portable status script, for example `status.py`:
+
+    ```python
+    #!/usr/bin/env python3
+    import sys
+    print("STABLE_PYTHON_VERSION " + sys.version.split()[0])
+    ```
+
+2.  Pass it to Bazel:
+
+    ```bash
+    bazel build --workspace_status_command="python3 status.py" ...
+    ```
+
+3.  Consume it in a `genrule`:
+
+    ```python
+    genrule(
+        name = "print_status",
+        outs = ["status_info.txt"],
+        stamp = 1,  # Required to enable stamping
+        cmd = "grep STABLE_PYTHON_VERSION \$(BINDIR)/stable-status.txt > $@",
+    )
+    ```
+
+**Note:** For Starlark rule authors, the status files are available via `ctx.info_file` (stable) and `ctx.version_file` (volatile).
+
 
 #### `--[no]stamp` {:#stamp}
 
