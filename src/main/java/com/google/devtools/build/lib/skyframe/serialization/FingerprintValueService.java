@@ -24,12 +24,15 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -58,6 +61,9 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   private final PackedFingerprint fingerprintPlaceholder;
   private final int fingerprintLength;
+
+  private final DecimalBucketer getLatencyMicros = new DecimalBucketer();
+  private final DecimalBucketer setLatencyMicros = new DecimalBucketer();
 
   @VisibleForTesting
   public static FingerprintValueService createForTesting() {
@@ -141,6 +147,11 @@ public final class FingerprintValueService implements KeyValueWriter {
     int serializedBytesLength = serializedBytes.length;
     Instant before = Instant.now();
     WriteStatus putStatus = store.put(fingerprint, serializedBytes);
+    putStatus.addListener(
+        () ->
+            setLatencyMicros.add(
+                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        directExecutor());
     if (jsonLogWriter == null) {
       return putStatus;
     }
@@ -161,7 +172,20 @@ public final class FingerprintValueService implements KeyValueWriter {
   }
 
   public FingerprintValueStore.Stats getStats() {
-    return store.getStats();
+    FingerprintValueStore.Stats storeStats = store.getStats();
+    return new FingerprintValueStore.Stats(
+        storeStats.valueBytesReceived(),
+        storeStats.valueBytesSent(),
+        storeStats.keyBytesSent(),
+        storeStats.entriesWritten(),
+        storeStats.entriesFound(),
+        storeStats.entriesNotFound(),
+        storeStats.getBatches(),
+        storeStats.setBatches(),
+        getLatencyMicros.getBuckets(),
+        setLatencyMicros.getBuckets(),
+        storeStats.getBatchLatencyMicros(),
+        storeStats.setBatchLatencyMicros());
   }
 
   /** Delegates to {@link FingerprintValueStore#get}. */
@@ -183,6 +207,11 @@ public final class FingerprintValueService implements KeyValueWriter {
               },
               directExecutor());
     }
+    result.addListener(
+        () ->
+            getLatencyMicros.add(
+                TimeUnit.NANOSECONDS.toMicros(Duration.between(before, Instant.now()).toNanos())),
+        directExecutor());
     return result;
   }
 

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
@@ -73,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecution
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -366,6 +368,20 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private Distribution computeDistributionProto(ImmutableList<DecimalBucketer.Bucket> buckets) {
+    Distribution.Builder result = Distribution.newBuilder();
+
+    for (var b : buckets) {
+      result.addHistogramBucket(
+          Distribution.HistogramBucket.newBuilder()
+              .setMin(b.minInclusive())
+              .setMax(b.maxExclusive())
+              .setCount(b.count())
+              .build());
+    }
+    return result.build();
+  }
+
   private RemoteAnalysisCacheStatistics collectRemoteAnalysisCacheStats() {
     RemoteAnalysisCacheStatistics.Builder result =
         RemoteAnalysisCacheStatistics.newBuilder()
@@ -383,7 +399,13 @@ class MetricsCollector {
           .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
           .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
           .setValueStoreReadBatches(fvsStats.getBatches())
-          .setValueStoreWriteBatches(fvsStats.setBatches());
+          .setValueStoreWriteBatches(fvsStats.setBatches())
+          .setValueStoreReadLatencyMicros(computeDistributionProto(fvsStats.getLatencyMicros()))
+          .setValueStoreReadBatchLatencyMicros(
+              computeDistributionProto(fvsStats.getBatchLatencyMicros()))
+          .setValueStoreWriteLatencyMicros(computeDistributionProto(fvsStats.setLatencyMicros()))
+          .setValueStoreWriteBatchLatencyMicros(
+              computeDistributionProto(fvsStats.setBatchLatencyMicros()));
     }
 
     RemoteAnalysisCacheClient.Stats raccStats =
@@ -394,6 +416,9 @@ class MetricsCollector {
           .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
           .setAnalysisCacheOps(raccStats.requestsSent())
           .setAnalysisCacheBatches(raccStats.batches())
+          .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
+          .setAnalysisCacheReadBatchLatencyMicros(
+              computeDistributionProto(raccStats.batchLatencyMicros()))
           .setMetadataLookupResult(raccStats.matchStatus());
     }
 

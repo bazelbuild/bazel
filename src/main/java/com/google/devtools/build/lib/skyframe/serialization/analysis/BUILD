@@ -272,8 +272,8 @@ java_library(
     name = "remote_analysis_cache_client",
     srcs = ["RemoteAnalysisCacheClient.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],

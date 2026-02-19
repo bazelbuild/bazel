@@ -1372,6 +1372,18 @@ message BuildMetrics {
 
   DynamicExecutionMetrics dynamic_execution_metrics = 12;
 
+  // A distribution of values. Currently only contains a bunch of histogram
+  // buckets, but if need be, we could add things like stddev or percentiles.
+  message Distribution {
+    message HistogramBucket {
+      int64 min = 1;    // inclusive
+      int64 max = 2;    // exclusive
+      int64 count = 3;  // number of values in the bucket
+    }
+
+    repeated HistogramBucket histogram_bucket = 1;
+  }
+
   // Statistics about remote analysis caching
   message RemoteAnalysisCacheStatistics {
     int64 cache_hits = 1;
@@ -1388,6 +1400,13 @@ message BuildMetrics {
     int64 analysis_cache_key_bytes_sent = 13;
     int64 analysis_cache_ops = 14;
     int64 analysis_cache_batches = 15;
+
+    Distribution value_store_read_latency_micros = 17;
+    Distribution value_store_read_batch_latency_micros = 18;
+    Distribution value_store_write_latency_micros = 19;
+    Distribution value_store_write_batch_latency_micros = 20;
+    Distribution analysis_cache_read_latency_micros = 21;
+    Distribution analysis_cache_read_batch_latency_micros = 22;
 
     // The result of the Skycache metadata lookup.
     devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;

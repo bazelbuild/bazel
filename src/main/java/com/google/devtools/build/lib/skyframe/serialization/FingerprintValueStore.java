@@ -17,8 +17,10 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -34,10 +36,29 @@ public interface FingerprintValueStore {
       long entriesFound,
       long entriesNotFound,
       long getBatches,
-      long setBatches) {}
+      long setBatches,
+      ImmutableList<DecimalBucketer.Bucket> getLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> setLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> getBatchLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> setBatchLatencyMicros) {}
+
+  Stats EMPTY =
+      new Stats(
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableList.of());
 
   default Stats getStats() {
-    return new Stats(0, 0, 0, 0, 0, 0, 0, 0);
+    return EMPTY;
   }
 
   default void shutdown() {}
