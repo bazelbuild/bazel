@@ -400,6 +400,11 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/command_precomplete_event",
+    srcs = ["buildtool/CommandPrecompleteEvent.java"],
+)
+
+java_library(
     name = "runtime/ui_options",
     srcs = ["runtime/UiOptions.java"],
     deps = [
@@ -456,6 +461,7 @@ java_library(
             "buildtool/BuildRequestOptions.java",
             "buildtool/BuildRequest.java",
             "buildtool/BuildResult.java",
+            "buildtool/CommandPrecompleteEvent.java",
             "buildtool/ExecutionProgressReceiver.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
@@ -483,6 +489,7 @@ java_library(
         ":build-request-options",
         ":buildtool/build_request",
         ":buildtool/build_result",
+        ":buildtool/command_precomplete_event",
         ":buildtool/execution_progress_receiver",
         ":buildtool/symlink_forest",
         ":keep-going-option",

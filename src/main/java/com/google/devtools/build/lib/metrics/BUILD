@@ -35,6 +35,7 @@ java_library(
     deps = [
         ":event",
         ":memory-use-recorder",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/command_precomplete_event",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
