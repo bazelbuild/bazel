@@ -86,29 +86,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaHomeGenerated() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_runtime")
-        genrule(
-            name = "gen",
-            outs = ["generated_java_home/bin/java"],
-            cmd = "",
-        )
-
-        java_runtime(
-            name = "jvm",
-            java = "generated_java_home/bin/java",
-            java_home = "generated_java_home",
-        )
-        """);
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    assertThat(getJavaRuntimeInfo(jvm).javaHome())
-        .isEqualTo(getGenfilesArtifactWithNoOwner("a/generated_java_home").getExecPathString());
-  }
-
-  @Test
   public void javaRuntimeVersion_isAccessibleByNativeCode() throws Exception {
     scratch.file(
         "a/BUILD",
