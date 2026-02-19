@@ -258,6 +258,7 @@ java_test(
     srcs = ["SequencedSkyframeExecutorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",

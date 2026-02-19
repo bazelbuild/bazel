@@ -17,7 +17,7 @@ java_test(
     name = "CoverageCommandUnitTest",
     srcs = ["CoverageCommandUnitTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",

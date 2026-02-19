@@ -285,7 +285,7 @@ java_test(
         "InstrumentationFilterSupportTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -426,7 +426,7 @@ java_test(
     name = "PathPrettyPrinterTest",
     srcs = ["PathPrettyPrinterTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:junit4",
@@ -605,6 +605,7 @@ java_test(
     name = "AqueryBuildToolTest",
     srcs = ["AqueryBuildToolTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

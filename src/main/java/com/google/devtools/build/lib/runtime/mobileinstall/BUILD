@@ -18,6 +18,7 @@ java_library(
         "*.txt",
     ]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
