@@ -138,7 +138,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         var owningRule = rule.getRuleClassObject();
         com.google.devtools.build.lib.packages.RuleClass parent;
         while ((parent = owningRule.getStarlarkParent()) != null
-            && parent.getAttributeProvider().getAttributeByNameMaybe(attrName) != null) {
+            && parent.getAttributeByNameMaybe(attrName) != null) {
           owningRule = parent;
         }
         implicitDefinition = checkNotNull(owningRule.getRuleDefinitionEnvironmentLabel());
