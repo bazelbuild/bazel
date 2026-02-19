@@ -767,7 +767,7 @@ public class CommandEnvironment {
    * <p>Always returns the same value on subsequent calls.
    */
   @Nullable
-  private DetailedExitCode finalizeDetailedExitCode() {
+  public DetailedExitCode finalizeDetailedExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
     if (pendingException.compareAndSet(null, Optional.empty())) {
@@ -781,17 +781,6 @@ public class CommandEnvironment {
     }
     // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
     return getPendingDetailedExitCode();
-  }
-
-  /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch of each command ends
-   * (while its outcome can still be modified).
-   */
-  DetailedExitCode precompleteCommand(DetailedExitCode originalExit) {
-    // TODO(b/138456686): this event is deprecated but is used in several places. Instead of lifting
-    //  the ExitCode to a DetailedExitCode, see if it can be deleted.
-    eventBus.post(new CommandPrecompleteEvent(originalExit.getExitCode()));
-    return finalizeDetailedExitCode();
   }
 
   /** Returns the current exit code requested by modules, or null if no exit has been requested. */

@@ -751,7 +751,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Run the command.
       result = command.exec(env, options);
 
-      DetailedExitCode moduleExitCode = env.precompleteCommand(result.getDetailedExitCode());
+      DetailedExitCode moduleExitCode = env.finalizeDetailedExitCode();
       // If Blaze did not suffer an infrastructure failure, check for errors in modules.
       if (!result.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
         result = BlazeCommandResult.detailedExitCode(moduleExitCode);
