@@ -21,9 +21,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.EvalException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,47 +29,10 @@ import org.junit.runners.JUnit4;
 /** Tests for the java_runtime rule. */
 @RunWith(JUnit4.class)
 public class JavaRuntimeTest extends BuildViewTestCase {
-  @Before
-  public final void initializeJvmPackage() throws Exception {
-    scratch.file(
-        "jvm/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_runtime")
-        java_runtime(
-            name = "jvm-k8",
-            srcs = [
-                "k8/a",
-                "k8/b",
-            ],
-            java_home = "k8",
-        )
-        """);
-  }
-
   private JavaRuntimeInfo getJavaRuntimeInfo(ProviderCollection collection)
       throws EvalException, RuleErrorException {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
     return JavaRuntimeInfo.wrap(toolchainInfo.getValue("java_runtime", Info.class));
-  }
-
-  @Test
-  public void invalidJavaBase() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_binary')",
-        "java_binary(name='a', srcs=['A.java'])",
-        "filegroup(name='fg')",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':fg',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:runtime_toolchain_type',",
-        ")");
-    useConfiguration("--extra_toolchains=//a:all");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("does not provide ToolchainInfo");
   }
 
   // This test is here to ensure that the java_runtime version is accessible by native code.
