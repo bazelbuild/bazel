@@ -200,7 +200,7 @@ A reviewer comments, reviews and approves design documents.
 You're responsible for reviewing design documents, asking for additional
 information if needed, and approving a design that passes the review process.
 
-#### When you receive a new proposal {:#new-proposal}
+#### When you receive a new proposal {:#receive-new-proposal}
 
 1.  Take a quick look at the document.
 1.  Comment if critical information is missing, or if the design doesn't fit
