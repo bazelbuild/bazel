@@ -139,6 +139,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     Facts lockfileFacts = Facts.EMPTY;
+    // Store workspace lockfile facts separately for validation in ERROR mode
+    Facts workspaceLockfileFacts = null;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
@@ -149,7 +151,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
-      lockfileFacts = lockfile.getFacts().get(extensionId);
+      workspaceLockfileFacts = lockfile.getFacts().get(extensionId);
+      lockfileFacts = workspaceLockfileFacts;
       if (lockfileFacts == null) {
         lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
       }
@@ -238,13 +241,20 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   : " for platform " + extension.getEvalFactors()));
     }
     var newFacts = moduleExtensionMetadata.getFacts();
-    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
+    // In ERROR mode, validate facts only against the workspace lockfile, not the hidden lockfile.
+    // The hidden lockfile may contain stale facts from a different version (e.g., after a
+    // rollback), which would cause false-positive validation errors.
+    Facts factsToValidate =
+        lockfileMode.equals(LockfileMode.ERROR)
+            ? (workspaceLockfileFacts != null ? workspaceLockfileFacts : Facts.EMPTY)
+            : lockfileFacts;
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(factsToValidate)) {
       String reason =
           "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
                   Starlark.repr(newFacts.value(), starlarkSemantics),
-                  Starlark.repr(lockfileFacts.value(), starlarkSemantics));
+                  Starlark.repr(factsToValidate.value(), starlarkSemantics));
       throw createOutdatedLockfileException(reason);
     }
 
