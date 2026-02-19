@@ -405,7 +405,7 @@ all core Starlark
 plus a few cquery-specific ones described below, but not (for example) `glob`,
 `native`, or `rule`, and it does not support load statements.
 
-##### build_options(target) {:#build-options}
+##### build_options(target) {:#build-options-function}
 
 `build_options(target)` returns a map whose keys are build option identifiers
 (see [Configurations](/extending/config)) and whose values are their Starlark
