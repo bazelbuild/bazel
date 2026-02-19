@@ -20,9 +20,11 @@ import static com.google.devtools.build.lib.analysis.config.transitions.Configur
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -44,6 +46,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -84,8 +87,8 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     INPUTS_AND_OUTPUTS
   }
 
-  private final ImmutableMap<String, String> inputsCanonicalizedToGiven;
-  private final ImmutableMap<String, String> outputsCanonicalizedToGiven;
+  private final ImmutableMap<Label, String> inputsCanonicalizedToGiven;
+  private final ImmutableMap<Label, String> outputsCanonicalizedToGiven;
   final Label parentLabel;
   private final Location location;
   private final Label.PackageContext packageContext;
@@ -127,19 +130,15 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
    * Native options only have one form so they are always returned unchanged (i.e.
    * //command_line_option:<option-name>).
    */
-  private static String canonicalizeSetting(
+  private static Label canonicalizeSetting(
       String setting, RepositoryMapping repoMapping, Label parentLabel)
       throws LabelSyntaxException {
-    String canonicalizedString = setting;
     // native options
     if (setting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX)) {
-      return canonicalizedString;
+      return Label.parseCanonical(setting);
     }
-    canonicalizedString =
-        Label.parseWithPackageContext(
-                setting, PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping))
-            .getUnambiguousCanonicalForm();
-    return canonicalizedString;
+    return Label.parseWithPackageContext(
+        setting, PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping));
   }
 
   /**
@@ -151,25 +150,26 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
    *     them. In the case of native options, the key and value of the entry are the same -
    *     "//command_line_option:<option-name>"
    */
-  private static ImmutableMap<String, String> getCanonicalizedSettings(
+  private static ImmutableMap<Label, String> getCanonicalizedSettings(
       RepositoryMapping repoMapping,
       Label parentLabel,
       List<String> settings,
       List<String> disallowedOptions,
       Settings inputsOrOutputs)
       throws EvalException {
-    Map<String, String> canonicalizedToGiven = new HashMap<>();
+    Map<Label, String> canonicalizedToGiven = new HashMap<>();
     for (String setting : settings) {
-      String canonicalizedSetting;
+      Label canonicalizedSetting;
       try {
         canonicalizedSetting = canonicalizeSetting(setting, repoMapping, parentLabel);
       } catch (LabelSyntaxException unused) {
         throw Starlark.errorf(
             "Malformed label in transition %s parameter: '%s'", inputsOrOutputs, setting);
       }
-      if (canonicalizedSetting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX)) {
-        String optionName =
-            canonicalizedSetting.substring(LabelConstants.COMMAND_LINE_OPTION_PREFIX.length());
+      if (canonicalizedSetting
+          .getPackageIdentifier()
+          .equals(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
+        String optionName = canonicalizedSetting.getName();
         if (disallowedOptions.contains(optionName)) {
           throw Starlark.errorf(
               "Option '%s' is not allowed in transitions %s.", optionName, inputsOrOutputs);
@@ -199,7 +199,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     return inputsCanonicalizedToGiven.values().asList();
   }
 
-  public final ImmutableMap<String, String> getInputsCanonicalizedToGiven() {
+  public final ImmutableMap<Label, String> getInputsCanonicalizedToGiven() {
     return inputsCanonicalizedToGiven;
   }
 
@@ -207,11 +207,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
    * Returns the given output option keys for this transition. The transition implementation
    * function must return a dictionary where the options exactly match the elements of this list.
    */
-  public ImmutableList<String> getOutputs() {
-    return outputsCanonicalizedToGiven.values().asList();
+  public ImmutableCollection<String> getOutputs() {
+    return outputsCanonicalizedToGiven.values();
   }
 
-  public final ImmutableMap<String, String> getOutputsCanonicalizedToGiven() {
+  public final ImmutableMap<Label, String> getOutputsCanonicalizedToGiven() {
     return outputsCanonicalizedToGiven;
   }
 
@@ -262,7 +262,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
    * @throws InterruptedException if evaluating the transition is interrupted
    */
   @Nullable
-  public abstract ImmutableMap<String, Map<String, Object>> evaluate(
+  public abstract ImmutableMap<String, Map<Label, Object>> evaluate(
       Map<String, Object> previousSettings,
       StructImpl attributeMapper,
       ImmutableMap<String, OptionInfo> optionInfoMap,
@@ -341,12 +341,14 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     }
 
     @Override
-    public ImmutableMap<String, Map<String, Object>> evaluate(
+    public ImmutableMap<String, Map<Label, Object>> evaluate(
         Map<String, Object> previousSettings,
         StructImpl attributeMapper,
         ImmutableMap<String, OptionInfo> optionInfoMap,
         EventHandler eventHandler) {
-      return ImmutableMap.of(PATCH_TRANSITION_KEY, changedSettings);
+      return ImmutableMap.of(
+          PATCH_TRANSITION_KEY,
+          Maps.transformValues(getOutputsCanonicalizedToGiven(), changedSettings::get));
     }
 
     @Override
@@ -543,7 +545,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Nullable
     @Override
-    public ImmutableMap<String, Map<String, Object>> evaluate(
+    public ImmutableMap<String, Map<Label, Object>> evaluate(
         Map<String, Object> previousSettings,
         StructImpl attrObject,
         ImmutableMap<String, OptionInfo> optionInfoMap,
@@ -587,11 +589,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         try {
           Map<String, ?> dictOfDict =
               Dict.cast(result, String.class, Dict.class, "dictionary of options dictionaries");
-          ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
+          ImmutableMap.Builder<String, Map<Label, Object>> builder = ImmutableMap.builder();
           for (Map.Entry<String, ?> entry : dictOfDict.entrySet()) {
             Map<String, Object> rawDict =
                 Dict.cast(entry.getValue(), String.class, Object.class, "dictionary of options");
-            ImmutableMap<String, Object> canonicalizedDict =
+            ImmutableMap<Label, Object> canonicalizedDict =
                 canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
             builder.put(entry.getKey(), canonicalizedDict);
           }
@@ -607,7 +609,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
           // Try if this is a patch transition.
           Map<String, Object> rawDict =
               Dict.cast(result, String.class, Object.class, "dictionary of options");
-          ImmutableMap<String, Object> canonicalizedDict =
+          ImmutableMap<Label, Object> canonicalizedDict =
               canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
           return ImmutableMap.of(PATCH_TRANSITION_KEY, canonicalizedDict);
         } catch (EvalException | ValidationException ex) {
@@ -620,7 +622,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         if (sequence.isEmpty()) {
           return ImmutableMap.of();
         }
-        ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Map<Label, Object>> builder = ImmutableMap.builder();
         try {
           int i = 0;
           for (Dict<?, ?> entry :
@@ -628,7 +630,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
             // TODO(b/146347033): Document this behavior.
             Map<String, Object> rawDict =
                 Dict.cast(entry, String.class, Object.class, "dictionary of options");
-            ImmutableMap<String, Object> canonicalizedDict =
+            ImmutableMap<Label, Object> canonicalizedDict =
                 canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
             builder.put(Integer.toString(i++), canonicalizedDict);
           }
@@ -663,7 +665,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
      *     parameter (in their given form) to the transition definition.
      */
     private static void validateFunctionOutputsMatchesDeclaredOutputs(
-        Set<String> returnedKeySet, List<String> declaredReturnSettings)
+        Set<String> returnedKeySet, Collection<String> declaredReturnSettings)
         throws ValidationException {
       if (returnedKeySet.containsAll(declaredReturnSettings)
           && returnedKeySet.size() == declaredReturnSettings.size()) {
@@ -695,20 +697,20 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
      * option" warning we can show the setting as the user gave it as well as in its canonicalized
      * form.
      */
-    private static ImmutableMap<String, Object> canonicalizeTransitionOutputDict(
+    private static ImmutableMap<Label, Object> canonicalizeTransitionOutputDict(
         Map<String, Object> dict,
         RepositoryMapping repoMapping,
         Label parentLabel,
-        List<String> outputs)
+        Collection<String> outputs)
         throws EvalException, ValidationException {
       validateFunctionOutputsMatchesDeclaredOutputs(dict.keySet(), outputs);
 
-      Map<String, String> canonicalizedToGiven = new HashMap<>();
-      ImmutableSortedMap.Builder<String, Object> canonicalizedDict =
+      Map<Label, String> canonicalizedToGiven = new HashMap<>();
+      ImmutableSortedMap.Builder<Label, Object> canonicalizedDict =
           new ImmutableSortedMap.Builder<>(Ordering.natural());
       for (Map.Entry<String, Object> entry : dict.entrySet()) {
         String returnedSetting = entry.getKey();
-        String label;
+        Label label;
         try {
           label = canonicalizeSetting(returnedSetting, repoMapping, parentLabel);
         } catch (LabelSyntaxException unused) {

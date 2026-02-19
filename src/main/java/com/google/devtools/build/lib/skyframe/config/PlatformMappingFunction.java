@@ -215,7 +215,7 @@ public final class PlatformMappingFunction implements SkyFunction {
     // here unless a compelling case demands it.
     ParsedFlagsValue.Key parsedFlagsKey =
         ParsedFlagsValue.Key.create(
-            rawFlags, rootPackage, /* flagAliasMappings= */ ImmutableList.of());
+            rawFlags, rootPackage, /* flagAliasMappings= */ ImmutableMap.of());
     try {
       return (ParsedFlagsValue) env.getValueOrThrow(parsedFlagsKey, OptionsParsingException.class);
     } catch (OptionsParsingException e) {
