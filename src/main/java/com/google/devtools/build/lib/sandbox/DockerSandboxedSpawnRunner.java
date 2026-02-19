@@ -252,10 +252,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setWritableFilesAndDirectories(writableDirs)
         .setPrivileged(getSandboxOptions().getDockerPrivileged())
         .setEnvironmentVariables(environment)
-        .setCreateNetworkNamespace(
-            !(allowNetwork
-                || Spawns.requiresNetwork(
-                    spawn, getSandboxOptions().getDefaultSandboxAllowNetwork())))
+        .setNetworkMode(getNetworkMode(spawn))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
@@ -277,7 +274,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // We register the container UUID for cleanup, but remove the UUID if the process ran
     // successfully.
     containersToCleanup.add(uuid);
-    if (cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerSandboxUseSymlinks) {
+    if (cmdEnv.getOptions().getOptions(SandboxOptions.class).getDockerSandboxUseSymlinks()) {
       return new SymlinkedSandboxedSpawn(
               sandboxPath,
               sandboxExecRoot,
@@ -307,6 +304,15 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               /* statisticsPath= */ null,
               () -> containersToCleanup.remove(uuid),
               spawn.getMnemonic());
+    }
+  }
+
+  private String getNetworkMode(Spawn spawn) {
+    var networkRequested = allowNetwork || Spawns.requiresNetwork(spawn, getSandboxOptions().getDefaultSandboxAllowNetwork());
+    if (networkRequested) {
+      return getSandboxOptions().getDockerSandboxNetworkConfig();
+    } else {
+      return "none";
     }
   }
 
