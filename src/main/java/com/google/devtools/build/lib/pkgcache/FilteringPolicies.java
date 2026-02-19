@@ -117,7 +117,8 @@ public final class FilteringPolicies {
         return true;
       }
 
-      if (target.getAssociatedRule().getRuleClass().equals(ruleName())) {
+      var rule = target.getAssociatedRule();
+      if (rule != null && rule.getRuleClass().equals(ruleName())) {
         return true;
       }
 
