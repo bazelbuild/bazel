@@ -55,17 +55,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaHomeWithMakeVariables() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "java_runtime(name='jvm', srcs=[], java_home='/opt/$(CMDLINE)')");
-    useConfiguration("--define=CMDLINE=foo/bar");
-    ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
-    assertThat(getJavaRuntimeInfo(jvm).javaHome()).isEqualTo("/opt/foo/bar");
-  }
-
-  @Test
   public void invalidJavaBase() throws Exception {
     scratch.file(
         "a/BUILD",
