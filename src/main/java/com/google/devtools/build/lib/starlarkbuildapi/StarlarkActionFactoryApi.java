@@ -113,6 +113,17 @@ arguments:
 
 This function must be top-level, i.e. lambdas and nested functions are not allowed.
 """;
+    static final String EXECUTION_REQUIREMENTS_DOC =
+"""
+Information for scheduling the action. See <a href="${link common-definitions#common.tags}">tags</a>
+for useful keys.
+
+<p><code>execution_requirements</code> is not to be confused with the
+<a href="${link common-definitions#common.exec_properties}"><code>exec_properties</code></a>
+rule attribute. Values will not be merged into the platform's execution properties, meaning they
+will only influnce spawn behavior. They will not be visible to remote executors.
+</p>
+""";
 
   @StarlarkMethod(
       name = "declare_file",
@@ -382,10 +393,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "Information for scheduling the action. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+            doc = EXECUTION_REQUIREMENTS_DOC),
       })
   void write(
       FileApi output,
@@ -529,10 +537,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "Information for scheduling the action. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+            doc = EXECUTION_REQUIREMENTS_DOC),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
             // This is technically experimental, so folks shouldn't be too attached,
@@ -781,10 +786,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "Information for scheduling the action. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+            doc = EXECUTION_REQUIREMENTS_DOC),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
             // This is technically experimental, so folks shouldn't be too attached,
@@ -958,10 +960,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-            doc =
-                "Information for scheduling the created actions. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+            doc = EXECUTION_REQUIREMENTS_DOC),
         @Param(
             name = "exec_group",
             allowedTypes = {
