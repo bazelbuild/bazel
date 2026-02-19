@@ -624,9 +624,17 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             positional = false,
             doc =
-                "Information for scheduling the action to resolve this command. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+                """
+                Information for scheduling execution of command resolution. See
+                <a href="${link common-definitions#common.tags}">tags</a> for useful keys.
+
+                <p><code>execution_requirements</code> is not to be confused with the
+                <a href="${link common-definitions#common.exec_properties}"><code>exec_properties</code></a>
+                rule attribute. Values will not be merged into the platform's execution properties,
+                meaning they will only influnce spawn behavior. They will not be visible to remote
+                executors.
+                </p>
+                """),
       },
       useStarlarkThread = true)
   Tuple resolveCommand(
