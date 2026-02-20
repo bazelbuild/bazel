@@ -134,6 +134,14 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
     // Could happen if line starts with "#"
     if (words.empty()) continue;
 
+    // Error out on lines with a single word as the command was probably forgotten
+    if (words.size() <= 1) {
+      *error_text = absl::StrFormat(
+          "Incomplete line in .blazerc file '%s': '%s'",
+          canonical_filename.c_str(), line.c_str());
+      return ParseError::INVALID_FORMAT;
+    }
+
     const absl::string_view command = words[0];
     if (command != kCommandImport && command != kCommandTryImport &&
         command != kCommandTryImportIfBazelVersion) {
@@ -251,6 +259,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
       }
     }
     import_stack.pop_back();
+
   }
 
   return ParseError::NONE;
