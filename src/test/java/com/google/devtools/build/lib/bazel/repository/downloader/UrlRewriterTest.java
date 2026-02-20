@@ -261,11 +261,15 @@ public class UrlRewriterTest {
   @Test
   public void parseError() throws Exception {
     String config = "#comment\nhello";
+    assertThrows(
+        UrlRewriterParseException.class,
+        () -> testUrlRewriter("/some/file", new StringReader(config)));
     try {
       new UrlRewriterConfig("/some/file", new StringReader(config));
       fail();
     } catch (UrlRewriterParseException e) {
       assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/some/file", 2, 0));
+      assertThat(e.getMessage()).contains("Unable to parse: hello");
     }
   }
 
