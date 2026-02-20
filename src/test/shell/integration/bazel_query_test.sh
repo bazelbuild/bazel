@@ -1414,15 +1414,17 @@ EOF
   bazel query --output=proto //foo:without_select >& $TEST_log \
       || fail "Expected success"
 
+  # Force a C locale to ensure that grep matches the Unicode characters
+  # byte-by-byte even though the proto file is not valid UTF-8.
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
   done
 
   bazel query --output=proto //foo:with_select >& $TEST_log \
       || fail "Expected success"
 
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
 }
 
