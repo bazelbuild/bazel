@@ -76,7 +76,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     if (OS.getCurrent() == OS.WINDOWS) {
       // Force MSYS `ln -s` to create a (possibly dangling) native symlink or junction.
       // The default behavior is to require the target path to exist and make a deep copy.
-      addOptions("--action_env=MSYS=winsymlinks:native");
+      addOptions("--action_env=MSYS=winsymlinks:nativestrict");
     }
 
     if (useDiskCache) {
@@ -275,7 +275,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             ctx.actions.run_shell(
                 inputs = [],
                 outputs = [out],
-                command = "ln -s hello $1",
+                command = "ln -s hi $1",
                 arguments = [out.path],
                 use_default_shell_env = True,
             )
