@@ -742,6 +742,20 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "docker_sandboxing_test",
+    size = "large",
+    srcs = ["docker_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    shard_count = 4,
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
 package_group(
     name = "spend_cpu_time_users",
     packages = [

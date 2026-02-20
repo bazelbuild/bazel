@@ -79,6 +79,7 @@ public class SymlinkedSandboxedSpawnTest {
             new SynchronousTreeDeleter(),
             /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null,
+            /* successCallback = */ null,
             /* interactiveDebugArguments= */ null,
             "SomeMnemonic",
             /* targetLabel= */ null);
@@ -110,6 +111,7 @@ public class SymlinkedSandboxedSpawnTest {
             new SynchronousTreeDeleter(),
             /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null,
+            /* successCallback = */ null,
             /* interactiveDebugArguments= */ null,
             "SomeMnemonic",
             /* targetLabel= */ null);
