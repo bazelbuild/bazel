@@ -49,7 +49,6 @@ java_library(
     name = "TimestampBuilderTestCase",
     srcs = ["TimestampBuilderTestCase.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -64,6 +63,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -257,8 +257,6 @@ java_test(
     timeout = "moderate",
     srcs = ["SequencedSkyframeExecutorTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
-        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:keep-state-after-build-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -278,6 +276,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

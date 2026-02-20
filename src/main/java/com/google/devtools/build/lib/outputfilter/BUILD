@@ -15,9 +15,9 @@ java_library(
     name = "outputfilter",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

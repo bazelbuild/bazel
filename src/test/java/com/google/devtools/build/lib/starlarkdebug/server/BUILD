@@ -79,8 +79,8 @@ java_test(
     jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
     deps = [
         ":utils",
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",

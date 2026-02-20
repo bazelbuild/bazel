@@ -80,7 +80,6 @@ java_library(
     ),
     deps = [
         ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
@@ -95,6 +94,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

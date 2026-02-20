@@ -29,7 +29,6 @@ java_library(
     srcs = glob(["*.java"]),
     data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -90,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

@@ -89,7 +89,6 @@ java_library(
         "BazelWorkspaceStatusModule.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -97,6 +96,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
@@ -123,8 +123,8 @@ java_library(
         "SpawnLogModule.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",

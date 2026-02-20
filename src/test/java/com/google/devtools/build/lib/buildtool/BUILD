@@ -22,8 +22,8 @@ java_test(
         "JobsConverterTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",
         "//third_party:truth",
@@ -36,7 +36,7 @@ java_test(
         "SymlinkForestTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/symlink_forest",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:symlink_forest",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -94,7 +94,7 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
@@ -109,10 +109,10 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_lifecycle_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ephemeral_check_if_output_consumed",
@@ -285,7 +285,7 @@ java_test(
         "InstrumentationFilterSupportTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -426,7 +426,7 @@ java_test(
     name = "PathPrettyPrinterTest",
     srcs = ["PathPrettyPrinterTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:junit4",
@@ -529,7 +529,6 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -538,6 +537,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -605,9 +605,9 @@ java_test(
     name = "AqueryBuildToolTest",
     srcs = ["AqueryBuildToolTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/query2",
@@ -678,10 +678,10 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skymeld_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
@@ -704,9 +704,9 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
@@ -724,9 +724,9 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -741,8 +741,6 @@ java_test(
     ],
     tags = ["no_windows"],  # Creates symbolic links.
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_request",
-        "//src/main/java/com/google/devtools/build/lib:buildtool/build_result",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -752,6 +750,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",

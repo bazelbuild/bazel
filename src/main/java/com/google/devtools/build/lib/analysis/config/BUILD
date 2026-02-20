@@ -533,8 +533,7 @@ java_library(
     srcs = ["SymlinkDefinition.java"],
     deps = [
         ":build_configuration",
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
