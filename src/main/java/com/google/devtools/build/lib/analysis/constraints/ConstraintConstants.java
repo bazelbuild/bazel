@@ -59,6 +59,7 @@ public final class ConstraintConstants {
               OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:none")),
           OS.UNKNOWN);
 
+  // Only used for testing, so we accept the ambiguity of multiple constraints representing the same OS.
   @VisibleForTesting
   public static final ImmutableMap<OS, ConstraintValueInfo> OS_TO_DEFAULT_CONSTRAINT_VALUE =
       CONSTRAINT_VALUE_TO_OS.entrySet().stream()
@@ -70,9 +71,17 @@ public final class ConstraintConstants {
    * contained platform constraint, falling back to the host platform if none is found.
    */
   public static OS getOsFromConstraintsOrHost(PlatformInfo platformInfo) {
-    return Optional.ofNullable(platformInfo.constraints().get(OS_CONSTRAINT_SETTING))
-        .flatMap(osConstraint -> Optional.ofNullable(CONSTRAINT_VALUE_TO_OS.get(osConstraint)))
-        .orElseGet(OS::getCurrent);
+    var osConstraintValue = platformInfo.constraints().get(OS_CONSTRAINT_SETTING);
+    if (osConstraintValue == null) {
+      // The platform doesn't specify any OS constraint, which makes it difficult to say how the
+      // parts of Bazel that are OS-specific should behave. Purely for backwards compatibility and
+      // to avoid unexpected breakages, we fall back to the host OS in this case.
+      return OS.getCurrent();
+    }
+    // If the constraint value isn't known to Bazel, it is certainly distinct from all the values
+    // Bazel specifically cares about (e.g. for Windows- or macOS-specific behavior). This is best
+    // modeled by returning UNKNOWN, which is distinct from all the specific OS values in the enum.
+    return CONSTRAINT_VALUE_TO_OS.getOrDefault(osConstraintValue, OS.UNKNOWN);
   }
 
   // No-op constructor to keep this from being instantiated.
