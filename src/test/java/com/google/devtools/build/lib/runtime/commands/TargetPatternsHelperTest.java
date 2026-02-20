@@ -112,7 +112,8 @@ public class TargetPatternsHelperTest {
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Command-line target pattern and --target_pattern_file cannot both be specified";
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
     assertThat(expected.getFailureDetail())
         .isEqualTo(
@@ -135,6 +136,58 @@ public class TargetPatternsHelperTest {
     String regex = "I/O error reading from .*patterns.txt.*\\(No such file or directory\\)";
     assertThat(expected).hasMessageThat().matches(regex);
     assertThat(expected.getFailureDetail().getMessage()).matches(regex);
+    assertThat(expected.getFailureDetail().hasTargetPatterns()).isTrue();
+    assertThat(expected.getFailureDetail().getTargetPatterns().getCode())
+        .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);
+  }
+
+  @Test
+  public void testSpecifyMultipleOptionsThrows() throws OptionsParsingException {
+    options.parse("--target_pattern_file=patterns.txt", "--target_query=deps(//...)");
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String message =
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
+    assertThat(expected).hasMessageThat().isEqualTo(message);
+    assertThat(expected.getFailureDetail())
+        .isEqualTo(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setTargetPatterns(
+                    TargetPatterns.newBuilder()
+                        .setCode(Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN))
+                .build());
+  }
+
+  @Test
+  public void testSpecifyQueryAndPatternThrows() throws OptionsParsingException {
+    options.parse("--target_query=deps(//...)");
+    options.setResidue(ImmutableList.of("//some:pattern"), ImmutableList.of());
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String message =
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
+    assertThat(expected).hasMessageThat().isEqualTo(message);
+  }
+
+  @Test
+  public void testQueryFileWithNonExistingFileThrows() throws OptionsParsingException {
+    options.parse("--target_query_file=query.txt");
+
+    TargetPatternsHelperException expected =
+        assertThrows(
+            TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
+
+    String regex = "I/O error reading from .*query.txt.*\\(No such file or directory\\)";
+    assertThat(expected).hasMessageThat().matches(regex);
     assertThat(expected.getFailureDetail().hasTargetPatterns()).isTrue();
     assertThat(expected.getFailureDetail().getTargetPatterns().getCode())
         .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);

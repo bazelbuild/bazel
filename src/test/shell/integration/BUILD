@@ -114,6 +114,16 @@ sh_test(
 )
 
 sh_test(
+    name = "build_query_test",
+    size = "medium",
+    srcs = ["build_query_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "loading_phase_tests",
     size = "large",
     srcs = ["loading_phase_test.sh"],
