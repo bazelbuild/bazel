@@ -450,7 +450,7 @@ struct Attribute {
   virtual void ExtractClassNames() {}
   virtual bool KeepForCompile() const { return false; }
 
-  void WriteProlog(u1 *&p, u2 length) {
+  void WriteProlog(u1 *&p, u4 length) {
     put_u2be(p, attribute_name_->slot());
     put_u4be(p, length);
   }
