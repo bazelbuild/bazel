@@ -37,8 +37,8 @@ java_test(
     size = "small",
     srcs = ["PackageMetricsModuleTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",
         "//third_party:mockito",

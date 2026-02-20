@@ -16,8 +16,8 @@ java_library(
     srcs = ["StarlarkDebuggerModule.java"],
     deps = [
         ":options",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

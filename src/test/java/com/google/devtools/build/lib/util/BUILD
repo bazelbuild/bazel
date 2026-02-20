@@ -177,8 +177,8 @@ java_test(
     name = "HeapOffsetHelperTest",
     srcs = ["HeapOffsetHelperTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",

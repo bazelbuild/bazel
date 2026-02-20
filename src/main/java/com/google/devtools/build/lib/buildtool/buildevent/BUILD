@@ -15,8 +15,6 @@ java_library(
     name = "buildevent",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_line_event",
-        "//src/main/java/com/google/devtools/build/lib:runtime/instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
@@ -31,6 +29,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_line_event",
+        "//src/main/java/com/google/devtools/build/lib/runtime:instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",

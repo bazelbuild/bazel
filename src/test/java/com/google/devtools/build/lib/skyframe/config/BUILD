@@ -17,11 +17,11 @@ java_test(
     name = "FlagSetFunctionTest",
     srcs = ["FlagSetFunctionTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",

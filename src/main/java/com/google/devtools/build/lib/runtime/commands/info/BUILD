@@ -15,8 +15,6 @@ java_library(
     name = "info",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
@@ -27,6 +25,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:rule_class_utils",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands:paths_to_replace_utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",

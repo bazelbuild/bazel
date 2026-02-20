@@ -15,7 +15,6 @@ java_library(
     name = "includescanning",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -39,6 +38,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ephemeral_check_if_output_consumed",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_descriptor",

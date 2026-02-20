@@ -17,9 +17,9 @@ java_library(
     name = "ServerTests_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",

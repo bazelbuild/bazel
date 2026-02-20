@@ -35,7 +35,6 @@ java_library(
     deps = [
         ":event",
         ":memory-use-recorder",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
@@ -50,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_key_stats",
@@ -76,10 +76,10 @@ java_library(
     srcs = ["PostGCMemoryUseRecorder.java"],
     deps = [
         ":garbage-collection-metrics-util",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",

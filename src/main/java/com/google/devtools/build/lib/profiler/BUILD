@@ -52,9 +52,9 @@ java_library(
         "TraceProfilerService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
@@ -103,8 +103,8 @@ java_library(
     name = "command_profiler_module",
     srcs = ["CommandProfilerModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:async_profiler",
@@ -129,7 +129,7 @@ java_library(
 java_library(
     name = "system_network_stats_service",
     srcs = ["SystemNetworkStatsService.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
 )
 
 java_library(

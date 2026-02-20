@@ -62,7 +62,7 @@ java_library(
     name = "process_utils_service",
     srcs = ["ProcessUtilsService.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
     ],
 )
 

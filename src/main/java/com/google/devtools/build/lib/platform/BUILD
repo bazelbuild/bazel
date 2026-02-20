@@ -16,8 +16,8 @@ java_library(
     srcs = ["SleepPreventionModule.java"],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//third_party:guava",
     ],
 )
@@ -30,9 +30,9 @@ java_library(
     ],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -47,9 +47,9 @@ java_library(
     ],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:flogger",
         "//third_party:guava",
@@ -65,9 +65,9 @@ java_library(
     ],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -82,9 +82,9 @@ java_library(
     ],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:flogger",
         "//third_party:guava",
@@ -100,8 +100,8 @@ java_library(
     deps = [
         ":platform_native_deps_service",
         ":system_memory_pressure_monitor",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//third_party:guava",
     ],
 )
@@ -128,9 +128,9 @@ java_library(
     ],
     deps = [
         ":platform_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -144,7 +144,7 @@ java_library(
         "PlatformNativeDepsService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//third_party:error_prone_annotations",
     ],
 )

@@ -18,8 +18,6 @@ java_library(
         "//src/main/tools:process-wrapper",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
@@ -38,6 +36,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/test:exclusive_test_strategy",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],

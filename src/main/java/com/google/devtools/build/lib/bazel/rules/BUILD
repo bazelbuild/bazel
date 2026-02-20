@@ -23,7 +23,6 @@ java_library(
         ":builtins_bzl_zip",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
@@ -71,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
         "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
         "//src/main/java/com/google/devtools/build/lib/rules/test:testing_support_rules",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",

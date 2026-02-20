@@ -19,7 +19,6 @@ java_library(
         "*.java",
     ]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/common_command_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -47,6 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
+        "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
