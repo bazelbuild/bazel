@@ -151,7 +151,7 @@ public class DownloadCache {
     if (useHardlinks && mayHardlink) {
       FileSystemUtils.createHardLink(targetPath, cacheValue);
     } else {
-      FileSystemUtils.copyFile(cacheValue, targetPath);
+      FileSystemUtils.copyRegularFile(cacheValue, targetPath);
     }
 
     return targetPath;

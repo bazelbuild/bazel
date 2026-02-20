@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -27,9 +29,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.SequencedMap;
 
 /**
  * Helper class that sets up a sandbox in a more comprehensible way. Handles setting up
@@ -38,11 +40,11 @@ import java.util.Map;
 class SandboxHelper {
 
   /** Map from workdir-relative input path to optional real file path. */
-  private final Map<PathFragment, Path> inputs = new HashMap<>();
+  private final SequencedMap<PathFragment, Path> inputs = new LinkedHashMap<>();
 
-  private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
-  private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
-  private final Map<PathFragment, Path> workerFiles = new HashMap<>();
+  private final SequencedMap<VirtualActionInput, byte[]> virtualInputs = new LinkedHashMap<>();
+  private final SequencedMap<PathFragment, PathFragment> symlinks = new LinkedHashMap<>();
+  private final SequencedMap<PathFragment, Path> workerFiles = new LinkedHashMap<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
@@ -185,7 +187,8 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(inputs, virtualInputs, symlinks);
+    return new SandboxInputs(
+        inputs, ImmutableSortedMap.of(), symlinks, ImmutableMap.copyOf(virtualInputs));
   }
 
   public SandboxOutputs getSandboxOutputs() {

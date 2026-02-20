@@ -24,8 +24,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -33,6 +36,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -121,11 +125,13 @@ public class SandboxHelpersTest {
             ImmutableList.of("-a", "-b"),
             ParameterFileType.UNQUOTED);
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(paramFile), execRoot, inputMetadataProvider(paramFile));
 
-    assertThat(inputs.getFiles())
+    assertThat(inputs.files())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
-    assertThat(inputs.getSymlinks()).isEmpty();
+    assertThat(inputs.symlinks()).isEmpty();
     assertThat(FileSystemUtils.readLines(execRoot.getChild("paramFile"), UTF_8))
         .containsExactly("-a", "-b")
         .inOrder();
@@ -139,12 +145,13 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(inputMap(tool), execRoot, inputMetadataProvider(tool));
 
-    assertThat(inputs.getFiles())
+    assertThat(inputs.files())
         .containsExactly(
             PathFragment.create("_bin/say_hello"), execRoot.getRelative("_bin/say_hello"));
-    assertThat(inputs.getSymlinks()).isEmpty();
+    assertThat(inputs.symlinks()).isEmpty();
     assertThat(FileSystemUtils.readLines(execRoot.getRelative("_bin/say_hello"), UTF_8))
         .containsExactly("#!/bin/bash", "echo hello")
         .inOrder();
@@ -183,13 +190,14 @@ public class SandboxHelpersTest {
         executorToCleanup.submit(
             () -> {
               try {
-                SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                SandboxHelpers.processInputFiles(
+                    inputMap(input), customExecRoot, inputMetadataProvider(input));
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot, inputMetadataProvider(input));
     finishProcessingSemaphore.release();
     future.get();
 
@@ -203,6 +211,22 @@ public class SandboxHelpersTest {
   private static ImmutableMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
     return Arrays.stream(inputs)
         .collect(toImmutableMap(ActionInput::getExecPath, Function.identity()));
+  }
+
+  private InputMetadataProvider inputMetadataProvider(ActionInput... inputs) throws IOException {
+    var inputMetadataProvider = new FakeActionInputFileCache();
+    for (var input : inputs) {
+      switch (input) {
+        case VirtualActionInput ignored -> {
+          // Intentionally left blank as virtual inputs are not recorded in the
+          // InputMetadataProvider.
+        }
+        case Artifact artifact ->
+            inputMetadataProvider.put(artifact, FileArtifactValue.createForTesting(artifact));
+        default -> throw new IllegalArgumentException("Unsupported input type: " + input);
+      }
+    }
+    return inputMetadataProvider;
   }
 
   @Test
@@ -248,6 +272,7 @@ public class SandboxHelpersTest {
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt),
             ImmutableMap.of(),
+            ImmutableMap.of(),
             ImmutableMap.of());
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
@@ -255,8 +280,7 @@ public class SandboxHelpersTest {
         ImmutableSet.of(),
         inputsToCreate,
         dirsToCreate,
-        Iterables.concat(
-            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        Iterables.concat(ImmutableSet.of(), inputs.files().keySet(), inputs.symlinks().keySet()),
         SandboxOutputs.create(
             ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of()));
 
@@ -288,6 +312,7 @@ public class SandboxHelpersTest {
     SandboxInputs inputs2 =
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt, input4, inputTxt),
+            ImmutableMap.of(),
             ImmutableMap.of(),
             ImmutableMap.of());
     SandboxHelpers.cleanExisting(

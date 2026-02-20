@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -124,7 +123,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
           inputsToCreate,
           dirsToCreate,
           Iterables.concat(
-              ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+              inputs.files().keySet(), inputs.directories().keySet(), inputs.symlinks().keySet()),
           outputs);
     }
 
@@ -161,23 +160,29 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
         throw new InterruptedException("Interrupted creating inputs");
       }
       Path key = sandboxExecRoot.getRelative(fragment);
-      if (inputs.getFiles().containsKey(fragment)) {
-        Path fileDest = inputs.getFiles().get(fragment);
+      if (inputs.files().containsKey(fragment)) {
+        Path fileDest = inputs.files().get(fragment);
         if (fileDest != null) {
-          copyFile(fileDest, key);
+          materializeFile(fileDest, key);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }
-      } else if (inputs.getSymlinks().containsKey(fragment)) {
-        PathFragment symlinkDest = inputs.getSymlinks().get(fragment);
+      } else {
+        Path directoryDest = inputs.directories().get(fragment);
+        if (directoryDest != null) {
+          materializeDirectory(directoryDest, key);
+        }
+        PathFragment symlinkDest = inputs.symlinks().get(fragment);
         if (symlinkDest != null) {
-          key.createSymbolicLink(symlinkDest);
+          FileSystemUtils.ensureSymbolicLink(key, symlinkDest);
         }
       }
     }
   }
 
-  protected abstract void copyFile(Path source, Path target) throws IOException;
+  protected abstract void materializeFile(Path source, Path target) throws IOException;
+
+  protected abstract void materializeDirectory(Path source, Path target) throws IOException;
 
   @Override
   public void copyOutputs(Path execRoot) throws IOException, InterruptedException {

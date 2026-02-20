@@ -197,7 +197,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             SandboxHelpers.processInputFiles(
                 context.getInputMapping(
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                execRoot);
+                execRoot,
+                context.getInputMetadataProvider());
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
@@ -207,7 +208,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       spawnMetrics =
           SpawnMetrics.Builder.forWorkerExec()
-              .setInputFiles(inputFiles.getFiles().size() + inputFiles.getSymlinks().size());
+              .setInputFiles(inputFiles.files().size() + inputFiles.symlinks().size());
       response =
           execInWorker(
               spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
@@ -310,7 +311,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      Path path = inputs.getFiles().get(PathFragment.create(argValue));
+      Path path = inputs.files().get(PathFragment.create(argValue));
       if (path == null) {
         throw new IOException(
             String.format(
@@ -383,7 +384,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
-        inputFiles.getVirtualInputDigests();
+        inputFiles.virtualInputs();
 
     Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
     boolean hasOutputFileLock = false;
