@@ -814,10 +814,12 @@ bool IsStandardTerminal() {
     return true;
   }
   if (term.empty() || term == "dumb" || term == "emacs" ||
-      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      isEmacs) {
+      term == "xterm-mono" || term == "symbolics" || term == "9term") {
     return false;
   }
+  // For Emacs terminals (other than eterm-color), allow colors if they're a TTY.
+  // This supports modern Emacs terminal packages like 'eat' that set INSIDE_EMACS
+  // and support color output.
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 
