@@ -18,6 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,7 +149,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           fileOutErr,
           toContextRegistry(spawnStrategy, fileSystem, directories),
           inputMetadataProvider,
-          null);
+          org.mockito.Mockito.mock(OutputMetadataStore.class));
     }
 
     FakeActionExecutionContext(
@@ -1147,5 +1149,79 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResultData data = ((StandaloneProcessedAttemptResult) failedResult).testResultData();
     assertThat(data.getStatus()).isEqualTo(BlazeTestStatus.INCOMPLETE);
     assertThat(data.getExitCode()).isEqualTo(0);
+  }
+
+  @Test
+  public void testMetadataResetOnRetry() throws Exception {
+    scratch.file("standalone/flaky_test.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "flaky_test",
+            srcs = ["flaky_test.sh"],
+            flaky = True,
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:flaky_test");
+
+    OutputMetadataStore outputMetadataStore = org.mockito.Mockito.mock(OutputMetadataStore.class);
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase),
+            toContextRegistry(spawnStrategy, fileSystem, directories),
+            inputMetadataFor(testRunnerAction),
+            outputMetadataStore);
+
+    when(spawnStrategy.exec(any(), any()))
+        .thenThrow(new SpawnExecException("failed", FAILED_TEST_SPAWN, false))
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)) // attempt 2 pass
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)); // XML generation
+
+    execute(
+        testRunnerAction,
+        context,
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+
+    verify(outputMetadataStore, atLeastOnce()).resetOutputs(any());
+  }
+
+  @Test
+  public void testSkipCoverageOnFailure() throws Exception {
+    useConfiguration("--collect_code_coverage", "--experimental_split_coverage_postprocessing");
+    scratch.file("standalone/fail_coverage.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "fail_coverage",
+            srcs = ["fail_coverage.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:fail_coverage");
+
+    when(spawnStrategy.exec(any(), any()))
+        .thenThrow(new SpawnExecException("failed", FAILED_TEST_SPAWN, false))
+        .thenReturn(ImmutableList.of(PASSED_TEST_SPAWN)); // XML generation
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(
+        testRunnerAction,
+        context,
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+
+    verify(spawnStrategy, times(2)).exec(any(), any()); // Only test + XML, no coverage merger.
+    assertThat(testRunnerAction.getCoverageData().getPath().exists()).isTrue();
   }
 }
