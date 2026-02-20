@@ -48,6 +48,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/vfs:SymlinkAwareFileSystemTest",
         "//src/test/java/com/google/devtools/build/lib/windows/util",
         "//third_party:guava",
         "//third_party:junit4",
