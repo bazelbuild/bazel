@@ -505,7 +505,6 @@ function test_test_runner_does_not_crash_in_build_command() {
   # ensure Bazel gracefully handles the test runner action failing even
   # if it's not running via "bazel test".
   # See https://github.com/bazelbuild/bazel/issues/28697
-  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
 
@@ -522,7 +521,6 @@ test_aspect = aspect(
 EOF
 
   cat >$pkg/BUILD <<'EOF'
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 sh_test(
     name = "success",
