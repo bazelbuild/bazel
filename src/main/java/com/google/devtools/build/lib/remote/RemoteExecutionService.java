@@ -63,6 +63,8 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -151,8 +153,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
@@ -192,9 +194,10 @@ public class RemoteExecutionService {
   private final Set<String> reportedErrors = new HashSet<>();
 
   @SuppressWarnings("AllowVirtualThreads")
-  private final ExecutorService backgroundTaskExecutor =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("remote-execution-bg-", 0).factory());
+  private final ListeningExecutorService backgroundTaskExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("remote-execution-bg-", 0).factory()));
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
@@ -1761,16 +1764,29 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      backgroundTaskExecutor.execute(
-          () -> {
-            try {
-              doUploadOutputs(action, spawnResult, onUploadComplete);
-            } catch (ExecException e) {
-              reportUploadError(e);
-            } catch (InterruptedException ignored) {
-              // ThreadPerTaskExecutor does not care about interrupt status.
-            }
-          });
+      var uploadDone = new CountDownLatch(1);
+      var future =
+          backgroundTaskExecutor.submit(
+              () -> {
+                try {
+                  doUploadOutputs(action, spawnResult, onUploadComplete);
+                } catch (ExecException e) {
+                  reportUploadError(e);
+                } catch (InterruptedException ignored) {
+                  // ThreadPerTaskExecutor does not care about interrupt status.
+                } finally {
+                  uploadDone.countDown();
+                }
+              });
+
+      if (outputService instanceof RemoteOutputService remoteOutputService) {
+        remoteOutputService.registerOutputUploadTask(
+            action.getRemoteActionExecutionContext().getSpawnOwner(),
+            () -> {
+              future.cancel(true);
+              uploadDone.await();
+            });
+      }
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
     }

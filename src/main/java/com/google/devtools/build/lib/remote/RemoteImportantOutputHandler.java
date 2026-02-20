@@ -26,10 +26,13 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteOutputService.RemoteRewoundActionSynchronizer;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -51,14 +54,17 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   private final WalkableGraph graph;
   private final RemoteOutputChecker remoteOutputChecker;
   private final ActionInputPrefetcher actionInputPrefetcher;
+  private final RewoundActionSynchronizer rewoundActionSynchronizer;
 
   public RemoteImportantOutputHandler(
       WalkableGraph graph,
       RemoteOutputChecker remoteOutputChecker,
-      ActionInputPrefetcher actionInputPrefetcher) {
+      ActionInputPrefetcher actionInputPrefetcher,
+      RewoundActionSynchronizer rewoundActionSynchronizer) {
     this.graph = graph;
     this.remoteOutputChecker = remoteOutputChecker;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.rewoundActionSynchronizer = rewoundActionSynchronizer;
   }
 
   @Override
@@ -68,7 +74,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       InputMetadataProvider fullMetadataProvider)
       throws ImportantOutputException, InterruptedException {
     // Use the full metadata provider since we want to include runfiles trees.
-    try {
+    try (SilentCloseable lock =
+        maybeEnterProcessOutputsAndGetLostArtifacts(importantOutputs, fullMetadataProvider)) {
       ensureToplevelArtifacts(importantOutputs, fullMetadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
@@ -110,6 +117,17 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
 
   @Override
   public void processTooLargeStdoutErr(Path stdoutErr) {}
+
+  private SilentCloseable maybeEnterProcessOutputsAndGetLostArtifacts(
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
+      throws InterruptedException {
+    if (rewoundActionSynchronizer
+        instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
+      return remoteRewoundActionSynchronizer.enterProcessOutputsAndGetLostArtifacts(
+          importantOutputs, metadataProvider);
+    }
+    return () -> {};
+  }
 
   private void ensureToplevelArtifacts(
       Iterable<Artifact> importantArtifacts, InputMetadataProvider metadataProvider)
