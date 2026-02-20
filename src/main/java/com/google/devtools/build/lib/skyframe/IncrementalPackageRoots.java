@@ -375,4 +375,12 @@ public class IncrementalPackageRoots implements PackageRoots {
       }
     }
   }
+
+  public void shutdown() {
+    synchronized (symlinkPlantingPool) {
+      if (!symlinkPlantingPool.isShutdown()) {
+        ExecutorUtil.uninterruptibleShutdownNow(symlinkPlantingPool);
+      }
+    }
+  }
 }
