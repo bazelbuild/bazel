@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
@@ -445,18 +445,12 @@ public class RuleContext extends TargetContext
       testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
     }
 
-    ActionOwner actionOwner =
-        createActionOwner(
-            rule,
-            getAspectDescriptors(),
-            getConfiguration(),
-            testExecProperties,
-            testExecutionPlatform);
-
-    if (actionOwner == null) {
-      actionOwner = getActionOwner();
-    }
-    return actionOwner;
+    return createActionOwner(
+        rule,
+        getAspectDescriptors(),
+        getConfiguration(),
+        testExecProperties,
+        testExecutionPlatform);
   }
 
   @Override
@@ -639,14 +633,14 @@ public class RuleContext extends TargetContext
   /**
    * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
    * based on the name of this target and the current configuration, with a script suffix
-   * appropriate for the current host platform. ({@code .cmd} for Windows, otherwise {@code .sh}).
-   * The choice of which tree to use is based on the rule with which this target (which must be an
-   * OutputFile or a Rule) is associated.
+   * appropriate for the execution platform assigned to the default exec group ({@code .cmd} for
+   * Windows, otherwise {@code .sh}). The choice of which tree to use is based on the rule with
+   * which this target (which must be an OutputFile or a Rule) is associated.
    */
-  public Artifact createOutputArtifactScript() {
+  public Artifact createOutputArtifactScriptForAnalysisTest() {
     Target target = getTarget();
 
-    String fileExtension = isExecutedOnWindows() ? ".cmd" : ".sh";
+    String fileExtension = isDefaultExecGroupExecutingOnWindows() ? ".cmd" : ".sh";
 
     PathFragment rootRelativePath =
         getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
@@ -757,7 +751,6 @@ public class RuleContext extends TargetContext
         getLabel());
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
-
 
   @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -1391,22 +1384,9 @@ public class RuleContext extends TargetContext
     return attributes().has("testonly", Type.BOOLEAN) && attributes().get("testonly", Type.BOOLEAN);
   }
 
-  /** Returns true if the execution platform is Windows. */
-  public boolean isExecutedOnWindows() {
-    return getExecutionPlatform()
-        .constraints()
-        .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
-  }
-
-  /** Returns the OS of the execution platform. */
-  public OS getExecutionPlatformOs() {
-    for (var osToConstraint : OS_TO_CONSTRAINTS.entrySet()) {
-      if (getExecutionPlatform().constraints().hasConstraintValue(osToConstraint.getValue())) {
-        return osToConstraint.getKey();
-      }
-    }
-    // Fall back to assuming exec OS == host OS.
-    return OS.getCurrent();
+  /** Returns true if the execution platform of the default exec group is Windows. */
+  public boolean isDefaultExecGroupExecutingOnWindows() {
+    return getOsFromConstraintsOrHost(getExecutionPlatform()) == OS.WINDOWS;
   }
 
   /**

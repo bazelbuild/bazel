@@ -24,7 +24,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
 @RequiresOptions(options = {ShellConfiguration.Options.class})
@@ -48,19 +50,20 @@ public class ShellConfiguration extends Fragment {
     shellExecutables = osToShellMap;
   }
 
-  private final PathFragment defaultShellExecutableFromOptions;
+  @Nullable private final PathFragment defaultShellExecutableFromOptions;
 
   public ShellConfiguration(BuildOptions buildOptions) {
     this.defaultShellExecutableFromOptions =
         optionsBasedDefault.apply(buildOptions.get(Options.class));
   }
 
-  public static Map<OS, PathFragment> getShellExecutables() {
-    return shellExecutables;
+  static Optional<PathFragment> getShellExecutable(OS os) {
+    return Optional.ofNullable(shellExecutables.get(os));
   }
 
-  /* Returns a function for retrieving the default shell from build options. */
-  public PathFragment getOptionsBasedDefault() {
+  /* Returns the default shell from build options if set explicitly. */
+  @Nullable
+  PathFragment getOptionsBasedDefault() {
     return defaultShellExecutableFromOptions;
   }
 
