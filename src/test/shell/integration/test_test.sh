@@ -501,4 +501,57 @@ function test_executable_in_symlinks_only_stateless_runfiles() {
   run_test_executable_in_symlinks_only "runfiles"
 }
 
+function test_test_runner_does_not_crash_in_build_command() {
+  # ensure Bazel gracefully handles the test runner action failing even
+  # if it's not running via "bazel test".
+  # See https://github.com/bazelbuild/bazel/issues/28697
+  add_rules_shell "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+
+  cat >$pkg/aspect.bzl <<'EOF'
+def _test_aspect_impl(target, ctx):
+    test_runner_action = [a for a in target.actions if a.mnemonic == "TestRunner"][0]
+    return [OutputGroupInfo(
+        test_files = test_runner_action.outputs,
+    )]
+
+test_aspect = aspect(
+    implementation = _test_aspect_impl,
+)
+EOF
+
+  cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "success",
+    srcs = ["success.sh"],
+)
+
+sh_test(
+    name = "fail",
+    srcs = ["fail.sh"],
+)
+EOF
+  cat >$pkg/success.sh <<'EOF'
+#!/bin/sh
+
+echo "success.sh is successful"
+exit 0
+EOF
+  chmod +x $pkg/success.sh
+
+  cat >$pkg/fail.sh <<'EOF'
+#!/bin/sh
+
+echo "fail.sh failed"
+exit 1
+EOF
+  chmod +x $pkg/fail.sh
+
+  bazel build --aspects //$pkg:aspect.bzl%test_aspect --output_groups=test_files //$pkg:all \
+      || fail "expected build to succeed"
+}
+
 run_suite "test tests"
