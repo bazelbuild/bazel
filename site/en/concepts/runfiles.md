@@ -32,9 +32,10 @@ to translate from a target to an rlocationpath by using the
 
 Examples:
 
-<Tabs>
-
-<Tab title="C++">
+<div>
+  <devsite-selector>
+    <section>
+    <h3>C++</h3>
 
 ```starlark
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
@@ -83,9 +84,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 ```
-
-</Tab>
-<Tab title="Golang">
+    </section>
+    <section>
+    <h3>Golang</h3>
 
 ```starlark
 load("@rules_go//go:def.bzl", "go_binary")
@@ -139,8 +140,9 @@ func main() {
 }
 ```
 
-</Tab>
-<Tab title="Python">
+    </section>
+    <section>
+    <h3>Python</h3>
 
 ```starlark
 load("@rules_python//python:defs.bzl", "py_binary")
@@ -171,8 +173,9 @@ with open(realPathToSomeFile, 'r') as f:
     print(f.read())
 ```
 
-</Tab>
-<Tab title="Shell">
+    </section>
+    <section>
+    <h3>Shell</h3>
 
 ```starlark
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
@@ -200,6 +203,6 @@ echo "The content of the runfile is:"
 cat "${real_path_to_some_file}"
 ```
 
-</Tab>
-
-</Tabs>
+    </section>
+  </devsite-selector>
+</div>
