@@ -21,6 +21,7 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -133,7 +134,7 @@ public class GzFunctionTest {
       // TODO(pcloudy): Fix this test in Blaze.
       assumeFalse(
           "Skipping setLastModifiedTime test in Blaze environment.", PRODUCT_NAME.equals("blaze"));
-      FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+      FileSystem testFs = FileSystems.getNativeFileSystem();
       com.google.devtools.build.lib.vfs.Path tmpDir = TestUtils.createUniqueTmpDir(testFs);
       File testFile = new File(tmpDir.getPathFile(), "test_file");
       assertThat(testFile.createNewFile()).isTrue();

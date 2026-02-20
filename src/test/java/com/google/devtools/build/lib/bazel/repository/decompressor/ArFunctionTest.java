@@ -20,12 +20,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -94,7 +91,7 @@ public class ArFunctionTest {
 
   @Test
   public void testDecompressArWithUpLevelReference() throws IOException {
-    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     File arFile = folder.newFile("malicious.ar");
     try (ArArchiveOutputStream aos = new ArArchiveOutputStream(new FileOutputStream(arFile))) {
       ArArchiveEntry entry = new ArArchiveEntry("../foo", 3);
@@ -114,11 +111,7 @@ public class ArFunctionTest {
   }
 
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
-    // This was cribbed from TestArchiveDescriptor
-    FileSystem testFS =
-        OS.getCurrent() == OS.WINDOWS
-            ? new JavaIoFileSystem(DigestHashFunction.SHA256)
-            : new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    FileSystem testFS = FileSystems.getNativeFileSystem();
 
     // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
     // are not duplicated
