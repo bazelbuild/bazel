@@ -85,10 +85,19 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
     addOptions("--experimental_frontier_violation_check=disabled_for_testing");
   }
 
+  protected void addDownloadOptions() {
+    addOptions(DOWNLOAD_MODE_OPTION);
+  }
+
+  protected void addUploadOptions() {
+    addOptions(UPLOAD_MODE_OPTION);
+  }
+
   @Test
   public void expectCheckedInvalidConfiguration_withDuplicateActiveDirectories() throws Exception {
     write("foo/BUILD", "filegroup(name='A', srcs = [])");
-    addOptions("--experimental_active_directories=foo,foo", UPLOAD_MODE_OPTION);
+    addUploadOptions();
+    addOptions("--experimental_active_directories=foo,foo");
     InvalidConfigurationException e =
         assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
     assertThat(e)
@@ -148,7 +157,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
     setupScenarioWithConfiguredTargets();
 
     writeProjectSclWithActiveDirs("foo");
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:A");
     var serializedKeysWithProjectScl =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
@@ -179,8 +188,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         /* path= */ "foo",
         /* activeDirs...= */
         "foo");
-
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:A");
     int serializedNodesWithProjectScl =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeysCount();
@@ -205,7 +213,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("foo");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:empty");
   }
 
@@ -225,7 +233,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("bar");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception).hasMessageThat().contains("This is a multi-project build");
@@ -246,7 +254,7 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """);
     writeProjectSclWithActiveDirs("foo");
 
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     buildTarget("//foo:empty", "//foo/bar:empty");
   }
 
@@ -281,8 +289,8 @@ project = project_pb2.Project.create(project_directories = []) # empty
         """
         genrule(name = "bar", outs = ["out"], cmd = "touch $@")
         """);
+    addUploadOptions();
     addOptions(
-        UPLOAD_MODE_OPTION,
         "--build", // overrides --nobuild in setup step.
         "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
         );
@@ -455,7 +463,7 @@ genrule(
   @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A"); // succeeds, even though there's no PROJECT.scl
     assertThat(
@@ -469,7 +477,7 @@ genrule(
   public void cquery_succeedsAndDoesNotTriggerUploadWithProjectScl() throws Exception {
     setupScenarioWithConfiguredTargets();
     writeProjectSclWithActiveDirs("foo");
-    addOptions(UPLOAD_MODE_OPTION);
+    addUploadOptions();
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A");
     assertThat(
@@ -495,7 +503,9 @@ genrule(
             data = ["//foo:A"],
         )
         """);
-    addOptions(UPLOAD_MODE_OPTION, "--nobuild");
+
+    addUploadOptions();
+    addOptions("--nobuild");
 
     buildTarget("//mytest");
     assertThat(
