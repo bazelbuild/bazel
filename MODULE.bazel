@@ -15,7 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "blake3", version = "1.8.2")
+bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
@@ -42,7 +42,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.24.5")
-bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_cc", version = "0.2.17")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -58,7 +58,6 @@ bazel_dep(name = "buildozer", version = "8.5.1", repo_name = None)  # Keep in sy
 bazel_dep(name = "rules_swift", version = "3.3.0")  # with repo_name = None, version drops to 2.4.0
 bazel_dep(name = "rules_apple", version = "4.3.1", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
-bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 
 # bazel_dep overrides
 single_version_override(
