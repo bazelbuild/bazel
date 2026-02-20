@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -292,6 +293,11 @@ public class BazelRepositoryModule extends BlazeModule {
     singleExtensionEvalFunction.setDownloadManager(downloadManager);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    downloadManager.setBzlmodDownloadTempDir(env.getActionTempsDirectory().getChild("bzlmod"));
+    if (remoteOptions != null) {
+      downloadManager.setUseRemoteDownloaderForBzlmod(remoteOptions.remoteDownloaderBzlmod);
+    }
     if (repoOptions != null) {
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
