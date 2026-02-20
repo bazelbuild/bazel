@@ -69,9 +69,6 @@ def merge_licenses(name, srcs, out, **kwargs):
         name = name,
         srcs = srcs,
         out = out,
-        is_windows = select({
-            "@bazel_tools//src/conditions:windows": True,
-            "//conditions:default": False,
-        }),
+        is_windows = False,
         **kwargs
     )
