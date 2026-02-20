@@ -31,15 +31,37 @@ class BuildFileBuilder {
     String name;
     String version;
     String[] aliases;
+    @Nullable String sdkVariantName;
 
     Version(String name, String version, String... aliases) {
       this.name = name;
       this.version = version;
       this.aliases = aliases;
+      this.sdkVariantName = null;
+    }
+
+    Version withSdkVariant(String sdkVariantName) {
+      this.sdkVariantName = sdkVariantName;
+      return this;
+    }
+  }
+
+  private static class SdkVariant {
+    String name;
+    String sdkVersion;
+    String platformDirectoryName;
+    String[] archs;
+
+    SdkVariant(String name, String sdkVersion, String platformDirectoryName, String... archs) {
+      this.name = name;
+      this.sdkVersion = sdkVersion;
+      this.platformDirectoryName = platformDirectoryName;
+      this.archs = archs;
     }
   }
 
   private final HashMap<String, Version> allVersions = new HashMap<>();
+  private final HashMap<String, SdkVariant> allSdkVariants = new HashMap<>();
   private final List<Version> localVersions = new ArrayList<>();
   private final List<Version> remoteVersions = new ArrayList<>();
   private final List<Version> explicitVersions = new ArrayList<>();
@@ -118,12 +140,62 @@ class BuildFileBuilder {
     return this;
   }
 
+  /**
+   * Registers a new SDK variant.
+   *
+   * @param name the name of the SDK variant target
+   * @param sdkVersion the SDK version string
+   * @param platformDirectoryName the platform directory name (e.g., "iPhoneOS")
+   * @param archs the architectures supported by this SDK
+   */
+  @CanIgnoreReturnValue
+  BuildFileBuilder addSdkVariant(
+      String name, String sdkVersion, String platformDirectoryName, String... archs) {
+    SdkVariant sdkVariant = new SdkVariant(name, sdkVersion, platformDirectoryName, archs);
+    allSdkVariants.put(name, sdkVariant);
+    return this;
+  }
+
+  /**
+   * Associates an SDK variant with a version.
+   *
+   * @param versionName the name of the version to associate
+   * @param sdkVariantName the name of the SDK variant target
+   */
+  @CanIgnoreReturnValue
+  BuildFileBuilder setVersionSdkVariant(String versionName, String sdkVariantName) {
+    Version version = allVersions.get(versionName);
+    checkNotNull(version, "Version '%s' must be added before setting its SDK variant", versionName);
+    checkNotNull(
+        allSdkVariants.get(sdkVariantName),
+        "SDK variant '%s' must be added before associating it with a version",
+        sdkVariantName);
+    version.withSdkVariant(sdkVariantName);
+    return this;
+  }
+
+  private static void writeSdkVariant(SdkVariant sdkVariant, List<String> lines) {
+    lines.add("xcode_sdk_variant(");
+    lines.add(String.format("    name = '%s',", sdkVariant.name));
+    lines.add(String.format("    version = '%s',", sdkVariant.sdkVersion));
+    lines.add(String.format("    platform_directory_name = '%s',", sdkVariant.platformDirectoryName));
+    lines.add(String.format("    platform_name = '%s',", sdkVariant.platformDirectoryName));
+    lines.add(String.format("    resources_platform_name = '%s',", sdkVariant.platformDirectoryName));
+    if (sdkVariant.archs.length != 0) {
+      lines.add(String.format("    archs = ['%s'],", String.join("', '", sdkVariant.archs)));
+    }
+    lines.add(")");
+  }
+
   private static void writeVersion(Version version, List<String> lines) {
     lines.add("xcode_version(");
     lines.add(String.format("    name = '%s',", version.name));
     lines.add(String.format("    version = '%s',", version.version));
     if (version.aliases.length != 0) {
       lines.add(String.format("    aliases = ['%s'],", String.join("', '", version.aliases)));
+    }
+    if (version.sdkVariantName != null) {
+      lines.add(String.format("    sdk = ':%s',", version.sdkVariantName));
     }
     lines.add(")");
   }
@@ -181,6 +253,16 @@ class BuildFileBuilder {
     lines.add("load('@build_bazel_apple_support//xcode:xcode_version.bzl', 'xcode_version')");
     lines.add("load('@build_bazel_apple_support//xcode:available_xcodes.bzl', 'available_xcodes')");
     lines.add("load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')");
+    if (!allSdkVariants.isEmpty()) {
+      lines.add(
+          "load('@build_bazel_apple_support//xcode:xcode_sdk_variant.bzl', 'xcode_sdk_variant')");
+    }
+
+    // Write SDK variants first (they're referenced by xcode_version targets)
+    for (SdkVariant sdkVariant : allSdkVariants.values()) {
+      writeSdkVariant(sdkVariant, lines);
+    }
+
     for (Version version : allVersions.values()) {
       writeVersion(version, lines);
     }
