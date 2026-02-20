@@ -960,6 +960,97 @@ public class HttpDownloaderTest {
     assertThat(content).isEqualTo("content");
   }
 
+  @Test
+  public void download_socketTimeoutException_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(retries);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    throw new SocketTimeoutException("Connection timed out");
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(new URL("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_socketTimeoutExceptionWithOtherErrors_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(retries);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    IOException e = new IOException();
+                    e.addSuppressed(new SocketTimeoutException("Connection timed out"));
+                    e.addSuppressed(new IOException());
+                    throw e;
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(new URL("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
   public Path download(
       DownloadManager downloadManager,
       List<URI> originalUrls,
