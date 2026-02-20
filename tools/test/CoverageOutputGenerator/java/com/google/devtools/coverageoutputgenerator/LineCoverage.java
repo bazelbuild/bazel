@@ -16,6 +16,7 @@ package com.google.devtools.coverageoutputgenerator;
 
 import static java.lang.Math.max;
 
+import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
@@ -120,7 +121,8 @@ final class LineCoverage implements Iterable<Entry<Integer, Long>> {
       if (!hasNext()) {
         throw new NoSuchElementException();
       }
-      Entry<Integer, Long> result = Map.entry(idx, lineExecutions[idx]);
+      Entry<Integer, Long> result =
+          new AbstractMap.SimpleImmutableEntry<>(idx, lineExecutions[idx]);
       advanceToNextInstrumentedLine();
       return result;
     }
