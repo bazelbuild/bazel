@@ -85,11 +85,12 @@ class TestResult(object):
     self._asserter.assertNotRegex(self._xml, message)
 
   def assertSuccess(self, suite_name):
-    self._asserter.assertEqual(0, self._return_code,
-                               f"Script failed unexpectedly:\n{self._output}")
+    self._asserter.assertEqual(
+        0, self._return_code, f"Script failed unexpectedly:\n{self._output}"
+    )
     self.assertLogMessage(suite_name)
-    self.assertXmlMessage("<testsuites [^/]*failures=\"0\"")
-    self.assertXmlMessage("<testsuites [^/]*errors=\"0\"")
+    self.assertXmlMessage('<testsuites [^/]*failures="0"')
+    self.assertXmlMessage('<testsuites [^/]*errors="0"')
 
   def assertNotSuccess(self, suite_name, failures=0, errors=0):
     self._asserter.assertNotEqual(0, self._return_code)
@@ -110,7 +111,8 @@ class TestResult(object):
     self._asserter.assertEqual(
         len(re.findall(pattern, text)),
         1,
-        msg=f"Found more than 1 match of '{pattern}' in '{text}'")
+        msg=f"Found more than 1 match of '{pattern}' in '{text}'",
+    )
 
 
 class UnittestTest(unittest.TestCase):
@@ -166,21 +168,24 @@ class UnittestTest(unittest.TestCase):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-    return TestResult(self, completed.returncode,
-                      completed.stdout.decode("utf-8"), xmlfile)
+    return TestResult(
+        self, completed.returncode, completed.stdout.decode("utf-8"), xmlfile
+    )
 
   # Actual test cases.
 
   def test_success(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 function test_success() {
   echo foo >&${TEST_log} || fail "expected echo to succeed"
   expect_log "foo"
 }
 
 run_suite "success tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertSuccess("success tests")
@@ -188,7 +193,8 @@ run_suite "success tests"
 
   def test_timestamp(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 function test_timestamp() {
   local ts=$(timestamp)
   [[ $ts =~ ^[0-9]{13}$ ]] || fail "timestamp wan't valid: $ts"
@@ -198,7 +204,8 @@ function test_timestamp() {
 }
 
 run_suite "timestamp tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertSuccess("timestamp tests")
@@ -206,24 +213,28 @@ run_suite "timestamp tests"
 
   def test_failure(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 function test_failure() {
   fail "I'm a failure with <>&\\" escaped symbols"
 }
 
 run_suite "failure tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertNotSuccess("failure tests", failures=0, errors=1)
     result.assertTestFailed("test_failure")
     result.assertXmlMessage(
-        "message=\"I'm a failure with &lt;&gt;&amp;&quot; escaped symbols\"")
+        'message="I\'m a failure with &lt;&gt;&amp;&quot; escaped symbols"'
+    )
     result.assertXmlMessage("I'm a failure with <>&\" escaped symbols")
 
   def test_set_bash_errexit_prints_stack_trace(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 set -euo pipefail
 
 function helper() {
@@ -237,18 +248,21 @@ function test_failure_in_helper() {
 }
 
 run_suite "bash errexit tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertNotSuccess("bash errexit tests")
     result.assertTestFailed("test_failure_in_helper")
     result.assertLogMessage(r"./thing.sh:\d*: in call to helper")
     result.assertLogMessage(
-        r"./thing.sh:\d*: in call to test_failure_in_helper")
+        r"./thing.sh:\d*: in call to test_failure_in_helper"
+    )
 
   def test_set_bash_errexit_runs_tear_down(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 set -euo pipefail
 
 function tear_down() {
@@ -264,7 +278,8 @@ function test_failure_in_helper() {
 }
 
 run_suite "bash errexit tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertNotSuccess("bash errexit tests")
@@ -274,7 +289,8 @@ run_suite "bash errexit tests"
 
   def test_set_bash_errexit_pipefail_propagates_failure_through_pipe(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 set -euo pipefail
 
 function test_pipefail() {
@@ -283,7 +299,8 @@ function test_pipefail() {
 }
 
 run_suite "bash errexit tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertNotSuccess("bash errexit tests")
@@ -293,7 +310,8 @@ run_suite "bash errexit tests"
 
   def test_set_bash_errexit_no_pipefail_ignores_failure_before_pipe(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 set -eu
 set +o pipefail
 
@@ -303,7 +321,8 @@ function test_nopipefail() {
 }
 
 run_suite "bash errexit tests"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertSuccess("bash errexit tests")
@@ -314,7 +333,8 @@ run_suite "bash errexit tests"
   def test_set_bash_errexit_pipefail_long_testname_succeeds(self):
     test_name = "x" * 1000
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 set -euo pipefail
 
 function test_%s() {
@@ -322,17 +342,21 @@ function test_%s() {
 }
 
 run_suite "bash errexit tests"
-""" % test_name)
+""" % test_name,
+    )
 
     result = self.execute_test("thing.sh")
     result.assertSuccess("bash errexit tests")
 
   def test_empty_test_fails(self):
-    self.write_file("thing.sh", """
+    self.write_file(
+        "thing.sh",
+        """
 # No tests present.
 
 run_suite "empty test suite"
-""")
+""",
+    )
 
     result = self.execute_test("thing.sh")
     result.assertNotSuccess("empty test suite")
@@ -340,30 +364,36 @@ run_suite "empty test suite"
 
   def test_empty_test_succeeds_sharding(self):
     self.write_file(
-        "thing.sh", """
+        "thing.sh",
+        """
 # Only one test.
 function test_thing() {
   echo
 }
 
 run_suite "empty test suite"
-""")
+""",
+    )
 
     # First shard.
     result = self.execute_test(
-        "thing.sh", env={
+        "thing.sh",
+        env={
             "TEST_TOTAL_SHARDS": 2,
             "TEST_SHARD_INDEX": 0,
-        })
+        },
+    )
     result.assertSuccess("empty test suite")
     result.assertLogMessage("No tests executed due to sharding")
 
     # Second shard.
     result = self.execute_test(
-        "thing.sh", env={
+        "thing.sh",
+        env={
             "TEST_TOTAL_SHARDS": 2,
             "TEST_SHARD_INDEX": 1,
-        })
+        },
+    )
     result.assertSuccess("empty test suite")
     result.assertNotLogMessage("No tests")
 
@@ -380,10 +410,12 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
-        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a*"}
+    )
 
     result.assertSuccess("tests to filter")
     result.assertTestPassed("test_abc")
@@ -398,10 +430,12 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
-        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a"})
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a"}
+    )
 
     result.assertNotSuccess("tests to filter")
     result.assertLogMessage("No tests found.")
@@ -419,10 +453,12 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
-        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "donotmatch:*a*"})
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "donotmatch:*a*"}
+    )
 
     result.assertSuccess("tests to filter")
     result.assertTestPassed("test_abc")
@@ -445,10 +481,12 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
-        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_[a-f]aa"})
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_[a-f]aa"}
+    )
 
     result.assertSuccess("tests to filter")
     result.assertTestPassed("test_aaa")
@@ -477,15 +515,17 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
         "thing.sh",
         env={
             "TESTBRIDGE_TEST_ONLY": "test_a*",
             "TEST_TOTAL_SHARDS": 2,
-            "TEST_SHARD_INDEX": index
-        })
+            "TEST_SHARD_INDEX": index,
+        },
+    )
 
     result.assertSuccess("tests to filter")
     # The sharding logic is shifted by 1, starts with 2nd shard.
@@ -507,7 +547,8 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh", args=["test_abc"])
 
@@ -516,7 +557,8 @@ run_suite "empty test suite"
     result.assertNotLogMessage("running def")
     result.assertLogMessage(
         r"WARNING: Passing test names in arguments \(--test_arg\) is "
-        "deprecated, please use --test_filter='test_abc' instead.")
+        "deprecated, please use --test_filter='test_abc' instead."
+    )
 
   def test_arg_multiple_tests_issues_warning_with_test_filter_command(self):
     self.write_file(
@@ -531,7 +573,8 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh", args=["test_abc", "test_def"])
 
@@ -540,7 +583,8 @@ run_suite "empty test suite"
     result.assertTestPassed("test_def")
     result.assertLogMessage(
         r"WARNING: Passing test names in arguments \(--test_arg\) is "
-        "deprecated, please use --test_filter='test_abc:test_def' instead.")
+        "deprecated, please use --test_filter='test_abc:test_def' instead."
+    )
 
   def test_arg_and_filter_ignores_arg(self):
     self.write_file(
@@ -555,16 +599,19 @@ run_suite "empty test suite"
         }
 
         run_suite "tests to filter"
-        """))
+        """),
+    )
 
     result = self.execute_test(
-        "thing.sh", args=["test_def"], env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+        "thing.sh", args=["test_def"], env={"TESTBRIDGE_TEST_ONLY": "test_a*"}
+    )
 
     result.assertSuccess("tests to filter")
     result.assertTestPassed("test_abc")
     result.assertNotLogMessage("running def")
     result.assertLogMessage(
-        "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg"
+        "WARNING: Both --test_arg and --test_filter specified, ignoring"
+        " --test_arg"
     )
 
   def test_custom_ifs_variable_finds_and_runs_test(self):
@@ -584,14 +631,15 @@ run_suite "empty test suite"
         }
 
         run_suite "custom IFS test"
-        """ % ifs))
+        """ % ifs),
+    )
 
     result = self.execute_test(
         "thing.sh",
-        env={} if not sharded else {
-            "TEST_TOTAL_SHARDS": 2,
-            "TEST_SHARD_INDEX": 1
-        })
+        env={}
+        if not sharded
+        else {"TEST_TOTAL_SHARDS": 2, "TEST_SHARD_INDEX": 1},
+    )
 
     result.assertSuccess("custom IFS test")
     result.assertTestPassed("test_foo")
@@ -610,7 +658,8 @@ run_suite "empty test suite"
         }
 
         run_suite "Failure in tear_down test"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh")
 
@@ -634,7 +683,8 @@ run_suite "empty test suite"
         }
 
         run_suite "Failure in tear_down test"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh")
 
@@ -665,7 +715,8 @@ run_suite "empty test suite"
         }
 
         run_suite "errexit in tear_down test"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh")
 
@@ -690,14 +741,15 @@ run_suite "empty test suite"
         }
 
         run_suite "fail after failure"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh")
 
     result.assertNotSuccess("fail after failure")
     result.assertTestFailed(
-        "test_foo",
-        "terminated because this command returned a non-zero status")
+        "test_foo", "terminated because this command returned a non-zero status"
+    )
     result.assertTestFailed("test_foo", "tear_down failure")
     result.assertLogMessage("invalid_command: command not found")
     result.assertLogMessage("tear_down log")
@@ -719,14 +771,15 @@ run_suite "empty test suite"
         }
 
         run_suite "fail after failure"
-        """))
+        """),
+    )
 
     result = self.execute_test("thing.sh")
 
     result.assertNotSuccess("fail after failure")
     result.assertTestFailed(
-        "test_foo",
-        "terminated because this command returned a non-zero status")
+        "test_foo", "terminated because this command returned a non-zero status"
+    )
     result.assertLogMessage("invalid_command_test: command not found")
     result.assertLogMessage("invalid_command_tear_down: command not found")
     result.assertXmlMessage('message="No failure message"')
