@@ -26,7 +26,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.runner.Result;
 import sun.misc.Signal;
 
@@ -210,10 +210,10 @@ public class BazelTestRunner {
                     final List<Thread> nonDaemonAliveThreads =
                         Thread.getAllStackTraces().keySet().stream()
                             .filter(Thread::isAlive)
-                            .filter(Predicate.not(Thread::isDaemon))
-                            .filter(t -> t.threadId() != currentThread.threadId())
-                            .filter(t -> t.threadId() != mainThread.threadId())
-                            .toList();
+                            .filter(thread -> !thread.isDaemon())
+                            .filter(t -> t.getId() != currentThread.getId())
+                            .filter(t -> t.getId() != mainThread.getId())
+                            .collect(Collectors.toList());
 
                     if (nonDaemonAliveThreads.isEmpty()) {
                       return;
