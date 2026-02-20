@@ -292,6 +292,9 @@ public class IndexRegistry implements Registry {
     boolean initSubmodules;
     boolean verbose;
     String stripPrefix;
+    Map<String, String> patches;
+    Map<String, String> overlay;
+    int patchStrip;
   }
 
   /**
@@ -380,7 +383,7 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
@@ -540,7 +543,44 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
+      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum, ModuleKey key)
+      throws IOException {
+    // Build remote patches as key-value pairs of "url" => "integrity".
+    ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
+    if (sourceJson.patches != null) {
+      for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
+        remotePatches.put(
+            constructUrl(
+                getUrl(),
+                "modules",
+                key.name(),
+                key.version().toString(),
+                "patches",
+                entry.getKey()),
+            entry.getValue());
+      }
+    }
+
+    ImmutableMap<String, String> sourceJsonOverlay =
+        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
+    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
+        sourceJsonOverlay.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    Entry::getKey,
+                    entry ->
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            entry.getValue(), // integrity
+                            // URLs in the registry itself are not mirrored.
+                            ImmutableList.of(
+                                constructUrl(
+                                    getUrl(),
+                                    "modules",
+                                    key.name(),
+                                    key.version().toString(),
+                                    "overlay",
+                                    entry.getKey())))));
+
     return new GitRepoSpecBuilder()
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
@@ -549,6 +589,9 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setRemotePatches(remotePatches.buildOrThrow())
+        .setOverlay(overlay)
+        .setRemotePatchStrip(sourceJson.patchStrip)
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))

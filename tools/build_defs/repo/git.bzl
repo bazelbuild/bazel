@@ -159,6 +159,22 @@ _common_attrs = {
         default = "",
         doc = "For internal use only.",
     ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc = "For internal use only.",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc = "For internal use only.",
+    ),
+    "remote_file_urls": attr.string_list_dict(
+        default = {},
+        doc = "For internal use only.",
+    ),
+    "remote_file_integrity": attr.string_dict(
+        default = {},
+        doc = "For internal use only.",
+    ),
     "build_file": attr.label(
         allow_single_file = True,
         doc =
