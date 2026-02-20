@@ -208,7 +208,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
    * The actual SkyFunction logic, run in a worker thread. Note that, although the worker thread
    * never sees Skyframe restarts, {@code env.valuesMissing()} can still be true due to deps in
    * error. So this function still needs to return {@code null} when appropriate. See Javadoc of
-   * {@link WorkerSkyFunctionEnvironment} for more information.
+   * {@link com.google.devtools.build.skyframe.WorkerSkyFunctionEnvironment} for more information.
    */
   @Nullable
   private RepositoryDirectoryValue computeInternal(
@@ -310,6 +310,25 @@ public final class RepositoryFetchFunction implements SkyFunction {
       digestWriter.writeMarkerFile(result.recordedInputValues());
       if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
         // This repo is eligible for the local and remote repo contents cache.
+        // Replant symlinks before caching to convert absolute symlinks pointing to the
+        // workspace or external root into relative paths, making the cached repo portable.
+        Path externalRepoRoot = RepositoryUtils.getExternalRepositoryDirectory(directories);
+        boolean safeForLocalCacheReuse;
+        try {
+          safeForLocalCacheReuse =
+              RepositoryUtils.replantSymlinks(
+                  repoRoot,
+                  directories.getWorkspace(),
+                  externalRepoRoot,
+                  PathFragment.EMPTY_FRAGMENT);
+        } catch (IOException e) {
+          throw new RepositoryFunctionException(
+              new IOException(
+                  "error replanting symlinks in repo %s before caching: %s"
+                      .formatted(repositoryName, e.getMessage()),
+                  e),
+              Transience.TRANSIENT);
+        }
         if (remoteRepoContentsCache != null) {
           remoteRepoContentsCache.addToCache(
               repositoryName,
@@ -318,7 +337,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               digestWriter.predeclaredInputHash,
               env.getListener());
         }
-        if (repoContentsCache.isEnabled()) {
+        if (safeForLocalCacheReuse && repoContentsCache.isEnabled()) {
           CandidateRepo newCacheEntry;
           try {
             newCacheEntry =
