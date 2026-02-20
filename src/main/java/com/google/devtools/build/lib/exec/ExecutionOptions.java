@@ -110,16 +110,32 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       defaultValue = "null",
       help =
-          "Override which spawn strategy should be used to execute spawn actions that have "
-              + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
-              + "regex_filter matching. "
-              + "The last regex_filter that matches the description is used. "
-              + "This option overrides other flags for specifying strategy. "
-              + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
-              + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
-              + "Example: --strategy_regexp='Compiling.*/bar=local "
-              + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
-              + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
+          """
+          Override which spawn strategy should be used to execute spawn actions that have
+          descriptions matching a certain `regex_filter`.
+          The last `regex_filter` that matches the description is used.
+
+          Note that `--spawn_strategy` (defaults) and `--strategy` (mnemonic-targeted overrides)
+          still apply. If a strategy is listed that contradicts those flags, it will be ignored.
+
+          See `--per_file_copt` for details on `regex_filter` matching.
+
+          Example:
+          ```
+          common --strategy_regexp=//foo.*\\.cc,-//foo/bar=local
+          ```
+          With the above option, actions with descriptions matching `//foo.*\\.cc` but not
+          `//foo/bar` will have their strategies filtered to only `local`.
+
+          Example:
+          ```
+          common --strategy_regexp='Compiling.*/bar=local
+          common --strategy_regexp=Compiling=sandboxed
+          ```
+          With the above options, an action with description `Compiling //foo/bar/baz` will have
+          its strategies filtered to only `local`, while an action with description
+          `Compiling //foo/baz` will have its strategies filtered to only `sandboxed`.
+          """)
   public List<Map.Entry<RegexFilter, List<String>>> strategyByRegexp;
 
   @Option(
