@@ -17,14 +17,18 @@ package com.google.devtools.build.lib.analysis.test;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifacts;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,24 +40,49 @@ import java.io.Writer;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
-/**
- * Writes a manifest of instrumented source and metadata files.
- */
+/** Writes a manifest of instrumented source and metadata files. */
 @Immutable
 final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   private static final String GUID = "3833f0a3-7ea1-4d9f-b96f-66eff4c922b0";
+  private static final String MNEMONIC = "InstrumentedFileManifest";
 
   private final NestedSet<Artifact> files;
+  private final boolean usePathStripping;
 
   @VisibleForTesting
-  InstrumentedFileManifestAction(ActionOwner owner, NestedSet<Artifact> files, Artifact output) {
+  InstrumentedFileManifestAction(
+      ActionOwner owner,
+      NestedSet<Artifact> files,
+      Artifact output,
+      ImmutableMap<String, String> executionInfo,
+      CoreOptions.OutputPathsMode outputPathsMode) {
     super(owner, /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.files = files;
+    this.usePathStripping =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), executionInfo)
+            == CoreOptions.OutputPathsMode.STRIP;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return MNEMONIC;
+  }
+
+  @Override
+  protected boolean usePathStripping() {
+    return usePathStripping;
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     return out -> {
+      // Other actions consuming this parameter file may have path mapping disabled due to inputs
+      // conflicting across configurations, in which case paths written to the file will not match.
+      // Since this depends on the consumer but the decision is only made at execution time, it is
+      // not clear how to improve that situation. Actions that are prone to such collisions should
+      // avoid depending on parameter files.
+      var pathMapper =
+          PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
       // Sort the exec paths before writing them out.
       String[] fileNames =
           files.toList().stream().map(Artifact::getExecPathString).toArray(String[]::new);
@@ -71,33 +100,49 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp) {
+      Fingerprint fp)
+      throws CommandLineExpansionException, InterruptedException {
     // TODO(b/150305897): use addUUID?
     fp.addString(GUID);
     // TODO(b/150308417): Not sorting is probably cheaper, might lead to unnecessary re-execution.
     Artifacts.addToFingerprint(fp, files.toList());
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        /* additionalArtifactsForPathMapping= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        getOutputPathsMode(),
+        fp);
   }
 
   /**
    * Instantiates instrumented file manifest for the given target.
    *
    * @param ruleContext context of the executable configured target
-   * @param additionalSourceFiles additional instrumented source files, as
-   *                              collected by the {@link InstrumentedFilesCollector}
+   * @param additionalSourceFiles additional instrumented source files, as collected by the {@link
+   *     InstrumentedFilesCollector}
    * @param metadataFiles *.gcno/*.em files collected by the {@link InstrumentedFilesCollector}
    * @return instrumented file manifest artifact
    */
-  public static Artifact getInstrumentedFileManifest(RuleContext ruleContext,
-      NestedSet<Artifact> additionalSourceFiles, NestedSet<Artifact> metadataFiles) {
-    Artifact instrumentedFileManifest = ruleContext.getBinArtifact(
-        ruleContext.getTarget().getName()  + ".instrumented_files");
+  public static Artifact getInstrumentedFileManifest(
+      RuleContext ruleContext,
+      NestedSet<Artifact> additionalSourceFiles,
+      NestedSet<Artifact> metadataFiles) {
+    Artifact instrumentedFileManifest =
+        ruleContext.getBinArtifact(ruleContext.getTarget().getName() + ".instrumented_files");
 
-    NestedSet<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(additionalSourceFiles)
-        .addTransitive(metadataFiles)
-        .build();
-    ruleContext.registerAction(new InstrumentedFileManifestAction(
-        ruleContext.getActionOwner(), inputs, instrumentedFileManifest));
+    NestedSet<Artifact> inputs =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(additionalSourceFiles)
+            .addTransitive(metadataFiles)
+            .build();
+    ruleContext.registerAction(
+        new InstrumentedFileManifestAction(
+            ruleContext.getActionOwner(),
+            inputs,
+            instrumentedFileManifest,
+            ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), MNEMONIC),
+            PathMappers.getOutputPathsMode(ruleContext.getConfiguration())));
 
     return instrumentedFileManifest;
   }
