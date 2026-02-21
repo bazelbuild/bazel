@@ -235,6 +235,23 @@ public final class SandboxHelpers {
     }
   }
 
+  /**
+   * Validates that all symbolic links in the outputs are not dangling.
+   *
+   * @param outputs outputs to validate as relative paths to a root
+   * @param sourceRoot root directory to validate from
+   * @throws IOException if a dangling symbolic link is found
+   */
+  public static void validateOutputs(SandboxOutputs outputs, Path sourceRoot) throws IOException {
+    for (Entry<PathFragment, PathFragment> output :
+        Iterables.concat(outputs.files().entrySet(), outputs.dirs().entrySet())) {
+      Path source = sourceRoot.getRelative(output.getValue());
+      if (source.isSymbolicLink() && !source.exists()) {
+        throw new IOException("declared output '" + output.getKey() + "' is a dangling symbolic link");
+      }
+    }
+  }
+
   private static void copyFile(Path source, Path target) throws IOException {
     try (InputStream in = source.getInputStream();
         OutputStream out = target.getOutputStream()) {
