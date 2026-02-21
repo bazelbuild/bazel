@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -697,7 +698,19 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     }
 
     if (statSources == StatSources.ALL) {
-      return localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+      FileStatus localStat = localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+      if (localStat != null) {
+        return localStat;
+      }
+    }
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      var artifactPath = inputArtifactData.getSomeArtifactWithPrefix(execPath);
+      if (artifactPath != null) {
+        System.err.println("XXXXXXXXXXXXXXXXXXX HACK: Path " + execPath + " is prefix of some artifact, returning dir status. Artifact: " + artifactPath);
+        return DIRECTORY_FILE_STATUS;
+      }
     }
 
     return null;
