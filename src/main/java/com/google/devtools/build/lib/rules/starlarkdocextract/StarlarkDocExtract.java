@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -132,10 +133,14 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   @Nullable
   private static Module loadModule(RuleContext ruleContext, RepositoryMapping repositoryMapping)
       throws RuleErrorException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("BzlDocDump.loadModule")) {
-      // Note attr schema validates that src is a .bzl or .scl file.
-      Label label = getSourceFileLabel(ruleContext, SRC_ATTR, repositoryMapping);
+    Artifact bzlFile = getSourceFileArtifact(ruleContext, SRC_ATTR, repositoryMapping);
+    return loadModule(bzlFile, ruleContext);
+  }
 
+  @Nullable
+  static Module loadModule(Artifact bzlFile, RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("BzlDocDump.loadModule")) {
       // Note getSkyframeEnv() cannot be null while creating a configured target.
       SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
 
@@ -144,7 +149,9 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
         // TODO(b/276733504): support loading modules in @_builtins
         bzlLoadValue =
             (BzlLoadValue)
-                env.getValueOrThrow(BzlLoadValue.keyForBuild(label), BzlLoadFailedException.class);
+                env.getValueOrThrow(
+                    BzlLoadValue.keyForBuild(verifyNotNull(bzlFile.getOwner())),
+                    BzlLoadFailedException.class);
       } catch (BzlLoadFailedException e) {
         ruleContext.attributeError(SRC_ATTR, e.getMessage());
         throw new RuleErrorException(e);
@@ -158,14 +165,14 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Retrieves the label of the singular source artifact from a given attribute. Note that we can't
-   * simply use {@code ruleContext.attributes().get(attrName, LABEL)} because that does not resolve
-   * aliases and filegroups.
+   * Retrieves the singular source artifact from a given attribute. Note that we can't simply use
+   * {@code ruleContext.attributes().get(attrName, LABEL)} because that does not resolve aliases and
+   * filegroups.
    *
    * @throws RuleErrorException if the source is not a singular source artifact, meaning its label
    *     cannot be used as a label for a Starlark load()
    */
-  private static Label getSourceFileLabel(
+  private static Artifact getSourceFileArtifact(
       RuleContext ruleContext, String attrName, RepositoryMapping repositoryMapping)
       throws RuleErrorException {
     Artifact artifact = ruleContext.getPrerequisiteArtifact(attrName);
@@ -180,7 +187,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(attrName, error.getMessage());
       throw error;
     }
-    return verifyNotNull(artifact.getOwner());
+    return artifact;
   }
 
   private static String formatDerivedArtifact(
@@ -208,12 +215,27 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
       throws RuleErrorException {
     // Note attr schema validates that deps are .bzl or .scl files.
+    var transitiveSrcsBuilder = NestedSet.<Artifact>builder(Order.STABLE_ORDER);
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(DEPS_ATTR)) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/18599): we are using FileProvider
+      // instead of StarlarkLibraryInfo only because StarlarkLibraryInfo is defined in
+      // bazel_skylib, not natively in Bazel.
+      transitiveSrcsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
+    }
+    Optional<String> errorMessage =
+        verifyModuleDeps(module, transitiveSrcsBuilder.build(), repositoryMapping);
+    if (errorMessage.isEmpty()) {
+      return;
+    }
+    RuleErrorException error = new RuleErrorException(errorMessage.get());
+    ruleContext.attributeError(DEPS_ATTR, error.getMessage());
+    throw error;
+  }
+
+  static Optional<String> verifyModuleDeps(
+      Module module, NestedSet<Artifact> transitiveSources, RepositoryMapping repositoryMapping) {
     Map<Boolean, ImmutableSet<Artifact>> flattenedDepsPartitionedByIsSource =
-        ruleContext.getPrerequisites(DEPS_ATTR).stream()
-            // TODO(https://github.com/bazelbuild/bazel/issues/18599): we are using FileProvider
-            // instead of StarlarkLibraryInfo only because StarlarkLibraryInfo is defined in
-            // bazel_skylib, not natively in Bazel.
-            .flatMap(dep -> dep.getProvider(FileProvider.class).getFilesToBuild().toList().stream())
+        transitiveSources.toSet().stream()
             .collect(partitioningBy(Artifact::isSourceArtifact, toImmutableSet()));
     // bzl_library targets may contain both source artifacts and derived artifacts (e.g. generated
     // .bzl files for tests); only the source artifacts can be load()-ed by Bazel.
@@ -230,26 +252,25 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
                 .collect(toImmutableSet()),
             repositoryMapping);
 
-    if (!topmostUnknownLoads.isEmpty()) {
-      StringBuilder errorMessageBuilder =
-          new StringBuilder("missing bzl_library targets for Starlark module(s) ")
-              .append(Joiner.on(", ").join(topmostUnknownLoads));
-      if (!flattenedDepsDerivedArtifacts.isEmpty()) {
-        // TODO(arostovtsev): we ought to print only the derived artifacts having the same
-        // root-relative path as topmostUnknownLoads.
-        errorMessageBuilder
-            .append("\nNote the following are generated file(s) and cannot be loaded in Starlark: ")
-            .append(
-                Joiner.on(", ")
-                    .join(
-                        flattenedDepsDerivedArtifacts.stream()
-                            .map(artifact -> formatDerivedArtifact(artifact, repositoryMapping))
-                            .iterator()));
-      }
-      RuleErrorException error = new RuleErrorException(errorMessageBuilder.toString());
-      ruleContext.attributeError(DEPS_ATTR, error.getMessage());
-      throw error;
+    if (topmostUnknownLoads.isEmpty()) {
+      return Optional.empty();
     }
+    StringBuilder errorMessageBuilder =
+        new StringBuilder("missing bzl_library targets for Starlark module(s) ")
+            .append(Joiner.on(", ").join(topmostUnknownLoads));
+    if (!flattenedDepsDerivedArtifacts.isEmpty()) {
+      // TODO(arostovtsev): we ought to print only the derived artifacts having the same
+      // root-relative path as topmostUnknownLoads.
+      errorMessageBuilder
+          .append("\nNote the following are generated file(s) and cannot be loaded in Starlark: ")
+          .append(
+              Joiner.on(", ")
+                  .join(
+                      flattenedDepsDerivedArtifacts.stream()
+                          .map(artifact -> formatDerivedArtifact(artifact, repositoryMapping))
+                          .iterator()));
+    }
+    return Optional.of(errorMessageBuilder.toString());
   }
 
   /**
