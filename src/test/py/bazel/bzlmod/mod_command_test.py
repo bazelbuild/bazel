@@ -313,13 +313,13 @@ class ModCommandTest(test_base.TestBase):
         stdout.pop(9), r'^## Usage in <root> from .*MODULE\.bazel:11$'
     )
     self.assertRegex(
-        stdout.pop(14), r'^## Usage in foo@1.0 from .*MODULE\.bazel:8$'
+        stdout.pop(14), r'^## Usage in foo@1.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(22), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(22), r'^## Usage in foo@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(29), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(29), r'^## Usage in bar@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertListEqual(
         stdout,
@@ -379,13 +379,13 @@ class ModCommandTest(test_base.TestBase):
         rstrip=True,
     )
     self.assertRegex(
-        stdout.pop(9), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(9), r'^## Usage in foo@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(16), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(16), r'^## Usage in bar@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:11$'
+        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:10$'
     )
     self.assertListEqual(
         stdout,
@@ -476,7 +476,7 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(
         stdout.pop(5),
-        r'^## Usage in bar@2\.0 from .*MODULE\.bazel:15$',
+        r'^## Usage in bar@2\.0 from .*MODULE\.bazel:14$',
     )
     self.assertListEqual(
         stdout,

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -46,13 +46,7 @@ public final class BzlmodTestUtil {
     }
   }
 
-  public static DepSpec createDepSpec(String name, String version, int maxCompatibilityLevel) {
-    try {
-      return new DepSpec(name, Version.parse(version), maxCompatibilityLevel);
-    } catch (Version.ParseException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
+
 
   public static Module.Builder buildModule(String name, String version) throws Exception {
     return Module.builder()
@@ -69,65 +63,43 @@ public final class BzlmodTestUtil {
   static final class InterimModuleBuilder {
     InterimModule.Builder builder;
     ModuleKey key;
-    ImmutableMap.Builder<String, DepSpec> deps = new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<String, DepSpec> originalDeps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, ModuleKey> deps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, ModuleKey> originalDeps = new ImmutableMap.Builder<>();
 
     private InterimModuleBuilder() {}
 
-    public static InterimModuleBuilder create(
-        String name, Version version, int compatibilityLevel) {
+    public static InterimModuleBuilder create(String name, Version version) {
       InterimModuleBuilder moduleBuilder = new InterimModuleBuilder();
       ModuleKey key = new ModuleKey(name, version);
       moduleBuilder.key = key;
       moduleBuilder.builder =
-          InterimModule.builder()
-              .setName(name)
-              .setVersion(version)
-              .setKey(key)
-              .setCompatibilityLevel(compatibilityLevel);
+          InterimModule.builder().setName(name).setVersion(version).setKey(key);
       return moduleBuilder;
     }
 
-    public static InterimModuleBuilder create(String name, String version, int compatibilityLevel)
-        throws ParseException {
-      return create(name, Version.parse(version), compatibilityLevel);
-    }
-
     public static InterimModuleBuilder create(String name, String version) throws ParseException {
-      return create(name, Version.parse(version), 0);
-    }
-
-    public static InterimModuleBuilder create(String name, Version version) throws ParseException {
-      return create(name, version, 0);
+      return create(name, Version.parse(version));
     }
 
     @CanIgnoreReturnValue
     public InterimModuleBuilder addDep(String depRepoName, ModuleKey key) {
-      deps.put(depRepoName, DepSpec.fromModuleKey(key));
+      deps.put(depRepoName, key);
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public InterimModuleBuilder addDep(String depRepoName, DepSpec depSpec) {
-      deps.put(depRepoName, depSpec);
-      return this;
-    }
+
 
     @CanIgnoreReturnValue
     public InterimModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
-      originalDeps.put(depRepoName, DepSpec.fromModuleKey(key));
+      originalDeps.put(depRepoName, key);
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public InterimModuleBuilder addOriginalDep(String depRepoName, DepSpec depSpec) {
-      originalDeps.put(depRepoName, depSpec);
-      return this;
-    }
+
 
     @CanIgnoreReturnValue
     public InterimModuleBuilder addNodepDep(ModuleKey key) {
-      builder.addNodepDep(DepSpec.fromModuleKey(key));
+      builder.addNodepDep(key);
       return this;
     }
 
@@ -181,16 +153,16 @@ public final class BzlmodTestUtil {
     }
 
     public InterimModule build() {
-      ImmutableMap<String, DepSpec> builtDeps = this.deps.buildOrThrow();
+      ImmutableMap<String, ModuleKey> builtDeps = this.deps.buildOrThrow();
 
       /* Copy dep entries that have not been changed to original deps */
-      ImmutableMap<String, DepSpec> initOriginalDeps = this.originalDeps.buildOrThrow();
-      for (Entry<String, DepSpec> e : builtDeps.entrySet()) {
+      ImmutableMap<String, ModuleKey> initOriginalDeps = this.originalDeps.buildOrThrow();
+      for (Entry<String, ModuleKey> e : builtDeps.entrySet()) {
         if (!initOriginalDeps.containsKey(e.getKey())) {
           originalDeps.put(e);
         }
       }
-      ImmutableMap<String, DepSpec> builtOriginalDeps = this.originalDeps.buildOrThrow();
+      ImmutableMap<String, ModuleKey> builtOriginalDeps = this.originalDeps.buildOrThrow();
 
       return this.builder.setDeps(builtDeps).setOriginalDeps(builtOriginalDeps).build();
     }
