@@ -54,6 +54,14 @@ alias(
 )
 
 alias(
+    name = "grpc++",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_cc_deps//:grpc++",
+        "//conditions:default": "@com_github_grpc_grpc//:grpc++",
+    }),
+)
+
+alias(
     name = "grpc++_unsecure",
     actual = select({
         "//src/conditions:debian_build": "@debian_cc_deps//:grpc++_unsecure",
