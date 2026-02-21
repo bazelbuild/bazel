@@ -841,11 +841,7 @@ public class RemoteExecutionServiceTest {
           Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
       Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
       // TODO: Get this number down.
-      // TODO: Assert the size exactly after switching to an ImmutableSortedMap rather than an
-      //       ImmutableMap - proto messages don't have deterministic hash codes, which makes the
-      //       exact size vary slightly between runs.
-      assertThat(merkleTreeOnlyRetention.totalSize()).isAtLeast(8400);
-      assertThat(merkleTreeOnlyRetention.totalSize()).isAtMost(9500);
+      assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(8072);
     }
   }
 

@@ -13,17 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static java.util.Comparator.comparing;
+
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 
 /**
  * A representation of the inputs to a remotely executed action represented as a Merkle tree.
@@ -78,12 +83,19 @@ public sealed interface MerkleTree {
    * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
    */
   final class Uploadable implements MerkleTree {
-    private final RootOnly.BlobsUploaded root;
-    private final ImmutableMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
+    static final Comparator<Digest> DIGEST_COMPARATOR =
+        comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator())
+            .thenComparing(Digest::getSizeBytes);
 
-    Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
+    private final RootOnly.BlobsUploaded root;
+    private final ImmutableSortedMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
+
+    Uploadable(RootOnly.BlobsUploaded root, SortedMap<Digest, Object> blobs) {
       this.root = root;
-      this.blobs = blobs;
+      // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
+      // arrays. Access performance is not critical since it's only used to find missing blobs,
+      // which always require network access.
+      this.blobs = ImmutableSortedMap.copyOfSorted(blobs);
     }
 
     @Override
