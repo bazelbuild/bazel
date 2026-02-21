@@ -191,6 +191,10 @@ copy_file(
 cc_binary(
     name = "read_manifest",
     srcs = ["read_manifest.cc"],
+    linkopts = select({
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
@@ -200,6 +204,10 @@ cc_binary(
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
+    linkopts = select({
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],

@@ -15,7 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "blake3", version = "1.8.2")
+bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
@@ -35,6 +35,13 @@ bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
+bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.5.8")
+git_override(
+    module_name = "toolchains_llvm_bootstrapped",
+    commit = "73da742a9e02b7d2845667175e684b801756d6f2",
+    remote = "https://github.com/cerisier/toolchains_llvm_bootstrapped.git",
+)
+
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.7")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
@@ -43,6 +50,10 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.24.5")
 bazel_dep(name = "rules_cc", version = "0.2.16")
+single_version_override(
+    module_name = "rules_cc",
+    version = "0.2.16",
+)
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -464,12 +475,23 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 # Register platforms & toolchains
 # =========================================
 
+osx = use_extension("@toolchains_llvm_bootstrapped//extensions:osx.bzl", "osx")
+osx.framework(name = "CFNetwork")
+osx.framework(name = "CoreFoundation")
+osx.framework(name = "CoreServices")
+osx.framework(name = "DiskArbitration")
+osx.framework(name = "IOKit")
+osx.framework(name = "Security")
+osx.framework(name = "SystemConfiguration")
+
 register_execution_platforms("//:default_host_platform")
 
 register_toolchains("//:all")
 
-register_toolchains("@local_config_winsdk//:all")
+register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_ce_toolchains//:gvm")
+
+register_toolchains("@toolchains_llvm_bootstrapped//toolchain:all")

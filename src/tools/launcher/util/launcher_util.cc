@@ -17,8 +17,6 @@
 #endif
 #include <windows.h>
 
-// For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
-#define _CRT_RAND_S
 #include <fcntl.h>
 #include <io.h>
 #include <stdarg.h>
@@ -27,8 +25,10 @@
 #include <string.h>
 
 #include <algorithm>
+#include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/native/windows/file.h"
@@ -200,17 +200,17 @@ bool SetEnv(const wstring& env_name, const wstring& value) {
   return SetEnvironmentVariableW(env_name.c_str(), value.c_str());
 }
 
-wstring GetRandomStr(size_t len) {
-  static const wchar_t alphabet[] =
-      L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  wstring rand_str;
-  rand_str.reserve(len);
-  unsigned int x;
-  for (size_t i = 0; i < len; i++) {
-    rand_s(&x);
-    rand_str += alphabet[x % wcslen(alphabet)];
-  }
-  return rand_str;
+std::wstring GetRandomStr(size_t len) {
+    static constexpr std::wstring_view alphabet =
+        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    std::random_device rd;
+    std::uniform_int_distribution<size_t> dist(0, alphabet.size() - 1);
+    std::wstring rand_str;
+    rand_str.reserve(len);
+    for (size_t i = 0; i < len; ++i) {
+        rand_str += alphabet[dist(rd)];
+    }
+    return rand_str;
 }
 
 bool NormalizePath(const wstring& path, wstring* result) {
