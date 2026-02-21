@@ -38,7 +38,7 @@ bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "toolchains_llvm_bootstrapped", version = "0.5.8")
 git_override(
     module_name = "toolchains_llvm_bootstrapped",
-    commit = "89e74850b87d11a481094f6f3e8a2250a519fc01",
+    commit = "5733c64383b8be302f95df97214979179faf1ff1",
     remote = "https://github.com/cerisier/toolchains_llvm_bootstrapped.git",
 )
 
