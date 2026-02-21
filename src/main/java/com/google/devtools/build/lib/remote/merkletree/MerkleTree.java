@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 
 /**
  * A representation of the inputs to a remotely executed action represented as a Merkle tree.
@@ -79,11 +80,14 @@ public sealed interface MerkleTree {
    */
   final class Uploadable implements MerkleTree {
     private final RootOnly.BlobsUploaded root;
-    private final ImmutableMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
+    private final ImmutableSortedMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
 
-    Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
+    Uploadable(RootOnly.BlobsUploaded root, SortedMap<Digest, Object> blobs) {
       this.root = root;
-      this.blobs = blobs;
+      // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
+      // arrays. Access performance is not critical since it's only used to find missing blobs,
+      // which always require network access.
+      this.blobs = ImmutableSortedMap.copyOfSorted(blobs);
     }
 
     @Override

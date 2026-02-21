@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.DIGEST_COMPARATOR;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
@@ -88,6 +89,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -193,7 +195,7 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.Uploadable(
-            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableMap.of());
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
   /** Specifies which blobs should be retained in the Merkle tree. */
@@ -468,7 +470,8 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    var blobs = ImmutableMap.<Digest, Object>builder();
+    var blobs =
+        new TreeMap<Digest, /* byte[] | Path | VirtualActionInput */ Object>(DIGEST_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -531,17 +534,16 @@ public final class MerkleTreeComputer {
           inputBytes += directoryBlobDigest.getSizeBytes();
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
-            var builtBlobs = blobs.buildKeepingLast();
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
-              checkState(builtBlobs.isEmpty());
+              checkState(blobs.isEmpty());
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
             } else {
               return new MerkleTree.Uploadable(
                   new MerkleTree.RootOnly.BlobsUploaded(
                       directoryBlobDigest, inputFiles, inputBytes),
-                  builtBlobs);
+                  blobs);
             }
           }
           topDirectory
