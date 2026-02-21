@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -32,7 +34,9 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.Any;
 import java.time.Instant;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -53,6 +57,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   private final Path stdout;
   private final Path stderr;
   private final ErrorTiming timing;
+  private final ImmutableList<Digest> spawnDigests;
 
   /** Timestamp of the action starting; if no timestamp is available will be {@code null}. */
   @Nullable private final Instant startTime;
@@ -63,6 +68,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   public ActionExecutedEvent(
       PathFragment actionId,
       Action action,
+      ImmutableList<Digest> spawnDigests,
       @Nullable ActionExecutionException exception,
       Path primaryOutput,
       Artifact outputArtifact,
@@ -83,6 +89,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     this.timing = timing;
     this.startTime = startTime;
     this.endTime = endTime;
+    this.spawnDigests = spawnDigests;
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
     Preconditions.checkState(
@@ -178,7 +185,12 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
         BuildEventStreamProtos.ActionExecuted.newBuilder()
             .setSuccess(getException() == null)
-            .setType(action.getMnemonic());
+            .setType(action.getMnemonic())
+            .addAllSpawnDigests(
+                spawnDigests.stream()
+                .map(digest -> Any.pack(digest))
+                .collect(toImmutableList())
+            );
     if (startTime != null) {
       actionBuilder.setStartTime(timestampProto(startTime));
       if (endTime != null) {
@@ -253,6 +265,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
         .add("primaryOutputMetadata", primaryOutputMetadata)
         .add("startTime", startTime)
         .add("endTime", endTime)
+        .add("spawnDigests", spawnDigests)
         .toString();
   }
 
