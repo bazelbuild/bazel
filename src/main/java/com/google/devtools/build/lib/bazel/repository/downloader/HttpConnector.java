@@ -35,6 +35,7 @@ import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.time.Duration;
+import javax.net.ssl.SSLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -181,6 +182,15 @@ class HttpConnector {
           throw e;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
+          eventHandler.handle(Event.progress(message));
+          IOException httpException = new UnrecoverableHttpException(message);
+          httpException.addSuppressed(e);
+          throw httpException;
+        } catch (SSLException e) {
+          // SSL/TLS errors (e.g., certificate expired, hostname mismatch) are not transient
+          // and should not be retried. Throwing UnrecoverableHttpException allows the
+          // HttpConnectorMultiplexer to fallback to alternative URLs instead of retrying.
+          String message = format("SSL error connecting to %s: %s", url, e.getMessage());
           eventHandler.handle(Event.progress(message));
           IOException httpException = new UnrecoverableHttpException(message);
           httpException.addSuppressed(e);
