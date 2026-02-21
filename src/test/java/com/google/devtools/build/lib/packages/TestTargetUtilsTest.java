@@ -118,6 +118,34 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   public void testFilterByLang() {
     LoadingOptions options = new LoadingOptions();
     options.testLangFilterList = ImmutableList.of("positive", "-negative");
+    options.testRuleFilterList = ImmutableList.of();
+    options.testSizeFilterSet = ImmutableSet.of();
+    options.testTimeoutFilterSet = ImmutableSet.of();
+    options.testTagFilterList = ImmutableList.of();
+    TestFilter filter = TestFilter.forOptions(options);
+    Package pkg = mock(Package.class);
+    RuleClass ruleClass = mock(RuleClass.class);
+    when(ruleClass.getDefaultImplicitOutputsFunction())
+        .thenReturn(SafeImplicitOutputsFunction.NONE);
+    when(ruleClass.getAttributeProvider()).thenReturn(mock(AttributeProvider.class));
+    Rule mockRule =
+        new Rule(
+            pkg,
+            Label.parseCanonicalUnchecked("//pkg:a"),
+            ruleClass,
+            Location.fromFile(""),
+            /* interiorCallStack= */ null);
+    when(ruleClass.getName()).thenReturn("positive_test");
+    assertThat(filter.apply(mockRule)).isTrue();
+    when(ruleClass.getName()).thenReturn("negative_test");
+    assertThat(filter.apply(mockRule)).isFalse();
+  }
+
+  @Test
+  public void testFilterByRule() {
+    LoadingOptions options = new LoadingOptions();
+    options.testLangFilterList = ImmutableList.of();
+    options.testRuleFilterList = ImmutableList.of("positive_test", "-negative_test");
     options.testSizeFilterSet = ImmutableSet.of();
     options.testTimeoutFilterSet = ImmutableSet.of();
     options.testTagFilterList = ImmutableList.of();
