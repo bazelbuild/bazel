@@ -87,7 +87,8 @@ public class BazelRuleClassProvider {
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-  public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLE =
+  @VisibleForTesting
+  public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLES =
       ImmutableMap.<OS, PathFragment>builder()
           .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
@@ -106,6 +107,7 @@ public class BazelRuleClassProvider {
     public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
   }
 
+  @VisibleForTesting
   @Nullable
   public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
     if (options.shellExecutable != null) {
@@ -127,7 +129,7 @@ public class BazelRuleClassProvider {
     // --shell_executable, so at least there's a workaround.
     return getDefaultPathFromOptions(options) != null
         ? getDefaultPathFromOptions(options)
-        : SHELL_EXECUTABLE.getOrDefault(os, FALLBACK_SHELL);
+        : SHELL_EXECUTABLES.getOrDefault(os, FALLBACK_SHELL);
   }
 
   public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
@@ -225,7 +227,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           ShellConfiguration.injectShellExecutableFinder(
-              BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLE);
+              BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLES);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix("_main")
