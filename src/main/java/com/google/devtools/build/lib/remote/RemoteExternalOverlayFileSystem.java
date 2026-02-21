@@ -295,12 +295,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     prefetch(walkResult.files());
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target. A symlink may have already been created as an input to an action.
-    for (var remoteSymlink : walkResult.symlinks()) {
-      var nativeSymlink = nativeFs.getPath(remoteSymlink);
-      FileSystemUtils.ensureSymbolicLink(
-          nativeSymlink, externalFs.getPath(remoteSymlink).readSymbolicLink());
-    }
+    // target.
+    prefetch(walkResult.symlinks());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -667,9 +663,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
 
     private FileArtifactValue getMetadata(PathFragment path) throws IOException {
-      var info =
-          (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      return info.getMetadata();
+      var status = stat(path, /* followSymlinks= */ false);
+      if (!status.isSymbolicLink()) {
+        return ((RemoteActionFileSystem.RemoteInMemoryFileInfo) status).getMetadata();
+      }
+      return FileArtifactValue.createForUnresolvedSymlink(externalFs.getPath(path));
     }
 
     @Override
