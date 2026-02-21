@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -180,10 +181,8 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths :foo) bar"))
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath :foo) bar"))
-        .matches("foo expansion/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths :foo) bar"))
-        .matches("foo expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpath :foo) bar")).matches("foo expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths :foo) bar")).matches("foo expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath :foo) bar"))
         .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
@@ -296,5 +295,91 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .isEqualTo(
             "foo __main__/expansion/bar.txt __main__/expansion/foo.txt bar"
                 .replace("__main__", ruleClassProvider.getRunfilesPrefix()));
+  }
+
+  @Test
+  public void testDirname() throws Exception {
+    scratch.file("other_files/subdir/file");
+    scratch.file("other_files/sub dir with spaces/file with spaces");
+
+    scratch.file(
+        "other_files/BUILD",
+        """
+        filegroup(
+            name = "file1",
+            srcs = ["subdir/file"],
+        )
+
+        filegroup(
+            name = "file2",
+            srcs = ["sub dir with spaces/file with spaces"],
+        )
+
+        filegroup(
+            name = "files",
+            srcs = [
+                ":file1",
+                ":file2",
+            ],
+        )
+
+        filegroup(
+            name = "lib",
+            srcs = [
+                ":file1",
+                ":file2",
+                ":files",
+            ],
+        )
+        """);
+    var expander = makeExpander("//other_files:lib");
+
+    assertThat(expander.expand("$(dirname a/b/c)")).isEqualTo("a/b");
+    assertThat(expander.expand("$(dirname a/b/c/)")).isEqualTo("a/b/c");
+    assertThat(expander.expand("$(dirname a///b///c)")).isEqualTo("a///b");
+    assertThat(expander.expand("$(dirname a/)")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname a//)")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname C:/a/b/c)")).isEqualTo("C:/a/b");
+    assertThat(expander.expand("$(dirname /a/)")).isEqualTo("/a");
+    assertThat(expander.expand("$(dirname /a/b/c)")).isEqualTo("/a/b");
+    assertThat(expander.expand("$(dirname 'a/dir with space/c')")).isEqualTo("'a/dir with space'");
+    assertThat(expander.expand("foo $(dirname a/b/c) bar")).isEqualTo("foo a/b bar");
+    assertThat(expander.expand("$(dirname ...)")).isEqualTo(".");
+
+    assertThat(expander.expand("$(dirname $(dirname a/b/c))")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname $(dirname $(dirname a1/b2/c3/d4/e5)))"))
+        .isEqualTo("a1/b2");
+    assertThat(expander.expand("$(dirname   $(dirname a/b/c  )  )")).isEqualTo("a");
+
+    assertThat(expander.expand("$(dirname $(rootpath :file1))"))
+        .isEqualTo("other_files/subdir");
+    assertThat(expander.expand("$(dirname $(dirname $(rootpath :file1)))"))
+        .isEqualTo("other_files");
+
+    assertThat(expander.expand("--out=$(dirname $(rootpath :file2))"))
+        .isEqualTo("--out='other_files/sub dir with spaces'");
+    assertThat(expander.expand("--out=$(dirname $(dirname $(rootpath :file1)))"))
+        .isEqualTo("--out=other_files");
+
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname )")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with an empty string, which is not a valid path");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname .)")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with '.' or '..', which is not supported: .");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname ..)")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with '.' or '..', which is not supported: ..");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname a\\b\\c)")))
+        .hasMessageThat()
+        .endsWith(
+            "$(dirname ...) used with a path containing backslashes, which is not supported: a\\b\\c");
+    assertThat(
+            assertThrows(
+                AssertionError.class, () -> expander.expand("$(dirname $(rootpaths :files))")))
+        .hasMessageThat()
+        .endsWith(
+            "$(dirname ...) used with a path containing unquoted spaces, which is not supported:"
+                + " 'other_files/sub dir with spaces/file with spaces' other_files/subdir/file");
   }
 }
