@@ -20,12 +20,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.analysis.test.TestRunnerActionConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,7 +59,6 @@ public class SandboxStash {
 
   // Used while we gather all the contents asynchronously.
   public static final String TEMPORARY_SANDBOX_STASH_BASE = "tmp_sandbox_stash";
-  private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
   private static final String TEST_SRCDIR = "TEST_SRCDIR";
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -104,12 +103,11 @@ public class SandboxStash {
       Path sandboxPath,
       String mnemonic,
       Map<String, String> environment,
-      SandboxOutputs outputs,
       Label target) {
     if (instance == null) {
       return null;
     }
-    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs, target);
+    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, target);
   }
 
   @Nullable
@@ -118,11 +116,10 @@ public class SandboxStash {
       Path sandboxPath,
       String mnemonic,
       Map<String, String> environment,
-      SandboxOutputs outputs,
       Label target) {
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
-      if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
+      if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic)) {
         return null;
       }
 
@@ -183,7 +180,6 @@ public class SandboxStash {
       Path path,
       String mnemonic,
       Map<String, String> environment,
-      SandboxOutputs outputs,
       TreeDeleter treeDeleter,
       Label target) {
     if (instance == null) {
@@ -191,9 +187,7 @@ public class SandboxStash {
     }
 
     Path sandboxes = instance.getSandboxStashDir(mnemonic, path.getFileSystem());
-    if (sandboxes == null
-        || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)
-        || !path.exists()) {
+    if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic) || !path.exists()) {
       return;
     }
     String stashName = Integer.toString(stash.incrementAndGet());
@@ -452,7 +446,7 @@ public class SandboxStash {
    * directory for the action that was stashed to the path that is expected by the current test.
    */
   private static boolean isTestAction(String mnemonic) {
-    return mnemonic.equals(TEST_RUNNER_MNEMONIC);
+    return mnemonic.equals(TestRunnerActionConstants.MNEMONIC);
   }
 
   /**
@@ -463,11 +457,11 @@ public class SandboxStash {
    * different test could potentially use. If we are running coverage, there might be a third spawn
    * for coverage where we apply the same reasoning.
    *
-   * <p>We identify the second and third spawn because they have a single output.
+   * <p>We identify the second and third spawn by their mnemonics.
    */
-  private static boolean isTestXmlGenerationOrCoverageSpawn(
-      String mnemonic, SandboxOutputs outputs) {
-    return isTestAction(mnemonic) && outputs.files().size() == 1;
+  private static boolean isTestXmlGenerationOrCoverageSpawn(String mnemonic) {
+    return TestRunnerActionConstants.TEST_XML_GENERATION_MNEMONIC.equals(mnemonic)
+        || TestRunnerActionConstants.TEST_COVERAGE_POST_PROCESSING_MNEMONIC.equals(mnemonic);
   }
 
   private static String getCurrentRunfilesDir(Map<String, String> environment) {
@@ -522,4 +516,3 @@ public class SandboxStash {
     currentStashContents.dirMap().put(currentRunfilesSegments.getLast(), runfilesStashContents);
   }
 }
-

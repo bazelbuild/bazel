@@ -108,7 +108,6 @@ public class TestRunnerAction extends AbstractAction
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
-  public static final String MNEMONIC = "TestRunner";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -1060,7 +1059,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    return MNEMONIC;
+    return TestRunnerActionConstants.MNEMONIC;
   }
 
   @Override
