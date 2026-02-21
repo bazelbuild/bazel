@@ -283,9 +283,6 @@ public class OptionsParser implements OptionsParsingResult {
   private final boolean ignoreUserOptions;
 
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
-  // scopes for starlark options
-  private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
-  private ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -302,16 +299,6 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableSortedMap<String, Object> getStarlarkOptions() {
     return starlarkOptions;
-  }
-
-  @Override
-  public ImmutableMap<String, String> getScopesAttributes() {
-    return scopesAttributes;
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-    return onLeaveScopeValues;
   }
 
   @Override
@@ -350,14 +337,6 @@ public class OptionsParser implements OptionsParsingResult {
 
   public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
     this.starlarkOptions = ImmutableSortedMap.copyOf(starlarkOptions);
-  }
-
-  public void setScopesAttributes(Map<String, String> scopesAttributes) {
-    this.scopesAttributes = ImmutableSortedMap.copyOf(scopesAttributes);
-  }
-
-  public void setOnLeaveScopeValues(Map<String, Object> onLeaveScopeValues) {
-    this.onLeaveScopeValues = ImmutableSortedMap.copyOf(onLeaveScopeValues);
   }
 
   public void parseAndExitUponError(String[] args) {

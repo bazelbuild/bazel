@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
@@ -1532,7 +1533,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
-
   private void setLazyMacroExpansionPackages(LazyMacroExpansionPackages packages) {
     PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable(), packages);
   }
@@ -1543,8 +1543,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
-    PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
-    PrecomputedValue.BASELINE_EXEC_CONFIGURATION.set(
+    BaselineOptionsFunction.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
+    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
         injectable(), adjustForExec(buildOptions, eventHandler));
   }
 
@@ -2205,6 +2205,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
+            },
+            (buildSettings) -> {
+              SkyKey detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings);
+              EvaluationResult<SkyValue> result =
+                  evaluate(
+                      ImmutableList.of(detailsKey),
+                      /* keepGoing= */ false,
+                      /* numThreads= */ DEFAULT_THREAD_COUNT,
+                      eventHandler);
+              if (result.hasError()) {
+                throw new StarlarkExecTransitionLoadingException(
+                    "Failed to load build settings details for exec transition");
+              }
+              return (StarlarkBuildSettingsDetailsValue) result.get(detailsKey);
             })
         .orElse(null);
   }
@@ -3644,16 +3658,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, String> getScopesAttributes() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
             return ImmutableMap.of();
           }
 

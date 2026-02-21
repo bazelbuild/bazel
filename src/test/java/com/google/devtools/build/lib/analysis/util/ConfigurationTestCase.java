@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -130,12 +131,12 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
             .add(
                 PrecomputedValue.injected(
                     // Reuse the build options as the baseline exec. This is technically wrong but
                     // will only impact the exec configuration output path.
-                    PrecomputedValue.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);

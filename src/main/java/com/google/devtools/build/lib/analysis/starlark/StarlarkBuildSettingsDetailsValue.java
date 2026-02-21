@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -47,6 +48,10 @@ import java.util.Set;
  * @param buildSettingIsAllowsMultiple If build option is in this set, is an allows_multiple option.
  *     Does not include aliases.
  * @param aliasToActual Map from an alias Label to actual Label it points to.
+ * @param buildSettingToScopeType Map from each build option to its scope type. Does not include
+ *     aliases.
+ * @param buildSettingToOnLeaveScopeValue Map from each build option to its on_leave_scope value,
+ *     if explicitly set. Does not include aliases.
  */
 @CheckReturnValue
 @Immutable
@@ -56,13 +61,17 @@ public record StarlarkBuildSettingsDetailsValue(
     ImmutableMap<Label, Object> buildSettingToDefault,
     ImmutableMap<Label, Type<?>> buildSettingToType,
     ImmutableSet<Label> buildSettingIsAllowsMultiple,
-    ImmutableMap<Label, Label> aliasToActual)
+    ImmutableMap<Label, Label> aliasToActual,
+    ImmutableMap<Label, Scope.ScopeType> buildSettingToScopeType,
+    ImmutableMap<Label, Object> buildSettingToOnLeaveScopeValue)
     implements SkyValue {
   public StarlarkBuildSettingsDetailsValue {
     requireNonNull(buildSettingToDefault, "buildSettingToDefault");
     requireNonNull(buildSettingToType, "buildSettingToType");
     requireNonNull(buildSettingIsAllowsMultiple, "buildSettingIsAllowsMultiple");
     requireNonNull(aliasToActual, "aliasToActual");
+    requireNonNull(buildSettingToScopeType, "buildSettingToScopeType");
+    requireNonNull(buildSettingToOnLeaveScopeValue, "buildSettingToOnLeaveScopeValue");
   }
 
   /**
@@ -70,18 +79,28 @@ public record StarlarkBuildSettingsDetailsValue(
    * that use no Starlark build settings
    */
   public static final StarlarkBuildSettingsDetailsValue EMPTY =
-      create(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of());
+      create(
+          ImmutableMap.of(),
+          ImmutableMap.of(),
+          ImmutableSet.of(),
+          ImmutableMap.of(),
+          ImmutableMap.of(),
+          ImmutableMap.of());
 
   public static StarlarkBuildSettingsDetailsValue create(
       Map<Label, Object> buildSettingDefaults,
       Map<Label, Type<?>> buildSettingToType,
       Set<Label> buildSettingIsAllowsMultiple,
-      Map<Label, Label> aliasToActual) {
+      Map<Label, Label> aliasToActual,
+      Map<Label, Scope.ScopeType> buildSettingToScopeType,
+      Map<Label, Object> buildSettingToOnLeaveScopeValue) {
     return new StarlarkBuildSettingsDetailsValue(
         ImmutableMap.copyOf(buildSettingDefaults),
         ImmutableMap.copyOf(buildSettingToType),
         ImmutableSet.copyOf(buildSettingIsAllowsMultiple),
-        ImmutableMap.copyOf(aliasToActual));
+        ImmutableMap.copyOf(aliasToActual),
+        ImmutableMap.copyOf(buildSettingToScopeType),
+        ImmutableMap.copyOf(buildSettingToOnLeaveScopeValue));
   }
 
   public static Key key(Set<Label> buildSettings) {

@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -70,7 +70,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
   }
@@ -547,16 +547,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
                 .get(Label.parseCanonicalUnchecked("//out_of_scope_flag:baz")))
         .isNull();
 
-    // Since the effective BuildOptions does not have //out_of_scope_flag:baz, its scope type should
-    // not exist in the scope type map.
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
 
   @Test
@@ -581,7 +571,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptionsBuilder.build()))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptionsBuilder.build()))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
 
@@ -655,18 +645,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
                 .get(Label.parseCanonicalUnchecked("//out_of_scope_flag:baz")))
         .isEqualTo("baselineValue");
 
-    // Since the effective BuildOptions has //out_of_scope_flag:baz, its scope type should
-    // exist in the scope type map.
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
-            Label.parseCanonicalUnchecked("//out_of_scope_flag:baz"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
   }
 
   @Test
@@ -694,15 +672,12 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result =
         fetch(baseOptions, Label.parseCanonicalUnchecked("//my_project:my_target"));
 
-    // All flags should be universal
-    ImmutableMap<Label, Scope.ScopeType> expectedScopeTypeMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//flag:foo"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL),
-            Label.parseCanonicalUnchecked("//flag:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
-    assertThat(result.getOptions().getScopeTypeMap())
-        .containsExactlyEntriesIn(expectedScopeTypeMap);
+    // Scope info is no longer stored in BuildOptions; it is resolved via Skyframe.
+    // Verify the configuration key was created successfully with the right starlark options.
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsKey(Label.parseCanonicalUnchecked("//flag:foo"));
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsKey(Label.parseCanonicalUnchecked("//flag:bar"));
   }
 
   @Test

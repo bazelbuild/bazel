@@ -183,6 +183,7 @@ java_library(
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_transition",
         ":starlark/template_dict",
         ":symlink_entry",
@@ -1222,6 +1223,7 @@ java_library(
         "starlark/StarlarkBuildSettingsDetailsValue.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -1751,6 +1753,7 @@ java_library(
     name = "starlark/function_transition_util",
     srcs = ["starlark/FunctionTransitionUtil.java"],
     deps = [
+        ":starlark/starlark_build_settings_details_value",
         ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",

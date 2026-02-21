@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
@@ -397,20 +396,6 @@ public final class AnalysisTestUtil {
   public static BuildOptions execOptions(
       BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
       throws Exception {
-    // Get Starlark flags' "scope = '<string>'" info, which can control whether the flags propagate
-    // to the exec config.
-    var starlarkFlagScopeInfo =
-        skyframeExecutor.evaluateSkyKeys(
-            handler,
-            ImmutableList.of(
-                BuildOptionsScopeValue.Key.create(
-                    targetOptions, new ArrayList<>(targetOptions.getStarlarkOptions().keySet()))),
-            /* keepGoing= */ false);
-
-    BuildOptions targetOptionsWithScopeInfo =
-        ((BuildOptionsScopeValue) Iterables.getOnlyElement(starlarkFlagScopeInfo.values()))
-            .getResolvedBuildOptionsWithScopeTypes();
-
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
@@ -418,12 +403,10 @@ public final class AnalysisTestUtil {
                     .attributes(FakeAttributeMapper.empty())
                     .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
                     .analysisData(
-                        skyframeExecutor.getStarlarkExecTransition(
-                            targetOptionsWithScopeInfo, handler))
+                        skyframeExecutor.getStarlarkExecTransition(targetOptions, handler))
                     .build())
             .apply(
-                new BuildOptionsView(
-                    targetOptionsWithScopeInfo, targetOptions.getFragmentClasses()),
+                new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),
                 handler)
             .values());
   }
