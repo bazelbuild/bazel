@@ -23,7 +23,7 @@ Examples:
 
 <Tab title="C++">
 
-```starlark
+```python
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 cc_binary(
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 </Tab>
 <Tab title="Golang">
 
-```starlark
+```python
 load("@rules_go//go:def.bzl", "go_binary")
 
 go_binary(
@@ -85,7 +85,7 @@ go_binary(
 )
 ```
 
-```golang
+```go
 package main
 
 import (
@@ -129,7 +129,7 @@ func main() {
 </Tab>
 <Tab title="Python">
 
-```starlark
+```python
 load("@rules_python//python:defs.bzl", "py_binary")
 
 py_binary(
@@ -161,7 +161,7 @@ with open(realPathToSomeFile, 'r') as f:
 </Tab>
 <Tab title="Shell">
 
-```starlark
+```python
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(
