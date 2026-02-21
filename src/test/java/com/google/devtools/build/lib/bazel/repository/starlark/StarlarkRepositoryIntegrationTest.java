@@ -212,6 +212,54 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRepositoryRuleCanDefineVisibilityAttr() throws Exception {
+    scratch.file(
+        "def.bzl",
+        """
+        def _impl(ctx):
+            ctx.file("BUILD.bazel", "filegroup(name='x')")
+            _ = ctx.attr.visibility
+
+        repo = repository_rule(
+            implementation = _impl,
+            attrs = {"visibility": attr.string_list(default = [])},
+        )
+        """);
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
+
+    invalidatePackages();
+    getConfiguredTargetAndData("@@+repo+foo//:x");
+  }
+
+  @Test
+  public void testRepositoryRuleAccessingUndefinedVisibilityAttrFails() throws Exception {
+    scratch.file(
+        "def.bzl",
+        """
+        def _impl(ctx):
+            _ = ctx.attr.visibility
+
+        repo = repository_rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
+
+    invalidatePackages();
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+repo+foo//:x"));
+    assertThat(e).hasMessageThat().contains("unknown attribute visibility");
+  }
+
+  @Test
   public void testCallRepositoryRuleFromBuildFile() throws Exception {
     // Check that we get a proper error when calling a repository rule from a BUILD file.
 
