@@ -89,8 +89,7 @@ public class TestSummaryTest {
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
         .setActionRan(true)
-        .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false);
+        .setRanRemotely(false);
   }
 
   private List<Path> getPathList(String... names) {
@@ -705,7 +704,6 @@ public class TestSummaryTest {
         .setNumCached(numCached)
         .setActionRan(true)
         .setRanRemotely(false)
-        .setWasUnreportedWrongSize(false)
         .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
         .addTestTimes(SMALL_TIMING)
         .build();

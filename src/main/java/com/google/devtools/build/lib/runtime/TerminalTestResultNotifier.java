@@ -59,7 +59,6 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     int failedLocallyCount;
     int noStatusCount;
     int numberOfExecutedTargets;
-    boolean wasUnreportedWrongSize;
 
     int totalTestCases;
     int totalFailedTestCases;
@@ -210,10 +209,6 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         stats.failedLocallyCount++;
       }
 
-      if (summary.wasUnreportedWrongSize()) {
-        stats.wasUnreportedWrongSize = true;
-      }
-
       stats.totalTestCases += summary.getTotalTestCases();
       stats.totalUnknownTestCases += summary.getUnknownTestCases();
       stats.totalFailedTestCases += summary.getFailedTestCases().size();
@@ -337,11 +332,5 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           stats.noStatusCount,
           AnsiTerminalPrinter.Mode.DEFAULT));
     }
-
-    if (stats.wasUnreportedWrongSize) {
-       printer.print("There were tests whose specified size is too big. Use the "
-           + "--test_verbose_timeout_warnings command line option to see which "
-           + "ones these are.\n");
-     }
   }
 }
