@@ -546,6 +546,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkFunction implementation,
       Object testUnchecked,
       Dict<?, ?> attrs,
+      Object deletedAttrs,
       Object implicitOutputs,
       Object executableUnchecked,
       boolean outputToGenfiles,
@@ -633,6 +634,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         initializer == Starlark.NONE ? null : (StarlarkFunction) initializer,
         test,
         attrs,
+        Sequence.cast(deletedAttrs, String.class, "deleted_attrs"),
         implicitOutputs,
         executable,
         outputToGenfiles,
@@ -724,6 +726,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       @Nullable StarlarkFunction initializer,
       boolean test,
       Dict<?, ?> attrs,
+      Sequence<String> deletedAttrs,
       Object implicitOutputs,
       boolean executable,
       boolean outputToGenfiles,
@@ -915,6 +918,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
+
+    if (!deletedAttrs.isEmpty()) {
+      failIf(parent != null, "Rules with parents must not have deleted attributes");
+      failIf(!subrulesUnchecked.isEmpty(), "Rules with subrules must not have deleted attributes");
+
+      for (var attr : deletedAttrs) {
+        builder.removeAttribute(attr);
+      }
+    }
 
     if (starlarkTestable) {
       builder.setStarlarkTestable();

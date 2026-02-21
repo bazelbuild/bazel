@@ -423,6 +423,17 @@ sh_test(
 )
 
 sh_test(
+    name = "deleted_attrs_test",
+    srcs = [
+        "deleted_attrs_test.sh",
+    ],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "action_aspect_test",
     size = "large",
     srcs = ["action_aspect_test.sh"],
