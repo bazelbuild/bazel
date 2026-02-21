@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class PlatformRule implements RuleDefinition {
   public static final String DEFAULT_MISSING_TOOLCHAIN_ERROR =
       "For more information on platforms or toolchains see"
-          + " https://bazel.build/concepts/platforms-intro.";
+          + " https://bazel.build/concepts/platforms-intro";
 
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
