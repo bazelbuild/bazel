@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
@@ -196,7 +197,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Build.Rule.Builder rulePb =
           Build.Rule.newBuilder()
               .setName(internalToUnicode(labelPrinter.toString(rule.getLabel())))
-              .setRuleClass(internalToUnicode(rule.getRuleClass()));
+              .setRuleClass(internalToUnicode(rule.getRuleClass()))
+              .setTest(TargetUtils.isTestRule(target))
+              .setExecutable(rule.isExecutable());
       if (includeLocations) {
         rulePb.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
