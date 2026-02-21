@@ -130,15 +130,20 @@ final class StripVerifyingVisitor extends ClassVisitor {
   }
 
   private static class StripVerifyingMethodVisitor extends MethodVisitor {
+    private static String EXCEPTION_NAME = "java/lang/UnsupportedOperationException";
+
     private final List<String> errors;
     private final String className;
     private final String methodName;
+
+    private boolean hasError;
 
     StripVerifyingMethodVisitor(List<String> errors, String className, String methodName) {
       super(Opcodes.ASM7);
       this.errors = errors;
       this.className = className;
       this.methodName = methodName;
+      this.hasError = false;
     }
 
     @Override public AnnotationVisitor visitAnnotationDefault() {
@@ -163,11 +168,13 @@ final class StripVerifyingVisitor extends ClassVisitor {
       // Just assume this is okay.
     }
 
-    @Override public void visitCode() {
-      errors.add(String.format("Code found for method %s of %s", methodName, className));
-    }
+    @Override public void visitCode() {}
 
-    @Override public void visitEnd() {}
+    @Override public void visitEnd() {
+      if (hasError) {
+        errors.add(String.format("Unexpected code found for method %s of %s", methodName, className));
+      }
+    }
 
     // We ignore all details about code segments. Presumably we already logged an error about code
     // existing at all.
@@ -179,35 +186,65 @@ final class StripVerifyingVisitor extends ClassVisitor {
         int nStack,
         Object[] stack) {}
 
-    @Override public void visitInsn(int opcode) {}
+    @Override public void visitInsn(int opcode) {
+      hasError |= opcode != Opcodes.DUP && opcode != Opcodes.ATHROW;
+    }
 
-    @Override public void visitIntInsn(int opcode, int operand) {}
+    @Override public void visitIntInsn(int opcode, int operand) {
+      hasError = true;
+    }
 
-    @Override public void visitVarInsn(int opcode, int var) {}
+    @Override public void visitVarInsn(int opcode, int var) {
+      hasError = true;
+    }
 
-    @Override public void visitTypeInsn(int opcode, String type) {}
+    @Override public void visitTypeInsn(int opcode, String type) {
+      hasError |= opcode != Opcodes.NEW || !type.equals(EXCEPTION_NAME);
+    }
 
-    @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {}
+    @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+      hasError = true;
+    }
 
     @Override
     public void visitMethodInsn(
-        int opcode, String owner, String name, String desc, boolean isInterface) {}
+        int opcode, String owner, String name, String desc, boolean isInterface) {
+      hasError |= opcode != Opcodes.INVOKESPECIAL;
+      hasError |= !owner.equals(EXCEPTION_NAME);
+      hasError |= !name.equals("<init>") || !desc.equals("()V");
+    }
 
-    @Override public void visitJumpInsn(int opcode, Label label) {}
+    @Override public void visitJumpInsn(int opcode, Label label) {
+      hasError = true;
+    }
 
-    @Override public void visitLabel(Label label) {}
+    @Override public void visitLabel(Label label) {
+      hasError = true;
+    }
 
-    @Override public void visitLdcInsn(Object cst) {}
+    @Override public void visitLdcInsn(Object cst) {
+      hasError = true;
+    }
 
-    @Override public void visitIincInsn(int var, int increment) {}
+    @Override public void visitIincInsn(int var, int increment) {
+      hasError = true;
+    }
 
-    @Override public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {}
+    @Override public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+      hasError = true;
+    }
 
-    @Override public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {}
+    @Override public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+      hasError = true;
+    }
 
-    @Override public void visitMultiANewArrayInsn(String desc, int dims) {}
+    @Override public void visitMultiANewArrayInsn(String desc, int dims) {
+      hasError = true;
+    }
 
-    @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {}
+    @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+      hasError = true;
+    }
 
     @Override public void visitLocalVariable(
         String name,
@@ -215,9 +252,13 @@ final class StripVerifyingVisitor extends ClassVisitor {
         String signature,
         Label start,
         Label end,
-        int index) {}
+        int index) {
+      hasError = true;
+    }
 
-    @Override public void visitLineNumber(int line, Label start) {}
+    @Override public void visitLineNumber(int line, Label start) {
+      hasError = true;
+    }
 
     @Override public void visitMaxs(int maxStack, int maxLocals) {}
   }
