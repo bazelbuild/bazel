@@ -589,6 +589,20 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // out/err streams).
       systemOutErrPatcher.start();
 
+      // Notify modules that the UI is set up. This is an appropriate place for blocking operations
+      // that need to show progress in the UI.
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        try (SilentCloseable closeable =
+            Profiler.instance().profile(module + ".afterUiSetup")) {
+          module.afterUiSetup(env);
+        } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error in afterUiSetup");
+          reporter.handle(Event.error(e.getMessage()));
+          result = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+          return result;
+        }
+      }
+
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(invocationPolicy);

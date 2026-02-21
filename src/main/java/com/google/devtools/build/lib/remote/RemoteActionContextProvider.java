@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.PendingUploads;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteCacheAsync;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -240,13 +242,22 @@ final class RemoteActionContextProvider {
     this.tempPathGenerator = tempPathGenerator;
   }
 
-  public void afterCommand() {
+  /**
+   * Called after a command completes.
+   *
+   * @param cacheAsync determines whether to wait for uploads to complete
+   * @return a {@link PendingUploads} handle for waiting/cancelling background uploads
+   */
+  public PendingUploads afterCommand(RemoteCacheAsync cacheAsync) {
     // actionInputFetcher uses combinedCache to prefetch inputs, so it must be shut down first.
     if (actionInputFetcher != null) {
       actionInputFetcher.shutdown();
     }
+
+    PendingUploads pendingUploads = PendingUploads.EMPTY;
+
     if (remoteExecutionService != null) {
-      remoteExecutionService.shutdown();
+      pendingUploads = remoteExecutionService.shutdown(cacheAsync);
     } else {
       if (combinedCache != null) {
         combinedCache.release();
@@ -259,5 +270,7 @@ final class RemoteActionContextProvider {
     if (outputService instanceof BazelOutputService bazelOutputService) {
       bazelOutputService.shutdown();
     }
+
+    return pendingUploads;
   }
 }

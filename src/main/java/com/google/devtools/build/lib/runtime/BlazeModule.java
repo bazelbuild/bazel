@@ -220,6 +220,18 @@ public abstract class BlazeModule implements OptionsSupplier {
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {}
 
   /**
+   * Called after the UI event handler is set up and stored events have been replayed, but before
+   * the command starts executing. This is an appropriate place for blocking operations that need to
+   * show progress in the UI.
+   *
+   * <p>This method is called after {@link #beforeCommand} and before the command execution begins.
+   *
+   * @param env the command environment
+   * @throws AbruptExitException modules can throw this exception to abort the command
+   */
+  public void afterUiSetup(CommandEnvironment env) throws AbruptExitException {}
+
+  /**
    * Returns additional listeners to the console output stream. Called at the beginning of each
    * command (after #beforeCommand).
    */

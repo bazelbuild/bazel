@@ -3231,4 +3231,50 @@ public class RemoteExecutionServiceTest {
     service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
   }
+
+  // ==================== Tests for shutdown(RemoteCacheAsync) ====================
+
+  @Test
+  public void shutdown_true_blocksUntilDone() throws Exception {
+    // Test that TRUE mode (wait at end of build) blocks until uploads complete
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    // Shutdown with default mode should return EMPTY (already done)
+    var pendingUploads = service.shutdown(RemoteOptions.RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE);
+
+    assertThat(pendingUploads).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
+  }
+
+  @Test
+  public void shutdown_nowait_returnsPendingUploadsHandle() throws Exception {
+    // Test that NOWAIT returns a PendingUploads handle
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    var pendingUploads = service.shutdown(RemoteOptions.RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE);
+
+    // Should return a non-empty handle that can be awaited
+    assertThat(pendingUploads).isNotNull();
+  }
+
+  @Test
+  public void shutdown_calledTwice_secondCallReturnsEmpty() throws Exception {
+    // Test that calling shutdown twice doesn't cause issues
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    var pendingUploads1 = service.shutdown(RemoteOptions.RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE);
+    var pendingUploads2 = service.shutdown(RemoteOptions.RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE);
+
+    assertThat(pendingUploads1).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
+    assertThat(pendingUploads2).isSameInstanceAs(RemoteExecutionService.PendingUploads.EMPTY);
+  }
+
+  @Test
+  public void shutdown_releasesCache() throws Exception {
+    // Test that shutdown releases the cache
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    service.shutdown(RemoteOptions.RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE);
+
+    verify(cache).release();
+  }
 }
