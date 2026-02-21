@@ -312,6 +312,8 @@ public final class MerkleTreeComputer {
             spawn,
             spawnExecutionContext,
             metadata,
+            // Inputs only have to be uploaded to and must be present in the remote cache for remote
+            // execution. For caching, inputs and Merkle trees are never uploaded anyway.
             CachePolicy.REMOTE_CACHE_ONLY,
             CachePolicy.NO_CACHE);
     Predicate<PathFragment> isToolInput;
