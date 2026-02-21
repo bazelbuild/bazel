@@ -92,6 +92,9 @@ public final class BlazeOptionHandler {
   // being ignored as long as they are recognized by at least one (other) command.
   static final String COMMON_PSEUDO_COMMAND = "common";
 
+  // Startup options are processed by the C++ client before the Java server starts.
+  private static final String STARTUP_PSEUDO_COMMAND = "startup";
+
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
       ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
 
@@ -697,7 +700,8 @@ public final class BlazeOptionHandler {
       }
       if (!validCommands.contains(command)
           && !command.equals(ALWAYS_PSEUDO_COMMAND)
-          && !command.equals(COMMON_PSEUDO_COMMAND)) {
+          && !command.equals(COMMON_PSEUDO_COMMAND)
+          && !command.equals(STARTUP_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"
