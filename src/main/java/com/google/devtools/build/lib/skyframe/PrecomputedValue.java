@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
@@ -90,8 +89,7 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");
 
-  public static final Precomputed<UUID> BUILD_ID =
-      new Precomputed<>("build_id", /* shareable= */ false);
+  public static final Precomputed<UUID> BUILD_ID = Precomputed.createUnshareable("build_id");
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
@@ -103,14 +101,6 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");
-
-  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
-  public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
-      new Precomputed<>("baseline_configuration", /* shareable= */ false);
-
-  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
-  public static final Precomputed<BuildOptions> BASELINE_EXEC_CONFIGURATION =
-      new Precomputed<>("baseline_exec_configuration", /* shareable= */ false);
 
   public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
       new Precomputed<>("lazy_macro_expansion_packages");
@@ -175,6 +165,10 @@ public final class PrecomputedValue implements SkyValue {
 
     private Precomputed(String key, boolean shareable) {
       this.key = shareable ? Key.create(key) : UnshareableKey.create(key);
+    }
+
+    public static <T> Precomputed<T> createUnshareable(String key) {
+      return new Precomputed<>(key, /* shareable= */ false);
     }
 
     public SkyKey getKey() {
