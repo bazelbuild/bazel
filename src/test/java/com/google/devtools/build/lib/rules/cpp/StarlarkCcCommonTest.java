@@ -5968,6 +5968,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('//" + bzlFilePath + ":extension.bzl', 'cc_starlark_library')",
         "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "exports_files(['script.lds', 'extra_compiler_input'])",
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
