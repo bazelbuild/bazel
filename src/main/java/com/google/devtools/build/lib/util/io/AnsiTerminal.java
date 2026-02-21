@@ -59,6 +59,7 @@ public class AnsiTerminal {
   private static final byte BEL = 7;
   private static final byte UP = (byte) 'A';
   private static final byte ERASE_LINE = (byte) 'K';
+  private static final byte ERASE_TO_END_OF_SCREEN = (byte) 'J';
   private static final byte SET_GRAPHICS = (byte) 'm';
   private static final byte TEXT_BOLD = (byte) '1';
   private static final byte[] SET_TERM_TITLE = {27, (byte) ']', (byte) '0', (byte) ';'};
@@ -91,6 +92,13 @@ public class AnsiTerminal {
    */
   public void clearLine() throws IOException {
     writeEscapeSequence(ERASE_LINE);
+  }
+
+  /**
+   * Clear from the cursor position to the end of the screen.
+   */
+  public void clearToEndOfScreen() throws IOException {
+    writeEscapeSequence(ERASE_TO_END_OF_SCREEN);
   }
 
   /**
