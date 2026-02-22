@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
@@ -66,7 +67,7 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
