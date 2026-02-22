@@ -508,7 +508,10 @@ public final class MerkleTreeComputer {
     long inputFiles = 0;
     long inputBytes = 0;
     var blobs =
-        new TreeMap<Digest, /* byte[] | Path | VirtualActionInput */ Object>(DIGEST_COMPARATOR);
+        new TreeMap<
+            /* Digest| FileArtifactValue */ Object,
+            /* byte[] | Path | VirtualActionInput */ Object>(
+            MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -566,7 +569,7 @@ public final class MerkleTreeComputer {
           byte[] directoryBlob = directoryStack.pop().build().toByteArray();
           Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
           if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
-            blobs.put(directoryBlobDigest, directoryBlob);
+            blobs.putIfAbsent(directoryBlobDigest, directoryBlob);
           }
           inputBytes += directoryBlobDigest.getSizeBytes();
           var topDirectory = directoryStack.peek();
@@ -659,7 +662,9 @@ public final class MerkleTreeComputer {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-              blobs.put(digest, fileOrSourceDirectory);
+              // If there is both a Digest and a FileArtifactValue key for the same content, prefer
+              // the FileArtifactValue as it is retained anyway.
+              blobs.put(metadata, fileOrSourceDirectory);
             }
             inputFiles++;
             inputBytes += digest.getSizeBytes();
@@ -669,7 +674,7 @@ public final class MerkleTreeComputer {
           var digest = digestUtil.compute(virtualActionInput);
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, virtualActionInput);
+            blobs.putIfAbsent(digest, virtualActionInput);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
@@ -688,7 +693,7 @@ public final class MerkleTreeComputer {
           var digest = digestUtil.compute(artifactPathResolver.toPath(input));
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, input);
+            blobs.putIfAbsent(digest, input);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
