@@ -148,9 +148,10 @@ public class CombinedCacheClientFactoryTest {
   }
 
   @Test
-  public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
+  public void createHttpCacheFailsWithInvalidProxyUrl() {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteProxy = "bad-proxy";
+    // Invalid proxy URL format (has scheme prefix that's neither http nor https)
+    remoteOptions.remoteProxy = "ftp://invalid-scheme-proxy";
 
     assertThat(
             assertThrows(
@@ -163,8 +164,27 @@ public class CombinedCacheClientFactoryTest {
                         workingDirectory,
                         digestUtil,
                         retrier)))
+        .hasCauseThat()
         .hasMessageThat()
-        .contains("Remote cache proxy unsupported: bad-proxy");
+        .contains("is not a valid URL");
+  }
+
+  @Test
+  public void createHttpCacheWithHttpProxy() throws IOException {
+    remoteOptions.remoteCache = "http://doesnotexist.com";
+    remoteOptions.remoteProxy = "http://proxy.example.com:8080";
+
+    var blobStore =
+        CombinedCacheClientFactory.create(
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
+
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNull();
   }
 
   @Test

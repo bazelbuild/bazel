@@ -32,7 +32,10 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
+import io.grpc.HttpConnectProxiedSocketAddress;
 import io.grpc.ManagedChannel;
+import io.grpc.ProxiedSocketAddress;
+import io.grpc.ProxyDetector;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
@@ -52,6 +55,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -204,11 +209,115 @@ public final class GoogleAuthUtils {
       return NettyChannelBuilder.forTarget(targetUrl).defaultLoadBalancingPolicy("round_robin");
     }
 
-    if (!proxy.startsWith("unix:")) {
-      throw new IOException("Remote proxy unsupported: " + proxy);
+    if (proxy.startsWith("unix:")) {
+      // Unix domain socket proxy
+      return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
     }
 
-    return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
+    // HTTP proxy - parse the proxy URL and create a ProxyDetector
+    InetSocketAddress proxyAddress = parseHttpProxyAddress(proxy);
+    String proxyUsername = parseHttpProxyUsername(proxy);
+    String proxyPassword = parseHttpProxyPassword(proxy);
+
+    ProxyDetector proxyDetector =
+        createHttpProxyDetector(proxyAddress, proxyUsername, proxyPassword);
+
+    return NettyChannelBuilder.forTarget(targetUrl)
+        .defaultLoadBalancingPolicy("round_robin")
+        .proxyDetector(proxyDetector);
+  }
+
+  /**
+   * Parses an HTTP proxy address from a proxy URL string.
+   *
+   * @param proxy the proxy URL (e.g., "http://user:pass@proxy.example.com:8080")
+   * @return the proxy InetSocketAddress
+   * @throws IOException if the proxy URL is invalid
+   */
+  private static InetSocketAddress parseHttpProxyAddress(String proxy) throws IOException {
+    try {
+      // Remove credentials from the URL for parsing
+      String cleanProxy = proxy.replaceFirst("://[^@]+@", "://");
+      URI proxyUri = new URI(cleanProxy.startsWith("http") ? cleanProxy : "http://" + cleanProxy);
+      String host = proxyUri.getHost();
+      int port = proxyUri.getPort();
+      if (port == -1) {
+        port = proxyUri.getScheme().equals("https") ? 443 : 80;
+      }
+      if (host == null) {
+        throw new IOException("Invalid proxy URL (no host): " + proxy);
+      }
+      return new InetSocketAddress(host, port);
+    } catch (Exception e) {
+      throw new IOException("Invalid proxy URL: " + proxy, e);
+    }
+  }
+
+  /** Parses the username from a proxy URL, or returns null if not present. */
+  @Nullable
+  private static String parseHttpProxyUsername(String proxy) {
+    int atIndex = proxy.indexOf('@');
+    if (atIndex == -1) {
+      return null;
+    }
+    int schemeEnd = proxy.indexOf("://");
+    if (schemeEnd == -1) {
+      schemeEnd = -3; // Adjust for no scheme
+    }
+    String userInfo = proxy.substring(schemeEnd + 3, atIndex);
+    int colonIndex = userInfo.indexOf(':');
+    if (colonIndex == -1) {
+      return userInfo;
+    }
+    return userInfo.substring(0, colonIndex);
+  }
+
+  /** Parses the password from a proxy URL, or returns null if not present. */
+  @Nullable
+  private static String parseHttpProxyPassword(String proxy) {
+    int atIndex = proxy.indexOf('@');
+    if (atIndex == -1) {
+      return null;
+    }
+    int schemeEnd = proxy.indexOf("://");
+    if (schemeEnd == -1) {
+      schemeEnd = -3;
+    }
+    String userInfo = proxy.substring(schemeEnd + 3, atIndex);
+    int colonIndex = userInfo.indexOf(':');
+    if (colonIndex == -1) {
+      return null;
+    }
+    return userInfo.substring(colonIndex + 1);
+  }
+
+  /**
+   * Creates a ProxyDetector for HTTP CONNECT proxy.
+   *
+   * @param proxyAddress the proxy server address
+   * @param username optional proxy username
+   * @param password optional proxy password
+   * @return a ProxyDetector that routes all connections through the specified proxy
+   */
+  private static ProxyDetector createHttpProxyDetector(
+      InetSocketAddress proxyAddress, @Nullable String username, @Nullable String password) {
+    return new ProxyDetector() {
+      @Nullable
+      @Override
+      public ProxiedSocketAddress proxyFor(SocketAddress targetServerAddress) {
+        if (!(targetServerAddress instanceof InetSocketAddress)) {
+          return null;
+        }
+        HttpConnectProxiedSocketAddress.Builder builder =
+            HttpConnectProxiedSocketAddress.newBuilder()
+                .setProxyAddress(proxyAddress)
+                .setTargetAddress((InetSocketAddress) targetServerAddress);
+        if (username != null && password != null) {
+          builder.setUsername(username).setPassword(password);
+        }
+        return builder.build();
+      }
+    };
   }
 
   /**

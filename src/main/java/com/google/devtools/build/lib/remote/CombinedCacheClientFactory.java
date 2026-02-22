@@ -18,16 +18,20 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RemoteProxyHelper;
+import com.google.devtools.build.lib.remote.util.RemoteProxyHelper.ProxyInfo;
 import com.google.devtools.build.lib.vfs.Path;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A factory class for providing a {@link CombinedCacheClient}. */
@@ -50,11 +54,25 @@ public final class CombinedCacheClientFactory {
       DigestUtil digestUtil,
       RemoteRetrier retrier)
       throws IOException {
+    return create(
+        options, creds, authAndTlsOptions, workingDirectory, digestUtil, retrier, ImmutableMap.of());
+  }
+
+  public static CombinedCacheClient create(
+      RemoteOptions options,
+      @Nullable Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
+      Path workingDirectory,
+      DigestUtil digestUtil,
+      RemoteRetrier retrier,
+      Map<String, String> clientEnv)
+      throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     RemoteCacheClient httpCacheClient = null;
     DiskCacheClient diskCacheClient = null;
     if (isHttpCache(options)) {
-      httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
+      httpCacheClient =
+          createHttp(options, creds, authAndTlsOptions, digestUtil, retrier, clientEnv);
     }
     if (isDiskCache(options)) {
       diskCacheClient =
@@ -77,7 +95,8 @@ public final class CombinedCacheClientFactory {
       Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
       DigestUtil digestUtil,
-      RemoteRetrier retrier) {
+      RemoteRetrier retrier,
+      Map<String, String> clientEnv) {
     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
 
     try {
@@ -88,6 +107,7 @@ public final class CombinedCacheClientFactory {
 
       if (options.remoteProxy != null) {
         if (options.remoteProxy.startsWith("unix:")) {
+          // Unix domain socket proxy
           return HttpCacheClient.create(
               new DomainSocketAddress(options.remoteProxy.replaceFirst("^unix:", "")),
               uri,
@@ -100,19 +120,57 @@ public final class CombinedCacheClientFactory {
               creds,
               authAndTlsOptions);
         } else {
-          throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
+          // HTTP proxy from flag (e.g., http://proxy:8080)
+          ProxyInfo proxyInfo = RemoteProxyHelper.parseProxyAddress(options.remoteProxy);
+          if (proxyInfo.hasProxy()) {
+            return HttpCacheClient.create(
+                uri,
+                Math.toIntExact(options.remoteTimeout.toSeconds()),
+                options.remoteMaxConnections,
+                options.remoteVerifyDownloads,
+                ImmutableList.copyOf(options.remoteHeaders),
+                digestUtil,
+                retrier,
+                creds,
+                authAndTlsOptions,
+                proxyInfo.address(),
+                proxyInfo.username(),
+                proxyInfo.password());
+          } else {
+            throw new Exception("Invalid remote cache proxy: " + options.remoteProxy);
+          }
         }
       } else {
-        return HttpCacheClient.create(
-            uri,
-            Math.toIntExact(options.remoteTimeout.toSeconds()),
-            options.remoteMaxConnections,
-            options.remoteVerifyDownloads,
-            ImmutableList.copyOf(options.remoteHeaders),
-            digestUtil,
-            retrier,
-            creds,
-            authAndTlsOptions);
+        // No explicit proxy flag - check environment variables (HTTPS_PROXY, HTTP_PROXY)
+        RemoteProxyHelper proxyHelper = new RemoteProxyHelper(clientEnv);
+        ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(uri);
+        if (proxyInfo.hasProxy()) {
+          return HttpCacheClient.create(
+              uri,
+              Math.toIntExact(options.remoteTimeout.toSeconds()),
+              options.remoteMaxConnections,
+              options.remoteVerifyDownloads,
+              ImmutableList.copyOf(options.remoteHeaders),
+              digestUtil,
+              retrier,
+              creds,
+              authAndTlsOptions,
+              proxyInfo.address(),
+              proxyInfo.username(),
+              proxyInfo.password());
+        } else {
+          // Direct connection
+          return HttpCacheClient.create(
+              uri,
+              Math.toIntExact(options.remoteTimeout.toSeconds()),
+              options.remoteMaxConnections,
+              options.remoteVerifyDownloads,
+              ImmutableList.copyOf(options.remoteHeaders),
+              digestUtil,
+              retrier,
+              creds,
+              authAndTlsOptions);
+        }
       }
     } catch (Exception e) {
       throw new RuntimeException(e);

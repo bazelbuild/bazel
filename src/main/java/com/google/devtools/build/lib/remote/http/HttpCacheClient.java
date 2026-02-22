@@ -69,6 +69,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
+import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.Future;
@@ -134,6 +135,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private final int timeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
   private final boolean useTls;
+  private final boolean useHttpProxy;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
   private final RemoteRetrier retrier;
@@ -162,6 +164,52 @@ public final class HttpCacheClient implements RemoteCacheClient {
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
+    return create(
+        uri,
+        timeoutSeconds,
+        remoteMaxConnections,
+        verifyDownloads,
+        extraHttpHeaders,
+        digestUtil,
+        retrier,
+        creds,
+        authAndTlsOptions,
+        null,
+        null,
+        null);
+  }
+
+  /**
+   * Creates an HttpCacheClient with HTTP proxy support.
+   *
+   * @param uri the remote cache URI
+   * @param timeoutSeconds connection timeout in seconds
+   * @param remoteMaxConnections maximum number of connections
+   * @param verifyDownloads whether to verify downloaded content
+   * @param extraHttpHeaders additional HTTP headers to include in requests
+   * @param digestUtil utility for computing digests
+   * @param retrier retry handler
+   * @param creds optional credentials
+   * @param authAndTlsOptions TLS configuration options
+   * @param proxyAddress the HTTP proxy address, or null for direct connection
+   * @param proxyUsername optional proxy username for authentication
+   * @param proxyPassword optional proxy password for authentication
+   * @return a new HttpCacheClient instance
+   */
+  public static HttpCacheClient create(
+      URI uri,
+      int timeoutSeconds,
+      int remoteMaxConnections,
+      boolean verifyDownloads,
+      ImmutableList<Entry<String, String>> extraHttpHeaders,
+      DigestUtil digestUtil,
+      RemoteRetrier retrier,
+      @Nullable final Credentials creds,
+      AuthAndTLSOptions authAndTlsOptions,
+      @Nullable InetSocketAddress proxyAddress,
+      @Nullable String proxyUsername,
+      @Nullable String proxyPassword)
+      throws Exception {
     return new HttpCacheClient(
         NioEventLoopGroup::new,
         NioSocketChannel.class,
@@ -174,7 +222,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
         retrier,
         creds,
         authAndTlsOptions,
-        null);
+        null,
+        proxyAddress,
+        proxyUsername,
+        proxyPassword);
   }
 
   public static HttpCacheClient create(
@@ -203,7 +254,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
           retrier,
           creds,
           authAndTlsOptions,
-          domainSocketAddress);
+          domainSocketAddress,
+          null,
+          null,
+          null);
     } else if (Epoll.isAvailable()) {
       return new HttpCacheClient(
           EpollEventLoopGroup::new,
@@ -217,7 +271,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
           retrier,
           creds,
           authAndTlsOptions,
-          domainSocketAddress);
+          domainSocketAddress,
+          null,
+          null,
+          null);
     } else {
       throw new Exception("Unix domain sockets are unsupported on this platform");
     }
@@ -235,7 +292,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
       RemoteRetrier retrier,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
-      @Nullable SocketAddress socketAddress)
+      @Nullable SocketAddress socketAddress,
+      @Nullable InetSocketAddress httpProxyAddress,
+      @Nullable String httpProxyUsername,
+      @Nullable String httpProxyPassword)
       throws Exception {
     useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
@@ -251,13 +311,28 @@ public final class HttpCacheClient implements RemoteCacheClient {
               uri.getFragment());
     }
     this.uri = uri;
+    // Track whether we're using an HTTP proxy (as opposed to Unix domain socket or direct)
+    // This must be calculated before socketAddress is potentially modified below.
+    this.useHttpProxy = socketAddress == null && httpProxyAddress != null;
+
+    // If an HTTP proxy is specified, connect to the proxy instead of the target.
+    // For Unix domain socket proxies (socketAddress != null), we ignore httpProxyAddress.
     if (socketAddress == null) {
-      socketAddress = new InetSocketAddress(uri.getHost(), uri.getPort());
+      if (httpProxyAddress != null) {
+        // Connect to the HTTP proxy
+        socketAddress = httpProxyAddress;
+      } else {
+        // Direct connection to the target
+        socketAddress = new InetSocketAddress(uri.getHost(), uri.getPort());
+      }
     }
 
     final SslContext sslCtx = useTls ? createSSLContext(authAndTlsOptions) : null;
     final int port = uri.getPort();
     final String hostname = uri.getHost();
+    final InetSocketAddress finalHttpProxyAddress = httpProxyAddress;
+    final String finalHttpProxyUsername = httpProxyUsername;
+    final String finalHttpProxyPassword = httpProxyPassword;
     this.eventLoop = newEventLoopGroup.apply(2);
     Bootstrap clientBootstrap =
         new Bootstrap()
@@ -277,6 +352,19 @@ public final class HttpCacheClient implements RemoteCacheClient {
           @Override
           public void channelCreated(Channel ch) {
             ChannelPipeline p = ch.pipeline();
+            // Add HTTP proxy handler first if using an HTTP proxy.
+            // This handler performs the HTTP CONNECT handshake with the proxy.
+            if (finalHttpProxyAddress != null) {
+              HttpProxyHandler proxyHandler;
+              if (finalHttpProxyUsername != null && finalHttpProxyPassword != null) {
+                proxyHandler =
+                    new HttpProxyHandler(
+                        finalHttpProxyAddress, finalHttpProxyUsername, finalHttpProxyPassword);
+              } else {
+                proxyHandler = new HttpProxyHandler(finalHttpProxyAddress);
+              }
+              p.addFirst("http-proxy-handler", proxyHandler);
+            }
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
               engine.setUseClientMode(true);
@@ -284,7 +372,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
                   && authAndTlsOptions.tlsClientKey != null) {
                 engine.setNeedClientAuth(true);
               }
-              p.addFirst("ssl-handler", new SslHandler(engine));
+              // Add SSL handler after proxy handler - SSL will be established through the tunnel
+              if (finalHttpProxyAddress != null) {
+                p.addAfter("http-proxy-handler", "ssl-handler", new SslHandler(engine));
+              } else {
+                p.addFirst("ssl-handler", new SslHandler(engine));
+              }
             }
           }
         };
@@ -445,10 +538,29 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   private boolean isChannelPipelineEmpty(ChannelPipeline pipeline) {
-    return (pipeline.first() == null)
-        || (useTls
-            && "ssl-handler".equals(pipeline.firstContext().name())
-            && pipeline.first() == pipeline.last());
+    if (pipeline.first() == null) {
+      return true;
+    }
+    String firstName = pipeline.firstContext().name();
+    // Check for http-proxy-handler + optional ssl-handler, or just ssl-handler
+    if (useHttpProxy) {
+      // With HTTP proxy: expect http-proxy-handler (and optionally ssl-handler after it)
+      if (!"http-proxy-handler".equals(firstName)) {
+        return false;
+      }
+      if (useTls) {
+        // Should have http-proxy-handler -> ssl-handler only
+        return pipeline.context("ssl-handler") != null
+            && pipeline.context("ssl-handler") == pipeline.lastContext();
+      } else {
+        // Should have http-proxy-handler only
+        return pipeline.first() == pipeline.last();
+      }
+    } else if (useTls) {
+      // Without proxy: expect only ssl-handler
+      return "ssl-handler".equals(firstName) && pipeline.first() == pipeline.last();
+    }
+    return false;
   }
 
   @Override
