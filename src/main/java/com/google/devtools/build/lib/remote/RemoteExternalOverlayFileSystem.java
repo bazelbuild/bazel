@@ -60,6 +60,8 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -98,6 +100,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Nullable private String buildRequestId;
   @Nullable private String commandId;
   @Nullable private MemoizingEvaluator evaluator;
+  @Nullable private Duration remoteCacheTtl;
   @Nullable private ExecutorService materializationExecutor;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
@@ -115,7 +118,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       Reporter reporter,
       String buildRequestId,
       String commandId,
-      MemoizingEvaluator evaluator) {
+      MemoizingEvaluator evaluator,
+      Duration remoteCacheTtl) {
     checkState(
         this.cache == null
             && this.inputPrefetcher == null
@@ -123,6 +127,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             && this.buildRequestId == null
             && this.commandId == null
             && this.evaluator == null
+            && this.remoteCacheTtl == null
             && this.materializationExecutor == null);
     this.cache = cache;
     this.inputPrefetcher = inputPrefetcher;
@@ -130,6 +135,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.evaluator = evaluator;
+    this.remoteCacheTtl = remoteCacheTtl;
     this.materializationExecutor =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("remote-repo-materialization-", 0).factory());
@@ -146,6 +152,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.reporter = null;
     this.buildRequestId = null;
     this.commandId = null;
+    this.remoteCacheTtl = null;
     // Materializations happen synchronously and upon request by other repo rules, so there is no
     // reason to await their orderly completion in afterCommand.
     materializationExecutor.shutdownNow();
@@ -193,7 +200,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     var repoDir = externalDirectory.getChild(repo.getName());
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
-        externalFs, repoDir, remoteContents.getRoot(), childMap, filesToPrefetch::add);
+        externalFs,
+        repoDir,
+        remoteContents.getRoot(),
+        childMap,
+        filesToPrefetch::add,
+        Instant.now().plus(remoteCacheTtl));
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
       // would be more efficient.
@@ -220,7 +232,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
-      Consumer<PathFragment> filesToPrefetch)
+      Consumer<PathFragment> filesToPrefetch,
+      Instant expirationTime)
       throws IOException {
     fs.createDirectoryAndParents(path);
     for (var file : dir.getFilesList()) {
@@ -230,10 +243,15 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       }
       fs.injectFile(
           filePath,
-          FileArtifactValue.createForRemoteFile(
+          // Using the *WithMaterializationData variant ensures that the file benefits from the
+          // FileContentsProxy optimization to avoid widespread invalidation when it is
+          // materialized later, even if expiration times aren't relevant (depends on the usage
+          // of the lease extension).
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
               DigestUtil.toBinaryDigest(file.getDigest()),
               file.getDigest().getSizeBytes(),
-              /* locationIndex= */ 1));
+              /* locationIndex= */ 1,
+              expirationTime));
       fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify
@@ -253,7 +271,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch);
+      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
     }
   }
 
