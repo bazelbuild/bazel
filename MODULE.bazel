@@ -105,6 +105,10 @@ single_version_override(
 # We need to package the lite runtime jar for Bazel's bootstrap build
 # 2. Partially revert of https://github.com/protocolbuffers/protobuf/commit/7ec5e19c0743b80c5097434a05cc0e972e7b4e7a
 # to support grpc
+# 3. Pull in the removal of the memoizedIsInitialized field for messages with no
+# required fields early. This reduces the memory usage of Bazel and avoids
+# spread in memory usage between Bazel and Blaze.
+# https://github.com/protocolbuffers/protobuf/blob/adf9e8b80fd10398b82e16c4ea72f2d2cffb0e9b/src/google/protobuf/compiler/java/full/message.cc#L884C1-L899C6
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
