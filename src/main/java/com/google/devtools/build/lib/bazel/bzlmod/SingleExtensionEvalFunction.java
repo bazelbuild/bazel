@@ -254,8 +254,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           "The extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
-                  Starlark.repr(newFacts.value(), starlarkSemantics),
-                  Starlark.repr(workspaceLockfileFacts.value(), starlarkSemantics));
+                  Starlark.repr(newFacts.value()),
+                  Starlark.repr(workspaceLockfileFacts.value()));
       throw createOutdatedLockfileException(reason);
     }
 
