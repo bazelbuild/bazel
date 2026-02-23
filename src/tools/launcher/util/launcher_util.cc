@@ -49,7 +49,7 @@ string GetLastErrorString() {
   }
 
   char* message_buffer;
-  size_t size = FormatMessageA(
+  FormatMessageA(
       FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
           FORMAT_MESSAGE_IGNORE_INSERTS,
       nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),

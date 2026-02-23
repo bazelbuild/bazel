@@ -34,19 +34,6 @@ static std::wstring ToString(const T& e) {
   return s.str();
 }
 
-static bool DupeHandle(HANDLE h, AutoHandle* out, std::wstring* error) {
-  HANDLE dup;
-  if (!DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &dup, 0,
-                       TRUE, DUPLICATE_SAME_ACCESS)) {
-    DWORD err = GetLastError();
-    *error =
-        MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DupeHandle", L"", err);
-    return false;
-  }
-  *out = dup;
-  return true;
-}
-
 bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& argv_rest, void* env,
                              const std::wstring& wcwd, std::wstring* error) {
@@ -113,7 +100,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
     return false;
   }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {};
   job_info.BasicLimitInformation.LimitFlags =
       JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   if (!SetInformationJobObject(job_, JobObjectExtendedLimitInformation,

@@ -14,6 +14,13 @@ cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
     hdrs = ["def_parser.h"],
+    copts = select({
+        "@rules_cc//cc/compiler:clang": [
+            # third_party/def_parser/def_parser.cc:349:10: warning: unused variable 'size' [-Wunused-variable]
+            "-Wno-unused-variable",
+        ],
+        "//conditions:default": [],
+    }),
     tags = [
         "__DONT_DEPEND_ON_DEF_PARSER__",
     ],
