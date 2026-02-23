@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 #define PATH_MAX 4096
 typedef int mode_t;
 #endif  // _WIN32
