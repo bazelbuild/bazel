@@ -87,9 +87,12 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   perl -0777 -pe '
       BEGIN { binmode STDIN, ":bytes"; binmode STDOUT, ":bytes" }
       s|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage></asmv3:windowsSettings>|;
-      s|(        <!-- Windows Vista -->.*?<supportedOS Id="\{1f676c76-80e1-4239-95bb-83d0f6d0da78\}"/>(?:\r\n|\n))/" " x (length($1) - 100)/se;
+      s|(<supportedOS Id="\{e2011457-1546-43c5-a5fe-008deee3d3f0\}".*?<supportedOS Id="\{1f676c76-80e1-4239-95bb-83d0f6d0da78\}"[^>]*>(?:[^<]*</supportedOS>)?)|" " x (length($1) - 100)|se;
     ' reduced/bin/java.exe > reduced/bin/java.exe.tmp \
     && mv reduced/bin/java.exe.tmp reduced/bin/java.exe
+  perl -0777 -ne 'BEGIN { binmode STDIN, ":bytes" } print $1 if /(<?xml.*?<\/assembly>)/s' \
+    reduced/bin/java.exe
+  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe
   for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
