@@ -301,7 +301,7 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private void maybeAddDate() {
-    if (!showTimestamp || !buildRunning || !dateShown.compareAndSet(false, true)) {
+    if (!showTimestamp || !buildRunning || dateShown.getAndSet(true)) {
       return;
     }
     handle(

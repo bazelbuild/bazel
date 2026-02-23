@@ -65,7 +65,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1161,13 +1161,12 @@ class UiStateTracker {
 
   protected void reportOnDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
-    Map.Entry<String, DownloadData>[] runningDownloadsSnapshot = runningDownloads.entrySet().toArray(Map.Entry[]::new);
-    Arrays.sort(
-        runningDownloadsSnapshot,
-        comparing(entry -> entry.getValue().nanoStartTime()));
+    ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
+        new ArrayList<>(runningDownloads.entrySet());
+    runningDownloadsSnapshot.sort(comparing(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
-    int downloadCount = runningDownloadsSnapshot.length;
+    int downloadCount = runningDownloadsSnapshot.size();
     String suffix = AND_MORE + " (" + downloadCount + " fetches)";
     for (Map.Entry<String, DownloadData> download : runningDownloadsSnapshot) {
       if (count >= sampleSize) {
