@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Builder for a {@link RepoSpec} object that indicates how to materialize a repo corresponding to a
@@ -75,11 +77,21 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
+    return setAttr("remote_patches", remotePatches);
+  }
+
+  @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRemoteModuleFile(
       ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
     attrBuilder.put("remote_module_file_urls", remoteModuleFile.urls());
     attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
     return this;
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRemotePatchStrip(int remotePatchStrip) {
+    return setAttr("remote_patch_strip", remotePatchStrip);
   }
 
   public RepoSpec build() {
@@ -105,6 +117,20 @@ public class GitRepoSpecBuilder {
     if (value != null && !value.isEmpty()) {
       attrBuilder.put(name, value);
     }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  private GitRepoSpecBuilder setAttr(String name, ImmutableMap<?, ?> value) {
+    if (value != null && !value.isEmpty()) {
+      attrBuilder.put(name, Dict.immutableCopyOf(value));
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  private GitRepoSpecBuilder setAttr(String name, int value) {
+    attrBuilder.put(name, StarlarkInt.of(value));
     return this;
   }
 }

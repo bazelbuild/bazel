@@ -20,6 +20,11 @@
 
 """Rules for cloning external git repositories."""
 
+load(
+    ":cache.bzl",
+    "CANONICAL_ID_DOC",
+    "DEFAULT_CANONICAL_ID_ENV",
+)
 load(":git_worker.bzl", "git_repo")
 load(
     ":utils.bzl",
@@ -108,6 +113,9 @@ _common_attrs = {
         doc = "Whether to clone submodules recursively in the repository.",
     ),
     "verbose": attr.bool(default = False),
+    "canonical_id": attr.string(
+        doc = CANONICAL_ID_DOC,
+    ),
     "strip_prefix": attr.string(
         default = "",
         doc = "A directory prefix to strip from the extracted files.",
@@ -158,6 +166,19 @@ _common_attrs = {
     "remote_module_file_integrity": attr.string(
         default = "",
         doc = "For internal use only.",
+    ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after cloning " +
+            "the repository and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
     ),
     "build_file": attr.label(
         allow_single_file = True,
@@ -222,6 +243,7 @@ def _git_repository_implementation(ctx):
 git_repository = repository_rule(
     implementation = _git_repository_implementation,
     attrs = _common_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc = """Clone an external git repository.
 
 Clones a Git repository, checks out the specified branch, tag, or commit, and
