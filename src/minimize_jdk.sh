@@ -79,9 +79,17 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # support of Unicode characters outside the system code page.
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
-    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
+  # We binary-patch java.exe directly: the <activeCodePage> element (100 bytes,
+  # no newlines) is inserted before </asmv3:windowsSettings>, while the
+  # obsolete Vista-through-8.1 compatibility entries are replaced with the same
+  # number of spaces, so the manifest length stored in the PE resource directory
+  # remains unchanged.
+  perl -0777 -pe '
+      BEGIN { binmode STDIN, ":bytes"; binmode STDOUT, ":bytes" }
+      s|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage></asmv3:windowsSettings>|;
+      s|(        <!-- Windows Vista -->.*?<supportedOS Id="\{1f676c76-80e1-4239-95bb-83d0f6d0da78\}"/>(?:\r\n|\n))/" " x (length($1) - 100)/se;
+    ' reduced/bin/java.exe > reduced/bin/java.exe.tmp \
+    && mv reduced/bin/java.exe.tmp reduced/bin/java.exe
   for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
