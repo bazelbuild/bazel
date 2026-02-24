@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -190,21 +192,22 @@ public final class TestActionBuilder {
    *     Skyframe, and by AggregatingTestListener and TestResultAnalyzer to keep track of completed
    *     and pending test runs.
    */
-  private TestParams createTestAction()
-      throws InterruptedException { // due to TestTargetExecutionSettings
+  private TestParams createTestAction() {
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfigurationValue config = ruleContext.getConfiguration();
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
-
-    final boolean isUsingTestWrapperInsteadOfTestSetupScript = ruleContext.isExecutedOnWindows();
+    ActionOwner actionOwner =
+        getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
+    boolean isExecutedOnWindows =
+        getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesTreeArtifact()));
 
-    if (!isUsingTestWrapperInsteadOfTestSetupScript) {
+    if (!isExecutedOnWindows) {
       NestedSet<Artifact> testRuntime =
           PrerequisiteArtifacts.nestedSet(
               ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
@@ -217,13 +220,13 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
 
     Artifact testActionExecutable =
-        isUsingTestWrapperInsteadOfTestSetupScript
+        isExecutedOnWindows
             ? ruleContext.getPrerequisiteArtifact("$test_wrapper")
             : ruleContext.getPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
     Artifact testXmlGeneratorExecutable =
-        isUsingTestWrapperInsteadOfTestSetupScript
+        isExecutedOnWindows
             ? ruleContext.getPrerequisiteArtifact("$xml_writer")
             : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
@@ -313,14 +316,21 @@ public final class TestActionBuilder {
               executable,
               instrumentedFileManifest,
               shardCount,
-              runsPerTest);
+              runsPerTest,
+              actionOwner.getExecutionPlatform());
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
       extraTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, shardCount, runsPerTest);
+              ruleContext,
+              runfilesSupport,
+              executable,
+              null,
+              shardCount,
+              runsPerTest,
+              actionOwner.getExecutionPlatform());
     }
 
     if (config.getRunUnder() != null) {
@@ -336,9 +346,6 @@ public final class TestActionBuilder {
         Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
-
-    ActionOwner actionOwner =
-        getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
@@ -411,10 +418,9 @@ public final class TestActionBuilder {
                 run,
                 config,
                 ruleContext.getWorkspaceName(),
-                (!isUsingTestWrapperInsteadOfTestSetupScript || executionSettings.needsShell())
+                (!isExecutedOnWindows || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
-                        ruleContext.getConfiguration(),
-                        ruleContext.getExecutionPlatform(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
+                        ruleContext.getConfiguration(), actionOwner.getExecutionPlatform())
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
