@@ -226,11 +226,39 @@ config_setting(
     flag_values = {"@rules_cc//cc/compiler:compiler": "msvc-cl"},
 )
 
+config_setting(
+    name = "windows_clang",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "clang"},
+)
+
+config_setting(
+    name = "windows_gcc",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "gcc"},
+)
+
+config_setting(
+    name = "windows_mingw_gcc",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "mingw-gcc"},
+)
+
 selects.config_setting_group(
     name = "windows_msvc_like",
     match_any = [
         ":windows_clang_cl",
         ":windows_msvc_cl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "windows_gcc_like",
+    match_any = [
+        ":windows_clang",
+        ":windows_gcc",
+        ":windows_mingw_gcc",
     ],
     visibility = ["//visibility:public"],
 )

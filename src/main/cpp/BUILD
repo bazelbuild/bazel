@@ -109,22 +109,37 @@ cc_binary(
         "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
-    linkopts = select({
-        "//src/conditions:darwin": [
-        ],
-        "//src/conditions:freebsd": [
-            "-lprocstat",
-            "-lm",
-        ],
-        "//src/conditions:openbsd": [
-        ],
-        "//src/conditions:windows": [
-        ],
-        "//conditions:default": [
-            "-lrt",
-            "-ldl",
-        ],
-    }),
+    linkopts = (
+        select({
+            "//src/conditions:darwin": [
+            ],
+            "//src/conditions:freebsd": [
+                "-lprocstat",
+                "-lm",
+            ],
+            "//src/conditions:openbsd": [
+            ],
+            "//src/conditions:windows": [
+            ],
+            "//conditions:default": [
+                "-lrt",
+                "-ldl",
+            ],
+        }) +
+        select({
+            "//src/conditions:windows_gcc_like": [
+                "-lbcrypt",
+                "-liphlpapi",
+                "-lole32",
+                "-lshell32",
+                "-luuid",
+                "-lws2_32",
+                # MinGW requires -municode when using wmain.
+                "-municode",
+            ],
+            "//conditions:default": [],
+        })
+    ),
     visibility = ["//src:__pkg__"],
     deps = [
         ":archive_utils",
