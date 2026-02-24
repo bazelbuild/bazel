@@ -52,7 +52,7 @@ class FileWindowsTest : public ::testing::Test {
 #define GET_TEST_TMPDIR(/* string& */ result)                            \
   {                                                                      \
     char buf[MAX_PATH] = {0};                                            \
-    DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH); \
+    ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH); \
     result = buf;                                                        \
     ASSERT_GT(result.size(), 0);                                         \
   }

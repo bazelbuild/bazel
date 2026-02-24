@@ -19,7 +19,9 @@
 #include <sys/types.h>
 #include <cstdio>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <share.h>
+#else
 #include <unistd.h>
 #endif
 
