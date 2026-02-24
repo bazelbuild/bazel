@@ -806,42 +806,41 @@ public class RemoteExecutionServiceTest {
     // little memory as possible since they are kept in memory during the whole remote execution.
     // Memory usage isn't expected to differ by seed, so only check for one of them.
     if (seed == 1) {
-      var merkleTree =
-          service
-              .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
-              .getMerkleTree();
-      assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
-      // These are roots that are already retained while a remote action is being executed or are
-      // effectively global singletons.
-      var otherInput = ActionsTestUtil.createArtifact(artifactRoot, "some/other/input/file.txt");
-      fakeFileCache.createScratchInput(otherInput, "some other content");
-      var otherSpawn = new SpawnBuilder().withInput(otherInput).withOutput("foo").build();
-      var someOtherMerkleTree =
-          service.buildRemoteAction(otherSpawn, newSpawnExecutionContext(otherSpawn));
-
       // JOL tracks objects by their native address, so run GC to minimize noise from moved objects.
       System.gc();
-      var alreadyRetainedObjects =
-          GraphLayout.parseInstance(spawn, fakeFileCache, digestUtil, someOtherMerkleTree);
-      // This covers objects internal to JOL itself as well as metadata lazily attached to classes
-      // related to MerkleTree. Note that this has to be computed in a separate parseInstance call
-      // since the first call on someOtherMerkleTree may thus not have captured the metadata
-      // attached to the Class objects it references (e.g. cached field lists).
-      var jolInternalObjects =
-          GraphLayout.parseInstance(alreadyRetainedObjects, someOtherMerkleTree);
-      var merkleTreeTransitiveRetention = GraphLayout.parseInstance(merkleTree);
-
-      var merkleTreeOnlyRetention =
-          merkleTreeTransitiveRetention
-              .subtract(alreadyRetainedObjects)
-              .subtract(jolInternalObjects);
-      // Output the objects that are transitively retained by merkleTreeTransitiveRetention but
-      // neither by alreadyRetainedObjects nor jolInternalObjects for manual inspection.
+      // Keep building a Merkle tree and compute its retained size relative to all previous trees
+      // until the size stabilizes. The goal is to compute the size of the objects that are uniquely
+      // retained by the tree, as this is the effective overhead at runtime when building many trees
+      // in parallel. This is more delicate than it seems:
+      // 1. This has to be done in a loop since objects retain their respective Class and JOL's use
+      //    of reflection mutates the various caches in the Class objects in non-deterministic ways.
+      // 2. Subtracting previous trees is only correct under the assumption that the objects shared
+      //    with such trees would also be retained elsewhere (e.g. Artifact objects). If MerkleTree
+      //    ever uses techniques such as interning or weak caches, this strategy would have to be
+      //    revisited.
+      GraphLayout merkleTreeUniqueRetention;
+      var previousRoots = new ArrayList<>();
+      long stableRetainedSize = -1;
+      while (true) {
+        var merkleTree =
+            service
+                .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
+                .getMerkleTree();
+        assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
+        merkleTreeUniqueRetention =
+            GraphLayout.parseInstance(merkleTree)
+                .subtract(GraphLayout.parseInstance(previousRoots));
+        if (merkleTreeUniqueRetention.totalSize() == stableRetainedSize) {
+          break;
+        }
+        stableRetainedSize = merkleTreeUniqueRetention.totalSize();
+        previousRoots.add(merkleTree);
+      }
       var footprintOut =
           Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
-      Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
+      Files.writeString(footprintOut, merkleTreeUniqueRetention.toFootprint());
       // TODO: Get this number down.
-      assertThat(merkleTreeOnlyRetention.totalSize()).isEqualTo(7872);
+      assertThat(stableRetainedSize).isEqualTo(7872);
     }
   }
 
