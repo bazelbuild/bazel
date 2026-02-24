@@ -43,6 +43,12 @@ filegroup(
 cc_binary(
     name = "tw",
     srcs = ["windows/tw_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
 )
@@ -50,6 +56,12 @@ cc_binary(
 cc_binary(
     name = "xml",
     srcs = ["windows/xml_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
 )
