@@ -1097,7 +1097,7 @@ final class Parser {
     return expr;
   }
 
-  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string | ellipsis
   private Expression parseTypeArgument() {
     switch (token.kind) {
       case LBRACKET: // [...]
@@ -1106,6 +1106,8 @@ final class Parser {
         return parseTypeDict();
       case STRING:
         return parseStringLiteral();
+      case ELLIPSIS:
+        return parsePrimary();
       default:
     }
     if (token.kind != TokenKind.IDENTIFIER) {
