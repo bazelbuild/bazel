@@ -1259,17 +1259,17 @@ py_library(
 EOF
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options(False)" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options(False)" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "Error in build_options: in call to build_options()" "$TEST_log"
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options()" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options()" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "build_options() missing 1 required positional argument: target" "$TEST_log"
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options(target, 'blah')" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options(target, 'blah')" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "build_options() accepts no more than 1 positional argument but got 2" "$TEST_log"
 }
