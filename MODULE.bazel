@@ -38,7 +38,7 @@ bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "llvm")
 git_override(
     module_name = "llvm",
-    commit = "fcc19073ddb23f949a8b49b4c4ffd4f9a966ccce",
+    branch = "fmeum/fake-m",
     remote = "https://github.com/cerisier/toolchains_llvm_bootstrapped.git",
 )
 
