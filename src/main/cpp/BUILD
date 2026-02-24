@@ -46,19 +46,32 @@ cc_library(
         "blaze_util.h",
         "blaze_util_platform.h",
     ],
-    linkopts = select({
-        "//src/conditions:darwin": [
-            "-framework CoreFoundation",
-        ],
-        "//src/conditions:freebsd": [
-        ],
-        "//src/conditions:openbsd": [
-        ],
-        "//src/conditions:windows": WIN_LINK_OPTS,
-        "//conditions:default": [
-            "-lrt",
-        ],
-    }),
+    linkopts = (
+        select({
+            "//src/conditions:darwin": [
+                "-framework CoreFoundation",
+            ],
+            "//src/conditions:freebsd": [
+            ],
+            "//src/conditions:openbsd": [
+            ],
+            "//src/conditions:windows": WIN_LINK_OPTS,
+            "//conditions:default": [
+                "-lrt",
+            ],
+        }) +
+        select({
+            "//src/conditions:windows_gcc_like": [
+                #                 "-lbcrypt",
+                #                 "-liphlpapi",
+                "-lole32",
+                #                 "-lshell32",
+                "-luuid",
+                #                 "-lws2_32",
+            ],
+            "//conditions:default": [],
+        })
+    ),
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
@@ -106,25 +119,32 @@ cc_binary(
         "//conditions:default": [],
     }),
     copts = select({
-        "//src/conditions:windows": ["/wd4018"],
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
-    linkopts = select({
-        "//src/conditions:darwin": [
-        ],
-        "//src/conditions:freebsd": [
-            "-lprocstat",
-            "-lm",
-        ],
-        "//src/conditions:openbsd": [
-        ],
-        "//src/conditions:windows": [
-        ],
-        "//conditions:default": [
-            "-lrt",
-            "-ldl",
-        ],
-    }),
+    linkopts = (
+        select({
+            "//src/conditions:darwin": [
+            ],
+            "//src/conditions:freebsd": [
+                "-lprocstat",
+                "-lm",
+            ],
+            "//src/conditions:openbsd": [
+            ],
+            "//src/conditions:windows": [
+            ],
+            "//conditions:default": [
+                "-lrt",
+                "-ldl",
+            ],
+        }) + select({
+            "//src/conditions:windows_gcc_like": [
+                # MinGW requires -municode when using wmain.
+                "-municode",
+            ],
+        })
+    ),
     visibility = ["//src:__pkg__"],
     deps = [
         ":archive_utils",
@@ -168,8 +188,11 @@ cc_library(
         # and the double % get reduced down to 1 by the compiler. A
         # forward slash is used because \b is a special character,
         # backspace.
-        "//src/conditions:windows": [
+        "//src/conditions:windows_msvc_like": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
+        ],
+        "@platforms//os:windows": [
+            "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
         # For posix platforms, this can include environment variables in the
         # form ${var_name}. Braces are required.

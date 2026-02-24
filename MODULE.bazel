@@ -15,7 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "blake3", version = "1.8.2")
+bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
@@ -42,7 +42,14 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.24.5")
-bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_cc")
+
+# rules_cc v0.2.17 is a transitive dependency, but causes Bazel tests to fail.
+# TODO: Remove this override when a fixed version of rules_cc is available.
+single_version_override(
+    module_name = "rules_cc",
+    version = "0.2.16",
+)
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
