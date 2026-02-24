@@ -406,9 +406,10 @@ genrule(
     testonly = True,
     srcs = ["Object.java"],
     outs = ["multirelease.jar"],
-    cmd = "$(JAVABASE)/bin/jar --create --file $@ --release 9 $<",
+    # Match jar and jar.exe.
+    cmd = "$$(compgen -G $(JAVABASE)/bin/jar*) --create --file $@ --release 9 $<",
     toolchains = [
-        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@bazel_tools//tools/jdk:current_host_java_runtime",
     ],
 )
 
