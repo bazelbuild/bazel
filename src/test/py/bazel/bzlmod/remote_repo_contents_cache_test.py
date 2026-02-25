@@ -704,7 +704,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
-  def testMaterializationWithInternalAndExternalSymlinks(self):
+  def doTestMaterializationWithInternalAndExternalSymlinks(self, *, expect_symlinks):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -785,8 +785,9 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertIn('JUST FETCHED DEP_REPO', stderr_text)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
-    self.assertTrue(os.path.islink(internal_link))
-    self.assertTrue(os.path.islink(external_link))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
     with open(internal_link) as f:
       self.assertEqual(f.read(), 'hello')
     with open(external_link) as f:
@@ -805,12 +806,28 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertNotIn('JUST FETCHED DEP_REPO', stderr_text)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
-    self.assertTrue(os.path.islink(internal_link))
-    self.assertTrue(os.path.islink(external_link))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
     with open(internal_link) as f:
       self.assertEqual(f.read(), 'hello')
     with open(external_link) as f:
       self.assertEqual(f.read(), 'dep_hello')
+
+  def testMaterializationWithInternalAndExternalSymlinks(self):
+    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=(not self.IsWindows()))
+
+  def testMaterializationWithInternalAndExternalSymlinks_withSymlinksOnWindows(self):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'startup --windows_enable_symlinks',
+        ],
+        mode='a',
+    )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=True)
 
   def testBzlFilePrefetching(self):
     self.ScratchFile(
