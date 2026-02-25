@@ -177,7 +177,7 @@ maven.install(
         "com.google.guava:guava:33.5.0-jre",
         "com.google.http-client:google-http-client:1.42.2",
         "com.google.http-client:google-http-client-gson:1.42.2",
-        "com.google.turbine:turbine:0.13.1",
+        "com.google.turbine:turbine:0.14.0",
         "com.guardsquare:proguard-base:jar:7.8.2",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
