@@ -237,8 +237,35 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       env.getReporter().handle(Event.info("Empty query results"));
     }
     callback.start();
-    callback.process(aggregateResultsCallback.getResult());
-    callback.close(/* failFast= */ !result.getSuccess());
+    QueryException processQueryException = null;
+    InterruptedException processInterruptedException = null;
+    try {
+      callback.process(aggregateResultsCallback.getResult());
+    } catch (QueryException e) {
+      processQueryException = e;
+    } catch (InterruptedException e) {
+      processInterruptedException = e;
+    } finally {
+      try {
+        callback.close(/* failFast= */ !result.getSuccess());
+      } catch (InterruptedException | IOException closeException) {
+        if (processQueryException != null) {
+          processQueryException.addSuppressed(closeException);
+        } else if (processInterruptedException != null) {
+          processInterruptedException.addSuppressed(closeException);
+        } else if (closeException instanceof InterruptedException interruptedException) {
+          throw interruptedException;
+        } else {
+          throw (IOException) closeException;
+        }
+      }
+    }
+    if (processQueryException != null) {
+      throw processQueryException;
+    }
+    if (processInterruptedException != null) {
+      throw processInterruptedException;
+    }
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

@@ -979,7 +979,7 @@ EOF
 
   bazel cquery "//$pkg:all" --output=starlark \
     --starlark:expr="str(target.label) + '%' + str(providers(target)['DefaultInfo'].files.to_list()[1].is_directory)" \
-    > output 2>"$TEST_log" || fail "Expected success"
+    > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "//$pkg:pylibtwo%False" output
   # pylib evaluation will fail, as it has only one output file.
@@ -1007,7 +1007,7 @@ def format(t):
 EOF
 
   bazel cquery "//$pkg:all" --output=starlark --starlark:file="$pkg/outfunc_isdir.bzl" \
-    >output 2>"$TEST_log" || fail "Expected success"
+    >output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "//$pkg:pylibtwo%False" output
   # pylib evaluation will fail, as it has only one output file.
@@ -1259,17 +1259,17 @@ py_library(
 EOF
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options(False)" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options(False)" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "Error in build_options: in call to build_options()" "$TEST_log"
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options()" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options()" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "build_options() missing 1 required positional argument: target" "$TEST_log"
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="build_options(target, 'blah')" > output 2>"$TEST_log" || fail "Expected success"
+    --starlark:expr="build_options(target, 'blah')" > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "build_options() accepts no more than 1 positional argument but got 2" "$TEST_log"
 }

@@ -166,6 +166,29 @@ java_test(
 )
 
 java_test(
+    name = "StarlarkOutputFormatterCallbackTest",
+    size = "medium",
+    srcs = ["StarlarkOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
+    shard_count = 4,
+    deps = [
+        ":configured_target_query_helper",
+        ":configured_target_query_test",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "TransitionsOutputFormatterTest",
     size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],

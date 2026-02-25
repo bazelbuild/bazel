@@ -219,7 +219,21 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
+  public void process(Iterable<CqueryNode> partialResult) throws QueryException, InterruptedException {
+    if (formatTargets(partialResult)) {
+      throw new QueryException(
+          "Starlark evaluation failed while formatting cquery results",
+          ConfigurableQuery.Code.STARLARK_EVAL_ERROR);
+    }
+  }
+
+  @Override
   public void processOutput(Iterable<CqueryNode> partialResult) throws InterruptedException {
+    formatTargets(partialResult);
+  }
+
+  private boolean formatTargets(Iterable<CqueryNode> partialResult) throws InterruptedException {
+    boolean sawEvaluationError = false;
     for (CqueryNode target : partialResult) {
       try {
         StarlarkThread thread =
@@ -237,8 +251,10 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
                 String.format(
                     "Starlark evaluation error for %s: %s",
                     target.getOriginalLabel(), ex.getMessageWithStack())));
+        sawEvaluationError = true;
         continue;
       }
     }
+    return sawEvaluationError;
   }
 }
