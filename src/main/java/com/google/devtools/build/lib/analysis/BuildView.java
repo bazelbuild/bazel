@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
@@ -237,7 +238,8 @@ public class BuildView {
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
       Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -337,6 +339,7 @@ public class BuildView {
       }
       if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
         remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
+        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
       }
     }
 
@@ -370,7 +373,7 @@ public class BuildView {
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-        remoteAnalysisCachingDependenciesProvider);
+        remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
     skyframeExecutor.invalidateWithExternalService(eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
@@ -388,7 +391,7 @@ public class BuildView {
         boolean discardAnalysisCacheAfterAnalysis =
             viewOptions.discardAnalysisCache || !skyframeExecutor.tracksStateForIncrementality();
         if (discardAnalysisCacheAfterAnalysis
-            && remoteAnalysisCachingDependenciesProvider.isRetrievalEnabled()) {
+            && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis
           // to occur during the logical execution phase. Discarding the analysis cache
           // can lead to crashes.

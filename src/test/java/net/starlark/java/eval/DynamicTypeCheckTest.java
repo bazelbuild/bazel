@@ -186,6 +186,12 @@ public class DynamicTypeCheckTest {
     ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
     // Covariance
     ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
+    // Homogeneous tuples
+    ev.exec("def f(a: tuple[int | str, ...]): pass", "f((1, 2, '3'))");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, ...]): pass", "f((1, 2, '3'))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int, int, str]', want"
+                + " 'tuple[int, ...]'");
   }
 
   @Test

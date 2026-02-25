@@ -19,9 +19,11 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
+import com.google.devtools.build.lib.unix.NativePosixFilesService;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import javax.annotation.Nullable;
 
 /**
  * Module to provide a {@link com.google.devtools.build.lib.vfs.FileSystem} instance that uses
@@ -44,8 +47,22 @@ import com.google.devtools.common.options.OptionsParsingResult;
  * com.google.devtools.build.lib.vfs.FileSystem} class use {@code SHA256} by default.
  */
 public class BazelFileSystemModule extends BlazeModule {
+  @Nullable private NativePosixFilesService nativePosixFilesService;
+
   static {
     BazelHashFunctions.ensureRegistered();
+  }
+
+  @Override
+  public void globalInit(
+      OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
+    for (BlazeService blazeService : blazeServices) {
+      if (blazeService instanceof NativePosixFilesService nativePosixFilesService) {
+        this.nativePosixFilesService = nativePosixFilesService;
+        break;
+      }
+    }
+    checkNotNull(nativePosixFilesService, "expected NativePosixFilesService to be available");
   }
 
   @Override
@@ -87,7 +104,9 @@ public class BazelFileSystemModule extends BlazeModule {
       fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
     } else {
       if (JniLoader.isJniAvailable()) {
-        fs = new UnixFileSystem(digestHashFunction, options.unixDigestHashAttributeName);
+        fs =
+            new UnixFileSystem(
+                digestHashFunction, options.unixDigestHashAttributeName, nativePosixFilesService);
       } else {
         fs = new JavaIoFileSystem(digestHashFunction);
       }

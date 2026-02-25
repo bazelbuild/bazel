@@ -590,7 +590,9 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  bazel query --output=proto \
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C bazel query --output=proto \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
   expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
@@ -1414,15 +1416,17 @@ EOF
   bazel query --output=proto //foo:without_select >& $TEST_log \
       || fail "Expected success"
 
+  # Force a C locale to ensure that grep matches the Unicode characters
+  # byte-by-byte even though the proto file is not valid UTF-8.
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
   done
 
   bazel query --output=proto //foo:with_select >& $TEST_log \
       || fail "Expected success"
 
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
 }
 
@@ -1439,7 +1443,9 @@ EOF
   echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
   # Check that the unicode characters are preserved in the output.
   bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
-  expect_log "//foo:äöüÄÖÜß🌱"
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

@@ -177,7 +177,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()
         && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
       switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
@@ -193,7 +193,9 @@ public final class ActionExecutionFunction implements SkyFunction {
         ActionUtils.getActionForLookupData(
             env,
             actionLookupData,
-            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRetrievalEnabled());
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies
+                .mode()
+                .isRetrievalEnabled());
     if (action == null) {
       return null;
     }

@@ -112,6 +112,10 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       };
     }
 
+    public boolean isRetrievalEnabled() {
+      return this == DOWNLOAD;
+    }
+
     /**
      * Returns true if the mode serializes <i>values</i>.
      *

@@ -166,7 +166,7 @@ public class TypeTaggerTest {
     assertThat(extractType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
   }
 
-  // These are also tests of the list and dict type constructors, not just the TypeTagger.
+  // These are also tests of the list, dict, and tuple type constructors, not just the TypeTagger.
 
   @Test
   public void extractType_list() throws Exception {
@@ -176,6 +176,7 @@ public class TypeTaggerTest {
 
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
     assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
+    assertExtractTypeFails("list[int, ...]", "in application to list, got '...', expected a type");
   }
 
   @Test
@@ -187,6 +188,29 @@ public class TypeTaggerTest {
 
     assertExtractTypeFails("dict[int]", "dict[] accepts exactly 2 arguments but got 1");
     assertExtractTypeFails("dict[int, str, bool]", "dict[] accepts exactly 2 arguments but got 3");
+  }
+
+  @Test
+  public void extractType_tuple() throws Exception {
+    // TODO: #27370 - we may want to distinguish `tuple` from `tuple[]`, and have the former as a
+    // convenience alias for `tuple[Any, ...]`.
+    assertThat(extractType("tuple")).isEqualTo(Types.tuple());
+    assertThat(extractType("tuple[]")).isEqualTo(Types.tuple()); // the empty tuple type
+    assertThat(extractType("tuple[int]")).isEqualTo(Types.tuple(Types.INT));
+    assertThat(extractType("tuple[int, str, bool]"))
+        .isEqualTo(Types.tuple(Types.INT, Types.STR, Types.BOOL));
+    assertThat(extractType("tuple[tuple[int, str], bool]"))
+        .isEqualTo(Types.tuple(Types.tuple(Types.INT, Types.STR), Types.BOOL));
+    assertThat(extractType("tuple[int, ...]")).isEqualTo(Types.homogeneousTuple(Types.INT));
+
+    assertExtractTypeFails(
+        "tuple[...]",
+        "in application to tuple, '...' can only appear as the second of exactly 2 arguments, where"
+            + " the first argument is a type");
+    assertExtractTypeFails(
+        "tuple[int, str, ...]",
+        "in application to tuple, '...' can only appear as the second of exactly 2 arguments, where"
+            + " the first argument is a type");
   }
 
   @Test

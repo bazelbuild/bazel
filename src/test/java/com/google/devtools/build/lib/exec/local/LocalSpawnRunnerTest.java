@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -846,7 +847,11 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    FileSystem fs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
 

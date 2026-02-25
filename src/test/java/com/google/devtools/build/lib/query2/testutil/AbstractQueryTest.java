@@ -1522,7 +1522,16 @@ public abstract class AbstractQueryTest<T> {
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     Set<T> result = eval("deps(//kiwi:kiwi.sh)");
-    assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi.sh"));
+    // Updated the test with an isThisBazel() check because incompatible_no_implicit_file_export
+    // is flipped to true in Bazel but remains false in Blaze. This discrepancy caused 'unexpected
+    // target' failures internally by still including the //mango:mango package group. The
+    // conditional logic ensures the test correctly validates both environments, and TAP presubmits
+    // are now passing.
+    if (analysisMock.isThisBazel()) {
+      assertThat(result).isEqualTo(eval("//kiwi:kiwi.sh"));
+    } else {
+      assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi.sh"));
+    }
   }
 
   // Regression test for bug #2827101:

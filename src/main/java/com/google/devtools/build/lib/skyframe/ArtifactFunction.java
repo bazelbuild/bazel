@@ -142,7 +142,7 @@ public final class ArtifactFunction implements SkyFunction {
 
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()
         && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {
       switch (retrieveRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
         case SkyValueRetriever.Restart unused:
@@ -158,7 +158,9 @@ public final class ArtifactFunction implements SkyFunction {
         ArtifactDependencies.discoverDependencies(
             derivedArtifact,
             env,
-            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRetrievalEnabled());
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies
+                .mode()
+                .isRetrievalEnabled());
     if (artifactDependencies == null) {
       return null;
     }

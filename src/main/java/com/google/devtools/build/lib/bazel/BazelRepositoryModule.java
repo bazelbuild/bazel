@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -551,16 +553,36 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
       if (env.getWorkspace() != null) {
+        Path externalRoot = env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
         vendorDirectory =
             Optional.ofNullable(repoOptions.vendorDirectory)
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
-
+        // Both vendoring and the local and remote repo contents cache rely on certain symlinks at
+        // predictable locations to allow symlinks in external repos to be portable (in particular,
+        // relative).
+        if (vendorDirectory.isPresent()
+            || repoContentsCachePath != null
+            || externalRoot.getFileSystem() instanceof RemoteExternalOverlayFileSystem) {
+          try {
+            FileSystemUtils.ensureSymbolicLink(
+                externalRoot.getChild(RepositoryUtils.WORKSPACE_SYMLINK_NAME), env.getWorkspace());
+          } catch (IOException e) {
+            env.getReporter().handle(Event.error(e.getMessage()));
+            env.getBlazeModuleEnvironment()
+                .exit(
+                    new AbruptExitException(
+                        detailedExitCode(
+                            "Failed to create symlink to workspace under external directory: "
+                                + e.getMessage(),
+                            Code.SYMLINKING_FAILED)));
+          }
+        }
         if (vendorDirectory.isPresent()) {
           try {
-            Path externalRoot =
-                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
+            // TODO: The same vendor directory may be used concurrently with multiple output bases,
+            //  which can cause conflicts that currently go undetected.
             FileSystemUtils.ensureSymbolicLink(
-                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                vendorDirectory.get().getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
                 externalRoot);
             if (OS.getCurrent() == OS.WINDOWS) {
               // On Windows, symlinks are resolved differently.
@@ -571,14 +593,18 @@ public class BazelRepositoryModule extends BlazeModule {
               // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
               // To work around this, we create a symlink <external>/bazel-external -> <external>.
               FileSystemUtils.ensureSymbolicLink(
-                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
+                  externalRoot.getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
             }
           } catch (IOException e) {
-            env.getReporter()
-                .handle(
-                    Event.error(
-                        "Failed to create symlink to external repo root under vendor directory: "
-                            + e.getMessage()));
+            env.getReporter().handle(Event.error(e.getMessage()));
+            env.getBlazeModuleEnvironment()
+                .exit(
+                    new AbruptExitException(
+                        detailedExitCode(
+                            "Failed to create symlink to external repo root under vendor directory:"
+                                + " "
+                                + e.getMessage(),
+                            Code.SYMLINKING_FAILED)));
           }
         }
       }

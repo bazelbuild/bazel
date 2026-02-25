@@ -35,6 +35,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/testing/common:directory_listing_helper",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",

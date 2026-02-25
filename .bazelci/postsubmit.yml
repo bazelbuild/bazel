@@ -78,8 +78,8 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2004_clang:
-    platform: ubuntu2004
+  ubuntu2204_clang:
+    platform: ubuntu2204
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -102,7 +102,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2004:
+  ubuntu2204:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest

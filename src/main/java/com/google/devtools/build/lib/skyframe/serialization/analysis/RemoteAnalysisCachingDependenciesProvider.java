@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -25,15 +27,18 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
  * deserialization.
  */
-public interface RemoteAnalysisCachingDependenciesProvider
-    extends RemoteAnalysisCacheReaderDepsProvider {
+public interface RemoteAnalysisCachingDependenciesProvider {
+  RemoteAnalysisCacheMode mode();
+
   void setTopLevelBuildOptions(BuildOptions buildOptions);
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;
@@ -54,13 +59,51 @@ public interface RemoteAnalysisCachingDependenciesProvider
 
   void computeSelectionAndMinimizeMemory(InMemoryGraph graph);
 
-  Collection<Label> getTopLevelTargets();
-
   boolean shouldMinimizeMemory();
+
+  /** Various bits of data and functionality serialization needs. */
+  interface SerializationDependenciesProvider {
+    RemoteAnalysisCacheMode mode();
+
+    /**
+     * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
+     * SkyKey.
+     */
+    FrontierNodeVersion getSkyValueVersion() throws SerializationException;
+
+    /**
+     * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
+     *
+     * <p>Calling this can be an expensive process as the codec registry will be initialized.
+     */
+    ObjectCodecs getObjectCodecs() throws InterruptedException;
+
+    /** Returns the {@link FingerprintValueService} implementation. */
+    FingerprintValueService getFingerprintValueService() throws InterruptedException;
+
+    /** Returns the JSON log writer or null if this log is not enabled. */
+    @Nullable
+    RemoteAnalysisJsonLogWriter getJsonLogWriter();
+
+    String getSerializedFrontierProfile();
+
+    Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
+
+    Collection<Label> getTopLevelTargets();
+
+    /** Returns the destination for file invalidation data when uploading. */
+    @Nullable
+    KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
+
+    @Nullable
+    RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+  }
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider
-      implements RemoteAnalysisCachingDependenciesProvider, RemoteAnalysisCacheReaderDepsProvider {
+      implements RemoteAnalysisCachingDependenciesProvider,
+          RemoteAnalysisCacheReaderDepsProvider,
+          SerializationDependenciesProvider {
 
     public static final DisabledDependenciesProvider INSTANCE = new DisabledDependenciesProvider();
 
@@ -69,11 +112,6 @@ public interface RemoteAnalysisCachingDependenciesProvider
     @Override
     public RemoteAnalysisCacheMode mode() {
       return RemoteAnalysisCacheMode.OFF;
-    }
-
-    @Override
-    public boolean isRetrievalEnabled() {
-      return false;
     }
 
     @Override
@@ -100,6 +138,16 @@ public interface RemoteAnalysisCachingDependenciesProvider
     @Nullable
     public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
       return null;
+    }
+
+    @Override
+    public String getSerializedFrontierProfile() {
+      return "";
+    }
+
+    @Override
+    public Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher() {
+      return Optional.empty();
     }
 
     @Override
@@ -137,6 +185,18 @@ public interface RemoteAnalysisCachingDependenciesProvider
     @Override
     public Collection<Label> getTopLevelTargets() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public KeyValueWriter getFileInvalidationWriter() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public RemoteAnalysisMetadataWriter getMetadataWriter() {
+      return null;
     }
 
     @Override

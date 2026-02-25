@@ -509,6 +509,77 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
     self.RunBazel(args=['build', '@other_repo//:file'], cwd=work_dir)
 
+  def doTestSymlinkToFileInOtherRepoNoticesFileChange(self):
+    """Test that a change to a file in one repo is picked up through a symlink in another."""
+    # Create foo repo with a data file.
+    self.ScratchFile('foo/REPO.bazel')
+    self.ScratchFile('foo/BUILD', ['exports_files(["data.txt"])'])
+    self.ScratchFile('foo/data.txt', ['original'])
+
+    # Create a repository rule for bar that symlinks to foo's file.
+    self.ScratchFile(
+        'bar_rule.bzl',
+        [
+            'def _bar_repo_impl(ctx):',
+            '    ctx.symlink(ctx.attr.file, "data.txt")',
+            '    ctx.file("BUILD", \'exports_files(["data.txt"])\')',
+            '',
+            'bar_repo = repository_rule(',
+            '    implementation = _bar_repo_impl,',
+            '    attrs = {"file": attr.label(allow_single_file = True)},',
+            '    local = True,',
+            ')',
+        ],
+    )
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_repository = use_repo_rule(',
+            '    "@bazel_tools//tools/build_defs/repo:local.bzl",',
+            '    "local_repository")',
+            'local_repository(name = "foo", path = "./foo")',
+            'bar_repo = use_repo_rule("//:bar_rule.bzl", "bar_repo")',
+            'bar_repo(name = "bar", file = "@foo//:data.txt")',
+        ],
+    )
+
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '    name = "cat",',
+            '    srcs = ["@bar//:data.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cp $< $@",',
+            ')',
+        ],
+    )
+
+    # First build: verify original content is consumed.
+    self.RunBazel(['build', '//:cat'])
+    self.AssertFileContentContains(self.Path('bazel-bin/out.txt'), 'original')
+
+    # Change the file in foo and rebuild.
+    self.ScratchFile('foo/data.txt', ['modified'])
+    self.RunBazel(['build', '//:cat'])
+    self.AssertFileContentContains(self.Path('bazel-bin/out.txt'), 'modified')
+
+  def testSymlinkToFileInOtherRepoNoticesFileChange(self):
+    self.doTestSymlinkToFileInOtherRepoNoticesFileChange()
+
+  def testSymlinkToFileInOtherRepoNoticesFileChange_windowsEnableSymlinks(self):
+    if not self.IsWindows():
+      self.skipTest('--windows_enable_symlinks is only relevant on Windows')
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'startup --windows_enable_symlinks',
+        ],
+        mode='a',
+    )
+    self.doTestSymlinkToFileInOtherRepoNoticesFileChange()
+
   def testRepoEnv(self):
     # Testing fix for issue: https://github.com/bazelbuild/bazel/issues/15430
 

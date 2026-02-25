@@ -31,12 +31,11 @@ import static org.junit.Assume.assumeTrue;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.windows.WindowsFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
@@ -348,10 +347,7 @@ public class FileSystemUtilsTest {
         case IN_MEMORY -> new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/");
         case ON_DISK ->
             TestUtils.createUniqueTmpDir(
-                OS.getCurrent() == OS.WINDOWS
-                    ? new WindowsFileSystem(
-                        DigestHashFunction.SHA256, /* createSymbolicLinks= */ true)
-                    : new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ ""));
+                FileSystems.getNativeFileSystem(DigestHashFunction.SHA256));
       };
     }
   }

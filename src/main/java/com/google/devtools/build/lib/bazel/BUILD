@@ -43,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_fetch_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -52,6 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/runtime",
@@ -149,6 +151,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -159,6 +163,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -240,6 +245,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service_impl",
         "//third_party:guava",
     ],

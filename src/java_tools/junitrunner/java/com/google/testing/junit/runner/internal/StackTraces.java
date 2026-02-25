@@ -109,14 +109,14 @@ public class StackTraces {
                         && m.getParameterTypes()[0] == String.class
                         && m.getParameterTypes()[1].isEnum())
             .findFirst();
-    if (dumpThreadsMethod.isEmpty()) {
+    if (!dumpThreadsMethod.isPresent()) {
       return;
     }
     Optional<?> threadDumpFormatJson =
         Arrays.stream(dumpThreadsMethod.get().getParameterTypes()[1].getEnumConstants())
             .filter(e -> e.toString().equalsIgnoreCase("JSON"))
             .findFirst();
-    if (threadDumpFormatJson.isEmpty()) {
+    if (!threadDumpFormatJson.isPresent()) {
       return;
     }
     HotSpotDiagnosticMXBean diagnosticBean =

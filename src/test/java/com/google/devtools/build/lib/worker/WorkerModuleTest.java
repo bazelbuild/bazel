@@ -315,7 +315,7 @@ public class WorkerModuleTest {
             /* skyframeExecutor= */ null,
             new RecordingExceptionHandler(),
             /* workspaceStatusActionFactory= */ null,
-            BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
+            BinTools.forUnitTesting(fs.getPath("/execroot"), ImmutableList.of()),
             /* allocationTracker= */ null,
             /* syscallCache= */ null,
             /* analysisCodecRegistrySupplier= */ null,

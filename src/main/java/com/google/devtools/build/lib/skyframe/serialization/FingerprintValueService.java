@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.util.DecimalBucketer;
@@ -69,6 +70,15 @@ public final class FingerprintValueService implements KeyValueWriter {
   public static FingerprintValueService createForTesting() {
     return createForTesting(
         FingerprintValueStore.inMemoryStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
+  }
+
+  /**
+   * Returns an instance that uses a {@link FingerprintValueStore} that indicates a missing entry by
+   * returning null, which is what analysis caching expects.
+   */
+  @VisibleForTesting
+  public static FingerprintValueService createForAnalysisCacheTesting() {
+    return createForTesting(new InMemoryFingerprintValueStore(true));
   }
 
   @VisibleForTesting

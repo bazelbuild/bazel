@@ -399,7 +399,7 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    vendorManager.vendorRepos(externalPath, reposToVendor);
+    vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
     env.getSkyframeExecutor()

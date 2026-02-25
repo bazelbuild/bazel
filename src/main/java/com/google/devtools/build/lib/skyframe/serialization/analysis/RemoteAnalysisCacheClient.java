@@ -41,6 +41,16 @@ public interface RemoteAnalysisCacheClient {
       ImmutableList<DecimalBucketer.Bucket> batchLatencyMicros,
       TopLevelTargetsMatchStatus matchStatus) {}
 
+  Stats EMPTY_STATS =
+      new Stats(
+          0,
+          0,
+          0,
+          0,
+          ImmutableList.of(),
+          ImmutableList.of(),
+          TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
+
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
   ListenableFuture<ByteString> lookup(ByteString key);
 

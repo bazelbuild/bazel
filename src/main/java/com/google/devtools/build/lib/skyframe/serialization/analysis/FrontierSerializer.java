@@ -52,10 +52,10 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue;
@@ -94,20 +94,6 @@ public final class FrontierSerializer {
     PRE_SERIALIZATION,
   }
 
-  /** Various bits of data and functionality serialization needs. */
-  public interface SerializationDependenciesProvider {
-    String getSerializedFrontierProfile();
-
-    Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
-
-    Collection<Label> getTopLevelTargets();
-
-    /** Returns the desination for file invalidation data when uploading. */
-    KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
-
-    RemoteAnalysisMetadataWriter getMetadataWriter();
-  }
-
   /**
    * Serializes the frontier contained in the current Skyframe graph into a {@link ProfileCollector}
    * writing the resulting proto to {@code path}.
@@ -115,7 +101,6 @@ public final class FrontierSerializer {
    * @return empty if successful, otherwise a result containing the appropriate error
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
       SerializationDependenciesProvider serializationDependenciesProvider,
       MemoizingEvaluator evaluator,
       LongVersionGetter versionGetter,
@@ -140,7 +125,8 @@ public final class FrontierSerializer {
                 "Found %d active or frontier keys in %s", selectedKeys.size(), stopwatch)));
     stopwatch.reset().start();
 
-    if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (serializationDependenciesProvider.mode()
+        == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
           Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
       dumpUploadManifest(
@@ -150,10 +136,10 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    ObjectCodecs codecs = requireNonNull(dependenciesProvider.getObjectCodecs());
+    ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion;
     try {
-      frontierVersion = dependenciesProvider.getSkyValueVersion();
+      frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
     } catch (SerializationException e) {
       String message = "error computing frontier version " + e.getMessage();
       reporter.error(null, message);
@@ -209,9 +195,9 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
-            dependenciesProvider.getFingerprintValueService(),
+            serializationDependenciesProvider.getFingerprintValueService(),
             serializationDependenciesProvider.getFileInvalidationWriter(),
-            dependenciesProvider.getJsonLogWriter(),
+            serializationDependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,
             serializationStats);
@@ -227,7 +213,7 @@ public final class FrontierSerializer {
       }
 
       FingerprintValueStore.Stats stats =
-          dependenciesProvider.getFingerprintValueService().getStats();
+          serializationDependenciesProvider.getFingerprintValueService().getStats();
 
       reporter.handle(
           Event.info(

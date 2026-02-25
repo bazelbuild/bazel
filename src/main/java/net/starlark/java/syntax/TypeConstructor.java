@@ -44,8 +44,20 @@ public interface TypeConstructor {
    * These are needed for type expressions like {@code tuple[Any, ...]} and {@code Callable[[int],
    * bool]}.
    */
-  // TODO: #27370 - Support other type arguments besides StarlarkType when we need them.
-  sealed interface Arg permits StarlarkType {}
+  // TODO: #27370 - Support other type arguments besides StarlarkType and Ellipsis when we need them
+  sealed interface Arg permits StarlarkType, Arg.Ellipsis {
+    public static final Ellipsis ELLIPSIS = new Ellipsis();
+
+    /** An ellipsis type argument, {@code ...}. */
+    public static final class Ellipsis implements Arg {
+      private Ellipsis() {}
+
+      @Override
+      public String toString() {
+        return "...";
+      }
+    }
+  }
 
   /**
    * Returns the result of applying this constructor to the given type arguments

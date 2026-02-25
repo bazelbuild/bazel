@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",

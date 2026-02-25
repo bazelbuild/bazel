@@ -92,9 +92,10 @@ class TestResult(object):
     self.assertXmlMessage('<testsuites [^/]*failures="0"')
     self.assertXmlMessage('<testsuites [^/]*errors="0"')
 
-  def assertNotSuccess(self, suite_name, failures=0, errors=0):
+  def assertNotSuccess(self, suite_name=None, failures=0, errors=0):
     self._asserter.assertNotEqual(0, self._return_code)
-    self.assertLogMessage(suite_name)
+    if suite_name:
+      self.assertLogMessage(suite_name)
     if failures:
       self.assertXmlMessage(f'<testsuites [^/]*failures="{failures}"')
     if errors:
@@ -384,7 +385,7 @@ run_suite "empty test suite"
         },
     )
     result.assertSuccess("empty test suite")
-    result.assertLogMessage("No tests executed due to sharding")
+    result.assertNotLogMessage("No tests")
 
     # Second shard.
     result = self.execute_test(
@@ -395,7 +396,249 @@ run_suite "empty test suite"
         },
     )
     result.assertSuccess("empty test suite")
+    result.assertLogMessage("No tests executed due to sharding")
+
+  def test_default_sharding(self):
+    self.write_file(
+        "thing.sh",
+        """
+function test_x0() {
+  echo "running x0"
+}
+
+function test_x1() {
+  echo "running x1"
+}
+
+function test_x2() {
+  echo "running x2"
+}
+
+function test_x3() {
+  echo "running x3"
+}
+
+run_suite "default sharding"
+""",
+    )
+
+    # 2 shards
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="default sharding",
+        total_shards=2,
+        shard_index=0,
+        expected_run=["x0", "x2"],
+        expected_not_run=["x1", "x3"],
+    )
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="default sharding",
+        total_shards=2,
+        shard_index=1,
+        expected_run=["x1", "x3"],
+        expected_not_run=["x0", "x2"],
+    )
+
+    # 3 shards
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="default sharding",
+        total_shards=3,
+        shard_index=0,
+        expected_run=["x0", "x3"],
+        expected_not_run=["x1", "x2"],
+    )
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="default sharding",
+        total_shards=3,
+        shard_index=1,
+        expected_run=["x1"],
+        expected_not_run=["x0", "x2", "x3"],
+    )
+
+    # 4 shards
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="default sharding",
+        total_shards=4,
+        shard_index=2,
+        expected_run=["x2"],
+        expected_not_run=["x0", "x1", "x3"],
+    )
+
+  def test_manual_sharding(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        define_test_shard test_x0
+        define_test_shard test_x1 test_x2
+        function test_x0() {
+          echo "running x0"
+        }
+
+        function test_x1() {
+          echo "running x1"
+        }
+
+        function test_x2() {
+          echo "running x2"
+        }
+
+        function test_x3() {
+          echo "running x3"
+        }
+
+        function test_x4() {
+          echo "running x4"
+        }
+
+        function test_x5() {
+          echo "running x5"
+        }
+
+        run_suite "manual sharding"
+        """),
+    )
+
+    # 3 shards
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="manual sharding",
+        total_shards=3,
+        shard_index=0,
+        expected_run=["x0"],
+        expected_not_run=["x1", "x2", "x3", "x4", "x5"],
+    )
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="manual sharding",
+        total_shards=3,
+        shard_index=1,
+        expected_run=["x1", "x2"],
+        expected_not_run=["x0", "x3", "x4", "x5"],
+    )
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="manual sharding",
+        total_shards=3,
+        shard_index=2,
+        expected_run=["x3", "x4", "x5"],
+        expected_not_run=["x0", "x1", "x2"],
+    )
+
+    # 4 shards
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="manual sharding",
+        total_shards=4,
+        shard_index=2,
+        expected_run=["x3", "x5"],
+        expected_not_run=["x0", "x1", "x2", "x4"],
+    )
+    self.__run_sharded_test_assert_expected_tests_were_run(
+        test_file="thing.sh",
+        suite_name="manual sharding",
+        total_shards=4,
+        shard_index=3,
+        expected_run=["x4"],
+        expected_not_run=["x0", "x1", "x2", "x3", "x5"],
+    )
+
+    # 2 shards, no non-manual shard for remaining tests
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 0,
+        },
+    )
+    result.assertNotSuccess("manual sharding")
+    result.assertLogMessage(
+        "There were tests with no explicit shards and "
+        + "every shard was manually defined."
+    )
+
+    # 1 shard, fewer than manual shards
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TEST_TOTAL_SHARDS": 1,
+            "TEST_SHARD_INDEX": 0,
+        },
+    )
+    result.assertNotSuccess("manual sharding")
+    result.assertLogMessage(
+        "More manual shards [(]2[)] defined than total shards [(]1[)]"
+    )
+
+  def __run_sharded_test_assert_expected_tests_were_run(
+      self,
+      *,
+      test_file,
+      suite_name,
+      total_shards,
+      shard_index,
+      expected_run,
+      expected_not_run,
+  ):
+    result = self.execute_test(
+        test_file,
+        env={
+            "TEST_TOTAL_SHARDS": total_shards,
+            "TEST_SHARD_INDEX": shard_index,
+        },
+    )
+    result.assertSuccess(suite_name)
     result.assertNotLogMessage("No tests")
+    for test in expected_run:
+      result.assertLogMessage(f"running {test}")
+    for test in expected_not_run:
+      result.assertNotLogMessage(f"running {test}")
+
+  def test_manual_sharding_unknown_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        define_test_shard unknown_test
+        function test_x0() {
+          echo "running x0"
+        }
+
+        run_suite "manual sharding unknown test"
+        """),
+    )
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 0,
+        },
+    )
+    result.assertNotSuccess("manual sharding unknown test")
+    result.assertLogMessage("not found in TESTS")
+
+  def test_manual_sharding_double_defined_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        define_test_shard test_x0
+        define_test_shard test_x0
+        function test_x0() {
+          echo "running x0"
+        }
+        """),
+    )
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 0,
+        },
+    )
+    result.assertNotSuccess()
+    result.assertLogMessage("already in a shard")
 
   def test_filter_runs_only_matching_test(self):
     self.write_file(
@@ -494,11 +737,6 @@ run_suite "empty test suite"
     result.assertNotLogMessage("running zaa")
 
   def test_filter_sharded_runs_subset_of_filtered_tests(self):
-    for index in range(2):
-      with self.subTest(index=index):
-        self.__filter_sharded_runs_subset_of_filtered_tests(index)
-
-  def __filter_sharded_runs_subset_of_filtered_tests(self, index):
     self.write_file(
         "thing.sh",
         textwrap.dedent("""
@@ -518,6 +756,11 @@ run_suite "empty test suite"
         """),
     )
 
+    for index in range(2):
+      with self.subTest(index=index):
+        self.__filter_sharded_runs_subset_of_filtered_tests(index)
+
+  def __filter_sharded_runs_subset_of_filtered_tests(self, index):
     result = self.execute_test(
         "thing.sh",
         env={
@@ -528,10 +771,9 @@ run_suite "empty test suite"
     )
 
     result.assertSuccess("tests to filter")
-    # The sharding logic is shifted by 1, starts with 2nd shard.
-    result.assertTestPassed("test_a" + str(index ^ 1))
-    result.assertLogMessage("running a" + str(index ^ 1))
-    result.assertNotLogMessage("running a" + str(index))
+    result.assertTestPassed("test_a" + str(index))
+    result.assertLogMessage("running a" + str(index))
+    result.assertNotLogMessage("running a" + str(index ^ 1))
     result.assertNotLogMessage("running bb")
 
   def test_arg_runs_only_matching_test_and_issues_warning(self):
@@ -616,7 +858,7 @@ run_suite "empty test suite"
 
   def test_custom_ifs_variable_finds_and_runs_test(self):
     for sharded in (False, True):
-      for ifs in (r"\t", "t"):
+      for ifs in (r"\t", ":", ","):
         with self.subTest(ifs=ifs, sharded=sharded):
           self.__custom_ifs_variable_finds_and_runs_test(ifs, sharded)
 
@@ -638,7 +880,7 @@ run_suite "empty test suite"
         "thing.sh",
         env={}
         if not sharded
-        else {"TEST_TOTAL_SHARDS": 2, "TEST_SHARD_INDEX": 1},
+        else {"TEST_TOTAL_SHARDS": 2, "TEST_SHARD_INDEX": 0},
     )
 
     result.assertSuccess("custom IFS test")

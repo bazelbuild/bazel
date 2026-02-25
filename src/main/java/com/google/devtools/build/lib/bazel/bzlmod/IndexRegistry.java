@@ -291,6 +291,8 @@ public class IndexRegistry implements Registry {
     String tag;
     boolean initSubmodules;
     boolean verbose;
+    Map<String, String> patches;
+    int patchStrip;
     String stripPrefix;
   }
 
@@ -380,7 +382,7 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
@@ -529,7 +531,7 @@ public class IndexRegistry implements Registry {
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
-        .setRemotePatches(remotePatches.buildOrThrow())
+        .setRemotePatches(remotePatches.buildKeepingLast())
         .setOverlay(overlay)
         .setRemoteModuleFile(
             new RemoteFile(
@@ -540,7 +542,26 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
+      GitRepoSourceJson sourceJson,
+      String moduleFileUrl,
+      Checksum moduleFileChecksum,
+      ModuleKey key) {
+    // Build remote patches as key-value pairs of "url" => "integrity".
+    ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
+    if (sourceJson.patches != null) {
+      for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
+        remotePatches.put(
+            constructUrl(
+                getUrl(),
+                "modules",
+                key.name(),
+                key.version().toString(),
+                "patches",
+                entry.getKey()),
+            entry.getValue());
+      }
+    }
+
     return new GitRepoSpecBuilder()
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
@@ -552,6 +573,8 @@ public class IndexRegistry implements Registry {
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
+        .setRemotePatches(remotePatches.buildKeepingLast())
+        .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
   }
 

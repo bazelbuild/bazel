@@ -139,21 +139,26 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     Facts lockfileFacts = Facts.EMPTY;
+    // Store workspace lockfile facts separately for validation in ERROR mode
+    Facts workspaceLockfileFacts = Facts.EMPTY;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
               ImmutableList.of(BazelLockFileValue.KEY, BazelLockFileValue.HIDDEN_KEY));
-      BazelLockFileValue lockfile = (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
+      BazelLockFileValue workspaceLockfile =
+          (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
       BazelLockFileValue hiddenLockfile =
           (BazelLockFileValue) lockfiles.get(BazelLockFileValue.HIDDEN_KEY);
-      if (lockfile == null || hiddenLockfile == null) {
+      if (workspaceLockfile == null || hiddenLockfile == null) {
         return null;
       }
-      lockfileFacts = lockfile.getFacts().get(extensionId);
+      workspaceLockfileFacts = workspaceLockfile.getFacts().get(extensionId);
+      lockfileFacts = workspaceLockfileFacts;
       if (lockfileFacts == null) {
         lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+        workspaceLockfileFacts = Facts.EMPTY;
       }
-      var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
+      var lockedExtensionMap = workspaceLockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       if (lockedExtension == null) {
@@ -238,13 +243,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   : " for platform " + extension.getEvalFactors()));
     }
     var newFacts = moduleExtensionMetadata.getFacts();
-    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
+    // In ERROR mode, validate facts only against the workspace lockfile, not the hidden lockfile.
+    // The hidden lockfile may contain stale facts from a different version (e.g., after a
+    // rollback), which would cause false-positive validation errors.
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(workspaceLockfileFacts)) {
       String reason =
           "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
                   Starlark.repr(newFacts.value(), starlarkSemantics),
-                  Starlark.repr(lockfileFacts.value(), starlarkSemantics));
+                  Starlark.repr(workspaceLockfileFacts.value(), starlarkSemantics));
       throw createOutdatedLockfileException(reason);
     }
 

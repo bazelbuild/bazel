@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
@@ -32,7 +33,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   private JavaRuntimeInfo getJavaRuntimeInfo(ProviderCollection collection)
       throws EvalException, RuleErrorException {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
-    return JavaRuntimeInfo.wrap(toolchainInfo.getValue("java_runtime", Info.class));
+    return JavaRuntimeInfo.wrap(toolchainInfo.getValue("java_runtime", Info.class), "java_runtime");
   }
 
   // This test is here to ensure that the java_runtime version is accessible by native code.
@@ -60,5 +61,32 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         """);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).version()).isEqualTo(234);
+  }
+
+  // This test is here to ensure that trying to wrap a missing JavaRuntimeInfo in native does
+  // not crash blaze. Can be deleted when we no longer have a native JavaRuntimeInfo
+  // Regression test for b/486198263
+  @Test
+  public void nullJavaRuntimeInfoWrapping_doesNotCrashBlaze() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load("@rules_java//java/toolchains:java_toolchain.bzl", "java_toolchain")
+        java_toolchain(
+            name = "jt",
+            singlejar = ["sj"],
+            java_runtime = None,
+        )
+        """);
+    ConfiguredTarget jt = getConfiguredTarget("//a:jt");
+    RuleErrorException assertionError =
+        assertThrows(
+            RuleErrorException.class,
+            () -> {
+              JavaToolchainProvider.from(jt).getJavaRuntime();
+            });
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains("expected a JavaRuntimeInfo, but java_runtime was unset");
   }
 }

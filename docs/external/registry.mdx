@@ -111,7 +111,13 @@ field, which defaults to `archive`.
     *   The following fields are supported, and are directly forwarded to the
         underlying `git_repository` repo rule: `remote`, `commit`,
         `shallow_since`, `tag`, `init_submodules`, `verbose`, and
-        `strip_prefix`.
+        `strip_prefix`, `patch_strip`.
+    *   `patches`: A JSON object containing patch files to apply to the
+        cloned repository. The patch files are located under the
+        `/modules/$MODULE/$VERSION/patches` directory. The keys are the
+        patch file names, and the values are the integrity checksum of
+        the patch files. The patches are applied in the order they appear in
+        `patches`.
 *   If `type` is `local_path`, this module version is backed by a
     [`local_repository`](/rules/lib/repo/local#local_repository) repo rule;
     it's symlinked to a directory on local disk. It supports the following

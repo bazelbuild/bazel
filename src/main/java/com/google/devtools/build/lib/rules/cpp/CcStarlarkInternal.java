@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
 import com.google.common.base.Strings;
@@ -499,7 +500,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx")})
   public String getExecOs(StarlarkRuleContext ctx) {
-    return ctx.getRuleContext().getExecutionPlatformOs().name();
+    return getOsFromConstraintsOrHost(ctx.getRuleContext().getExecutionPlatform()).name();
   }
 
   @StarlarkMethod(

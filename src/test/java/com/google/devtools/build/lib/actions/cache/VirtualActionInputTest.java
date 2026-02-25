@@ -18,8 +18,6 @@ import static com.google.devtools.build.lib.vfs.DigestHashFunction.SHA256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -27,7 +25,7 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.windows.WindowsFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Rule;
@@ -48,10 +46,7 @@ public class VirtualActionInputTest {
       return switch (this) {
         case IN_MEMORY -> new InMemoryFileSystem(SHA256);
         case JAVA -> new JavaIoFileSystem(SHA256);
-        case NATIVE ->
-            OS.getCurrent() == OS.WINDOWS
-                ? new WindowsFileSystem(SHA256, /* createSymbolicLinks= */ false)
-                : new UnixFileSystem(SHA256, "hash");
+        case NATIVE -> FileSystems.getNativeFileSystem();
       };
     }
   }

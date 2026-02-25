@@ -18,6 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Map.Entry.comparingByKey;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -1017,18 +1019,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return false;
   }
 
-  private volatile ImmutableMap<String, Label> commandLineFlagAliasesMap = null;
+  private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>
+      ALIAS_MAP_CACHE = Caffeine.newBuilder().weakKeys().build(ImmutableMap::copyOf);
 
   public ImmutableMap<String, Label> getCommandLineFlagAliases() {
-    // Force a single copy of the map to avoid repeated conversions.
-    if (commandLineFlagAliasesMap == null) {
-      synchronized (this) {
-        if (commandLineFlagAliasesMap == null) {
-          commandLineFlagAliasesMap = ImmutableMap.copyOf(commandLineFlagAliases);
-        }
-      }
-    }
-    return commandLineFlagAliasesMap;
+    return ALIAS_MAP_CACHE.get(commandLineFlagAliases);
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
@@ -1121,10 +1116,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Override
   public CoreOptions clone() {
-    CoreOptions base = (CoreOptions) super.clone();
-    // commandLineFlagAliasesMap is derived from commandLineFlagAliases, so it must be cleared
-    // here to ensure it is recomputed in case commandLineFlagAliases is mutated after cloning.
-    base.commandLineFlagAliasesMap = null;
-    return base;
+    return (CoreOptions) super.clone();
   }
 }

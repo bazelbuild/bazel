@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -47,7 +48,11 @@ public final class BazelPackageLoaderTester {
   }
 
   private static PackageLoader createPackageLoader(String installBase) {
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    FileSystem fs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
     Root workspaceDir = Root.fromPath(fs.getPath(StandardSystemProperty.USER_DIR.value()));
     Path installBasePath = fs.getPath(installBase);
     return BazelPackageLoader.builder(workspaceDir, installBasePath, installBasePath)

@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.Featur
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SKYFOCUS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -103,7 +103,8 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -146,7 +147,8 @@ public final class AnalysisPhaseRunner {
                 request,
                 targetPatternPhaseValue,
                 buildOptions,
-                remoteAnalysisCachingDependenciesProvider);
+                remoteAnalysisCachingDependenciesProvider,
+                remoteAnalysisCacheReaderDeps);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -372,7 +374,8 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws InterruptedException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException,
@@ -420,7 +423,8 @@ public final class AnalysisPhaseRunner {
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
               env.getAdditionalConfigurationChangeEvent(),
-              remoteAnalysisCachingDependenciesProvider);
+              remoteAnalysisCachingDependenciesProvider,
+              remoteAnalysisCacheReaderDeps);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

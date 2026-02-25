@@ -20,7 +20,6 @@ import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
@@ -527,18 +526,27 @@ public final class TypeCheckerTest {
   public void infer_index_tuple() throws Exception {
     // Statically knowable index in-range.
     assertTypeGivenDecls("t[1]", Types.STR, "t: tuple[int, str, bool]");
+    assertTypeGivenDecls("t[-1]", Types.BOOL, "t: tuple[int, str, bool]");
+    // Index into unknown-length homogeneous tuples.
+    assertTypeGivenDecls("t[1]", Types.INT, "t: tuple[int, ...]");
+    assertTypeGivenDecls("t[n]", Types.INT, "t: tuple[int, ...]; n: Any");
 
     // Index can't be statically determined.
     StarlarkType unionType = Types.union(Types.INT, Types.STR, Types.BOOL);
     assertTypeGivenDecls("t[n]", unionType, "t: tuple[int, str, bool]; n: int");
     assertTypeGivenDecls("t[a]", unionType, "t: tuple[int, str, bool]; a: Any");
-    // TODO: #28037 - Add negative indices here, once we support unary expressions.
 
     // Bad index type.
     assertInvalid(
         ":2:2: 't' of type 'tuple[int, str, bool]' must be indexed by an integer, but got 'str'",
         """
         t: tuple[int, str, bool]
+        t["abc"]
+        """);
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[str, ...]' must be indexed by an integer, but got 'str'",
+        """
+        t: tuple[str, ...]
         t["abc"]
         """);
 
@@ -548,6 +556,13 @@ public final class TypeCheckerTest {
         """
         t: tuple[int, str, bool]
         t[3]
+        """);
+    // Statically knowable index out-of-range.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' is indexed by integer -4, which is out-of-range",
+        """
+        t: tuple[int, str, bool]
+        t[-4]
         """);
   }
 
@@ -560,6 +575,12 @@ public final class TypeCheckerTest {
         # Normal case.
         t: tuple[int, str, bool]
         t[1] = "abc"
+        # Negative index
+        t[-3] = 42
+
+        t2: tuple[int|str, ...]
+        t2[0] = 0
+        t2[42] = "42"
 
         # Any as index.
         # This is a particularly nonsensical assignment that nonetheless passes the checker.
@@ -569,6 +590,7 @@ public final class TypeCheckerTest {
 
         # Any as value.
         t[1] = a
+        t2[1000] = a
         """);
 
     assertInvalid(
@@ -579,6 +601,65 @@ public final class TypeCheckerTest {
         t: tuple[int, str, bool]
         t[1] = 123
         """);
+
+    assertInvalid(
+        ":3:1: cannot assign type 'int|bool' to 't[1]' of type 'int|str'",
+        """
+        t: tuple[int | str, ...]
+        x: int | bool
+        t[1] = x
+        """);
+  }
+
+  @Test
+  public void infer_slice() throws Exception {
+    assertTypeGivenDecls("x[1:2]", Types.STR, "x: str");
+    assertTypeGivenDecls("x[1:]", Types.list(Types.INT), "x: list[int]");
+    assertTypeGivenDecls(
+        "x[y:z:w]",
+        Types.union(Types.sequence(Types.STR), Types.ANY),
+        "x: Sequence[str] | Any; y: Any; z: Any; w: Any");
+
+    // Invalid operand type
+    assertInvalid(
+        "invalid slice operand 'x' of type 'int', expected Sequence or str", "x: int; x[:2:-1]");
+
+    // Invalid index types
+    assertInvalid("got 'str' for start index, want int", "x: str; [][x:]");
+    assertInvalid("got 'Any|bool' for stop index, want int", "y: Any | bool; [][:y:]");
+    assertInvalid("got 'float' for slice step, want int", "z: float; [][::z]");
+
+    // Invalid step
+    assertInvalid("slice step cannot be zero", "x: list; x[::0]");
+  }
+
+  @Test
+  public void infer_slice_tuple_indices() throws Exception {
+    assertTypeGivenDecls(
+        "x[0:4:1]", Types.tuple(Types.INT, Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[:]", Types.tuple(Types.INT, Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls("x[1:3]", Types.tuple(Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-9999:2]", Types.tuple(Types.INT, Types.STR), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[1:9999]", Types.tuple(Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-3::2]", Types.tuple(Types.INT, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[::-1]", Types.tuple(Types.BOOL, Types.STR, Types.INT), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-1:-4:-2]", Types.tuple(Types.BOOL, Types.INT), "x: tuple[int, str, bool]");
+
+    assertTypeGivenDecls(
+        "x[0:99:9]",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.STR)),
+        "x: tuple[int | str, ...]");
+
+    assertTypeGivenDecls(
+        "x[y:]",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.STR, Types.BOOL)),
+        "x: tuple[int, str, bool]; y: int");
   }
 
   @Test
@@ -610,14 +691,13 @@ public final class TypeCheckerTest {
   @Test
   public void infer_tuple() throws Exception {
     // Empty case.
-    assertTypeGivenDecls("()", Types.tuple(ImmutableList.of()));
+    assertTypeGivenDecls("()", Types.tuple());
 
-    // Homogeneous case.
-    assertTypeGivenDecls(
-        "(1, 2, 3)", Types.tuple(ImmutableList.of(Types.INT, Types.INT, Types.INT)));
+    // Fixed-length with homogeneous elements.
+    assertTypeGivenDecls("(1, 2, 3)", Types.tuple(Types.INT, Types.INT, Types.INT));
 
-    // Heterogeneous case.
-    assertTypeGivenDecls("(1, 'a')", Types.tuple(ImmutableList.of(Types.INT, Types.STR)));
+    // Fixed-length with heterogeneous elements.
+    assertTypeGivenDecls("(1, 'a')", Types.tuple(Types.INT, Types.STR));
   }
 
   @Test
@@ -693,6 +773,7 @@ public final class TypeCheckerTest {
 
     // Compound types
     assertTypeGivenDecls("(1, 2) >= (3, 4)", Types.BOOL);
+    assertTypeGivenDecls("t1 <= t2", Types.BOOL, "t1: tuple[int, float]; t2: tuple[int, ...]");
     assertTypeGivenDecls("x < y", Types.BOOL, "x: list[int]; y: list[int|float]");
     assertTypeGivenDecls("x <= y", Types.BOOL, "x: list[int|float]; y: list[float|int]");
     assertTypeGivenDecls("x > y", Types.BOOL, "x: tuple[str, int]; y: tuple[str]");
@@ -728,6 +809,9 @@ public final class TypeCheckerTest {
         "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[str, int]'",
         "x: tuple[int, str]; y: tuple[str, int]; x >= y");
     assertInvalid(
+        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int|str, ...]'",
+        "x: tuple[int, str]; y: tuple[int|str, ...]; x >= y");
+    assertInvalid(
         "operator '>=' cannot be applied to types 'list[tuple[str, int]]' and 'list[tuple[bool,"
             + " Any]]'",
         "x: list[tuple[str, int]]; y: list[tuple[bool, Any]]; x >= y");
@@ -749,8 +833,20 @@ public final class TypeCheckerTest {
         "[1, 2.0] + [3, 'four']", Types.list(Types.union(Types.INT, Types.FLOAT, Types.STR)));
     assertTypeGivenDecls(
         "x + y",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.STR)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.STR),
         "x: tuple[int, float]; y: tuple[int, str]");
+    assertTypeGivenDecls(
+        "x + y",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.FLOAT, Types.BOOL)),
+        "x: tuple[int, float]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y", Types.homogeneousTuple(Types.BOOL), "x: tuple[]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.BOOL)),
+        "x: tuple[int, ...]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]; y: tuple[]");
 
     // Any inference
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: Any");
@@ -938,19 +1034,24 @@ public final class TypeCheckerTest {
     // tuple repetition
     assertTypeGivenDecls(
         "x * 2",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT),
         "x: tuple[int, float]");
     assertTypeGivenDecls(
         "2 * x",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT),
         "x: tuple[int, float]");
-    assertTypeGivenDecls("x * 0", Types.tuple(ImmutableList.of()), "x: tuple[int, float]");
-    assertTypeGivenDecls("0 * x", Types.tuple(ImmutableList.of()), "x: tuple[int, float]");
-    // TODO: #27370 - the following case could be tightened to empty tuples.
-    assertTypeGivenDecls("x * -1", Types.ANY, "x: tuple[int, float]");
-    assertTypeGivenDecls("-1 * x", Types.ANY, "x: tuple[int, float]");
-    // TODO: #28037 - the following case can be tightened to "tuple of indeterminable shape".
-    assertTypeGivenDecls("x * y", Types.ANY, "x: int; y: tuple[int]");
+    assertTypeGivenDecls("x * 2", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
+    assertTypeGivenDecls("2 * x", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
+    assertTypeGivenDecls("x * 0", Types.tuple(), "x: tuple[int, float]");
+    assertTypeGivenDecls("0 * x", Types.tuple(), "x: tuple[int, float]");
+    assertTypeGivenDecls("x * 0", Types.tuple(), "x: tuple[int, ...]");
+    assertTypeGivenDecls("0 * x", Types.tuple(), "x: tuple[int, ...]");
+    assertTypeGivenDecls("x * -1", Types.tuple(), "x: tuple[str]");
+    assertTypeGivenDecls("-1 * x", Types.tuple(), "x: tuple[str]");
+    assertTypeGivenDecls("x * -1", Types.tuple(), "x: tuple[str, ...]");
+    assertTypeGivenDecls("-1 * x", Types.tuple(), "x: tuple[str, ...]");
+    assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int]");
+    assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int, ...]");
 
     // Any inference
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: Any");
@@ -968,8 +1069,9 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: list[str]");
     // TODO: #28037 - can be tightened to list[int]
     assertTypeGivenDecls("x * y", Types.ANY, "x: list[int]; y: Any");
-    // TODO: #28037 - the following cases can be tightened to "tuple of indeterminable shape".
+    // TODO: #28037 - can be tightened to tuple[str, ...]
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: tuple[str]");
+    // TODO: #28037 - can be tightened to tuple[int, ...]
     assertTypeGivenDecls("x * y", Types.ANY, "x: tuple[int, int]; y: Any");
     // TODO: #28037 - can be tightened to float | str
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: float|str");

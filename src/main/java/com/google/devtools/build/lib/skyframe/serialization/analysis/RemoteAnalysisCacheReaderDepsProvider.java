@@ -27,8 +27,6 @@ import javax.annotation.Nullable;
 public interface RemoteAnalysisCacheReaderDepsProvider {
   RemoteAnalysisCacheMode mode();
 
-  boolean isRetrievalEnabled();
-
   /**
    * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
    * SkyKey.
@@ -45,7 +43,7 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-  RemoteAnalysisCacheClient getAnalysisCacheClient();
+  RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException;
 
   /** Returns the JSON log writer or null if this log is not enabled. */
   @Nullable

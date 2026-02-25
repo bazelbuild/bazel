@@ -31,6 +31,7 @@ _single_binary_toolchain_rule = rule(
     implementation = _single_binary_toolchain_rule_impl,
     attrs = {
         "binary": attr.label(
+            cfg = "exec",
             allow_single_file = True,
             mandatory = True,
         ),

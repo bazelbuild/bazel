@@ -48,6 +48,7 @@ import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.SyntaxUtils;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -717,13 +718,13 @@ public final class Starlark {
       if (startObj == NONE) {
         start = 0;
       } else {
-        start = EvalUtils.toIndex(toInt(startObj, "start index"), n);
+        start = SyntaxUtils.toSliceBound(toInt(startObj, "start index"), n);
       }
 
       if (stopObj == NONE) {
         stop = n;
       } else {
-        stop = EvalUtils.toIndex(toInt(stopObj, "stop index"), n);
+        stop = SyntaxUtils.toSliceBound(toInt(stopObj, "stop index"), n);
       }
 
       if (stop < start) {
@@ -737,25 +738,13 @@ public final class Starlark {
       if (startObj == NONE) {
         start = n - 1;
       } else {
-        start = toInt(startObj, "start index");
-        if (start < 0) {
-          start += n;
-        }
-        if (start >= n) {
-          start = n - 1;
-        }
+        start = SyntaxUtils.toReverseSliceBound(toInt(startObj, "start index"), n);
       }
 
       if (stopObj == NONE) {
         stop = -1;
       } else {
-        stop = toInt(stopObj, "stop index");
-        if (stop < 0) {
-          stop += n;
-        }
-        if (stop < -1) {
-          stop = -1;
-        }
+        stop = SyntaxUtils.toReverseSliceBound(toInt(stopObj, "stop index"), n);
       }
 
       if (start < stop) {

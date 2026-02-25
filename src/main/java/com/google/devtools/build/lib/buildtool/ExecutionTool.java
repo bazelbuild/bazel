@@ -431,7 +431,10 @@ public class ExecutionTool {
           request.getViewOptions().discardAnalysisCache
               || !skyframeExecutor.tracksStateForIncrementality();
       if (shouldDiscardAnalysisCache) {
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().isRetrievalEnabled()) {
+        if (skyframeExecutor
+            .getRemoteAnalysisCacheReaderDepsProvider()
+            .mode()
+            .isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
           // during the logical execution phase. Discarding the analysis cache can lead to crashes.
           //

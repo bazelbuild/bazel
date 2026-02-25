@@ -15,11 +15,7 @@ filegroup(
 
 java_library(
     name = "UnixTests_lib",
-    srcs = glob(
-        [
-            "*.java",
-        ],
-    ),
+    srcs = glob(["*.java"]),
     tags = [
         "foundations",
         # This test cannot run on Windows, because it uses native Posix
@@ -28,14 +24,13 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs:FileSystemTest_lib",
         "//src/test/java/com/google/devtools/build/lib/vfs:SymlinkAwareFileSystemTest",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",

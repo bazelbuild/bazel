@@ -528,6 +528,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
+  @Nullable
+  private RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider =
+      DisabledDependenciesProvider.INSTANCE;
+
   /**
    * The state of the remote analysis caching.
    *
@@ -566,13 +570,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCachingDependenciesProvider;
   }
 
-  private RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
-    return remoteAnalysisCachingDependenciesProvider;
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
+  public RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
+    return remoteAnalysisCacheReaderDepsProvider;
   }
 
   public void setRemoteAnalysisCachingDependenciesProvider(
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider) {
     this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
+    this.remoteAnalysisCacheReaderDepsProvider = remoteAnalysisCacheReaderDepsProvider;
   }
 
   public RemoteAnalysisCachingServerState getRemoteAnalysisCachingState() {
@@ -768,9 +775,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
     this.actionRewindStrategy =
         new ActionRewindStrategy(
-            skyframeActionExecutor,
-            bugReporter,
-            this::getRemoteAnalysisCachingDependenciesProvider);
+            skyframeActionExecutor, bugReporter, this::getRemoteAnalysisCacheReaderDepsProvider);
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 

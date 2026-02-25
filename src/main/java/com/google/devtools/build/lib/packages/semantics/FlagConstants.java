@@ -45,4 +45,8 @@ class FlagConstants {
   public static final String DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = "true";
   public static final String DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION_NAME =
       "+incompatible_enable_proto_toolchain_resolution";
+
+  public static final String DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT = "true";
+  public static final String DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME =
+      "+incompatible_no_implicit_file_export";
 }

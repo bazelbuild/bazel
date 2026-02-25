@@ -1386,6 +1386,11 @@ message BuildMetrics {
 
   // Statistics about remote analysis caching
   message RemoteAnalysisCacheStatistics {
+    message Entry {
+      string key = 1;
+      int64 value = 2;
+    }
+
     int64 cache_hits = 1;
     int64 cache_misses = 2;
     int64 value_store_value_bytes_received = 3;
@@ -1407,6 +1412,10 @@ message BuildMetrics {
     Distribution value_store_write_batch_latency_micros = 20;
     Distribution analysis_cache_read_latency_micros = 21;
     Distribution analysis_cache_read_batch_latency_micros = 22;
+
+    repeated Entry cache_misses_by_reason = 23;
+    repeated Entry cache_misses_by_skyfunction = 24;
+    repeated Entry cache_hits_by_skyfunction = 25;
 
     // The result of the Skycache metadata lookup.
     devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;

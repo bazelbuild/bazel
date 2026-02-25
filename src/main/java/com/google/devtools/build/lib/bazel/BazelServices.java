@@ -26,6 +26,7 @@ public final class BazelServices {
           new com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
+          new com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl(),
           new com.google.devtools.build.lib.unix.ProcessUtilsServiceImpl());
 
   private BazelServices() {}

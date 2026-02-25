@@ -103,16 +103,6 @@ public final class BinTools {
    * <p>Used for tests that need a set of embedded tools to be present, but not the actual files.
    */
   @VisibleForTesting
-  public static BinTools forUnitTesting(BlazeDirectories directories, Iterable<String> tools) {
-    return new BinTools(directories, ImmutableList.copyOf(tools));
-  }
-
-  /**
-   * Creates an instance for testing without actually symlinking the tools.
-   *
-   * <p>Used for tests that need a set of embedded tools to be present, but not the actual files.
-   */
-  @VisibleForTesting
   public static BinTools forUnitTesting(Path execroot, Iterable<String> tools) {
     return new BinTools(execroot.getRelative("/fake/embedded/tools"), ImmutableList.copyOf(tools));
   }

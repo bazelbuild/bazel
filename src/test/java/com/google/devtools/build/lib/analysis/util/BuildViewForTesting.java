@@ -255,7 +255,8 @@ public class BuildViewForTesting {
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
         /* additionalConfigurationChangeEvent= */ Optional.empty(),
-        /* remoteAnalysisCachingDependenciesProvider= */ DisabledDependenciesProvider.INSTANCE);
+        /* remoteAnalysisCachingDependenciesProvider= */ DisabledDependenciesProvider.INSTANCE,
+        DisabledDependenciesProvider.INSTANCE);
   }
 
   /** Sets the configuration. Not thread-safe. */

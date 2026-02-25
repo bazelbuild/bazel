@@ -333,7 +333,11 @@ public class IndexRegistryTest extends FoundationTestCase {
         {
             "type": "git_repository",
             "remote": "https://github.com/raspberrypi/pico-sdk.git",
-            "commit": "4b6e647590213f253f2789ad9026df1d00f38c5d"
+            "commit": "4b6e647590213f253f2789ad9026df1d00f38c5d",
+            "patches": {
+                "foo.patch": "sha256-totallyarealhash"
+            },
+            "patch_strip": 1
         }
         """);
     server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
@@ -365,6 +369,11 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"foo\", version = \"1.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
+                .setRemotePatches(
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/patches/foo.patch",
+                        "sha256-totallyarealhash"))
+                .setRemotePatchStrip(1)
                 .build());
   }
 

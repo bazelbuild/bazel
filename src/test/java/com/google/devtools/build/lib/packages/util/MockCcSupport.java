@@ -294,7 +294,9 @@ public abstract class MockCcSupport {
         ImmutableList.of(
             "cc/private/rules_impl/native.bzl",
             "cc/private/rules_impl/native_cc_common.bzl",
-            "cc/private/rules_impl/native_providers.bzl")) {
+            "cc/private/rules_impl/native_providers.bzl",
+            // New files, not yet visible to bazel.
+            "cc/private/rules_impl/wrappers/BUILD")) {
       try {
         config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,

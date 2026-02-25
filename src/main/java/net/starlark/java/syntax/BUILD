@@ -62,6 +62,7 @@ java_library(
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
+        "SyntaxUtils.java",
         "TokenKind.java",
         "TypeAliasStatement.java",
         "TypeApplication.java",

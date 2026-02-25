@@ -19,7 +19,7 @@ java_library(
         "UnixFileSystem.java",
     ],
     deps = [
-        ":native_posix_files",
+        ":native_posix_files_service",
         ":unix_mode",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -42,13 +42,21 @@ java_library(
 )
 
 java_library(
-    name = "native_posix_files",
-    srcs = ["NativePosixFiles.java"],
+    name = "native_posix_files_service",
+    srcs = [
+        "InvalidArgumentIOException.java",
+        "NativePosixFilesService.java",
+    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
+)
+
+java_library(
+    name = "native_posix_files_service_impl",
+    srcs = ["NativePosixFilesServiceImpl.java"],
     deps = [
+        ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
     ],
 )
 

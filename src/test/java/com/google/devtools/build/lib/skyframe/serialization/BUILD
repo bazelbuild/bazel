@@ -455,6 +455,7 @@ java_library(
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@maven//:org_apache_commons_commons_lang3",
     ],
 )
 

@@ -15,6 +15,7 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,12 +30,29 @@ public class TypesTest {
 
   /** Asserts {@code t1} is assignable to {@code t2}. */
   private static void assertLt(StarlarkType t1, StarlarkType t2) {
-    assertThat(StarlarkType.assignableFrom(t2, t1)).isTrue();
+    assertWithMessage("%s is expected to be assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1))
+        .isTrue();
   }
 
   /** Asserts {@code t1} is *not* assignable to {@code t2}. */
   private static void assertNotLt(StarlarkType t1, StarlarkType t2) {
-    assertThat(StarlarkType.assignableFrom(t2, t1)).isFalse();
+    assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
+        .that(StarlarkType.assignableFrom(t2, t1))
+        .isFalse();
+  }
+
+  /**
+   * Asserts that the given types form a strict chain of assignability, with the ith element being
+   * assignable to all jth elements where i < j, but not vice versa.
+   */
+  private static void assertStrictLtChain(StarlarkType... types) {
+    for (int i = 0; i < types.length - 1; i++) {
+      for (int j = i + 1; j < types.length; j++) {
+        assertLt(types[i], types[j]);
+        assertNotLt(types[j], types[i]);
+      }
+    }
   }
 
   @Test
@@ -91,6 +109,34 @@ public class TypesTest {
     assertNotLt(intOrFloatOrStr, intOrStr);
     assertNotLt(intOrStr, floatOrStr);
     assertNotLt(floatOrStr, intOrStr);
+  }
+
+  @Test
+  public void assignability_collection_subtypes() {
+    StarlarkType intOrStr = Types.union(Types.INT, Types.STR);
+
+    assertStrictLtChain(
+        Types.list(Types.INT), Types.sequence(Types.INT), Types.collection(Types.INT));
+
+    assertStrictLtChain(
+        Types.tuple(Types.INT, Types.STR, Types.INT, Types.STR),
+        Types.homogeneousTuple(intOrStr),
+        Types.sequence(intOrStr),
+        Types.collection(intOrStr));
+
+    assertStrictLtChain(Types.set(Types.STR), Types.collection(Types.STR));
+    assertNotLt(Types.set(Types.STR), Types.sequence(Types.STR));
+
+    assertStrictLtChain(
+        Types.dict(Types.STR, Types.INT),
+        Types.mapping(Types.STR, Types.INT),
+        Types.collection(Types.STR));
+    assertNotLt(Types.dict(Types.STR, Types.INT), Types.sequence(Types.STR));
+
+    // Works with unions too.
+    assertStrictLtChain(
+        Types.union(Types.dict(Types.STR, Types.INT), Types.list(Types.STR)),
+        Types.union(Types.collection(Types.STR), Types.collection(Types.BOOL)));
   }
 
   @Test

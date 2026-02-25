@@ -66,6 +66,8 @@ common --tool_java_runtime_version=remotejdk_25
 # TODO: Remove this after migrating more code to use VarHandles.
 common --javacopt=-Xlint:-removal
 common --host_javacopt=-Xlint:-removal
+# Use a bootclasspath version matching the language version.
+common --@rules_java//toolchains:incompatible_language_version_bootclasspath
 
 # Fail if a classpath contains different versions of the same class
 common --experimental_one_version_enforcement=ERROR

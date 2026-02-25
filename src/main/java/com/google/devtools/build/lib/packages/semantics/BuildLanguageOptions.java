@@ -415,7 +415,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_no_implicit_file_export",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -1075,7 +1075,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
-      "-incompatible_no_implicit_file_export";
+      FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME;
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =

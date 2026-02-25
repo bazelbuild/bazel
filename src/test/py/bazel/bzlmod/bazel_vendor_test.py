@@ -784,11 +784,16 @@ class BazelVendorTest(test_base.TestBase):
             '    ctx.symlink("data", "sym_foo")',
             # Symlink to a file in another repo
             '    ctx.symlink(ctx.path(Label("@bar//:data")), "sym_bar")',
+            # Symlink to a file in the main repo
+            (
+                '    ctx.symlink(ctx.path(Label("@@//:main_repo.txt")),'
+                ' "sym_main")'
+            ),
             # Symlink to a directory in another repo
             '    ctx.symlink("../+ext+bar/pkg", "sym_pkg")',
             (
                 '    ctx.file("BUILD", "exports_files([\'sym_abs\','
-                " 'sym_foo','sym_bar', 'sym_pkg/data'])\")"
+                " 'sym_foo','sym_bar', 'sym_main', 'sym_pkg/data'])\")"
             ),
             'repo_foo = repository_rule(implementation=_repo_foo_impl)',
             '',
@@ -812,37 +817,53 @@ class BazelVendorTest(test_base.TestBase):
             '  name = "print_paths",',
             (
                 '  srcs = ["@foo//:sym_abs", "@foo//:sym_foo",'
-                ' "@foo//:sym_bar", "@foo//:sym_pkg/data"],'
+                ' "@foo//:sym_bar", "@foo//:sym_pkg/data", "@foo//:sym_main"],'
             ),
             '  outs = ["output.txt"],',
             '  cmd = "cat $(SRCS) > $@",',
             ')',
         ],
     )
+    self.ScratchFile('main_repo.txt', ['Hello from main repo!\n'])
     self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@foo'])
     self.RunBazel(['clean', '--expunge'])
     self.AssertPathIsSymlink(self._test_cwd + '/vendor/bazel-external')
 
-    # Move the vendor directory to a new location and use a new output base,
-    # it should still work
-    os.rename(self._test_cwd + '/vendor', self._test_cwd + '/vendor_new')
+    # Move the vendor directory to a new location and use a new output base and
+    # a new workspace, it should still work
+    new_wd = self._test_cwd + '/new'
+    try:
+      shutil.copytree(self._test_cwd, new_wd, symlinks=True)
+    except shutil.Error:
+      if not self.IsWindows():
+        raise
+      # On Windows, broken directory junctions (e.g. vendor/bazel-external
+      # pointing to the now-expunged external root) can't be copied by
+      # shutil.copytree. These junctions will be recreated by Bazel.
+    # Verify that this file in the old workspace is not referenced by absolute
+    # path
+    os.remove(self._test_cwd + '/main_repo.txt')
     output_base = tempfile.mkdtemp(dir=self._tests_root)
-    self.RunBazel([
-        f'--output_base={output_base}',
-        'build',
-        '//:print_paths',
-        '--vendor_dir=vendor_new',
-        '--verbose_failures',
-    ])
+    self.RunBazel(
+        [
+            f'--output_base={output_base}',
+            'build',
+            '//:print_paths',
+            '--vendor_dir=vendor',
+            '--verbose_failures',
+        ],
+        cwd=new_wd,
+    )
     _, stdout, _ = self.RunBazel(
-        [f'--output_base={output_base}', 'info', 'output_base']
+        [f'--output_base={output_base}', 'info', 'output_base'],
+        cwd=new_wd,
     )
     self.AssertPathIsSymlink(stdout[0] + '/external/+ext+foo')
-    output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
+    output = os.path.join(new_wd, './bazel-bin/output.txt')
     self.AssertFileContentContains(
         output,
         'Hello from abs!\nHello from foo!\nHello from bar!\nHello from pkg'
-        ' bar!\n',
+        ' bar!\nHello from main repo!\n',
     )
 
   def testVendorAliasTarget(self):

@@ -1740,10 +1740,15 @@ public final class ParserTest {
   }
 
   @Test
-  public void testEllipsisAllowedInTypeExpressions() throws Exception {
+  public void testEllipsisAllowedInTypeExpressionArgumentsOnly() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
-    parseStatement("x : Tuple[int, ...]");
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(false).build());
+    parseStatement("x : tuple[int, ...]");
+    assertThat(parseStatementError("x : ...")).contains("syntax error at '...': expected a type");
+    assertThat(parseStatementError("x : int | ..."))
+        .contains("syntax error at '...': expected identifier");
+    assertThat(parseStatementError("x : tuple[int | ...]"))
+        .contains("syntax error at '...': expected identifier");
   }
 
   @Test

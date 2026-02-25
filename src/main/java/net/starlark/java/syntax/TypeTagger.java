@@ -149,6 +149,9 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
       }
+      case ELLIPSIS -> {
+        return TypeConstructor.Arg.ELLIPSIS;
+      }
       default -> {
         // TODO(ilist@): full evaluation: lists and dicts
         errorf(expr, "unexpected expression '%s'", expr);

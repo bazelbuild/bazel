@@ -57,7 +57,6 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * "materialization" to refer to the process of substituting {@code Any}.
    */
   // TODO: #28043 - Add support for:
-  // - subtyping (list[int] <= Sequence[int])
   // - covariance (Sequence[int] <= Sequence[object])
   // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
   // - transitive application of all of the above
@@ -76,6 +75,9 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     }
     if (t1 instanceof Types.UnionType union1) {
       return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
+    }
+    if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
+      return true;
     }
     return false;
   }

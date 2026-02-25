@@ -25,6 +25,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.SyntaxUtils;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
@@ -119,11 +120,11 @@ final class StringModule implements StarlarkValue {
     int n = str.length();
     int istart = 0;
     if (start != Starlark.NONE) {
-      istart = EvalUtils.toIndex(Starlark.toInt(start, "start"), n);
+      istart = SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), n);
     }
     int iend = n;
     if (end != Starlark.NONE) {
-      iend = EvalUtils.toIndex(Starlark.toInt(end, "end"), n);
+      iend = SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), n);
     }
     if (iend < istart) {
       iend = istart; // => empty result

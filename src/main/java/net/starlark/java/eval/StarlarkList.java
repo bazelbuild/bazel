@@ -34,6 +34,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.SyntaxUtils;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
@@ -384,11 +385,17 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
-        @Param(name = "index", doc = "The index of the given position."),
+        @Param(
+            name = "index",
+            doc =
+                "The index the item will be at after insertion. If the index is out of range, it's"
+                    + " transformed into an effective index in the range from 0 to the list's"
+                    + " previous length, inclusive, in the same manner as for the start index of a"
+                    + " slice operator."),
         @Param(name = "item", doc = "The item.")
       })
   public void insert(StarlarkInt index, E item) throws EvalException {
-    addElementAt(EvalUtils.toIndex(index.toInt("index"), size()), item); // unchecked
+    addElementAt(SyntaxUtils.toSliceBound(index.toInt("index"), size()), item); // unchecked
   }
 
   @StarlarkMethod(
@@ -402,8 +409,9 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   @StarlarkMethod(
       name = "index",
       doc =
-          "Returns the index in the list of the first item whose value is x. "
-              + "It is an error if there is no such item.",
+          "Returns the index in the list of the first item whose value is x. It is an error if"
+              + " there is no such item. If <code>start</code> and <code>end</code> are given,"
+              + " they restrict the range searched in the same manner as slicing.",
       parameters = {
         @Param(name = "x", doc = "The object to search."),
         @Param(
@@ -420,8 +428,12 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   public int index(E x, Object start, Object end) throws EvalException {
     int size = size();
     Object[] elems = elems();
-    int i = start == Starlark.UNBOUND ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
-    int j = end == Starlark.UNBOUND ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
+    int i =
+        start == Starlark.UNBOUND
+            ? 0
+            : SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), size);
+    int j =
+        end == Starlark.UNBOUND ? size : SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;

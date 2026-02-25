@@ -271,7 +271,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()) {
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(
           configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
@@ -379,7 +379,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
               state.computeDependenciesState.transitivePackages(),
-              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRetrievalEnabled(),
+              /* crashIfExecutionPhase= */ !remoteCachingDependencies.mode().isRetrievalEnabled(),
               remoteCachingDependencies.mode());
       if (ans != null && analysisProgress != null) {
         analysisProgress.doneConfigureTarget();

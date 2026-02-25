@@ -236,7 +236,7 @@ public final class Types {
 
     @Override
     protected boolean isComparable(StarlarkType that) {
-      return that.equals(Types.BOOL) || that.equals(Types.ANY);
+      return StarlarkType.assignableFrom(Types.BOOL, that);
     }
   }
 
@@ -274,9 +274,7 @@ public final class Types {
 
     @Override
     protected boolean isComparable(StarlarkType that) {
-      // TODO: #27370 - we are expressing "other is-consistent-subtype-of NUMERIC", which supposed
-      // to be (but currently isn't) implemented by StarlarkType.assignableFrom.
-      return that.equals(INT) || that.equals(FLOAT) || that.equals(NUMERIC) || that.equals(ANY);
+      return StarlarkType.assignableFrom(NUMERIC, that);
     }
   }
 
@@ -308,9 +306,7 @@ public final class Types {
 
     @Override
     protected boolean isComparable(StarlarkType that) {
-      // TODO: #27370 - we are expressing "other is-consistent-subtype-of NUMERIC", which supposed
-      // to be (but currently isn't) implemented by StarlarkType.assignableFrom.
-      return that.equals(INT) || that.equals(FLOAT) || that.equals(NUMERIC) || that.equals(ANY);
+      return StarlarkType.assignableFrom(NUMERIC, that);
     }
   }
 
@@ -681,52 +677,29 @@ public final class Types {
     }
   }
 
-  public static TupleType tuple(ImmutableList<StarlarkType> elementTypes) {
-    return new AutoValue_Types_TupleType(elementTypes);
+  public static FixedLengthTupleType tuple(ImmutableList<StarlarkType> elementTypes) {
+    return new AutoValue_Types_FixedLengthTupleType(elementTypes);
   }
 
-  /** Tuple type of a fixed length. */
-  @AutoValue
-  public abstract static class TupleType extends AbstractSequenceType {
-    public abstract ImmutableList<StarlarkType> getElementTypes();
+  public static FixedLengthTupleType tuple(StarlarkType... types) {
+    return tuple(ImmutableList.copyOf(types));
+  }
 
-    @Override
-    public StarlarkType getElementType() {
-      return union(getElementTypes());
-    }
+  public static HomogeneousTupleType homogeneousTuple(StarlarkType elementType) {
+    return new AutoValue_Types_HomogeneousTupleType(elementType);
+  }
 
-    @Override
-    public List<StarlarkType> getSupertypes() {
-      StarlarkType elementType = union(ImmutableSet.copyOf(getElementTypes()));
-      return ImmutableList.of(sequence(elementType), collection(elementType));
-    }
-
-    @Override
-    public final String toString() {
-      return "tuple["
-          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
-          + "]";
-    }
-
+  /** Tuple type. */
+  public abstract static sealed class TupleType extends AbstractSequenceType
+      permits FixedLengthTupleType, HomogeneousTupleType {
     /** Returns the type of this tuple concatenated with another. */
-    TupleType concatenate(TupleType rhs) {
-      // TODO: #27728 - revisit concatenation when we support tuples of indeterminate shape.
-      return tuple(
-          ImmutableList.<StarlarkType>builder()
-              .addAll(getElementTypes())
-              .addAll(rhs.getElementTypes())
-              .build());
-    }
+    abstract TupleType concatenate(TupleType rhs);
 
     /** Returns the type of this tuple repeated. */
-    TupleType repeat(int times) {
-      // TODO: #27728 - revisit concatenation when we support tuples of indeterminate shape.
-      ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
-      for (int i = 0; i < times; i++) {
-        builder.addAll(getElementTypes());
-      }
-      return tuple(builder.build());
-    }
+    abstract TupleType repeat(int times);
+
+    /** Returns the homogeneous version of this tuple type. */
+    public abstract HomogeneousTupleType toHomogeneous();
 
     @Override
     @Nullable
@@ -738,12 +711,66 @@ public final class Types {
         default -> super.inferBinaryOperator(operator, that, thisLeft);
       };
     }
+  }
+
+  /** Tuple type of a fixed length. */
+  @AutoValue
+  public abstract static non-sealed class FixedLengthTupleType extends TupleType {
+    public abstract ImmutableList<StarlarkType> getElementTypes();
+
+    @Override
+    public StarlarkType getElementType() {
+      return union(getElementTypes());
+    }
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      HomogeneousTupleType homogeneous = toHomogeneous();
+      return ImmutableList.of(
+          homogeneous,
+          sequence(homogeneous.getElementType()),
+          collection(homogeneous.getElementType()));
+    }
+
+    @Override
+    public final String toString() {
+      return "tuple["
+          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
+          + "]";
+    }
+
+    @Override
+    TupleType concatenate(TupleType rhs) {
+      if (rhs instanceof FixedLengthTupleType rhsFixedLength) {
+        return tuple(
+            ImmutableList.<StarlarkType>builder()
+                .addAll(getElementTypes())
+                .addAll(rhsFixedLength.getElementTypes())
+                .build());
+      } else {
+        return toHomogeneous().concatenate(rhs);
+      }
+    }
+
+    @Override
+    FixedLengthTupleType repeat(int times) {
+      ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
+      for (int i = 0; i < times; i++) {
+        builder.addAll(getElementTypes());
+      }
+      return tuple(builder.build());
+    }
+
+    @Override
+    public HomogeneousTupleType toHomogeneous() {
+      return homogeneousTuple(union(getElementTypes()));
+    }
 
     @Override
     protected boolean isComparable(StarlarkType that) {
       if (that.equals(Types.ANY)) {
         return true;
-      } else if (that instanceof TupleType thatTuple) {
+      } else if (that instanceof FixedLengthTupleType thatTuple) {
         int commonLength = Math.min(getElementTypes().size(), thatTuple.getElementTypes().size());
         for (int i = 0; i < commonLength; i++) {
           if (!comparable(getElementTypes().get(i), thatTuple.getElementTypes().get(i))) {
@@ -751,6 +778,51 @@ public final class Types {
           }
         }
         return true;
+      }
+      // Comparison with HomogeneousTupleType defers to HomogeneousTupleType.
+      return false;
+    }
+  }
+
+  /** Tuple type of an indeterminate length. */
+  @AutoValue
+  public abstract static non-sealed class HomogeneousTupleType extends TupleType {
+    @Override
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
+    }
+
+    @Override
+    public final String toString() {
+      return "tuple[" + getElementType() + ", ...]";
+    }
+
+    @Override
+    HomogeneousTupleType concatenate(TupleType rhs) {
+      return rhs instanceof HomogeneousTupleType rhsHomogeneous
+          ? homogeneousTuple(union(getElementType(), rhsHomogeneous.getElementType()))
+          : concatenate(rhs.toHomogeneous());
+    }
+
+    @Override
+    TupleType repeat(int times) {
+      return times > 0 ? this : tuple();
+    }
+
+    @Override
+    public HomogeneousTupleType toHomogeneous() {
+      return this;
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof TupleType thatTuple) {
+        return comparable(getElementType(), thatTuple.toHomogeneous().getElementType());
       }
       return false;
     }
@@ -829,6 +901,11 @@ public final class Types {
     public abstract StarlarkType getKeyType();
 
     public abstract StarlarkType getValueType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getKeyType()));
+    }
 
     @Override
     public StarlarkType getElementType() {
@@ -941,6 +1018,24 @@ public final class Types {
   private static final TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return args -> tuple(toStarlarkTypes("tuple", args));
+    return args -> {
+      for (int i = 0; i < args.size(); i++) {
+        TypeConstructor.Arg arg = args.get(i);
+        if (arg.equals(TypeConstructor.Arg.ELLIPSIS)) {
+          if (i == 1 && args.size() == 2) {
+            return homogeneousTuple((StarlarkType) args.getFirst());
+          }
+          throw new TypeConstructor.Failure(
+              "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
+                  + " where the first argument is a type");
+        } else if (!(arg instanceof StarlarkType)) {
+          throw new TypeConstructor.Failure(
+              String.format("in application to tuple, got '%s', expected a type", arg));
+        }
+      }
+      @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+      var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+      return tuple(result);
+    };
   }
 }

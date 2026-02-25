@@ -268,7 +268,7 @@ final class AspectFunction implements SkyFunction {
 
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()) {
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
           return null;
