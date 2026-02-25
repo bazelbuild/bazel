@@ -979,7 +979,7 @@ EOF
 
   bazel cquery "//$pkg:all" --output=starlark \
     --starlark:expr="str(target.label) + '%' + str(providers(target)['DefaultInfo'].files.to_list()[1].is_directory)" \
-    > output 2>"$TEST_log" || fail "Expected success"
+    > output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "//$pkg:pylibtwo%False" output
   # pylib evaluation will fail, as it has only one output file.
@@ -1007,7 +1007,7 @@ def format(t):
 EOF
 
   bazel cquery "//$pkg:all" --output=starlark --starlark:file="$pkg/outfunc_isdir.bzl" \
-    >output 2>"$TEST_log" || fail "Expected success"
+    >output 2>"$TEST_log" && fail "Expected failure"
 
   assert_contains "//$pkg:pylibtwo%False" output
   # pylib evaluation will fail, as it has only one output file.
