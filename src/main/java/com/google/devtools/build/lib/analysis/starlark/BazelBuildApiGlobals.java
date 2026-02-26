@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
@@ -63,12 +65,15 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       throw Starlark.errorf("load visibility may not be set more than once");
     }
 
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+    RepositoryMapping repoMapping = moduleContext.repoMapping();
+
     RepositoryName repo = context.getBzlFile().getRepository();
     ImmutableList<PackageSpecification> specs;
     if (value instanceof String) {
       // `visibility("public")`, `visibility("private")`, visibility("//pkg")
       specs =
-          ImmutableList.of(PackageSpecification.fromStringForBzlVisibility(repo, (String) value));
+          ImmutableList.of(PackageSpecification.fromStringForBzlVisibility(repoMapping, repo, (String) value));
     } else if (value instanceof StarlarkList) {
       // `visibility(["//pkg1", "//pkg2", ...])`
       List<String> specStrings = Sequence.cast(value, String.class, "visibility list");
@@ -76,7 +81,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
           ImmutableList.builderWithExpectedSize(specStrings.size());
       for (String specString : specStrings) {
         PackageSpecification spec =
-            PackageSpecification.fromStringForBzlVisibility(repo, specString);
+            PackageSpecification.fromStringForBzlVisibility(repoMapping, repo, specString);
         specsBuilder.add(spec);
       }
       specs = specsBuilder.build();
