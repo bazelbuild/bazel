@@ -1319,34 +1319,26 @@ class BazelWindowsCppTest(test_base.TestBase):
             'cc_library(',
             '    name = "lib",',
             '    srcs = ["hello.cc"],',
-            '    hdrs = glob(["include/**"]),',
-            '    # "Include" differs in case from the on-disk "include".',
-            '    includes = ["Include"],',
+            '    hdrs = glob(["Include/**"]),',
             ')',
         ],
     )
     self.ScratchFile(
         'pkg/hello.cc',
         [
-            '#include "shared/BaseTsd.h"',
+            '#include "include/shared/basetsd.h"',
             'int hello() { return base_tsd_value(); }',
         ],
     )
     self.ScratchFile(
-        'pkg/include/shared/BaseTsd.h',
+        'pkg/Include/shared/BaseTsd.h',
         [
             '#pragma once',
             'static inline int base_tsd_value() { return 1; }',
         ],
     )
 
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//pkg:lib'], allow_failure=True
-    )
-    self.AssertExitCode(exit_code, 1, stderr)
-    stderr_text = ''.join(stderr)
-    self.assertIn("undeclared inclusion(s) in rule '//pkg:lib'", stderr_text)
-    self.assertIn('Include/shared/BaseTsd.h', stderr_text)
+    self.RunBazel(['build', '//pkg:lib'])
 
 if __name__ == '__main__':
   absltest.main()
