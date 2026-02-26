@@ -701,7 +701,7 @@ class MockTest(unittest2.TestCase):
         # needed because assertRaisesRegex doesn't work easily with newlines
         try:
             func(*args, **kwargs)
-        except:
+        except Exception:
             instance = sys.exc_info()[1]
             self.assertIsInstance(instance, exception)
         else:

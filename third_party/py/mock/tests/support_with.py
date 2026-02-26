@@ -21,7 +21,7 @@ except ImportError:
                 vars.append(enter())
                 exits.append(exit)
             yield vars
-        except:
+        except Exception:
             exc = sys.exc_info()
         finally:
             while exits:
@@ -29,7 +29,7 @@ except ImportError:
                 try:
                     if exit(*exc):
                         exc = (None, None, None)
-                except:
+                except Exception:
                     exc = sys.exc_info()
             if exc != (None, None, None):
                 raise exc[1]

@@ -113,7 +113,7 @@ class ArgumentParser(argparse.ArgumentParser):
     """Initializes ArgumentParser.
 
     Args:
-      **kwargs: same as argparse.ArgumentParser, except:
+      **kwargs: same as argparse.ArgumentParser, except Exception:
           1. It also accepts `inherited_absl_flags`: the absl flags to inherit.
              The default is the global absl.flags.FLAGS instance. Pass None to
              ignore absl flags.

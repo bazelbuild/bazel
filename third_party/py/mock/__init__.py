@@ -1199,7 +1199,7 @@ class _patch(object):
 
                     args += tuple(extra_args)
                     return func(*args, **keywargs)
-                except:
+                except Exception:
                     if (patching not in entered_patchers and
                         _is_started(patching)):
                         # the patcher may have been started, but an exception

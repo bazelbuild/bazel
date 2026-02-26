@@ -308,7 +308,7 @@ def run(
       _run_main(main, args)
     except UsageError as error:
       usage(shorthelp=True, detailed_error=error, exitcode=error.exitcode)
-    except:
+    except Exception:
       exc = sys.exc_info()[1]
       # Don't try to post-mortem debug successful SystemExits, since those
       # mean there wasn't actually an error. In particular, the test framework

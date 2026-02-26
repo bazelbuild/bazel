@@ -167,7 +167,7 @@ class _FlagOverrider(object):
     self._saved_flag_values = save_flag_values(FLAGS)
     try:
       FLAGS._set_attributes(**self._overrides)
-    except:
+    except Exception:
       # It may fail because of flag validators.
       restore_flag_values(self._saved_flag_values, FLAGS)
       raise

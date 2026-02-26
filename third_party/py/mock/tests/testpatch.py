@@ -1024,7 +1024,7 @@ class PatchTest(unittest2.TestCase):
             raise AssertionError
         try:
             test()
-        except:
+        except Exception:
             err = sys.exc_info()
 
         result = unittest2.TextTestResult(None, None, 0)
