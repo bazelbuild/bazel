@@ -124,7 +124,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
           inputsToCreate,
           dirsToCreate,
           Iterables.concat(
-              ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+              inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
           outputs);
     }
 

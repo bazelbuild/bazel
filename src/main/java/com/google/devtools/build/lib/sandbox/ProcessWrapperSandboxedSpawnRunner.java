@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.IOException;
 import java.time.Duration;
 
@@ -92,10 +94,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
+    ImmutableList<String> commandLine = commandLineBuilder.build();
     return new SymlinkedSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,
-        commandLineBuilder.build(),
+        commandLine,
         environment,
         inputs,
         outputs,
@@ -103,7 +106,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         treeDeleter,
         /* sandboxDebugPath= */ null,
         statisticsPath,
-        /* interactiveDebugArguments= */ null,
+        getSandboxOptions().sandboxDebug ? commandLine : null,
         spawn.getMnemonic(),
         spawn.getTargetLabel());
   }
