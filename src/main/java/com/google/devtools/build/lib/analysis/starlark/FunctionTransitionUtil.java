@@ -721,7 +721,7 @@ public final class FunctionTransitionUtil {
             }
             def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
-            convertedAffectedOptions.add(optionKey);
+            convertedAffectedOptions.add(optionKey.toString());
           }
 
         } catch (IllegalArgumentException e) {
