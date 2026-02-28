@@ -3268,9 +3268,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
           "build_python_zip",
-          "@@rules_python+//python/config_settings:build_python_zip",
+          "@rules_python//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
-          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
+          "@rules_python//python/config_settings:incompatible_default_to_explicit_init_py");
 
   /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
@@ -3278,9 +3278,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
       ImmutableMap.of(
           "python_path",
-          "@@rules_python+//python/config_settings:python_path",
+          "@rules_python//python/config_settings:python_path",
           "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+          "@rules_python//python/config_settings:experimental_python_import_all_repositories");
 
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
@@ -3300,7 +3300,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
       aliasesMap.putAll(flagAliases);
-      if (!module.getKey().name().equals("rules_python")) {
+      if (!module.getValue().getName().equals("rules_python")) {
         continue;
       }
       // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
