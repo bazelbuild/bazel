@@ -285,11 +285,17 @@ public final class FunctionTransitionUtil {
         if (starlarkOptions.containsKey(anotherFlag)) {
           ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
         } else {
+          // Native options (//command_line_option:*) are keyed by their short name (e.g.,
+          // "compilation_mode") in FragmentOptions.asMap(), not by their full canonical label form.
+          String nativeOptionKey =
+              anotherFlag.getPackageIdentifier().equals(COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)
+                  ? anotherFlag.getName()
+                  : anotherFlag.getUnambiguousCanonicalForm();
           boolean found = false;
           for (FragmentOptions fragment : options.getNativeOptions()) {
             Map<String, Object> nativeOptions = fragment.asMap();
-            if (nativeOptions.containsKey(anotherFlag.getUnambiguousCanonicalForm())) {
-              ans.put(entry.getKey(), nativeOptions.get(anotherFlag.getUnambiguousCanonicalForm()));
+            if (nativeOptions.containsKey(nativeOptionKey)) {
+              ans.put(entry.getKey(), nativeOptions.get(nativeOptionKey));
               found = true;
               break;
             }
@@ -299,8 +305,8 @@ public final class FunctionTransitionUtil {
             throw new IllegalStateException(
                 "Flag "
                     + anotherFlag
-                    + " is not found in the starlark options or native options. It should be one of"
-                    + " them.");
+                    + " is not found in the starlark options or native options. It should be one"
+                    + " of them.");
           }
         }
       }

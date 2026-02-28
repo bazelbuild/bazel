@@ -552,6 +552,42 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
+  public void starlarkFlagExecScopeReferencingNativeFlag() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(), "on_leave_scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "flag_following_compilation_mode",
+            build_setting_default = "default",
+            scope = "exec:--//command_line_option:compilation_mode",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of("//test:flag_following_compilation_mode", "target_value"),
+            "--compilation_mode=dbg",
+            "--experimental_exclude_starlark_flags_from_exec_config=true");
+
+    // The flag's value in exec config should match the target config's --compilation_mode value.
+    assertThat(execConfig.getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:flag_following_compilation_mode"),
+            CompilationMode.DBG);
+  }
+
+  @Test
   public void starlarkFlagExecScopes_take_precedence_over_custom_overrides() throws Exception {
     scratch.file("my_starlark_flag/BUILD");
     scratch.file(
