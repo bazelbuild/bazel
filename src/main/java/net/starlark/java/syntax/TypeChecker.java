@@ -872,6 +872,9 @@ public final class TypeChecker extends NodeVisitor {
    * Recursively typechecks the assignment of type {@code rhsType} to the target expression {@code
    * lhs}.
    *
+   * <p>Mutates the types on the {@link Resolver.Binding} objects of untyped variables by setting
+   * them to their inferred type (if this is the first assignment to that variable in typed code).
+   *
    * <p>The asymmetry of the parameter types comes from the fact that this helper recursively
    * decomposes the LHS syntactically, whereas the RHS has already been fully evaluated to a type.
    * For instance, {@code x, y = (1, 2)} and {@code x, y = my_pair} both trigger the same behavior
@@ -882,32 +885,69 @@ public final class TypeChecker extends NodeVisitor {
   private void assign(Expression lhs, StarlarkType rhsType) {
     checkState(usesTypeSyntax());
 
+    if (lhs.kind() == Expression.Kind.LIST_EXPR) {
+      assignSequence((ListExpression) lhs, rhsType);
+      return;
+    }
+
     // infer() handles Identifier and DotExpression. The type for evaluating these expressions in a
     // read context is the same as its type for assignment purposes.
     StarlarkType lhsType = infer(lhs);
 
-    if (lhs.kind() == Expression.Kind.LIST_EXPR) {
-      // TODO: #28037 - support LHSs containing multiple targets (list expression), field
-      // assignments, and subscript assignments.
-      errorf(
-          lhs,
-          "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS");
-      return;
-    }
-
     if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
-      errorf(
-          lhs.getStartLocation(),
-          "cannot assign type '%s' to '%s' of type '%s'",
-          rhsType,
-          lhs,
-          lhsType);
+      errorf(lhs, "cannot assign type '%s' to '%s' of type '%s'", rhsType, lhs, lhsType);
       return;
     }
 
     if (lhs instanceof Identifier id && id.getBinding().getType() == null) {
       // If a variable has not been typed, infer its type from the rhs of the first assignment.
       id.getBinding().setType(rhsType);
+    }
+  }
+
+  private void assignSequence(ListExpression lhs, StarlarkType rhsType) {
+    if (rhsType.equals(Types.ANY)) {
+      for (Expression element : lhs.getElements()) {
+        assign(element, Types.ANY);
+      }
+      return;
+    }
+
+    // We effectively need to transform what may be a union of iterables into a fixed-length tuple
+    // of unions; e.g. list[int] | tuple[str, bool] => tuple[int | str, int | bool].
+    // (Of course, any tuples in the rhsType union must be of the expected length.)
+    ImmutableCollection<StarlarkType> rhsUnionElements = Types.unfoldUnion(rhsType);
+    for (StarlarkType rhsUnionElement : rhsUnionElements) {
+      if (rhsUnionElement instanceof Types.FixedLengthTupleType rhsTuple) {
+        if (lhs.getElements().size() != rhsTuple.getElementTypes().size()) {
+          errorf(
+              lhs,
+              "cannot assign type '%s' to '%s'; want %d-element sequence",
+              rhsType,
+              lhs,
+              lhs.getElements().size());
+          return;
+        }
+      } else if (!rhsUnionElement.equals(Types.ANY)
+          && !(rhsUnionElement instanceof Types.AbstractCollectionType)) {
+        // TODO: #27370 - use `assignableFrom` once it supports covariance / materialization
+        // TODO: #28043 - consider checking for an Iterable type (as it is in the eval layer)
+        errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType, lhs);
+        return;
+      }
+    }
+    for (int i = 0; i < lhs.getElements().size(); i++) {
+      ArrayList<StarlarkType> rhsElementTypes = new ArrayList<>(rhsUnionElements.size());
+      for (StarlarkType rhsUnionElement : rhsUnionElements) {
+        if (rhsUnionElement instanceof Types.FixedLengthTupleType rhsTuple) {
+          rhsElementTypes.add(rhsTuple.getElementTypes().get(i));
+        } else if (rhsUnionElement instanceof Types.AbstractCollectionType rhsCollection) {
+          rhsElementTypes.add(rhsCollection.getElementType());
+        } else if (rhsUnionElement.equals(Types.ANY)) {
+          rhsElementTypes.add(Types.ANY);
+        }
+      }
+      assign(lhs.getElements().get(i), Types.union(rhsElementTypes));
     }
   }
 

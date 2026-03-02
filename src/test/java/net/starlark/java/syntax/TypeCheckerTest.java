@@ -108,7 +108,23 @@ public final class TypeCheckerTest {
   private void assertTypeGivenDecls(String expr, StarlarkType expected, String... decls)
       throws Exception {
     StarlarkType actual = inferTypeGivenDecls(expr, decls);
-    assertThat(actual).isEqualTo(expected);
+    assertWithMessage("type of %s", expr).that(actual).isEqualTo(expected);
+  }
+
+  /**
+   * Like {@link #assertTypeGivenDecls}, but runs the typechecker on the whole file (and verifies
+   * that it succeeds) as well. Useful for tests of the computed type of an unannotated variable,
+   * which is set during a full typechecker pass but not when inferring the type of an expression.
+   */
+  private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
+      throws Exception {
+    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
+    TypeChecker.checkFile(file);
+    assertThat(file.errors()).isEmpty();
+    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    assertWithMessage("type of %s", expr)
+        .that(TypeChecker.inferTypeOf(resolvedExpr))
+        .isEqualTo(expected);
   }
 
   @Test
@@ -219,14 +235,84 @@ public final class TypeCheckerTest {
                 else:
                     n = 123
         """);
+  }
 
-    // TODO: #28037 - infer LHSs with multiple identifier targets
+  @Test
+  public void sequence_assignment() throws Exception {
+    assertValid(
+        """
+        x: int|str
+        x, y = 1, "2"
+        x, y = ["3", "4"]
+        x, y = {"a": 3.14, "b": 2.71}  # a dict is treated as its sequence of keys
+        s: set[str]
+        x, y = s
+        """);
+    // Multi-level lhs sequences
+    assertValid("(x, (y, z)) = [1, [2, 3]]");
+    assertValid(
+        """
+        y: list[int]
+        x, (y[0],) = 1, [2]
+        """);
+    assertValid(
+        """
+        a: list[Any]
+        (x, (y, [z])) = a
+        """);
+
     assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        ":2:1: cannot assign non-iterable type 'str' to '(x, y)'",
+        """
+        x: str
+        x, y = "ab"  # type error: strings are not iterable in Starlark
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[str]' to '(x, y)'; want 2-element sequence",
+        """
+        x: str
+        x, y = ("ab",)
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[int, int, int]' to '(x, y)'; want 2-element sequence",
+        """
+        x: int
+        x, y = 1, 2, 3
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int' and 'str'",
         """
         x: list[int] = [0]
         x[0], y, z = 1, 2, "3"
         y + z
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int|bool' and 'int|bool'",
+        """
+        z: list[int|bool]
+        x, y = z
+        x + y
+        """);
+
+    // Any and unions
+    assertTypeAfterTypecheck("x, y", Types.tuple(Types.ANY, Types.ANY), "z: Any; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.INT, Types.union(Types.INT, Types.STR)),
+        "z: list[int] | tuple[int, str]; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.union(Types.INT, Types.ANY), Types.union(Types.INT, Types.ANY)),
+        "z: list[int] | Any; x, y = z");
+    // lhs is type-checked even if rhs is Any.
+    assertInvalid(
+        ":3:2: cannot index 'x' of type 'int'",
+        """
+        x: int
+        z: Any
+        x[0], y = z
         """);
   }
 
@@ -1681,6 +1767,14 @@ public final class TypeCheckerTest {
                 f(x)
         """);
 
+    // Sequence assignment
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x, y in [(1, 2)]:
+                pass
+        """);
+
     assertInvalid(
         "'for' loop operand must be an iterable, got 'int'",
         """
@@ -1688,13 +1782,11 @@ public final class TypeCheckerTest {
             for x in 42:
                 pass
         """);
-
-    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
     assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        "cannot assign type 'tuple[int]' to '(x, y)'; want 2-element sequence",
         """
         def _wrapper() -> None:
-            for x, y in [(1, 2)]:
+            for x, y in [(42,)]:
                 pass
         """);
   }
@@ -1728,14 +1820,30 @@ public final class TypeCheckerTest {
                 pass
         """);
 
-    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
-    assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+    // Sequence assignment
+    assertValid(
         """
         def _wrapper() -> None:
             x: int
             y: str
             for x, y in [(1, "two")]:
+                pass
+        """);
+    assertInvalid(
+        ":3:9: cannot assign type 'str' to 'x' of type 'int'",
+        """
+        def _wrapper() -> None:
+            x: int
+            for x, y in [("three", 4)]:
+                pass
+        """);
+    assertInvalid(
+        ":4:12: cannot assign type 'int' to 'y' of type 'str'",
+        """
+        def _wrapper() -> None:
+            x: Any
+            y: str
+            for x, y in [("three", 4)]:
                 pass
         """);
   }
