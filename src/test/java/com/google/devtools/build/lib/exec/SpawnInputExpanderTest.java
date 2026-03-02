@@ -91,7 +91,8 @@ public final class SpawnInputExpanderTest {
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
     FilesetOutputSymlink link = filesetSymlink("zizz", "xyz/zizz");
-    FilesetOutputTree filesetOutputTree = FilesetOutputTree.create(ImmutableList.of(link));
+    FilesetOutputTree filesetOutputTree =
+        FilesetOutputTree.create(ImmutableList.of(link), /* treeArtifacts= */ ImmutableMap.of());
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(fileset, filesetOutputTree);
@@ -454,7 +455,10 @@ public final class SpawnInputExpanderTest {
     FilesetOutputSymlink link2 = filesetSymlink("foo/baz", "dir/file2");
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(fileset, FilesetOutputTree.create(ImmutableList.of(link1, link2)));
+        ImmutableMap.of(
+            fileset,
+            FilesetOutputTree.create(
+                ImmutableList.of(link1, link2), /* treeArtifacts= */ ImmutableMap.of()));
 
     SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 

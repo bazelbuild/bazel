@@ -386,8 +386,10 @@ java_library(
     name = "fileset_output_tree",
     srcs = ["FilesetOutputTree.java"],
     deps = [
+        ":artifacts",
         ":file_metadata",
         ":fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
     ],
