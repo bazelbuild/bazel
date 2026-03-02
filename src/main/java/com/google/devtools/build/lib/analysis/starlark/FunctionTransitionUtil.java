@@ -320,6 +320,9 @@ public final class FunctionTransitionUtil {
         .buildOrThrow();
   }
 
+  private static final List<String> TRUE_STRINGS = ImmutableList.of("true", "1");
+  private static final List<String> FALSE_STRINGS = ImmutableList.of("false", "0");
+
   /** Set the Starlark flag value to the value of its alias. */
   private static Map<Label, Object> applyStarlarkFlagsAliases(
       ImmutableMap<String, Label> flagsAliases, Map<Label, Object> rawTransitionOutput)
@@ -335,23 +338,42 @@ public final class FunctionTransitionUtil {
           Label.createUnvalidated(
               LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, flagAlias.getKey());
       Label starlarkFlag = flagAlias.getValue();
-
-      if (rawTransitionOutput.containsKey(starlarkFlag)
-          && rawTransitionOutput.containsKey(nativeFlag)) {
-        if (!rawTransitionOutput.get(starlarkFlag).equals(rawTransitionOutput.get(nativeFlag))) {
+      Optional<Object> starlarkValue =
+          rawTransitionOutput.containsKey(starlarkFlag)
+              ? Optional.of(rawTransitionOutput.get(starlarkFlag))
+              : Optional.empty();
+      Optional<Object> nativeValue =
+          rawTransitionOutput.containsKey(nativeFlag)
+              ? Optional.of(rawTransitionOutput.get(nativeFlag))
+              : Optional.empty();
+      if (starlarkValue.isPresent() && nativeValue.isPresent()) {
+        boolean mismatch = false;
+        if (starlarkValue.get() instanceof Boolean boolValue) {
+          // Supports migrating Tristate native flags to boolean Starlark flags. The former appear
+          // as strings. But if those strings are "false", "true", etc. those are valid booleans.
+          if (boolValue && !TRUE_STRINGS.contains(nativeValue.get().toString().toLowerCase())) {
+            mismatch = true;
+          } else if (!boolValue
+              && !FALSE_STRINGS.contains(nativeValue.get().toString().toLowerCase())) {
+            mismatch = true;
+          }
+        } else if (!starlarkValue.get().equals(nativeValue.get())) {
+          mismatch = true;
+        }
+        if (mismatch) {
           throw new ValidationException(
               String.format(
                   "Starlark flag '%s' and its alias '%s' have different values: '%s' and '%s'",
-                  starlarkFlag,
-                  nativeFlag,
-                  rawTransitionOutput.get(starlarkFlag),
-                  rawTransitionOutput.get(nativeFlag)));
+                  starlarkFlag, nativeFlag, starlarkValue.get(), nativeValue.get()));
         }
       }
-
-      if (rawTransitionOutput.containsKey(nativeFlag)) {
+      if (nativeValue.isPresent()) {
         // Add the starlark flag to the result, using the value of the alias.
-        result.put(starlarkFlag, rawTransitionOutput.get(nativeFlag));
+        result.put(
+            starlarkFlag,
+            starlarkValue.isPresent() && starlarkValue.get() instanceof Boolean
+                ? Boolean.parseBoolean(nativeValue.get().toString())
+                : nativeValue.get());
         // Remove the entry of the alias.
         result.remove(nativeFlag);
       }

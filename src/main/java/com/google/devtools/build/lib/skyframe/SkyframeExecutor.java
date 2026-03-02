@@ -3279,11 +3279,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
+    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      aliasesMap.putAll(flagAliases);
-
-      if (!module.getKey().name().equals("rules_python")) {
+      for (var flagAlias : flagAliases.entrySet()) {
+        aliasesMap.put(
+            flagAlias.getKey(),
+            flagAlias.getValue().startsWith("//")
+                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
+                : flagAlias.getValue());
+      }
+      if (!module.getValue().getName().equals("rules_python")) {
         continue;
       }
 
@@ -3296,19 +3302,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty()) {
         continue;
       }
-
-      if (ensurePyAliases) {
-        // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-        PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
-      if (ensureBazelPyAliases) {
-        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-      }
+      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+      PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+          .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
+          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
 
       return ImmutableMap.copyOf(aliasesMap);
     }
