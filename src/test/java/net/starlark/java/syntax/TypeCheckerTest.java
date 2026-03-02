@@ -1557,6 +1557,77 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void infer_list_comprehension() throws Exception {
+    assertTypeGivenDecls("[x for x in lst]", Types.list(Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("[x * 3.14 for x in lst]", Types.list(Types.FLOAT), "lst: list[int]");
+    assertTypeGivenDecls(
+        // a is tuple[str], d is int, so a * d is an indeterminate-length str tuple
+        "[a * d for a in b if c for d in e]",
+        Types.list(Types.homogeneousTuple(Types.STR)),
+        "b: list[tuple[str]]",
+        "c: bool",
+        "e: Sequence[int]");
+
+    // For clauses must be iterable
+    assertInvalid(
+        ":3:28: comprehension 'for' clause operand must be an iterable, got 'str'",
+        """
+        b: list[int]
+        d: str
+        [a + c for a in b for c in d]
+        """);
+    assertInvalid(
+        ":3:17: comprehension 'for' clause operand must be an iterable, got 'int'",
+        """
+        b: int
+        d: list[int]
+        [a + c for a in b for c in d]
+        """);
+    // If clauses must type-check
+    assertInvalid(
+        ":3:25: in call to 'cond()', parameter 'x' got value of type 'str', want 'int'",
+        """
+        lst: list[str]
+        def cond(x: int) -> int: return x
+        [x for x in lst if cond(x)]
+        """);
+    // Body must type-check
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        lst: list[str]
+        [x + 1 for x in lst]
+        """);
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'float'",
+        """
+        lst: list[str]
+        {x + 3.14 : x for x in lst}
+        """);
+    assertInvalid(
+        ":2:8: operator '+' cannot be applied to types 'str' and 'list[str]'",
+        """
+        lst: list[str]
+        {x : x + [x] for x in lst}
+        """);
+
+    // Any and union handling
+    assertTypeGivenDecls("[x * 2 for x in lst]", Types.list(Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "[x * 2 for x in lst]", Types.list(Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
+  public void infer_dict_comprehension() throws Exception {
+    assertTypeGivenDecls(
+        "{'%s' % x : x for x in lst}", Types.dict(Types.STR, Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("{x : x for x in lst}", Types.dict(Types.ANY, Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "{'%s' % x : x * 2 for x in lst}",
+        Types.dict(Types.STR, Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
   public void def_argument_defaults() throws Exception {
     assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
     String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";

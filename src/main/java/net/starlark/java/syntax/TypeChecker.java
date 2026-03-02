@@ -280,8 +280,11 @@ public final class TypeChecker extends NodeVisitor {
             xType);
         return Types.ANY;
       }
+      case COMPREHENSION -> {
+        return inferComprehension((Comprehension) expr);
+      }
       default -> {
-        // TODO: #28037 - support comprehension expressions.
+        // TODO: #28037 - support isinstance expressions.
         errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
         return Types.ANY;
       }
@@ -821,6 +824,53 @@ public final class TypeChecker extends NodeVisitor {
     return true;
   }
 
+  private StarlarkType inferComprehension(Comprehension comp) {
+    for (Comprehension.Clause clause : comp.getClauses()) {
+      switch (clause) {
+        case Comprehension.For forClause -> {
+          checkForClause(
+              forClause.getVars(), forClause.getIterable(), "comprehension 'for' clause");
+        }
+        case Comprehension.If ifClause -> {
+          // Infer only to type-check. Condition is evaluated as truthy/falsy, which is valid for
+          // every type.
+          var unused = infer(ifClause.getCondition());
+        }
+      }
+    }
+    if (comp.isDict()) {
+      DictExpression.Entry bodyEntry = (DictExpression.Entry) comp.getBody();
+      return Types.dict(infer(bodyEntry.getKey()), infer(bodyEntry.getValue()));
+    } else {
+      Expression bodyElement = (Expression) comp.getBody();
+      return Types.list(infer(bodyElement));
+    }
+  }
+
+  /** Recursively type-checks the vars and the iterable, and assigns the vars to the iterable. */
+  private void checkForClause(Expression vars, Expression iterable, String what) {
+    StarlarkType iterableType = infer(iterable);
+    StarlarkType varsRhsType; // The type of the value assigned to the vars expression.
+    if (iterableType.equals(Types.ANY)) {
+      varsRhsType = Types.ANY;
+    } else {
+      ArrayList<StarlarkType> varUnionElements = new ArrayList<>();
+      for (StarlarkType iterableUnionElement : Types.unfoldUnion(iterableType)) {
+        // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
+        // TODO: #28037 - Introduce an Iterable type and use it here to match language spec.
+        if (iterableUnionElement.equals(Types.ANY)) {
+          varUnionElements.add(Types.ANY);
+        } else if (iterableUnionElement instanceof Types.AbstractCollectionType collection) {
+          varUnionElements.add(collection.getElementType());
+        } else {
+          errorf(iterable, "%s operand must be an iterable, got '%s'", what, iterableType);
+        }
+      }
+      varsRhsType = Types.union(varUnionElements);
+    }
+    assign(vars, varsRhsType);
+  }
+
   private boolean checkAssignable(
       @Nullable StarlarkType lhs,
       @Nullable StarlarkType rhs,
@@ -996,30 +1046,7 @@ public final class TypeChecker extends NodeVisitor {
   @Override
   public void visit(ForStatement node) {
     if (usesTypeSyntax()) {
-      StarlarkType collectionType = infer(node.getCollection());
-      StarlarkType varsRhsType; // The type of the value assigned to the vars expression.
-      if (collectionType.equals(Types.ANY)) {
-        varsRhsType = Types.ANY;
-      } else {
-        ArrayList<StarlarkType> varUnionElements = new ArrayList<>();
-        for (StarlarkType collectionUnionElement : Types.unfoldUnion(collectionType)) {
-          // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
-          // TODO: #28037 - Introduce an Iterable type and use it here to match language spec.
-          if (collectionUnionElement.equals(Types.ANY)) {
-            varUnionElements.add(Types.ANY);
-          } else if (collectionUnionElement instanceof Types.AbstractCollectionType collection) {
-            varUnionElements.add(collection.getElementType());
-          } else {
-            errorf(
-                node.getCollection(),
-                "'for' loop operand must be an iterable, got '%s'",
-                collectionType);
-            return;
-          }
-        }
-        varsRhsType = Types.union(varUnionElements);
-      }
-      assign(node.getVars(), varsRhsType);
+      checkForClause(node.getVars(), node.getCollection(), "'for' loop");
     }
     // Visit the for loop body even in untyped code; it may contain nested typed def statements.
     visitBlock(node.getBody());
