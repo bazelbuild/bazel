@@ -3332,8 +3332,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                       ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
                       : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-
-      return ImmutableMap.copyOf(aliasesMap);
     }
 
     return ImmutableMap.copyOf(aliasesMap);
