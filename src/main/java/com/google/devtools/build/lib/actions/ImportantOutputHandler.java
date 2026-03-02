@@ -37,6 +37,19 @@ public interface ImportantOutputHandler extends ActionContext {
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
+   * Whether this handler requires metadata of top-level {@linkplain
+   * com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden output
+   * groups} in {@link #processOutputsAndGetLostArtifacts}. Notably, this includes top-level
+   * runfiles trees.
+   *
+   * <p>If {@code false}, top-level runfiles may be handled in {@link
+   * #processRunfilesAndGetLostArtifacts}.
+   */
+  default boolean requiresHiddenOutputMetadata() {
+    return false;
+  }
+
+  /**
    * Informs this handler that top-level outputs have been built.
    *
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
@@ -45,21 +58,17 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param importantOutputs top-level outputs, excluding {@linkplain
    *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
    *     output groups}
-   * @param importantMetadataProvider provides metadata for artifacts in {@code importantOutputs}
-   *     and their expansions
-   * @param fullMetadataProvider like {@code importantMetadataProvider}, but additionally provides
-   *     metadata for artifacts in {@linkplain
+   * @param metadataProvider provides metadata for artifacts in {@code importantOutputs} and their
+   *     expansions; if {@link #requiresHiddenOutputMetadata}, additionally provides metadata for
+   *     artifacts in {@linkplain
    *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
    *     output groups} and their expansions
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
-  // TODO: jhorvitz - Find a cleaner way than passing two InputMetadataProviders.
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> importantOutputs,
-      InputMetadataProvider importantMetadataProvider,
-      InputMetadataProvider fullMetadataProvider)
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
   /**
