@@ -3303,26 +3303,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         continue;
       }
       if (ensurePyAliases) {
-      // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
-      PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+        // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+        PY_FLAG_ALIASES.entrySet().stream()
+            .filter(e -> !flagAliases.containsKey(e.getKey()))
+            .map(
+                e ->
+                    rootModule.getName().equals("rules_python")
+                        ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                        : e)
+            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
       if (ensureBazelPyaliases) {
-      // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-      BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-          .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+            .filter(e -> !flagAliases.containsKey(e.getKey()))
+            .map(
+                e ->
+                    rootModule.getName().equals("rules_python")
+                        ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                        : e)
+            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
     }
 
