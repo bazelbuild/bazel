@@ -97,10 +97,10 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    * Helper method for subclasses to normalize list of map entries by keeping only the last entry
    * for each key. The order of the entries is preserved.
    */
-  protected static List<Map.Entry<String, String>> normalizeEntries(
-      List<Map.Entry<String, String>> entries) {
-    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
-    for (Map.Entry<String, String> entry : entries) {
+  protected static <V> List<Map.Entry<String, V>> normalizeEntries(
+      List<Map.Entry<String, V>> entries) {
+    LinkedHashMap<String, V> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<String, V> entry : entries) {
       normalizedEntries.put(entry.getKey(), entry.getValue());
     }
     // If we made no changes, return the same instance we got to reduce churn.
