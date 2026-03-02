@@ -3297,10 +3297,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    String rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue().getName();
+    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      aliasesMap.putAll(flagAliases);
+      for (var flagAlias : flagAliases.entrySet()) {
+        aliasesMap.put(
+            flagAlias.getKey(),
+            flagAlias.getValue().startsWith("//")
+                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
+                : flagAlias.getValue());
+      }
       if (!module.getValue().getName().equals("rules_python")) {
         continue;
       }
@@ -3313,7 +3319,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           .filter(e -> !flagAliases.containsKey(e.getKey()))
           .map(
               e ->
-                  rootModule.equals("rules_python")
+              rootModule.getName().equals("rules_python")
               ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
                       : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
@@ -3322,7 +3328,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           .filter(e -> !flagAliases.containsKey(e.getKey()))
           .map(
               e ->
-                  rootModule.equals("rules_python")
+              rootModule.getName().equals("rules_python")
               ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
                       : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
