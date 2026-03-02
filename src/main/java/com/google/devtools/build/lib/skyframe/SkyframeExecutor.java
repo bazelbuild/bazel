@@ -3268,9 +3268,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
           "build_python_zip",
-          "@rules_python//python/config_settings:build_python_zip",
+          "@@rules_python+//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
-          "@rules_python//python/config_settings:incompatible_default_to_explicit_init_py");
+          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
 
   /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
@@ -3278,9 +3278,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
       ImmutableMap.of(
           "python_path",
-          "@rules_python//python/config_settings:python_path",
+          "@@rules_python+//python/config_settings:python_path",
           "experimental_python_import_all_repositories",
-          "@rules_python//python/config_settings:experimental_python_import_all_repositories");
+          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
 
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
@@ -3297,6 +3297,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
+    String rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue().getName();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
       aliasesMap.putAll(flagAliases);
@@ -3310,10 +3311,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
       PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.equals("rules_python")
+              ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
       BAZEL_PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.equals("rules_python")
+              ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
 
       return ImmutableMap.copyOf(aliasesMap);
