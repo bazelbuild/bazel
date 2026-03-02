@@ -88,7 +88,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
     @Override
     public void addNamedArg(String name, Object value) throws EvalException {
-      int pos = Collections.binarySearch(fields, name);
+      int pos = indexOfField(name, fields);
       if (pos >= 0) {
         if (valueTable[pos] != null) {
           throw Starlark.errorf(
@@ -158,7 +158,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public Object getValue(String name) {
     ImmutableList<String> fields = provider.getFields();
-    int i = Collections.binarySearch(fields, name);
+    int i = indexOfField(name, fields);
     return i >= 0 ? provider.retrieveOptimizedField(i, table[i]) : null;
   }
 
@@ -228,5 +228,14 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public int hashCode() {
     return Arrays.hashCode(table);
+  }
+
+  /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
+  private static int indexOfField(String name, ImmutableList<String> fields) {
+    if (fields.size() <= BINARY_SEARCH_THRESHOLD) {
+      return fields.indexOf(name);
+    }
+    int idx = Collections.binarySearch(fields, name);
+    return idx >= 0 ? idx : -1;
   }
 }
