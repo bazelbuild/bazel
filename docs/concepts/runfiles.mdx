@@ -32,7 +32,7 @@ cc_binary(
     data = ["//examples:runfile.txt"],
     deps = ["@rules_cc//cc/runfiles"],
 )
-```
+    ```
 
 ```cpp
 #include <filesystem>
@@ -70,7 +70,6 @@ int main(int argc, char **argv) {
   return 0;
 }
 ```
-
 </Tab>
 <Tab title="Golang">
 
@@ -83,9 +82,9 @@ go_binary(
     data = ["//examples:runfile.txt"],
     deps = ["@rules_go//go/runfiles:go_default_library"],
 )
-```
+    ```
 
-```go
+    ```go
 package main
 
 import (
@@ -124,12 +123,11 @@ func main() {
 	}
 	fmt.Print(string(data))
 }
-```
-
-</Tab>
+    ```
+ </Tab>
 <Tab title="Python">
 
-```python
+     ```python
 load("@rules_python//python:defs.bzl", "py_binary")
 
 py_binary(
@@ -156,8 +154,7 @@ realPathToSomeFile = r.Rlocation(str(root / SOME_FILE))
 print("The content of the runfile is:")
 with open(realPathToSomeFile, 'r') as f:
     print(f.read())
-```
-
+    ```
 </Tab>
 <Tab title="Shell">
 
@@ -170,7 +167,7 @@ sh_binary(
     data = ["//examples:runfile.txt"],
     use_bash_launcher = True,
 )
-```
+ ```
 
 ```bash
 #!/bin/bash
@@ -185,8 +182,7 @@ real_path_to_some_file="$(rlocation "${root}/${SOME_FILE}")"
 
 echo "The content of the runfile is:"
 cat "${real_path_to_some_file}"
-```
-
+   ```
 </Tab>
 
 </Tabs>

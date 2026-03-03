@@ -37,7 +37,7 @@ Examples:
     <section>
     <h3>C++</h3>
 
-```starlark
+   <pre class="prettyprint lang-starlark">
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 cc_binary(
@@ -46,9 +46,9 @@ cc_binary(
     data = ["//examples:runfile.txt"],
     deps = ["@rules_cc//cc/runfiles"],
 )
-```
+    </pre>
 
-```cpp
+    <pre class="prettyprint lang-cpp">
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -83,12 +83,12 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-```
+    </pre>
     </section>
     <section>
     <h3>Golang</h3>
 
-```starlark
+    <pre class="prettyprint lang-starlark">
 load("@rules_go//go:def.bzl", "go_binary")
 
 go_binary(
@@ -97,9 +97,9 @@ go_binary(
     data = ["//examples:runfile.txt"],
     deps = ["@rules_go//go/runfiles:go_default_library"],
 )
-```
+    </pre>
 
-```golang
+    <pre class="prettyprint lang-go">
 package main
 
 import (
@@ -138,13 +138,13 @@ func main() {
 	}
 	fmt.Print(string(data))
 }
-```
+    </pre>
 
     </section>
     <section>
     <h3>Python</h3>
 
-```starlark
+    <pre class="prettyprint lang-starlark">
 load("@rules_python//python:defs.bzl", "py_binary")
 
 py_binary(
@@ -153,9 +153,9 @@ py_binary(
     data = ["//examples:runfile.txt"],
     deps = ["@rules_python//python/runfiles"],
 )
-```
+    </pre>
 
-```python
+    <pre class="prettyprint lang-python">
 import pathlib
 
 from python.runfiles import runfiles
@@ -171,13 +171,13 @@ realPathToSomeFile = r.Rlocation(str(root / SOME_FILE))
 print("The content of the runfile is:")
 with open(realPathToSomeFile, 'r') as f:
     print(f.read())
-```
+    </pre>
 
     </section>
     <section>
     <h3>Shell</h3>
 
-```starlark
+    <pre class="prettyprint lang-starlark">
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(
@@ -186,9 +186,9 @@ sh_binary(
     data = ["//examples:runfile.txt"],
     use_bash_launcher = True,
 )
-```
+    </pre>
 
-```bash
+   <pre class="prettyprint lang-sh">
 #!/bin/bash
 
 SOME_FILE='examples/runfile.txt'
@@ -201,7 +201,7 @@ real_path_to_some_file="$(rlocation "${root}/${SOME_FILE}")"
 
 echo "The content of the runfile is:"
 cat "${real_path_to_some_file}"
-```
+    </pre>
 
     </section>
   </devsite-selector>
