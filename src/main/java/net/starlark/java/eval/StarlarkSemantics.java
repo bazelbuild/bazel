@@ -271,4 +271,7 @@ public class StarlarkSemantics {
   // TODO: #27370 - Consider splitting this into separate options for static vs dynamic.
   public static final String EXPERIMENTAL_STARLARK_TYPE_CHECKING =
       "-experimental_starlark_type_checking";
+
+  /** Globally Override fail(stack_trace=) to true. Flag default is false. */
+  public static final String FORCE_STARLARK_STACK_TRACE = "-force_starlark_stack_trace";
 }
