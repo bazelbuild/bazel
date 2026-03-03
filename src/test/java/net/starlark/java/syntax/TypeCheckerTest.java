@@ -698,6 +698,85 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void augmented_assignment() throws Exception {
+    assertValid(
+        """
+        x: list[int]
+        x += [1, 2]
+        x[0] += 3
+
+        y: dict[str, int]
+        y |= {"answer": 42}
+        y["key"] //= 2
+
+        z: set[int|str]
+        z_rhs: set[str]
+        z ^= z_rhs
+        """);
+    // Augmented assignment to an immutable value is legal as long as the types match.
+    assertValid(
+        """
+        x: int | float
+        x += 1.5
+
+        y: str
+        y *= 2
+
+        z: tuple[int, ...]
+        z += (1, 2)
+        """);
+
+    // Binary operator cannot be applied to LHS and RHS types.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'str'",
+        """
+        x: int
+        x += "abc"
+        """);
+    // TODO(b/141263526): we may want to support list += sequence.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'list[int]' and 'tuple[int, int]'",
+        """
+        x: list[int]
+        x += (1, 2)
+        """);
+
+    // Binary operator can be applied to LHS and RHS types, but the result is not assignable to LHS
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'float': cannot update 'x' of"
+            + " type 'int' with a result value of type 'float'",
+        """
+        x: int
+        x += 1.5
+        """);
+    assertInvalid(
+        ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
+            + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
+            + " 'dict[str|int, int|float]'",
+        """
+        x: dict[str, int]
+        x |= {1: 2.3}
+        """);
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'tuple[int, str]' and 'tuple[str]': cannot"
+            + " update 'x' of type 'tuple[int, str]' with a result value of type 'tuple[int, str,"
+            + " str]'",
+        """
+        x: tuple[int, str]
+        x += ("hello", )
+        """);
+
+    // TODO: #28037 - This needs to be invalid (str/tuple do not support item assignment)
+    assertValid(
+        """
+        x: str
+        x[1] += "a"
+        y: tuple[int, int]
+        y[0] += 42
+        """);
+  }
+
+  @Test
   public void infer_slice() throws Exception {
     assertTypeGivenDecls("x[1:2]", Types.STR, "x: str");
     assertTypeGivenDecls("x[1:]", Types.list(Types.INT), "x: list[int]");

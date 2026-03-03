@@ -63,14 +63,30 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   private void binaryOperatorError(
-      BinaryOperatorExpression binop, StarlarkType xType, StarlarkType yType) {
+      StarlarkType xType,
+      TokenKind operator,
+      Location operatorLocation,
+      StarlarkType yType,
+      boolean augmentedAssignment,
+      String extraMessage) {
     // TODO: #28037 - better error message if LHS and/or RHS are unions?
     errorf(
-        binop.getOperatorLocation(),
-        "operator '%s' cannot be applied to types '%s' and '%s'",
-        binop.getOperator(),
+        operatorLocation,
+        "operator '%s%s' cannot be applied to types '%s' and '%s'%s",
+        operator,
+        augmentedAssignment ? "=" : "",
         xType,
-        yType);
+        yType,
+        extraMessage.isEmpty() ? "" : ": " + extraMessage);
+  }
+
+  private void binaryOperatorError(
+      StarlarkType xType,
+      TokenKind operator,
+      Location operatorLocation,
+      StarlarkType yType,
+      boolean augmentedAssignment) {
+    binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment, "");
   }
 
   private static String plural(int n) {
@@ -205,59 +221,16 @@ public final class TypeChecker extends NodeVisitor {
       }
       case BINARY_OPERATOR -> {
         var binop = (BinaryOperatorExpression) expr;
-        TokenKind operator = binop.getOperator();
-        switch (operator) {
-          case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
-            // Boolean regardless of LHS and RHS.
-            return Types.BOOL;
-          }
-          case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
-            // Boolean or type error.
-            StarlarkType xType = infer(binop.getX());
-            StarlarkType yType = infer(binop.getY());
-            if (StarlarkType.comparable(xType, yType)) {
-              return Types.BOOL;
-            }
-            binaryOperatorError(binop, xType, yType);
-            return Types.ANY;
-          }
-          default -> {
-            // Take the union of all types inferred by crossing the left and right union elements
-            // (each of which must be a valid combination of rhs and lhs for the operator).
-            StarlarkType xType = infer(binop.getX());
-            StarlarkType yType = infer(binop.getY());
-            ImmutableCollection<StarlarkType> xTypes = Types.unfoldUnion(xType);
-            ImmutableCollection<StarlarkType> yTypes = Types.unfoldUnion(yType);
-            ArrayList<StarlarkType> resultTypes = new ArrayList<>();
-            for (StarlarkType xElemType : xTypes) {
-              for (StarlarkType yElemType : yTypes) {
-                @Nullable
-                StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
-                if (resultType == null) {
-                  resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
-                }
-                if (resultType == null && operator == TokenKind.STAR) {
-                  // Tuple repetition is the only case where we need to examine the expressions.
-                  // TODO: #28037 - We can get rid of the tuple repetition special case if we
-                  // introduce ConstantIntType for integer constants.
-                  if (StarlarkType.assignableFrom(Types.INT, xElemType)
-                      && yElemType instanceof Types.TupleType tuple) {
-                    resultType = inferTupleRepetition(tuple, binop.getX());
-                  } else if (StarlarkType.assignableFrom(Types.INT, yElemType)
-                      && xElemType instanceof Types.TupleType tuple) {
-                    resultType = inferTupleRepetition(tuple, binop.getY());
-                  }
-                }
-                if (resultType == null) {
-                  binaryOperatorError(binop, xType, yType);
-                  return Types.ANY;
-                }
-                resultTypes.add(resultType);
-              }
-            }
-            return Types.union(resultTypes);
-          }
-        }
+        StarlarkType xType = infer(binop.getX());
+        StarlarkType yType = infer(binop.getY());
+        return inferBinaryOperator(
+            binop.getX(),
+            xType,
+            binop.getOperator(),
+            binop.getOperatorLocation(),
+            binop.getY(),
+            yType,
+            /* augmentedAssignment= */ false);
       }
       case UNARY_OPERATOR -> {
         var unop = (UnaryOperatorExpression) expr;
@@ -473,6 +446,65 @@ public final class TypeChecker extends NodeVisitor {
       return true;
     }
     return false;
+  }
+
+  private StarlarkType inferBinaryOperator(
+      Expression xExpr,
+      StarlarkType xType,
+      TokenKind operator,
+      Location operatorLocation,
+      Expression yExpr,
+      StarlarkType yType,
+      boolean augmentedAssignment) {
+    // TokenKind operator = binop.getOperator();
+    switch (operator) {
+      case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
+        // Boolean regardless of LHS and RHS.
+        return Types.BOOL;
+      }
+      case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
+        // Boolean or type error.
+        if (StarlarkType.comparable(xType, yType)) {
+          return Types.BOOL;
+        }
+        binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
+        return Types.ANY;
+      }
+      default -> {
+        // Take the union of all types inferred by crossing the left and right union elements
+        // (each of which must be a valid combination of rhs and lhs for the operator).
+        ImmutableCollection<StarlarkType> xTypes = Types.unfoldUnion(xType);
+        ImmutableCollection<StarlarkType> yTypes = Types.unfoldUnion(yType);
+        ArrayList<StarlarkType> resultTypes = new ArrayList<>();
+        for (StarlarkType xElemType : xTypes) {
+          for (StarlarkType yElemType : yTypes) {
+            @Nullable
+            StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
+            if (resultType == null) {
+              resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
+            }
+            if (resultType == null && operator == TokenKind.STAR) {
+              // Tuple repetition is the only case where we need to examine the expressions.
+              // TODO: #28037 - We can get rid of the tuple repetition special case if we
+              // introduce ConstantIntType for integer constants.
+              if (StarlarkType.assignableFrom(Types.INT, xElemType)
+                  && yElemType instanceof Types.TupleType tuple) {
+                resultType = inferTupleRepetition(tuple, xExpr);
+              } else if (StarlarkType.assignableFrom(Types.INT, yElemType)
+                  && xElemType instanceof Types.TupleType tuple) {
+                resultType = inferTupleRepetition(tuple, yExpr);
+              }
+            }
+            if (resultType == null) {
+              binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
+              return Types.ANY;
+            }
+            resultTypes.add(resultType);
+          }
+        }
+        return Types.union(resultTypes);
+      }
+    }
   }
 
   private StarlarkType inferCall(CallExpression call) {
@@ -1026,18 +1058,48 @@ public final class TypeChecker extends NodeVisitor {
     if (!usesTypeSyntax()) {
       return;
     }
+    // TODO: #28037 - Consider rejecting the assignment (or augmented assignment) if the LHS is
+    // read-only, e.g. an index expression of a string. This would require either an ad hoc check
+    // here in this method, or else passing back from infer() more detailed information than just
+    // the StarlarkType.
+
     if (assignment.isAugmented()) {
-      // TODO: #28037 - support this by validating that `lhs <op> rhs` would type check
-      errorf(assignment, "UNSUPPORTED: cannot typecheck augmented assignment statements");
+      TokenKind operator = assignment.getOperator();
+      Location operatorLocation = assignment.getOperatorLocation();
+      Expression lhs = assignment.getLHS();
+      Expression rhs = assignment.getRHS();
+      StarlarkType lhsType = infer(assignment.getLHS());
+      StarlarkType rhsType = infer(assignment.getRHS());
+      // TODO(b/141263526): if we decide to support list += sequence, we'd need to special-case it
+      // here (since list + tuple is an error per inferBinaryOperator()).
+      StarlarkType resultType =
+          inferBinaryOperator(
+              lhs,
+              lhsType,
+              operator,
+              operatorLocation,
+              rhs,
+              rhsType,
+              /* augmentedAssignment= */ true);
+      if (!StarlarkType.assignableFrom(lhsType, resultType)) {
+        binaryOperatorError(
+            lhsType,
+            operator,
+            operatorLocation,
+            rhsType,
+            /* augmentedAssignment= */ true,
+            String.format(
+                "cannot update '%s' of type '%s' with a result value of type '%s'",
+                lhs, lhsType, resultType));
+        return;
+      }
+
       return;
     }
 
     // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
     // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as list[int]
     // instead of list[object].
-    // TODO: #28037 - Consider rejecting the assignment if the LHS is read-only, e.g. an index
-    // expression of a string. This would require either an ad hoc check here in this method, or
-    // else passing back from infer() more detailed information than just the StarlarkType.
     var rhsType = infer(assignment.getRHS());
 
     assign(assignment.getLHS(), rhsType);
