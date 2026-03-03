@@ -114,20 +114,16 @@ final class CallUtils {
 
     private final StarlarkSemantics semantics;
 
-    // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
-    // we presize the CHM accordingly to reduce the chance two entries use the same hash
-    // bucket (in May 2023 this strategy was completely effective!). We used to use the
-    // default capacity, and then the CHM would get dynamically resized to have 256
-    // buckets, many of which had at least 2 entries which is suboptimal for such a hot
-    // data structure.
-    // TODO(bazel-team): Better would be to precompute the entire lookup table on server
-    //  startup (best would be to do this at compile time via an annotation processor),
-    //  rather than rely on it getting built-up dynamically as Starlark code gets
-    //  evaluated over the lifetime of the server. This way there are no concurrency
-    //  concerns, so we can use a more efficient data structure that doesn't need to
-    //  handle concurrent writes.
-    private final ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
-        new ConcurrentHashMap<>(/* initialCapacity= */ 1000);
+    private final ClassValue<ClassDescriptor> classDescriptorCache =
+        new ClassValue<ClassDescriptor>() {
+          @Override
+          protected ClassDescriptor computeValue(Class<?> clazz) {
+            if (clazz == String.class) {
+              return buildClassDescriptor(semantics, StringModule.class);
+            }
+            return buildClassDescriptor(semantics, clazz);
+          }
+        };
 
     private BuiltinManager(StarlarkSemantics semantics) {
       this.semantics = semantics;
@@ -141,19 +137,7 @@ final class CallUtils {
      * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
      */
     private ClassDescriptor getClassDescriptor(Class<?> clazz) {
-      if (clazz == String.class) {
-        clazz = StringModule.class;
-      }
-
-      ClassDescriptor classDescriptor = classDescriptorCache.get(clazz);
-      if (classDescriptor == null) {
-        classDescriptor = buildClassDescriptor(semantics, clazz);
-        ClassDescriptor prev = classDescriptorCache.putIfAbsent(clazz, classDescriptor);
-        if (prev != null) {
-          classDescriptor = prev; // first thread wins
-        }
-      }
-      return classDescriptor;
+      return classDescriptorCache.get(clazz);
     }
 
     /**
