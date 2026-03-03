@@ -160,6 +160,9 @@ public final class NetworkMetricsCollector {
   }
 
   private static long calcDelta(long prev, long next) {
+    if (Long.compareUnsigned(next, prev) < 0) {
+      return next;
+    }
     return next - prev;
   }
 
