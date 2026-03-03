@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -49,6 +50,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 @AutoValue
 public abstract class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
+
+  @Override
+  @Memoized
+  public abstract int hashCode();
 
   /** A builder class to help create instances of {@link ConstraintCollection}. */
   public static final class Builder {
