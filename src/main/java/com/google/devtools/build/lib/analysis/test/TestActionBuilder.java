@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -237,6 +238,27 @@ public final class TestActionBuilder {
     int runsPerTest = getRunsPerTest(ruleContext);
     int shardCount = getShardCount(ruleContext);
 
+    OptionalInt onlyShardIndex =
+        testConfiguration.testShardingStrategy().getOnlyShardIndex();
+    if (onlyShardIndex.isPresent()) {
+      int onlyShardDisplay = onlyShardIndex.getAsInt() + 1;
+      if (shardCount == 0) {
+        ruleContext.ruleError(
+            "--test_sharding_strategy=only="
+                + onlyShardDisplay
+                + " requires a sharded test (set shard_count in the BUILD file)");
+      } else if (onlyShardIndex.getAsInt() >= shardCount) {
+        ruleContext.ruleError(
+            "--test_sharding_strategy=only="
+                + onlyShardDisplay
+                + " is out of range: test only has "
+                + shardCount
+                + " shard(s) (valid range: 1 to "
+                + shardCount
+                + ")");
+      }
+    }
+
     NestedSet<Artifact> lcovMergerFilesToRun = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
     TestTargetExecutionSettings executionSettings;
@@ -342,13 +364,17 @@ public final class TestActionBuilder {
 
     NestedSet<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shardCount > 0 ? shardCount : 1);
+    int expectedActions = onlyShardIndex.isPresent() ? runsPerTest : runsPerTest * shardRuns;
     List<Artifact.DerivedArtifact> results =
-        Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
+        Lists.newArrayListWithCapacity(expectedActions);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
+      if (onlyShardIndex.isPresent() && shard != onlyShardIndex.getAsInt()) {
+        continue;
+      }
       String shardDir =
           shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shardCount) : null;
       for (int run = 0; run < runsPerTest; run++) {
