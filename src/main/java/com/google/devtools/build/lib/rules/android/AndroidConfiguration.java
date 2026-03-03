@@ -251,16 +251,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " each specified target platform.")
     public List<Label> androidPlatforms;
 
-    @Option(
-        name = "fat_apk_hwasan",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.NO_OP,
-        },
-        help = "No-op flag. Will be removed in a future release.")
-    public boolean fatApkHwasan;
-
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
