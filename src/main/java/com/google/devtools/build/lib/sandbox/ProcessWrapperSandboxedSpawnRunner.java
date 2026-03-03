@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -106,7 +106,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         treeDeleter,
         /* sandboxDebugPath= */ null,
         statisticsPath,
-        getSandboxOptions().sandboxDebug ? commandLine : null,
+        makeInteractiveDebugArguments(commandLine, getSandboxOptions()),
         spawn.getMnemonic(),
         spawn.getTargetLabel());
   }
@@ -114,5 +114,14 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   @Override
   public String getName() {
     return "processwrapper-sandbox";
+  }
+
+  @Nullable
+  private ImmutableList<String> makeInteractiveDebugArguments(
+      ImmutableList<String> commandLine, SandboxOptions sandboxOptions) {
+    if (!sandboxOptions.sandboxDebug) {
+      return null;
+    }
+    return new ImmutableList.Builder<String>().add("/bin/sh").add("-i").addAll(commandLine).build();
   }
 }

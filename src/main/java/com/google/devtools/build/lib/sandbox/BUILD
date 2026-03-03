@@ -177,6 +177,7 @@ java_library(
     deps = [
         ":abstract_sandbox_spawn_runner",
         ":sandbox_helpers",
+        ":sandbox_options",
         ":sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
