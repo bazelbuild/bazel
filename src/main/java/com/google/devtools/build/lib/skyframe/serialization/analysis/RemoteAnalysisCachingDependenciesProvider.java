@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -35,6 +38,8 @@ import javax.annotation.Nullable;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
   RemoteAnalysisCacheMode mode();
+
+  void setTopLevelBuildOptions(BuildOptions buildOptions);
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;
 
@@ -83,6 +88,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     String getSerializedFrontierProfile();
 
     Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
+
+    Collection<Label> getTopLevelTargets();
 
     /** Returns the destination for file invalidation data when uploading. */
     @Nullable
@@ -154,6 +161,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
+    public void setTopLevelBuildOptions(BuildOptions buildOptions) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void queryMetadataAndMaybeBailout() {
       throw new UnsupportedOperationException();
     }
@@ -167,6 +179,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<Label> getTopLevelTargets() {
       throw new UnsupportedOperationException();
     }
 

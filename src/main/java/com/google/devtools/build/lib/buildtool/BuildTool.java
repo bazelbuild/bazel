@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
@@ -365,8 +364,6 @@ public class BuildTool {
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
-              BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
-                  buildOptions, env.getReporter()),
               request.getUserOptions(),
               projectEvaluationResult.buildOptions());
       analysisCachingDeps = analysisDeps.deps();
