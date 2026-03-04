@@ -229,12 +229,12 @@ public abstract class PackageSpecification {
    * --incompatible_fix_package_group_reporoot_syntax} are enabled.
    */
   public static PackageSpecification fromStringForBzlVisibility(
-      RepositoryMapping mapper, RepositoryName repositoryName, String spec) throws EvalException {
+      RepositoryMapping repoMapping, RepositoryName repositoryName, String spec) throws EvalException {
     PackageSpecification result;
     try {
       result =
           fromString(
-              mapper,
+              repoMapping,
               repositoryName,
               spec,
               /*allowPublicPrivate=*/ true,
