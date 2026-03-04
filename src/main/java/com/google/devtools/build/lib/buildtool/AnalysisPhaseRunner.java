@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -79,8 +78,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -111,28 +108,6 @@ public final class AnalysisPhaseRunner {
           AbruptExitException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-
-    // Compute the heuristic instrumentation filter if needed.
-    if (request.needsInstrumentationFilter()) {
-      try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
-        String instrumentationFilter =
-            InstrumentationFilterSupport.computeInstrumentationFilter(
-                env.getReporter(),
-                // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
-                // a new SkyFunction to compute it?
-                targetPatternPhaseValue.getTestsToRun(env.getReporter(), env.getPackageManager()));
-        try {
-          // We're modifying the buildOptions in place, which is not ideal, but we also don't want
-          // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
-          // problem (and the performance loss may not be a big deal).
-          buildOptions.get(CoreOptions.class).instrumentationFilter =
-              new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
-        } catch (OptionsParsingException e) {
-          throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
-        }
-      }
-    }
-
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 

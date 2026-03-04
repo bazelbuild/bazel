@@ -329,10 +329,6 @@ public class BuildView {
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
-    if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
-      remoteAnalysisCachingDependenciesProvider.setTopLevelBuildOptions(
-          topLevelConfigurationTrimmedOfTestOptions);
-    }
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
         remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
