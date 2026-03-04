@@ -33,4 +33,5 @@ eclipse-*bin/
 # Bazelisk version file
 .bazelversion
 # User-specific .bazelrc
+issue.md
 user.bazelrc

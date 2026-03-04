@@ -81,6 +81,24 @@ public abstract class InterimModule extends ModuleBase {
   }
 
   /**
+   * Represents a request to export a transitive dependency from a named module. When the root
+   * module uses {@code export_repo(module_name = "foo", "bar")}, it means: look up module "foo"'s
+   * dependency named "bar" and add it as a direct dep of the root module.
+   *
+   * @param sourceModuleRepoName the repo name of the source module (from a bazel_dep)
+   * @param exportedDepName the name of the dep to export from the source module
+   * @param localRepoName the repo name under which the exported dep should be visible locally
+   */
+  public record ExportedRepo(
+      String sourceModuleRepoName, String exportedDepName, String localRepoName) {
+    public ExportedRepo {
+      requireNonNull(sourceModuleRepoName, "sourceModuleRepoName");
+      requireNonNull(exportedDepName, "exportedDepName");
+      requireNonNull(localRepoName, "localRepoName");
+    }
+  }
+
+  /**
    * The resolved direct dependencies of this module, which can be either the original ones,
    * overridden by a {@code single_version_override}, by a {@code multiple_version_override}, or by
    * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
@@ -102,6 +120,12 @@ public abstract class InterimModule extends ModuleBase {
   public abstract ImmutableList<DepSpec> getNodepDeps();
 
   /**
+   * The list of exported repos requested by this module. Only meaningful for the root module.
+   * Each entry requests that a transitive dep of a named module be promoted to a direct dep.
+   */
+  public abstract ImmutableList<ExportedRepo> getExportedRepos();
+
+  /**
    * The registry where this module came from. Must be null iff the module has a {@link
    * NonRegistryOverride}.
    */
@@ -117,7 +141,8 @@ public abstract class InterimModule extends ModuleBase {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0);
+        .setCompatibilityLevel(0)
+        .setExportedRepos(ImmutableList.of());
   }
 
   /**
@@ -195,6 +220,16 @@ public abstract class InterimModule extends ModuleBase {
     }
 
     public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
+
+    public abstract Builder setExportedRepos(ImmutableList<ExportedRepo> value);
+
+    abstract ImmutableList.Builder<ExportedRepo> exportedReposBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addExportedRepo(ExportedRepo value) {
+      exportedReposBuilder().add(value);
+      return this;
+    }
 
     public abstract Builder setRegistry(Registry value);
 

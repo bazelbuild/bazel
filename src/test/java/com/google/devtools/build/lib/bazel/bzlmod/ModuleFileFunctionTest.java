@@ -2223,4 +2223,109 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         to @my_repo directly.\
         """);
   }
+
+  @Test
+  public void testExportRepo_basic() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa', version='0.1')",
+        "bazel_dep(name='bbb', version='1.0')",
+        "export_repo(module_name='bbb', 'ccc', 'ddd')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0')",
+                "bazel_dep(name='ccc', version='2.0')",
+                "bazel_dep(name='ddd', version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    assertThat(rootModuleFileValue.module().getExportedRepos()).hasSize(2);
+    assertThat(rootModuleFileValue.module().getExportedRepos().get(0).sourceModuleRepoName())
+        .isEqualTo("bbb");
+    assertThat(rootModuleFileValue.module().getExportedRepos().get(0).exportedDepName())
+        .isEqualTo("ccc");
+    assertThat(rootModuleFileValue.module().getExportedRepos().get(0).localRepoName())
+        .isEqualTo("ccc");
+    assertThat(rootModuleFileValue.module().getExportedRepos().get(1).exportedDepName())
+        .isEqualTo("ddd");
+  }
+
+  @Test
+  public void testExportRepo_nonExistentModule() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa', version='0.1')",
+        "export_repo(module_name='nonexistent', 'ccc')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("no bazel_dep with that repo name exists");
+  }
+
+  @Test
+  public void testExportRepo_repoNameCollision() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa', version='0.1')",
+        "bazel_dep(name='bbb', version='1.0')",
+        "bazel_dep(name='ccc', version='2.0')",
+        "export_repo(module_name='bbb', 'ccc')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0')",
+                "bazel_dep(name='ccc', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("The repo name 'ccc' cannot be defined");
+  }
+
+  @Test
+  public void testExportRepo_devDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa', version='0.1')",
+        "bazel_dep(name='bbb', version='1.0')",
+        "export_repo(module_name='bbb', 'ccc', dev_dependency=True)");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0')",
+                "bazel_dep(name='ccc', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    // Export should be ignored when dev deps are disabled
+    assertThat(rootModuleFileValue.module().getExportedRepos()).isEmpty();
+  }
 }
