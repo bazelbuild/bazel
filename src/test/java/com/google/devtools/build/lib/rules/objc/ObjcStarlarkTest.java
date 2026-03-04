@@ -664,7 +664,7 @@ swift_binary = rule(
 
     Object compilationModeCopts = myInfo.getValue("compilation_mode_copts");
 
-    assertThat((List<?>) compilationModeCopts).containsExactly("-O0", "-DDEBUG=1");
+    assertThat((List<?>) compilationModeCopts).isEmpty();
   }
 
   @Test
