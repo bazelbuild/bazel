@@ -23,6 +23,7 @@ import static java.util.Comparator.comparing;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Suppliers;
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -97,6 +98,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2224,12 +2226,12 @@ public abstract class SpawnLogContextTestBase {
     return builder;
   }
 
-  protected static SortedMap<PathFragment, ActionInput> createInputMap(ActionInput... actionInputs)
-      throws Exception {
+  protected static Supplier<SortedMap<PathFragment, ActionInput>> createInputMap(
+      ActionInput... actionInputs) throws Exception {
     return createInputMap(null, actionInputs);
   }
 
-  protected static SortedMap<PathFragment, ActionInput> createInputMap(
+  protected static Supplier<SortedMap<PathFragment, ActionInput>> createInputMap(
       RunfilesTree runfilesTree, ActionInput... actionInputs) throws Exception {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
@@ -2266,7 +2268,7 @@ public abstract class SpawnLogContextTestBase {
         builder.put(actionInput.getExecPath(), actionInput);
       }
     }
-    return ImmutableSortedMap.copyOf(builder);
+    return Suppliers.ofInstance(ImmutableSortedMap.copyOf(builder));
   }
 
   protected static TreeArtifactValue createTreeArtifactValue(Artifact tree) throws Exception {
