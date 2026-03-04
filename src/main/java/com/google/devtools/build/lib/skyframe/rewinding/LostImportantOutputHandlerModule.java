@@ -38,10 +38,8 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /**
  * Installs an {@link ImportantOutputHandler} that allows customizing lost outputs for rewinding
@@ -133,10 +131,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs, InputMetadataProvider metadataProvider) {
       ImmutableSetMultimap.Builder<String, ActionInput> lost = ImmutableSetMultimap.builder();
-      LostInputOwners owners = new LostInputOwners();
-      for (OutputAndOwner outputAndOwner : expand(outputs, metadataProvider)) {
-        ActionInput output = outputAndOwner.output;
-        Artifact owner = outputAndOwner.owner;
+      for (ActionInput output : expand(outputs, metadataProvider)) {
         if (!outputIsLost(output.getExecPath())) {
           continue;
         }
@@ -147,40 +142,33 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
           throw new IllegalStateException(e);
         }
         lost.put(digestFn.apply(metadata.getDigest(), metadata.getSize()), output);
-        if (owner != null) {
-          owners.addOwner(output, owner);
-        }
       }
-      return new LostArtifacts(lost.build(), Optional.of(owners));
+      return new LostArtifacts(lost.build());
     }
 
-    private static ImmutableList<OutputAndOwner> expand(
+    private static ImmutableList<ActionInput> expand(
         Iterable<Artifact> outputs, InputMetadataProvider inputMetadataProvider) {
       return stream(outputs)
           .flatMap(artifact -> expand(artifact, inputMetadataProvider))
           .collect(toImmutableList());
     }
 
-    private static Stream<OutputAndOwner> expand(
+    private static Stream<? extends ActionInput> expand(
         Artifact output, InputMetadataProvider inputMetadataProvider) {
       if (output.isTreeArtifact()) {
         TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(output);
         var archivedTreeArtifact = treeArtifactValue.getArchivedArtifact();
         var children = treeArtifactValue.getChildren().stream();
-        var expansion =
-            archivedTreeArtifact == null
-                ? children
-                : Stream.concat(children, Stream.of(archivedTreeArtifact));
-        return expansion.map(child -> new OutputAndOwner(child, output));
+        return archivedTreeArtifact == null
+            ? children
+            : Stream.concat(children, Stream.of(archivedTreeArtifact));
       }
       if (output.isFileset()) {
         ImmutableList<FilesetOutputSymlink> links =
             inputMetadataProvider.getFileset(output).symlinks();
-        return links.stream().map(link -> new OutputAndOwner(link.target(), output));
+        return links.stream().map(FilesetOutputSymlink::target);
       }
-      return Stream.of(new OutputAndOwner(output, null));
+      return Stream.of(output);
     }
-
-    private record OutputAndOwner(ActionInput output, @Nullable Artifact owner) {}
   }
 }
