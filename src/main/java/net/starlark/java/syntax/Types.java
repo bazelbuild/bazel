@@ -160,6 +160,16 @@ public final class Types {
       // that.isComparable(ANY).
       return that.equals(ANY);
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return true;
+    }
   }
 
   private static final class ObjectType extends StarlarkType {
@@ -199,6 +209,16 @@ public final class Types {
     protected boolean isComparable(StarlarkType that) {
       // Regard Never - as the bottom type - to be comparable to anything; in particular, this
       // allows empty lists (i.e. list[Never]) to be comparable to arbitrary non-empty lists.
+      return true;
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
       return true;
     }
   }
@@ -575,6 +595,16 @@ public final class Types {
     protected boolean isComparable(StarlarkType that) {
       return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetIndex);
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetField);
+    }
   }
 
   public static ListType list(StarlarkType elementType) {
@@ -616,6 +646,11 @@ public final class Types {
       }
       return false;
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
@@ -639,6 +674,11 @@ public final class Types {
     @Override
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
     }
   }
 

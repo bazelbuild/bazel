@@ -317,6 +317,24 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void sequence_assignment_order_of_operations() throws Exception {
+    assertTypeAfterTypecheck(
+        "x",
+        Types.list(Types.INT),
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ([1], 2)
+        """);
+
+    assertInvalid(
+        ":2:4: x of type 'tuple[int]' does not support item assignment",
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ((1,), 2)
+        """);
+  }
+
+  @Test
   public void canTolerateIrrelevantStatementTypes() throws Exception {
     assertValid(
         """
@@ -328,7 +346,7 @@ public final class TypeCheckerTest {
   }
 
   /** A dummy type having a single field 'f' of type int. */
-  private static final class FooType extends StarlarkType {
+  private static sealed class FooType extends StarlarkType permits FooType.Mutable {
     @Override
     public StarlarkType getField(String name) {
       return name.equals("f") ? Types.INT : null;
@@ -348,10 +366,27 @@ public final class TypeCheckerTest {
     public String toString() {
       return "Foo";
     }
+
+    /** Like FooType, but mutable. */
+    private static final class Mutable extends FooType {
+      @Override
+      public String toString() {
+        return "MutableFoo";
+      }
+
+      @Override
+      public boolean hasSetField() {
+        return true;
+      }
+    }
   }
 
   private final Module fooModule =
-      TestUtils.Module.withUniversalTypesAnd("Foo", Types.wrapType("Foo", new FooType()));
+      TestUtils.Module.withUniversalTypesAnd(
+          "Foo",
+          Types.wrapType("Foo", new FooType()),
+          "MutableFoo",
+          Types.wrapType("MutableFoo", new FooType.Mutable()));
 
   @Test
   public void infer_dot() throws Exception {
@@ -380,7 +415,7 @@ public final class TypeCheckerTest {
 
     assertValid(
         """
-        o1: Foo
+        o1: MutableFoo
         o1.f = 123
 
         o2: Any
@@ -395,15 +430,22 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
+        ":2:1: o of type 'Foo' does not support field assignment",
+        """
+        o: Foo  # immutable
+        o.f = 123
+        """);
+
+    assertInvalid(
         ":2:1: cannot assign type 'str' to 'o.f' of type 'int'",
         """
-        o: Foo
+        o: MutableFoo
         o.f = 'abc'
         """);
     assertInvalid(
-        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        ":2:2: 'o' of type 'MutableFoo' does not have field 'g'",
         """
-        o: Foo
+        o: MutableFoo
         o.g = 123
         """);
   }
@@ -571,20 +613,27 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_index_str() throws Exception {
-    // Strings are immutable, so any assignment to an index expression of a string will fail
-    // dynamically. But it's not currently a static error, if the types are correct.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    assertInvalid(
+        ":3:1: s of type 'str' does not support item assignment",
         """
         # Normal case.
         s: str
         s[123] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as index.
+        s: str
         a: Any
         s[a] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as value.
+        s: str
+        a: Any
         s[123] = a
         """);
 
@@ -654,51 +703,84 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_index_tuple() throws Exception {
-    // Tuple mutation is illegal, but not currently a static error if there's no type mismatch.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    // Cannot assign a value to a tuple index
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
         """
-        # Normal case.
         t: tuple[int, str, bool]
         t[1] = "abc"
-        # Negative index
-        t[-3] = 42
-
-        t2: tuple[int|str, ...]
-        t2[0] = 0
-        t2[42] = "42"
-
-        # Any as index.
-        # This is a particularly nonsensical assignment that nonetheless passes the checker.
-        a: Any
-        u: int | str | bool
-        t[a] = u
-
-        # Any as value.
-        t[1] = a
-        t2[1000] = a
         """);
-
     assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
         """
-        :2:1: cannot assign type 'int' to 't[1]' of type 'str'\
-        """,
+        t: tuple[str, ...]
+        t[1] = "abc"
+        """);
+    // ... even when the value is Any
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[int, str, bool]
+        t[1] = val
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[str, ...]
+        t[1] = val
+        """);
+    // ... or the index is unknown
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[int, str, bool]
+        t[i] = "abc"
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[str, ...]
+        t[i] = "abc"
+        """);
+    // If the value is of the wrong type, we still report an error about tuple index assignment.
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
         """
         t: tuple[int, str, bool]
-        t[1] = 123
+        t[1] = {"foo": "bar"}
+        """);
+    assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        t: tuple[str, ...]
+        t[1] = {"foo": "bar"}
+        """);
+  }
+
+  @Test
+  public void assignment_index_nested() throws Exception {
+    assertValid(
+        """
+        x: list[list[int]]
+        x[0][0] = 1
         """);
 
     assertInvalid(
-        ":3:1: cannot assign type 'int|bool' to 't[1]' of type 'int|str'",
+        ":2:1: x[0] of type 'tuple[int]' does not support item assignment",
         """
-        t: tuple[int | str, ...]
-        x: int | bool
-        t[1] = x
+        x: list[tuple[int]]
+        x[0][0] = 1
         """);
   }
 
   @Test
   public void augmented_assignment() throws Exception {
+    module = fooModule;
+
     assertValid(
         """
         x: list[int]
@@ -712,6 +794,9 @@ public final class TypeCheckerTest {
         z: set[int|str]
         z_rhs: set[str]
         z ^= z_rhs
+
+        w: MutableFoo
+        w.f *= 2
         """);
     // Augmented assignment to an immutable value is legal as long as the types match.
     assertValid(
@@ -766,13 +851,24 @@ public final class TypeCheckerTest {
         x += ("hello", )
         """);
 
-    // TODO: #28037 - This needs to be invalid (str/tuple do not support item assignment)
-    assertValid(
+    // Invalid index/field assignments.
+    assertInvalid(
+        ":2:1: x of type 'str' does not support item assignment",
         """
         x: str
         x[1] += "a"
-        y: tuple[int, int]
-        y[0] += 42
+        """);
+    assertInvalid(
+        ":2:1: x of type 'tuple[int, ...]|list[Any]' does not support item assignment",
+        """
+        x: tuple[int, ...] | list
+        x[0] += 42
+        """);
+    assertInvalid(
+        ":2:1: x of type 'Foo' does not support field assignment",
+        """
+        x: Foo # immutable
+        x.f *= 2
         """);
   }
 

@@ -122,4 +122,20 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
   protected boolean isComparable(StarlarkType that) {
     return false;
   }
+
+  /**
+   * Returns true if an index expression on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetIndex() {
+    return false;
+  }
+
+  /**
+   * Returns true if a dot expressions on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetField() {
+    return false;
+  }
 }

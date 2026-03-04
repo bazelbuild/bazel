@@ -150,20 +150,7 @@ public final class TypeChecker extends NodeVisitor {
         return cast.getStarlarkType();
       }
       case DOT -> {
-        var dot = (DotExpression) expr;
-        StarlarkType objType = infer(dot.getObject());
-        String name = dot.getField().getName();
-        StarlarkType fieldType = objType.getField(name);
-        if (fieldType == null) {
-          errorf(
-              dot.getDotLocation(),
-              "'%s' of type '%s' does not have field '%s'",
-              dot.getObject(),
-              objType,
-              name);
-          return Types.ANY;
-        }
-        return fieldType;
+        return inferDot((DotExpression) expr);
       }
       case INDEX -> {
         return inferIndex((IndexExpression) expr);
@@ -287,12 +274,33 @@ public final class TypeChecker extends NodeVisitor {
     return null;
   }
 
+  private StarlarkType inferDot(DotExpression dot) {
+    return inferDot(dot, infer(dot.getObject()));
+  }
+
+  private StarlarkType inferDot(DotExpression dot, StarlarkType objType) {
+    String name = dot.getField().getName();
+    StarlarkType fieldType = objType.getField(name);
+    if (fieldType == null) {
+      errorf(
+          dot.getDotLocation(),
+          "'%s' of type '%s' does not have field '%s'",
+          dot.getObject(),
+          objType,
+          name);
+      return Types.ANY;
+    }
+    return fieldType;
+  }
+
   private StarlarkType inferIndex(IndexExpression index) {
+    return inferIndex(index, infer(index.getObject()), infer(index.getKey()));
+  }
+
+  private StarlarkType inferIndex(
+      IndexExpression index, StarlarkType objType, StarlarkType keyType) {
     Expression obj = index.getObject();
     Expression key = index.getKey();
-    StarlarkType objType = infer(obj);
-    StarlarkType keyType = infer(key);
-
     if (objType.equals(Types.ANY)) {
       return Types.ANY;
 
@@ -971,10 +979,7 @@ public final class TypeChecker extends NodeVisitor {
       assignSequence((ListExpression) lhs, rhsType);
       return;
     }
-
-    // infer() handles Identifier and DotExpression. The type for evaluating these expressions in a
-    // read context is the same as its type for assignment purposes.
-    StarlarkType lhsType = infer(lhs);
+    StarlarkType lhsType = inferIndividualAssignmentTarget(lhs);
 
     if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
       errorf(lhs, "cannot assign type '%s' to '%s' of type '%s'", rhsType, lhs, lhsType);
@@ -984,6 +989,48 @@ public final class TypeChecker extends NodeVisitor {
     if (lhs instanceof Identifier id && id.getBinding().getType() == null) {
       // If a variable has not been typed, infer its type from the rhs of the first assignment.
       id.getBinding().setType(rhsType);
+    }
+  }
+
+  /**
+   * Verifies that the expression can be used as the target of a non-sequence assignment (or
+   * augmented assignment), and returns the expression's type.
+   */
+  private StarlarkType inferIndividualAssignmentTarget(Expression lhs) {
+    switch (lhs.kind()) {
+      case Expression.Kind.INDEX -> {
+        IndexExpression indexExpr = (IndexExpression) lhs;
+        StarlarkType objectType = infer(indexExpr.getObject());
+        StarlarkType keyType = infer(indexExpr.getKey());
+        if (!objectType.hasSetIndex()) {
+          errorf(
+              lhs,
+              "%s of type '%s' does not support item assignment",
+              indexExpr.getObject(),
+              objectType);
+        }
+        return inferIndex(indexExpr, objectType, keyType);
+      }
+      case Expression.Kind.DOT -> {
+        DotExpression dotExpr = (DotExpression) lhs;
+        StarlarkType objectType = infer(dotExpr.getObject());
+        if (!objectType.hasSetField()) {
+          errorf(
+              lhs,
+              "%s of type '%s' does not support field assignment",
+              dotExpr.getObject(),
+              objectType);
+        }
+        return inferDot(dotExpr, objectType);
+      }
+      case Expression.Kind.IDENTIFIER -> {
+        return infer(lhs);
+      }
+      default -> {
+        StarlarkType lhsType = infer(lhs);
+        errorf(lhs, "%s of type '%s' is not a valid target for assignment", lhs, lhsType);
+        return Types.ANY;
+      }
     }
   }
 
@@ -1058,17 +1105,13 @@ public final class TypeChecker extends NodeVisitor {
     if (!usesTypeSyntax()) {
       return;
     }
-    // TODO: #28037 - Consider rejecting the assignment (or augmented assignment) if the LHS is
-    // read-only, e.g. an index expression of a string. This would require either an ad hoc check
-    // here in this method, or else passing back from infer() more detailed information than just
-    // the StarlarkType.
 
     if (assignment.isAugmented()) {
       TokenKind operator = assignment.getOperator();
       Location operatorLocation = assignment.getOperatorLocation();
       Expression lhs = assignment.getLHS();
       Expression rhs = assignment.getRHS();
-      StarlarkType lhsType = infer(assignment.getLHS());
+      StarlarkType lhsType = inferIndividualAssignmentTarget(lhs);
       StarlarkType rhsType = infer(assignment.getRHS());
       // TODO(b/141263526): if we decide to support list += sequence, we'd need to special-case it
       // here (since list + tuple is an error per inferBinaryOperator()).
@@ -1091,18 +1134,16 @@ public final class TypeChecker extends NodeVisitor {
             String.format(
                 "cannot update '%s' of type '%s' with a result value of type '%s'",
                 lhs, lhsType, resultType));
-        return;
       }
+    } else {
 
-      return;
+      // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
+      // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as
+      // list[int] instead of list[object].
+      var rhsType = infer(assignment.getRHS());
+
+      assign(assignment.getLHS(), rhsType);
     }
-
-    // TODO: #27370 - Do bidirectional inference, passing down information about the expected type
-    // from the LHS to the infer() call here, e.g. to construct the type of `[1, 2, 3]` as list[int]
-    // instead of list[object].
-    var rhsType = infer(assignment.getRHS());
-
-    assign(assignment.getLHS(), rhsType);
   }
 
   @Override
