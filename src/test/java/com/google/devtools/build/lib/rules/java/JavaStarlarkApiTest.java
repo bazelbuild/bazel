@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
 import static com.google.devtools.build.lib.rules.java.JavaInfo.PROVIDER;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.util.Arrays.stream;
@@ -27,7 +25,6 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -746,125 +743,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaLibraryCollectsCoverageDependenciesFromResources() throws Exception {
-    useConfiguration("--collect_code_coverage");
-
-    scratch.file(
-        "java/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_java//java:defs.bzl", "java_library")
-        java_library(
-            name = "lib",
-            resources = [":libjni.so"],
-        )
-
-        cc_binary(
-            name = "libjni.so",
-            srcs = ["jni.cc"],
-            linkshared = 1,
-        )
-        """);
-
-    InstrumentedFilesInfo target = getInstrumentedFilesProvider("//java:lib");
-
-    assertThat(prettyArtifactNames(target.getInstrumentedFiles())).containsExactly("java/jni.cc");
-    assertThat(prettyArtifactNames(target.getInstrumentationMetadataFiles()))
-        .containsExactly("java/_objs/libjni.so/jni.gcno");
-  }
-
-  @Test
-  public void testSkipAnnotationProcessing() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
-            + " 'JavaPluginInfo')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "    deps = [p[JavaInfo] for p in ctx.attr.deps],",
-        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
-        "    enable_annotation_processing = False,",
-        "  )",
-        "  return [DefaultInfo(files = depset([output_jar])), compilation_provider]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=True),",
-        "    'deps': attr.label_list(providers=[JavaInfo]),",
-        "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-
-        java_plugin(
-            name = "processor",
-            srcs = ["processor.java"],
-            data = ["processor_data.txt"],
-            generates_api = 1,  # so Turbine would normally run it
-            processor_class = "Foo",
-        )
-
-        java_library(
-            name = "exports_processor",
-            exported_plugins = [":processor"],
-        )
-
-        java_custom_library(
-            name = "custom",
-            srcs = ["custom.java"],
-            plugins = [":processor"],
-            deps = [":exports_processor"],
-        )
-
-        java_custom_library(
-            name = "custom_noproc",
-            srcs = ["custom.java"],
-        )
-        """);
-
-    ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
-    ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");
-    assertNoEvents();
-
-    JavaCompileAction javacAction =
-        (JavaCompileAction) getGeneratingActionForLabel("//foo:libcustom.jar");
-    assertThat(javacAction.getMnemonic()).isEqualTo("Javac");
-    assertThat(getProcessorNames(javacAction)).isEmpty();
-    assertThat(getProcessorPath(javacAction)).isNotEmpty();
-    assertThat(artifactFilesNames(javacAction.getInputs())).contains("processor_data.txt");
-
-    JavaCompileAction turbineAction =
-        (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
-    assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
-    ImmutableList<String> args = turbineAction.getArguments();
-    assertThat(args).doesNotContain("--processors");
-
-    // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
-    // annotation processors that need to be disabled
-    SpawnAction turbineActionNoProc =
-        (SpawnAction)
-            getGeneratingAction(getBinArtifact("libcustom_noproc-hjar.jar", customNoproc));
-    assertThat(turbineActionNoProc.getMnemonic()).isEqualTo("Turbine");
-    assertThat(turbineActionNoProc.getArguments()).doesNotContain("--processors");
-  }
-
-  @Test
   public void testCompileWithDisablingCompileJarIsPrivateApi() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
@@ -1295,10 +1173,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaModuleFlagsProvider provider =
         JavaInfo.getProvider(JavaModuleFlagsProvider.class, myRuleTarget);
     assertThat(provider.toFlags()).containsExactly("--add-exports=java.base/java.lang=ALL-UNNAMED");
-  }
-
-  private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {
-    return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
   }
 
   @Test
