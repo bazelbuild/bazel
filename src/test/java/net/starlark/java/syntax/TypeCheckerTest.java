@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ObjectArrays;
+import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -347,31 +348,43 @@ public final class TypeCheckerTest {
 
   /** A dummy type having a single field 'f' of type int. */
   private static sealed class FooType extends StarlarkType permits FooType.Mutable {
+    protected final StarlarkType fieldType;
+
+    FooType(StarlarkType fieldType) {
+      this.fieldType = fieldType;
+    }
+
     @Override
     public StarlarkType getField(String name) {
-      return name.equals("f") ? Types.INT : null;
+      return name.equals("f") ? fieldType : null;
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj != null && obj.getClass().equals(this.getClass());
+      return obj != null
+          && obj.getClass().equals(this.getClass())
+          && fieldType.equals(((FooType) obj).fieldType);
     }
 
     @Override
     public int hashCode() {
-      return this.getClass().hashCode();
+      return Objects.hash(this.getClass().hashCode(), fieldType);
     }
 
     @Override
     public String toString() {
-      return "Foo";
+      return String.format("Foo[%s]", fieldType);
     }
 
     /** Like FooType, but mutable. */
     private static final class Mutable extends FooType {
+      Mutable(StarlarkType fieldType) {
+        super(fieldType);
+      }
+
       @Override
       public String toString() {
-        return "MutableFoo";
+        return String.format("MutableFoo[%s]", fieldType);
       }
 
       @Override
@@ -384,15 +397,17 @@ public final class TypeCheckerTest {
   private final Module fooModule =
       TestUtils.Module.withUniversalTypesAnd(
           "Foo",
-          Types.wrapType("Foo", new FooType()),
+          Types.wrapTypeConstructor("Foo", t -> new FooType(t)),
           "MutableFoo",
-          Types.wrapType("MutableFoo", new FooType.Mutable()));
+          Types.wrapTypeConstructor("MutableFoo", t -> new FooType.Mutable(t)));
 
   @Test
   public void infer_dot() throws Exception {
     module = fooModule;
 
-    assertTypeGivenDecls("o.f", Types.INT, "o: Foo");
+    assertTypeGivenDecls("o.f", Types.INT, "o: Foo[int]");
+    assertTypeGivenDecls(
+        "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
 
     assertInvalid(
@@ -402,9 +417,9 @@ public final class TypeCheckerTest {
         n.f
         """);
     assertInvalid(
-        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        ":2:2: 'o' of type 'Foo[int]' does not have field 'g'",
         """
-        o: Foo
+        o: Foo[int]
         o.g
         """);
   }
@@ -415,7 +430,7 @@ public final class TypeCheckerTest {
 
     assertValid(
         """
-        o1: MutableFoo
+        o1: MutableFoo[int]
         o1.f = 123
 
         o2: Any
@@ -430,23 +445,30 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":2:1: o of type 'Foo' does not support field assignment",
+        ":2:1: o of type 'Foo[int]' does not support field assignment",
         """
-        o: Foo  # immutable
+        o: Foo[int]  # immutable
         o.f = 123
         """);
 
     assertInvalid(
         ":2:1: cannot assign type 'str' to 'o.f' of type 'int'",
         """
-        o: MutableFoo
+        o: MutableFoo[int]
         o.f = 'abc'
         """);
     assertInvalid(
-        ":2:2: 'o' of type 'MutableFoo' does not have field 'g'",
+        ":2:2: 'o' of type 'MutableFoo[int]' does not have field 'g'",
         """
-        o: MutableFoo
+        o: MutableFoo[int]
         o.g = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'int' to 'o.f' which expects a value satisfying all of the 2"
+            + " types ['int', 'bool']",
+        """
+        o: MutableFoo[int] | MutableFoo[bool]
+        o.f = 123
         """);
   }
 
@@ -778,6 +800,36 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void infer_index_union() throws Exception {
+    assertTypeGivenDecls(
+        "u[1]",
+        Types.union(Types.STR, Types.INT, Types.FLOAT, Types.BOOL),
+        "u: str | list[int] | tuple[float, ...] | tuple[Any, bool]");
+    assertTypeGivenDecls("u['abc']", Types.NUMERIC, "u: dict[str, int] | dict[Any, float]");
+  }
+
+  @Test
+  public void assignment_index_union() throws Exception {
+    assertValid(
+        """
+        u: list[int] | dict[Any, int]
+        u[1] = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'u[1]' which expects a value satisfying all of the 2"
+            + " types ['str', 'int']",
+        """
+        u: list[str] | list[int]
+        u[1] = "abc"
+        """);
+    assertValid(
+        """
+        u: list[str|int]
+        u[1] = "abc"
+        """);
+  }
+
+  @Test
   public void augmented_assignment() throws Exception {
     module = fooModule;
 
@@ -795,7 +847,7 @@ public final class TypeCheckerTest {
         z_rhs: set[str]
         z ^= z_rhs
 
-        w: MutableFoo
+        w: MutableFoo[int]
         w.f *= 2
         """);
     // Augmented assignment to an immutable value is legal as long as the types match.
@@ -865,9 +917,15 @@ public final class TypeCheckerTest {
         x[0] += 42
         """);
     assertInvalid(
-        ":2:1: x of type 'Foo' does not support field assignment",
+        ":2:1: x of type 'Foo[int]' does not support field assignment",
         """
-        x: Foo # immutable
+        x: Foo[int] # immutable
+        x.f *= 2
+        """);
+    assertInvalid(
+        ":2:1: x of type 'MutableFoo[int]|Foo[int]' does not support field assignment",
+        """
+        x: MutableFoo[int] | Foo[int]  # potentially immutable
         x.f *= 2
         """);
   }

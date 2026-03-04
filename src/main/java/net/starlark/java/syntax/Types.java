@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -594,6 +595,20 @@ public final class Types {
     @Override
     protected boolean isComparable(StarlarkType that) {
       return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name) {
+      ArrayList<StarlarkType> resultTypes = new ArrayList<>(getTypes().size());
+      for (StarlarkType type : getTypes()) {
+        StarlarkType result = type.getField(name);
+        if (result == null) {
+          return null;
+        }
+        resultTypes.add(result);
+      }
+      return union(resultTypes);
     }
 
     @Override

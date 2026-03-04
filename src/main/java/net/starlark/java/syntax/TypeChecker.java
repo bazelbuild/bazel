@@ -275,91 +275,133 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   private StarlarkType inferDot(DotExpression dot) {
-    return inferDot(dot, infer(dot.getObject()));
+    return Types.union(inferDotUnfolded(dot, infer(dot.getObject())));
   }
 
-  private StarlarkType inferDot(DotExpression dot, StarlarkType objType) {
+  /**
+   * Infers the non-flattened unfolded list of possible types of a dot expression.
+   *
+   * <p>For example, given if field f has type int for type T, and type str|bool for type U, this
+   * function will return the list {@code [int, str|bool]} for x.f where x has type T|U.
+   *
+   * <p>When a dot expression is used as a value, one should take the union type of the returned
+   * types. But when a dot expression is used as the LHS of an assignment, one should take their
+   * meet.
+   */
+  private ImmutableList<StarlarkType> inferDotUnfolded(DotExpression dot, StarlarkType objType) {
     String name = dot.getField().getName();
-    StarlarkType fieldType = objType.getField(name);
-    if (fieldType == null) {
-      errorf(
-          dot.getDotLocation(),
-          "'%s' of type '%s' does not have field '%s'",
-          dot.getObject(),
-          objType,
-          name);
-      return Types.ANY;
+
+    if (objType.equals(Types.ANY)) {
+      return ImmutableList.of(Types.ANY);
     }
-    return fieldType;
+
+    ImmutableCollection<StarlarkType> objElemTypes = Types.unfoldUnion(objType);
+    ImmutableList.Builder<StarlarkType> resultTypes =
+        ImmutableList.builderWithExpectedSize(objElemTypes.size());
+    for (StarlarkType objElemType : objElemTypes) {
+      StarlarkType fieldType = objElemType.getField(name);
+      if (fieldType == null) {
+        errorf(
+            dot.getDotLocation(),
+            "'%s' of type '%s' does not have field '%s'",
+            dot.getObject(),
+            objType,
+            name);
+        return ImmutableList.of(Types.ANY);
+      }
+      resultTypes.add(fieldType);
+    }
+    return resultTypes.build();
   }
 
   private StarlarkType inferIndex(IndexExpression index) {
-    return inferIndex(index, infer(index.getObject()), infer(index.getKey()));
+    return Types.union(inferIndexUnfolded(index, infer(index.getObject()), infer(index.getKey())));
   }
 
-  private StarlarkType inferIndex(
+  /**
+   * Infers the non-flattened unfolded list of possible types of an index expression.
+   *
+   * <p>For example, given object type {@code list[int] | list[str|bool]}, this function will return
+   * the list {@code [int, str|bool]}.
+   *
+   * <p>When an index expression is used as a value, one should take the union type of the returned
+   * types. But when an index expression is used as the LHS of an assignment, one should take their
+   * meet.
+   */
+  private ImmutableList<StarlarkType> inferIndexUnfolded(
       IndexExpression index, StarlarkType objType, StarlarkType keyType) {
     Expression obj = index.getObject();
     Expression key = index.getKey();
-    if (objType.equals(Types.ANY)) {
-      return Types.ANY;
 
-    } else if (objType instanceof Types.FixedLengthTupleType tupleType) {
-      errorIfKeyNotInt(index, objType, keyType);
-      var elementTypes = tupleType.getElementTypes();
-      StarlarkType resultType = null;
-      // Project out the type of the specific component if we can statically determine the index.
-      Integer intKey = getIntValueExact(key);
-      if (intKey != null) {
-        int i = intKey;
-        if (i < 0) {
-          // Same logic as for EvalUtils#getSequenceIndex.
-          i += elementTypes.size();
+    if (objType.equals(Types.ANY)) {
+      return ImmutableList.of(Types.ANY);
+    }
+
+    ImmutableCollection<StarlarkType> objElemTypes = Types.unfoldUnion(objType);
+    ImmutableList.Builder<StarlarkType> resultTypes =
+        ImmutableList.builderWithExpectedSize(objElemTypes.size());
+    for (StarlarkType objElemType : objElemTypes) {
+      if (objElemType.equals(Types.ANY)) {
+        resultTypes.add(Types.ANY);
+
+      } else if (objElemType instanceof Types.FixedLengthTupleType tupleType) {
+        errorIfKeyNotInt(index, objElemType, keyType);
+        var elementTypes = tupleType.getElementTypes();
+        StarlarkType resultType = null;
+        // Project out the type of the specific component if we can statically determine the index.
+        Integer intKey = getIntValueExact(key);
+        if (intKey != null) {
+          int i = intKey;
+          if (i < 0) {
+            // Same logic as for EvalUtils#getSequenceIndex.
+            i += elementTypes.size();
+          }
+          if (0 <= i && i < elementTypes.size()) {
+            resultType = elementTypes.get(i);
+          } else {
+            errorf(
+                index.getLbracketLocation(),
+                "'%s' of type '%s' is indexed by integer %s, which is out-of-range",
+                obj,
+                objType,
+                intKey);
+            // Don't complain about uses of the result type when we don't even know what result type
+            // the user wanted.
+            return ImmutableList.of(Types.ANY);
+          }
         }
-        if (0 <= i && i < elementTypes.size()) {
-          resultType = elementTypes.get(i);
-        } else {
+        if (resultType == null) {
+          resultType = tupleType.toHomogeneous().getElementType();
+        }
+        resultTypes.add(resultType);
+
+      } else if (objElemType instanceof Types.AbstractSequenceType sequenceType) {
+        errorIfKeyNotInt(index, objType, keyType); // fall through on error
+        resultTypes.add(sequenceType.getElementType());
+
+      } else if (objElemType instanceof Types.AbstractMappingType mappingType) {
+        if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType)) {
           errorf(
               index.getLbracketLocation(),
-              "'%s' of type '%s' is indexed by integer %s, which is out-of-range",
+              "'%s' of type '%s' requires key type '%s', but got '%s'",
               obj,
               objType,
-              intKey);
-          // Don't complain about uses of the result type when we don't even know what result type
-          // the user wanted.
-          return Types.ANY;
+              mappingType.getKeyType(),
+              keyType);
+          // Fall through to returning the value type.
         }
+        resultTypes.add(mappingType.getValueType());
+
+      } else if (objElemType.equals(Types.STR)) {
+        errorIfKeyNotInt(index, objType, keyType); // fall through on error
+        resultTypes.add(Types.STR);
+
+      } else {
+        errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
+        return ImmutableList.of(Types.ANY);
       }
-      if (resultType == null) {
-        resultType = Types.union(elementTypes);
-      }
-      return resultType;
-
-    } else if (objType instanceof Types.AbstractSequenceType sequenceType) {
-      errorIfKeyNotInt(index, objType, keyType); // fall through on error
-      return sequenceType.getElementType();
-
-    } else if (objType instanceof Types.AbstractMappingType mappingType) {
-      if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType)) {
-        errorf(
-            index.getLbracketLocation(),
-            "'%s' of type '%s' requires key type '%s', but got '%s'",
-            obj,
-            objType,
-            mappingType.getKeyType(),
-            keyType);
-        // Fall through to returning the value type.
-      }
-      return mappingType.getValueType();
-
-    } else if (objType.equals(Types.STR)) {
-      errorIfKeyNotInt(index, objType, keyType); // fall through on error
-      return Types.STR;
-
-    } else {
-      errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
-      return Types.ANY;
     }
+    return resultTypes.build();
   }
 
   private StarlarkType inferSlice(SliceExpression slice) {
@@ -979,11 +1021,13 @@ public final class TypeChecker extends NodeVisitor {
       assignSequence((ListExpression) lhs, rhsType);
       return;
     }
-    StarlarkType lhsType = inferIndividualAssignmentTarget(lhs);
 
-    if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
-      errorf(lhs, "cannot assign type '%s' to '%s' of type '%s'", rhsType, lhs, lhsType);
-      return;
+    ImmutableList<StarlarkType> lhsMeet = inferIndividualAssignmentTarget(lhs);
+    for (StarlarkType lhsType : lhsMeet) {
+      if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
+        errorf(lhs, "cannot assign type '%s' to %s", rhsType, formatExprWithMeetType(lhs, lhsMeet));
+        break;
+      }
     }
 
     if (lhs instanceof Identifier id && id.getBinding().getType() == null) {
@@ -992,11 +1036,33 @@ public final class TypeChecker extends NodeVisitor {
     }
   }
 
+  private static String formatExprWithMeetType(Expression expr, ImmutableList<StarlarkType> types) {
+    if (types.size() == 1) {
+      return String.format("'%s' of type '%s'", expr, types.getFirst());
+    } else {
+      return String.format(
+          "'%s' which expects a value satisfying all of the %d types [%s]",
+          expr,
+          types.size(),
+          types.stream().map(t -> String.format("'%s'", t)).collect(joining(", ")));
+    }
+  }
+
   /**
    * Verifies that the expression can be used as the target of a non-sequence assignment (or
-   * augmented assignment), and returns the expression's type.
+   * augmented assignment). Returns a non-flattened unfolded list of LHS acceptor types, each of
+   * which must be checked for being assignable by the assignment's RHS type.
+   *
+   * <p>In type theory terms, the returned list represents the meet of its type elements; however,
+   * meet types don't (yet) exist in the Starlark type system.
+   *
+   * <p>If the LHS is an index or dot expression whose object is of a union type, then each of the
+   * possible acceptor types must be assignable. We want to distinguish between the valid case
+   * {@code x: list[int|str]; x[0] = 1} (where there is a single LHS acceptor type, int|str) and the
+   * invalid case {@code y: list[int] | list[str]; y[0] = 1} (which has a pair of LHS acceptor
+   * types, int and str, the latter of which is not assignable from 1).
    */
-  private StarlarkType inferIndividualAssignmentTarget(Expression lhs) {
+  private ImmutableList<StarlarkType> inferIndividualAssignmentTarget(Expression lhs) {
     switch (lhs.kind()) {
       case Expression.Kind.INDEX -> {
         IndexExpression indexExpr = (IndexExpression) lhs;
@@ -1009,7 +1075,7 @@ public final class TypeChecker extends NodeVisitor {
               indexExpr.getObject(),
               objectType);
         }
-        return inferIndex(indexExpr, objectType, keyType);
+        return inferIndexUnfolded(indexExpr, objectType, keyType);
       }
       case Expression.Kind.DOT -> {
         DotExpression dotExpr = (DotExpression) lhs;
@@ -1021,15 +1087,15 @@ public final class TypeChecker extends NodeVisitor {
               dotExpr.getObject(),
               objectType);
         }
-        return inferDot(dotExpr, objectType);
+        return inferDotUnfolded(dotExpr, objectType);
       }
       case Expression.Kind.IDENTIFIER -> {
-        return infer(lhs);
+        return ImmutableList.of(infer(lhs));
       }
       default -> {
         StarlarkType lhsType = infer(lhs);
         errorf(lhs, "%s of type '%s' is not a valid target for assignment", lhs, lhsType);
-        return Types.ANY;
+        return ImmutableList.of(Types.ANY);
       }
     }
   }
@@ -1111,29 +1177,31 @@ public final class TypeChecker extends NodeVisitor {
       Location operatorLocation = assignment.getOperatorLocation();
       Expression lhs = assignment.getLHS();
       Expression rhs = assignment.getRHS();
-      StarlarkType lhsType = inferIndividualAssignmentTarget(lhs);
+      ImmutableList<StarlarkType> lhsMeet = inferIndividualAssignmentTarget(lhs);
       StarlarkType rhsType = infer(assignment.getRHS());
-      // TODO(b/141263526): if we decide to support list += sequence, we'd need to special-case it
-      // here (since list + tuple is an error per inferBinaryOperator()).
-      StarlarkType resultType =
-          inferBinaryOperator(
-              lhs,
+      for (StarlarkType lhsType : lhsMeet) {
+        // TODO(b/141263526): if we decide to support list += sequence, we'd need to special-case it
+        // here (since list + tuple is an error per inferBinaryOperator()).
+        StarlarkType resultType =
+            inferBinaryOperator(
+                lhs,
+                lhsType,
+                operator,
+                operatorLocation,
+                rhs,
+                rhsType,
+                /* augmentedAssignment= */ true);
+        if (!StarlarkType.assignableFrom(lhsType, resultType)) {
+          binaryOperatorError(
               lhsType,
               operator,
               operatorLocation,
-              rhs,
               rhsType,
-              /* augmentedAssignment= */ true);
-      if (!StarlarkType.assignableFrom(lhsType, resultType)) {
-        binaryOperatorError(
-            lhsType,
-            operator,
-            operatorLocation,
-            rhsType,
-            /* augmentedAssignment= */ true,
-            String.format(
-                "cannot update '%s' of type '%s' with a result value of type '%s'",
-                lhs, lhsType, resultType));
+              /* augmentedAssignment= */ true,
+              String.format(
+                  "cannot update %s with a result value of type '%s'",
+                  formatExprWithMeetType(lhs, lhsMeet), resultType));
+        }
       }
     } else {
 
