@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -114,7 +113,7 @@ public class BulkTransferException extends IOException {
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
     var byDigest = byDigestBuilder.build();
-    return new LostArtifacts(byDigest, Optional.empty());
+    return new LostArtifacts(byDigest);
   }
 
   @Override

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
@@ -424,20 +423,6 @@ public final class CompletionFunction<
         return null;
       }
 
-      var owners =
-          lostOutputs
-              .owners()
-              .orElseGet(
-                  () ->
-                      ActionRewindStrategy.calculateLostInputOwners(
-                          lostOutputs.byDigest().values(), metadataProvider));
-      // Filter out lost outputs from the set of built artifacts so that they are not reported. If
-      // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
-        builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(owners.getOwners(lostOutput));
-      }
-
       Iterable<Artifact> artifactsRelevantForRewinding = importantArtifacts;
       if (importantOutputHandler.requiresHiddenOutputMetadata()) {
         var hiddenTopLevelArtifacts =
@@ -453,7 +438,8 @@ public final class CompletionFunction<
           key,
           ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
-          owners,
+          metadataProvider,
+          builtArtifacts,
           env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
