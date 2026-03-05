@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -205,6 +206,42 @@ public class ArtifactFactory implements ArtifactResolver {
     SourceArtifact getArtifactIfValid(PathFragment execPath) {
       Entry cacheEntry = getEntry(execPath);
       return (cacheEntry == null || cacheEntry.isInvalid(buildId)) ? null : cacheEntry.artifact();
+    }
+
+    /**
+     * Returns a list of artifacts with case-insensitively equivalent exec paths that are present in
+     * the cache and have been verified to be valid for this build. Note that if the artifacts'
+     * packages are not part of the current build, our differing methods of validating source roots
+     * (via {@link PackageRootResolver} and via {@link #findSourceRoot}) may disagree. In that case,
+     * the artifacts will be valid, but unusable by any action (since no action has properly
+     * declared them as inputs).
+     */
+    @ThreadSafe
+    ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
+        PathFragment execPath) {
+      Object cacheObject =
+          pathToSourceArtifact.get(AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath));
+      if (cacheObject == null) {
+        return ImmutableList.of();
+      }
+      return switch (cacheObject) {
+        case Entry entry ->
+            entry.isInvalid(buildId) ? ImmutableList.of() : ImmutableList.of(entry.artifact());
+        case CopyOnWriteArrayList<?> entries -> {
+          var validArtifacts = ImmutableList.<SourceArtifact>builder();
+          for (Object entryObject : entries) {
+            var entry = (Entry) entryObject;
+            if (!entry.isInvalid(buildId)) {
+              validArtifacts.add(entry.artifact());
+            }
+          }
+          yield validArtifacts.build();
+        }
+        default ->
+            throw new IllegalStateException(
+                "Unexpected cache object type: %s, value: %s"
+                    .formatted(cacheObject.getClass(), cacheObject));
+      };
     }
 
     void newBuild() {
@@ -548,6 +585,30 @@ public class ArtifactFactory implements ArtifactResolver {
   public SourceArtifact resolveSourceArtifact(
       PathFragment execPath, RepositoryName repositoryName) {
     return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
+  }
+
+  @Override
+  public ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
+      PathFragment execPath, RepositoryName repositoryName) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
+      return ImmutableList.of();
+    }
+
+    // Don't create an artifact if it's derived.
+    if (isDerivedArtifact(execPath)) {
+      return ImmutableList.of();
+    }
+    var artifacts = sourceArtifactCache.getValidArtifactsWithAsciiCaseInsensitivePath(execPath);
+    if (!artifacts.isEmpty()) {
+      return artifacts;
+    }
+    Root sourceRoot =
+        findSourceRoot(execPath, /* baseExecPath= */ null, /* baseRoot= */ null, repositoryName);
+    SourceArtifact newArtifact = createArtifactIfNotValid(sourceRoot, execPath);
+    if (newArtifact == null) {
+      return ImmutableList.of();
+    }
+    return ImmutableList.of(newArtifact);
   }
 
   @Nullable
