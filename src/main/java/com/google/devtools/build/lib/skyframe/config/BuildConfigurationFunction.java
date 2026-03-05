@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -151,7 +152,10 @@ public final class BuildConfigurationFunction implements SkyFunction {
       var baselineOptionsValue =
           (BaselineOptionsValue)
               env.getValueOrThrow(
-                  BaselineOptionsValue.key(coreOptions.isExec, newPlatform),
+                  BaselineOptionsValue.key(
+                      coreOptions.isExec,
+                      !targetOptions.contains(TestConfiguration.TestOptions.class),
+                      newPlatform),
                   StarlarkExecTransitionLoadingException.class);
       if (baselineOptionsValue == null) {
         return null;
