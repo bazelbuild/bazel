@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -51,6 +53,8 @@ public final class HeaderDiscoveryTest {
   @Test
   public void errorsWhenMissingHeaders() {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    when(artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(any(), any()))
+        .thenReturn(ImmutableList.of());
 
     assertThrows(
         ActionExecutionException.class,

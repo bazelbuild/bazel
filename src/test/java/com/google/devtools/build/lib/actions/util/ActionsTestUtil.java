@@ -931,6 +931,12 @@ public final class ActionsTestUtil {
     }
 
     @Override
+    public ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
+        PathFragment execPath, RepositoryName repositoryName) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
         Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
       throw new UnsupportedOperationException();
