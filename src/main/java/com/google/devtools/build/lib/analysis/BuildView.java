@@ -366,7 +366,7 @@ public class BuildView {
 
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
-            aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
+            aspects, aspectsParameters, labelToTargetMap, topLevelConfig, eventHandler);
 
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
         remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
@@ -537,7 +537,7 @@ public class BuildView {
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
-      ImmutableSet<Label> topLevelTargets,
+      ImmutableMap<Label, Target> topLevelTargets,
       BuildConfigurationValue configuration,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, ViewCreationFailedException {
@@ -618,11 +618,15 @@ public class BuildView {
       return ImmutableList.of();
     }
 
-    return topLevelTargets.stream()
+    return topLevelTargets.entrySet().stream()
+        // Do not run aspects on materializer targets since registering actions is not allowed in
+        // materializer rules (and thus aspects that run on them) and many aspects do register
+        // actions, and there isn't much for an aspect to do on a materializer target anyway.
+        .filter(entry -> !entry.getValue().isMaterializerRule())
         .map(
             target ->
                 AspectKeyCreator.createTopLevelAspectsKey(
-                    aspectClasses, target, configuration, aspectsParameters))
+                    aspectClasses, target.getKey(), configuration, aspectsParameters))
         .collect(toImmutableList());
   }
 
