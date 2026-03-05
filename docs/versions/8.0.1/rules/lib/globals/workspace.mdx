@@ -1,0 +1,77 @@
+---
+title: 'WORKSPACE files'
+---
+
+Methods available in WORKSPACE files.
+
+## Members
+
+* [bind](#bind)
+* [register\_execution\_platforms](#register_execution_platforms)
+* [register\_toolchains](#register_toolchains)
+* [workspace](#workspace)
+
+## bind
+
+```
+None bind(name, actual=None)
+```
+
+DEPRECATED: see [Consider removing bind](https://github.com/bazelbuild/bazel/issues/1952) for a long discussion of its issues and alternatives. `bind()` is not be available in Bzlmod.
+
+Gives a target an alias in the `//external` package.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | [string](../core/string); required  The label under '//external' to serve as the alias name |
+| `actual` | [string](../core/string); or `None`; default is `None`  The real label to be aliased |
+
+## register\_execution\_platforms
+
+```
+None register_execution_platforms(*platform_labels)
+```
+
+Specifies already-defined execution platforms to be registered. Should be absolute [target patterns](https://bazel.build/versions/8.0.1/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.0.1/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by name.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The target patterns to register. |
+
+## register\_toolchains
+
+```
+None register_toolchains(*toolchain_labels)
+```
+
+Specifies already-defined toolchains to be registered. Should be absolute [target patterns](https://bazel.build/versions/8.0.1/reference/glossary#target-pattern) (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/8.0.1/docs/toolchains) for more information. Patterns that expand to multiple targets, such as `:all`, will be registered in lexicographical order by target name (not the name of the toolchain implementation).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The target patterns to register. |
+
+## workspace
+
+```
+None workspace(name)
+```
+
+This function can only be used in a `WORKSPACE` file and must be declared before all other functions in the `WORKSPACE` file. Each `WORKSPACE` file should have a `workspace` function.
+
+Sets the name for this workspace. Workspace names should be a Java-package-style description of the project, using underscores as separators, e.g., github.com/bazelbuild/bazel should use com\_github\_bazelbuild\_bazel.
+
+This name is used for the directory that the repository's runfiles are stored in. For example, if there is a runfile `foo/bar` in the local repository and the WORKSPACE file contains `workspace(name = 'baz')`, then the runfile will be available under `mytarget.runfiles/baz/foo/bar`. If no workspace name is specified, then the runfile will be symlinked to `bar.runfiles/foo/bar`.
+
+[Remote repository](/versions/8.0.1/docs/external) rule names must be valid workspace names. For example, you could have `maven_jar(name = 'foo')`, but not `maven_jar(name = 'foo%bar')`, as Bazel would attempt to write a WORKSPACE file for the `maven_jar` containing `workspace(name = 'foo%bar')`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | [string](../core/string); required  the name of the workspace. Names must start with a letter and can only contain letters, numbers, underscores, dashes, and dots. |

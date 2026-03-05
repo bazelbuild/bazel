@@ -46,9 +46,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
@@ -400,8 +397,11 @@ public class CommandEnvironment {
           nonstrictRepoEnvBuilder.put(name, value);
         }
         case Converters.EnvVar.Inherit(String name) -> {
-          repoEnvBuilder.put(name, clientEnv.get(name));
-          nonstrictRepoEnvBuilder.put(name, clientEnv.get(name));
+          String value = clientEnv.get(name);
+          if (value != null) {
+            repoEnvBuilder.put(name, value);
+            nonstrictRepoEnvBuilder.put(name, value);
+          }
         }
         case Converters.EnvVar.Unset(String name) -> {
           repoEnvBuilder.remove(name);
@@ -767,7 +767,7 @@ public class CommandEnvironment {
    * <p>Always returns the same value on subsequent calls.
    */
   @Nullable
-  private DetailedExitCode finalizeDetailedExitCode() {
+  public DetailedExitCode finalizeDetailedExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
     if (pendingException.compareAndSet(null, Optional.empty())) {
@@ -781,17 +781,6 @@ public class CommandEnvironment {
     }
     // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
     return getPendingDetailedExitCode();
-  }
-
-  /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch of each command ends
-   * (while its outcome can still be modified).
-   */
-  DetailedExitCode precompleteCommand(DetailedExitCode originalExit) {
-    // TODO(b/138456686): this event is deprecated but is used in several places. Instead of lifting
-    //  the ExitCode to a DetailedExitCode, see if it can be deleted.
-    eventBus.post(new CommandPrecompleteEvent(originalExit.getExitCode()));
-    return finalizeDetailedExitCode();
   }
 
   /** Returns the current exit code requested by modules, or null if no exit has been requested. */
@@ -970,19 +959,6 @@ public class CommandEnvironment {
                           .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
                           .build())
                   .build()));
-    }
-  }
-
-  /** Returns the name of the file system we are writing output to. */
-  public String determineOutputFileSystem() {
-    // If we have a fancy OutputService, this may be different between consecutive Blaze commands
-    // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
-    // precomputed by our BlazeWorkspace.
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-      return outputService == null
-          ? ""
-          : outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
     }
   }
 

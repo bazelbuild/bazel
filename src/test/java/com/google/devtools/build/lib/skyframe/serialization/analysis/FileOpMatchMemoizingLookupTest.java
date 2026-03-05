@@ -26,14 +26,18 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemD
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class FileOpMatchMemoizingLookupTest {
+  private static final int THREAD_COUNT = 10;
+  private final Executor executor = new ForkJoinPool(THREAD_COUNT);
   private final VersionedChanges changes = new VersionedChanges(ImmutableList.of());
   private final FileOpMatchMemoizingLookup lookup =
-      new FileOpMatchMemoizingLookup(changes, new ConcurrentHashMap<>());
+      new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
 
   @Test
   public void matchEmptyChanges_noMatch() {

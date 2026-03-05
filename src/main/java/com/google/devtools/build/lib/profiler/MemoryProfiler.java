@@ -98,7 +98,7 @@ public final class MemoryProfiler {
       String name = currentPhase.description;
       MemoryUsage memoryUsage = memoryUsages.heap();
       var usedMemory = memoryUsage.getUsed();
-      // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
+      // TODO: b/406807983 - Remove the subtraction of FillerArray once we figure out an alternative
       if (nextPhase == ProfilePhase.FINISH) {
         usedMemory -=
             HeapOffsetHelper.getSizeOfFillerArrayOnHeap(

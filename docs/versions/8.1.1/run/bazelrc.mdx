@@ -2,8 +2,6 @@
 title: 'Write bazelrc configuration files'
 ---
 
-
-
 Bazel accepts many options. Some options are varied frequently (for example,
 `--subcommands`) while others stay the same across several builds (such as
 `--package_path`). To avoid specifying these unchanged options for every build
@@ -70,7 +68,6 @@ before the command (`build`, `test`, etc).
 
 In addition to this optional configuration file, Bazel looks for a global rc
 file. For more details, see the [global bazelrc section](#global-bazelrc).
-
 
 ### `.bazelrc` syntax and semantics
 
@@ -216,7 +213,7 @@ automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
 `freebsd`, and `openbsd`. Enabling this flag is equivalent to using
 `--config=linux` on Linux, `--config=windows` on Windows, and so on.
 
-See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
+See [--enable_platform_specific_config](/versions/8.1.1/reference/command-line-reference#flag--enable_platform_specific_config).
 
 #### Example
 

@@ -29,6 +29,8 @@ import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CollectionType;
 import net.starlark.java.syntax.Types.DictType;
+import net.starlark.java.syntax.Types.FixedLengthTupleType;
+import net.starlark.java.syntax.Types.HomogeneousTupleType;
 import net.starlark.java.syntax.Types.ListType;
 import net.starlark.java.syntax.Types.MappingType;
 import net.starlark.java.syntax.Types.SequenceType;
@@ -41,16 +43,28 @@ import net.starlark.java.syntax.Types.UnionType;
 public final class TypeChecker {
 
   private static boolean isTupleSubtypeOf(TupleType tuple1, TupleType tuple2) {
-    if (tuple1.getElementTypes().size() != tuple2.getElementTypes().size()) {
-      return false;
-    }
-    // Tuples are covariant
-    for (int i = 0; i < tuple1.getElementTypes().size(); ++i) {
-      if (!isSubtypeOf(tuple1.getElementTypes().get(i), tuple2.getElementTypes().get(i))) {
-        return false;
+    if (tuple1 instanceof FixedLengthTupleType fixed1) {
+      if (tuple2 instanceof FixedLengthTupleType fixed2) {
+        if (fixed1.getElementTypes().size() != fixed2.getElementTypes().size()) {
+          return false;
+        }
+        // Tuples are covariant
+        for (int i = 0; i < fixed1.getElementTypes().size(); ++i) {
+          if (!isSubtypeOf(fixed1.getElementTypes().get(i), fixed2.getElementTypes().get(i))) {
+            return false;
+          }
+        }
+        return true;
+      } else if (tuple2 instanceof HomogeneousTupleType homogeneous2) {
+        // Fixed-length tuples may be subtypes of homogeneous, but not the other way around.
+        return isSubtypeOf(fixed1.toHomogeneous().getElementType(), homogeneous2.getElementType());
       }
+    } else if (tuple1 instanceof HomogeneousTupleType homogeneous1
+        && tuple2 instanceof HomogeneousTupleType homogeneous2) {
+      return isSubtypeOf(homogeneous1.getElementType(), homogeneous2.getElementType());
     }
-    return true;
+
+    return false;
   }
 
   private static boolean isUnionSubtypeOf(
@@ -139,26 +153,11 @@ public final class TypeChecker {
   }
 
   static boolean isValueSubtypeOf(Object value, StarlarkType type2) {
-    // Fast path for Any type. `type(value)` below can take long time to evaluate
+    // Fast path for Any type. `Starlark.getStarlarkType(value)` can take long time to evaluate
     if (Objects.equals(type2, Types.ANY)) {
       return true;
     }
-    return isSubtypeOf(type(value), type2);
-  }
-
-  static StarlarkType type(Object value) {
-    if (value instanceof StarlarkValue val) {
-      StarlarkType type = val.getStarlarkType();
-      // Workaround for test mocks that generate getStarlarkType returning null
-      return Objects.requireNonNullElse(type, Types.ANY);
-    }
-    if (value instanceof Boolean) {
-      return Types.BOOL;
-    }
-    if (value instanceof String) {
-      return Types.STR;
-    }
-    throw new IllegalArgumentException("Expected a valid Starlark value.");
+    return isSubtypeOf(Starlark.getStarlarkType(value), type2);
   }
 
   private static class ParameterizedTypeImpl implements ParameterizedType {

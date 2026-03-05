@@ -99,7 +99,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);

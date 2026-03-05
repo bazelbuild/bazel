@@ -147,6 +147,7 @@ public class ExecutionTool {
   private final String actionExecutionSalt;
 
   private boolean informedOutputServiceToStartTheBuild = false;
+  private IncrementalPackageRoots incrementalPackageRoots;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -268,7 +269,7 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      IncrementalPackageRoots incrementalPackageRoots =
+      incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
               // Single package path is a Skymeld prerequisite.
@@ -431,7 +432,10 @@ public class ExecutionTool {
           request.getViewOptions().discardAnalysisCache
               || !skyframeExecutor.tracksStateForIncrementality();
       if (shouldDiscardAnalysisCache) {
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().isRetrievalEnabled()) {
+        if (skyframeExecutor
+            .getRemoteAnalysisCacheReaderDepsProvider()
+            .mode()
+            .isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
           // during the logical execution phase. Discarding the analysis cache can lead to crashes.
           //
@@ -608,6 +612,9 @@ public class ExecutionTool {
     // These may flush logs, which may help if there is a catastrophic failure.
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       executorLifecycleListener.executionPhaseEnding();
+    }
+    if (incrementalPackageRoots != null) {
+      incrementalPackageRoots.shutdown();
     }
 
     // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of

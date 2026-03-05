@@ -2,14 +2,12 @@
 title: 'Advanced topics on external dependencies'
 ---
 
-
-
 ## Shadowing dependencies in WORKSPACE
 
 Note: This section applies to the [WORKSPACE
-system](/external/overview#workspace-system) only. For
-[Bzlmod](/external/overview#bzlmod), use a [multiple-version
-override](/external/module#multiple-version_override).
+system](/versions/8.4.2/external/overview#workspace-system) only. For
+[Bzlmod](/versions/8.4.2/external/overview#bzlmod), use a [multiple-version
+override](/versions/8.4.2/external/module#multiple-version_override).
 
 Whenever possible, have a single version policy in your project, which is
 required for dependencies that you compile against and end up in your final
@@ -94,7 +92,7 @@ in `myproject/WORKSPACE`.
 
 To override a declared repository with a local repository from the command line,
 use the
-[`--override_repository`](/reference/command-line-reference#flag--override_repository)
+[`--override_repository`](/versions/8.4.2/reference/command-line-reference#flag--override_repository)
 flag. Using this flag changes the contents of external repositories without
 changing your source code.
 
@@ -109,11 +107,11 @@ Use cases include:
     override the network-based repository rules to point to local directories
     instead.
 
-Note: With [Bzlmod](/external/overview#bzlmod), remember to use canonical repo
+Note: With [Bzlmod](/versions/8.4.2/external/overview#bzlmod), remember to use canonical repo
 names here. Alternatively, use the
-[`--override_module`](/reference/command-line-reference#flag--override_module)
+[`--override_module`](/versions/8.4.2/reference/command-line-reference#flag--override_module)
 flag to override a module to a local directory, similar to the
-[`local_path_override`](/rules/lib/globals/module#local_path_override) directive in
+[`local_path_override`](/versions/8.4.2/rules/lib/globals/module#local_path_override) directive in
 `MODULE.bazel`.
 
 ## Using proxies
@@ -135,16 +133,16 @@ property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-prope
 Specifically:
 
 *   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup
-    option](/docs/user-manual#startup-options), for example by adding the
-    following line in your [`.bazelrc` file](/run/bazelrc):
+    option](/versions/8.4.2/docs/user-manual#startup-options), for example by adding the
+    following line in your [`.bazelrc` file](/versions/8.4.2/run/bazelrc):
 
     `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
 
 *   When running Java build targets that need to connect to the internet (such
     as for integration tests), use the
     `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool
-    flag](/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
-    file](/run/bazelrc):
+    flag](/versions/8.4.2/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
+    file](/versions/8.4.2/run/bazelrc):
 
     `build --jvmopt=-Djava.net.preferIPv6Addresses`
 
@@ -164,8 +162,8 @@ the build, use the option `--nofetch`.
 For true offline builds, where a different entity supplies all needed files,
 Bazel supports the option `--distdir`. This flag tells Bazel to look first into
 the directories specified by that option when a repository rule asks Bazel to
-fetch a file with [`ctx.download`](/rules/lib/builtins/repository_ctx#download) or
-[`ctx.download_and_extract`](/rules/lib/builtins/repository_ctx#download_and_extract). By
+fetch a file with [`ctx.download`](/versions/8.4.2/rules/lib/builtins/repository_ctx#download) or
+[`ctx.download_and_extract`](/versions/8.4.2/rules/lib/builtins/repository_ctx#download_and_extract). By
 providing a hash sum of the file needed, Bazel looks for a file matching the
 basename of the first URL, and uses the local copy if the hash matches.
 

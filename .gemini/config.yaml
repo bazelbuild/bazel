@@ -8,7 +8,7 @@ code_review:
   # Whether to disable all code review functionality.
   disable: false
   # The minimum severity level for comments to be generated or shown (e.g., LOW, MEDIUM, HIGH, CRITICAL).
-  comment_severity_threshold: HIGH
+  comment_severity_threshold: CRITICAL
   # The maximum number of review comments to generate. -1 means no limit.
   max_review_comments: -1
   # Settings specifically for when a pull request is opened.

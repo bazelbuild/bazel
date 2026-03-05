@@ -410,7 +410,7 @@ public final class StarlarkRuleContext
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isImmutable()) {
         printer.append("ctx.outputs(for ");
         printer.append(context.ruleLabelCanonicalName);
@@ -428,7 +428,7 @@ public final class StarlarkRuleContext
           first = false;
           printer.append(field);
           printer.append(" = ");
-          printer.repr(getValue(field));
+          printer.repr(getValue(field), semantics);
         }
         printer.append(")");
       } catch (EvalException e) {
@@ -586,7 +586,7 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isForAspect) {
       printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
     } else {
@@ -1246,7 +1246,8 @@ public final class StarlarkRuleContext
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
-        throw Starlark.errorf("invalid key %s in 'label_dict'", Starlark.repr(key));
+        throw Starlark.errorf(
+            "invalid key %s in 'label_dict'", Starlark.repr(key, StarlarkSemantics.DEFAULT));
       }
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
@@ -1256,11 +1257,12 @@ public final class StarlarkRuleContext
       } else {
         throw Starlark.errorf(
             "invalid value %s in 'label_dict': expected iterable, but got '%s'",
-            Starlark.repr(val), Starlark.type(val));
+            Starlark.repr(val, StarlarkSemantics.DEFAULT), Starlark.type(val));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
-          throw Starlark.errorf("invalid value %s in 'label_dict'", Starlark.repr(val));
+          throw Starlark.errorf(
+              "invalid value %s in 'label_dict'", Starlark.repr(val, StarlarkSemantics.DEFAULT));
         }
         files.add((Artifact) file);
       }
@@ -1285,7 +1287,8 @@ public final class StarlarkRuleContext
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
         throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.", Starlark.repr(label.toString()));
+            "Label %s is found more than once in 'targets' list.",
+            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
       }
 
       var filesToRunProvider = current.getProvider(FilesToRunProvider.class);

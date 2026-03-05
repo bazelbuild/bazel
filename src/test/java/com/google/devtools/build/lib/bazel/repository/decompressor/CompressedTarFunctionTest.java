@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -127,7 +128,7 @@ public class CompressedTarFunctionTest {
 
   @Test
   public void testDecompressTarWithUpLevelReference() throws Exception {
-    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     File tarGzFile = folder.newFile("malicious.tar.gz");
     try (FileOutputStream fos = new FileOutputStream(tarGzFile);
         GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
@@ -151,7 +152,7 @@ public class CompressedTarFunctionTest {
 
   @Test
   public void testDecompressTarWithSymlinkEscape() throws Exception {
-    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     File tarGzFile = folder.newFile("malicious_symlink.tar.gz");
     try (FileOutputStream fos = new FileOutputStream(tarGzFile);
         GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);

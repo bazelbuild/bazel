@@ -65,6 +65,9 @@ class BazelModuleTest(test_base.TestBase):
                 'build'
                 ' --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'
             ),
+            # TODO(bazel-team): Remove once rules_python exports runtime_env_toolchain_interpreter.sh
+            # See https://github.com/bazel-contrib/rules_python/pull/3471
+            'build --noincompatible_no_implicit_file_export',
         ],
     )
 

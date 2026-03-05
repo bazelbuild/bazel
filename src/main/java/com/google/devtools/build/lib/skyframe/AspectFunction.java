@@ -90,7 +90,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -166,7 +166,7 @@ final class AspectFunction implements SkyFunction {
    */
   private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
-  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
   private final AnalysisProgressReceiver analysisProgressReceiver;
 
   AspectFunction(
@@ -175,7 +175,7 @@ final class AspectFunction implements SkyFunction {
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages,
       BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier,
+      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier,
       AnalysisProgressReceiver analysisProgressReceiver) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
@@ -266,9 +266,9 @@ final class AspectFunction implements SkyFunction {
     java.util.function.Supplier<State> stateSupplier =
         () -> new State(storeTransitivePackages, prerequisitePackages);
 
-    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRetrievalEnabled()) {
+    if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -295,6 +295,9 @@ final class AspectFunction implements SkyFunction {
     TargetAndConfiguration targetAndConfiguration = computeDependenciesState.targetAndConfiguration;
     Target target = targetAndConfiguration.getTarget();
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
+
+    // PrerequisitesProducer should skip creating aspects on materializer targets.
+    Preconditions.checkState(!target.isMaterializerRule());
 
     // If the target is incompatible, then there's not much to do. The intent here is to create an
     // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated

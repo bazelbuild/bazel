@@ -38,6 +38,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -90,7 +91,7 @@ import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -107,13 +108,14 @@ final class FileDependencySerializer {
    * <p>Logged in the trace profile.
    */
   static class Counters implements CounterSeriesCollector {
-    private final AtomicLong nodesWaitingForDeps = new AtomicLong();
-    private final AtomicLong nodesWaitingForUpload = new AtomicLong();
-    private final AtomicLong nodesUploaded = new AtomicLong();
-    private final AtomicLong keyBytesWaitingForUpload = new AtomicLong();
-    private final AtomicLong valueBytesWaitingForUpload = new AtomicLong();
-    private final AtomicLong keyBytesUploaded = new AtomicLong();
-    private final AtomicLong valueBytesUploaded = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesWaitingForDeps = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesUploaded = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesWithProcessingErrors = new AtomicLong();
+    @VisibleForTesting final AtomicLong keyBytesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong valueBytesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong keyBytesUploaded = new AtomicLong();
+    @VisibleForTesting final AtomicLong valueBytesUploaded = new AtomicLong();
 
     private static final CounterSeriesTask NODES_WAITING_FOR_DEPS =
         new CounterSeriesTask(
@@ -124,6 +126,11 @@ final class FileDependencySerializer {
     private static final CounterSeriesTask NODES_UPLOADED =
         new CounterSeriesTask(
             "Skycache: Invalidation: Nodes: Uploaded", "Uploaded", Color.RAIL_RESPONSE);
+    private static final CounterSeriesTask NODES_WITH_PROCESSING_ERRORS =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Nodes: Processing Errors",
+            "Processing Errors",
+            Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
         new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
@@ -141,6 +148,7 @@ final class FileDependencySerializer {
       consumer.accept(NODES_WAITING_FOR_DEPS, (double) nodesWaitingForDeps.get());
       consumer.accept(NODES_WAITING_FOR_UPLOAD, (double) nodesWaitingForUpload.get());
       consumer.accept(NODES_UPLOADED, (double) nodesUploaded.get());
+      consumer.accept(NODES_WITH_PROCESSING_ERRORS, (double) nodesWithProcessingErrors.get());
       consumer.accept(KEY_BYTES_WAITING_FOR_UPLOAD, (double) keyBytesWaitingForUpload.get());
       consumer.accept(VALUE_BYTES_WAITING_FOR_UPLOAD, (double) valueBytesWaitingForUpload.get());
       consumer.accept(KEY_BYTES_UPLOADED, (double) keyBytesUploaded.get());
@@ -152,6 +160,7 @@ final class FileDependencySerializer {
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
+  private final Executor executor;
   private final Counters counters;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
@@ -172,10 +181,14 @@ final class FileDependencySerializer {
               FutureListingDataInfo.class);
 
   FileDependencySerializer(
-      LongVersionGetter versionGetter, InMemoryGraph graph, KeyValueWriter writer) {
+      LongVersionGetter versionGetter,
+      InMemoryGraph graph,
+      KeyValueWriter writer,
+      Executor executor) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.executor = executor;
     this.counters = new Counters();
   }
 
@@ -261,11 +274,14 @@ final class FileDependencySerializer {
     if ((rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem)
         // Assumes that the root folder doesn't change.
         || (parentRootedPath = rootedPath.getParentDirectory()) == null) {
+      counters.nodesWaitingForDeps.decrementAndGet();
       return future.completeWith(CONSTANT_FILE);
     }
 
     InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
     if (nodeEntry == null) {
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWithProcessingErrors.incrementAndGet();
       return future.failWith(new MissingSkyframeEntryException(key));
     }
     var value = (FileValue) nodeEntry.getValue();
@@ -279,6 +295,8 @@ final class FileDependencySerializer {
       try {
         initialMtsv = getVersion(realRootedPath, value.exists());
       } catch (IOException e) {
+        counters.nodesWaitingForDeps.decrementAndGet();
+        counters.nodesWithProcessingErrors.incrementAndGet();
         return future.failWith(e);
       }
     }
@@ -301,11 +319,27 @@ final class FileDependencySerializer {
     // 4. The uploader itself is a Function that directly returns a FileDataInfo but gets wrapped as
     //    a future by the transform method.
     // 5. The upload happens through the put() operation in the writer inside the uploader.
-    return future.completeWith(
-        Futures.transform(
-            fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
-            uploader,
-            directExecutor()));
+    ListenableFuture<Void> resolutionFuture =
+        fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader);
+
+    Futures.addCallback(
+        resolutionFuture,
+        new FutureCallback<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            // If resolution is successful, `uploader` completes the process via
+            // `Futures.transform`. The counters will be handled in the `uploader` later.
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            counters.nodesWaitingForDeps.decrementAndGet();
+            counters.nodesWithProcessingErrors.incrementAndGet();
+          }
+        },
+        directExecutor());
+
+    return future.completeWith(Futures.transform(resolutionFuture, uploader, directExecutor()));
   }
 
   /**
@@ -620,6 +654,7 @@ final class FileDependencySerializer {
 
     RootedPath rootedPath = future.key().argument();
     if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem) {
+      counters.nodesWaitingForDeps.decrementAndGet();
       return future.completeWith(CONSTANT_LISTING); // This listing doesn't change.
     }
     var handler = new ListingFileHandler(rootedPath);
@@ -671,7 +706,7 @@ final class FileDependencySerializer {
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
                   },
-              ForkJoinPool.commonPool());
+              executor);
 
       return Futures.transform(
           dirMtsvFuture,

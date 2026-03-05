@@ -18,9 +18,11 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -43,7 +45,7 @@ public final class Types {
    * The Dynamic type of gradual typing; compatible with any other type, but not related by
    * subtyping to any other type.
    */
-  public static final StarlarkType ANY = new Any();
+  public static final StarlarkType ANY = new AnyType();
 
   /** The top type of the type hierarchy. */
   public static final StarlarkType OBJECT = new ObjectType();
@@ -52,44 +54,67 @@ public final class Types {
   public static final StarlarkType NEVER = new NeverType();
 
   // Primitive types
-  public static final StarlarkType NONE = new None();
+  public static final StarlarkType NONE = new NoneType();
 
-  public static final StarlarkType BOOL = new Bool();
-  public static final StarlarkType INT = new Int();
+  public static final StarlarkType BOOL = new BoolType();
+  public static final StarlarkType INT = new IntType();
   public static final StarlarkType FLOAT = new FloatType();
-  public static final StarlarkType STR = new Str();
+  public static final StarlarkType STR = new StrType();
+
+  // A frequently-used union `int | float`.
+  public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
+  // A frequently-used empty tuple type.
+  public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
       callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
 
+  public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
+  public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
+  public static final TypeConstructor NONE_CONSTRUCTOR = wrapType("None", NONE);
+  public static final TypeConstructor BOOL_CONSTRUCTOR = wrapType("bool", BOOL);
+  public static final TypeConstructor INT_CONSTRUCTOR = wrapType("int", INT);
+  public static final TypeConstructor FLOAT_CONSTRUCTOR = wrapType("float", FLOAT);
+  public static final TypeConstructor STR_CONSTRUCTOR = wrapType("str", STR);
+  public static final TypeConstructor LIST_CONSTRUCTOR = wrapTypeConstructor("list", Types::list);
+  public static final TypeConstructor DICT_CONSTRUCTOR = wrapTypeConstructor("dict", Types::dict);
+  public static final TypeConstructor SET_CONSTRUCTOR = wrapTypeConstructor("set", Types::set);
+  public static final TypeConstructor TUPLE_CONSTRUCTOR = wrapTupleConstructor();
+  public static final TypeConstructor COLLECTION_CONSTRUCTOR =
+      wrapTypeConstructor("Collection", Types::collection);
+  public static final TypeConstructor SEQUENCE_CONSTRUCTOR =
+      wrapTypeConstructor("Sequence", Types::sequence);
+  public static final TypeConstructor MAPPING_CONSTRUCTOR =
+      wrapTypeConstructor("Mapping", Types::mapping);
+
   private Types() {} // uninstantiable
 
-  public static final ImmutableMap<String, TypeConstructorProxy> TYPE_UNIVERSE = makeTypeUniverse();
+  public static final ImmutableMap<String, TypeConstructor> TYPE_UNIVERSE = makeTypeUniverse();
 
-  private static ImmutableMap<String, TypeConstructorProxy> makeTypeUniverse() {
-    ImmutableMap.Builder<String, TypeConstructorProxy> env = ImmutableMap.builder();
+  private static ImmutableMap<String, TypeConstructor> makeTypeUniverse() {
+    ImmutableMap.Builder<String, TypeConstructor> env = ImmutableMap.builder();
     env //
-        .put("Any", wrapType("Any", ANY))
-        .put("object", wrapType("object", OBJECT))
-        .put("None", wrapType("None", NONE))
-        .put("bool", wrapType("bool", BOOL))
-        .put("int", wrapType("int", INT))
-        .put("float", wrapType("float", FLOAT))
-        .put("str", wrapType("str", STR))
-        .put("list", wrapTypeConstructor("list", Types::list))
-        .put("dict", wrapTypeConstructor("dict", Types::dict))
-        .put("set", wrapTypeConstructor("set", Types::set))
-        .put("tuple", wrapTupleConstructorProxy())
-        .put("Collection", wrapTypeConstructor("Collection", Types::collection))
-        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence))
-        .put("Mapping", wrapTypeConstructor("Mapping", Types::mapping));
+        .put("Any", ANY_CONSTRUCTOR)
+        .put("object", OBJECT_CONSTRUCTOR)
+        .put("None", NONE_CONSTRUCTOR)
+        .put("bool", BOOL_CONSTRUCTOR)
+        .put("int", INT_CONSTRUCTOR)
+        .put("float", FLOAT_CONSTRUCTOR)
+        .put("str", STR_CONSTRUCTOR)
+        .put("list", LIST_CONSTRUCTOR)
+        .put("dict", DICT_CONSTRUCTOR)
+        .put("set", SET_CONSTRUCTOR)
+        .put("tuple", TUPLE_CONSTRUCTOR)
+        .put("Collection", COLLECTION_CONSTRUCTOR)
+        .put("Sequence", SEQUENCE_CONSTRUCTOR)
+        .put("Mapping", MAPPING_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 
   // hashCode and equals implementation is a workaround for serialization code that may duplicate
   // otherwise singletons
-  private static final class Any extends StarlarkType {
+  private static final class AnyType extends StarlarkType {
     @Override
     public String toString() {
       return "Any";
@@ -97,12 +122,54 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Any.class.hashCode();
+      return AnyType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Any;
+      return obj instanceof AnyType;
+    }
+
+    @Override
+    public StarlarkType getField(String name) {
+      return ANY;
+    }
+
+    // TODO: #27370 - we may want to infer a more precise type when one of the operands is non-Any.
+    // (For example, we could infer that int % Any is int | float; on the other hand, Any % int
+    // could also be a string, since % is also a string substitution operator.) Requires a registry
+    // of which types (including those of application-defined net.starlark.java.eval.HasBinary
+    // values) support which binary operators. This would also imply that the inferred type of
+    // `Any <op> T` could be application-dependent even if T is a universal built-in type.
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case IN, NOT_IN ->
+            // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
+            // it is membership-testable.
+            // If we are the RHS, act as a membership-testable type that allows any LHS (e.g. list)
+            // and return bool.
+            thisLeft ? null : Types.BOOL;
+        default -> ANY;
+      };
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      // Instead of enumerating all comparable types here, allow StarlarkType#comparable to defer to
+      // that.isComparable(ANY).
+      return that.equals(ANY);
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return true;
     }
   }
 
@@ -138,9 +205,26 @@ public final class Types {
     public boolean equals(Object obj) {
       return obj instanceof NeverType;
     }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      // Regard Never - as the bottom type - to be comparable to anything; in particular, this
+      // allows empty lists (i.e. list[Never]) to be comparable to arbitrary non-empty lists.
+      return true;
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return true;
+    }
   }
 
-  private static final class None extends StarlarkType {
+  private static final class NoneType extends StarlarkType {
     @Override
     public String toString() {
       return "None";
@@ -148,16 +232,16 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return None.class.hashCode();
+      return NoneType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof None;
+      return obj instanceof NoneType;
     }
   }
 
-  private static final class Bool extends StarlarkType {
+  private static final class BoolType extends StarlarkType {
     @Override
     public String toString() {
       return "bool";
@@ -165,16 +249,21 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Bool.class.hashCode();
+      return BoolType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Bool;
+      return obj instanceof BoolType;
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return StarlarkType.assignableFrom(Types.BOOL, that);
     }
   }
 
-  private static final class Int extends StarlarkType {
+  private static final class IntType extends StarlarkType {
     @Override
     public String toString() {
       return "int";
@@ -182,12 +271,33 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Int.class.hashCode();
+      return IntType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Int;
+      return obj instanceof IntType;
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
+        case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
+        case STAR ->
+            // Repetition operator (int * str, int * list, etc.) is assumed to be symmetric and
+            // implemented by the rhs, so defer to rhs for non-numeric case.
+            NUMERIC.getTypes().contains(that) ? that : null;
+        case AMPERSAND, CARET, GREATER_GREATER, LESS_LESS, PIPE ->
+            that.equals(Types.INT) ? Types.INT : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return StarlarkType.assignableFrom(NUMERIC, that);
     }
   }
 
@@ -206,9 +316,24 @@ public final class Types {
     public boolean equals(Object obj) {
       return obj instanceof FloatType;
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
+            NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return StarlarkType.assignableFrom(NUMERIC, that);
+    }
   }
 
-  private static final class Str extends StarlarkType {
+  private static final class StrType extends StarlarkType {
     @Override
     public String toString() {
       return "str";
@@ -216,12 +341,34 @@ public final class Types {
 
     @Override
     public int hashCode() {
-      return Str.class.hashCode();
+      return StrType.class.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof Str;
+      return obj instanceof StrType;
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case PLUS -> that.equals(STR) ? STR : null;
+        case PERCENT ->
+            // String substitution allows anything on the RHS
+            thisLeft ? STR : null;
+        case STAR -> that.equals(INT) ? STR : null;
+        case IN, NOT_IN ->
+            // If we are LHS, defer to the RHS.
+            // If we are RHS, explicitly handle Any since AnyType.inferBinaryOperator defers to us.
+            !thisLeft && (that.equals(STR) || that.equals(ANY)) ? BOOL : null;
+        default -> null;
+      };
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return that.equals(STR) || that.equals(ANY);
     }
   }
 
@@ -378,12 +525,12 @@ public final class Types {
   /**
    * Constructs a union type.
    *
-   * <p>If the types sets contains another Union type it's flattened. Duplicates are removed.
+   * <p>If the types set contains another Union type it's flattened. Duplicates are removed.
+   * Occurrences of Never are removed.
    *
    * <p>If types set contains Object type it's simplified to Object type. If the set contains a
-   * single element, it is returned instead of constructing a union.
-   *
-   * @throws IllegalArgumentException If an empty set is passed in.
+   * single element, it is returned instead of constructing a union. And if the set is empty, Never
+   * is returned.
    */
   public static StarlarkType union(StarlarkType... types) {
     return union(ImmutableSet.copyOf(types));
@@ -398,7 +545,7 @@ public final class Types {
     for (StarlarkType type : types) {
       if (type instanceof UnionType union) {
         subtypesBuilder.addAll(union.getTypes());
-      } else {
+      } else if (!type.equals(Types.NEVER)) {
         subtypesBuilder.add(type);
       }
     }
@@ -415,13 +562,26 @@ public final class Types {
   }
 
   public static StarlarkType union(List<StarlarkType> types) {
+    if (types.size() == 1) {
+      // Optimize the common case.
+      return types.getFirst();
+    }
     return union(ImmutableSet.copyOf(types));
+  }
+
+  /** Returns the list of a union's types, or a singleton list if {@code type} is not a union. */
+  public static ImmutableCollection<StarlarkType> unfoldUnion(StarlarkType type) {
+    if (type instanceof Types.UnionType unionType) {
+      return unionType.getTypes();
+    }
+    return ImmutableList.of(type);
   }
 
   /**
    * Union type
    *
-   * <p>Unions with zero or one type are disallowed. See {@link Types#union}.
+   * <p>Unions must contain at least two types, none of which may be Never or Object. See {@link
+   * Types#union}.
    */
   @AutoValue
   public abstract static class UnionType extends StarlarkType {
@@ -431,6 +591,35 @@ public final class Types {
     public final String toString() {
       return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
     }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name) {
+      ArrayList<StarlarkType> resultTypes = new ArrayList<>(getTypes().size());
+      for (StarlarkType type : getTypes()) {
+        StarlarkType result = type.getField(name);
+        if (result == null) {
+          return null;
+        }
+        resultTypes.add(result);
+      }
+      return union(resultTypes);
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetIndex);
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetField);
+    }
   }
 
   public static ListType list(StarlarkType elementType) {
@@ -439,9 +628,7 @@ public final class Types {
 
   /** List type */
   @AutoValue
-  public abstract static class ListType extends StarlarkType {
-    public abstract StarlarkType getElementType();
-
+  public abstract static class ListType extends AbstractSequenceType {
     @Override
     public List<StarlarkType> getSupertypes() {
       return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
@@ -451,6 +638,34 @@ public final class Types {
     public final String toString() {
       return "list[" + getElementType() + "]";
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case PLUS ->
+            that instanceof ListType thatList
+                ? list(union(getElementType(), thatList.getElementType()))
+                : null;
+        case STAR -> that.equals(Types.INT) ? this : null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof ListType thatList) {
+        return comparable(getElementType(), thatList.getElementType());
+      }
+      return false;
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
@@ -459,9 +674,11 @@ public final class Types {
 
   /** Dict type */
   @AutoValue
-  public abstract static class DictType extends StarlarkType {
+  public abstract static class DictType extends AbstractMappingType {
+    @Override
     public abstract StarlarkType getKeyType();
 
+    @Override
     public abstract StarlarkType getValueType();
 
     @Override
@@ -473,6 +690,11 @@ public final class Types {
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
   }
 
   public static SetType set(StarlarkType elementType) {
@@ -481,7 +703,8 @@ public final class Types {
 
   /** Set type */
   @AutoValue
-  public abstract static class SetType extends StarlarkType {
+  public abstract static class SetType extends AbstractCollectionType {
+    @Override
     public abstract StarlarkType getElementType();
 
     @Override
@@ -493,28 +716,174 @@ public final class Types {
     public final String toString() {
       return "set[" + getElementType() + "]";
     }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case AMPERSAND, MINUS ->
+            // TODO: #27370 - we may want to tighten the type of a set intersection, but it's
+            // non-trivial.
+            that instanceof SetType ? this : null;
+        case CARET, PIPE ->
+            that instanceof SetType thatSet
+                ? set(union(getElementType(), thatSet.getElementType()))
+                : null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
   }
 
-  public static TupleType tuple(ImmutableList<StarlarkType> elementTypes) {
-    return new AutoValue_Types_TupleType(elementTypes);
+  public static FixedLengthTupleType tuple(ImmutableList<StarlarkType> elementTypes) {
+    return new AutoValue_Types_FixedLengthTupleType(elementTypes);
+  }
+
+  public static FixedLengthTupleType tuple(StarlarkType first, StarlarkType... rest) {
+    return tuple(ImmutableList.<StarlarkType>builder().add(first).add(rest).build());
+  }
+
+  public static HomogeneousTupleType homogeneousTuple(StarlarkType elementType) {
+    return new AutoValue_Types_HomogeneousTupleType(elementType);
+  }
+
+  /** Tuple type. */
+  public abstract static sealed class TupleType extends AbstractSequenceType
+      permits FixedLengthTupleType, HomogeneousTupleType {
+    /** Returns the type of this tuple concatenated with another. */
+    abstract TupleType concatenate(TupleType rhs);
+
+    /** Returns the type of this tuple repeated. */
+    abstract TupleType repeat(int times);
+
+    /** Returns the homogeneous version of this tuple type. */
+    public abstract HomogeneousTupleType toHomogeneous();
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
+        // Special case handled by TypeChecker.inferTupleRepetition.
+        case STAR -> null;
+        default -> super.inferBinaryOperator(operator, that, thisLeft);
+      };
+    }
   }
 
   /** Tuple type of a fixed length. */
   @AutoValue
-  public abstract static class TupleType extends StarlarkType {
+  public abstract static non-sealed class FixedLengthTupleType extends TupleType {
     public abstract ImmutableList<StarlarkType> getElementTypes();
 
     @Override
+    public StarlarkType getElementType() {
+      return union(getElementTypes());
+    }
+
+    @Override
     public List<StarlarkType> getSupertypes() {
-      StarlarkType elementType = union(ImmutableSet.copyOf(getElementTypes()));
-      return ImmutableList.of(sequence(elementType), collection(elementType));
+      HomogeneousTupleType homogeneous = toHomogeneous();
+      return ImmutableList.of(
+          homogeneous,
+          sequence(homogeneous.getElementType()),
+          collection(homogeneous.getElementType()));
     }
 
     @Override
     public final String toString() {
-      return "tuple["
-          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
-          + "]";
+      return String.format(
+          "tuple[%s]",
+          getElementTypes().isEmpty()
+              ? "()"
+              : getElementTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
+    }
+
+    @Override
+    TupleType concatenate(TupleType rhs) {
+      if (rhs instanceof FixedLengthTupleType rhsFixedLength) {
+        return tuple(
+            ImmutableList.<StarlarkType>builder()
+                .addAll(getElementTypes())
+                .addAll(rhsFixedLength.getElementTypes())
+                .build());
+      } else {
+        return toHomogeneous().concatenate(rhs);
+      }
+    }
+
+    @Override
+    FixedLengthTupleType repeat(int times) {
+      ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
+      for (int i = 0; i < times; i++) {
+        builder.addAll(getElementTypes());
+      }
+      return tuple(builder.build());
+    }
+
+    @Override
+    public HomogeneousTupleType toHomogeneous() {
+      return homogeneousTuple(union(getElementTypes()));
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof FixedLengthTupleType thatTuple) {
+        int commonLength = Math.min(getElementTypes().size(), thatTuple.getElementTypes().size());
+        for (int i = 0; i < commonLength; i++) {
+          if (!comparable(getElementTypes().get(i), thatTuple.getElementTypes().get(i))) {
+            return false;
+          }
+        }
+        return true;
+      }
+      // Comparison with HomogeneousTupleType defers to HomogeneousTupleType.
+      return false;
+    }
+  }
+
+  /** Tuple type of an indeterminate length. */
+  @AutoValue
+  public abstract static non-sealed class HomogeneousTupleType extends TupleType {
+    @Override
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
+    }
+
+    @Override
+    public final String toString() {
+      return "tuple[" + getElementType() + ", ...]";
+    }
+
+    @Override
+    HomogeneousTupleType concatenate(TupleType rhs) {
+      return rhs instanceof HomogeneousTupleType rhsHomogeneous
+          ? homogeneousTuple(union(getElementType(), rhsHomogeneous.getElementType()))
+          : concatenate(rhs.toHomogeneous());
+    }
+
+    @Override
+    TupleType repeat(int times) {
+      return times > 0 ? this : Types.EMPTY_TUPLE;
+    }
+
+    @Override
+    public HomogeneousTupleType toHomogeneous() {
+      return this;
+    }
+
+    @Override
+    protected boolean isComparable(StarlarkType that) {
+      if (that.equals(Types.ANY)) {
+        return true;
+      } else if (that instanceof TupleType thatTuple) {
+        return comparable(getElementType(), thatTuple.toHomogeneous().getElementType());
+      }
+      return false;
     }
   }
 
@@ -523,11 +892,27 @@ public final class Types {
     return new AutoValue_Types_CollectionType(elementType);
   }
 
-  /** Collection type */
-  @AutoValue
-  public abstract static class CollectionType extends StarlarkType {
+  /** Abstract collection type implementing common functionality. Exists to be subclassed. */
+  public abstract static class AbstractCollectionType extends StarlarkType {
     public abstract StarlarkType getElementType();
 
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+      return switch (operator) {
+        // `in` and `not in` are always valid for collections on the RHS.
+        case IN, NOT_IN -> thisLeft ? null : BOOL;
+        default -> null;
+      };
+    }
+  }
+
+  /** Collection type. */
+  // We need CollectionType to be a separate class from AbstractCollectionType only because one
+  // @AutoValue class may not extend another - so we cannot have SequenceType or SetType be
+  // subclasses of CollectionType (they are subclasses of AbstractCollectionType instead).
+  @AutoValue
+  public abstract static class CollectionType extends AbstractCollectionType {
     @Override
     public final String toString() {
       return "Collection[" + getElementType() + "]";
@@ -539,15 +924,25 @@ public final class Types {
     return new AutoValue_Types_SequenceType(elementType);
   }
 
-  /** Sequence type */
-  @AutoValue
-  public abstract static class SequenceType extends StarlarkType {
+  /** Abstract sequence type for common sequence functionality. Exists to be subclassed. */
+  public abstract static class AbstractSequenceType extends AbstractCollectionType {
+    @Override
     public abstract StarlarkType getElementType();
 
     @Override
     public List<StarlarkType> getSupertypes() {
       return ImmutableList.of(collection(getElementType()));
     }
+  }
+
+  /** Sequence type. */
+  // We need SequenceType to be a separate class from AbstractSequenceType only because one
+  // @AutoValue class may not extend another - so we cannot have ListType or
+  // TupleType be subclasses of SequenceType (they are subclasses of AbstractSequenceType instead).
+  @AutoValue
+  public abstract static class SequenceType extends AbstractSequenceType {
+    @Override
+    public abstract StarlarkType getElementType();
 
     @Override
     public final String toString() {
@@ -560,11 +955,51 @@ public final class Types {
     return new AutoValue_Types_MappingType(keyType, valueType);
   }
 
-  /** Mapping type */
-  @AutoValue
-  public abstract static class MappingType extends StarlarkType {
+  /** Abstract mapping type for common map functionality. Exists to be subclassed. */
+  public abstract static class AbstractMappingType extends AbstractCollectionType {
     public abstract StarlarkType getKeyType();
 
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getKeyType()));
+    }
+
+    @Override
+    public StarlarkType getElementType() {
+      return getKeyType();
+    }
+
+    @Override
+    @Nullable
+    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType rhs, boolean thisLeft) {
+      return switch (operator) {
+        case PIPE ->
+            // TODO: #27370 - mypy supports dict | dict, but doesn't support the | operator for
+            // non-dict mappings. Should we have the same restriction? (Note that such a restriction
+            // would break some uses of Bazel's native.existing_rules()).
+            // TODO: #27370 - do we need to handle Neve for the key or value type?
+            rhs instanceof AbstractMappingType rhsMapping
+                ? dict(
+                    union(getKeyType(), rhsMapping.getKeyType()),
+                    union(getValueType(), rhsMapping.getValueType()))
+                : null;
+        default -> super.inferBinaryOperator(operator, rhs, thisLeft);
+      };
+    }
+  }
+
+  /** Mapping type. */
+  // We need MappingType to be a separate class from AbstractMappingType only because one @AutoValue
+  // class may not extend another - so we cannot have DictType be a subclass of MappingType (it is a
+  // subclass of AbstractMappingType instead).
+  @AutoValue
+  public abstract static class MappingType extends AbstractMappingType {
+    @Override
+    public abstract StarlarkType getKeyType();
+
+    @Override
     public abstract StarlarkType getValueType();
 
     @Override
@@ -573,77 +1008,103 @@ public final class Types {
     }
   }
 
-  /**
-   * A proxy for a type constructor, e.g. {@code list}.
-   *
-   * <p>It takes a list of arguments and returns a constructed type.
-   *
-   * <p>Throws {@link IllegalArgumentException} if call doesn't match the expected signature.
-   */
-  public interface TypeConstructorProxy {
-    StarlarkType invoke(ImmutableList<?> argsTuple);
-  }
-
-  static TypeConstructorProxy wrapType(String name, StarlarkType type) {
+  static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
-        throw new IllegalArgumentException(String.format("'%s' does not accept arguments", name));
+        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
       }
       return type;
     };
   }
 
-  static TypeConstructorProxy wrapTypeConstructor(
-      String name, Function<StarlarkType, StarlarkType> constructor) {
-    return argsTuple -> {
-      if (argsTuple.size() != 1) {
-        throw new IllegalArgumentException(
-            String.format("%s[] accepts exactly 1 argument but got %d", name, argsTuple.size()));
+  private static ImmutableList<StarlarkType> toStarlarkTypes(
+      String name, ImmutableList<TypeConstructor.Arg> args) throws TypeConstructor.Failure {
+    for (TypeConstructor.Arg arg : args) {
+      if (!(arg instanceof StarlarkType)) {
+        throw new TypeConstructor.Failure(
+            String.format("in application to %s, got '%s', expected a type", name, arg));
       }
-      if (!(argsTuple.get(0) instanceof StarlarkType type)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
-      }
-      return constructor.apply(type);
+    }
+    @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+    var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+    return result;
+  }
+
+  /**
+   * Returns a new type constructor wrapping the given one-argument type factory.
+   *
+   * <p>The type constructor can be invoked with one argument, which is passed to the underlying
+   * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
+   * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
+   */
+  static TypeConstructor wrapTypeConstructor(
+      String name, Function<StarlarkType, StarlarkType> factory) {
+    return args -> {
+      var types = toStarlarkTypes(name, args);
+      return switch (types.size()) {
+        case 0 -> factory.apply(ANY);
+        case 1 -> factory.apply(types.get(0));
+        default -> {
+          throw new TypeConstructor.Failure(
+              String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
+        }
+      };
     };
   }
 
-  static TypeConstructorProxy wrapTypeConstructor(
-      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
-    return argsTuple -> {
-      if (argsTuple.size() != 2) {
-        throw new IllegalArgumentException(
-            String.format("%s[] accepts exactly 2 arguments but got %d", name, argsTuple.size()));
-      }
-      if (!(argsTuple.get(0) instanceof StarlarkType keyType)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
-      }
-      if (!(argsTuple.get(1) instanceof StarlarkType valueType)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
-      }
-      return constructor.apply(keyType, valueType);
+  /**
+   * Returns a new type constructor wrapping the given two-argument type factory.
+   *
+   * <p>The type constructor can be invoked with two arguments, which are passed to the underlying
+   * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY} for
+   * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
+   * {@code dict[Any, Any]}.)
+   */
+  static TypeConstructor wrapTypeConstructor(
+      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
+    return args -> {
+      var types = toStarlarkTypes(name, args);
+      return switch (types.size()) {
+        case 0 -> factory.apply(ANY, ANY);
+        case 2 -> factory.apply(types.get(0), types.get(1));
+        default ->
+            throw new TypeConstructor.Failure(
+                String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
+      };
     };
   }
 
-  private static final TypeConstructorProxy wrapTupleConstructorProxy() {
+  private static final TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return argsTuple -> {
-      ImmutableList.Builder<StarlarkType> elementTypes =
-          ImmutableList.builderWithExpectedSize(argsTuple.size());
-      for (Object arg : argsTuple) {
-        if (!(arg instanceof StarlarkType type)) {
-          throw new IllegalArgumentException(
+    return args -> {
+      if (args.isEmpty()) {
+        // `tuple` is equivalent to `tuple[Any, ...]`
+        return homogeneousTuple(ANY);
+      }
+      for (int i = 0; i < args.size(); i++) {
+        TypeConstructor.Arg arg = args.get(i);
+        if (arg.equals(TypeConstructor.Arg.ELLIPSIS)) {
+          if (i == 1 && args.size() == 2) {
+            return homogeneousTuple((StarlarkType) args.getFirst());
+          }
+          throw new TypeConstructor.Failure(
+              "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
+                  + " where the first argument is a type");
+        } else if (arg.equals(TypeConstructor.Arg.EMPTY_TUPLE)) {
+          if (args.size() == 1) {
+            return Types.EMPTY_TUPLE;
+          }
+          throw new TypeConstructor.Failure(
+              "in application to tuple, '()' can only appear if it is the only argument");
+        } else if (!(arg instanceof StarlarkType)) {
+          throw new TypeConstructor.Failure(
               String.format("in application to tuple, got '%s', expected a type", arg));
         }
-        elementTypes.add(type);
       }
-      return tuple(elementTypes.build());
+      @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+      var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+      return tuple(result);
     };
   }
 }

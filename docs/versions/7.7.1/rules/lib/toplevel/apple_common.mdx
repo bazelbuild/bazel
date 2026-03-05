@@ -1,0 +1,287 @@
+---
+title: 'apple\_common'
+---
+
+Functions for Starlark to access internals of the apple rule implementations.
+
+## Members
+
+* [apple\_host\_system\_env](#apple_host_system_env)
+* [apple\_toolchain](#apple_toolchain)
+* [AppleDebugOutputs](#AppleDebugOutputs)
+* [AppleDynamicFramework](#AppleDynamicFramework)
+* [AppleExecutableBinary](#AppleExecutableBinary)
+* [dotted\_version](#dotted_version)
+* [link\_multi\_arch\_binary](#link_multi_arch_binary)
+* [link\_multi\_arch\_static\_library](#link_multi_arch_static_library)
+* [new\_dynamic\_framework\_provider](#new_dynamic_framework_provider)
+* [new\_executable\_binary\_provider](#new_executable_binary_provider)
+* [new\_objc\_provider](#new_objc_provider)
+* [Objc](#Objc)
+* [platform](#platform)
+* [platform\_type](#platform_type)
+* [target\_apple\_env](#target_apple_env)
+* [XcodeProperties](#XcodeProperties)
+* [XcodeVersionConfig](#XcodeVersionConfig)
+
+## apple\_host\_system\_env
+
+```
+dict apple_common.apple_host_system_env(xcode_config)
+```
+
+Returns a [dict](../core/dict) of environment variables that should be set for actions that need to run build tools on an Apple host system, such as the version of Xcode that should be used. The keys are variable names and the values are their corresponding values.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `xcode_config` | required  A provider containing information about the xcode configuration. |
+
+## apple\_toolchain
+
+```
+apple_toolchain apple_common.apple_toolchain()
+```
+
+Utilities for resolving items from the apple toolchain.
+
+## AppleDebugOutputs
+
+```
+Provider apple_common.AppleDebugOutputs
+```
+
+The constructor/key for the `AppleDebugOutputs` provider.
+
+If a target propagates the `AppleDebugOutputs` provider, use this as the key with which to retrieve it. Example:
+
+```
+dep = ctx.attr.deps[0]
+p = dep[apple_common.AppleDebugOutputs]
+```
+
+## AppleDynamicFramework
+
+```
+Provider apple_common.AppleDynamicFramework
+```
+
+The constructor/key for the `AppleDynamicFramework` provider.
+
+If a target propagates the `AppleDynamicFramework` provider, use this as the key with which to retrieve it. Example:
+
+```
+dep = ctx.attr.deps[0]
+p = dep[apple_common.AppleDynamicFramework]
+```
+
+## AppleExecutableBinary
+
+```
+Provider apple_common.AppleExecutableBinary
+```
+
+The constructor/key for the `AppleExecutableBinary` provider.
+
+If a target propagates the `AppleExecutableBinary` provider, use this as the key with which to retrieve it. Example:
+
+```
+dep = ctx.attr.deps[0]
+p = dep[apple_common.AppleExecutableBinary]
+```
+
+## dotted\_version
+
+```
+DottedVersion apple_common.dotted_version(version)
+```
+
+Creates a new [DottedVersion](../builtins/DottedVersion) instance.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `version` | required |
+
+## link\_multi\_arch\_binary
+
+```
+struct apple_common.link_multi_arch_binary(ctx, avoid_deps=None, extra_linkopts=[], extra_link_inputs=[], extra_requested_features=[], extra_disabled_features=[], stamp=-1)
+```
+
+Links a (potentially multi-architecture) binary targeting Apple platforms. This method comprises a bulk of the logic of the Starlark `apple_binary` rule in the rules\_apple domain and exists to aid in the migration of its linking logic to Starlark in rules\_apple.
+
+This API is **highly experimental** and subject to change at any time. Do not depend on the stability of this function at this time.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `ctx` | required |
+| `avoid_deps` | [sequence](../core/list) of [Target](../builtins/Target)s; or `None`; default is `None` |
+| `extra_linkopts` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Extra linkopts to be passed to the linker action. |
+| `extra_link_inputs` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  Extra files to pass to the linker action. |
+| `extra_requested_features` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Extra requested features to be passed to the linker action. |
+| `extra_disabled_features` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Extra disabled features to be passed to the linker action. |
+| `stamp` | default is `-1`  Whether to include build information in the linked binary. If 1, build information is always included. If 0, build information is always excluded. If -1 (the default), then the behavior is determined by the --[no]stamp flag. This should be set to 0 when generating the executable output for test rules. |
+
+## link\_multi\_arch\_static\_library
+
+```
+struct apple_common.link_multi_arch_static_library(ctx)
+```
+
+Links a (potentially multi-architecture) static library targeting Apple platforms. This method comprises a part of the Starlark `apple_static_library` rule logic, in the rules\_apple domain and exists to aid in the migration of its linking logic to Starlark in rules\_apple.
+
+This API is **highly experimental** and subject to change at any time. Do not depend on the stability of this function at this time.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `ctx` | required  The Starlark rule context. |
+
+## new\_dynamic\_framework\_provider
+
+```
+AppleDynamicFramework apple_common.new_dynamic_framework_provider(binary=None, cc_info=None, objc=None, framework_dirs=None, framework_files=None)
+```
+
+Creates a new AppleDynamicFramework provider instance.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `binary` | [File](../builtins/File); or `None`; default is `None`  The dylib binary artifact of the dynamic framework. |
+| `cc_info` | default is `None`  A CcInfo which contains information about the transitive dependencies linked into the binary. |
+| `objc` | default is `None`  An ObjcProvider which contains information about the transitive dependencies linked into the binary. |
+| `framework_dirs` | [depset](../builtins/depset) of [string](../core/string)s; or `None`; default is `None`  The framework path names used as link inputs in order to link against the dynamic framework. |
+| `framework_files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The full set of artifacts that should be included as inputs to link against the dynamic framework |
+
+## new\_executable\_binary\_provider
+
+```
+AppleExecutableBinary apple_common.new_executable_binary_provider(binary=None, cc_info=None, objc=None)
+```
+
+Creates a new AppleExecutableBinaryInfo provider instance.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `binary` | [File](../builtins/File); or `None`; default is `None`  The binary artifact of the executable. |
+| `cc_info` | default is `None`  A CcInfo which contains information about the transitive dependencies linked into the binary. |
+| `objc` | default is `None`  An ObjcProvider which contains information about the transitive dependencies linked into the binary. |
+
+## new\_objc\_provider
+
+```
+ObjcProvider apple_common.new_objc_provider(**kwargs)
+```
+
+Creates a new ObjcProvider instance.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `kwargs` | default is `{}`  Dictionary of arguments. |
+
+## Objc
+
+```
+Provider apple_common.Objc
+```
+
+The constructor/key for the `Objc` provider.
+
+If a target propagates the `Objc` provider, use this as the key with which to retrieve it. Example:
+
+```
+dep = ctx.attr.deps[0]
+p = dep[apple_common.Objc]
+```
+
+## platform
+
+```
+struct apple_common.platform
+```
+
+An enum-like struct that contains the following fields corresponding to Apple platforms:
+
+* `ios_device`
+* `ios_simulator`
+* `macos`
+* `tvos_device`
+* `tvos_simulator`
+* `visionos_device`
+* `visionos_simulator`
+* `watchos_device`
+* `watchos_simulator`
+
+These values can be passed to methods that expect a platform, like [XcodeVersionConfig.sdk\_version\_for\_platform](../providers/XcodeVersionConfig#sdk_version_for_platform).
+
+## platform\_type
+
+```
+struct apple_common.platform_type
+```
+
+An enum-like struct that contains the following fields corresponding to Apple platform types:
+
+* `ios`
+* `macos`
+* `tvos`
+* `visionos`
+* `watchos`
+
+These values can be passed to methods that expect a platform type, like the 'apple' configuration fragment's [multi\_arch\_platform](../fragments/apple#multi_arch_platform) method.
+
+Example:
+
+```
+ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+```
+
+## target\_apple\_env
+
+```
+dict apple_common.target_apple_env(xcode_config, platform)
+```
+
+Returns a `dict` of environment variables that should be set for actions that build targets of the given Apple platform type. For example, this dictionary contains variables that denote the platform name and SDK version with which to build. The keys are variable names and the values are their corresponding values.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `xcode_config` | required |
+| `platform` | required |
+
+## XcodeProperties
+
+```
+Provider apple_common.XcodeProperties
+```
+
+The constructor/key for the `XcodeVersionProperties` provider.
+
+If a target propagates the `XcodeVersionProperties` provider, use this as the key with which to retrieve it. Example:
+
+```
+dep = ctx.attr.deps[0]
+p = dep[apple_common.XcodeVersionProperties]
+```
+
+## XcodeVersionConfig
+
+```
+Provider apple_common.XcodeVersionConfig
+```
+
+The constructor/key for the `XcodeVersionConfig` provider.

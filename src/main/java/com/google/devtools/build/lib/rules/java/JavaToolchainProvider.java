@@ -261,7 +261,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   }
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {
-    return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class));
+    return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class), "java_runtime");
   }
 
   record JspecifyInfo(

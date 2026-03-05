@@ -1,0 +1,674 @@
+---
+title: 'utils repository rules'
+---
+
+The following functions can be loaded from
+`@bazel_tools//tools/build_defs/repo:utils.bzl`.
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+Utils for manipulating external repositories, once fetched.
+
+### Setup
+
+These utilities are intended to be used by other repository rules. They
+can be loaded as follows.
+
+```python
+load(
+    "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    "workspace_and_buildfile",
+    "patch",
+    "update_attrs",
+)
+```
+
+<a id="download_remote_files"></a>
+
+## download_remote_files
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "download_remote_files")
+
+download_remote_files(<a href="#download_remote_files-ctx">ctx</a>, <a href="#download_remote_files-auth">auth</a>)
+</pre>
+
+Utility function for downloading remote files.
+
+This rule is intended to be used in the implementation function of
+a repository rule. It assumes the parameters `remote_file_urls` and
+`remote_file_integrity` to be present in `ctx.attr`.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="download_remote_files-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility
+function.
+
+</p>
+</td>
+</tr>
+<tr id="download_remote_files-auth">
+<td><code>auth</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+An optional dict specifying authentication information for some of the URLs.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+<a id="get_auth"></a>
+
+## get_auth
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "get_auth")
+
+get_auth(<a href="#get_auth-ctx">ctx</a>, <a href="#get_auth-urls">urls</a>)
+</pre>
+
+Utility function to obtain the correct auth dict for a list of urls from .netrc file.
+
+Support optional netrc and auth_patterns attributes if available.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="get_auth-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility
+function.
+
+</p>
+</td>
+</tr>
+<tr id="get_auth-urls">
+<td><code>urls</code></td>
+<td>
+
+required.
+
+<p>
+
+the list of urls to read
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+the auth dict which can be passed to repository_ctx.download
+
+
+<a id="maybe"></a>
+
+## maybe
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "maybe")
+
+maybe(<a href="#maybe-repo_rule">repo_rule</a>, <a href="#maybe-name">name</a>, <a href="#maybe-kwargs">**kwargs</a>)
+</pre>
+
+Utility function for only adding a repository if it's not already present.
+
+This is to implement safe repositories.bzl macro documented in
+https://bazel.build/rules/deploying#dependencies.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="maybe-repo_rule">
+<td><code>repo_rule</code></td>
+<td>
+
+required.
+
+<p>
+
+repository rule function.
+
+</p>
+</td>
+</tr>
+<tr id="maybe-name">
+<td><code>name</code></td>
+<td>
+
+required.
+
+<p>
+
+name of the repository to create.
+
+</p>
+</td>
+</tr>
+<tr id="maybe-kwargs">
+<td><code>kwargs</code></td>
+<td>
+
+optional.
+
+<p>
+
+remaining arguments that are passed to the repo_rule function.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+Nothing, defines the repository when needed as a side-effect.
+
+
+<a id="parse_netrc"></a>
+
+## parse_netrc
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "parse_netrc")
+
+parse_netrc(<a href="#parse_netrc-contents">contents</a>, <a href="#parse_netrc-filename">filename</a>)
+</pre>
+
+Utility function to parse at least a basic .netrc file.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="parse_netrc-contents">
+<td><code>contents</code></td>
+<td>
+
+required.
+
+<p>
+
+input for the parser.
+
+</p>
+</td>
+</tr>
+<tr id="parse_netrc-filename">
+<td><code>filename</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+filename to use in error messages, if any.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+dict mapping a machine names to a dict with the information provided
+about them
+
+
+<a id="patch"></a>
+
+## patch
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "patch")
+
+patch(<a href="#patch-ctx">ctx</a>, <a href="#patch-patches">patches</a>, <a href="#patch-patch_cmds">patch_cmds</a>, <a href="#patch-patch_cmds_win">patch_cmds_win</a>, <a href="#patch-patch_tool">patch_tool</a>, <a href="#patch-patch_args">patch_args</a>, <a href="#patch-auth">auth</a>)
+</pre>
+
+Implementation of patching an already extracted repository.
+
+This rule is intended to be used in the implementation function of
+a repository rule. If the parameters `patches`, `patch_tool`,
+`patch_args`, `patch_cmds` and `patch_cmds_win` are not specified
+then they are taken from `ctx.attr`.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="patch-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility
+function.
+
+</p>
+</td>
+</tr>
+<tr id="patch-patches">
+<td><code>patches</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+The patch files to apply. List of strings, Labels, or paths.
+
+</p>
+</td>
+</tr>
+<tr id="patch-patch_cmds">
+<td><code>patch_cmds</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+Bash commands to run for patching, passed one at a
+time to bash -c. List of strings
+
+</p>
+</td>
+</tr>
+<tr id="patch-patch_cmds_win">
+<td><code>patch_cmds_win</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+Powershell commands to run for patching, passed
+one at a time to powershell /c. List of strings. If the
+boolean value of this parameter is false, patch_cmds will be
+used and this parameter will be ignored.
+
+</p>
+</td>
+</tr>
+<tr id="patch-patch_tool">
+<td><code>patch_tool</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+Path of the patch tool to execute for applying
+patches. String.
+
+</p>
+</td>
+</tr>
+<tr id="patch-patch_args">
+<td><code>patch_args</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+Arguments to pass to the patch tool. List of strings.
+
+</p>
+</td>
+</tr>
+<tr id="patch-auth">
+<td><code>auth</code></td>
+<td>
+
+optional.
+default is <code>None</code>
+
+<p>
+
+An optional dict specifying authentication information for some of the URLs.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+<a id="read_netrc"></a>
+
+## read_netrc
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "read_netrc")
+
+read_netrc(<a href="#read_netrc-ctx">ctx</a>, <a href="#read_netrc-filename">filename</a>)
+</pre>
+
+Utility function to parse at least a basic .netrc file.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="read_netrc-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility
+function.
+
+</p>
+</td>
+</tr>
+<tr id="read_netrc-filename">
+<td><code>filename</code></td>
+<td>
+
+required.
+
+<p>
+
+the name of the .netrc file to read
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+dict mapping a machine names to a dict with the information provided
+about them
+
+
+<a id="read_user_netrc"></a>
+
+## read_user_netrc
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "read_user_netrc")
+
+read_user_netrc(<a href="#read_user_netrc-ctx">ctx</a>)
+</pre>
+
+Read user's default netrc file.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="read_user_netrc-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility function.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+dict mapping a machine names to a dict with the information provided about them.
+
+
+<a id="update_attrs"></a>
+
+## update_attrs
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "update_attrs")
+
+update_attrs(<a href="#update_attrs-orig">orig</a>, <a href="#update_attrs-keys">keys</a>, <a href="#update_attrs-override">override</a>)
+</pre>
+
+Utility function for altering and adding the specified attributes to a particular repository rule invocation.
+
+ This is used to make a rule reproducible.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="update_attrs-orig">
+<td><code>orig</code></td>
+<td>
+
+required.
+
+<p>
+
+dict of actually set attributes (either explicitly or implicitly)
+by a particular rule invocation
+
+</p>
+</td>
+</tr>
+<tr id="update_attrs-keys">
+<td><code>keys</code></td>
+<td>
+
+required.
+
+<p>
+
+complete set of attributes defined on this rule
+
+</p>
+</td>
+</tr>
+<tr id="update_attrs-override">
+<td><code>override</code></td>
+<td>
+
+required.
+
+<p>
+
+dict of attributes to override or add to orig
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+dict of attributes with the keys from override inserted/updated
+
+
+<a id="use_netrc"></a>
+
+## use_netrc
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "use_netrc")
+
+use_netrc(<a href="#use_netrc-netrc">netrc</a>, <a href="#use_netrc-urls">urls</a>, <a href="#use_netrc-patterns">patterns</a>)
+</pre>
+
+Compute an auth dict from a parsed netrc file and a list of URLs.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="use_netrc-netrc">
+<td><code>netrc</code></td>
+<td>
+
+required.
+
+<p>
+
+a netrc file already parsed to a dict, e.g., as obtained from
+read_netrc
+
+</p>
+</td>
+</tr>
+<tr id="use_netrc-urls">
+<td><code>urls</code></td>
+<td>
+
+required.
+
+<p>
+
+a list of URLs.
+
+</p>
+</td>
+</tr>
+<tr id="use_netrc-patterns">
+<td><code>patterns</code></td>
+<td>
+
+required.
+
+<p>
+
+optional dict of url to authorization patterns
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+### Returns
+
+dict suitable as auth argument for ctx.download; more precisely, the dict
+will map all URLs where the netrc file provides login and password to a
+dict containing the corresponding login, password and optional authorization pattern,
+as well as the mapping of "type" to "basic" or "pattern".
+
+
+<a id="workspace_and_buildfile"></a>
+
+## workspace_and_buildfile
+
+<pre>
+load("@bazel//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile")
+
+workspace_and_buildfile(<a href="#workspace_and_buildfile-ctx">ctx</a>)
+</pre>
+
+Utility function for writing WORKSPACE and, if requested, a BUILD file.
+
+This rule is intended to be used in the implementation function of a
+repository rule.
+It assumes the parameters `name`, `build_file`, `build_file_content`,
+`workspace_file`, and `workspace_file_content` to be
+present in `ctx.attr`; the latter four possibly with value None.
+
+### Parameters
+
+<table class="params-table">
+<colgroup>
+<col class="col-param" />
+<col class="col-description" />
+</colgroup>
+<tbody>
+<tr id="workspace_and_buildfile-ctx">
+<td><code>ctx</code></td>
+<td>
+
+required.
+
+<p>
+
+The repository context of the repository rule calling this utility
+function.
+
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+

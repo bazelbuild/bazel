@@ -16,7 +16,7 @@ java_library(
     srcs = ["NoOpConnectivityModule.java"],
     deps = [
         ":connectivity_status",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
     ],
 )
 

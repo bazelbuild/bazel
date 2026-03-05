@@ -219,7 +219,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     // TODO(adonovan): use the file name instead. But that's a breaking Bazel change.
     Object clientData = module.getClientData();
 
@@ -537,9 +537,12 @@ public final class StarlarkFunction implements StarlarkCallable {
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
 
+      boolean dynamicTyping =
+          thread
+              .getSemantics()
+              .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
       Types.CallableType functionType =
-          thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING)
-                  && owner.getStarlarkType() instanceof Types.CallableType
+          dynamicTyping && owner.getStarlarkType() instanceof Types.CallableType
               ? (Types.CallableType) owner.getStarlarkType()
               : null;
 
@@ -555,7 +558,7 @@ public final class StarlarkFunction implements StarlarkCallable {
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
                 owner.getName(),
                 owner.getParameterNames().get(i),
-                TypeChecker.type(locals[i]),
+                Starlark.getStarlarkType(locals[i]),
                 parameterType);
           }
         }
@@ -582,7 +585,7 @@ public final class StarlarkFunction implements StarlarkCallable {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",
-              owner.getName(), TypeChecker.type(returnValue), functionType.getReturnType());
+              owner.getName(), Starlark.getStarlarkType(returnValue), functionType.getReturnType());
         }
       }
 

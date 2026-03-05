@@ -120,7 +120,11 @@ public abstract class TestStrategy implements TestActionContext {
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot, Path tmpDir)
+  protected void prepareFileSystem(
+      TestRunnerAction testAction,
+      Path execRoot,
+      @Nullable Path tmpDir,
+      @Nullable ActionExecutionContext actionExecutionContext)
       throws IOException {
     if (tmpDir != null) {
       recreateDirectory(tmpDir);
@@ -135,14 +139,11 @@ public abstract class TestStrategy implements TestActionContext {
     resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
     resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
     resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
-  }
 
-  /**
-   * Ensures that all directories used to run test are in the correct state and their content will
-   * not result in stale files. Only use this if no local tmp and working directory are required.
-   */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
-    prepareFileSystem(testAction, execRoot, null);
+    if (actionExecutionContext != null && actionExecutionContext.getOutputMetadataStore() != null) {
+      // Reset output metadata to avoid stale information from previous attempts.
+      actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
+    }
   }
 
   /** Removes directory if it exists and recreates it. */

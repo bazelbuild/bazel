@@ -295,7 +295,7 @@ final class PrerequisitesProducer
           .collect(toImmutableList());
     }
 
-    if (!prerequisite.isTargetRule()) {
+    if (!prerequisite.isTargetRule() || prerequisite.isMaterializerRule()) {
       return ImmutableList.of();
     }
 

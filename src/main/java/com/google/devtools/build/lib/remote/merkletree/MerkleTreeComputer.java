@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
@@ -22,6 +23,7 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.DIGEST_COMPARATOR;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
@@ -46,7 +48,7 @@ import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -57,7 +59,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -88,6 +90,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -193,8 +196,7 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.Uploadable(
-            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0),
-            ImmutableMap.of(emptyDigest, emptyBlob));
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
   /** Specifies which blobs should be retained in the Merkle tree. */
@@ -294,7 +296,7 @@ public final class MerkleTreeComputer {
     var outputDirectories =
         spawn.getOutputFiles().stream()
             .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
-            .map(outputDir -> new EmptyInputDirectory(outputDir.getExecPath()))
+            .map(outputDir -> new EmptyInputDirectory((Artifact) outputDir))
             .collect(toImmutableList());
     // Reduce peak memory usage by avoiding the allocation of intermediate arrays and sorted map, as
     // well as the prolonged retention of mapped paths. All of these can be reconstructed on-the-fly
@@ -351,30 +353,66 @@ public final class MerkleTreeComputer {
         .getRelative(pathMapper.map(input.getExecPath()));
   }
 
-  /** An {@link ActionInput} backed by an absolute {@link Path}. */
-  private static class ActionInputWithPath extends ActionInputHelper.BasicActionInput {
-    final Path path;
+  /**
+   * An {@link ActionInput} that is a child of another one at a given relative path.
+   *
+   * <p>This is used as a memory optimization as it avoids storing full absolute paths for children
+   * of a source directory.
+   */
+  private static class ChildActionInput extends BasicActionInput {
+    private final ActionInput parent;
+    private final String relativePath;
 
-    ActionInputWithPath(Path path) {
-      this.path = path;
+    ChildActionInput(ActionInput parent, PathFragment relativePath) {
+      this.parent = parent;
+      // Unwrap the PathFragment to save memory - it is not retained elsewhere.
+      this.relativePath = relativePath.getPathString();
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return parent.getExecPath().getRelative(relativePath);
     }
 
     @Override
     public String getExecPathString() {
-      return path.getPathString();
+      return getExecPath().getPathString();
+    }
+  }
+
+  /**
+   * Adapts a {@link Path} to an {@link ActionInput}.
+   *
+   * <p>This is only used for remote repository execution and tests and thus its memory usage
+   * doesn't matter.
+   */
+  private static class PathActionInput extends BasicActionInput {
+    private final Path path;
+
+    PathActionInput(Path path) {
+      this.path = path;
     }
 
     @Override
     public PathFragment getExecPath() {
       return path.asFragment();
     }
+
+    @Override
+    public String getExecPathString() {
+      return path.asFragment().getPathString();
+    }
+
+    Path getPath() {
+      return path;
+    }
   }
 
-  private static final ArtifactPathResolver actionInputWithPathResolver =
+  static final ArtifactPathResolver PATH_ACTION_INPUT_RESOLVER =
       new ArtifactPathResolver() {
         @Override
         public Path toPath(ActionInput actionInput) {
-          return ((ActionInputWithPath) actionInput).path;
+          return ((PathActionInput) actionInput).getPath();
         }
 
         @Override
@@ -404,11 +442,11 @@ public final class MerkleTreeComputer {
                   Lists.transform(
                       ImmutableList.sortedCopyOf(
                           Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                      e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
+                      e -> entry(e.getKey(), new PathActionInput(e.getValue()))),
                   alwaysFalse(),
                   /* spawnScrubber= */ null,
                   StaticInputMetadataProvider.empty(),
-                  actionInputWithPathResolver,
+                  PATH_ACTION_INPUT_RESOLVER,
                   /* remoteActionExecutionContext= */ null,
                   /* remotePathResolver= */ null,
                   BlobPolicy.KEEP_AND_REUPLOAD));
@@ -469,7 +507,8 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    var blobs = ImmutableMap.<Digest, Object>builder();
+    var blobs =
+        new TreeMap<Digest, /* byte[] | Path | VirtualActionInput */ Object>(DIGEST_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -532,17 +571,16 @@ public final class MerkleTreeComputer {
           inputBytes += directoryBlobDigest.getSizeBytes();
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
-            var builtBlobs = blobs.buildKeepingLast();
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
-              checkState(builtBlobs.isEmpty());
+              checkState(blobs.isEmpty());
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
             } else {
               return new MerkleTree.Uploadable(
                   new MerkleTree.RootOnly.BlobsUploaded(
                       directoryBlobDigest, inputFiles, inputBytes),
-                  builtBlobs);
+                  blobs);
             }
           }
           topDirectory
@@ -621,7 +659,7 @@ public final class MerkleTreeComputer {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
             if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-              blobs.put(digest, artifactPathResolver.toPath(fileOrSourceDirectory));
+              blobs.put(digest, fileOrSourceDirectory);
             }
             inputFiles++;
             inputBytes += digest.getSizeBytes();
@@ -647,11 +685,10 @@ public final class MerkleTreeComputer {
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
-          Path inputPath = artifactPathResolver.toPath(input);
-          var digest = digestUtil.compute(inputPath);
+          var digest = digestUtil.compute(artifactPathResolver.toPath(input));
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
-            blobs.put(digest, inputPath);
+            blobs.put(digest, input);
           }
           inputFiles++;
           inputBytes += digest.getSizeBytes();
@@ -737,7 +774,7 @@ public final class MerkleTreeComputer {
         }
         yield computeIfAbsent(
             metadata,
-            () -> explodeDirectory(artifactPathResolver.toPath(artifact)).entrySet(),
+            () -> explodeDirectory(artifact, artifactPathResolver).entrySet(),
             isToolInput.test(mappedExecPath),
             metadataProvider,
             artifactPathResolver,
@@ -993,15 +1030,19 @@ public final class MerkleTreeComputer {
     return path1.subFragment(0, commonSegments);
   }
 
-  private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(Path dirPath)
-      throws IOException, InterruptedException {
+  private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(
+      Artifact dir, ArtifactPathResolver pathResolver) throws IOException, InterruptedException {
     var inputs = ImmutableSortedMap.<PathFragment, ActionInput>orderedBy(HIERARCHICAL_COMPARATOR);
-    explodeDirectory(PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
+    Path dirPath = pathResolver.toPath(dir);
+    explodeDirectory(dir, PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
     return inputs.buildOrThrow();
   }
 
   private static void explodeDirectory(
-      PathFragment relPath, Path dirPath, ImmutableMap.Builder<PathFragment, ActionInput> inputs)
+      Artifact dir,
+      PathFragment relPath,
+      Path dirPath,
+      ImmutableMap.Builder<PathFragment, ActionInput> inputs)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -1011,9 +1052,8 @@ public final class MerkleTreeComputer {
       String basename = entry.getName();
       PathFragment path = relPath.getChild(basename);
       switch (entry.getType()) {
-        case FILE ->
-            inputs.put(path, ActionInputHelper.fromPath(dirPath.getRelative(path).asFragment()));
-        case DIRECTORY -> explodeDirectory(path, dirPath, inputs);
+        case FILE -> inputs.put(path, new ChildActionInput(dir, path));
+        case DIRECTORY -> explodeDirectory(dir, path, dirPath, inputs);
         default ->
             throw new IOException(
                 "The file type of '%s' is not supported.".formatted(dirPath.getRelative(path)));
@@ -1065,21 +1105,22 @@ public final class MerkleTreeComputer {
     };
   }
 
-  private static class EmptyInputDirectory extends ActionInputHelper.BasicActionInput {
-    private final PathFragment execPath;
+  private static class EmptyInputDirectory extends BasicActionInput {
+    private final Artifact outputDir;
 
-    EmptyInputDirectory(PathFragment execPath) {
-      this.execPath = execPath;
+    EmptyInputDirectory(Artifact outputDir) {
+      checkArgument(outputDir.isTreeArtifact());
+      this.outputDir = outputDir;
     }
 
     @Override
     public String getExecPathString() {
-      return execPath.getPathString();
+      return outputDir.getExecPathString();
     }
 
     @Override
     public PathFragment getExecPath() {
-      return execPath;
+      return outputDir.getExecPath();
     }
   }
 

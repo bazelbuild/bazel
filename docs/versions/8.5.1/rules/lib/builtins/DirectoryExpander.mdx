@@ -1,0 +1,23 @@
+---
+title: 'DirectoryExpander'
+---
+
+Expands directories created by [`ctx.actions.declare_directory`](../builtins/actions#declare_directory) during the execution phase. This is useful to expand directories in [`map_each`](../builtins/Args#add_all.map_each).
+
+## Members
+
+* [expand](#expand)
+
+## expand
+
+```
+list DirectoryExpander.expand(file)
+```
+
+If the given `File` is a directory, this returns a list of `File`s recursively underneath the directory. Otherwise, this returns a list containing just the given `File` itself.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `file` | [File](../builtins/File); required  The directory or file to expand. |

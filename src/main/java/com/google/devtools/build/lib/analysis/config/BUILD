@@ -109,6 +109,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -240,6 +241,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:caffeine",
         "//third_party:guava",
     ],
 )
@@ -533,8 +535,7 @@ java_library(
     srcs = ["SymlinkDefinition.java"],
     deps = [
         ":build_configuration",
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",

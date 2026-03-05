@@ -112,6 +112,13 @@ public final class Program {
       }
     }
 
+    if (file.getOptions().staticTypeChecking()) {
+      TypeChecker.checkFile(file);
+      if (!file.ok()) {
+        throw new SyntaxError.Exception(file.errors());
+      }
+    }
+
     // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
     // enabled. Blocked on having the type checker tolerate all AST nodes.
 
@@ -155,8 +162,16 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    // TODO: #27370 - This utility method should also have some form of type checking applied to it,
-    // using whatever type definitions are available in the given module.
+
+    if (options.resolveTypeSyntax()) {
+      TypeTagger.tagExpr(expr, body, module);
+    }
+
+    if (options.staticTypeChecking()) {
+      StarlarkType exprType = TypeChecker.inferTypeOf(expr);
+      TypeTagger.tagExprFunction(body, exprType);
+    }
+
     return new Program(
         body,
         /* loads= */ ImmutableList.of(),

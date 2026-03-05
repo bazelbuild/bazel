@@ -1,0 +1,191 @@
+---
+title: 'Python Rules'
+---
+
+## Rules
+
+* [py\_binary](#py_binary)
+* [py\_library](#py_library)
+* [py\_test](#py_test)
+* [py\_runtime](#py_runtime)
+
+## py\_binary
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPyBinaryRule.java)
+
+```
+py_binary(name, deps, srcs, data, args, compatible_with, deprecation, distribs, env, exec_compatible_with, exec_properties, features, imports, legacy_create_init, licenses, main, output_licenses, python_version, restricted_to, srcs_version, stamp, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+A `py_binary` is an executable Python program consisting
+of a collection of `.py` source files (possibly belonging
+to other `py_library` rules), a `*.runfiles`
+directory tree containing all the code and data needed by the
+program at run-time, and a stub script that starts up the program with
+the correct initial environment and data.
+
+#### Examples
+
+```
+py_binary(
+    name = "foo",
+    srcs = ["foo.py"],
+    data = [":transform"],  # a cc_binary which we invoke at run time
+    deps = [
+        ":foolib",  # a py_library
+    ],
+)
+```
+
+If you want to run a `py_binary` from within another binary or
+test (for example, running a python binary to set up some mock resource from
+within a java\_test) then the correct approach is to make the other binary or
+test depend on the `py_binary` in its data section. The other
+binary can then locate the `py_binary` relative to the source
+directory.
+
+```
+py_binary(
+    name = "test_main",
+    srcs = ["test_main.py"],
+    deps = [":testing"],
+)
+
+java_library(
+    name = "testing",
+    srcs = glob(["*.java"]),
+    data = [":test_main"]
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target.  If `main` is unspecified, this should be the same as the name of the source file that is the main entry point of the application, minus the extension. For example, if your entry point is called `main.py`, then your name should be `main`. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/7.7.1/reference/be/common-definitions#typical-attributes). These are generally [`py_library`](/versions/7.7.1/reference/be/python#py_library) rules. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); required The list of source (`.py`) files that are processed to create the target. This includes all your checked-in code and any generated source files. Library targets belong in `deps` instead, while other binary files needed at runtime belong in `data`. |
+| `imports` | List of strings; default is `[]` List of import directories to be added to the `PYTHONPATH`. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution. These import directories will be added for this rule and all rules that depend on it (note: not the rules this rule depends on. Each directory will be added to `PYTHONPATH` by [`py_binary`](/versions/7.7.1/reference/be/python#py_binary) rules that depend on this rule.  Absolute paths (paths that start with `/`) and paths that references a path above the execution root are not allowed and will result in an error. |
+| `legacy_create_init` | Integer; default is `-1` Whether to implicitly create empty \_\_init\_\_.py files in the runfiles tree. These are created in every directory containing Python source code or shared libraries, and every parent directory of those directories, excluding the repo root directory. The default, auto, means true unless `--incompatible_default_to_explicit_init_py` is used. If false, the user is responsible for creating (possibly empty) \_\_init\_\_.py files and adding them to the `srcs` of Python targets as required. |
+| `main` | [Label](/versions/7.7.1/concepts/labels); default is `None` The name of the source file that is the main entry point of the application. This file must also be listed in `srcs`. If left unspecified, `name` is used instead (see above). If `name` does not match any filename in `srcs`, `main` must be specified. |
+| `python_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `"_INTERNAL_SENTINEL"` Whether to build this target (and its transitive `deps`) for Python 2 or Python 3. Valid values are `"PY2"` and `"PY3"` (the default). The Python version is always reset (possibly by default) to whatever version is specified by this attribute, regardless of the version specified on the command line or by other higher targets that depend on this one. If you want to `select()` on the current Python version, you can inspect the value of `@rules_python//python:python_version`. See [here](https://github.com/bazelbuild/rules_python/blob/120590e2f2b66e5590bf4dc8ebef9c5338984775/python/BUILD#L43) for more information. **Bug warning:** This attribute sets the version for which Bazel builds your target, but due to [#4815](https://github.com/bazelbuild/bazel/issues/4815), the resulting stub script may still invoke the wrong interpreter version at runtime. See [this workaround](https://github.com/bazelbuild/bazel/issues/4815#issuecomment-460777113), which involves defining a `py_runtime` target that points to either Python version as needed, and activating this `py_runtime` by setting `--python_top`. |
+| `srcs_version` | String; default is `"PY2AND3"` This attribute declares the target's `srcs` to be compatible with either Python 2, Python 3, or both. To actually set the Python runtime version, use the [`python_version`](/versions/7.7.1/reference/be/python#py_binary.python_version) attribute of an executable Python rule (`py_binary` or `py_test`). Allowed values are: `"PY2AND3"`, `"PY2"`, and `"PY3"`. The values `"PY2ONLY"` and `"PY3ONLY"` are also allowed for historic reasons, but they are essentially the same as `"PY2"` and `"PY3"` and should be avoided. Note that only the executable rules (`py_binary` and `py_library`) actually verify the current Python version against the value of this attribute. (This is a feature; since `py_library` does not change the current Python version, if it did the validation, it'd be impossible to build both `PY2ONLY` and `PY3ONLY` libraries in the same invocation.) Furthermore, if there is a version mismatch, the error is only reported in the execution phase. In particular, the error will not appear in a `bazel build --nobuild` invocation.) To get diagnostic information about which dependencies introduce version requirements, you can run the `find_requirements` aspect on your target:  ```           bazel build <your target> \               --aspects=@rules_python//python:defs.bzl%find_requirements \               --output_groups=pyversioninfo ```  This will build a file with the suffix `-pyversioninfo.txt` giving information about why your target requires one Python version or another. Note that it works even if the given target failed to build due to a version conflict. |
+| `stamp` | Integer; default is `-1` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](/versions/7.7.1/docs/user-manual#flag--stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](/versions/7.7.1/docs/user-manual#flag--stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+
+## py\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPyLibraryRule.java)
+
+```
+py_library(name, deps, srcs, data, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, imports, licenses, restricted_to, srcs_version, tags, target_compatible_with, testonly, visibility)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/7.7.1/reference/be/common-definitions#typical-attributes). These are generally [`py_library`](/versions/7.7.1/reference/be/python#py_library) rules. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of source (`.py`) files that are processed to create the target. This includes all your checked-in code and any generated source files. |
+| `imports` | List of strings; default is `[]` List of import directories to be added to the `PYTHONPATH`. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution. These import directories will be added for this rule and all rules that depend on it (note: not the rules this rule depends on. Each directory will be added to `PYTHONPATH` by [`py_binary`](/versions/7.7.1/reference/be/python#py_binary) rules that depend on this rule.  Absolute paths (paths that start with `/`) and paths that references a path above the execution root are not allowed and will result in an error. |
+| `srcs_version` | String; default is `"PY2AND3"` This attribute declares the target's `srcs` to be compatible with either Python 2, Python 3, or both. To actually set the Python runtime version, use the [`python_version`](/versions/7.7.1/reference/be/python#py_binary.python_version) attribute of an executable Python rule (`py_binary` or `py_test`). Allowed values are: `"PY2AND3"`, `"PY2"`, and `"PY3"`. The values `"PY2ONLY"` and `"PY3ONLY"` are also allowed for historic reasons, but they are essentially the same as `"PY2"` and `"PY3"` and should be avoided. Note that only the executable rules (`py_binary` and `py_library`) actually verify the current Python version against the value of this attribute. (This is a feature; since `py_library` does not change the current Python version, if it did the validation, it'd be impossible to build both `PY2ONLY` and `PY3ONLY` libraries in the same invocation.) Furthermore, if there is a version mismatch, the error is only reported in the execution phase. In particular, the error will not appear in a `bazel build --nobuild` invocation.) To get diagnostic information about which dependencies introduce version requirements, you can run the `find_requirements` aspect on your target:  ```           bazel build <your target> \               --aspects=@rules_python//python:defs.bzl%find_requirements \               --output_groups=pyversioninfo ```  This will build a file with the suffix `-pyversioninfo.txt` giving information about why your target requires one Python version or another. Note that it works even if the given target failed to build due to a version conflict. |
+
+## py\_test
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPyTestRule.java)
+
+```
+py_test(name, deps, srcs, data, args, compatible_with, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, imports, legacy_create_init, licenses, local, main, python_version, restricted_to, shard_count, size, srcs_version, stamp, tags, target_compatible_with, testonly, timeout, toolchains, visibility)
+```
+
+A `py_test()` rule compiles a test. A test is a binary wrapper
+around some test code.
+
+#### Examples
+
+```
+py_test(
+    name = "runtest_test",
+    srcs = ["runtest_test.py"],
+    deps = [
+        "//path/to/a/py/library",
+    ],
+)
+```
+
+It's also possible to specify a main module:
+
+```
+py_test(
+    name = "runtest_test",
+    srcs = [
+        "runtest_main.py",
+        "runtest_lib.py",
+    ],
+    main = "runtest_main.py",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/7.7.1/reference/be/common-definitions#typical-attributes). These are generally [`py_library`](/versions/7.7.1/reference/be/python#py_library) rules. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); required The list of source (`.py`) files that are processed to create the target. This includes all your checked-in code and any generated source files. Library targets belong in `deps` instead, while other binary files needed at runtime belong in `data`. |
+| `imports` | List of strings; default is `[]` List of import directories to be added to the `PYTHONPATH`. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution. These import directories will be added for this rule and all rules that depend on it (note: not the rules this rule depends on. Each directory will be added to `PYTHONPATH` by [`py_binary`](/versions/7.7.1/reference/be/python#py_binary) rules that depend on this rule.  Absolute paths (paths that start with `/`) and paths that references a path above the execution root are not allowed and will result in an error. |
+| `legacy_create_init` | Integer; default is `-1` Whether to implicitly create empty \_\_init\_\_.py files in the runfiles tree. These are created in every directory containing Python source code or shared libraries, and every parent directory of those directories, excluding the repo root directory. The default, auto, means true unless `--incompatible_default_to_explicit_init_py` is used. If false, the user is responsible for creating (possibly empty) \_\_init\_\_.py files and adding them to the `srcs` of Python targets as required. |
+| `main` | [Label](/versions/7.7.1/concepts/labels); default is `None` The name of the source file that is the main entry point of the application. This file must also be listed in `srcs`. If left unspecified, `name` is used instead (see above). If `name` does not match any filename in `srcs`, `main` must be specified. |
+| `python_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `"_INTERNAL_SENTINEL"` Whether to build this target (and its transitive `deps`) for Python 2 or Python 3. Valid values are `"PY2"` and `"PY3"` (the default). The Python version is always reset (possibly by default) to whatever version is specified by this attribute, regardless of the version specified on the command line or by other higher targets that depend on this one. If you want to `select()` on the current Python version, you can inspect the value of `@rules_python//python:python_version`. See [here](https://github.com/bazelbuild/rules_python/blob/120590e2f2b66e5590bf4dc8ebef9c5338984775/python/BUILD#L43) for more information. **Bug warning:** This attribute sets the version for which Bazel builds your target, but due to [#4815](https://github.com/bazelbuild/bazel/issues/4815), the resulting stub script may still invoke the wrong interpreter version at runtime. See [this workaround](https://github.com/bazelbuild/bazel/issues/4815#issuecomment-460777113), which involves defining a `py_runtime` target that points to either Python version as needed, and activating this `py_runtime` by setting `--python_top`. |
+| `srcs_version` | String; default is `"PY2AND3"` This attribute declares the target's `srcs` to be compatible with either Python 2, Python 3, or both. To actually set the Python runtime version, use the [`python_version`](/versions/7.7.1/reference/be/python#py_binary.python_version) attribute of an executable Python rule (`py_binary` or `py_test`). Allowed values are: `"PY2AND3"`, `"PY2"`, and `"PY3"`. The values `"PY2ONLY"` and `"PY3ONLY"` are also allowed for historic reasons, but they are essentially the same as `"PY2"` and `"PY3"` and should be avoided. Note that only the executable rules (`py_binary` and `py_library`) actually verify the current Python version against the value of this attribute. (This is a feature; since `py_library` does not change the current Python version, if it did the validation, it'd be impossible to build both `PY2ONLY` and `PY3ONLY` libraries in the same invocation.) Furthermore, if there is a version mismatch, the error is only reported in the execution phase. In particular, the error will not appear in a `bazel build --nobuild` invocation.) To get diagnostic information about which dependencies introduce version requirements, you can run the `find_requirements` aspect on your target:  ```           bazel build <your target> \               --aspects=@rules_python//python:defs.bzl%find_requirements \               --output_groups=pyversioninfo ```  This will build a file with the suffix `-pyversioninfo.txt` giving information about why your target requires one Python version or another. Note that it works even if the given target failed to build due to a version conflict. |
+| `stamp` | Integer; default is `0` See the section on [py\_binary()](/versions/7.7.1/reference/be/python#py_binary_args) arguments, except that the stamp argument is set to 0 by default for tests. |
+
+## py\_runtime
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/python/PyRuntimeRule.java)
+
+```
+py_runtime(name, bootstrap_template, compatible_with, coverage_tool, deprecation, distribs, features, files, interpreter, interpreter_path, licenses, python_version, restricted_to, stub_shebang, tags, target_compatible_with, testonly, visibility)
+```
+
+Represents a Python runtime used to execute Python code.
+
+A `py_runtime` target can represent either a *platform runtime* or an
+*in-build runtime*. A platform runtime accesses a system-installed interpreter at a known
+path, whereas an in-build runtime points to an executable target that acts as the interpreter. In
+both cases, an "interpreter" means any executable binary or wrapper script that is capable of
+running a Python script passed on the command line, following the same conventions as the standard
+CPython interpreter.
+
+A platform runtime is by its nature non-hermetic. It imposes a requirement on the target platform
+to have an interpreter located at a specific path. An in-build runtime may or may not be hermetic,
+depending on whether it points to a checked-in interpreter or a wrapper script that accesses the
+system interpreter.
+
+#### Example:
+
+```
+py_runtime(
+    name = "python-2.7.12",
+    files = glob(["python-2.7.12/**"]),
+    interpreter = "python-2.7.12/bin/python",
+)
+
+py_runtime(
+    name = "python-3.6.0",
+    interpreter_path = "/opt/pyenv/versions/3.6.0/bin/python",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `bootstrap_template` | [Label](/versions/7.7.1/concepts/labels); default is `"@bazel_tools//tools/python:python_bootstrap_template.txt"` Previously referred to as the "Python stub script", this is the entrypoint to every Python executable target. |
+| `coverage_tool` | [Label](/versions/7.7.1/concepts/labels); default is `None` This is a target to use for collecting code coverage information from `py_binary` and `py_test` targets. If set, the target must either produce a single file or be and executable target. The path to the single file, or the executable if the target is executable, determines the entry point for the python coverage tool. The target and its runfiles will be added to the runfiles when coverage is enabled.  The entry point for the tool must be loadable by a python interpreter (e.g. a `.py` or `.pyc` file). It must accept the command line arguments of [coverage.py](https://coverage.readthedocs.io/), at least including the `run` and `lcov` subcommands. |
+| `files` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` For an in-build runtime, this is the set of files comprising this runtime. These files will be added to the runfiles of Python binaries that use this runtime. For a platform runtime this attribute must not be set. |
+| `interpreter` | [Label](/versions/7.7.1/concepts/labels); default is `None` For an in-build runtime, this is the target to invoke as the interpreter. For a platform runtime this attribute must not be set. |
+| `interpreter_path` | String; default is `""` For a platform runtime, this is the absolute path of a Python interpreter on the target platform. For an in-build runtime this attribute must not be set. |
+| `python_version` | String; default is `"_INTERNAL_SENTINEL"` Whether this runtime is for Python major version 2 or 3. Valid values are `"PY2"` and `"PY3"`. The default value is controlled by the `--incompatible_py3_is_default` flag. However, in the future this attribute will be mandatory and have no default value. |
+| `stub_shebang` | String; default is `"#!/usr/bin/env python3"` "Shebang" expression prepended to the bootstrapping Python script used when executing `py_binary` targets. See [issue 8685](https://github.com/bazelbuild/bazel/issues/8685) for motivation. Does not apply to Windows. |

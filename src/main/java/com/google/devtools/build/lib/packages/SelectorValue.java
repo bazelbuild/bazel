@@ -23,6 +23,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
@@ -77,7 +78,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
@@ -87,8 +88,8 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append("select(").repr(dictionary).append(")");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append("select(").repr(dictionary, semantics).append(")");
   }
 
   @Override

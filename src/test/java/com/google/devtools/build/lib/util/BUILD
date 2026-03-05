@@ -55,6 +55,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:concurrency_meter",
         "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
@@ -88,6 +89,16 @@ java_test(
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "DecimalBucketerTest",
+    srcs = ["DecimalBucketerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -166,8 +177,8 @@ java_test(
     name = "HeapOffsetHelperTest",
     srcs = ["HeapOffsetHelperTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",

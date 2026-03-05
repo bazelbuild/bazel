@@ -75,7 +75,24 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        ":cpu_profiler_native_support",
     ],
+)
+
+java_library(
+    name = "cpu_profiler_native_support",
+    srcs = ["CpuProfilerNativeSupport.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+)
+
+java_library(
+    name = "cpu_profiler_native_support_impl",
+    srcs = [
+        "CpuProfilerNativeSupportImpl.java",
+        "JNI.java",
+    ],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    deps = [":cpu_profiler_native_support"],
 )
 
 # Dynamic library for Starlark CPU profiler.
@@ -83,26 +100,19 @@ java_library(
 # to the java.library.path directory (e.g. by 'java -Djava.library.path=<dir>').
 # What a mess.
 filegroup(
-    name = "cpu_profiler",
+    name = "cpu_profiler_jni",
     srcs = select({
         "//src/conditions:darwin": [":libcpu_profiler.dylib"],
-        "//src/conditions:windows": [":cpu_profiler.dll"],
-        "//conditions:default": [":libcpu_profiler.so"],  # POSIX
+        "//src/conditions:linux": [":libcpu_profiler.so"],
+        "//conditions:default": [],
     }),
     visibility = ["//src/main/java/net/starlark/java:clients"],
 )
 
 genrule(
-    name = "cpu_profiler_darwin",
+    name = "cpu_profiler_jni_darwin",
     srcs = ["libcpu_profiler.so"],
     outs = ["libcpu_profiler.dylib"],
-    cmd = "cp $< $@",
-)
-
-genrule(
-    name = "cpu_profiler_windows",
-    srcs = ["libcpu_profiler.so"],
-    outs = ["cpu_profiler.dll"],
     cmd = "cp $< $@",
 )
 
@@ -112,7 +122,7 @@ cc_binary(
     srcs = select({
         "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux": ["cpu_profiler_posix.cc"],
-        "//conditions:default": ["cpu_profiler_unimpl.cc"],
+        "//conditions:default": [],
     }),
     linkshared = 1,
     deps = ["@rules_java//toolchains:jni"],

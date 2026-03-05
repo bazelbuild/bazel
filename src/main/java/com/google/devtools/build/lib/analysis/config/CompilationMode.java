@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.common.options.EnumConverter;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** This class represents the debug/optimization mode the binaries will be built for. */
@@ -51,7 +52,7 @@ public enum CompilationMode implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(toString());
   }
 }

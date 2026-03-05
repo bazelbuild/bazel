@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueIn
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable
@@ -94,8 +95,9 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append(String.format("ConstraintValueInfo(setting=%s, %s)", constraint.label(), label));
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    Printer.format(
+        printer, semantics, "ConstraintValueInfo(setting=%s, %s)", constraint.label(), label);
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

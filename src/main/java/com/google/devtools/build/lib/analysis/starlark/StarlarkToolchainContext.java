@@ -78,7 +78,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<toolchain_context.resolved_labels: ");
     printer.append(
         resolvedToolchainTypeLabels().stream().map(Label::toString).collect(joining(", ")));

@@ -358,7 +358,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
+  public void write(
+      FileApi output,
+      Object content,
+      Boolean isExecutable,
+      Object mnemonicUnchecked,
+      Object executionRequirementsUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
@@ -371,6 +376,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           FileWriteAction.create(
               ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
+      var unmodifiedExecutionRequirements =
+          TargetUtils.getFilteredExecutionInfo(
+              executionRequirementsUnchecked,
+              ruleContext.getRule(),
+              getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -380,7 +390,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               args.getParameterFileType(),
               isExecutable,
               mnemonic,
-              ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), mnemonic),
+              ruleContext
+                  .getConfiguration()
+                  .modifiedExecutionInfo(unmodifiedExecutionRequirements, mnemonic),
               PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
@@ -792,7 +804,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
+    if (mnemonicUnchecked == Starlark.NONE
+        && getSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+      throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
+    }
+
     String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
+
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
@@ -1188,9 +1207,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("actions for");
-    context.repr(printer);
+    context.repr(printer, semantics);
   }
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {

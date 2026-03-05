@@ -77,7 +77,6 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                 getScratch().dir("/output"),
                 getScratch().dir("/user_root")),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
 

@@ -43,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_dependency_state",
@@ -82,6 +83,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:load_aspects_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:load_aspects_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
@@ -144,6 +146,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

@@ -219,13 +219,19 @@ class TestBase(absltest.TestCase):
 
   def AssertFileContentContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry not in f.read():
-        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry not in content:
+        self.fail(
+            'File "%s" does not contain "%s":\n%s' % (file_path, entry, content)
+        )
 
   def AssertFileContentNotContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry in f.read():
-        self.fail('File "%s" does contain "%s"' % (file_path, entry))
+      content = f.read()
+      if entry in content:
+        self.fail(
+            'File "%s" does contain "%s":\n%s' % (file_path, entry, content)
+        )
 
   def AssertPathIsSymlink(self, path):
     if self.IsWindows():

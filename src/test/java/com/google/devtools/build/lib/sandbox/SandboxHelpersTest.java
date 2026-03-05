@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;

@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
@@ -616,7 +617,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
    *
    * <p>This error should be tolerated by falling back on computation.
    */
-  static final class MissingSharedValueBytesException extends SerializationException {
+  public static final class MissingSharedValueBytesException extends SerializationException {
     /**
      * Singleton instance.
      *
@@ -625,10 +626,11 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
      * stack trace generation, all of which are expensive at scale and unnecessary for control flow.
      */
     @SuppressWarnings("StaticAssignmentOfThrowable")
-    static final MissingSharedValueBytesException INSTANCE = new MissingSharedValueBytesException();
+    public static final MissingSharedValueBytesException INSTANCE =
+        new MissingSharedValueBytesException();
 
     private MissingSharedValueBytesException() {
-      super("Missing shared value bytes");
+      super("Missing shared value bytes", CacheMissReason.REFERENCED_OBJECT_MISS);
     }
 
     /**

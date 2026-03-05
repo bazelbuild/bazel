@@ -107,7 +107,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<subrule ").append(getName()).append(">");
   }
 
@@ -491,7 +491,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(
           "<"
               + subrule.getName()

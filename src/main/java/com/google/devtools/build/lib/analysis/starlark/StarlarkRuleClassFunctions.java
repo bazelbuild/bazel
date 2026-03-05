@@ -137,6 +137,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator.GlobalSymbol;
 import net.starlark.java.eval.SymbolGenerator.Symbol;
@@ -514,7 +515,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
     throw Starlark.errorf(
         "Invalid 'inherit_attrs' value %s; expected a rule, a macro, or \"common\"",
-        Starlark.repr(inheritAttrsArg));
+        Starlark.repr(inheritAttrsArg, StarlarkSemantics.DEFAULT));
   }
 
   private static void verifyInheritAttrsArgExportedIfExportable(Object inheritAttrsArg)
@@ -1668,7 +1669,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isExported()) {
         printer.append("<macro ").append(macroClass.getName()).append(">");
       } else {
@@ -1984,7 +1985,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isExported()) {
         printer.append("<rule ").append(getRuleClass().getName()).append(">");
       } else {

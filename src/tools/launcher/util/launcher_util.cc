@@ -15,24 +15,24 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
+#include "src/tools/launcher/util/launcher_util.h"
 
-// For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
-#define _CRT_RAND_S
 #include <fcntl.h>
 #include <io.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 
 #include <algorithm>
+#include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/native/windows/file.h"
-#include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
 namespace launcher {
@@ -49,11 +49,10 @@ string GetLastErrorString() {
   }
 
   char* message_buffer;
-  size_t size = FormatMessageA(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-          FORMAT_MESSAGE_IGNORE_INSERTS,
-      nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPSTR)&message_buffer, 0, nullptr);
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                     FORMAT_MESSAGE_IGNORE_INSERTS,
+                 nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                 (LPSTR)&message_buffer, 0, nullptr);
 
   stringstream result;
   result << "(error: " << last_error << "): " << message_buffer;
@@ -200,15 +199,15 @@ bool SetEnv(const wstring& env_name, const wstring& value) {
   return SetEnvironmentVariableW(env_name.c_str(), value.c_str());
 }
 
-wstring GetRandomStr(size_t len) {
-  static const wchar_t alphabet[] =
+std::wstring GetRandomStr(size_t len) {
+  static constexpr std::wstring_view alphabet =
       L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  wstring rand_str;
+  std::random_device rd;  // NOLINT(runtime/random_device) - Windows-only code
+  std::uniform_int_distribution<size_t> dist(0, alphabet.size() - 1);
+  std::wstring rand_str;
   rand_str.reserve(len);
-  unsigned int x;
-  for (size_t i = 0; i < len; i++) {
-    rand_s(&x);
-    rand_str += alphabet[x % wcslen(alphabet)];
+  for (size_t i = 0; i < len; ++i) {
+    rand_str += alphabet[dist(rd)];
   }
   return rand_str;
 }

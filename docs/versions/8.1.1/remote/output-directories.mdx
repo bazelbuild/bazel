@@ -2,8 +2,6 @@
 title: 'Output Directory Layout'
 ---
 
-
-
 This page covers requirements and layout for output directories.
 
 ## Requirements
@@ -65,7 +63,7 @@ use them. Also, this is done only if the workspace root is writable.
 
 The directories are laid out as follows:
 
-```
+<pre>
 &lt;workspace-name&gt;/                         <== The workspace root
   bazel-my-project => <..._main>          <== Symlink to execRoot
   bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
@@ -133,7 +131,7 @@ The directories are laid out as follows:
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)
         &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
-```
+</pre>
 
 The layout of the \*.runfiles directories is documented in more detail in the places pointed to by RunfilesSupport.
 

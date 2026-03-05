@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,6 +35,8 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -407,5 +410,50 @@ public final class BuildOptionsTest {
     assertThat(backward.getStarlarkOptions())
         .containsExactly(label1, true, label2, false)
         .inOrder();
+    assertThat(backward).isEqualTo(forward);
+    assertThat(backward.checksum()).isEqualTo(forward.checksum());
+  }
+
+  @Test
+  public void listAndSetAreDifferent() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions optionsWithList =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("a")).build();
+    BuildOptions optionsWithSet =
+        BuildOptions.builder()
+            .addStarlarkOption(label, new LinkedHashSet<>(ImmutableList.of("a")))
+            .build();
+
+    assertThat(optionsWithList).isNotEqualTo(optionsWithSet);
+    assertThat(optionsWithList.checksum()).isNotEqualTo(optionsWithSet.checksum());
+  }
+
+  @Test
+  public void emptyListDifferentFromListWithEmptyString() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions emptyListOptions =
+        BuildOptions.builder().addStarlarkOption(label, new ArrayList<>()).build();
+    BuildOptions emptyStringListOptions =
+        BuildOptions.builder().addStarlarkOption(label, Lists.newArrayList("")).build();
+
+    assertThat(emptyListOptions).isNotEqualTo(emptyStringListOptions);
+    assertThat(emptyListOptions.checksum()).isNotEqualTo(emptyStringListOptions.checksum());
+  }
+
+  @Test
+  public void emptySetDifferentFromSetWithEmptyString() {
+    Label label = Label.parseCanonicalUnchecked("//pkg:option");
+
+    BuildOptions emptySetOptions =
+        BuildOptions.builder().addStarlarkOption(label, new LinkedHashSet<>()).build();
+    BuildOptions emptyStringSetOptions =
+        BuildOptions.builder()
+            .addStarlarkOption(label, new LinkedHashSet<>(ImmutableList.of("")))
+            .build();
+
+    assertThat(emptySetOptions).isNotEqualTo(emptyStringSetOptions);
+    assertThat(emptySetOptions.checksum()).isNotEqualTo(emptyStringSetOptions.checksum());
   }
 }

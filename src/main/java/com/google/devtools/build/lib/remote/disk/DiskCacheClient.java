@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -44,7 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /**
@@ -71,7 +72,13 @@ public class DiskCacheClient {
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
 
-  private final ListeningExecutorService executorService;
+  // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
+  // I/O operations, so using virtual threads is appropriate.
+  @SuppressWarnings("AllowVirtualThreads")
+  private final ListeningExecutorService executorService =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
+
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
 
@@ -79,11 +86,9 @@ public class DiskCacheClient {
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
-  public DiskCacheClient(
-      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
+  public DiskCacheClient(Path root, DigestUtil digestUtil, boolean verifyDownloads)
       throws IOException {
     this.digestUtil = digestUtil;
-    this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.verifyDownloads = verifyDownloads;
 
     Path fnRoot =
@@ -138,7 +143,7 @@ public class DiskCacheClient {
     }
 
     target.getParentDirectory().createDirectoryAndParents();
-    src.renameTo(target);
+    FileSystemUtils.renameToleratingConcurrentCreation(src, target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -263,7 +268,9 @@ public class DiskCacheClient {
         });
   }
 
-  public void close() {}
+  public void close() {
+    executorService.close();
+  }
 
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
@@ -327,7 +334,7 @@ public class DiskCacheClient {
         }
       }
       path.getParentDirectory().createDirectoryAndParents();
-      temp.renameTo(path);
+      FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
     } catch (IOException e) {
       try {
         temp.delete();

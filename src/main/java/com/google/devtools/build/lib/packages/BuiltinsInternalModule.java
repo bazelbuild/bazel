@@ -20,6 +20,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -54,7 +55,7 @@ public class BuiltinsInternalModule implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<_builtins module>");
   }
 

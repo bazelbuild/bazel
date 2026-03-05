@@ -2,8 +2,6 @@
 title: 'Action Graph Query (aquery)'
 ---
 
-
-
 The `aquery` command allows you to query for actions in your build graph.
 It operates on the post-analysis Configured Target Graph and exposes
 information about **Actions, Artifacts and their relationships.**
@@ -22,7 +20,7 @@ It supports the same set of functions that is also available to traditional
 
 An example `aquery` output (without specific details):
 
-```
+<pre>
 $ bazel aquery 'deps(//some:label)'
 action 'Writing file some_file_name'
   Mnemonic: ...
@@ -31,7 +29,7 @@ action 'Writing file some_file_name'
   ActionKey: ...
   Inputs: [...]
   Outputs: [...]
-```
+</pre>
 
 ## Basic syntax
 
@@ -43,11 +41,11 @@ The query expression (in quotes) consists of the following:
 
 *   `aquery_function(...)`: functions specific to `aquery`.
     More details [below](#using-aquery-functions).
-*   `function(...)`: the standard [functions](/query/language#functions)
+*   `function(...)`: the standard [functions](/versions/8.3.1/query/language#functions)
     as traditional `query`.
 *   `//target` is the label to the interested target.
 
-```
+<pre>
 # aquery examples:
 # Get the action graph generated while building //src/target_a
 $ bazel aquery '//src/target_a'
@@ -58,7 +56,7 @@ $ bazel aquery 'deps(//src/target_a)'
 # Get the action graph generated while building all dependencies of //src/target_a
 # whose inputs filenames match the regex ".*cpp".
 $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
-```
+</pre>
 
 ## Using aquery functions
 
@@ -79,9 +77,9 @@ There are three `aquery` functions:
 
 You can also combine functions to achieve the AND operation. For example:
 
-```
+<pre>
   $ bazel aquery 'mnemonic("Cpp.*", (inputs(".*cpp", inputs("foo.*", //src/target_a))))'
-```
+</pre>
 
   The above command would find all actions involved in building `//src/target_a`,
   whose mnemonics match `"Cpp.*"` and inputs match the patterns
@@ -93,19 +91,19 @@ not Configured Targets.
 
 An example of the syntax error produced:
 
-```
+<pre>
         $ bazel aquery 'deps(inputs(".*cpp", //src/target_a))'
         ERROR: aquery filter functions (inputs, outputs, mnemonic) produce actions,
         and therefore can't be the input of other function types: deps
         deps(inputs(".*cpp", //src/target_a))
-```
+</pre>
 
 ## Options
 
 ### Build options
 
 `aquery` runs on top of a regular Bazel build and thus inherits the set of
-[options](/reference/command-line-reference#build-options)
+[options](/versions/8.3.1/reference/command-line-reference#build-options)
 available during a build.
 
 ### Aquery options
@@ -156,9 +154,9 @@ This flag is only available with `--output=proto` or `--output=textproto`.
 
 ### Querying against the state of Skyframe
 
-[Skyframe](/reference/skyframe) is the evaluation and
+[Skyframe](/versions/8.3.1/reference/skyframe) is the evaluation and
 incrementality model of Bazel. On each instance of Bazel server, Skyframe stores the dependency graph
-constructed from the previous runs of the [Analysis phase](/run/build#analysis).
+constructed from the previous runs of the [Analysis phase](/versions/8.3.1/run/build#analysis).
 
 In some cases, it is useful to query the Action Graph on Skyframe.
 An example use case would be:
@@ -178,7 +176,7 @@ commands a hassle.
 
 As an alternative, the `--skyframe_state` flag can be used:
 
-```
+<pre>
   # List all actions on Skyframe's action graph
   $ bazel aquery --output=proto --skyframe_state
 
@@ -186,7 +184,7 @@ As an alternative, the `--skyframe_state` flag can be used:
 
   # List all actions on Skyframe's action graph, whose output matches "foo.out"
   $ bazel aquery --output=proto --skyframe_state 'outputs("foo.out")'
-```
+</pre>
 
 With `--skyframe_state` mode, `aquery` takes the content of the Action Graph
 that Skyframe keeps on the instance of Bazel, (optionally) performs filtering on it and
@@ -205,7 +203,7 @@ Currently, `--skyframe_state` queries the whole action graph that exists on Skyf
 regardless of the targets. Having the target label specified in the query together with
 `--skyframe_state` is considered a syntax error:
 
-```
+<pre>
   # WRONG: Target Included
   $ bazel aquery --output=proto --skyframe_state **//target_a**
   ERROR: Error while parsing '//target_a)': Specifying build target(s) [//target_a] with --skyframe_state is currently not supported.
@@ -217,7 +215,7 @@ regardless of the targets. Having the target label specified in the query togeth
   # CORRECT: Without Target
   $ bazel aquery --output=proto --skyframe_state
   $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java")'
-```
+</pre>
 
 ### Comparing aquery outputs
 
@@ -228,20 +226,20 @@ command lines being run did not change. `aquery_differ` is the tool for that.
 The tool is available in the [bazelbuild/bazel](https://github.com/bazelbuild/bazel/tree/master/tools/aquery_differ) repository.
 To use it, clone the repository to your local machine. An example usage:
 
-```
+<pre>
   $ bazel run //tools/aquery_differ -- \
   --before=/path/to/before.proto \
   --after=/path/to/after.proto \
   --input_type=proto \
   --attrs=cmdline \
   --attrs=inputs
-```
+</pre>
 
 The above command returns the difference between the `before` and `after` aquery outputs:
 which actions were present in one but not the other, which actions have different
 command line/inputs in each aquery output, ...). The result of running the above command would be:
 
-```
+<pre>
   Aquery output 'after' change contains an action that generates the following outputs that aquery output 'before' change doesn't:
   ...
   /list of output files/
@@ -256,7 +254,7 @@ command line/inputs in each aquery output, ...). The result of running the above
     ...
     /cmdline diff, in unified diff format/
     ...
-```
+</pre>
 
 #### Command options
 
@@ -270,14 +268,14 @@ to be compared.
 
 ### Aspect-on-aspect
 
-It is possible for [Aspects](/extending/aspects)
+It is possible for [Aspects](/versions/8.3.1/extending/aspects)
 to be applied on top of each other. The aquery output of the action generated by
 these Aspects would then include the _Aspect path_, which is the sequence of
 Aspects applied to the target which generated the action.
 
 An example of Aspect-on-Aspect:
 
-```
+<pre>
   t0
   ^
   | <- a1
@@ -285,7 +283,7 @@ An example of Aspect-on-Aspect:
   ^
   | <- a2
   t2
-```
+</pre>
 
 Let t<sub>i</sub> be a target of rule r<sub>i</sub>, which applies an Aspect a<sub>i</sub>
 to its dependencies.
@@ -293,7 +291,7 @@ to its dependencies.
 Assume that a2 generates an action X when applied to target t0. The text output of
 `bazel aquery --include_aspects 'deps(//t2)'` for action X would be:
 
-```
+<pre>
   action ...
   Mnemonic: ...
   Target: //my_pkg:t0
@@ -301,7 +299,7 @@ Assume that a2 generates an action X when applied to target t0. The text output 
   AspectDescriptors: [//my_pkg:rule.bzl%**a2**(foo=...)
     -> //my_pkg:rule.bzl%**a1**(bar=...)]
   ...
-```
+</pre>
 
 This means that action `X` was generated by Aspect `a2` applied onto
 `a1(t0)`, where `a1(t0)` is the result of Aspect `a1` applied
@@ -309,19 +307,19 @@ onto target `t0`.
 
 Each `AspectDescriptor` has the following format:
 
-```
+<pre>
   AspectClass([param=value,...])
-```
+</pre>
 
 `AspectClass` could be the name of the Aspect class (for native Aspects) or
 `bzl_file%aspect_name` (for Starlark Aspects). `AspectDescriptor` are
 sorted in topological order of the
-[dependency graph](/extending/aspects#aspect_basics).
+[dependency graph](/versions/8.3.1/extending/aspects#aspect_basics).
 
 ### Linking with the JSON profile
 
 While aquery provides information about the actions being run in a build (why they're being run,
-their inputs/outputs), the [JSON profile](/rules/performance#performance-profiling)
+their inputs/outputs), the [JSON profile](/versions/8.3.1/rules/performance#performance-profiling)
 tells us the timing and duration of their execution.
 It is possible to combine these 2 sets of information via a common denominator: an action's primary output.
 
@@ -357,7 +355,7 @@ The list of aquery issues/planned features can be found on
 In the context of aquery, the `ActionKey` refers to the `String` gotten from
 [ActionAnalysisMetadata#getKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/ActionAnalysisMetadata.java;l=89;drc=8b856f5484f0117b2aebc302f849c2a15f273310):
 
-```
+<pre>
   Returns a string encoding all of the significant behaviour of this Action that might affect the
   output. The general contract of `getKey` is this: if the work to be performed by the
   execution of this action changes, the key must change.
@@ -375,7 +373,7 @@ In the context of aquery, the `ActionKey` refers to the `String` gotten from
       time the program logic of this action changes).
   Note the following exception: for actions that discover inputs, the key must change if any
   input names change or else action validation may falsely validate.
-```
+</pre>
 
 This excludes the changes to the content of the input files, and is not to be confused with
 [RemoteCacheClient#ActionKey](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/remote/common/RemoteCacheClient.java;l=38;drc=21577f202eb90ce94a337ebd2ede824d609537b6).

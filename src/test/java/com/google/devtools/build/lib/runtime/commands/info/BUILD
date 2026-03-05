@@ -18,7 +18,7 @@ java_test(
     size = "small",
     srcs = ["StdoutInfoItemHandlerTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:junit4",
@@ -32,7 +32,7 @@ java_test(
     size = "small",
     srcs = ["RemoteRequestedInfoItemHandlerTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands:paths_to_replace_utils",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/protobuf:command_server_java_proto",

@@ -145,26 +145,27 @@ public abstract class AspectBaseTargetResolvedToolchainContext
 
     @Override
     public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-      Provider constructor = selectExportedProvider(key, "index");
+      Provider constructor = selectExportedProvider(key, semantics, "index");
       Object declaredProvider = aspectsProviders.get(constructor.getKey());
       if (declaredProvider != null) {
         return declaredProvider;
       }
       throw Starlark.errorf(
           "%s doesn't contain declared provider '%s'",
-          Starlark.repr(this), constructor.getPrintableName());
+          Starlark.repr(this, semantics), constructor.getPrintableName());
     }
 
     @Override
     public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-      return aspectsProviders.get(selectExportedProvider(key, "query").getKey()) != null;
+      return aspectsProviders.get(selectExportedProvider(key, semantics, "query").getKey()) != null;
     }
 
     /**
      * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
      * provider or not exported.
      */
-    private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+    private Provider selectExportedProvider(
+        Object key, StarlarkSemantics semantics, String operation) throws EvalException {
       if (!(key instanceof Provider constructor)) {
         throw Starlark.errorf(
             "This type only supports %sing by object constructors, got %s instead",
@@ -174,13 +175,13 @@ public abstract class AspectBaseTargetResolvedToolchainContext
         throw Starlark.errorf(
             "%s only supports %sing by exported providers. Assign the provider a name "
                 + "in a top-level assignment statement.",
-            Starlark.repr(this), operation);
+            Starlark.repr(this, semantics), operation);
       }
       return constructor;
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<ToolchainAspectsProviders for toolchain target: " + label + ">");
     }
 

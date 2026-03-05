@@ -1,0 +1,307 @@
+---
+title: 'MODULE.bazel files'
+---
+
+Methods available in MODULE.bazel files.
+
+## Members
+
+* [archive\_override](#archive_override)
+* [bazel\_dep](#bazel_dep)
+* [flag\_alias](#flag_alias)
+* [git\_override](#git_override)
+* [include](#include)
+* [inject\_repo](#inject_repo)
+* [local\_path\_override](#local_path_override)
+* [module](#module)
+* [multiple\_version\_override](#multiple_version_override)
+* [override\_repo](#override_repo)
+* [register\_execution\_platforms](#register_execution_platforms)
+* [register\_toolchains](#register_toolchains)
+* [single\_version\_override](#single_version_override)
+* [use\_extension](#use_extension)
+* [use\_repo](#use_repo)
+* [use\_repo\_rule](#use_repo_rule)
+
+## archive\_override
+
+```
+None archive_override(module_name, urls, integrity='', strip_prefix='', patches=[], patch_cmds=[], patch_strip=0)
+```
+
+Specifies that this dependency should come from an archive file (zip, gzip, etc) at a certain location, instead of from a registry. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `module_name` | required  The name of the Bazel module dependency to apply this override to. |
+| `urls` | [string](../core/string); or Iterable of [string](../core/string)s; required  The URLs of the archive; can be http(s):// or file:// URLs. |
+| `integrity` | default is `''`  The expected checksum of the archive file, in Subresource Integrity format. |
+| `strip_prefix` | default is `''`  A directory prefix to strip from the extracted files. |
+| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
+| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
+| `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
+
+## bazel\_dep
+
+```
+None bazel_dep(name, version='', max_compatibility_level=-1, repo_name='', dev_dependency=False)
+```
+
+Declares a direct dependency on another Bazel module.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | required  The name of the module to be added as a direct dependency. |
+| `version` | default is `''`  The version of the module to be added as a direct dependency. |
+| `max_compatibility_level` | default is `-1`  The maximum `compatibility_level` supported for the module to be added as a direct dependency. The version of the module implies the minimum compatibility\_level supported, as well as the maximum if this attribute is not specified. |
+| `repo_name` | [string](../core/string); or `None`; default is `''`  The name of the external repo representing this dependency. This is by default the name of the module. Can be set to `None` to make this dependency a "*nodep*" dependency: in this case, this `bazel_dep` specification is only honored if the target module already exists in the dependency graph by some other means. |
+| `dev_dependency` | default is `False`  If true, this dependency will be ignored if the current module is not the root module or `--ignore_dev_dependency` is enabled. |
+
+## flag\_alias
+
+```
+None flag_alias(name, starlark_flag)
+```
+
+No-op for pre-Bazel 9.0 backward compatibility. See Bazel 9.0 docs for real functionality.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | required  The name of the flag. |
+| `starlark_flag` | required  The label of the Starlark flag to alias to. |
+
+## git\_override
+
+```
+None git_override(module_name, remote, commit='', patches=[], patch_cmds=[], patch_strip=0, init_submodules=False, strip_prefix='')
+```
+
+Specifies that a dependency should come from a certain commit of a Git repository. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `module_name` | required  The name of the Bazel module dependency to apply this override to. |
+| `remote` | required  The URL of the remote Git repository. |
+| `commit` | default is `''`  The commit that should be checked out. |
+| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
+| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
+| `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
+| `init_submodules` | default is `False`  Whether git submodules in the fetched repo should be recursively initialized. |
+| `strip_prefix` | default is `''`  A directory prefix to strip from the extracted files. This can be used to target a subdirectory of the git repo. Note that the subdirectory must have its own `MODULE.bazel` file with a module name that is the same as the `module\_name` arg passed to this `git\_override`. |
+
+## include
+
+```
+None include(label)
+```
+
+Includes the contents of another MODULE.bazel-like file. Effectively, `include()` behaves as if the included file is textually placed at the location of the `include()` call, except that variable bindings (such as those used for `use_extension`) are only ever visible in the file they occur in, not in any included or including files.
+
+Only the root module may use `include()`; it is an error if a `bazel_dep`'s MODULE file uses `include()`.
+
+Only files in the main repo may be included.
+
+`include()` allows you to segment the root module file into multiple parts, to avoid having an enormous MODULE.bazel file or to better manage access control for individual semantic segments.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `label` | required  The label pointing to the file to include. The label must point to a file in the main repo; in other words, it **must **start with double slashes (`//`).**** |
+
+## inject\_repo
+
+```
+None inject_repo(extension_proxy, *args, **kwargs)
+```
+
+Injects one or more new repos into the given module extension.
+This is ignored if the current module is not the root module or `--ignore\_dev\_dependency`
+is enabled.
+
+Use [`override_repo`](#override_repo) instead to override an
+existing repo.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `extension_proxy` | required  A module extension proxy object returned by a `use_extension` call. |
+| `args` | required  The repos visible to the current module that should be injected into the extension under the same name. |
+| `kwargs` | required  The new repos to inject into the extension, where the values are the names of repos in the scope of the current module and the keys are the name they will be visible under in the extension. Keys that are not valid identifiers can be specified via a literal dict passed as extra keyword arguments, e.g., `inject_repo(extension_proxy, **{"foo.2": "foo"})`. |
+
+## local\_path\_override
+
+```
+None local_path_override(module_name, path)
+```
+
+Specifies that a dependency should come from a certain directory on local disk. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `module_name` | required  The name of the Bazel module dependency to apply this override to. |
+| `path` | required  The path to the directory where this module is. |
+
+## module
+
+```
+None module(name='', version='', compatibility_level=0, repo_name='', bazel_compatibility=[])
+```
+
+Declares certain properties of the Bazel module represented by the current Bazel repo. These properties are either essential metadata of the module (such as the name and version), or affect behavior of the current module and its dependents.
+
+It should be called at most once, and if called, it must be the very first directive in the MODULE.bazel file. It can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | default is `''`  The name of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). A valid module name must: 1) only contain lowercase letters (a-z), digits (0-9), dots (.), hyphens (-), and underscores (\_); 2) begin with a lowercase letter; 3) end with a lowercase letter or digit. |
+| `version` | default is `''`  The version of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). The version must be in a relaxed SemVer format; see [the documentation](/versions/7.7.1/external/module#version_format) for more details. |
+| `compatibility_level` | default is `0`  The compatibility level of the module; this should be changed every time a major incompatible change is introduced. This is essentially the "major version" of the module in terms of SemVer, except that it's not embedded in the version string itself, but exists as a separate field. Modules with different compatibility levels participate in version resolution as if they're modules with different names, but the final dependency graph cannot contain multiple modules with the same name but different compatibility levels (unless `multiple_version_override` is in effect). See [the documentation](/versions/7.7.1/external/module#compatibility_level) for more details. |
+| `repo_name` | default is `''`  The name of the repository representing this module, as seen by the module itself. By default, the name of the repo is the name of the module. This can be specified to ease migration for projects that have been using a repo name for itself that differs from its module name. |
+| `bazel_compatibility` | Iterable of [string](../core/string)s; default is `[]`  A list of bazel versions that allows users to declare which Bazel versions are compatible with this module. It does NOT affect dependency resolution, but bzlmod will use this information to check if your current Bazel version is compatible. The format of this value is a string of some constraint values separated by comma. Three constraints are supported: <=X.X.X: The Bazel version must be equal or older than X.X.X. Used when there is a known incompatible change in a newer version. >=X.X.X: The Bazel version must be equal or newer than X.X.X.Used when you depend on some features that are only available since X.X.X. -X.X.X: The Bazel version X.X.X is not compatible. Used when there is a bug in X.X.X that breaks you, but fixed in later versions. |
+
+## multiple\_version\_override
+
+```
+None multiple_version_override(module_name, versions, registry='')
+```
+
+Specifies that a dependency should still come from a registry, but multiple versions of it should be allowed to coexist. See [the documentation](/versions/7.7.1/external/module#multiple-version_override) for more details. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `module_name` | required  The name of the Bazel module dependency to apply this override to. |
+| `versions` | Iterable of [string](../core/string)s; required  Explicitly specifies the versions allowed to coexist. These versions must already be present in the dependency graph pre-selection. Dependencies on this module will be "upgraded" to the nearest higher allowed version at the same compatibility level, whereas dependencies that have a higher version than any allowed versions at the same compatibility level will cause an error. |
+| `registry` | default is `''`  Overrides the registry for this module; instead of finding this module from the default list of registries, the given registry should be used. |
+
+## override\_repo
+
+```
+None override_repo(extension_proxy, *args, **kwargs)
+```
+
+Overrides one or more repos defined by the given module extension with the given repos
+visible to the current module. This is ignored if the current module is not the root
+module or `--ignore\_dev\_dependency` is enabled.
+
+Use [`inject_repo`](#inject_repo) instead to add a new repo.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `extension_proxy` | required  A module extension proxy object returned by a `use_extension` call. |
+| `args` | required  The repos in the extension that should be overridden with the repos of the same name in the current module. |
+| `kwargs` | required  The overrides to apply to the repos generated by the extension, where the values are the names of repos in the scope of the current module and the keys are the names of the repos they will override in the extension. Keys that are not valid identifiers can be specified via a literal dict passed as extra keyword arguments, e.g., `override_repo(extension_proxy, **{"foo.2": "foo"})`. |
+
+## register\_execution\_platforms
+
+```
+None register_execution_platforms(dev_dependency=False, *platform_labels)
+```
+
+Specifies already-defined execution platforms to be registered when this module is selected. Should be absolute target patterns (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/7.7.1/docs/toolchains) for more information.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `dev_dependency` | default is `False`  If true, the execution platforms will not be registered if the current module is not the root module or `--ignore\_dev\_dependency` is enabled. |
+| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the platforms to register. |
+
+## register\_toolchains
+
+```
+None register_toolchains(dev_dependency=False, *toolchain_labels)
+```
+
+Specifies already-defined toolchains to be registered when this module is selected. Should be absolute target patterns (ie. beginning with either `@` or `//`). See [toolchain resolution](/versions/7.7.1/docs/toolchains) for more information.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `dev_dependency` | default is `False`  If true, the toolchains will not be registered if the current module is not the root module or `--ignore\_dev\_dependency` is enabled. |
+| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
+
+## single\_version\_override
+
+```
+None single_version_override(module_name, version='', registry='', patches=[], patch_cmds=[], patch_strip=0)
+```
+
+Specifies that a dependency should still come from a registry, but its version should be pinned, or its registry overridden, or a list of patches applied. This directive only takes effect in the root module; in other words, if a module is used as a dependency by others, its own overrides are ignored.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `module_name` | required  The name of the Bazel module dependency to apply this override to. |
+| `version` | default is `''`  Overrides the declared version of this module in the dependency graph. In other words, this module will be "pinned" to this override version. This attribute can be omitted if all one wants to override is the registry or the patches. |
+| `registry` | default is `''`  Overrides the registry for this module; instead of finding this module from the default list of registries, the given registry should be used. |
+| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. If a patch makes changes to the MODULE.bazel file, these changes will only be effective if the patch file is provided by the root module. |
+| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. Changes to the MODULE.bazel file will not be effective. |
+| `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
+
+## use\_extension
+
+```
+module_extension_proxy use_extension(extension_bzl_file, extension_name, *, dev_dependency=False, isolate=False)
+```
+
+Returns a proxy object representing a module extension; its methods can be invoked to create module extension tags.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `extension_bzl_file` | required  A label to the Starlark file defining the module extension. |
+| `extension_name` | required  The name of the module extension to use. A symbol with this name must be exported by the Starlark file. |
+| `dev_dependency` | default is `False`  If true, this usage of the module extension will be ignored if the current module is not the root module or `--ignore\_dev\_dependency` is enabled. |
+| `isolate` | default is `False`  **Experimental**. This parameter is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting `---experimental_isolated_extension_usages`  If true, this usage of the module extension will be isolated from all other usages, both in this and other modules. Tags created for this usage do not affect other usages and the repositories generated by the extension for this usage will be distinct from all other repositories generated by the extension. This parameter is currently experimental and only available with the flag `--experimental_isolated_extension_usages`. |
+
+## use\_repo
+
+```
+None use_repo(extension_proxy, *args, **kwargs)
+```
+
+Imports one or more repos generated by the given module extension into the scope of the current module.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `extension_proxy` | required |
+| `args` | required  The names of the repos to import. |
+| `kwargs` | required  Specifies certain repos to import into the scope of the current module with different names. The keys should be the name to use in the current scope, whereas the values should be the original names exported by the module extension. Keys that are not valid identifiers can be specified via a literal dict passed as extra keyword arguments, e.g., `use_repo(extension_proxy, **{"foo.2": "foo"})`. |
+
+## use\_repo\_rule
+
+```
+repo_rule_proxy use_repo_rule(repo_rule_bzl_file, repo_rule_name)
+```
+
+Returns a proxy value that can be directly invoked in the MODULE.bazel file as a repository rule, one or more times. Repos created in such a way are only visible to the current module, under the name declared using the `name` attribute on the proxy. The implicit Boolean `dev_dependency` attribute can also be used on the proxy to denote that a certain repo is only to be created when the current module is the root module.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `repo_rule_bzl_file` | required  A label to the Starlark file defining the repo rule. |
+| `repo_rule_name` | required  The name of the repo rule to use. A symbol with this name must be exported by the Starlark file. |

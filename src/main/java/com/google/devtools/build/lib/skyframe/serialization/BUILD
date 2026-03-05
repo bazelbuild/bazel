@@ -58,8 +58,8 @@ java_library(
     deps = [
         ":serialization",
         ":serialization_registry_setup_helpers",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -123,6 +123,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:caffeine",

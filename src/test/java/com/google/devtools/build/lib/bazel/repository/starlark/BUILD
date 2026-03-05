@@ -18,7 +18,6 @@ java_library(
     testonly = 1,
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
@@ -34,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",

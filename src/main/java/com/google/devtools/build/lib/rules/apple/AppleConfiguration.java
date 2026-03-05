@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -73,7 +72,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final String applePlatformType;
-  private final ConfigurationDistinguisher configurationDistinguisher;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
@@ -96,7 +94,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.appleCpus = AppleCpus.create(options);
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
@@ -324,9 +321,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         components.add("min" + options.getMinimumOsVersion());
       }
     }
-    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-      components.add(configurationDistinguisher.getFileSystemName());
-    }
 
     if (!components.isEmpty()) {
       ctx.addToMnemonic(Joiner.on('-').join(components));
@@ -347,45 +341,5 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public int hashCode() {
     return options.hashCode();
-  }
-
-  /**
-   * Value used to avoid multiple configurations from conflicting. No two instances of this
-   * transition may exist with the same value in a single Bazel invocation.
-   */
-  public enum ConfigurationDistinguisher implements StarlarkValue {
-    UNKNOWN("unknown"),
-    /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
-    APPLEBIN_IOS("applebin_ios"),
-    /** Distinguisher for {@code apple_binary} rule with "visionos" platform_type. */
-    APPLEBIN_VISIONOS("applebin_visionos"),
-    /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
-    APPLEBIN_WATCHOS("applebin_watchos"),
-    /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
-    APPLEBIN_TVOS("applebin_tvos"),
-    /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
-    APPLEBIN_MACOS("applebin_macos"),
-    /** Distinguisher for {@code apple_binary} rule with "catalyst" platform_type. */
-    APPLEBIN_CATALYST("applebin_catalyst"),
-
-    /**
-     * Distinguisher for the apple crosstool configuration. We use "apl" for output directory names
-     * instead of "apple_crosstool" to avoid oversized path names, which can be problematic on OSX.
-     */
-    APPLE_CROSSTOOL("apl");
-
-    private final String fileSystemName;
-
-    private ConfigurationDistinguisher(String fileSystemName) {
-      this.fileSystemName = fileSystemName;
-    }
-
-    /**
-     * Returns the distinct string that should be used in creating output directories for a
-     * configuration with this distinguisher.
-     */
-    public String getFileSystemName() {
-      return fileSystemName;
-    }
   }
 }

@@ -20,6 +20,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -45,6 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",

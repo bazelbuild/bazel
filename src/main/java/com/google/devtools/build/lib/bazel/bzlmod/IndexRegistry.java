@@ -44,13 +44,13 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -207,7 +207,7 @@ public class IndexRegistry implements Registry {
               + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
     }
 
-    URL url = URI.create(rawUrl).toURL();
+    URI url = URI.create(rawUrl);
     // Don't read the registry URL from the vendor directory in the following cases:
     // 1. vendorUtil is null, which means vendor mode is disabled.
     // 2. The checksum is not present, which means the URL is not vendored or the vendored content
@@ -216,7 +216,7 @@ public class IndexRegistry implements Registry {
     // 4. The vendor path doesn't exist, which means the URL is not vendored.
     if (vendorManager != null
         && checksum.isPresent()
-        && !url.getProtocol().equals("file")
+        && !Objects.equals(url.getScheme(), "file")
         && vendorManager.isUrlVendored(url)) {
       try {
         return vendorManager.readRegistryUrl(url, checksum.get());
@@ -268,7 +268,7 @@ public class IndexRegistry implements Registry {
 
   /** Represents fields in {@code source.json} for each archive-type version of a module. */
   private static class ArchiveSourceJson {
-    URL url;
+    URI url;
     List<String> mirrorUrls;
     String integrity;
     String stripPrefix;
@@ -291,6 +291,8 @@ public class IndexRegistry implements Registry {
     String tag;
     boolean initSubmodules;
     boolean verbose;
+    Map<String, String> patches;
+    int patchStrip;
     String stripPrefix;
   }
 
@@ -380,7 +382,7 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
@@ -450,7 +452,7 @@ public class IndexRegistry implements Registry {
       Optional<BazelRegistryJson> bazelRegistryJson,
       ModuleKey key)
       throws IOException {
-    URL sourceUrl = sourceJson.url;
+    URI sourceUrl = sourceJson.url;
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));
     }
@@ -470,12 +472,16 @@ public class IndexRegistry implements Registry {
     // URL concatenated with the source URL.
     for (String mirror : allMirrors) {
       try {
-        var unused = new URL(mirror);
-      } catch (MalformedURLException e) {
-        throw new IOException("Malformed mirror URL", e);
+        var unused = new URI(mirror);
+      } catch (URISyntaxException e) {
+        throw new IOException("Malformed mirror URL specified in bazel_registry.json of " + uri, e);
       }
-
-      urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
+      String authority = sourceUrl.getRawAuthority();
+      String path = sourceUrl.getRawPath();
+      String query = sourceUrl.getRawQuery();
+      urls.add(
+          constructUrl(mirror, authority != null ? authority : "", path != null ? path : "")
+              + (query != null ? "?" + query : ""));
     }
     // Add the original source URL itself.
     urls.add(sourceUrl.toString());
@@ -525,7 +531,7 @@ public class IndexRegistry implements Registry {
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
-        .setRemotePatches(remotePatches.buildOrThrow())
+        .setRemotePatches(remotePatches.buildKeepingLast())
         .setOverlay(overlay)
         .setRemoteModuleFile(
             new RemoteFile(
@@ -536,7 +542,26 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
+      GitRepoSourceJson sourceJson,
+      String moduleFileUrl,
+      Checksum moduleFileChecksum,
+      ModuleKey key) {
+    // Build remote patches as key-value pairs of "url" => "integrity".
+    ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
+    if (sourceJson.patches != null) {
+      for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
+        remotePatches.put(
+            constructUrl(
+                getUrl(),
+                "modules",
+                key.name(),
+                key.version().toString(),
+                "patches",
+                entry.getKey()),
+            entry.getValue());
+      }
+    }
+
     return new GitRepoSpecBuilder()
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
@@ -548,6 +573,8 @@ public class IndexRegistry implements Registry {
         .setRemoteModuleFile(
             new RemoteFile(
                 moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
+        .setRemotePatches(remotePatches.buildKeepingLast())
+        .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
   }
 

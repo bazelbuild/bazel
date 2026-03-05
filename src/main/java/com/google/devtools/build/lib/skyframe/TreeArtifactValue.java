@@ -641,7 +641,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     @CanIgnoreReturnValue
     public Builder putChild(TreeFileArtifact child, FileArtifactValue metadata) {
       checkArgument(
-          child.getParent().equals(parent),
+          child.isChildOf(parent),
           "While building TreeArtifactValue for %s, got %s with parent %s",
           parent,
           child,

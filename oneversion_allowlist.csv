@@ -1,0 +1,5 @@
+javax/annotation @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone
+javax/annotation/concurrent @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone
+javax/annotation/meta @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone
+proguard/backport @@rules_jvm_external++maven+maven//:com_guardsquare_proguard_core
+proguard/util @@rules_jvm_external++maven+maven//:com_guardsquare_proguard_core

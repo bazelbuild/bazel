@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
@@ -401,7 +400,11 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    InputMetadataProvider fullMetadataProvider = new ActionInputMetadataProvider(inputMap);
+    InputMetadataProvider metadataProvider =
+        new ActionInputMetadataProvider(
+            importantOutputHandler.requiresHiddenOutputMetadata()
+                ? inputMap
+                : ctx.getImportantInputMap());
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
@@ -414,43 +417,29 @@ public final class CompletionFunction<
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                new ActionInputMetadataProvider(ctx.getImportantInputMap()),
-                fullMetadataProvider);
+                metadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;
       }
 
-      var owners =
-          lostOutputs
-              .owners()
-              .orElseGet(
-                  () ->
-                      ActionRewindStrategy.calculateLostInputOwners(
-                          lostOutputs.byDigest().values(), fullMetadataProvider));
-      // Filter out lost outputs from the set of built artifacts so that they are not reported. If
-      // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
-        builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(owners.getOwners(lostOutput));
-      }
-
       Iterable<Artifact> artifactsRelevantForRewinding = importantArtifacts;
-      // Runfiles are not considered important outputs, but can arise as dep keys to which lost
-      // outputs are attributed in Bazel (but not Blaze).
-      var hiddenTopLevelArtifacts =
-          artifactsToBuild.getAllArtifactsByOutputGroup().get(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-      if (hiddenTopLevelArtifacts != null) {
-        artifactsRelevantForRewinding =
-            Iterables.concat(
-                artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
+      if (importantOutputHandler.requiresHiddenOutputMetadata()) {
+        var hiddenTopLevelArtifacts =
+            artifactsToBuild.getAllArtifactsByOutputGroup().get(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+        if (hiddenTopLevelArtifacts != null) {
+          artifactsRelevantForRewinding =
+              Iterables.concat(
+                  artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
+        }
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key,
           ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
-          owners,
+          metadataProvider,
+          builtArtifacts,
           env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());

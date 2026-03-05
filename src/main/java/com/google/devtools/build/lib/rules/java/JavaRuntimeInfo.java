@@ -74,7 +74,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   private static JavaRuntimeInfo from(RuleContext ruleContext, ToolchainInfo toolchainInfo) {
     if (toolchainInfo != null) {
       try {
-        JavaRuntimeInfo result = wrap(toolchainInfo.getValue("java_runtime", Info.class));
+        JavaRuntimeInfo result =
+            wrap(toolchainInfo.getValue("java_runtime", Info.class), "java_runtime");
         if (result != null) {
           return result;
         }
@@ -91,7 +92,10 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     super(underlying);
   }
 
-  public static JavaRuntimeInfo wrap(Info info) throws RuleErrorException {
+  public static JavaRuntimeInfo wrap(Info info, String what) throws RuleErrorException {
+    if (info == null) {
+      throw new RuleErrorException("expected a JavaRuntimeInfo, but " + what + " was unset.");
+    }
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
     if (key.equals(PROVIDER.getKey())) {
       return PROVIDER.wrap(info);

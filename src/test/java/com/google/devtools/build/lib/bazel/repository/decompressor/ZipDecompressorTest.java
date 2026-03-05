@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -54,7 +55,7 @@ public class ZipDecompressorTest {
   private static final String ARCHIVE_NAME = "test_decompress_archive.zip";
 
   private Path createZipFile(String entryName, String content) throws IOException {
-    FileSystem fs = TestArchiveDescriptor.getFileSystem();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     File zipFile = folder.newFile("malicious.zip");
     try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
       ZipEntry entry = new ZipEntry(entryName);

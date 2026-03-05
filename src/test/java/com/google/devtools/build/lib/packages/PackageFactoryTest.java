@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Test;
@@ -2166,7 +2167,8 @@ my_macro = macro(implementation = _impl)
             String.format(
                 "(result == sorted(%s)) or fail('incorrect glob result: got %%s, want %%s' %%"
                     + " (result, sorted(%s)))",
-                Starlark.repr(result), Starlark.repr(result)));
+                Starlark.repr(result, StarlarkSemantics.DEFAULT),
+                Starlark.repr(result, StarlarkSemantics.DEFAULT)));
     // Execution succeeded. Assert that there were no other errors in the package.
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -2197,7 +2199,9 @@ my_macro = macro(implementation = _impl)
         "globs/BUILD",
         String.format(
             "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
-            Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
+            Starlark.repr(includes, StarlarkSemantics.DEFAULT),
+            Starlark.repr(excludes, StarlarkSemantics.DEFAULT),
+            excludeDirs ? 1 : 0),
         resultAssertion);
     return getPackage("globs");
   }

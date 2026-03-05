@@ -27,6 +27,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * Type of hash function to use for digesting files.
@@ -143,7 +144,10 @@ public class DigestHashFunction {
           return possibleFunctions.getValue();
         }
       }
-      throw new OptionsParsingException("Not a valid hash function.");
+      throw new OptionsParsingException(
+          String.format(
+              "'%s' is not a valid hash function. Possible values are: %s",
+              input, getPossibleNames()));
     }
 
     @Override
@@ -205,10 +209,21 @@ public class DigestHashFunction {
     return ImmutableSet.copyOf(hashFunctionRegistry.values());
   }
 
+  private static String getPossibleNames() {
+    return hashFunctionRegistry.values().stream()
+        .map(DigestHashFunction::toString)
+        .sorted()
+        .distinct()
+        .collect(Collectors.joining(", "));
+  }
+
   public static HashFunction getHashFunctionFromName(String hashName) {
     var digestHashFunction = hashFunctionRegistry.get(hashName);
     if (digestHashFunction == null) {
-      throw new IllegalArgumentException("Hash function " + hashName + " is not registered.");
+      throw new IllegalArgumentException(
+          String.format(
+              "Hash function '%s' is not registered. Possible values are: %s",
+              hashName, getPossibleNames()));
     }
     return digestHashFunction.getHashFunction();
   }

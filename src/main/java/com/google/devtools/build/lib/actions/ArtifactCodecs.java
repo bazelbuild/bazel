@@ -34,6 +34,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Codec implementations for {@link Artifact} subclasses.
@@ -370,6 +371,8 @@ public final class ArtifactCodecs {
       context.serialize(obj.getRootRelativePath(), codedOut);
       serializeOrOmitGeneratingActionKey(context, obj, codedOut);
       context.serialize(obj.getSpecialArtifactType(), codedOut);
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(obj.getParentRelativePath(), codedOut);
     }
 
     @Override
@@ -383,6 +386,9 @@ public final class ArtifactCodecs {
       deserializeOrGetGeneratingActionKey(
           context, codedIn, builder, DeserializedSpecialArtifactBuilder::setGeneratingActionKey);
       context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setType);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setParent);
+      context.deserialize(
+          codedIn, builder, DeserializedSpecialArtifactBuilder::setParentRelativePath);
       return builder;
     }
   }
@@ -394,6 +400,8 @@ public final class ArtifactCodecs {
     private PathFragment rootRelativePath;
     private ActionLookupData generatingActionKey;
     private SpecialArtifactType type;
+    @Nullable private SpecialArtifact parent;
+    @Nullable private PathFragment parentRelativePath;
 
     private DeserializedSpecialArtifactBuilder(AsyncDeserializationContext context) {
       this.context = context;
@@ -409,7 +417,9 @@ public final class ArtifactCodecs {
                       root,
                       getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
                       generatingActionKey,
-                      type),
+                      type,
+                      parent,
+                      parentRelativePath),
                   context);
     }
 
@@ -429,6 +439,15 @@ public final class ArtifactCodecs {
 
     private static void setType(DeserializedSpecialArtifactBuilder builder, Object value) {
       builder.type = (SpecialArtifactType) value;
+    }
+
+    private static void setParent(DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parent = (SpecialArtifact) value;
+    }
+
+    private static void setParentRelativePath(
+        DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parentRelativePath = (PathFragment) value;
     }
   }
 

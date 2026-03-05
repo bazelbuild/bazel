@@ -76,7 +76,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
@@ -155,29 +154,34 @@ public final class HelpCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(message));
       return createFailureResult(message, Code.MISSING_ARGUMENT);
     }
-    String helpSubject = options.getResidue().get(0);
+    String helpSubject = options.getResidue().getFirst();
     String productName = runtime.getProductName();
     // Go through the custom subjects before going through Bazel commands.
     switch (helpSubject) {
-      case "startup_options":
+      case "startup_options" -> {
         emitBlazeVersionInfo(outErr, runtime.getProductName());
         emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime);
         return BlazeCommandResult.success();
-      case "target-syntax":
+      }
+      case "target-syntax" -> {
         emitBlazeVersionInfo(outErr, runtime.getProductName());
         emitTargetSyntaxHelp(outErr, productName);
 
         return BlazeCommandResult.success();
-      case "info-keys":
+      }
+      case "info-keys" -> {
         emitInfoKeysHelp(env, outErr);
         return BlazeCommandResult.success();
-      case "flags-as-proto":
+      }
+      case "flags-as-proto" -> {
         emitFlagsAsProtoHelp(runtime, outErr);
         return BlazeCommandResult.success();
-      case "everything-as-html":
+      }
+      case "everything-as-html" -> {
         new HtmlEmitter(runtime).emit(outErr);
         return BlazeCommandResult.success();
-      default: // fall out
+      }
+      default -> {}
     }
 
     BlazeCommand command = runtime.getCommandMap().get(helpSubject);
@@ -200,8 +204,8 @@ public final class HelpCommand implements BlazeCommand {
 
   private static void emitBlazeVersionInfo(OutErr outErr, String productName) {
     String releaseInfo = BlazeVersionInfo.instance().getReleaseName();
-    String line = String.format("[%s %s]", productName, releaseInfo);
-    outErr.printOut(String.format("%80s\n", line));
+    String line = "[%s %s]".formatted(productName, releaseInfo);
+    outErr.printOut("%80s\n".formatted(line));
   }
 
   private void emitStartupOptions(
@@ -295,7 +299,7 @@ public final class HelpCommand implements BlazeCommand {
   private static void emitFlagsAsProtoHelp(BlazeRuntime runtime, OutErr outErr) {
     Map<String, BazelFlagsProto.FlagInfo.Builder> flags = new HashMap<>();
 
-    Predicate<OptionDefinition> allOptions = option -> true;
+    Predicate<OptionDefinition> allOptions = unused -> true;
     BiConsumer<String, OptionDefinition> visitor =
         (commandName, option) -> {
           if (ImmutableSet.copyOf(option.getOptionMetadataTags())
@@ -303,13 +307,13 @@ public final class HelpCommand implements BlazeCommand {
             return;
           }
           BazelFlagsProto.FlagInfo.Builder info =
-              flags.computeIfAbsent(option.getOptionName(), key -> createFlagInfo(option));
+              flags.computeIfAbsent(option.getOptionName(), unused -> createFlagInfo(option));
           info.addCommands(commandName);
         };
     Consumer<OptionsParser> startupOptionVisitor =
         parser -> parser.visitOptions(allOptions, option -> visitor.accept("startup", option));
     CommandOptionVisitor commandOptionVisitor =
-        (commandName, commandAnnotation, parser) ->
+        (commandName, unused, parser) ->
             parser.visitOptions(allOptions, option -> visitor.accept(commandName, option));
 
     visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
@@ -338,15 +342,11 @@ public final class HelpCommand implements BlazeCommand {
     }
 
     List<String> optionEffectTags =
-        Arrays.stream(option.getOptionEffectTags())
-            .map(Enum::toString)
-            .collect(Collectors.toList());
+        Arrays.stream(option.getOptionEffectTags()).map(Enum::toString).toList();
     flagBuilder.addAllEffectTags(optionEffectTags);
 
     List<String> optionMetadataTags =
-        Arrays.stream(option.getOptionMetadataTags())
-            .map(Enum::toString)
-            .collect(Collectors.toList());
+        Arrays.stream(option.getOptionMetadataTags()).map(Enum::toString).toList();
     flagBuilder.addAllMetadataTags(optionMetadataTags);
 
     if (option.getDocumentationCategory() != null) {
@@ -362,7 +362,7 @@ public final class HelpCommand implements BlazeCommand {
     }
 
     if (option.getOptionExpansion().length > 0) {
-      flagBuilder.addAllOptionExpansions(Arrays.asList(option.getOptionExpansion()));
+      flagBuilder.addAllOptionExpansions(ImmutableList.copyOf(option.getOptionExpansion()));
     }
 
     Converter<?> converter = option.getConverter();
@@ -372,8 +372,7 @@ public final class HelpCommand implements BlazeCommand {
           converterClassName.substring(0, converterClassName.length() - "Converter".length());
       flagBuilder.setTypeConverter(shortName);
     }
-    if (converter instanceof EnumConverter) {
-      EnumConverter<?> enumConverter = (EnumConverter) converter;
+    if (converter instanceof EnumConverter<?> enumConverter) {
       List<String> enumValues =
           Arrays.stream(enumConverter.getEnumType().getEnumConstants())
               .map(Object::toString)
@@ -425,21 +424,17 @@ public final class HelpCommand implements BlazeCommand {
   private static void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
     for (InfoItem item :
         InfoCommand.getInfoItemMap(env, OptionsParser.builder().build()).values()) {
-      outErr.printOut(String.format("%-23s %s\n", item.getName(), item.getDescription()));
+      outErr.printOut("%-23s %s\n".formatted(item.getName(), item.getDescription()));
     }
   }
 
   private static void emitGenericHelp(OutErr outErr, BlazeRuntime runtime) {
-    outErr.printOut(
-        String.format("Usage: %s <command> <options> ...\n\n", runtime.getProductName()));
+    outErr.printOut("Usage: %s <command> <options> ...\n\n".formatted(runtime.getProductName()));
     outErr.printOut("Available commands:\n");
 
-    Map<String, BlazeCommand> commandsByName = runtime.getCommandMap();
-    List<String> namesInOrder = new ArrayList<>(commandsByName.keySet());
-    Collections.sort(namesInOrder);
-
-    for (String name : namesInOrder) {
-      BlazeCommand command = commandsByName.get(name);
+    for (Map.Entry<String, BlazeCommand> entry : getSortedCommands(runtime).entrySet()) {
+      String name = entry.getKey();
+      BlazeCommand command = entry.getValue();
       Command annotation = command.getClass().getAnnotation(Command.class);
       if (annotation.hidden()) {
         continue;
@@ -447,21 +442,23 @@ public final class HelpCommand implements BlazeCommand {
 
       String shortDescription =
           annotation.shortDescription().replace("%{product}", runtime.getProductName());
-      outErr.printOut(String.format("  %-19s %s\n", name, shortDescription));
+      outErr.printOut("  %-19s %s\n".formatted(name, shortDescription));
     }
 
-    outErr.printOut("\n");
-    outErr.printOut("Getting more help:\n");
-    outErr.printOut(String.format("  %s help <command>\n", runtime.getProductName()));
-    outErr.printOut("                   Prints help and options for <command>.\n");
-    outErr.printOut(String.format("  %s help startup_options\n", runtime.getProductName()));
     outErr.printOut(
-        String.format(
-            "                   Options for the JVM hosting %s.\n", runtime.getProductName()));
-    outErr.printOut(String.format("  %s help target-syntax\n", runtime.getProductName()));
-    outErr.printOut("                   Explains the syntax for specifying targets.\n");
-    outErr.printOut(String.format("  %s help info-keys\n", runtime.getProductName()));
-    outErr.printOut("                   Displays a list of keys used by the info command.\n");
+        """
+
+        Getting more help:
+          %1$s help <command>
+                           Prints help and options for <command>.
+          %1$s help startup_options
+                           Options for the JVM hosting %1$s.
+          %1$s help target-syntax
+                           Explains the syntax for specifying targets.
+          %1$s help info-keys
+                           Displays a list of keys used by the info command.
+        """
+            .formatted(runtime.getProductName()));
   }
 
   private static final class HtmlEmitter {

@@ -16,7 +16,5 @@ java_library(
     srcs = [
         "InterruptSignalHandler.java",
     ],
-    deps = [
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )

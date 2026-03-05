@@ -50,6 +50,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -368,7 +369,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<merged target " + getLabel() + ">");
   }
 

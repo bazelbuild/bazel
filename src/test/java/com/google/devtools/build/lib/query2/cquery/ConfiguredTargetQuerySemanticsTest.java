@@ -509,6 +509,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testConfig_anyExec() throws Exception {
+    createConfigRulesAndBuild();
+
+    // Needed to prime exec_dep with //test:my_rule which configures it in exec.
+    Set<CqueryNode> unused = eval("//test:my_rule");
+    Set<CqueryNode> resultFromAnyExec = eval("config(//test:exec_dep, anyexec)");
+    assertThat(resultFromAnyExec).hasSize(1);
+    CqueryNode node = Iterables.getOnlyElement(resultFromAnyExec);
+    assertThat(node.getDescription(LabelPrinter.legacy())).isEqualTo("//test:exec_dep");
+
+    BuildConfigurationValue execDepConfig = getConfiguration(node);
+    assertThat(execDepConfig.isExecConfiguration()).isTrue();
+  }
+
+  @Test
   public void testConfig_exprArgumentFailure() throws Exception {
     writeFile(
         "test/BUILD",

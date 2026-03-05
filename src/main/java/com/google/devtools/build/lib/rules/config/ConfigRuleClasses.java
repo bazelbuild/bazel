@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
@@ -50,9 +51,7 @@ public final class ConfigRuleClasses {
   private static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
       "part of a rule class that *triggers* configurable behavior";
 
-  /**
-   * Common settings for all configurability rules.
-   */
+  /** Common settings for all configurability rules. */
   public static final class ConfigBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -139,10 +138,12 @@ public final class ConfigRuleClasses {
      */
     public static final String FLAG_ALIAS_SETTINGS_ATTRIBUTE = ":flag_alias_settings";
 
-    /** The name of the attribute that declares "--define foo=bar" flag bindings.*/
+    /** The name of the attribute that declares "--define foo=bar" flag bindings. */
     public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
+
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
+
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
 
@@ -175,12 +176,12 @@ public final class ConfigRuleClasses {
                 return ImmutableList.of();
               }
               ImmutableList.Builder<Label> userDefinedFlags = ImmutableList.builder();
-              ImmutableMap<String, String> commandLineFlagAliases =
-                  configuration.getCommandLineFlagAliases();
+              ImmutableMap<String, Label> commandLineFlagAliases =
+                  configuration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases();
               for (String flagName : attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT).keySet()) {
-                String userDefinedFlag = commandLineFlagAliases.get(flagName);
+                Label userDefinedFlag = commandLineFlagAliases.get(flagName);
                 if (userDefinedFlag != null) {
-                  userDefinedFlags.add(Label.parseCanonicalUnchecked(userDefinedFlag));
+                  userDefinedFlags.add(userDefinedFlag);
                 }
               }
               return userDefinedFlags.build();
@@ -329,6 +330,7 @@ public final class ConfigRuleClasses {
           .build();
     }
   }
+
   /*<!-- #BLAZE_RULE (NAME = config_setting, FAMILY = General)[GENERIC_RULE] -->
 
   <p>

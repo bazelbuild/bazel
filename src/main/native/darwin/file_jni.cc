@@ -28,8 +28,6 @@
 
 namespace blaze_jni {
 
-const int PATH_MAX2 = PATH_MAX * 2;
-
 using std::string;
 
 // See unix_jni.h.

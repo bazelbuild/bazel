@@ -1,0 +1,790 @@
+---
+title: 'C / C++ Rules'
+---
+
+## Rules
+
+* [cc\_binary](#cc_binary)
+* [cc\_import](#cc_import)
+* [cc\_library](#cc_library)
+* [cc\_proto\_library](#cc_proto_library)
+* [cc\_shared\_library](#cc_shared_library)
+* [cc\_static\_library](#cc_static_library)
+* [fdo\_prefetch\_hints](#fdo_prefetch_hints)
+* [fdo\_profile](#fdo_profile)
+* [memprof\_profile](#memprof_profile)
+* [propeller\_optimize](#propeller_optimize)
+* [cc\_test](#cc_test)
+* [cc\_toolchain](#cc_toolchain)
+* [cc\_toolchain\_suite](#cc_toolchain_suite)
+
+## cc\_binary
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/BazelCcBinaryRule.java)
+
+```
+cc_binary(name, deps, srcs, data, additional_linker_inputs, args, compatible_with, copts, defines, deprecation, distribs, env, exec_compatible_with, exec_properties, features, includes, licenses, link_extra_lib, linkopts, linkshared, linkstatic, local_defines, malloc, nocopts, output_licenses, restricted_to, stamp, tags, target_compatible_with, testonly, toolchains, visibility, win_def_file)
+```
+
+#### Implicit output targets
+
+* `name.stripped` (only built if explicitly requested): A stripped
+  version of the binary. `strip -g` is run on the binary to remove debug
+  symbols. Additional strip options can be provided on the command line using
+  `--stripopt=-foo`. This output is only built if explicitly requested.
+* `name.dwp` (only built if explicitly requested): If
+  [Fission](https://gcc.gnu.org/wiki/DebugFission) is enabled: a debug
+  information package file suitable for debugging remotely deployed binaries. Else: an
+  empty file.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. These can be `cc_library` or `objc_library` targets. |
+| `srcs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of C and C++ files that are processed to create the target. These are C/C++ source and header files, either non-generated (normal source code) or generated. All `.cc`, `.c`, and `.cpp` files will be compiled. These might be generated files: if a named file is in the `outs` of some other rule, this rule will automatically depend on that other rule.  A `.h` file will not be compiled, but will be available for inclusion by sources in this rule. Both `.cc` and `.h` files can directly include headers listed in these `srcs` or in the `hdrs` of any rule listed in the `deps` argument.  All `#include`d files must be mentioned in the `srcs` attribute of this rule, or in the `hdrs` attribute of referenced `cc_library()`s. The recommended style is for headers associated with a library to be listed in that library's `hdrs` attribute, and any remaining headers associated with this rule's sources to be listed in `srcs`. See ["Header inclusion checking"](#hdrs) for a more detailed description.  If a rule's name is in the `srcs`, then this rule automatically depends on that one. If the named rule's `outs` are C or C++ source files, they are compiled into this rule; if they are library files, they are linked in.  Permitted `srcs` file types:   * C and C++ source files: `.c`, `.cc`, `.cpp`,   `.cxx`, `.c++`, `.C` * C and C++ header files: `.h`, `.hh`, `.hpp`,   `.hxx`, `.inc`, `.inl`, `.H` * Assembler with C preprocessor: `.S` * Archive: `.a`, `.pic.a` * "Always link" library: `.lo`, `.pic.lo` * Shared library, versioned or unversioned: `.so`,   `.so.version` * Object file: `.o`, `.pic.o`   ...and any rules that produce those files. Different extensions denote different programming languages in accordance with gcc convention. |
+| `additional_linker_inputs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Pass these files to the C++ linker command. For example, compiled Windows .res files can be provided here to be embedded in the binary target. |
+| `copts` | List of strings; default is `[]` Add these options to the C++ compilation command. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string in this attribute is added in the given order to `COPTS` before compiling the binary target. The flags take effect only for compiling this target, not its dependencies, so be careful about header files included elsewhere. All paths should be relative to the workspace, not to the current package.  If the package declares the [feature](/versions/7.6.1/reference/be/functions#package.features) `no_copts_tokenization`, Bourne shell tokenization applies only to strings that consist of a single "Make" variable. |
+| `defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line to this target, as well as to every rule that depends on it. Be very careful, since this may have far-reaching effects. When in doubt, add define values to [`local_defines`](#cc_binary.local_defines) instead. |
+| `includes` | List of strings; default is `[]` List of include dirs to be added to the compile line. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution. Each string is prepended with `-isystem` and added to `COPTS`. Unlike [COPTS](#cc_binary.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-I" flags to [COPTS](#cc_binary.copts) instead.  Headers must be added to srcs or hdrs, otherwise they will not be available to dependent rules when compilation is sandboxed (the default). |
+| `link_extra_lib` | [Label](/versions/7.6.1/concepts/labels); default is `"@bazel_tools//tools/cpp:link_extra_lib"` Control linking of extra libraries. By default, C++ binaries are linked against `//tools/cpp:link_extra_lib`, which by default depends on the label flag `//tools/cpp:link_extra_libs`. Without setting the flag, this library is empty by default. Setting the label flag allows linking optional dependencies, such as overrides for weak symbols, interceptors for shared library functions, or special runtime libraries (for malloc replacements, prefer `malloc` or `--custom_malloc`). Setting this attribute to `None` disables this behaviour. |
+| `linkopts` | List of strings; default is `[]` Add these flags to the C++ linker command. Subject to ["Make" variable](make-variables) substitution, [Bourne shell tokenization](common-definitions#sh-tokenization) and [label expansion](common-definitions#label-expansion). Each string in this attribute is added to `LINKOPTS` before linking the binary target. Each element of this list that does not start with `$` or `-` is assumed to be the label of a target in `deps`. The list of files generated by that target is appended to the linker options. An error is reported if the label is invalid, or is not declared in `deps`. |
+| `linkshared` | Boolean; [nonconfigurable](common-definitions#configurable-attributes); default is `False` Create a shared library. To enable this attribute, include `linkshared=True` in your rule. By default this option is off. The presence of this flag means that linking occurs with the `-shared` flag to `gcc`, and the resulting shared library is suitable for loading into for example a Java program. However, for build purposes it will never be linked into the dependent binary, as it is assumed that shared libraries built with a [cc\_binary](#cc_binary) rule are only loaded manually by other programs, so it should not be considered a substitute for the [cc\_library](#cc_library) rule. For sake of scalability we recommend avoiding this approach altogether and simply letting `java_library` depend on `cc_library` rules instead.  If you specify both `linkopts=['-static']` and `linkshared=True`, you get a single completely self-contained unit. If you specify both `linkstatic=True` and `linkshared=True`, you get a single, mostly self-contained unit. |
+| `linkstatic` | Boolean; default is `True` For [`cc_binary`](/versions/7.6.1/reference/be/c-cpp#cc_binary) and [`cc_test`](/versions/7.6.1/reference/be/c-cpp#cc_test): link the binary in static mode. For `cc_library.linkstatic`: see below. By default this option is on for `cc_binary` and off for the rest.  If enabled and this is a binary or test, this option tells the build tool to link in `.a`'s instead of `.so`'s for user libraries whenever possible. Some system libraries may still be linked dynamically, as are libraries for which there is no static library. So the resulting executable will still be dynamically linked, hence only *mostly* static.  There are really three different ways to link an executable:   * STATIC with fully\_static\_link feature, in which everything is linked statically;   e.g. "`gcc -static foo.o libbar.a libbaz.a -lm`".    This mode is enabled by specifying `fully_static_link` in the   [`features`](/versions/7.6.1/reference/be/common-definitions#features) attribute. * STATIC, in which all user libraries are linked statically (if a static   version is available), but where system libraries (excluding C/C++ runtime libraries)   are linked dynamically, e.g. "`gcc foo.o libfoo.a libbaz.a -lm`".    This mode is enabled by specifying `linkstatic=True`. * DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is   available), e.g. "`gcc foo.o libfoo.so libbaz.so -lm`".    This mode is enabled by specifying `linkstatic=False`.   The `linkstatic` attribute has a different meaning if used on a [`cc_library()`](/versions/7.6.1/reference/be/c-cpp#cc_library) rule. For a C++ library, `linkstatic=True` indicates that only static linking is allowed, so no `.so` will be produced. linkstatic=False does not prevent static libraries from being created. The attribute is meant to control the creation of dynamic libraries.  If `linkstatic=False`, then the build tool will create symlinks to depended-upon shared libraries in the `*.runfiles` area. |
+| `local_defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line for this target, but not to its dependents. |
+| `malloc` | [Label](/versions/7.6.1/concepts/labels); default is `"@bazel_tools//tools/cpp:malloc"` Override the default dependency on malloc. By default, C++ binaries are linked against `//tools/cpp:malloc`, which is an empty library so the binary ends up using libc malloc. This label must refer to a `cc_library`. If compilation is for a non-C++ rule, this option has no effect. The value of this attribute is ignored if `linkshared=True` is specified. |
+| `nocopts` | String; default is `""` Remove matching options from the C++ compilation command. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution. The value of this attribute is interpreted as a regular expression. Any preexisting `COPTS` that match this regular expression (including values explicitly specified in the rule's [copts](#cc_binary.copts) attribute) will be removed from `COPTS` for purposes of compiling this rule. This attribute should rarely be needed. |
+| `stamp` | Integer; default is `-1` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](/versions/7.6.1/docs/user-manual#flag--stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](/versions/7.6.1/docs/user-manual#flag--stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+| `win_def_file` | [Label](/versions/7.6.1/concepts/labels); default is `None` The Windows DEF file to be passed to linker. This attribute should only be used when Windows is the target platform. It can be used to [export symbols](https://msdn.microsoft.com/en-us/library/d91k01sh.aspx) during linking a shared library. |
+
+## cc\_import
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/BazelCcImportRule.java)
+
+```
+cc_import(name, deps, data, hdrs, alwayslink, compatible_with, deprecation, distribs, features, interface_library, licenses, restricted_to, shared_library, static_library, system_provided, tags, target_compatible_with, testonly, visibility)
+```
+
+`cc_import` rules allows users to import precompiled C/C++ libraries.
+
+The following are the typical use cases:
+1. Linking a static library
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.a",
+  # If alwayslink is turned on,
+  # libmylib.a will be forcely linked into any binary that depends on it.
+  # alwayslink = 1,
+)
+```
+
+2. Linking a shared library (Unix)
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  shared_library = "libmylib.so",
+)
+```
+
+3. Linking a shared library with interface library (Windows)
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  # mylib.lib is an import library for mylib.dll which will be passed to linker
+  interface_library = "mylib.lib",
+  # mylib.dll will be available for runtime
+  shared_library = "mylib.dll",
+)
+```
+
+4. Linking a shared library with `system_provided=True` (Windows)
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  # mylib.lib is an import library for mylib.dll which will be passed to linker
+  interface_library = "mylib.lib",
+  # mylib.dll is provided by system environment, for example it can be found in PATH.
+  # This indicates that Bazel is not responsible for making mylib.dll available.
+  system_provided = 1,
+)
+```
+
+5. Linking to static or shared library
+On Unix:
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.a",
+  shared_library = "libmylib.so",
+)
+
+# first will link to libmylib.a
+cc_binary(
+  name = "first",
+  srcs = ["first.cc"],
+  deps = [":mylib"],
+  linkstatic = 1, # default value
+)
+
+# second will link to libmylib.so
+cc_binary(
+  name = "second",
+  srcs = ["second.cc"],
+  deps = [":mylib"],
+  linkstatic = 0,
+)
+```
+
+On Windows:
+
+```
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.lib", # A normal static library
+  interface_library = "mylib.lib", # An import library for mylib.dll
+  shared_library = "mylib.dll",
+)
+
+# first will link to libmylib.lib
+cc_binary(
+  name = "first",
+  srcs = ["first.cc"],
+  deps = [":mylib"],
+  linkstatic = 1, # default value
+)
+
+# second will link to mylib.dll through mylib.lib
+cc_binary(
+  name = "second",
+  srcs = ["second.cc"],
+  deps = [":mylib"],
+  linkstatic = 0,
+)
+```
+
+`cc_import` supports an include attribute. For example:
+
+```
+  cc_import(
+  name = "curl_lib",
+  hdrs = glob(["vendor/curl/include/curl/*.h"]),
+  includes = [ "vendor/curl/include" ],
+  shared_library = "vendor/curl/lib/.libs/libcurl.dylib",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other libraries that the target depends upon. See general comments about `deps` at [Typical attributes defined by most build rules](/versions/7.6.1/reference/be/common-definitions#typical-attributes). |
+| `hdrs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of header files published by this precompiled library to be directly included by sources in dependent rules. |
+| `alwayslink` | Boolean; default is `False` If 1, any binary that depends (directly or indirectly) on this C++ precompiled library will link in all the object files archived in the static library, even if some contain no symbols referenced by the binary. This is useful if your code isn't explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. If alwayslink doesn't work with VS 2017 on Windows, that is due to a [known issue](https://github.com/bazelbuild/bazel/issues/3949), please upgrade your VS 2017 to the latest version. |
+| `interface_library` | [Label](/versions/7.6.1/concepts/labels); default is `None` A single interface library for linking the shared library. Permitted file types: `.ifso`, `.tbd`, `.lib`, `.so` or `.dylib` |
+| `shared_library` | [Label](/versions/7.6.1/concepts/labels); default is `None` A single precompiled shared library. Bazel ensures it is available to the binary that depends on it during runtime. Permitted file types: `.so`, `.dll` or `.dylib` |
+| `static_library` | [Label](/versions/7.6.1/concepts/labels); default is `None` A single precompiled static library. Permitted file types: `.a`, `.pic.a` or `.lib` |
+| `system_provided` | Boolean; default is `False` If 1, it indicates the shared library required at runtime is provided by the system. In this case, `interface_library` should be specified and `shared_library` should be empty. |
+
+## cc\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/BazelCcBinaryRule.java)
+
+```
+cc_library(name, deps, srcs, data, hdrs, additional_compiler_inputs, additional_linker_inputs, alwayslink, compatible_with, copts, defines, deprecation, distribs, exec_compatible_with, exec_properties, features, implementation_deps, include_prefix, includes, licenses, linkopts, linkstamp, linkstatic, local_defines, nocopts, restricted_to, strip_include_prefix, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, win_def_file)
+```
+
+#### Header inclusion checking
+
+All header files that are used in the build must be declared in the `hdrs` or
+`srcs` of `cc_*` rules. This is enforced.
+
+For `cc_library` rules, headers in `hdrs` comprise the public interface of
+the library and can be directly included both from the files in `hdrs` and
+`srcs` of the library itself as well as from files in `hdrs` and
+`srcs` of `cc_*` rules that list the library in their `deps`.
+Headers in `srcs` must only be directly included from the files in `hdrs`
+and `srcs` of the library itself. When deciding whether to put a header into
+`hdrs` or `srcs`, you should ask whether you want consumers of this library
+to be able to directly include it. This is roughly the same decision as between
+`public` and `private` visibility in programming languages.
+
+`cc_binary` and `cc_test` rules do not have an exported interface, so they
+also do not have a `hdrs` attribute. All headers that belong to the binary or test
+directly should be listed in the `srcs`.
+
+To illustrate these rules, look at the following example.
+
+```
+cc_binary(
+    name = "foo",
+    srcs = [
+        "foo.cc",
+        "foo.h",
+    ],
+    deps = [":bar"],
+)
+
+cc_library(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "bar-impl.h",
+    ],
+    hdrs = ["bar.h"],
+    deps = [":baz"],
+)
+
+cc_library(
+    name = "baz",
+    srcs = [
+        "baz.cc",
+        "baz-impl.h",
+    ],
+    hdrs = ["baz.h"],
+)
+```
+
+The allowed direct inclusions in this example are listed in the table below. For example
+`foo.cc` is allowed to directly include `foo.h` and `bar.h`, but
+not `baz.h`.
+
+| Including file | Allowed inclusions |
+| --- | --- |
+| foo.h | bar.h |
+| foo.cc | foo.h bar.h |
+| bar.h | bar-impl.h baz.h |
+| bar-impl.h | bar.h baz.h |
+| bar.cc | bar.h bar-impl.h baz.h |
+| baz.h | baz-impl.h |
+| baz-impl.h | baz.h |
+| baz.cc | baz.h baz-impl.h |
+
+The inclusion checking rules only apply to *direct*
+inclusions. In the example above `foo.cc` is allowed to
+include `bar.h`, which may include `baz.h`, which in
+turn is allowed to include `baz-impl.h`. Technically, the
+compilation of a `.cc` file may transitively include any header
+file in the `hdrs` or `srcs` in
+any `cc_library` in the transitive `deps` closure. In
+this case the compiler may read `baz.h` and `baz-impl.h`
+when compiling `foo.cc`, but `foo.cc` must not
+contain `#include "baz.h"`. For that to be
+allowed, `baz` must be added to the `deps`
+of `foo`.
+
+Bazel depends on toolchain support to enforce the inclusion checking rules.
+The `layering_check` feature has to be supported by the toolchain
+and requested explicitly, for example via the
+`--features=layering_check` command-line flag or the
+`features` parameter of the
+[`package`](/versions/7.6.1/reference/be/functions#package) function. The toolchains
+provided by Bazel only support this feature with clang on Unix and macOS.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. These can be `cc_library` or `objc_library` targets. |
+| `srcs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of C and C++ files that are processed to create the target. These are C/C++ source and header files, either non-generated (normal source code) or generated. All `.cc`, `.c`, and `.cpp` files will be compiled. These might be generated files: if a named file is in the `outs` of some other rule, this rule will automatically depend on that other rule.  A `.h` file will not be compiled, but will be available for inclusion by sources in this rule. Both `.cc` and `.h` files can directly include headers listed in these `srcs` or in the `hdrs` of any rule listed in the `deps` argument.  All `#include`d files must be mentioned in the `srcs` attribute of this rule, or in the `hdrs` attribute of referenced `cc_library()`s. The recommended style is for headers associated with a library to be listed in that library's `hdrs` attribute, and any remaining headers associated with this rule's sources to be listed in `srcs`. See ["Header inclusion checking"](#hdrs) for a more detailed description.  If a rule's name is in the `srcs`, then this rule automatically depends on that one. If the named rule's `outs` are C or C++ source files, they are compiled into this rule; if they are library files, they are linked in.  Permitted `srcs` file types:   * C and C++ source files: `.c`, `.cc`, `.cpp`,   `.cxx`, `.c++`, `.C` * C and C++ header files: `.h`, `.hh`, `.hpp`,   `.hxx`, `.inc`, `.inl`, `.H` * Assembler with C preprocessor: `.S` * Archive: `.a`, `.pic.a` * "Always link" library: `.lo`, `.pic.lo` * Shared library, versioned or unversioned: `.so`,   `.so.version` * Object file: `.o`, `.pic.o`   ...and any rules that produce those files. Different extensions denote different programming languages in accordance with gcc convention. |
+| `hdrs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of header files published by this library to be directly included by sources in dependent rules. This is the strongly preferred location for declaring header files that describe the interface for the library. These headers will be made available for inclusion by sources in this rule or in dependent rules. Headers not meant to be included by a client of this library should be listed in the `srcs` attribute instead, even if they are included by a published header. See ["Header inclusion checking"](#hdrs) for a more detailed description. |
+| `additional_compiler_inputs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Any additional files you might want to pass to the compiler command line, such as sanitizer ignorelists, for example. Files specified here can then be used in copts with the $(location) function. |
+| `additional_linker_inputs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Pass these files to the C++ linker command. For example, compiled Windows .res files can be provided here to be embedded in the binary target. |
+| `alwayslink` | Boolean; default is `False` If 1, any binary that depends (directly or indirectly) on this C++ library will link in all the object files for the files listed in `srcs`, even if some contain no symbols referenced by the binary. This is useful if your code isn't explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. If alwayslink doesn't work with VS 2017 on Windows, that is due to a [known issue](https://github.com/bazelbuild/bazel/issues/3949), please upgrade your VS 2017 to the latest version. |
+| `copts` | List of strings; default is `[]` Add these options to the C++ compilation command. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string in this attribute is added in the given order to `COPTS` before compiling the binary target. The flags take effect only for compiling this target, not its dependencies, so be careful about header files included elsewhere. All paths should be relative to the workspace, not to the current package.  If the package declares the [feature](/versions/7.6.1/reference/be/functions#package.features) `no_copts_tokenization`, Bourne shell tokenization applies only to strings that consist of a single "Make" variable. |
+| `defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line to this target, as well as to every rule that depends on it. Be very careful, since this may have far-reaching effects. When in doubt, add define values to [`local_defines`](#cc_binary.local_defines) instead. |
+| `implementation_deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other libraries that the library target depends on. Unlike with `deps`, the headers and include paths of these libraries (and all their transitive deps) are only used for compilation of this library, and not libraries that depend on it. Libraries specified with `implementation_deps` are still linked in binary targets that depend on this library. For now usage is limited to cc\_libraries and guarded by the flag `--experimental_cc_implementation_deps`. |
+| `include_prefix` | String; default is `""` The prefix to add to the paths of the headers of this rule. When set, the headers in the `hdrs` attribute of this rule are accessible at is the value of this attribute prepended to their repository-relative path. The prefix in the `strip_include_prefix` attribute is removed before this prefix is added. |
+| `includes` | List of strings; default is `[]` List of include dirs to be added to the compile line. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution. Each string is prepended with `-isystem` and added to `COPTS`. Unlike [COPTS](#cc_binary.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-I" flags to [COPTS](#cc_binary.copts) instead.  Headers must be added to srcs or hdrs, otherwise they will not be available to dependent rules when compilation is sandboxed (the default). |
+| `linkopts` | List of strings; default is `[]` Add these flags to the C++ linker command. Subject to ["Make" variable](make-variables) substitution, [Bourne shell tokenization](common-definitions#sh-tokenization) and [label expansion](common-definitions#label-expansion). Each string in this attribute is added to `LINKOPTS` before linking the binary target. Each element of this list that does not start with `$` or `-` is assumed to be the label of a target in `deps`. The list of files generated by that target is appended to the linker options. An error is reported if the label is invalid, or is not declared in `deps`. |
+| `linkstamp` | [Label](/versions/7.6.1/concepts/labels); default is `None` Simultaneously compiles and links the specified C++ source file into the final binary. This trickery is required to introduce timestamp information into binaries; if we compiled the source file to an object file in the usual way, the timestamp would be incorrect. A linkstamp compilation may not include any particular set of compiler flags and so should not depend on any particular header, compiler option, or other build variable. *This option should only be needed in the `base` package.* |
+| `linkstatic` | Boolean; default is `False` For [`cc_binary`](/versions/7.6.1/reference/be/c-cpp#cc_binary) and [`cc_test`](/versions/7.6.1/reference/be/c-cpp#cc_test): link the binary in static mode. For `cc_library.linkstatic`: see below. By default this option is on for `cc_binary` and off for the rest.  If enabled and this is a binary or test, this option tells the build tool to link in `.a`'s instead of `.so`'s for user libraries whenever possible. Some system libraries may still be linked dynamically, as are libraries for which there is no static library. So the resulting executable will still be dynamically linked, hence only *mostly* static.  There are really three different ways to link an executable:   * STATIC with fully\_static\_link feature, in which everything is linked statically;   e.g. "`gcc -static foo.o libbar.a libbaz.a -lm`".    This mode is enabled by specifying `fully_static_link` in the   [`features`](/versions/7.6.1/reference/be/common-definitions#features) attribute. * STATIC, in which all user libraries are linked statically (if a static   version is available), but where system libraries (excluding C/C++ runtime libraries)   are linked dynamically, e.g. "`gcc foo.o libfoo.a libbaz.a -lm`".    This mode is enabled by specifying `linkstatic=True`. * DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is   available), e.g. "`gcc foo.o libfoo.so libbaz.so -lm`".    This mode is enabled by specifying `linkstatic=False`.   The `linkstatic` attribute has a different meaning if used on a [`cc_library()`](/versions/7.6.1/reference/be/c-cpp#cc_library) rule. For a C++ library, `linkstatic=True` indicates that only static linking is allowed, so no `.so` will be produced. linkstatic=False does not prevent static libraries from being created. The attribute is meant to control the creation of dynamic libraries.  If `linkstatic=False`, then the build tool will create symlinks to depended-upon shared libraries in the `*.runfiles` area. |
+| `local_defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line for this target, but not to its dependents. |
+| `nocopts` | String; default is `""` Remove matching options from the C++ compilation command. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution. The value of this attribute is interpreted as a regular expression. Any preexisting `COPTS` that match this regular expression (including values explicitly specified in the rule's [copts](#cc_binary.copts) attribute) will be removed from `COPTS` for purposes of compiling this rule. This attribute should rarely be needed. |
+| `strip_include_prefix` | String; default is `""` The prefix to strip from the paths of the headers of this rule. When set, the headers in the `hdrs` attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path, it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the `include_prefix` attribute is added after this prefix is stripped. |
+| `textual_hdrs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of header files published by this library to be textually included by sources in dependent rules. This is the location for declaring header files that cannot be compiled on their own; that is, they always need to be textually included by other source files to build valid code. |
+| `win_def_file` | [Label](/versions/7.6.1/concepts/labels); default is `None` The Windows DEF file to be passed to linker. This attribute should only be used when Windows is the target platform. It can be used to [export symbols](https://msdn.microsoft.com/en-us/library/d91k01sh.aspx) during linking a shared library. |
+
+## cc\_proto\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/proto/CcProtoLibraryRule.java)
+
+```
+cc_proto_library(name, deps, data, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, licenses, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+`cc_proto_library` generates C++ code from `.proto` files.
+
+`deps` must point to [`proto_library`](protocol-buffer#proto_library) rules.
+
+Example:
+
+```
+cc_library(
+    name = "lib",
+    deps = [":foo_cc_proto"],
+)
+
+cc_proto_library(
+    name = "foo_cc_proto",
+    deps = [":foo_proto"],
+)
+
+proto_library(
+    name = "foo_proto",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of [`proto_library`](protocol-buffer#proto_library) rules to generate C++ code for. |
+
+## cc\_shared\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/CcSharedLibraryRule.java)
+
+```
+cc_shared_library(name, deps, additional_linker_inputs, dynamic_deps, exports_filter, shared_lib_name, tags, user_link_flags, win_def_file)
+```
+
+It produces a shared library.
+
+#### Example
+
+```
+cc_shared_library(
+    name = "foo_shared",
+    deps = [
+        ":foo",
+    ],
+    dynamic_deps = [
+        ":bar_shared",
+    ],
+    additional_linker_inputs = [
+        ":foo.lds",
+    ],
+    user_link_flags = [
+        "-Wl,--version-script=$(location :foo.lds)",
+    ],
+)
+cc_library(
+    name = "foo",
+    srcs = ["foo.cc"],
+    hdrs = ["foo.h"],
+    deps = [
+        ":bar",
+        ":baz",
+    ],
+)
+cc_shared_library(
+    name = "bar_shared",
+    shared_lib_name = "bar.so",
+    deps = [":bar"],
+)
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["bar.h"],
+)
+cc_library(
+    name = "baz",
+    srcs = ["baz.cc"],
+    hdrs = ["baz.h"],
+)
+```
+
+In the example `foo_shared` statically links `foo`
+and `baz`, the latter being a transitive dependency. It doesn't
+link `bar` because it is already provided dynamically by the
+`dynamic_dep` `bar_shared`.
+
+`foo_shared` uses a linker script \*.lds file to control which
+symbols should be exported. The `cc_shared_library` rule logic does
+not control which symbols get exported, it only uses what is assumed to be
+exported to give errors during analysis phase if two shared libraries export the
+same targets.
+
+Every direct dependency of `cc_shared_library` is assumed to be
+exported. Therefore, Bazel assumes during analysis that `foo` is being
+exported by `foo_shared`. `baz` is not assumed to be exported
+by `foo_shared`. Every target matched by the `exports_filter`
+is also assumed to be exported.
+
+Every single `cc_library` in the example should appear at most in one
+`cc_shared_library`. If we wanted to link `baz` also into
+`bar_shared` we would need to add
+`tags = ["LINKABLE_MORE_THAN_ONCE"]` to `baz`.
+
+Due to the `shared_lib_name` attribute, the file produced by
+`bar_shared` will have the name `bar.so` as opposed
+to the name `libbar.so` that it would have by default on Linux.
+
+#### Errors
+
+##### `Two shared libraries in dependencies export the same symbols.`
+
+This will happen whenever you are creating a target with two different
+`cc_shared_library` dependencies that export the same target. To fix this
+you need to stop the libraries from being exported in one of the
+`cc_shared_library` dependencies.
+
+##### `Two shared libraries in dependencies link the same library statically`
+
+This will happen whenever you are creating a new `cc_shared_library` with two
+different `cc_shared_library` dependencies that link the same target statically.
+Similar to the error with exports.
+
+One way to fix this is to stop linking the library into one of the
+`cc_shared_library` dependencies. At the same time, the one that still links it
+needs to export the library so that the one not linking it keeps visibility to
+the symbols. Another way is to pull out a third library that exports the target.
+A third way is to tag the culprit `cc_library` with `LINKABLE_MORE_THAN_ONCE`
+but this fix should be rare and you should absolutely make sure that the
+`cc_library` is indeed safe to link more than once.
+
+##### `` '//foo:foo' is already linked statically in '//bar:bar' but not exported` ``
+
+This means that a library in the transitive closure of your `deps` is reachable
+without going through one of the `cc_shared_library` dependencies but is already
+linked into a different `cc_shared_library` in `dynamic_deps` and is not
+exported.
+
+The solution is to export it from the `cc_shared_library` dependency or pull out
+a third `cc_shared_library` that exports it.
+
+##### `Do not place libraries which only contain a precompiled dynamic library in deps.`
+
+If you have a precompiled dynamic library, this doesn't need to and cannot be
+linked statically into the current `cc_shared_library` target that you are
+currently creating. Therefore, it doesn't belong in `deps` of the
+`cc_shared_library`. If this precompiled dynamic library is a dependency of one
+of your `cc_libraries`, then the `cc_library` needs to depend on it
+directly.
+
+##### `Trying to export a library already exported by a different shared library`
+
+You will see this error if on the current rule you are claiming to export a
+target that is already being exported by one of your dynamic dependencies.
+
+To fix this, remove the target from `deps` and just rely on it from the dynamic
+dependency or make sure that the `exports_filter` doesn't catch this target.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Top level libraries that will unconditionally be statically linked into the shared library after being whole-archived. Any transitive library dependency of these direct deps will be linked into this shared library as long as they have not already been linked by a `cc_shared_library` in `dynamic_deps`.  During analysis, the rule implementation will consider any target listed in `deps` as being exported by the shared library in order to give errors when multiple `cc_shared_libraries` export the same targets. The rule implementation does not take care of informing the linker about which symbols should be exported by the shared object. The user should take care of this via linker scripts or visibility declarations in the source code.  The implementation will also trigger errors whenever the same library is linked statically into more than one `cc_shared_library`. This can be avoided by adding `"LINKABLE_MORE_THAN_ONCE"` to the `cc_library.tags` or by listing the `cc\_library` as an export of one of the shared libraries so that one can be made a `dynamic_dep` of the other. |
+| `additional_linker_inputs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Any additional files that you may want to pass to the linker, for example, linker scripts. You have to separately pass any linker flags that the linker needs in order to be aware of this file. You can do so via the `user_link_flags` attribute. |
+| `dynamic_deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` These are other `cc_shared_library` dependencies the current target depends on. The `cc_shared_library` implementation will use the list of `dynamic_deps` (transitively, i.e. also the `dynamic_deps` of the current target's `dynamic_deps`) to decide which `cc_libraries` in the transitive `deps` should not be linked in because they are already provided by a different `cc_shared_library`. |
+| `exports_filter` | List of strings; default is `[]` This attribute contains a list of targets that are claimed to be exported by the current shared library. Any target `deps` is already understood to be exported by the shared library. This attribute should be used to list any targets that are exported by the shared library but are transitive dependencies of `deps`.  Note that this attribute is not actually adding a dependency edge to those targets, the dependency edge should instead be created by `deps`.The entries in this attribute are just strings. Keep in mind that when placing a target in this attribute, this is considered a claim that the shared library exports the symbols from that target. The `cc_shared_library` logic doesn't actually handle telling the linker which symbols should be exported.  The following syntax is allowed:  `//foo:__package__` to account for any target in foo/BUILD  `//foo:__subpackages__` to account for any target in foo/BUILD or any other package below foo/ like foo/bar/BUILD |
+| `shared_lib_name` | String; default is `""` By default cc\_shared\_library will use a name for the shared library output file based on the target's name and the platform. This includes an extension and sometimes a prefix. Sometimes you may not want the default name, for example, when loading C++ shared libraries for Python the default lib\* prefix is often not desired, in which case you can use this attribute to choose a custom name. |
+| `user_link_flags` | List of strings; default is `[]` Any additional flags that you may want to pass to the linker. For example, to make the linker aware of a linker script passed via additional\_linker\_inputs you can use the following:  ```          cc_shared_library(             name = "foo_shared",             additional_linker_inputs = select({               "//src/conditions:linux": [                 ":foo.lds",                 ":additional_script.txt",               ],               "//conditions:default": []}),             user_link_flags = select({               "//src/conditions:linux": [                 "-Wl,-rpath,kittens",                 "-Wl,--version-script=$(location :foo.lds)",                 "-Wl,--script=$(location :additional_script.txt)",               ],               "//conditions:default": []}),               ...          ) ``` |
+| `win_def_file` | [Label](/versions/7.6.1/concepts/labels); default is `None` The Windows DEF file to be passed to linker. This attribute should only be used when Windows is the target platform. It can be used to [export symbols](https://msdn.microsoft.com/en-us/library/d91k01sh.aspx) during linking a shared library. |
+
+## cc\_static\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticLibraryRule.java)
+
+```
+cc_static_library(name, deps, tags)
+```
+
+Produces a static library from a list of targets and their transitive dependencies.
+
+The resulting static library contains the object files of the targets listed in
+`deps` as well as their transitive dependencies, with preference given to
+`PIC` objects.
+
+#### Output groups
+
+##### `linkdeps`
+
+A text file containing the labels of those transitive dependencies of targets listed in
+`deps` that did not contribute any object files to the static library, but do
+provide at least one static, dynamic or interface library. The resulting static library
+may require these libraries to be available at link time.
+
+##### `linkopts`
+
+A text file containing the user-provided `linkopts` of all transitive
+dependencies of targets listed in `deps`.
+
+#### Duplicate symbols
+
+By default, the `cc_static_library` rule checks that the resulting static
+library does not contain any duplicate symbols. If it does, the build fails with an error
+message that lists the duplicate symbols and the object files containing them.
+
+This check can be disabled per target or per package by setting
+`features = ["-symbol_check"]` or globally via
+`--features=-symbol_check`.
+
+##### Toolchain support for `symbol_check`
+
+The auto-configured C++ toolchains shipped with Bazel support the
+`symbol_check` feature on all platforms. Custom toolchains can add support for
+it in one of two ways:
+
+* Implementing the `ACTION_NAMES.validate_static_library` action and
+  enabling it with the `symbol_check` feature. The tool set in the action is
+  invoked with two arguments, the static library to check for duplicate symbols and the
+  path of a file that must be created if the check passes.
+* Having the `symbol_check` feature add archiver flags that cause the
+  action creating the static library to fail on duplicate symbols.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of targets to combine into a static library, including all their transitive dependencies. Dependencies that do not provide any object files are not included in the static library, but their labels are collected in the file provided by the `linkdeps` output group. |
+
+## fdo\_prefetch\_hints
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoPrefetchHintsRule.java)
+
+```
+fdo_prefetch_hints(name, compatible_with, deprecation, distribs, features, licenses, profile, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+Represents an FDO prefetch hints profile that is either in the workspace or at a specified
+absolute path.
+Examples:
+
+```
+fdo_prefetch_hints(
+    name = "hints",
+    profile = "//path/to/hints:profile.afdo",
+)
+
+fdo_profile(
+  name = "hints_abs",
+  absolute_path_profile = "/absolute/path/profile.afdo",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `profile` | [Label](/versions/7.6.1/concepts/labels); default is `None` Label of the hints profile. The hints file has the .afdo extension The label can also point to an fdo\_absolute\_path\_profile rule. |
+
+## fdo\_profile
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/FdoProfileRule.java)
+
+```
+fdo_profile(name, absolute_path_profile, compatible_with, deprecation, distribs, features, licenses, profile, proto_profile, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+Represents an FDO profile that is either in the workspace or at a specified absolute path.
+Examples:
+
+```
+fdo_profile(
+    name = "fdo",
+    profile = "//path/to/fdo:profile.zip",
+)
+
+fdo_profile(
+  name = "fdo_abs",
+  absolute_path_profile = "/absolute/path/profile.zip",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `absolute_path_profile` | String; default is `""` Absolute path to the FDO profile. The FDO file can have one of the following extensions: .profraw for unindexed LLVM profile, .profdata for indexed LLVM profile, .zip that holds an LLVM profraw profile, or .afdo for AutoFDO profile. |
+| `profile` | [Label](/versions/7.6.1/concepts/labels); default is `None` Label of the FDO profile or a rule which generates it. The FDO file can have one of the following extensions: .profraw for unindexed LLVM profile, .profdata for indexed LLVM profile, .zip that holds an LLVM profraw profile, .afdo for AutoFDO profile, .xfdo for XBinary profile. The label can also point to an fdo\_absolute\_path\_profile rule. |
+| `proto_profile` | [Label](/versions/7.6.1/concepts/labels); default is `None` Label of the protobuf profile. |
+
+## memprof\_profile
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/MemProfProfileRule.java)
+
+```
+memprof_profile(name, absolute_path_profile, compatible_with, deprecation, distribs, features, licenses, profile, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+Represents a MEMPROF profile that is either in the workspace or at a specified
+absolute path.
+Examples:
+
+```
+memprof_profile(
+    name = "memprof",
+    profile = "//path/to/memprof:profile.afdo",
+)
+
+memprof_profile(
+  name = "memprof_abs",
+  absolute_path_profile = "/absolute/path/profile.afdo",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `absolute_path_profile` | String; default is `""` Absolute path to the MEMPROF profile. The file may only have a .profdata or .zip extension (where the zipfile must contain a memprof.profdata file). |
+| `profile` | [Label](/versions/7.6.1/concepts/labels); default is `None` Label of the MEMPROF profile. The profile is expected to have either a .profdata extension (for an indexed/symbolized memprof profile), or a .zip extension for a zipfile containing a memprof.profdata file. The label can also point to an fdo\_absolute\_path\_profile rule. |
+
+## propeller\_optimize
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/PropellerOptimizeRule.java)
+
+```
+propeller_optimize(name, compatible_with, deprecation, distribs, features, ld_profile, licenses, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+Represents a Propeller optimization profile in the workspace.
+Example:
+
+```
+propeller_optimize(
+    name = "layout",
+    cc_profile = "//path:cc_profile.txt",
+    ld_profile = "//path:ld_profile.txt"
+)
+
+propeller_optimize(
+    name = "layout_absolute",
+    absolute_cc_profile = "/absolute/cc_profile.txt",
+    absolute_ld_profile = "/absolute/ld_profile.txt"
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `ld_profile` | [Label](/versions/7.6.1/concepts/labels); default is `None` Label of the profile passed to the link action. This file has the .txt extension. |
+
+## cc\_test
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/BazelCcTestRule.java)
+
+```
+cc_test(name, deps, srcs, data, additional_linker_inputs, args, compatible_with, copts, defines, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, includes, licenses, link_extra_lib, linkopts, linkstatic, local, local_defines, malloc, nocopts, restricted_to, shard_count, size, stamp, tags, target_compatible_with, testonly, timeout, toolchains, visibility, win_def_file)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. These can be `cc_library` or `objc_library` targets. |
+| `srcs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` The list of C and C++ files that are processed to create the target. These are C/C++ source and header files, either non-generated (normal source code) or generated. All `.cc`, `.c`, and `.cpp` files will be compiled. These might be generated files: if a named file is in the `outs` of some other rule, this rule will automatically depend on that other rule.  A `.h` file will not be compiled, but will be available for inclusion by sources in this rule. Both `.cc` and `.h` files can directly include headers listed in these `srcs` or in the `hdrs` of any rule listed in the `deps` argument.  All `#include`d files must be mentioned in the `srcs` attribute of this rule, or in the `hdrs` attribute of referenced `cc_library()`s. The recommended style is for headers associated with a library to be listed in that library's `hdrs` attribute, and any remaining headers associated with this rule's sources to be listed in `srcs`. See ["Header inclusion checking"](#hdrs) for a more detailed description.  If a rule's name is in the `srcs`, then this rule automatically depends on that one. If the named rule's `outs` are C or C++ source files, they are compiled into this rule; if they are library files, they are linked in.  Permitted `srcs` file types:   * C and C++ source files: `.c`, `.cc`, `.cpp`,   `.cxx`, `.c++`, `.C` * C and C++ header files: `.h`, `.hh`, `.hpp`,   `.hxx`, `.inc`, `.inl`, `.H` * Assembler with C preprocessor: `.S` * Archive: `.a`, `.pic.a` * "Always link" library: `.lo`, `.pic.lo` * Shared library, versioned or unversioned: `.so`,   `.so.version` * Object file: `.o`, `.pic.o`   ...and any rules that produce those files. Different extensions denote different programming languages in accordance with gcc convention. |
+| `additional_linker_inputs` | List of [labels](/versions/7.6.1/concepts/labels); default is `[]` Pass these files to the C++ linker command. For example, compiled Windows .res files can be provided here to be embedded in the binary target. |
+| `copts` | List of strings; default is `[]` Add these options to the C++ compilation command. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string in this attribute is added in the given order to `COPTS` before compiling the binary target. The flags take effect only for compiling this target, not its dependencies, so be careful about header files included elsewhere. All paths should be relative to the workspace, not to the current package.  If the package declares the [feature](/versions/7.6.1/reference/be/functions#package.features) `no_copts_tokenization`, Bourne shell tokenization applies only to strings that consist of a single "Make" variable. |
+| `defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line to this target, as well as to every rule that depends on it. Be very careful, since this may have far-reaching effects. When in doubt, add define values to [`local_defines`](#cc_binary.local_defines) instead. |
+| `includes` | List of strings; default is `[]` List of include dirs to be added to the compile line. Subject to ["Make variable"](/versions/7.6.1/reference/be/make-variables) substitution. Each string is prepended with `-isystem` and added to `COPTS`. Unlike [COPTS](#cc_binary.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-I" flags to [COPTS](#cc_binary.copts) instead.  Headers must be added to srcs or hdrs, otherwise they will not be available to dependent rules when compilation is sandboxed (the default). |
+| `link_extra_lib` | [Label](/versions/7.6.1/concepts/labels); default is `"@bazel_tools//tools/cpp:link_extra_lib"` Control linking of extra libraries. By default, C++ binaries are linked against `//tools/cpp:link_extra_lib`, which by default depends on the label flag `//tools/cpp:link_extra_libs`. Without setting the flag, this library is empty by default. Setting the label flag allows linking optional dependencies, such as overrides for weak symbols, interceptors for shared library functions, or special runtime libraries (for malloc replacements, prefer `malloc` or `--custom_malloc`). Setting this attribute to `None` disables this behaviour. |
+| `linkopts` | List of strings; default is `[]` Add these flags to the C++ linker command. Subject to ["Make" variable](make-variables) substitution, [Bourne shell tokenization](common-definitions#sh-tokenization) and [label expansion](common-definitions#label-expansion). Each string in this attribute is added to `LINKOPTS` before linking the binary target. Each element of this list that does not start with `$` or `-` is assumed to be the label of a target in `deps`. The list of files generated by that target is appended to the linker options. An error is reported if the label is invalid, or is not declared in `deps`. |
+| `linkstatic` | Boolean; default is `False` For [`cc_binary`](/versions/7.6.1/reference/be/c-cpp#cc_binary) and [`cc_test`](/versions/7.6.1/reference/be/c-cpp#cc_test): link the binary in static mode. For `cc_library.linkstatic`: see below. By default this option is on for `cc_binary` and off for the rest.  If enabled and this is a binary or test, this option tells the build tool to link in `.a`'s instead of `.so`'s for user libraries whenever possible. Some system libraries may still be linked dynamically, as are libraries for which there is no static library. So the resulting executable will still be dynamically linked, hence only *mostly* static.  There are really three different ways to link an executable:   * STATIC with fully\_static\_link feature, in which everything is linked statically;   e.g. "`gcc -static foo.o libbar.a libbaz.a -lm`".    This mode is enabled by specifying `fully_static_link` in the   [`features`](/versions/7.6.1/reference/be/common-definitions#features) attribute. * STATIC, in which all user libraries are linked statically (if a static   version is available), but where system libraries (excluding C/C++ runtime libraries)   are linked dynamically, e.g. "`gcc foo.o libfoo.a libbaz.a -lm`".    This mode is enabled by specifying `linkstatic=True`. * DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is   available), e.g. "`gcc foo.o libfoo.so libbaz.so -lm`".    This mode is enabled by specifying `linkstatic=False`.   The `linkstatic` attribute has a different meaning if used on a [`cc_library()`](/versions/7.6.1/reference/be/c-cpp#cc_library) rule. For a C++ library, `linkstatic=True` indicates that only static linking is allowed, so no `.so` will be produced. linkstatic=False does not prevent static libraries from being created. The attribute is meant to control the creation of dynamic libraries.  If `linkstatic=False`, then the build tool will create symlinks to depended-upon shared libraries in the `*.runfiles` area. |
+| `local_defines` | List of strings; default is `[]` List of defines to add to the compile line. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.6.1/reference/be/common-definitions#sh-tokenization). Each string, which must consist of a single Bourne shell token, is prepended with `-D` and added to the compile command line for this target, but not to its dependents. |
+| `malloc` | [Label](/versions/7.6.1/concepts/labels); default is `"@bazel_tools//tools/cpp:malloc"` Override the default dependency on malloc. By default, C++ binaries are linked against `//tools/cpp:malloc`, which is an empty library so the binary ends up using libc malloc. This label must refer to a `cc_library`. If compilation is for a non-C++ rule, this option has no effect. The value of this attribute is ignored if `linkshared=True` is specified. |
+| `nocopts` | String; default is `""` Remove matching options from the C++ compilation command. Subject to ["Make" variable](/versions/7.6.1/reference/be/make-variables) substitution. The value of this attribute is interpreted as a regular expression. Any preexisting `COPTS` that match this regular expression (including values explicitly specified in the rule's [copts](#cc_binary.copts) attribute) will be removed from `COPTS` for purposes of compiling this rule. This attribute should rarely be needed. |
+| `stamp` | Integer; default is `0` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](/versions/7.6.1/docs/user-manual#flag--stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](/versions/7.6.1/docs/user-manual#flag--stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+| `win_def_file` | [Label](/versions/7.6.1/concepts/labels); default is `None` The Windows DEF file to be passed to linker. This attribute should only be used when Windows is the target platform. It can be used to [export symbols](https://msdn.microsoft.com/en-us/library/d91k01sh.aspx) during linking a shared library. |
+
+## cc\_toolchain
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/CcToolchainRule.java)
+
+```
+cc_toolchain(name, all_files, ar_files, as_files, compatible_with, compiler_files, compiler_files_without_includes, coverage_files, deprecation, distribs, dwp_files, dynamic_runtime_lib, exec_transition_for_inputs, features, libc_top, licenses, linker_files, module_map, objcopy_files, restricted_to, static_runtime_lib, strip_files, supports_header_parsing, supports_param_files, tags, target_compatible_with, testonly, toolchain_config, toolchain_identifier, visibility)
+```
+
+Represents a C++ toolchain.
+
+This rule is responsible for:
+
+* Collecting all artifacts needed for C++ actions to run. This is done by
+  attributes such as `all_files`, `compiler_files`,
+  `linker_files`, or other attributes ending with `_files`). These are
+  most commonly filegroups globbing all required files.
+* Generating correct command lines for C++ actions. This is done using
+  `CcToolchainConfigInfo` provider (details below).
+
+Use `toolchain_config` attribute to configure the C++ toolchain.
+See also this
+[page](https://bazel.build/versions/7.6.1/docs/cc-toolchain-config-reference) for elaborate C++ toolchain configuration and toolchain selection documentation.
+
+Use `tags = ["manual"]` in order to prevent toolchains from being built and configured
+unnecessarily when invoking `bazel build //...`
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `all_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts. These artifacts will be added as inputs to all rules\_cc related actions (with the exception of actions that are using more precise sets of artifacts from attributes below). Bazel assumes that `all_files` is a superset of all other artifact-providing attributes (e.g. linkstamp compilation needs both compile and link files, so it takes `all_files`). This is what `cc_toolchain.files` contains, and this is used by all Starlark rules using C++ toolchain. |
+| `ar_files` | [Label](/versions/7.6.1/concepts/labels); default is `None`  Collection of all cc\_toolchain artifacts required for archiving actions. |
+| `as_files` | [Label](/versions/7.6.1/concepts/labels); default is `None`  Collection of all cc\_toolchain artifacts required for assembly actions. |
+| `compiler_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts required for compile actions. |
+| `compiler_files_without_includes` | [Label](/versions/7.6.1/concepts/labels); default is `None` Collection of all cc\_toolchain artifacts required for compile actions in case when input discovery is supported (currently Google-only). |
+| `coverage_files` | [Label](/versions/7.6.1/concepts/labels); default is `None` Collection of all cc\_toolchain artifacts required for coverage actions. If not specified, all\_files are used. |
+| `dwp_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts required for dwp actions. |
+| `dynamic_runtime_lib` | [Label](/versions/7.6.1/concepts/labels); default is `None` Dynamic library artifact for the C++ runtime library (e.g. libstdc++.so). This will be used when 'static\_link\_cpp\_runtimes' feature is enabled, and we're linking dependencies dynamically. |
+| `exec_transition_for_inputs` | Boolean; default is `True` Set to True to build all file inputs to cc\_toolchain for the exec platform, instead of having no transition (i.e. target platform by default). |
+| `libc_top` | [Label](/versions/7.6.1/concepts/labels); default is `None` A collection of artifacts for libc passed as inputs to compile/linking actions. |
+| `linker_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts required for linking actions. |
+| `module_map` | [Label](/versions/7.6.1/concepts/labels); default is `None` Module map artifact to be used for modular builds. |
+| `objcopy_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts required for objcopy actions. |
+| `static_runtime_lib` | [Label](/versions/7.6.1/concepts/labels); default is `None` Static library artifact for the C++ runtime library (e.g. libstdc++.a). This will be used when 'static\_link\_cpp\_runtimes' feature is enabled, and we're linking dependencies statically. |
+| `strip_files` | [Label](/versions/7.6.1/concepts/labels); required Collection of all cc\_toolchain artifacts required for strip actions. |
+| `supports_header_parsing` | Boolean; default is `False` Set to True when cc\_toolchain supports header parsing actions. |
+| `supports_param_files` | Boolean; default is `True` Set to True when cc\_toolchain supports using param files for linking actions. |
+| `toolchain_config` | [Label](/versions/7.6.1/concepts/labels); required The label of the rule providing `cc_toolchain_config_info`. |
+| `toolchain_identifier` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The identifier used to match this cc\_toolchain with the corresponding crosstool\_config.toolchain. Until issue [#5380](https://github.com/bazelbuild/bazel/issues/5380) is fixed this is the recommended way of associating `cc_toolchain` with `CROSSTOOL.toolchain`. It will be replaced by the `toolchain_config` attribute ([#5380](https://github.com/bazelbuild/bazel/issues/5380)). |
+
+## cc\_toolchain\_suite
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/CcToolchainSuiteRule.java)
+
+```
+cc_toolchain_suite(name, compatible_with, deprecation, distribs, features, licenses, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+Represents a collections of C++ toolchains.
+
+This rule is responsible for:
+
+* Collecting all relevant C++ toolchains.
+* Selecting one toolchain depending on `--cpu` and `--compiler` options
+  passed to Bazel.
+
+See also this
+[page](https://bazel.build/versions/7.6.1/docs/cc-toolchain-config-reference) for elaborate C++ toolchain configuration and toolchain selection documentation.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.6.1/concepts/labels#target-names); required  A unique name for this target. |
+| `toolchains` | Dictionary mapping strings to [labels](/versions/7.6.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required A map from "<cpu>" or "<cpu>|<compiler>" strings to a `cc_toolchain` label. "<cpu>" will be used when only `--cpu` is passed to Bazel, and "<cpu>|<compiler>" will be used when both `--cpu` and `--compiler` are passed to Bazel. Example: ```           cc_toolchain_suite(             name = "toolchain",             toolchains = {               "piii|gcc": ":my_cc_toolchain_for_piii_using_gcc",               "piii": ":my_cc_toolchain_for_piii_using_default_compiler",             },           ) ``` |

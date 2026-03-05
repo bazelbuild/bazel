@@ -2,8 +2,6 @@
 title: 'Visibility'
 ---
 
-
-
 This page covers Bazel's two visibility systems:
 [target visibility](#target-visibility) and [load visibility](#load-visibility).
 
@@ -21,18 +19,18 @@ A target `A` is visible to a target `B` if they are in the same package, or if
 `A` grants visibility to `B`'s package. Thus, packages are the unit of
 granularity for deciding whether or not to allow access. If `B` depends on `A`
 but `A` is not visible to `B`, then any attempt to build `B` fails during
-[analysis](/reference/glossary#analysis-phase).
+[analysis](/versions/7.6.1/reference/glossary#analysis-phase).
 
 Note that granting visibility to a package does not by itself grant visibility
 to its subpackages. For more details on package and subpackages, see
-[Concepts and terminology](/concepts/build-ref).
+[Concepts and terminology](/versions/7.6.1/concepts/build-ref).
 
 For prototyping, you can disable target visibility enforcement by setting the
 flag `--check_visibility=false`. This should not be done for production usage in
 submitted code.
 
 The primary way to control visibility is with the
-[`visibility`](/reference/be/common-definitions#common.visibility) attribute on
+[`visibility`](/versions/7.6.1/reference/be/common-definitions#common.visibility) attribute on
 rule targets. This section describes the format of this attribute, and how to
 determine a target's visibility.
 
@@ -56,10 +54,10 @@ are just syntactic placeholders that do not correspond to any actual target.
     direct and indirect subpackages.
 
 *   `"//some_pkg:my_package_group"`: Grants access to all of the packages that
-    are part of the given [`package_group`](/reference/be/functions#package_group).
+    are part of the given [`package_group`](/versions/7.6.1/reference/be/functions#package_group).
 
     *   Package groups use a
-        [different syntax](/reference/be/functions#package_group.packages) for
+        [different syntax](/versions/7.6.1/reference/be/functions#package_group.packages) for
         specifying packages. Within a package group, the forms
         `"//foo/bar:__pkg__"` and `"//foo/bar:__subpackages__"` are respectively
         replaced by `"//foo/bar"` and `"//foo/bar/..."`. Likewise,
@@ -87,8 +85,8 @@ A rule target's visibility is:
 1. The value of its `visibility` attribute, if set; or else
 
 2. The value of the
-[`default_visibility`](/reference/be/functions#package.default_visibility)
-argument of the [`package`](/reference/be/functions#package) statement in the
+[`default_visibility`](/versions/7.6.1/reference/be/functions#package.default_visibility)
+argument of the [`package`](/versions/7.6.1/reference/be/functions#package) statement in the
 target's `BUILD` file, if such a declaration exists; or else
 
 3. `//visibility:private`.
@@ -159,7 +157,7 @@ generates it.
 ### Source file target visibility
 
 You can explicitly set the visibility of a source file target by calling
-[`exports_files`](/reference/be/functions#exports_files). When no `visibility`
+[`exports_files`](/versions/7.6.1/reference/be/functions#exports_files). When no `visibility`
 argument is passed to `exports_files`, it makes the visibility public.
 `exports_files` may not be used to override the visibility of a generated file.
 
@@ -201,8 +199,8 @@ cc_binary(
 ### Config setting visibility
 
 Historically, Bazel has not enforced visibility for
-[`config_setting`](/reference/be/general#config_setting) targets that are
-referenced in the keys of a [`select()`](/reference/be/functions#select). There
+[`config_setting`](/versions/7.6.1/reference/be/general#config_setting) targets that are
+referenced in the keys of a [`select()`](/versions/7.6.1/reference/be/functions#select). There
 are two flags to remove this legacy behavior:
 
 *   [`--incompatible_enforce_config_setting_visibility`](https://github.com/bazelbuild/bazel/issues/12932)
@@ -227,7 +225,7 @@ publicly visible.
 
 ### Visibility of implicit dependencies
 
-Some rules have [implicit dependencies](/extending/rules#private_attributes_and_implicit_dependencies) —
+Some rules have [implicit dependencies](/versions/7.6.1/extending/rules#private_attributes_and_implicit_dependencies) —
 dependencies that are not spelled out in a `BUILD` file but are inherent to
 every instance of that rule. For example, a `cc_library` rule might create an
 implicit dependency from each of its rule targets to an executable target
@@ -265,7 +263,7 @@ same workspace, so that modifying the macro breaks other teams' builds.
 Note that a `.bzl` file may or may not have a corresponding source file target.
 If it does, there is no guarantee that the load visibility and the target
 visibility coincide. That is, the same `BUILD` file might be able to load the
-`.bzl` file but not list it in the `srcs` of a [`filegroup`](/reference/be/general#filegroup),
+`.bzl` file but not list it in the `srcs` of a [`filegroup`](/versions/7.6.1/reference/be/general#filegroup),
 or vice versa. This can sometimes cause problems for rules that wish to consume
 `.bzl` files as source code, such as for documentation generation or testing.
 
@@ -278,9 +276,9 @@ Load visibility is available as of Bazel 6.0.
 ### Declaring load visibility
 
 To set the load visibility of a `.bzl` file, call the
-[`visibility()`](/rules/lib/globals/bzl#visibility) function from within the file.
+[`visibility()`](/versions/7.6.1/rules/lib/globals/bzl#visibility) function from within the file.
 The argument to `visibility()` is a list of package specifications, just like
-the [`packages`](/reference/be/functions#package_group.packages) attribute of
+the [`packages`](/versions/7.6.1/reference/be/functions#package_group.packages) attribute of
 `package_group`. However, `visibility()` does not accept negative package
 specifications.
 
@@ -373,7 +371,7 @@ visibilities. It also is more readable when the `clients` list is large.
 Sometimes a `.bzl` file might need to be visible to an allowlist that is
 composed of multiple smaller allowlists. This is analogous to how a
 `package_group` can incorporate other `package_group`s via its
-[`includes`](/reference/be/functions#package_group.includes) attribute.
+[`includes`](/versions/7.6.1/reference/be/functions#package_group.includes) attribute.
 
 Suppose you are deprecating a widely used macro. You want it to be visible only
 to existing users and to the packages owned by your own team. You might write:

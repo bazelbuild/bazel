@@ -4,7 +4,7 @@ title: 'Query quickstart'
 
 This tutorial covers how to work with Bazel to trace dependencies in your code using a premade Bazel project.
 
-For language and `--output` flag details, see the [Bazel query reference](/query/language) and [Bazel cquery reference](/query/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
+For language and `--output` flag details, see the [Bazel query reference](/versions/8.3.1/query/language) and [Bazel cquery reference](/versions/8.3.1/query/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
 
 ## Objective
 
@@ -12,7 +12,7 @@ This guide runs you through a set of basic queries you can use to learn more abo
 
 ## Prerequisites
 
-Start by installing [Bazel](https://bazel.build/install), if you haven’t already. This tutorial uses Git for source control, so for best results, install [Git](https://github.com/git-guides/install-git) as well.
+Start by installing [Bazel](https://bazel.build/versions/8.3.1/install), if you haven’t already. This tutorial uses Git for source control, so for best results, install [Git](https://github.com/git-guides/install-git) as well.
 
 To visualize dependency graphs, the tool called Graphviz is used, which you can [download](https://graphviz.org/download/) in order to follow along.
 
@@ -30,7 +30,7 @@ The sample project for this tutorial is in the `examples/query-quickstart` direc
 
 ### What are Bazel queries?
 
-Queries help you to learn about a Bazel codebase by analyzing the relationships between `BUILD` files and examining the resulting output for useful information. This guide previews some basic query functions, but for more options see the [query guide](https://bazel.build/query/guide). Queries help you learn about dependencies in large scale projects without manually navigating through `BUILD` files.
+Queries help you to learn about a Bazel codebase by analyzing the relationships between `BUILD` files and examining the resulting output for useful information. This guide previews some basic query functions, but for more options see the [query guide](https://bazel.build/versions/8.3.1/query/guide). Queries help you learn about dependencies in large scale projects without manually navigating through `BUILD` files.
 
 To run a query, open your command line terminal and enter:
 
@@ -84,7 +84,7 @@ A project consists of different packages that make up a Cafe. They are separated
 This project contains a main method inside of `Runner.java` that you can execute
 to print out a menu of the Cafe. Build the project using Bazel with the command
 `bazel build` and use `:` to signal that the target is named `runner`. See
-[target names](https://bazel.build/concepts/labels#target-names) to learn how to
+[target names](https://bazel.build/versions/8.3.1/concepts/labels#target-names) to learn how to
 reference targets.
 
 To build this project, paste this command into a terminal:
@@ -189,7 +189,7 @@ In most cases, use the query function `deps()` to see individual output dependen
 
 Note: This section uses Graphviz, so make sure to [download Graphviz](https://graphviz.org/download/) to follow along.
 
-The section describes how you can visualize the dependency paths for a specific query. [Graphviz](https://graphviz.org/) helps to see the path as a directed acyclic graph image as opposed to a flattened list. You can alter the display of the Bazel query graph by using various `--output` command line options. See [Output Formats](https://bazel.build/query/language#output-formats) for options.
+The section describes how you can visualize the dependency paths for a specific query. [Graphviz](https://graphviz.org/) helps to see the path as a directed acyclic graph image as opposed to a flattened list. You can alter the display of the Bazel query graph by using various `--output` command line options. See [Output Formats](https://bazel.build/versions/8.3.1/query/language#output-formats) for options.
 
 Start by running your desired query and add the flag `--noimplicit_deps` to remove excessive tool dependencies. Then, follow the query with the output flag and store the graph into a file called `graph.in` to create a text representation of the graph.
 
@@ -215,7 +215,7 @@ If instead you have a target you’d like to analyze what other targets use it, 
 
 For instance, you want to make some edits to the ingredient `cheese`. To avoid causing an issue for Cafe Bazel, you need to check what dishes rely on `cheese`.
 
-Caution: Since `ingredients` is its own package, you must use a different naming convention for the target `cheese` in the form of `//package:target`. Read more about referencing targets, or [Labels](https://bazel.build/concepts/labels).
+Caution: Since `ingredients` is its own package, you must use a different naming convention for the target `cheese` in the form of `//package:target`. Read more about referencing targets, or [Labels](https://bazel.build/versions/8.3.1/concepts/labels).
 
 To see what targets depend on a particular target/package, you can use `rdeps(universe_scope, target)`. The `rdeps()` query function takes in at least two arguments: a `universe_scope` — the relevant directory — and a `target`. Bazel searches for the target’s reverse dependencies within the `universe_scope` provided. The `rdeps()` operator accepts an optional third argument: an integer literal specifying the upper bound on the depth of the search.
 
@@ -256,12 +256,9 @@ This query returns all of the targets in the 'customers' package that have a tag
 
 Use this query to learn what Jenny wants to order.
 
-<div>
-  <devsite-expandable>
-  <h4 class="showalways">Answer</h4>
+<Accordion title="Answer">
   <p>Mac and Cheese</p>
-  </devsite-expandable>
-</div>
+</Accordion>
 
 ## Adding a new dependency
 
@@ -412,7 +409,7 @@ java\_library(
 )
 ```
 
-Build `cafe` again to confirm that there are no errors. If it builds successfully, congratulations! You’ve added a new dependency for the 'Cafe'. If not, look out for spelling mistakes and package naming. For more information about writing `BUILD` files see [BUILD Style Guide](https://bazel.build/build/style-guide).
+Build `cafe` again to confirm that there are no errors. If it builds successfully, congratulations! You’ve added a new dependency for the 'Cafe'. If not, look out for spelling mistakes and package naming. For more information about writing `BUILD` files see [BUILD Style Guide](https://bazel.build/versions/8.3.1/build/style-guide).
 
 Now, visualize the new dependency graph with the addition of the `Smoothie` to compare with the previous one. For clarity, name the graph input as `graph2.in` and `graph2.png`.
 
@@ -486,25 +483,19 @@ bazel-bin/src/main/java/com/example/reviews/review
 
 Going off Bazel queries only, try to find out who wrote the review, and what dish they were describing.
 
-<div>
-  <devsite-expandable>
-  <h4 class="showalways">Hint</h4>
+<Accordion title="Hint">
   <p>Check the tags and dependencies for useful information.</p>
-  </devsite-expandable>
-</div>
+</Accordion>
 
-<div>
-  <devsite-expandable>
-  <h4 class="showalways">Answer</h4>
+<Accordion title="Answer">
   <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
   <code>bazel query --noimplicit\_deps 'deps(//src/main/java/com/example/reviews:review)'</code>
   The result of this command reveals that Amir is the reviewer!
   Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there.
   The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
   </p>
-  </devsite-expandable>
-</div>
+</Accordion>
 
 ## Wrapping up
 
-Congratulations! You have now run several basic queries, which you can try out on own projects. To learn more about the query language syntax, refer to the [Query reference page](https://bazel.build/query/language). Want more advanced queries? The [Query guide](https://bazel.build/query/guide) showcases an in-depth list of more use cases than are covered in this guide.
+Congratulations! You have now run several basic queries, which you can try out on own projects. To learn more about the query language syntax, refer to the [Query reference page](https://bazel.build/versions/8.3.1/query/language). Want more advanced queries? The [Query guide](https://bazel.build/versions/8.3.1/query/guide) showcases an in-depth list of more use cases than are covered in this guide.

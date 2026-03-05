@@ -2,8 +2,6 @@
 title: 'Intro to Bazel'
 ---
 
-
-
 Bazel is an open-source build and test tool similar to Make, Maven, and Gradle.
 It uses a human-readable, high-level build language. Bazel supports projects in
 multiple languages and builds outputs for multiple platforms. Bazel supports
@@ -34,7 +32,7 @@ Bazel offers the following advantages:
     source files. It works with multiple repositories and user bases in the tens
     of thousands.
 
-*   **Bazel is extensible.** Many [languages](/rules) are
+*   **Bazel is extensible.** Many [languages](/versions/8.1.1/rules) are
     supported, and you can extend Bazel to support any other language or
     framework.
 
@@ -42,9 +40,9 @@ Bazel offers the following advantages:
 
 To build or test a project with Bazel, you typically do the following:
 
-1.  **Set up Bazel.** Download and [install Bazel](/install).
+1.  **Set up Bazel.** Download and [install Bazel](/versions/8.1.1/install).
 
-2.  **Set up a project [workspace](/concepts/build-ref#workspaces)**, which is a
+2.  **Set up a project [workspace](/versions/8.1.1/concepts/build-ref#workspaces)**, which is a
     directory where Bazel looks for build inputs and `BUILD` files, and where it
     stores build outputs.
 
@@ -52,7 +50,7 @@ To build or test a project with Bazel, you typically do the following:
     build it.
 
     You write your `BUILD` file by declaring build targets using
-    [Starlark](/rules/language), a domain-specific language. (See example
+    [Starlark](/versions/8.1.1/rules/language), a domain-specific language. (See example
     [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD).)
 
     A build target specifies a set of input artifacts that Bazel will build plus
@@ -64,11 +62,11 @@ To build or test a project with Bazel, you typically do the following:
     covering the most common artifact types in the supported languages on
     supported platforms.
 
-4. **Run Bazel** from the [command line](/reference/command-line-reference). Bazel
+4. **Run Bazel** from the [command line](/versions/8.1.1/reference/command-line-reference). Bazel
    places your outputs within the workspace.
 
 In addition to building, you can also use Bazel to run
-[tests](/reference/test-encyclopedia) and [query](/query/guide) the build
+[tests](/versions/8.1.1/reference/test-encyclopedia) and [query](/versions/8.1.1/query/guide) the build
 to trace dependencies in your code.
 
 ## Bazel build process
@@ -78,8 +76,8 @@ When running a build or a test, Bazel does the following:
 1.  **Loads** the `BUILD` files relevant to the target.
 
 2.  **Analyzes** the inputs and their
-    [dependencies](/concepts/dependencies), applies the specified build
-    rules, and produces an [action](/extending/concepts#evaluation-model)
+    [dependencies](/versions/8.1.1/concepts/dependencies), applies the specified build
+    rules, and produces an [action](/versions/8.1.1/extending/concepts#evaluation-model)
     graph.
 
 3.  **Executes** the build actions on the inputs until the final build outputs
@@ -88,24 +86,24 @@ When running a build or a test, Bazel does the following:
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
 correctness, you can set up Bazel to run builds and tests
-[hermetically](/basics/hermeticity) through sandboxing, minimizing skew
-and maximizing [reproducibility](/run/build#correct-incremental-rebuilds).
+[hermetically](/versions/8.1.1/basics/hermeticity) through sandboxing, minimizing skew
+and maximizing [reproducibility](/versions/8.1.1/run/build#correct-incremental-rebuilds).
 
 ### Action graph
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](/run/build#build-consistency) changes to
+[track](/versions/8.1.1/run/build#build-consistency) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
-easily [trace dependencies](/query/guide) in your code.
+easily [trace dependencies](/versions/8.1.1/query/guide) in your code.
 
 ## Getting started tutorials
 
-To get started with Bazel, see [Getting Started](/start/) or jump
+To get started with Bazel, see [Getting Started](/versions/8.1.1/start/) or jump
 directly to the Bazel tutorials:
 
-*   [Tutorial: Build a C++ Project](/start/cpp)
-*   [Tutorial: Build a Java Project](/start/java)
-*   [Tutorial: Build an Android Application](/start/android-app)
-*   [Tutorial: Build an iOS Application](/start/ios-app)
+*   [Tutorial: Build a C++ Project](/versions/8.1.1/start/cpp)
+*   [Tutorial: Build a Java Project](/versions/8.1.1/start/java)
+*   [Tutorial: Build an Android Application](/versions/8.1.1/start/android-app)
+*   [Tutorial: Build an iOS Application](/versions/8.1.1/start/ios-app)

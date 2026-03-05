@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,7 +32,7 @@ public class LastBuildEventTest {
 
   @Test
   public void testForwardsReferencedLocalFilesCall() {
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     LocalFile localFile =
         new LocalFile(
             fs.getPath("/some/file"),

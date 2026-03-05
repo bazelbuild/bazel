@@ -50,7 +50,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",

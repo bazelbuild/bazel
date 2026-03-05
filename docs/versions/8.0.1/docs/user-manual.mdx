@@ -4,13 +4,13 @@ title: 'Commands and Options'
 
 This page covers the options that are available with various Bazel commands,
 such as `bazel build`, `bazel run`, and `bazel test`. This page is a companion
-to the list of Bazel's commands in [Build with Bazel](/run/build).
+to the list of Bazel's commands in [Build with Bazel](/versions/8.0.1/run/build).
 
 ## Target syntax
 
 Some commands, like `build` or `test`, can operate on a list of targets. They
 use a syntax more flexible than labels, which is documented in
-[Specifying targets to build](/run/build#specifying-build-targets).
+[Specifying targets to build](/versions/8.0.1/run/build#specifying-build-targets).
 
 ## Options
 
@@ -62,7 +62,7 @@ Package path elements may be specified in three formats:
     `/home/bob/clients/bob_client/bazel/foo` directory.
 
 If you use a non-default package path, specify it in your
-[Bazel configuration file](/run/bazelrc) for convenience.
+[Bazel configuration file](/versions/8.0.1/run/bazelrc) for convenience.
 
 _Bazel doesn't require any packages to be in the
 current directory_, so you can do a build from an empty bazel
@@ -231,7 +231,7 @@ using `--linkopt`. For example:
 
 Build rules can also specify link options in their attributes. This option's
 settings always take precedence. Also see
-[cc_library.linkopts](/reference/be/c-cpp#cc_library.linkopts).
+[cc_library.linkopts](/versions/8.0.1/reference/be/c-cpp#cc_library.linkopts).
 
 #### `--strip (always|never|sometimes)`
 
@@ -269,7 +269,7 @@ linked rather than including stripping in all of the build's link actions.
 #### `--stripopt={{ "<var>" }}strip-option{{ "</var>" }}`
 
 This is an additional option to pass to the `strip` command when generating
-a [`*.stripped` binary](/reference/be/c-cpp#cc_binary_implicit_outputs). The default
+a [`*.stripped` binary](/versions/8.0.1/reference/be/c-cpp#cc_binary_implicit_outputs). The default
 is `-S -p`. This option can be used multiple times.
 
 Note: `--stripopt` does not apply to the stripping of the main
@@ -455,17 +455,17 @@ variable across multiple `--action_env` flags, the latest assignment wins.
 #### `--experimental_action_listener={{ "<var>" }}label{{ "</var>" }}`
 
 Warning: Extra actions are deprecated. Use
-[aspects](/extending/aspects)
+[aspects](/versions/8.0.1/extending/aspects)
 instead.
 
 The `experimental_action_listener` option instructs Bazel to use
-details from the [`action_listener`](/reference/be/extra-actions#action_listener) rule specified by {{ "<var>" }}label{{ "</var>" }} to
-insert [`extra_actions`](/reference/be/extra-actions#extra_action) into the build graph.
+details from the [`action_listener`](/versions/8.0.1/reference/be/extra-actions#action_listener) rule specified by {{ "<var>" }}label{{ "</var>" }} to
+insert [`extra_actions`](/versions/8.0.1/reference/be/extra-actions#extra_action) into the build graph.
 
 #### `--[no]experimental_extra_action_top_level_only`
 
 Warning: Extra actions are deprecated. Use
-[aspects](/extending/aspects) instead.
+[aspects](/versions/8.0.1/extending/aspects) instead.
 
 If this option is set to true, extra actions specified by the
 [ `--experimental_action_listener`](#experimental-action-listener) command
@@ -474,7 +474,7 @@ line option will only be scheduled for top level targets.
 #### `--experimental_extra_action_filter={{ "<var>" }}regex{{ "</var>" }}`
 
 Warning: Extra actions are deprecated. Use
-[aspects](/extending/aspects) instead.
+[aspects](/versions/8.0.1/extending/aspects) instead.
 
 The `experimental_extra_action_filter` option instructs Bazel to
 filter the set of targets to schedule `extra_actions` for.
@@ -561,17 +561,17 @@ line of the C++ compiler for all `.cc` files in `//foo/` except `file.cc`.
 #### `--dynamic_mode={{ "<var>" }}mode{{ "</var>" }}`
 
 Determines whether C++ binaries will be linked dynamically, interacting with
-the [linkstatic attribute](/reference/be/c-cpp#cc_binary.linkstatic) on build rules.
+the [linkstatic attribute](/versions/8.0.1/reference/be/c-cpp#cc_binary.linkstatic) on build rules.
 
 Modes:
 
 * `default`: Allows bazel to choose whether to link dynamically.
-  See [linkstatic](/reference/be/c-cpp#cc_binary.linkstatic) for more
+  See [linkstatic](/versions/8.0.1/reference/be/c-cpp#cc_binary.linkstatic) for more
   information.
 * `fully`: Links all targets dynamically. This will speed up
   linking time, and reduce the size of the resulting binaries.
 * `off`: Links all targets in
-  [mostly static](/reference/be/c-cpp#cc_binary.linkstatic) mode.
+  [mostly static](/versions/8.0.1/reference/be/c-cpp#cc_binary.linkstatic) mode.
   If `-static` is set in linkopts, targets will change to fully static.
 
 #### `--fission (yes|no|[dbg][,opt][,fastbuild])`
@@ -606,7 +606,7 @@ where users want PIC code explicitly generated for static links.
 #### `--android_resource_shrinking`
 
 Selects whether to perform resource shrinking for android_binary rules. Sets the default for the
-[shrink_resources attribute](/reference/be/android#android_binary.shrink_resources) on
+[shrink_resources attribute](/versions/8.0.1/reference/be/android#android_binary.shrink_resources) on
 android_binary rules; see the documentation for that rule for further details. Defaults to off.
 
 #### `--custom_malloc={{ "<var>" }}malloc-library-target{{ "</var>" }}`
@@ -803,9 +803,9 @@ be created remotely from in-memory manifests.
 
 When this option is enabled, Bazel will discard the analysis cache
 right before execution starts, thus freeing up additional memory
-(around 10%) for the [execution phase](/run/build#execution).
+(around 10%) for the [execution phase](/versions/8.0.1/run/build#execution).
 The drawback is that further incremental builds will be slower. See also
-[memory-saving mode](/configure/memory).
+[memory-saving mode](/versions/8.0.1/configure/memory).
 
 #### `--[no]keep_going`  (-k)
 
@@ -1130,7 +1130,7 @@ during the compile-edit-test cycle) and a large group of targets
 regression tests). In the former case, the result information is
 very useful whereas in the latter case it is less so. As with all
 options, this can be specified implicitly via
-the [`.bazelrc`](/run/bazelrc) file.
+the [`.bazelrc`](/versions/8.0.1/run/bazelrc) file.
 
 The files are printed so as to make it easy to copy and paste the
 filename to the shell, to run built executables. The "up-to-date"
@@ -1169,9 +1169,9 @@ help make long command lines more readable.
 See also [--verbose_failures](#verbose-failures), below.
 
 For logging subcommands to a file in a tool-friendly format, see
-[--execution_log_json_file](/reference/command-line-reference#flag--execution_log_json_file)
+[--execution_log_json_file](/versions/8.0.1/reference/command-line-reference#flag--execution_log_json_file)
 and
-[--execution_log_binary_file](/reference/command-line-reference#flag--execution_log_binary_file).
+[--execution_log_binary_file](/versions/8.0.1/reference/command-line-reference#flag--execution_log_binary_file).
 
 #### `--verbose_failures`
 
@@ -1286,7 +1286,7 @@ reduces input volatility and maximizes build caching.
 Use these options to control the host and target platforms that configure how builds work, and to
 control what execution platforms and toolchains are available to Bazel rules.
 
-Please see background information on [Platforms](/extending/platforms) and [Toolchains](/extending/toolchains).
+Please see background information on [Platforms](/versions/8.0.1/extending/platforms) and [Toolchains](/versions/8.0.1/extending/toolchains).
 
 #### `--platforms={{ "<var>" }}labels{{ "</var>" }}`
 
@@ -1302,7 +1302,7 @@ The label of a platform rule that describes the host system.
 The platforms that are available as execution platforms to run actions.
 Platforms can be specified by exact target, or as a target pattern. These
 platforms will be considered before those declared in MODULE.bazel files by
-[register_execution_platforms()](/rules/lib/globals/module#register_execution_platforms).
+[register_execution_platforms()](/versions/8.0.1/rules/lib/globals/module#register_execution_platforms).
 This option accepts a comma-separated list of platforms in order of priority.
 If the flag is passed multiple times, the most recent overrides.
 
@@ -1311,7 +1311,7 @@ If the flag is passed multiple times, the most recent overrides.
 The toolchain rules to be considered during toolchain resolution. Toolchains
 can be specified by exact target, or as a target pattern. These toolchains will
 be considered before those declared in MODULE.bazel files by
-[register_toolchains()](/rules/lib/globals/module#register_toolchains).
+[register_toolchains()](/versions/8.0.1/rules/lib/globals/module#register_toolchains).
 
 #### `--toolchain_resolution_debug={{ "<var>" }}regex{{ "</var>" }}`
 
@@ -1326,7 +1326,7 @@ of Bazel or Starlark rules with debugging failures due to missing toolchains.
 
 A convenience flag used to bind longer Starlark build settings to a shorter name. For more
 details, see the
-[Starlark Configurations](/extending/config#using-build-setting-aliases).
+[Starlark Configurations](/versions/8.0.1/extending/config#using-build-setting-aliases).
 
 #### `--symlink_prefix={{ "<var>" }}string{{ "</var>" }}`
 
@@ -1411,11 +1411,11 @@ engineers using Bazel.
 
 When using Bazel for release builds, the same issues arise as for other scripts
 that perform a build. For more details, see
-[Call Bazel from scripts](/run/scripts). In particular, the following options
+[Call Bazel from scripts](/versions/8.0.1/run/scripts). In particular, the following options
 are strongly recommended:
 
-*   [`--bazelrc=/dev/null`](/run/bazelrc)
-*   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
+*   [`--bazelrc=/dev/null`](/versions/8.0.1/run/bazelrc)
+*   [`--nokeep_state_after_build`](/versions/8.0.1/reference/command-line-reference#flag--keep_state_after_build)
 
 These options are also important:
 
@@ -1617,7 +1617,7 @@ individual timeouts for short, moderate, long and eternal tests (in that
 order).
 In either form, zero or a negative value for any of the test sizes will
 be substituted by the default timeout for the given timeout categories as
-defined by the page [Writing Tests](/reference/test-encyclopedia).
+defined by the page [Writing Tests](/versions/8.0.1/reference/test-encyclopedia).
 By default, Bazel will use these timeouts for all tests by
 inferring the timeout limit from the test's size whether the size is
 implicitly or explicitly set.
@@ -1699,7 +1699,7 @@ filter args to the test runner.
 #### Other options for `bazel test`
 
 The syntax and the remaining options are exactly like
-[`bazel build`](/run/build).
+[`bazel build`](/versions/8.0.1/run/build).
 
 ## Running executables
 
@@ -1776,7 +1776,7 @@ For example:
 
 `bazel run` can also execute test binaries, which has the effect of
 running the test in a close approximation of the environment described at
-[Writing Tests](/reference/test-encyclopedia). Note that none of the
+[Writing Tests](/versions/8.0.1/reference/test-encyclopedia). Note that none of the
 `--test_*` arguments have an effect when running a test in this manner except
 `--test_arg` .
 
@@ -1830,14 +1830,14 @@ rather than using `clean`.
 Bazel includes a query language for asking questions about the
 dependency graph used during the build. The query language is used
 by two commands: query and cquery. The major difference between the
-two commands is that query runs after the [loading phase](/run/build#loading)
-and cquery runs after the [analysis phase](/run/build#analysis). These tools are an
+two commands is that query runs after the [loading phase](/versions/8.0.1/run/build#loading)
+and cquery runs after the [analysis phase](/versions/8.0.1/run/build#analysis). These tools are an
 invaluable aid to many software engineering tasks.
 
 The query language is based on the idea of
 algebraic operations over graphs; it is documented in detail in
 
-[Bazel Query Reference](/query/language).
+[Bazel Query Reference](/versions/8.0.1/query/language).
 Please refer to that document for reference, for
 examples, and for query-specific command-line options.
 
@@ -1882,7 +1882,7 @@ It supports the same set of functions that is also available to traditional
 `query` but `siblings`, `buildfiles` and
 `tests`.
 
-For more details, see [Action Graph Query](/query/aquery).
+For more details, see [Action Graph Query](/versions/8.0.1/query/aquery).
 
 ## Miscellaneous commands and options
 
@@ -1890,7 +1890,7 @@ For more details, see [Action Graph Query](/query/aquery).
 
 The `help` command provides on-line help. By default, it
 shows a summary of available commands and help topics, as shown in
-[Building with Bazel](/run/build#quickstart).
+[Building with Bazel](/versions/8.0.1/run/build#quickstart).
 Specifying an argument displays detailed help for a particular
 topic. Most topics are Bazel commands, such as `build`
 or `query`, but there are some additional help topics
@@ -1909,7 +1909,7 @@ Bazel server processes may be stopped by using the `shutdown`
 command. This command causes the Bazel server to exit as soon as it
 becomes idle (for example, after the completion of any builds or other
 commands that are currently in progress). For more details, see
-[Client/server implementation](/run/client-server).
+[Client/server implementation](/versions/8.0.1/run/client-server).
 
 Bazel servers stop themselves after an idle timeout, so this command
 is rarely necessary; however, it can be useful in scripts when it is
@@ -2014,7 +2014,7 @@ output directory of a build, the choice of compiler, etc.
     the value reported by `bazel info`, instead of assuming the
     existence of the symlink, will be more robust.
 *   The complete
-    ["Make" environment](/reference/be/make-variables). If the `--show_make_env` flag is
+    ["Make" environment](/versions/8.0.1/reference/be/make-variables). If the `--show_make_env` flag is
     specified, all variables in the current configuration's "Make" environment
     are also displayed (such as `CC`, `GLIBC_VERSION`, etc).
     These are the variables accessed using the `$(CC)`
@@ -2064,7 +2064,7 @@ anywhere - it does not require a workspace directory.
 The `mobile-install` command installs apps to mobile devices.
 Currently only Android devices running ART are supported.
 
-See [bazel mobile-install](/docs/mobile-install) for more information.
+See [bazel mobile-install](/versions/8.0.1/docs/mobile-install) for more information.
 
 Note: This command does not install the same thing that
 `bazel build` produces: Bazel tweaks the app so that it can be
@@ -2203,12 +2203,12 @@ Example:
 ### `analyze-profile`
 
 The `analyze-profile` command analyzes a
-[JSON trace profile](/advanced/performance/json-trace-profile) previously
+[JSON trace profile](/versions/8.0.1/advanced/performance/json-trace-profile) previously
 gathered during a Bazel invocation.
 
 ### `canonicalize-flags`
 
-The [`canonicalize-flags`](/reference/command-line-reference#canonicalize-flags-options)
+The [`canonicalize-flags`](/versions/8.0.1/reference/command-line-reference#canonicalize-flags-options)
 command, which takes a list of options for a Bazel command and returns a list of
 options that has the same effect. The new list of options is canonical. For example,
 two lists of options with the same effect are canonicalized to the same new list.
@@ -2362,7 +2362,7 @@ run Bazel with.
 #### `--batch`
 
 Batch mode causes Bazel to not use the
-[standard client/server mode](/run/client-server), but instead runs a bazel
+[standard client/server mode](/versions/8.0.1/run/client-server), but instead runs a bazel
 java process for a single command, which has been used for more predictable
 semantics with respect to signal handling, job control, and environment
 variable inheritance, and is necessary for running bazel in a chroot jail.
@@ -2468,7 +2468,7 @@ of the setting of the TERM environment variable.
 #### `--config={{ "<var>" }}name{{ "</var>" }}`
 
 Selects additional config section from
-[the rc files](/run/bazelrc#bazelrc-file-locations); for the current `command`,
+[the rc files](/versions/8.0.1/run/bazelrc#bazelrc-file-locations); for the current `command`,
 it also pulls in the options from `command:name` if such a section exists. Can be
 specified multiple times to add flags from several config sections. Expansions can refer to other
 definitions (for example, expansions can be chained).

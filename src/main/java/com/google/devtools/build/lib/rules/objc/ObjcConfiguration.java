@@ -47,7 +47,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final boolean runMemleaks;
   private final CompilationMode compilationMode;
   private final boolean deviceDebugEntitlements;
   private final boolean disallowSdkFrameworksAttributes;
@@ -62,7 +61,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.runMemleaks = objcOptions.runMemleaks;
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
@@ -90,11 +88,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
   public DottedVersion getIosSimulatorVersion() {
     // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
-  }
-
-  @Override
-  public boolean runMemleaks() {
-    return runMemleaks;
   }
 
   /**

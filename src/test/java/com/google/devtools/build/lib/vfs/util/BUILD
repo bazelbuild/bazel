@@ -21,7 +21,7 @@ java_library(
     exports = [
         ":util_internal",
     ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
+    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix:unix_file_system"],
 )
 
 java_library(
@@ -33,6 +33,8 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",

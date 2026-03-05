@@ -133,7 +133,6 @@ public abstract class SpawnLogContextTestBase {
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 /* workspace= */ null,
-                /* defaultSystemJavabase= */ null,
                 TestConstants.PRODUCT_NAME),
             new BuildConfigurationValue.GlobalStateProvider() {
               @Override

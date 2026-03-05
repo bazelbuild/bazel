@@ -54,6 +54,7 @@ uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
     case STAT_MTIME:
       return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
   }
+  return 0;
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,

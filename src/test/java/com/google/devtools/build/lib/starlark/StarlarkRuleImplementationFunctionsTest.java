@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -142,7 +143,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Before
-  public void createBuildFile() throws Exception {
+  public void createBuildFilesAndHostPlatform() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
@@ -191,6 +192,32 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           outs = ['out.txt'],
         )
         """);
+
+    // Tests below assume that the actual host OS is reflected in the host platform, but Bazel's
+    // test setup forces the host platform to be "linux-x86_64".
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "host_platform",
+             constraint_values = [
+                 "%sos:%s",
+                 "%scpu:x86_64",
+             ],
+        )
+        """
+            .formatted(
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT,
+                switch (OS.getCurrent()) {
+                  case LINUX -> "linux";
+                  case DARWIN -> "macos";
+                  case FREEBSD -> "freebsd";
+                  case OPENBSD -> "openbsd";
+                  case WINDOWS -> "windows";
+                  case UNKNOWN -> "none";
+                },
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration("--host_platform=//platforms:host_platform");
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {

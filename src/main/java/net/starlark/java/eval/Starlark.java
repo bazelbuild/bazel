@@ -46,7 +46,10 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.Types;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
@@ -81,7 +84,7 @@ public final class Starlark {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<unbound>");
     }
   }
@@ -322,6 +325,29 @@ public final class Starlark {
     }
   }
 
+  /** Returns the type of the given Starlark value. */
+  // TODO: #27370 - We'll probably need to thread a StarlarkSemantics (or an opaque interface
+  // wrapping it) through here, since the type of a value may depend on flag-guarding of its APIs.
+  static StarlarkType getStarlarkType(Object value) {
+    return switch (value) {
+      case String s -> Types.STR;
+      case Boolean b -> Types.BOOL;
+      case StarlarkValue x -> {
+        @Nullable StarlarkType type = x.getStarlarkType();
+        if (type == null) {
+          // TODO: #28325 - For types with ClassDescriptors, return the type stored in the
+          // descriptor.
+          type = Types.ANY;
+        }
+        yield type;
+      }
+      default -> {
+        checkValid(value); // throws
+        throw new AssertionError("unreachable");
+      }
+    };
+  }
+
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */
   public static String type(Object x) {
     return classType(x.getClass());
@@ -527,8 +553,8 @@ public final class Starlark {
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code repr(x)}. */
-  public static String repr(Object x) {
-    return new Printer().repr(x).toString();
+  public static String repr(Object x, StarlarkSemantics semantics) {
+    return new Printer().repr(x, semantics).toString();
   }
 
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
@@ -692,13 +718,13 @@ public final class Starlark {
       if (startObj == NONE) {
         start = 0;
       } else {
-        start = EvalUtils.toIndex(toInt(startObj, "start index"), n);
+        start = SyntaxUtils.toSliceBound(toInt(startObj, "start index"), n);
       }
 
       if (stopObj == NONE) {
         stop = n;
       } else {
-        stop = EvalUtils.toIndex(toInt(stopObj, "stop index"), n);
+        stop = SyntaxUtils.toSliceBound(toInt(stopObj, "stop index"), n);
       }
 
       if (stop < start) {
@@ -712,25 +738,13 @@ public final class Starlark {
       if (startObj == NONE) {
         start = n - 1;
       } else {
-        start = toInt(startObj, "start index");
-        if (start < 0) {
-          start += n;
-        }
-        if (start >= n) {
-          start = n - 1;
-        }
+        start = SyntaxUtils.toReverseSliceBound(toInt(startObj, "start index"), n);
       }
 
       if (stopObj == NONE) {
         stop = -1;
       } else {
-        stop = toInt(stopObj, "stop index");
-        if (stop < 0) {
-          stop += n;
-        }
-        if (stop < -1) {
-          stop = -1;
-        }
+        stop = SyntaxUtils.toReverseSliceBound(toInt(stopObj, "stop index"), n);
       }
 
       if (start < stop) {
@@ -898,12 +912,11 @@ public final class Starlark {
       callable = starlarkCallable;
     } else {
       // @StarlarkMethod(selfCall)?
-      MethodDescriptor desc =
-          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      MethodDescriptor desc = thread.getBuiltinManager().getSelfCallMethodDescriptor(fn.getClass());
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
-      callable = new BuiltinFunction(fn, desc.getName(), desc);
+      callable = BuiltinFunction.of(fn, desc, thread.getSemantics());
     }
     return callable;
   }
@@ -966,8 +979,21 @@ public final class Starlark {
    */
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
+    return hasattr(CallUtils.getBuiltinManager(semantics), x, name);
+  }
+
+  /**
+   * Optimized version of {@link #hasattr(StarlarkSemantics, Object, String)} that avoids a map
+   * lookup for the {@link BuiltinManager}.
+   */
+  static boolean hasattr(StarlarkThread thread, Object x, String name) throws EvalException {
+    return hasattr(thread.getBuiltinManager(), x, name);
+  }
+
+  private static boolean hasattr(CallUtils.BuiltinManager manager, Object x, String name)
+      throws EvalException {
     return (x instanceof Structure && ((Structure) x).getValue(name) != null)
-        || CallUtils.getAnnotatedMethods(semantics, x.getClass()).containsKey(name);
+        || manager.getAnnotatedMethods(x.getClass()).containsKey(name);
   }
 
   /**
@@ -982,13 +1008,39 @@ public final class Starlark {
       String name,
       @Nullable Object defaultValue)
       throws EvalException, InterruptedException {
+    return getattr(mu, semantics, CallUtils.getBuiltinManager(semantics), x, name, defaultValue);
+  }
+
+  /**
+   * Optimized version of {@link #getattr(Mutability, StarlarkSemantics, Object, String, Object)}
+   * that avoids a map lookup for the {@link BuiltinManager}.
+   */
+  static Object getattr(StarlarkThread thread, Object x, String name, @Nullable Object defaultValue)
+      throws EvalException, InterruptedException {
+    return getattr(
+        thread.mutability(),
+        thread.getSemantics(),
+        thread.getBuiltinManager(),
+        x,
+        name,
+        defaultValue);
+  }
+
+  private static Object getattr(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      CallUtils.BuiltinManager manager,
+      Object x,
+      String name,
+      @Nullable Object defaultValue)
+      throws EvalException, InterruptedException {
     // StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getAnnotatedMethods(semantics, x.getClass()).get(name);
+    MethodDescriptor method = manager.getAnnotatedMethods(x.getClass()).get(name);
     if (method != null) {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
       } else {
-        return new BuiltinFunction(x, name, method);
+        return BuiltinFunction.of(x, method, semantics);
       }
     }
 
@@ -1014,7 +1066,7 @@ public final class Starlark {
 
     throw Starlark.errorf(
         "'%s' value has no field or method '%s'%s",
-        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, semantics, x)));
+        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, manager, x)));
   }
 
   /**
@@ -1022,16 +1074,29 @@ public final class Starlark {
    * the specified value, as if by the Starlark expression {@code dir(x)}.
    */
   public static StarlarkList<String> dir(Mutability mu, StarlarkSemantics semantics, Object x) {
+    return dir(mu, CallUtils.getBuiltinManager(semantics), x);
+  }
+
+  /**
+   * Optimized version of {@link #dir(Mutability, StarlarkSemantics, Object)} that avoids a map
+   * lookup for the {@link BuiltinManager}.
+   */
+  static StarlarkList<String> dir(StarlarkThread thread, Object x) {
+    return dir(thread.mutability(), thread.getBuiltinManager(), x);
+  }
+
+  private static StarlarkList<String> dir(
+      Mutability mu, CallUtils.BuiltinManager manager, Object x) {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
     if (x instanceof Structure) {
       fields.addAll(((Structure) x).getFieldNames());
     }
-    fields.addAll(CallUtils.getAnnotatedMethods(semantics, x.getClass()).keySet());
+    fields.addAll(manager.getAnnotatedMethods(x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);
   }
 
-  // --- methods related to StarlarkMethod-annotated classes ---
+  // --- methods related to StarlarkBuiltin-annotated classes ---
 
   /**
    * Returns a map of Java methods and corresponding StarlarkMethod annotations for each annotated
@@ -1045,7 +1110,9 @@ public final class Starlark {
   public static ImmutableMap<Method, StarlarkMethod> getMethodAnnotations(Class<?> clazz) {
     ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
-        CallUtils.getAnnotatedMethods(StarlarkSemantics.DEFAULT, clazz).values()) {
+        CallUtils.getBuiltinManager(StarlarkSemantics.DEFAULT)
+            .getAnnotatedMethods(clazz)
+            .values()) {
       result.put(desc.getMethod(), desc.getAnnotation());
     }
     return result.build();
@@ -1058,7 +1125,7 @@ public final class Starlark {
    */
   @Nullable
   public static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> clazz) {
-    return CallUtils.getSelfCallMethod(semantics, clazz);
+    return CallUtils.getBuiltinManager(semantics).getSelfCallMethod(clazz);
   }
 
   /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
@@ -1079,7 +1146,7 @@ public final class Starlark {
     Class<?> cls = v.getClass();
     // TODO(adonovan): rather than silently skip the selfCall method, reject it.
     for (Map.Entry<String, MethodDescriptor> e :
-        CallUtils.getAnnotatedMethods(semantics, cls).entrySet()) {
+        CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(cls).entrySet()) {
       String name = e.getKey();
 
       // We cannot accept fields, as they are inherently problematic:
@@ -1089,7 +1156,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      env.put(name, new BuiltinFunction(v, name, e.getValue()));
+      env.put(name, BuiltinFunction.of(v, e.getValue(), semantics));
     }
   }
 

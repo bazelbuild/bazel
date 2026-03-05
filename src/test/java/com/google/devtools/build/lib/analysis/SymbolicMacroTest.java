@@ -1174,8 +1174,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent(
-        "xyz is select({Label(\"//some:condition\"): \":target1\","
-            + " Label(\"//some:other_condition\"): \":target2\"})");
+        "xyz is select({Label(\"@@//some:condition\"): \":target1\","
+            + " Label(\"@@//some:other_condition\"): \":target2\"})");
   }
 
   @Test
@@ -1234,18 +1234,18 @@ my_macro = macro(
     // regardless of how they are represented and transformed internally.
     assertContainsEvent(
 """
-attr_using_schema_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})\
+attr_using_schema_default is select({Label("@@//common:some_configsetting"): None, \
+Label("@@//conditions:default"): None})\
 """);
     assertContainsEvent(
 """
-attr_using_hardcoded_nonnull_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})\
+attr_using_hardcoded_nonnull_default is select({Label("@@//common:some_configsetting"): None, \
+Label("@@//conditions:default"): None})\
 """);
     assertContainsEvent(
 """
-attr_using_hardcoded_null_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})\
+attr_using_hardcoded_null_default is select({Label("@@//common:some_configsetting"): None, \
+Label("@@//conditions:default"): None})\
 """);
   }
 

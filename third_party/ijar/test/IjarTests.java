@@ -292,6 +292,13 @@ public class IjarTests {
   }
 
   @Test
+  public void multiReleasePreserved() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/multirelease-interface.jar")) {
+      assertThat(jf.isMultiRelease()).isTrue();
+    }
+  }
+
+  @Test
   public void kotlinModule() throws Exception {
     Map<String, byte[]> lib = readJar("third_party/ijar/test/kotlin_module-interface.jar");
     assertThat(lib.keySet())

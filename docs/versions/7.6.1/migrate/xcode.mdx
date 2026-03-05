@@ -2,8 +2,6 @@
 title: 'Migrating from Xcode to Bazel'
 ---
 
-
-
 This page describes how to build or test an Xcode project with Bazel. It
 describes the differences between Xcode and Bazel, and provides the steps
 for converting an Xcode project to a Bazel project. It also provides
@@ -32,10 +30,10 @@ troubleshooting solutions to address common errors.
 
 Before you begin, do the following:
 
-1.  [Install Bazel](/install) if you have not already done so.
+1.  [Install Bazel](/versions/7.6.1/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the
-    [iOS app tutorial](/start/ios-app)). You should understand the Bazel
+    [iOS app tutorial](/versions/7.6.1/start/ios-app)). You should understand the Bazel
     workspace, including the `WORKSPACE` and `BUILD` files, as well as the
     concepts of targets, build rules, and Bazel packages.
 
@@ -47,7 +45,7 @@ Unlike Xcode, Bazel requires you to explicitly declare all dependencies for
 every target in the `BUILD` file.
 
 For more information on external dependencies, see
-[Working with external dependencies](/docs/external).
+[Working with external dependencies](/versions/7.6.1/docs/external).
 
 ## Build or test an Xcode project with Bazel
 
@@ -103,7 +101,7 @@ initial build of the project as follows:
 *  [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
 **Tip:** To learn more about packages and other Bazel concepts, see
-[Workspaces, packages, and targets](/concepts/build-ref).
+[Workspaces, packages, and targets](/versions/7.6.1/concepts/build-ref).
 
 #### Step 3a: Add the application target
 
@@ -149,13 +147,11 @@ with the project and adjust them as necessary. For tests that require the iOS
 simulator, also specify the `ios_application` target name as the value of the
 `test_host` attribute.
 
-
 #### Step 3c: Add the library target(s)
 
-Add an [`objc_library`](/reference/be/objective-c#objc_library)
+Add an [`objc_library`](/versions/7.6.1/reference/be/objective-c#objc_library)
 target for each Objective-C library and a [`swift_library`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_library)
 target for each Swift library on which the application and/or tests depend.
-
 
 Add the library targets as follows:
 
@@ -168,7 +164,7 @@ Add the library targets as follows:
 
 *   List the headers in the `hdrs` attribute.
 
-Note: You can use the [`glob`](/reference/be/functions#glob)
+Note: You can use the [`glob`](/versions/7.6.1/reference/be/functions#glob)
 function to include all sources and/or headers of a certain type. Use it
 carefully as it might include files you do not want Bazel to build.
 
@@ -180,7 +176,6 @@ You can browse existing examples for various types of applications directly in t
 *   [iOS applications targets](https://github.com/bazelbuild/rules_apple/tree/master/examples/ios)
 
 *   [Multi platform applications (macOS, iOS, watchOS, tvOS)](https://github.com/bazelbuild/rules_apple/tree/master/examples/multi_platform)
-
 
 For more information on build rules, see [Apple Rules for Bazel](https://github.com/bazelbuild/rules_apple).
 

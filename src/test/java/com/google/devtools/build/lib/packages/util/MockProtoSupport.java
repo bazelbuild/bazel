@@ -60,7 +60,8 @@ public final class MockProtoSupport {
 
   // copybara:strip_begin(internal-only)
   private static void createProtoFlags(MockToolsConfig config) throws IOException {
-    config.create(
+    // Don't deal with the license.
+    config.overwrite(
         "third_party/protobuf/bazel/flags/java/mutable/BUILD",
         """
         label_flag(
@@ -81,52 +82,6 @@ public final class MockProtoSupport {
         label_flag(
             name = "proto_toolchain_for_javamutable_with_stubby13",
             build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby13",
-        )
-        """);
-    config.create(
-        "third_party/protobuf/bazel/flags/BUILD",
-        """
-        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-
-        cc_binary(
-            name = "empty",
-            srcs = ["empty_cc_plugin.cc"],
-        )
-
-        bool_flag(
-            name = "emit_proto_annotation_metadata",
-            build_setting_default = False,
-        )
-        """);
-    config.create(
-        "third_party/protobuf/bazel/flags/cc/BUILD",
-        """
-        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-
-        bool_flag(
-            name = "dual_proto_modules",
-            build_setting_default = False,
-        )
-
-        label_flag(
-            name = "protoc_cc_lib",
-            build_setting_default = ":empty",
-        )
-
-        label_flag(
-            name = "protoc_cc_plugin",
-            build_setting_default = ":empty",
-        )
-
-        bool_flag(
-            name = "experimental_proto_static_reflection_h",
-            build_setting_default = False,
-        )
-
-        sh_binary(
-            name = "empty",
-            srcs = ["empty.sh"],
         )
         """);
   }

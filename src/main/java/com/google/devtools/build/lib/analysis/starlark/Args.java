@@ -65,7 +65,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("context.args() object");
   }
 

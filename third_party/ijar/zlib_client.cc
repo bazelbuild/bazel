@@ -18,7 +18,7 @@
 
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/zlib_client.h"
-#include <zlib.h>
+#include <zlib.h>  // TODO: b/459821432 - migrate to rust zlib when OOM issue is resolved
 
 namespace devtools_ijar {
 

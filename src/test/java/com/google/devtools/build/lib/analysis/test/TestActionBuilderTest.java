@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -357,8 +358,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   /**
-   * Test that test rules always construct with a standard timeout, either
-   * inferred from size or explicitly set by attribute.
+   * Test that test rules always construct with a standard timeout, either inferred from size or
+   * explicitly set by attribute.
    */
   @Test
   public void testTestTimeoutFlagOverridesTimeoutDefaultsValues() throws Exception {
@@ -381,8 +382,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         """);
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//javatests/timeouts:small_no_timeout");
-    TestRunnerAction testAction = (TestRunnerAction)
-        getGeneratingAction(Iterables.get(testStatusList, 0));
+    TestRunnerAction testAction =
+        (TestRunnerAction) getGeneratingAction(Iterables.get(testStatusList, 0));
     Integer timeout = testAction.getTestProperties().getTimeout().getTimeoutSeconds();
     assertThat(timeout).isEqualTo(TestTimeout.SHORT.getTimeoutSeconds());
 
@@ -545,9 +546,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         """);
   }
 
-  /**
-   * Regression test for bug {@link "http://b/2644860"}.
-   */
+  /** Regression test for bug {@link "http://b/2644860"}. */
   @Test
   public void testIllegalTestSizeAttributeDoesNotCrashTestSuite() throws Exception {
     checkError(
@@ -561,9 +560,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "test_suite(name = 'everything')");
   }
 
-  /**
-   * Regression test for bug {@link "http://b/2644860"} but with an illegal Timeout.
-   */
+  /** Regression test for bug {@link "http://b/2644860"} but with an illegal Timeout. */
   @Test
   public void testIllegalTestTimeoutAttributeDoesNotCrashTestSuite() throws Exception {
     checkError(
@@ -1118,6 +1115,146 @@ public class TestActionBuilderTest extends BuildViewTestCase {
                 .get(PlatformOptions.class)
                 .platforms)
         .containsExactly(Label.parseCanonicalUnchecked("//:linux"));
+  }
+
+  @Test
+  public void testCommandLineBuiltForTestExecutionOS() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [script],
+                inputs = [],
+                command = "echo 'shell script goes here' > $@",
+            )
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with = [
+                        "%1$sos:macos",
+                    ],
+                ),
+            },
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    scratch.file(
+        "BUILD",
+        """
+        load(':some_test.bzl', 'some_test')
+        platform(
+            name = "linux",
+            constraint_values = [
+                "%1$sos:linux",
+            ],
+        )
+        platform(
+            name = "windows",
+            constraint_values = [
+                "%1$sos:windows",
+            ],
+        )
+        platform(
+            name = "macos",
+            constraint_values = [
+                "%1$sos:macos",
+            ],
+        )
+        some_test(
+            name = "some_test",
+            exec_compatible_with = ["%1$sos:windows"],
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        "--platforms=//:windows",
+        "--host_platform=//:windows",
+        "--extra_execution_platforms=//:windows,//:linux,//:macos");
+
+    Action testAction = getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
+    assertThat(((TestRunnerAction) testAction).getExecutionSettings().getExecutionOs())
+        .isEqualTo(OS.DARWIN);
+  }
+
+  @Test
+  public void testCommandLineBuiltForTestExecutionOS_withExecutionInfo() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [script],
+                inputs = [],
+                command = "echo 'shell script goes here' > $@",
+            )
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo(exec_group = "alternative_test"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with = [
+                        "%1$sos:macos",
+                    ],
+                ),
+                "alternative_test": exec_group(
+                    exec_compatible_with = [
+                        "%1$sos:linux",
+                    ],
+                ),
+            },
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    scratch.file(
+        "BUILD",
+        """
+        load(':some_test.bzl', 'some_test')
+        platform(
+            name = "linux",
+            constraint_values = [
+                "%1$sos:linux",
+            ],
+        )
+        platform(
+            name = "windows",
+            constraint_values = [
+                "%1$sos:windows",
+            ],
+        )
+        platform(
+            name = "macos",
+            constraint_values = [
+                "%1$sos:macos",
+            ],
+        )
+        some_test(
+            name = "some_test",
+            exec_compatible_with = ["%1$sos:windows"],
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        "--platforms=//:windows",
+        "--host_platform=//:windows",
+        "--extra_execution_platforms=//:windows,//:linux,//:macos");
+
+    Action testAction = getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
+    assertThat(((TestRunnerAction) testAction).getExecutionSettings().getExecutionOs())
+        .isEqualTo(OS.LINUX);
   }
 
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(

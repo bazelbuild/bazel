@@ -43,6 +43,7 @@ public final class Bazel {
           BazelStartupOptionsModule.class,
           // This module is registered early so that profiles are as complete as possible.
           com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
+          com.google.devtools.build.lib.starlarkprofiler.CpuProfilerModule.class,
           // This module needs to be registered before any module providing a SpawnCache
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,

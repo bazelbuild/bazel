@@ -38,12 +38,14 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -73,6 +75,8 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecution
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -366,36 +370,80 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private Distribution computeDistributionProto(ImmutableList<DecimalBucketer.Bucket> buckets) {
+    Distribution.Builder result = Distribution.newBuilder();
+
+    for (var b : buckets) {
+      result.addHistogramBucket(
+          Distribution.HistogramBucket.newBuilder()
+              .setMin(b.minInclusive())
+              .setMax(b.maxExclusive())
+              .setCount(b.count())
+              .build());
+    }
+    return result.build();
+  }
+
   private RemoteAnalysisCacheStatistics collectRemoteAnalysisCacheStats() {
+    RemoteAnalysisCachingEventListener listener = env.getRemoteAnalysisCachingEventListener();
     RemoteAnalysisCacheStatistics.Builder result =
         RemoteAnalysisCacheStatistics.newBuilder()
-            .setCacheHits(env.getRemoteAnalysisCachingEventListener().getCacheHits().size())
-            .setCacheMisses(env.getRemoteAnalysisCachingEventListener().getCacheMisses().size());
+            .setCacheHits(listener.getCacheHits().size())
+            .setCacheMisses(listener.getCacheMisses().size());
+
+    for (var entry : listener.getMissesByReason().entrySet()) {
+      result.addCacheMissesByReason(
+          Entry.newBuilder()
+              .setKey(entry.getKey().name())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getMissesBySkyFunctionName().entrySet()) {
+      result.addCacheMissesBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getHitsBySkyFunctionName().entrySet()) {
+      result.addCacheHitsBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
 
     FingerprintValueStore.Stats fvsStats =
         env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
-    if (fvsStats != null) {
-      result
-          .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
-          .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
-          .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
-          .setValueStoreWriteOps(fvsStats.entriesWritten())
-          .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
-          .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
-          .setValueStoreReadBatches(fvsStats.getBatches())
-          .setValueStoreWriteBatches(fvsStats.setBatches());
-    }
+    result
+        .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
+        .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
+        .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
+        .setValueStoreWriteOps(fvsStats.entriesWritten())
+        .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
+        .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
+        .setValueStoreReadBatches(fvsStats.getBatches())
+        .setValueStoreWriteBatches(fvsStats.setBatches())
+        .setValueStoreReadLatencyMicros(computeDistributionProto(fvsStats.getLatencyMicros()))
+        .setValueStoreReadBatchLatencyMicros(
+            computeDistributionProto(fvsStats.getBatchLatencyMicros()))
+        .setValueStoreWriteLatencyMicros(computeDistributionProto(fvsStats.setLatencyMicros()))
+        .setValueStoreWriteBatchLatencyMicros(
+            computeDistributionProto(fvsStats.setBatchLatencyMicros()));
 
     RemoteAnalysisCacheClient.Stats raccStats =
         env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
-    if (raccStats != null) {
-      result
-          .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
-          .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
-          .setAnalysisCacheOps(raccStats.requestsSent())
-          .setAnalysisCacheBatches(raccStats.batches())
-          .setMetadataLookupResult(raccStats.matchStatus());
-    }
+    result
+        .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
+        .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
+        .setAnalysisCacheOps(raccStats.requestsSent())
+        .setAnalysisCacheBatches(raccStats.batches())
+        .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
+        .setAnalysisCacheReadBatchLatencyMicros(
+            computeDistributionProto(raccStats.batchLatencyMicros()))
+        .setMetadataLookupResult(raccStats.matchStatus());
 
     return result.build();
   }

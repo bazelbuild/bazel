@@ -2,8 +2,6 @@
 title: 'Client/server implementation'
 ---
 
-
-
 The Bazel system is implemented as a long-lived server process. This allows it
 to perform many optimizations not possible with a batch-oriented implementation,
 such as caching of BUILD files, dependency graphs, and other metadata from one
@@ -47,7 +45,7 @@ ps -e f
 This makes it easier to find out which server process belongs to a given
 workspace. (Beware that with certain other options to `ps`, Bazel server
 processes may be named just `java`.) Bazel servers can be stopped using the
-[shutdown](/docs/user-manual#shutdown) command.
+[shutdown](/versions/7.6.1/docs/user-manual#shutdown) command.
 
 When running `bazel`, the client first checks that the server is the appropriate
 version; if not, the server is stopped and a new one started. This ensures that

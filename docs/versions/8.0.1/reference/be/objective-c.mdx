@@ -1,0 +1,63 @@
+---
+title: 'Objective-C Rules'
+---
+
+## Rules
+
+* [objc\_import](#objc_import)
+* [objc\_library](#objc_library)
+
+## objc\_import
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/objc/objc_import.bzl)
+
+```
+objc_import(name, deps, hdrs, alwayslink, archives, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, includes, restricted_to, sdk_dylibs, sdk_frameworks, sdk_includes, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, weak_sdk_frameworks)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `alwayslink` | Boolean; default is `False` |
+| `archives` | List of [labels](/versions/8.0.1/concepts/labels); required |
+| `includes` | List of strings; default is `[]` |
+| `sdk_dylibs` | List of strings; default is `[]` |
+| `sdk_frameworks` | List of strings; default is `[]` |
+| `sdk_includes` | List of strings; default is `[]` |
+| `textual_hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `weak_sdk_frameworks` | List of strings; default is `[]` |
+
+## objc\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/objc/objc_library.bzl)
+
+```
+objc_library(name, deps, srcs, data, hdrs, alwayslink, compatible_with, copts, defines, deprecation, distribs, enable_modules, exec_compatible_with, exec_properties, features, implementation_deps, includes, linkopts, module_map, module_name, non_arc_srcs, pch, restricted_to, sdk_dylibs, sdk_frameworks, sdk_includes, stamp, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, weak_sdk_frameworks)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `alwayslink` | Boolean; default is `False` |
+| `copts` | List of strings; default is `[]` |
+| `defines` | List of strings; default is `[]` |
+| `enable_modules` | Boolean; default is `False` |
+| `implementation_deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `includes` | List of strings; default is `[]` |
+| `linkopts` | List of strings; default is `[]` |
+| `module_map` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `module_name` | String; default is `""` |
+| `non_arc_srcs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `pch` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `sdk_dylibs` | List of strings; default is `[]` |
+| `sdk_frameworks` | List of strings; default is `[]` |
+| `sdk_includes` | List of strings; default is `[]` |
+| `stamp` | Boolean; default is `False` |
+| `textual_hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `weak_sdk_frameworks` | List of strings; default is `[]` |

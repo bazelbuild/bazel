@@ -16,7 +16,11 @@ package net.starlark.java.syntax;
 import java.math.BigInteger;
 import javax.annotation.Nullable;
 
-/** Syntax node for an int literal. */
+/**
+ * Syntax node for a non-negative int literal. (Negative integers are parsed as a {@link
+ * UnaryOperatorExpression} operating on a positive {@link IntLiteral} argument.)
+ */
+// TODO: #28385 - consider optimizing negative integer literals to be IntLiteral.
 public final class IntLiteral extends Expression {
   private final String raw;
   private final int tokenOffset;

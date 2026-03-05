@@ -216,6 +216,8 @@ public final class Resolver extends NodeVisitor {
     // Null is treated as untyped / Any.
     // Always null for the function associated with a StarlarkFile object.
     @Nullable private Types.CallableType functionType;
+    // Set by type checking if applicable.
+    private boolean usesTypeSyntax;
 
     private Function(
         String name,
@@ -397,6 +399,29 @@ public final class Resolver extends NodeVisitor {
     void setFunctionType(@Nullable Types.CallableType functionType) {
       this.functionType = functionType;
     }
+
+    /**
+     * After type tagging has been performed, returns true if the non-lambda function is considered
+     * to use static typing syntax - in other words, type annotations or {@code cast} expressions.
+     * Specifically:
+     *
+     * <ul>
+     *   <li>For an ordinary function, returns true if the function's declaration or body (including
+     *       any nested lambdas, but <em>not</em> including any ordinary nested {@code def}
+     *       functions) uses type syntax.
+     *   <li>For a file's toplevel function, returns true if any part of the file uses type syntax.
+     *   <li>For a lambda, this bit is never set; callers should instead check {@link
+     *       #usesTypeSyntax()} for the most proximate enclosing def or toplevel.
+     * </ul>
+     */
+    public boolean usesTypeSyntax() {
+      return usesTypeSyntax;
+    }
+
+    /** Tags this function as using type syntax. */
+    void setUsesTypeSyntax() {
+      this.usesTypeSyntax = true;
+    }
   }
 
   /**
@@ -410,9 +435,9 @@ public final class Resolver extends NodeVisitor {
    * does *not* contain information about local symbols, or globals that are defined in the code
    * currently being resolved.
    *
-   * <p>The {@link #resolveType} API returns type information used in static type checking, but is
-   * not used directly in the resolver. It may include information about user-defined types, i.e.
-   * types introduced as global symbols in the resolved code.
+   * <p>The {@link #resolveTypeConstructor} API returns type information used in static type
+   * checking, but is not used directly in the resolver. It may include information about
+   * user-defined types, i.e. types introduced as global symbols in the resolved code.
    */
   public interface Module {
 
@@ -427,11 +452,11 @@ public final class Resolver extends NodeVisitor {
     /**
      * Resolves a name to a corresponding type constructor.
      *
-     * @throws Undefined if the name is not defined, or if it is not valid as a type constructor. If
-     *     not defined, the exception may contain a set of available candidate names that are
-     *     predefined symbols or that are injected as user-defined types.
+     * @return null if the name is known but not a type constructor.
+     * @throws Undefined if the name is not defined, as per {@link #resolve}.
      */
-    Types.TypeConstructorProxy resolveTypeConstructor(String name) throws Undefined;
+    @Nullable
+    TypeConstructor getTypeConstructor(String name) throws Undefined;
 
     /**
      * An Undefined exception indicates a failure to resolve a top-level name. If {@code candidates}

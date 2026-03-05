@@ -2,8 +2,6 @@
 title: 'Multiplex Workers (Experimental Feature)'
 ---
 
-
-
 This page describes multiplex workers, how to write multiplex-compatible
 rules, and workarounds for certain limitations.
 
@@ -76,7 +74,7 @@ globally by passing `--noworker_multiplex`.
 
 A ruleset is encouraged to use multiplex workers if possible,  to reduce memory
 pressure and improve performance. However, multiplex workers are not currently
-compatible with [dynamic execution](/remote/dynamic) unless they
+compatible with [dynamic execution](/versions/8.1.1/remote/dynamic) unless they
 implement multiplex sandboxing. Attempting to run non-sandboxed multiplex
 workers with dynamic execution will silently use sandboxed
 singleplex workers instead.

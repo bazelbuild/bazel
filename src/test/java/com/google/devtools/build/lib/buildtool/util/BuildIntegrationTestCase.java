@@ -268,12 +268,7 @@ public abstract class BuildIntegrationTestCase {
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
-    directories =
-        new BlazeDirectories(
-            serverDirectories,
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+    directories = new BlazeDirectories(serverDirectories, workspace, TestConstants.PRODUCT_NAME);
     binTools = IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();
@@ -397,7 +392,7 @@ public abstract class BuildIntegrationTestCase {
     // BlazeRuntime. The idea is for them to be run early enough during the server startup.
     // For tests, we have to do this here in order to mimic this behavior.
     for (BlazeService service : getBlazeServices()) {
-      service.globalInit();
+      service.globalInit(getStartupOptionsProvider());
     }
   }
 
@@ -617,9 +612,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser =
-        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
-    startupOptionsParser.parse(getStartupOptions());
+    OptionsParsingResult startupOptionsProvider = getStartupOptionsProvider();
     BlazeModule connectivityModule = getConnectivityModule();
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
@@ -629,7 +622,7 @@ public abstract class BuildIntegrationTestCase {
             .setFileSystem(fileSystem)
             .setProductName(TestConstants.PRODUCT_NAME)
             .setBugReporter(bugReporter)
-            .setStartupOptionsProvider(startupOptionsParser)
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
@@ -662,6 +655,13 @@ public abstract class BuildIntegrationTestCase {
     builder.addBlazeModule(new MetricsModule());
 
     return builder;
+  }
+
+  private OptionsParsingResult getStartupOptionsProvider() throws Exception {
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
+    startupOptionsParser.parse(getStartupOptions());
+    return startupOptionsParser;
   }
 
   protected List<String> getStartupOptions() {
@@ -697,6 +697,14 @@ public abstract class BuildIntegrationTestCase {
       // requires that the install base be separate from the workspace (unlike, say,
       // BuildViewTestCase).
       runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
+    }
+
+    // Integration tests currently pretend that they run on a Linux host platform on all OSes. This
+    // is a gross hack, but while it is in place, we need to manually set the shell path to a valid
+    // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
+    // one.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
     }
   }
 

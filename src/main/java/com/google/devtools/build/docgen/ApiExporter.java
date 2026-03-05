@@ -172,7 +172,7 @@ public class ApiExporter {
       sig.getDefaultValue =
           (i) -> {
             Object v = fn.getDefaultValue(i);
-            return v == null ? null : Starlark.repr(v);
+            return v == null ? null : Starlark.repr(v, StarlarkSemantics.DEFAULT);
           };
       return signatureToValue(sig);
     }

@@ -1,0 +1,166 @@
+---
+title: 'DefaultInfo'
+---
+
+A provider that gives general information about a target's direct and transitive files. Every rule type has this provider, even if it is not returned explicitly by the rule's implementation function. Each `DefaultInfo` instance has the following fields:
+
+* `files`* `files_to_run`* `data_runfiles`* `default_runfiles`
+
+See the [rules](https://bazel.build/versions/7.7.1/extending/rules) page for extensive guides on how to use this provider.
+
+## Members
+
+* [DefaultInfo](#DefaultInfo)
+* [data\_runfiles](#data_runfiles)
+* [default\_runfiles](#default_runfiles)
+* [files](#files)
+* [files\_to\_run](#files_to_run)
+* [to\_json](#to_json)
+* [to\_proto](#to_proto)
+
+## DefaultInfo
+
+```
+DefaultInfo DefaultInfo(files=None, runfiles=None, data_runfiles=None, default_runfiles=None, executable=None)
+```
+
+The `DefaultInfo` constructor.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `files` | [depset](../builtins/depset); or `None`; default is `None`  A [`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing the default outputs to build when this target is specified on the bazel command line. By default it is all predeclared outputs. |
+| `runfiles` | [runfiles](../builtins/runfiles); or `None`; default is `None`  runfiles descriptor describing the files that this target needs when run (via the `run` command or as a tool dependency). |
+| `data_runfiles` | [runfiles](../builtins/runfiles); or `None`; default is `None`  **It is recommended that you avoid using this parameter (see ["runfiles features to avoid"](https://bazel.build/versions/7.7.1/extending/rules#runfiles_features_to_avoid))** runfiles descriptor describing the runfiles this target needs to run when it is a dependency via the `data` attribute. |
+| `default_runfiles` | [runfiles](../builtins/runfiles); or `None`; default is `None`  **It is recommended that you avoid using this parameter (see ["runfiles features to avoid"](https://bazel.build/versions/7.7.1/extending/rules#runfiles_features_to_avoid))** runfiles descriptor describing the runfiles this target needs to run when it is a dependency via any attribute other than the `data` attribute. |
+| `executable` | [File](../builtins/File); or `None`; default is `None`  If this rule is marked [`executable`](../globals/bzl#rule.executable) or [`test`](../globals/bzl#rule.test), this is a [`File`](../builtins/File) object representing the file that should be executed to run the target. By default it is the predeclared output `ctx.outputs.executable`. |
+
+## data\_runfiles
+
+```
+runfiles DefaultInfo.data_runfiles
+```
+
+runfiles descriptor describing the files that this target needs when run in the condition that it is a `data` dependency attribute. Under most circumstances, use the `default_runfiles` parameter instead. See ["runfiles features to avoid"](https://bazel.build/versions/7.7.1/extending/rules#runfiles_features_to_avoid) for details.
+May return `None`.
+
+## default\_runfiles
+
+```
+runfiles DefaultInfo.default_runfiles
+```
+
+runfiles descriptor describing the files that this target needs when run (via the `run` command or as a tool dependency).
+May return `None`.
+
+## files
+
+```
+depset DefaultInfo.files
+```
+
+A [`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing the default outputs to build when this target is specified on the bazel command line. By default it is all predeclared outputs.
+May return `None`.
+
+## files\_to\_run
+
+```
+FilesToRunProvider DefaultInfo.files_to_run
+```
+
+A [`FilesToRunProvider`](../providers/FilesToRunProvider) object containing information about the executable and runfiles of the target.
+May return `None`.
+
+## to\_json
+
+```
+string DefaultInfo.to_json()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:
+
+```
+struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+```
+
+.
+
+Deprecated: instead, use json.encode(x) or json.encode\_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+## to\_proto
+
+```
+string DefaultInfo.to_proto()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:
+
+```
+struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+```
+
+Deprecated: use proto.encode\_text(x) instead.

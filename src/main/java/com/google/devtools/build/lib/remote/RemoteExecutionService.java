@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
@@ -74,8 +75,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
@@ -301,7 +301,7 @@ public class RemoteExecutionService {
       }
       if (first && executionPlatform != null) {
         first = false;
-        OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+        OS executionOs = getOsFromConstraintsOrHost(executionPlatform);
         arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
       command.addArguments(internalToUnicode(arg));
@@ -528,13 +528,18 @@ public class RemoteExecutionService {
 
       // Get the remote platform properties.
       Platform platform;
+      ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
       if (toolSignature != null) {
-        platform =
-            PlatformUtils.getPlatformProto(
-                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
-      } else {
-        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
       }
+      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+            spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+      }
+      platform =
+          PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
 
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =

@@ -101,7 +101,6 @@ java_library(
     name = "IncrementalLoadingTest_lib",
     srcs = ["IncrementalLoadingTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -117,6 +116,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -170,7 +170,6 @@ java_test(
     name = "PackageLoadingTest",
     srcs = ["PackageLoadingTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -182,6 +181,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -206,7 +206,6 @@ java_test(
     name = "BuildFileModificationTest",
     srcs = ["BuildFileModificationTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -216,6 +215,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -253,7 +253,6 @@ java_library(
     name = "LoadingPhaseRunnerTest_lib",
     srcs = ["LoadingPhaseRunnerTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -267,6 +266,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:pattern_expanding_error",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",

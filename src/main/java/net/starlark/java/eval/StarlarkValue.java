@@ -14,28 +14,22 @@
 
 package net.starlark.java.eval;
 
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.StarlarkType;
-import net.starlark.java.syntax.Types;
 
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
-  default StarlarkType getStarlarkType() {
-    return Types.ANY;
-  }
 
   /**
-   * Prints an official representation of object x.
+   * Returns the type of this Starlark value, or null if no information is provided.
    *
-   * <p>Convention is that the string should be parseable back to the value x. If this isn't
-   * feasible then it should be a short human-readable description enclosed in angled brackets, e.g.
-   * {@code "<foo object>"}.
-   *
-   * @param printer a printer to be used for formatting nested values.
-   * @deprecated use {@link #repr(Printer, StarlarkSemantics)} instead
+   * <p>This method should not be called directly in client code. The canonical way to obtain the
+   * type of a value is {@link Starlark#getStarlarkType}, which may inject information obtained in
+   * other ways.
    */
-  @Deprecated
-  default void repr(Printer printer) {
-    repr(printer, StarlarkSemantics.DEFAULT);
+  @Nullable
+  default StarlarkType getStarlarkType() {
+    return null;
   }
 
   /**
@@ -59,7 +53,7 @@ public interface StarlarkValue {
    * @param printer a printer to be used for formatting nested values.
    */
   default void str(Printer printer, StarlarkSemantics semantics) {
-    repr(printer);
+    repr(printer, semantics);
   }
 
   /**

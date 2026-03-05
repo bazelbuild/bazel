@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.Map;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Outputs repository definitions for {@code mod show_repo}. */
 public class RepoOutputFormatter {
@@ -95,7 +96,7 @@ public class RepoOutputFormatter {
           .append("  ")
           .append(attr.getKey())
           .append(" = ")
-          .append(Starlark.repr(attr.getValue()))
+          .append(Starlark.repr(attr.getValue(), StarlarkSemantics.DEFAULT))
           .append(",\n");
     }
     printer.append(")\n");

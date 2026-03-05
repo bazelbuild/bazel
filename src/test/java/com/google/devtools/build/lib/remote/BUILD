@@ -69,9 +69,6 @@ java_library(
     deps = [
         ":action_input_prefetcher_test_base",
         ":remote_action_file_system_test_base",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
-        "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
@@ -82,6 +79,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
@@ -123,6 +121,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_line_path_factory",
+        "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/testing/vfs:spied_filesystem",
@@ -171,6 +173,7 @@ java_library(
         "@googleapis//google/longrunning:longrunning_java_proto",
         "@googleapis//google/rpc:rpc_java_proto",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@maven//:org_openjdk_jol_jol_core",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
@@ -196,7 +199,13 @@ java_library(
 
 java_test(
     name = "RemoteTests",
-    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+        # Required for compatibility with records.
+        "-Djol.magicFieldOffset=true",
+        # Match the Bazel startup flags.
+        "-XX:+UseCompactObjectHeaders",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RemoteTests_lib",
@@ -242,13 +251,13 @@ java_test(
     ],
     deps = [
         ":build_without_the_bytes_integration_test_base",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -271,13 +280,13 @@ java_test(
         "//third_party/grpc-java:grpc-jar",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

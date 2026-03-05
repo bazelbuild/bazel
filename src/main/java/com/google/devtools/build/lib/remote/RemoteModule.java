@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -191,7 +192,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void globalInit(OptionsParsingResult startupOptions) {
+  public void globalInit(
+      OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
     outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
     useRemoteRepoContentsCache =
         startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
@@ -269,8 +271,7 @@ public final class RemoteModule extends BlazeModule {
       Credentials credentials,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
-      DigestUtil digestUtil,
-      ExecutorService executorService) {
+      DigestUtil digestUtil) {
     CombinedCacheClient combinedCacheClient;
     Retrier.CircuitBreaker circuitBreaker =
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
@@ -282,7 +283,6 @@ public final class RemoteModule extends BlazeModule {
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil,
-              executorService,
               new RemoteRetrier(
                   remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
     } catch (IOException e) {
@@ -609,8 +609,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
-      initHttpAndDiskCache(
-          env, credentials, authAndTlsOptions, remoteOptions, digestUtil, executorService);
+      initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
       return;
     }
 
@@ -728,7 +727,6 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions,
                   digestUtil,
-                  executorService,
                   remoteOptions.remoteVerifyDownloads);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
@@ -767,7 +765,6 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions,
                   digestUtil,
-                  executorService,
                   remoteOptions.remoteVerifyDownloads);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);

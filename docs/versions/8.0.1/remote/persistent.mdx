@@ -2,8 +2,6 @@
 title: 'Persistent Workers'
 ---
 
-
-
 This page covers how to use persistent workers, the benefits, requirements, and
 how workers affect sandboxing.
 
@@ -19,7 +17,7 @@ tool, as well as shutting down workers on exit. Each worker instance is assigned
 `<outputBase>/bazel-workers`.
 
 Using persistent workers is an
-[execution strategy](/docs/user-manual#execution-strategy) that decreases
+[execution strategy](/versions/8.0.1/docs/user-manual#execution-strategy) that decreases
 start-up overhead, allows more JIT compilation, and enables caching of for
 example the abstract syntax trees in the action execution. This strategy
 achieves these improvements by sending multiple requests to a long-running
@@ -40,7 +38,7 @@ uses persistent workers by default when executing builds, though remote
 execution takes precedence. For actions that do not support persistent workers,
 Bazel falls back to starting a tool instance for each action. You can explicitly
 set your build to use persistent workers by setting the `worker`
-[strategy](/docs/user-manual#execution-strategy) for the applicable tool
+[strategy](/versions/8.0.1/docs/user-manual#execution-strategy) for the applicable tool
 mnemonics. As a best practice, this example includes specifying `local` as a
 fallback to the `worker` strategy:
 
@@ -59,7 +57,7 @@ environment, you can use the experimental
 [*dynamic* strategy](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html),
 which races a remote execution and a worker execution. To enable the dynamic
 strategy, pass the
-[--experimental_spawn_scheduler](/reference/command-line-reference#flag--experimental_spawn_scheduler)
+[--experimental_spawn_scheduler](/versions/8.0.1/reference/command-line-reference#flag--experimental_spawn_scheduler)
 flag. This strategy automatically enables workers, so there is no need to
 specify the `worker` strategy, but you can still use `local` or `sandboxed` as
 fallbacks.
@@ -68,7 +66,7 @@ fallbacks.
 
 The default number of worker instances per mnemonic is 4, but can be adjusted
 with the
-[`worker_max_instances`](/reference/command-line-reference#flag--worker_max_instances)
+[`worker_max_instances`](/versions/8.0.1/reference/command-line-reference#flag--worker_max_instances)
 flag. There is a trade-off between making good use of the available CPUs and the
 amount of JIT compilation and cache hits you get. With more workers, more
 targets will pay start-up costs of running non-JITted code and hitting cold
@@ -85,7 +83,7 @@ This graph shows the from-scratch compilation times for Bazel (target
 with 64 GB of RAM. For each worker configuration, five clean builds are run and
 the average of the last four are taken.
 
-![Graph of performance improvements of clean builds](/docs/images/workers-clean-chart.png "Performance improvements of clean builds")
+![Graph of performance improvements of clean builds](/versions/8.0.1/docs/images/workers-clean-chart.png "Performance improvements of clean builds")
 
 **Figure 1.** Graph of performance improvements of clean builds.
 
@@ -105,7 +103,7 @@ after changing an internal string constant in
 gives a 3x speed-up (average of 20 incremental builds with one warmup build
 discarded):
 
-![Graph of performance improvements of incremental builds](/docs/images/workers-incremental-chart.png "Performance improvements of incremental builds")
+![Graph of performance improvements of incremental builds](/versions/8.0.1/docs/images/workers-incremental-chart.png "Performance improvements of incremental builds")
 
 **Figure 2.** Graph of performance improvements of incremental builds.
 
@@ -115,7 +113,7 @@ measured in the above situation when a commonly used constant is changed.
 ## Modifying persistent workers
 
 You can pass the
-[`--worker_extra_flag`](/reference/command-line-reference#flag--worker_extra_flag)
+[`--worker_extra_flag`](/versions/8.0.1/reference/command-line-reference#flag--worker_extra_flag)
 flag to specify start-up flags to workers, keyed by mnemonic. For instance,
 passing `--worker_extra_flag=javac=--debug` turns on debugging for Javac only.
 Only one worker flag can be set per use of this flag, and only for one mnemonic.
@@ -126,16 +124,16 @@ flags is combined into a `WorkerKey`, and for each `WorkerKey` up to
 action configuration can also specify set-up flags.
 
 Passing the
-[`--worker_sandboxing`](/reference/command-line-reference#flag--worker_sandboxing)
+[`--worker_sandboxing`](/versions/8.0.1/reference/command-line-reference#flag--worker_sandboxing)
 flag makes each worker request use a separate sandbox directory for all its
-inputs. Setting up the [sandbox](/docs/sandboxing) takes some extra time,
+inputs. Setting up the [sandbox](/versions/8.0.1/docs/sandboxing) takes some extra time,
 especially on macOS, but gives a better correctness guarantee.
 
 The
-[`--worker_quit_after_build`](/reference/command-line-reference#flag--worker_quit_after_build)
+[`--worker_quit_after_build`](/versions/8.0.1/reference/command-line-reference#flag--worker_quit_after_build)
 flag is mainly useful for debugging and profiling. This flag forces all workers
 to quit once a build is done. You can also pass
-[`--worker_verbose`](/reference/command-line-reference#flag--worker_verbose) to
+[`--worker_verbose`](/versions/8.0.1/reference/command-line-reference#flag--worker_verbose) to
 get more output about what the workers are doing. This flag is reflected in the
 `verbosity` field in `WorkRequest`, allowing worker implementations to also be
 more verbose.
@@ -148,11 +146,11 @@ than one `WorkerKey` per mnemonic, you may see more than `worker_max_instances`
 log files for a given mnemonic.
 
 For Android builds, see details at the
-[Android Build Performance page](/docs/android-build-performance).
+[Android Build Performance page](/versions/8.0.1/docs/android-build-performance).
 
 ## Implementing persistent workers
 
-See the [creating persistent workers](/remote/creating) page for more
+See the [creating persistent workers](/versions/8.0.1/remote/creating) page for more
 information on how to make a worker.
 
 This example shows a Starlark configuration for a worker that uses JSON:
@@ -216,7 +214,7 @@ be spawned for each value used. This can lead to excessive memory consumption if
 too many variations are used.
 
 Each worker can currently only process one request at a time. The experimental
-[multiplex workers](/remote/multiplex) feature allows using multiple
+[multiplex workers](/versions/8.0.1/remote/multiplex) feature allows using multiple
 threads, if the underlying tool is multithreaded and the wrapper is set up to
 understand this.
 
@@ -232,7 +230,7 @@ might be helpful.
 ## How do workers affect sandboxing?
 
 Using the `worker` strategy by default does not run the action in a
-[sandbox](/docs/sandboxing), similar to the `local` strategy. You can set the
+[sandbox](/versions/8.0.1/docs/sandboxing), similar to the `local` strategy. You can set the
 `--worker_sandboxing` flag to run all workers inside sandboxes, making sure each
 execution of the tool only sees the input files it's supposed to have. The tool
 may still leak information between requests internally, for instance through a

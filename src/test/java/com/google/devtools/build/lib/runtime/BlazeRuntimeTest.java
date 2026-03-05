@@ -65,8 +65,7 @@ public class BlazeRuntimeTest {
       new ServerDirectories(
           fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
   private final BlazeDirectories blazeDirectories =
-      new BlazeDirectories(
-          serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
+      new BlazeDirectories(serverDirectories, fs.getPath("/workspace"), "blaze");
   private final OptionsParser optionsParser =
       OptionsParser.builder()
           .optionsClasses(
@@ -344,8 +343,7 @@ public class BlazeRuntimeTest {
 
     BlazeRuntime runtime = createRuntime(ImmutableList.of(module), ImmutableList.of(service));
 
-    // Additional modules may be registered internally, e.g. DummyMetricsModule.
-    assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
+    assertThat(runtime.getOptionsSuppliers()).containsExactly(module, service);
   }
 
   private BlazeRuntime createRuntime() throws Exception {

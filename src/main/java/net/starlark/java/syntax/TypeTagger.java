@@ -14,12 +14,14 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -30,9 +32,11 @@ import net.starlark.java.syntax.Resolver.Scope;
 /**
  * A visitor for tagging the data structures of a resolved file with type information.
  *
- * <p>This populates the function type on the {@link Resolver.Function} objects in the AST, and the
- * variable types on the {@link Resolver.Binding} objects. These type fields must all be null prior
- * to running the visitor.
+ * <p>This populates the function type on the {@link Resolver.Function} objects in the AST and
+ * records whether or not a given {@link Resolver.Function} is considered to use static type syntax;
+ * populates the variable types on the {@link Resolver.Binding} objects; and populates the Starlark
+ * type stored in {@link CastExpression}s. These type fields must all be null prior to running the
+ * visitor.
  *
  * <p>The types assigned to the fields are based solely on the type annotations in the program. No
  * type inference is done here.
@@ -45,6 +49,10 @@ public final class TypeTagger extends NodeVisitor {
   private final Module module;
 
   private final List<SyntaxError> errors;
+
+  // Empty if we are tagging a type expression (inside which no function definitions are allowed).
+  // Populated and mutated by visitation.
+  private final ArrayDeque<Resolver.Function> functionStack = new ArrayDeque<>();
 
   // Formats and reports an error at the start of the specified node.
   @FormatMethod
@@ -63,25 +71,35 @@ public final class TypeTagger extends NodeVisitor {
     this.module = module;
   }
 
+  private TypeTagger(List<SyntaxError> errors, Module module, Resolver.Function toplevel) {
+    this(errors, module);
+    functionStack.push(toplevel);
+  }
+
   /**
    * Given an identifier denoting a type constructor, obtains the type constructor from the module.
    *
    * <p>If no match, logs an error at the given node and returns null.
    */
   @Nullable
-  private Types.TypeConstructorProxy resolveTypeConstructor(Identifier id) {
+  private TypeConstructor resolveTypeConstructor(Identifier id) {
     String name = id.getName();
 
     var scope = id.getBinding().getScope();
     if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
       // Local names cannot by types. Don't allow `x: Foo` to succeed if Foo is a local shadowing a
       // type name.
-      errorf(id, "local name '%s' cannot be used as a type", name);
+      errorf(id, "local symbol '%s' cannot be used as a type", name);
       return null;
     }
 
     try {
-      return module.resolveTypeConstructor(name);
+      TypeConstructor constructor = module.getTypeConstructor(name);
+      if (constructor == null) {
+        errorf(id, "%s symbol '%s' cannot be used as a type", scope, name);
+        return null;
+      }
+      return constructor;
     } catch (Resolver.Module.Undefined ex) {
       String suggestion = ex.candidates != null ? SpellChecker.didYouMean(name, ex.candidates) : "";
       errorf(id, "%s%s", ex.getMessage(), suggestion);
@@ -89,8 +107,7 @@ public final class TypeTagger extends NodeVisitor {
     }
   }
 
-  // TODO: #28043 - Narrow return type to a TypeArg, once we add that class.
-  private Object extractTypeOrArg(Expression expr) {
+  private TypeConstructor.Arg extractArg(Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
@@ -106,52 +123,54 @@ public final class TypeTagger extends NodeVisitor {
       case TYPE_APPLICATION -> {
         TypeApplication app = (TypeApplication) expr;
 
-        Types.TypeConstructorProxy constructor = resolveTypeConstructor(app.getConstructor());
+        TypeConstructor constructor = resolveTypeConstructor(app.getConstructor());
         if (constructor == null) {
           return Types.ANY;
         }
-        ImmutableList<Object> arguments =
-            app.getArguments().stream()
-                .map(arg -> extractTypeOrArg(arg))
-                .collect(toImmutableList());
+        ImmutableList<TypeConstructor.Arg> arguments =
+            app.getArguments().stream().map(this::extractArg).collect(toImmutableList());
 
         try {
-          return constructor.invoke(arguments);
-        } catch (IllegalArgumentException e) {
+          return constructor.createStarlarkType(arguments);
+        } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
         }
       }
       case IDENTIFIER -> {
-        Types.TypeConstructorProxy constructor = resolveTypeConstructor((Identifier) expr);
+        TypeConstructor constructor = resolveTypeConstructor((Identifier) expr);
         if (constructor == null) {
           return Types.ANY;
         }
         try {
-          return constructor.invoke(ImmutableList.of());
-        } catch (IllegalArgumentException e) {
-          // TODO: #28043 - Allow unapplied type constructors to be syntactic sugar for a default
-          // application, e.g. `list` for `list[Any]`.
+          return constructor.createStarlarkType(ImmutableList.of());
+        } catch (TypeConstructor.Failure e) {
           errorf(expr, "%s", e.getMessage());
           return Types.ANY;
         }
       }
+      case ELLIPSIS -> {
+        return TypeConstructor.Arg.ELLIPSIS;
+      }
+      case LIST_EXPR -> {
+        ListExpression listExpr = (ListExpression) expr;
+        if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
+          return TypeConstructor.Arg.EMPTY_TUPLE;
+        }
+      }
       default -> {
-        // TODO(ilist@): full evaluation: lists and dicts
-        errorf(expr, "unexpected expression '%s'", expr);
-        return Types.ANY;
+        // fall through
       }
     }
+    // TODO(ilist@): full evaluation: lists and dicts
+    errorf(expr, "unexpected expression '%s'", expr);
+    return Types.ANY;
   }
 
   private StarlarkType extractType(Expression expr) {
-    Object typeOrArg = extractTypeOrArg(expr);
-    if (!(typeOrArg instanceof StarlarkType type)) {
-      if (typeOrArg instanceof Types.TypeConstructorProxy) {
-        errorf(expr, "expected type arguments after the type constructor '%s'", expr);
-      } else {
-        errorf(expr, "expression '%s' is not a valid type.", expr);
-      }
+    TypeConstructor.Arg arg = extractArg(expr);
+    if (!(arg instanceof StarlarkType type)) {
+      errorf(expr, "expression '%s' is not a valid type.", expr);
       return Types.ANY;
     }
     return type;
@@ -305,8 +324,20 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   @Override
+  public void visit(StarlarkFile file) {
+    checkState(
+        functionStack.isEmpty(),
+        "When tagging a StarlarkFile, functionStack is expected to be initially empty");
+    Resolver.Function toplevel = file.getResolvedFunction();
+    this.functionStack.push(toplevel);
+    super.visit(file);
+    checkState(functionStack.pop().equals(toplevel));
+  }
+
+  @Override
   public void visit(AssignmentStatement assignment) {
     if (assignment.getType() != null) {
+      setUsesTypeSyntax();
       StarlarkType type = extractType(assignment.getType());
       setType(assignment, (Identifier) assignment.getLHS(), type);
     }
@@ -317,11 +348,18 @@ public final class TypeTagger extends NodeVisitor {
 
   @Override
   public void visit(DefStatement def) {
+    Resolver.Function resolvedFunction = def.getResolvedFunction();
+    functionStack.push(resolvedFunction);
     Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
-    setType(def.getResolvedFunction(), type);
+    setType(resolvedFunction, type);
     setType(def, def.getIdentifier(), type);
+    // Parameter types handled by visit(Parameter).
+    if (def.getReturnType() != null || !def.getTypeParameters().isEmpty()) {
+      setUsesTypeSyntax();
+    }
 
     super.visit(def);
+    checkState(functionStack.pop().equals(resolvedFunction));
   }
 
   @Override
@@ -331,6 +369,7 @@ public final class TypeTagger extends NodeVisitor {
       // This matches the behavior for the Resolver.Function's type.
       StarlarkType type = Types.ANY;
       if (param.getType() != null) {
+        setUsesTypeSyntax();
         type = extractType(param.getType());
       }
       setType(param, param.getIdentifier(), type);
@@ -340,11 +379,28 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   @Override
+  public void visit(TypeAliasStatement node) {
+    setUsesTypeSyntax();
+    super.visit(node);
+  }
+
+  @Override
   public void visit(VarStatement var) {
     StarlarkType type = extractType(var.getType());
     setType(var, var.getIdentifier(), type);
+    setUsesTypeSyntax();
 
     // No need to descend into type expression child.
+  }
+
+  // TODO: #28325 - Ensure we assign the type of an identifier referencing a universal/predeclared
+  // symbol, i.e. with no binding occurrences in the file.
+
+  @Override
+  public void visit(CastExpression cast) {
+    setUsesTypeSyntax();
+    cast.setStarlarkType(extractType(cast.getType()));
+    super.visit(cast);
   }
 
   @Override
@@ -373,5 +429,52 @@ public final class TypeTagger extends NodeVisitor {
   public static void tagFile(StarlarkFile file, Module module) {
     TypeTagger r = new TypeTagger(file.errors, module);
     r.visit(file);
+  }
+
+  /**
+   * Same as {@link #tagFile}, but for an individual expression.
+   *
+   * <p>Any errors are thrown as a {@link SyntaxError.Exception}.
+   *
+   * @param function the {@link Resolver.Function} that the resolver generated to wrap an
+   *     expression.
+   */
+  public static void tagExpr(Expression expr, Resolver.Function function, Module module)
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    TypeTagger r = new TypeTagger(errors, module, function);
+
+    r.visit(expr);
+
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(errors);
+    }
+  }
+
+  /**
+   * Sets the Starlark type on a {@link Resolver.Function} that the resolver generated to wrap an
+   * expression.
+   */
+  public static void tagExprFunction(Resolver.Function function, StarlarkType exprType) {
+    Types.CallableType functionType =
+        Types.callable(
+            /* parameterNames= */ ImmutableList.of(),
+            /* parameterTypes= */ ImmutableList.of(),
+            /* numPositionalOnlyParameters= */ 0,
+            /* numPositionalParameters= */ 0,
+            /* mandatoryParams= */ ImmutableSet.of(),
+            /* varargsType= */ null,
+            /* kwargsType= */ null,
+            /* returns= */ exprType);
+    setType(function, functionType);
+  }
+
+  private void setUsesTypeSyntax() {
+    // If anything in the file (or in the expr if TypeTagger is invoked via tagExpr()) uses type
+    // syntax, the toplevel is considered to use type syntax.
+    functionStack.peekLast().setUsesTypeSyntax();
+    // If anything nested in the most proximate def statement uses type syntax, the def statement
+    // is considered to use type syntax
+    functionStack.peek().setUsesTypeSyntax();
   }
 }

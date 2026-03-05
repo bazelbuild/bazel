@@ -22,7 +22,7 @@ java_library(
         "TestOptions.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:invocation_policy_java_proto",

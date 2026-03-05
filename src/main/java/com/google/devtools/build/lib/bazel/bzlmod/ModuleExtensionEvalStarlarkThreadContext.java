@@ -36,6 +36,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -185,6 +186,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
       return StarlarkList.immutableCopyOf(newList.build());
     }
     throw Starlark.errorf(
-        "unexpected Starlark value: %s (of type %s)", Starlark.repr(x), Starlark.type(x));
+        "unexpected Starlark value: %s (of type %s)",
+        Starlark.repr(x, StarlarkSemantics.DEFAULT), Starlark.type(x));
   }
 }

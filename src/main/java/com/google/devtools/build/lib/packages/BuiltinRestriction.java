@@ -68,6 +68,7 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_java", "java"),
 
               // Rust rules
+              BuiltinRestriction.allowlistEntry("", "devtools/rust/toolchain/testing"),
               BuiltinRestriction.allowlistEntry(
                   "", "third_party/bazel_rules/rules_rust/rust/private"),
               BuiltinRestriction.allowlistEntry("", "third_party/crubit"),

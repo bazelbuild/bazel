@@ -2,8 +2,6 @@
 title: 'JSON Trace Profile'
 ---
 
-
-
 The JSON trace profile can be very useful to quickly understand what Bazel spent
 time on during the invocation.
 
@@ -12,11 +10,11 @@ the output base named `command-$INOVCATION_ID.profile.gz`, where
 `$INOVCATION_ID` is the invocation identifier of the command. Bazel also creates
 a symlink called `command.profile.gz` in the output base that points the profile
 of the latest command. You can configure whether a profile is written with the
-[`--generate_json_trace_profile`](/reference/command-line-reference#flag--generate_json_trace_profile)
+[`--generate_json_trace_profile`](/versions/8.0.1/reference/command-line-reference#flag--generate_json_trace_profile)
 flag, and the location it is written to with the
-[`--profile`](/docs/user-manual#profile) flag. Locations ending with `.gz` are
+[`--profile`](/versions/8.0.1/docs/user-manual#profile) flag. Locations ending with `.gz` are
 compressed with GZIP. Bazel keeps the last 5 profiles, configurable by
-[`--profiles_to_retain`](/reference/command-line-reference#flag--generate_json_trace_profile),
+[`--profiles_to_retain`](/versions/8.0.1/reference/command-line-reference#flag--generate_json_trace_profile),
 in the output base by default for post-build analysis. Explicitly passing a
 profile path with `--profile` disables automatic garbage collection.
 
@@ -33,7 +31,7 @@ detailed results, click the boxes in the lower left corner.
 
 Example profile:
 
-![Example profile](/docs/images/json-trace-profile.png "Example profile")
+![Example profile](/versions/8.0.1/docs/images/json-trace-profile.png "Example profile")
 
 **Figure 1.** Example profile.
 
@@ -52,7 +50,7 @@ You can use these keyboard controls to navigate:
 
 ### `bazel analyze-profile`
 
-The Bazel subcommand [`analyze-profile`](/docs/user-manual#analyze-profile)
+The Bazel subcommand [`analyze-profile`](/versions/8.0.1/docs/user-manual#analyze-profile)
 consumes a profile format and prints cumulative statistics for
 different task types for each build phase and an analysis of the critical path.
 
@@ -129,7 +127,7 @@ Figure 1 shows a profile created with Bazel v5.3.1 and includes these rows:
 
 *   `action count`: Displays how many concurrent actions were in flight. Click
     on it to see the actual value. Should go up to the value of
-    [`--jobs`](/reference/command-line-reference#flag--jobs) in clean
+    [`--jobs`](/versions/8.0.1/reference/command-line-reference#flag--jobs) in clean
     builds.
 *   `CPU usage (Bazel)`: For each second of the build, displays the amount of
     CPU that was used by Bazel (a value of 1 equals one core being 100% busy).
@@ -193,7 +191,7 @@ Timestamps (`ts`) and durations (`dur`) in the trace events are given in
 microseconds. The category (`cat`) is one of enum values of `ProfilerTask`.
 Note that some events are merged together if they are very short and close to
 each other; pass
-[`--noslim_profile`](/reference/command-line-reference#flag--slim_profile)
+[`--noslim_profile`](/versions/8.0.1/reference/command-line-reference#flag--slim_profile)
 if you would like to prevent event merging.
 
 See also the

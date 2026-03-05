@@ -21,15 +21,6 @@ java_library(
 )
 
 java_library(
-    name = "lost_input_owners",
-    srcs = ["LostInputOwners.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "rewinding",
     srcs = [
         "ActionRewindException.java",
@@ -38,7 +29,6 @@ java_library(
     ],
     deps = [
         ":action_rewound_event",
-        ":lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -104,21 +94,20 @@ java_library(
     testonly = True,
     srcs = ["LostImportantOutputHandlerModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/runtime",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",

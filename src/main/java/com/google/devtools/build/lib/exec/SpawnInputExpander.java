@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
