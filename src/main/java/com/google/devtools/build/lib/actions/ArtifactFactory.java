@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -31,6 +32,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /** A cache of Artifacts, keyed by Path. */
@@ -53,21 +56,41 @@ public class ArtifactFactory implements ArtifactResolver {
 
   private static class SourceArtifactCache {
 
-    private class Entry {
-      private final SourceArtifact artifact;
-      private final int idOfBuild;
+    private record Entry(SourceArtifact artifact, int buildId) {
+      boolean isInvalid(int currentBuildId) {
+        return buildId != currentBuildId;
+      }
+    }
 
-      Entry(SourceArtifact artifact) {
-        this.artifact = artifact;
-        idOfBuild = buildId;
+    private record AsciiCaseInsensitivePathFragmentWrapper(PathFragment pathFragment) {
+      @SuppressWarnings("StringEquality")
+      static Object wrap(PathFragment pathFragment) {
+        // Ascii.toLowerCase returns the same string if and only if it is already all lowercase. In
+        // that case, we can avoid the allocation and retention of a wrapper object. Most paths
+        // are lowercase, so this is a worthwhile optimization.
+        if (Ascii.toLowerCase(pathFragment.getPathString()) == pathFragment.getPathString()) {
+          // Avoid unnecessary wrapper allocation if the path is already all lowercase.
+          return pathFragment;
+        }
+        return new AsciiCaseInsensitivePathFragmentWrapper(pathFragment);
       }
 
-      SourceArtifact getArtifact() {
-        return artifact;
+      @Override
+      public boolean equals(Object obj) {
+        return switch (obj) {
+          case PathFragment otherPathFragment ->
+              Ascii.equalsIgnoreCase(
+                  pathFragment.getPathString(), otherPathFragment.getPathString());
+          case AsciiCaseInsensitivePathFragmentWrapper otherWrapper ->
+              Ascii.equalsIgnoreCase(
+                  pathFragment.getPathString(), otherWrapper.pathFragment.getPathString());
+          default -> false;
+        };
       }
 
-      boolean isArtifactValid() {
-        return idOfBuild == buildId;
+      @Override
+      public int hashCode() {
+        return Ascii.toLowerCase(pathFragment.getPathString()).hashCode();
       }
     }
 
@@ -76,19 +99,98 @@ public class ArtifactFactory implements ArtifactResolver {
     /**
      * The main Path to source artifact cache. There will always be exactly one canonical artifact
      * for a given source path.
+     *
+     * <p>Since some use cases require case-insensitive lookups, the cache is keyed by a wrapper
+     * object that performs case-insensitive equality and hashing. As a memory optimization, paths
+     * that are entirely lowercase are stored unwrapped. The corresponding value is either a single
+     * Entry, or a list of Entry objects if there are multiple artifacts with case-insensitively
+     * equivalent paths. This structure is heavily optimized for the common case of a single
+     * artifact per case-insensitive equivalence class and may perform poorly if there are many
+     * artifacts with case-insensitively equivalent paths.
      */
-    private final ConcurrentMap<PathFragment, Entry> pathToSourceArtifact =
-        new ConcurrentHashMap<>(16, 0.75f, CONCURRENCY_LEVEL);
+    private final ConcurrentMap<
+            Object /* PathFragment | AsciiCaseInsensitivePathFragmentWrapper */,
+            Object /* Entry | CopyOnWriteArrayList<Entry> */>
+        pathToSourceArtifact = new ConcurrentHashMap<>(16, 0.75f, CONCURRENCY_LEVEL);
 
     /** Id of current build. Has to be increased every time before analysis starts. */
     private int buildId = -1;
+
+    @Nullable
+    private Entry unwrapCacheObject(PathFragment execPath, Object cacheObject) {
+      return switch (cacheObject) {
+        case null -> null;
+        case Entry entry -> entry;
+        case CopyOnWriteArrayList<?> entries -> {
+          for (Object entryObject : entries) {
+            var entry = (Entry) entryObject;
+            if (entry.artifact().getExecPath().equals(execPath)) {
+              yield entry;
+            }
+          }
+          yield null;
+        }
+        default ->
+            throw new IllegalStateException(
+                "Unexpected cache object type: %s, value: %s"
+                    .formatted(cacheObject.getClass(), cacheObject));
+      };
+    }
+
+    @Nullable
+    private Entry getEntry(PathFragment execPath) {
+      return unwrapCacheObject(
+          execPath,
+          pathToSourceArtifact.get(AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath)));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Entry computeEntry(
+        PathFragment execPath, BiFunction<PathFragment, Entry, Entry> computeFunction) {
+      return unwrapCacheObject(
+          execPath,
+          pathToSourceArtifact.compute(
+              AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath),
+              (key, cacheObject) ->
+                  switch (cacheObject) {
+                    // No entry for this case-insensitive path, thus also not for this exact casing.
+                    case null -> computeFunction.apply(execPath, null);
+                    // The lookup was case-insensitive, so the single cache entry may not be valid
+                    // for this exact casing. If it isn't, switch to a list.
+                    case Entry entry ->
+                        entry.artifact().getExecPath().equals(execPath)
+                            ? computeFunction.apply(execPath, entry)
+                            : new CopyOnWriteArrayList<>(
+                                new Entry[] {entry, computeFunction.apply(execPath, null)});
+                    case CopyOnWriteArrayList<?> rawEntries -> {
+                      var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
+                      for (Entry entry : entries) {
+                        // Update the existing entry for this exact casing if it exists.
+                        if (entry.artifact().getExecPath().equals(execPath)) {
+                          Entry newEntry = computeFunction.apply(execPath, entry);
+                          if (newEntry != entry) {
+                            entries.set(entries.indexOf(entry), newEntry);
+                          }
+                          yield entries;
+                        }
+                      }
+                      // No entry for this exact casing, add a new one.
+                      entries.add(computeFunction.apply(execPath, null));
+                      yield entries;
+                    }
+                    default ->
+                        throw new IllegalStateException(
+                            "Unexpected cache object type: %s, value: %s"
+                                .formatted(cacheObject.getClass(), cacheObject));
+                  }));
+    }
 
     /** Returns artifact if it present in the cache, otherwise null. */
     @Nullable
     @ThreadSafe
     SourceArtifact getArtifact(PathFragment execPath) {
-      Entry cacheEntry = pathToSourceArtifact.get(execPath);
-      return cacheEntry == null ? null : cacheEntry.getArtifact();
+      Entry cacheEntry = getEntry(execPath);
+      return cacheEntry == null ? null : cacheEntry.artifact();
     }
 
     /**
@@ -101,10 +203,8 @@ public class ArtifactFactory implements ArtifactResolver {
     @Nullable
     @ThreadSafe
     SourceArtifact getArtifactIfValid(PathFragment execPath) {
-      Entry cacheEntry = pathToSourceArtifact.get(execPath);
-      return (cacheEntry == null || !cacheEntry.isArtifactValid())
-          ? null
-          : cacheEntry.getArtifact();
+      Entry cacheEntry = getEntry(execPath);
+      return (cacheEntry == null || cacheEntry.isInvalid(buildId)) ? null : cacheEntry.artifact();
     }
 
     void newBuild() {
@@ -315,21 +415,22 @@ public class ArtifactFactory implements ArtifactResolver {
       return firstArtifact;
     }
     SourceArtifactCache.Entry newEntry =
-        sourceArtifactCache.pathToSourceArtifact.compute(
+        sourceArtifactCache.computeEntry(
             execPath,
             (k, entry) -> {
               if (entry == null
-                  || entry.getArtifact() == null
-                  || entry.getArtifact().differentOwnerOrRoot(owner, root)) {
+                  || entry.artifact() == null
+                  || entry.artifact().differentOwnerOrRoot(owner, root)) {
                 // There really should be a safety net that makes it impossible to create two
                 // Artifacts with the same exec path but a different Owner, but we also need to
                 // reuse Artifacts from previous builds.
-                return sourceArtifactCache
-                .new Entry((SourceArtifact) createArtifact(root, execPath, owner, type));
+                return new SourceArtifactCache.Entry(
+                    (SourceArtifact) createArtifact(root, execPath, owner, type),
+                    sourceArtifactCache.buildId);
               }
               return entry;
             });
-    return newEntry.getArtifact();
+    return newEntry.artifact();
   }
 
   private static Artifact createArtifact(
@@ -508,13 +609,13 @@ public class ArtifactFactory implements ArtifactResolver {
     if (artifact != null && sourceRoot.equals(artifact.getRoot().getRoot())) {
       // Source root of existing artifact hasn't changed so we should mark corresponding entry in
       // the cache as valid.
-      sourceArtifactCache.pathToSourceArtifact.compute(
+      sourceArtifactCache.computeEntry(
           execPath,
           (k, cacheEntry) -> {
-            SourceArtifact validArtifact = cacheEntry.getArtifact();
-            if (!cacheEntry.isArtifactValid()) {
+            SourceArtifact validArtifact = cacheEntry.artifact();
+            if (cacheEntry.isInvalid(sourceArtifactCache.buildId)) {
               // Wasn't previously known to be valid.
-              return sourceArtifactCache.new Entry(validArtifact);
+              return new SourceArtifactCache.Entry(validArtifact, sourceArtifactCache.buildId);
             }
             Preconditions.checkState(
                 artifact.equals(validArtifact),
