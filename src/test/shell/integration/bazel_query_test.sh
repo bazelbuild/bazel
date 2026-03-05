@@ -595,8 +595,8 @@ EOF
   LC_CTYPE=C bazel query --output=proto \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
-  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  LC_CTYPE=C expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  LC_CTYPE=C expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
 }
 
 function test_xml_output_source_files() {
