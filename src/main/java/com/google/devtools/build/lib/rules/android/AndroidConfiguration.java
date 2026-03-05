@@ -431,19 +431,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "dx flags supported in tool that groups classes for inclusion in final .dex files.")
     public List<String> dexoptsSupportedInDexSharder;
 
-    @Option(
-        name = "experimental_android_rewrite_dexes_with_rex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "use rex tool to rewrite dex files")
-    public boolean useRexToCompressDexFiles;
-
     @Deprecated
     @Option(
         name = "experimental_allow_android_library_deps_without_srcs",
@@ -991,7 +978,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
-  private final boolean useRexToCompressDexFiles;
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
@@ -1047,7 +1033,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
-    this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
@@ -1165,11 +1150,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean checkDesugarDeps() {
     return checkDesugarDeps;
-  }
-
-  @Override
-  public boolean useRexToCompressDexFiles() {
-    return useRexToCompressDexFiles;
   }
 
   @Override

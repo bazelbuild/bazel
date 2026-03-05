@@ -111,13 +111,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean checkDesugarDeps();
 
   @StarlarkMethod(
-      name = "use_rex_to_compress_dex_files",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useRexToCompressDexFiles();
-
-  @StarlarkMethod(
       name = "use_android_resource_shrinking",
       structField = true,
       doc = "",

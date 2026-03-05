@@ -142,7 +142,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:experimental_android_resource_name_obfuscation",
         "//command_line_option:experimental_android_resource_path_shortening",
         "//command_line_option:experimental_android_resource_shrinking",
-        "//command_line_option:experimental_android_rewrite_dexes_with_rex",
         "//command_line_option:experimental_android_use_parallel_dex2oat",
         "//command_line_option:experimental_disable_instrumentation_manifest_merge",
         "//command_line_option:experimental_filter_library_jar_with_program_jar",
