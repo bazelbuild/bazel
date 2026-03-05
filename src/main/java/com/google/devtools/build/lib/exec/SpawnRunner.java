@@ -13,24 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -175,6 +187,17 @@ public interface SpawnRunner {
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         if (cause != null) {
+          if (cause instanceof BulkTransferException bulkTransferException) {
+            bulkTransferException
+                .getLostArtifacts(getInputMetadataProvider()::getInput)
+                .throwIfNotEmpty();
+            throw new EnvironmentalExecException(
+                bulkTransferException,
+                FailureDetail.newBuilder()
+                    .setMessage("Failed to fetch blobs because of a remote cache error.")
+                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                    .build());
+          }
           throwIfInstanceOf(cause, IOException.class);
           throwIfInstanceOf(cause, ExecException.class);
           throwIfInstanceOf(cause, InterruptedException.class);
@@ -269,6 +292,75 @@ public interface SpawnRunner {
 
     /** Returns the environment of the Bazel client. */
     ImmutableMap<String, String> getClientEnv();
+  }
+
+  /** Partial implementation of {@link SpawnExecutionContext}. */
+  abstract class AbstractSpawnExecutionContext implements SpawnExecutionContext {
+    protected final Spawn spawn;
+    protected final ActionExecutionContext actionExecutionContext;
+
+    protected AbstractSpawnExecutionContext(
+        Spawn spawn, ActionExecutionContext actionExecutionContext) {
+      this.spawn = checkNotNull(spawn);
+      this.actionExecutionContext = checkNotNull(actionExecutionContext);
+    }
+
+    @Override
+    public final ListenableFuture<Void> prefetchInputs() {
+      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+        return actionExecutionContext
+            .getActionInputPrefetcher()
+            .prefetchFiles(
+                spawn.getResourceOwner(),
+                getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+                    .values(),
+                getInputMetadataProvider(),
+                Priority.MEDIUM,
+                Reason.INPUTS);
+      }
+
+      return immediateVoidFuture();
+    }
+
+    @Override
+    public final <T extends ActionContext> T getContext(Class<T> identifyingType) {
+      return actionExecutionContext.getContext(identifyingType);
+    }
+
+    @Override
+    public final ArtifactPathResolver getPathResolver() {
+      return actionExecutionContext.getPathResolver();
+    }
+
+    @Override
+    public final FileOutErr getFileOutErr() {
+      return actionExecutionContext.getFileOutErr();
+    }
+
+    @Override
+    public final boolean isRewindingEnabled() {
+      return actionExecutionContext.isRewindingEnabled();
+    }
+
+    @Override
+    public final void checkForLostInputs() throws LostInputsExecException {
+      try {
+        actionExecutionContext.checkForLostInputs();
+      } catch (LostInputsActionExecutionException e) {
+        throw e.toExecException();
+      }
+    }
+
+    @Nullable
+    @Override
+    public final FileSystem getActionFileSystem() {
+      return actionExecutionContext.getActionFileSystem();
+    }
+
+    @Override
+    public final ImmutableMap<String, String> getClientEnv() {
+      return actionExecutionContext.getClientEnv();
+    }
   }
 
   /**
