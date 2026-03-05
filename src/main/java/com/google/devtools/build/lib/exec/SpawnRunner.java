@@ -312,8 +312,10 @@ public interface SpawnRunner {
             .getActionInputPrefetcher()
             .prefetchFiles(
                 spawn.getResourceOwner(),
-                getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                    .values(),
+                spawn,
+                () ->
+                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+                        .values(),
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);

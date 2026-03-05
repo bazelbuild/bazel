@@ -17,16 +17,18 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
-  public static final ActionInputPrefetcher NONE =
-      (action, inputs, metadataProvider, priority, reason) ->
+  ActionInputPrefetcher NONE =
+      (action, spawn, expandedInputs, metadataProvider, priority, reason) ->
           // Do nothing.
           immediateVoidFuture();
 
   /** Priority for the staging task. */
-  public enum Priority {
+  enum Priority {
     /**
      * Critical priority tasks are tasks that are critical to the execution time e.g. staging files
      * for in-process actions.
@@ -63,11 +65,17 @@ public interface ActionInputPrefetcher {
    *
    * <p>For any path not under this prefetcher's control, the call should be a no-op.
    *
+   * <p>Implementations that wish to operate on unexpanded inputs (tree artifacts, filesets,
+   * runfiles) may call {@link Spawn#getInputFiles} if {@code spawn} is provided. Otherwise, {@code
+   * expandedInputs} supplies the {@linkplain com.google.devtools.build.lib.exec.SpawnInputExpander
+   * expanded} inputs.
+   *
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
       ActionExecutionMetadata action,
-      Iterable<? extends ActionInput> inputs,
+      @Nullable Spawn spawn,
+      Supplier<Iterable<? extends ActionInput>> expandedInputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
       Reason reason);

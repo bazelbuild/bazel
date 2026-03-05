@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Reporter;
@@ -61,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -286,12 +288,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       ActionExecutionMetadata action,
-      Iterable<? extends ActionInput> inputs,
+      @Nullable Spawn spawn,
+      Supplier<Iterable<? extends ActionInput>> expandedInputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
       Reason reason) {
     return prefetchFilesInterruptibly(
-        action, inputs, metadataProvider::getInputMetadata, priority, reason);
+        action, expandedInputs.get(), metadataProvider::getInputMetadata, priority, reason);
   }
 
   /**

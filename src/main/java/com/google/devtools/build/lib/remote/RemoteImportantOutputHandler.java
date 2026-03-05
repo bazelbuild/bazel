@@ -170,7 +170,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
                 // derivedArtifact's generating action may be an action template, which doesn't
                 // implement the required ActionExecutionMetadata.
                 getGeneratingAction(filesToDownload.getFirst()),
-                filesToDownload,
+                /* spawn= */ null,
+                () -> filesToDownload,
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));
@@ -185,7 +186,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         futures.add(
             actionInputPrefetcher.prefetchFiles(
                 getGeneratingAction(derivedArtifact),
-                ImmutableList.of(artifact),
+                /* spawn= */ null,
+                () -> ImmutableList.of(artifact),
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));

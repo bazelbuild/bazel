@@ -406,7 +406,12 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       return immediateVoidFuture();
     }
     return inputFetcher.prefetchFiles(
-        action, ImmutableList.of(input), inputArtifactData, Priority.CRITICAL, Reason.INPUTS);
+        action,
+        /* spawn= */ null,
+        () -> ImmutableList.of(input),
+        inputArtifactData,
+        Priority.CRITICAL,
+        Reason.INPUTS);
   }
 
   @Override
