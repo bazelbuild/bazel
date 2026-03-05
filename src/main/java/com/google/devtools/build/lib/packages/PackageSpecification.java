@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -122,6 +122,7 @@ public abstract class PackageSpecification {
   // TODO(#16365): Remove allowPublicPrivate.
   // TODO(#16324): Remove legacy behavior and repoRootMeansCurrentRepo param.
   public static PackageSpecification fromString(
+      RepositoryMapping repositoryMapping,
       RepositoryName repositoryName,
       String spec,
       boolean allowPublicPrivate,
@@ -151,22 +152,38 @@ public abstract class PackageSpecification {
       }
     }
     PackageSpecification packageSpecification =
-        fromStringPositive(repositoryName, spec, repoRootMeansCurrentRepo);
+        fromStringPositive(repositoryMapping, repositoryName, spec, repoRootMeansCurrentRepo);
     return negative ? new NegativePackageSpecification(packageSpecification) : packageSpecification;
   }
 
   private static PackageSpecification fromStringPositive(
-      RepositoryName repositoryName, String spec, boolean repoRootMeansCurrentRepo)
+      RepositoryMapping repositoryMapping,
+      RepositoryName repositoryName,
+      String spec,
+      boolean repoRootMeansCurrentRepo)
       throws InvalidPackageSpecificationException {
     if (spec.equals(PUBLIC_VISIBILITY)) {
       return AllPackages.INSTANCE;
     } else if (spec.equals(PRIVATE_VISIBILITY)) {
       return NoPackages.INSTANCE;
     }
-    if (!spec.startsWith("//")) {
+
+    if (!spec.startsWith("//") && !spec.startsWith("@")) {
       throw new InvalidPackageSpecificationException(
           String.format(
-              "invalid package name '%s': must start with '//' or be 'public' or 'private'", spec));
+              "invalid package name '%s': must start with '//', '@', or be 'public' or 'private'",
+              spec));
+    }
+
+    try {
+      Label label =
+          Label.parseWithRepoContext(spec, Label.RepoContext.of(repositoryName, repositoryMapping));
+      PackageSpecification mappedSpec = fromLabel(label);
+      if (mappedSpec != null) {
+        return mappedSpec;
+      }
+    } catch (LabelSyntaxException e) {
+      // Fall through to parse as a package path (e.g. //foo/...)
     }
 
     String pkgPath;
@@ -182,22 +199,24 @@ public abstract class PackageSpecification {
           // Legacy behavior: //... is "public".
           return AllPackages.INSTANCE;
         }
+      } else if (spec.endsWith("//...")) {
+        // spec was "@repo//..."
+        pkgPath += "/";
       }
     } else {
       pkgPath = spec;
     }
 
-    PackageIdentifier unqualifiedPkgId;
+    PackageIdentifier pkgId;
     try {
-      unqualifiedPkgId = PackageIdentifier.parse(pkgPath);
+      pkgId =
+          Label.parseWithRepoContext(
+                  pkgPath + ":__pkg__", Label.RepoContext.of(repositoryName, repositoryMapping))
+              .getPackageIdentifier();
     } catch (LabelSyntaxException e) {
       throw new InvalidPackageSpecificationException(
           String.format("invalid package name '%s': %s", spec, e.getMessage()));
     }
-    Verify.verify(unqualifiedPkgId.getRepository().isMain());
-
-    PackageIdentifier pkgId =
-        PackageIdentifier.create(repositoryName, unqualifiedPkgId.getPackageFragment());
     return allBeneath ? new AllPackagesBeneath(pkgId) : new SinglePackage(pkgId);
   }
 
@@ -212,15 +231,17 @@ public abstract class PackageSpecification {
    * --incompatible_fix_package_group_reporoot_syntax} are enabled.
    */
   public static PackageSpecification fromStringForBzlVisibility(
-      RepositoryName repositoryName, String spec) throws EvalException {
+      RepositoryMapping repoMapping, RepositoryName repositoryName, String spec)
+      throws EvalException {
     PackageSpecification result;
     try {
       result =
           fromString(
+              repoMapping,
               repositoryName,
               spec,
-              /*allowPublicPrivate=*/ true,
-              /*repoRootMeansCurrentRepo=*/ true);
+              /* allowPublicPrivate= */ true,
+              /* repoRootMeansCurrentRepo= */ true);
     } catch (InvalidPackageSpecificationException e) {
       throw new EvalException(e.getMessage());
     }
