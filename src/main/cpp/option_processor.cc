@@ -619,6 +619,32 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
     }
   }
 
+  std::string platform_config;
+#if defined(__linux__)
+  platform_config = "linux";
+#elif defined(__APPLE__)
+  platform_config = "macos";
+#elif defined(_WIN32)
+  platform_config = "windows";
+#elif defined(__FreeBSD__)
+  platform_config = "freebsd";
+#elif defined(__OpenBSD__)
+  platform_config = "openbsd";
+#endif
+
+  if (!platform_config.empty()) {
+    for (const auto* blazerc : rc_files) {
+      const auto iter = blazerc->options().find("startup:" + platform_config);
+      if (iter == blazerc->options().end()) continue;
+
+      for (const RcOption& option : iter->second) {
+        const std::string& source_path =
+            blazerc->canonical_source_paths()[option.source_index];
+        rcstartup_flags.push_back({source_path, option.option});
+      }
+    }
+  }
+
   for (const std::string& arg : cmd_line_->startup_args) {
     if (!IsArg(arg)) {
       break;
