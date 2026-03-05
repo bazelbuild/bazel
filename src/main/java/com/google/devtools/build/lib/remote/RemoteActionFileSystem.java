@@ -911,10 +911,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   public void checkForLostInputs(Action action) throws LostInputsActionExecutionException {
     var mergedException =
         lostInputs.stream()
-            .map(
-                lostArtifacts ->
-                    new LostInputsExecException(
-                        lostArtifacts.byDigest(), lostArtifacts.owners(), /* cause= */ null))
+            .map(lostArtifacts -> new LostInputsExecException(lostArtifacts.byDigest()))
             .reduce(LostInputsExecException::combine);
     if (mergedException.isPresent()) {
       throw (LostInputsActionExecutionException)
