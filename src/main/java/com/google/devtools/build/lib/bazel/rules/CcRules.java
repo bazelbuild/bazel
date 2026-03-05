@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules;
 
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.createEmptySymbol;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -24,11 +26,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
-import net.starlark.java.eval.Starlark;
 
-/**
- * Rules for C++ support in Bazel.
- */
+/** Rules for C++ support in Bazel. */
 public class CcRules implements RuleSet {
   public static final CcRules INSTANCE = new CcRules();
 
@@ -40,10 +39,19 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
-    builder.addBzlToplevel("CcInfo", Starlark.NONE);
-    builder.addBzlToplevel("DebugPackageInfo", Starlark.NONE);
-    builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
-    builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
+    builder.addBzlToplevel(
+        "CcInfo", createEmptySymbol("CcInfo", "@rules_cc//cc/common:cc_info.bzl"));
+    builder.addBzlToplevel(
+        "DebugPackageInfo",
+        createEmptySymbol("DebugPackageInfo", "@rules_cc//cc/common:debug_package_info.bzl"));
+    builder.addBzlToplevel(
+        "CcSharedLibraryInfo",
+        createEmptySymbol(
+            "CcSharedLibraryInfo", "@rules_cc//cc/common:cc_shared_library_info.bzl"));
+    builder.addBzlToplevel(
+        "CcSharedLibraryHintInfo",
+        createEmptySymbol(
+            "CcSharedLibraryHintInfo", "@rules_cc//cc/common:cc_shared_library_hint_info.bzl"));
 
     builder.addRuleDefinition(new EmptyRule("cc_toolchain") {});
     builder.addRuleDefinition(new EmptyRule("cc_toolchain_suite") {});
