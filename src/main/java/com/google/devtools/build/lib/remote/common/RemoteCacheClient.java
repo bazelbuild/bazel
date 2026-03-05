@@ -96,7 +96,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * A supplier for the data comprising a BLOB.
    *
    * <p>As blobs can be large and may need to be kept in memory, consumers should call {@link #get}
-   * as late as possible and close the blob as soon as they are done with it.
+   * as late as possible.
    */
   @FunctionalInterface
   interface Blob {
