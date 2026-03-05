@@ -149,13 +149,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean useParallelDex2Oat();
 
   @StarlarkMethod(
-      name = "break_build_on_parallel_dex2oat_failure",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean breakBuildOnParallelDex2OatFailure();
-
-  @StarlarkMethod(
       name = "compress_java_resources",
       structField = true,
       doc = "",
