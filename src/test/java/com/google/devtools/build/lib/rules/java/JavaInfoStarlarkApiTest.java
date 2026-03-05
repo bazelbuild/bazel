@@ -434,6 +434,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     private String[] newJavaInfo() {
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(
+          "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
           "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
               + " 'JavaPluginInfo')",
           "result = provider()",
