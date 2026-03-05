@@ -17,11 +17,11 @@ Bazel should be compatible with other Ubuntu releases and Debian
 
 Install Bazel on Ubuntu using one of the following methods:
 
-*   *Recommended*: [Use Bazelisk](/install/bazelisk)
+*   *Recommended*: [Use Bazelisk](/versions/8.6.0/install/bazelisk)
 *   [Use our custom APT repository](#install-on-ubuntu)
 *   [Use the binary installer](#binary-installer)
 *   [Use the Bazel Docker container](#docker-container)
-*   [Compile Bazel from source](/install/compile-source)
+*   [Compile Bazel from source](/versions/8.6.0/install/compile-source)
 
 **Note:** For Arm-based systems, the APT repository does not contain an `arm64`
 release, and there is no binary installer available. Either use Bazelisk or
@@ -29,8 +29,8 @@ compile from source.
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
-*   Access the [bash completion script](/install/completion#bash)
-*   Install the [zsh completion script](/install/completion#zsh)
+*   Access the [bash completion script](/versions/8.6.0/install/completion#bash)
+*   Install the [zsh completion script](/versions/8.6.0/install/completion#zsh)
 
 ## Using Bazel's apt repository
 
@@ -41,7 +41,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 ```posix-terminal
 sudo apt install apt-transport-https curl gnupg -y
 
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
+curl -fsSL https://bazel.build/versions/8.6.0/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
 
 sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
 

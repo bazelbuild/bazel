@@ -43,7 +43,7 @@ my_rule = rule(
 ```
 
 Rule `my_rule` registers two toolchain types. This means that the [Toolchain
-Resolution](https://bazel.build/extending/toolchains#toolchain-resolution) used
+Resolution](https://bazel.build/versions/8.6.0/extending/toolchains#toolchain-resolution) used
 to find an execution platform which supports both toolchain types. The selected
 execution platform was used for each registered action inside the rule, unless
 specified differently with [exec_groups][exec_groups].
@@ -172,9 +172,9 @@ register it on the rule. Register the toolchain or set `None` inside the action.
 For more information, check design document:
 [Automatic exec groups for toolchains][aegs_design_doc].
 
-[exec_platform]: https://bazel.build/extending/platforms#:~:text=Execution%20%2D%20a%20platform%20on%20which%20build%20tools%20execute%20build%20actions%20to%20produce%20intermediate%20and%20final%20outputs.
-[exec_groups]: https://bazel.build/extending/exec-groups
+[exec_platform]: https://bazel.build/versions/8.6.0/extending/platforms#:~:text=Execution%20%2D%20a%20platform%20on%20which%20build%20tools%20execute%20build%20actions%20to%20produce%20intermediate%20and%20final%20outputs.
+[exec_groups]: https://bazel.build/versions/8.6.0/extending/exec-groups
 [github_flag]: https://github.com/bazelbuild/bazel/issues/17134
 [aegs_design_doc]: https://docs.google.com/document/d/1-rbP_hmKs9D639YWw5F_JyxPxL2bi6dSmmvj_WXak9M/edit#heading=h.5mcn15i0e1ch
-[run_shell]: https://bazel.build/rules/lib/builtins/actions#run_shell
+[run_shell]: https://bazel.build/versions/8.6.0/rules/lib/builtins/actions#run_shell
 [multiple_toolchains_exec_groups]: /extending/auto-exec-groups#when-should-use-exec-groups

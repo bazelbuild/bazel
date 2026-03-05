@@ -13,10 +13,10 @@ resources that are available in some environment.
 
 Modeling the environment as a platform helps Bazel to automatically select the
 appropriate
-[toolchains](/extending/toolchains)
+[toolchains](/versions/8.6.0/extending/toolchains)
 for build actions. Platforms can also be used in combination with the
-[config_setting](/reference/be/general#config_setting)
-rule to write [configurable attributes](/docs/configurable-attributes).
+[config_setting](/versions/8.6.0/reference/be/general#config_setting)
+rule to write [configurable attributes](/versions/8.6.0/docs/configurable-attributes).
 
 Bazel recognizes three roles that a platform may serve:
 
@@ -39,7 +39,7 @@ Bazel supports the following build scenarios regarding platforms:
    different.
 
 Tip: for detailed instructions on migrating your project to platforms, see
-[Migrating to Platforms](/concepts/platforms).
+[Migrating to Platforms](/versions/8.6.0/concepts/platforms).
 
 ## Defining constraints and platforms
 
@@ -74,7 +74,7 @@ workspace. They are referenced by label and subject to the usual visibility
 controls. If visibility allows, you can extend an existing constraint setting by
 defining your own value for it.
 
-The [`platform`](/reference/be/platforms-and-toolchains#platform) rule introduces a new platform with
+The [`platform`](/versions/8.6.0/reference/be/platforms-and-toolchains#platform) rule introduces a new platform with
 certain choices of constraint values. The
 following creates a platform named `linux_x86`, and says that it describes any
 environment that runs a Linux operating system on an x86_64 architecture with a
@@ -130,7 +130,7 @@ When building for a specific target platform it is often desirable to skip
 targets that will never work on that platform. For example, your Windows device
 driver is likely going to generate lots of compiler errors when building on a
 Linux machine with `//...`. Use the
-[`target_compatible_with`](/reference/be/common-definitions#common.target_compatible_with)
+[`target_compatible_with`](/versions/8.6.0/reference/be/common-definitions#common.target_compatible_with)
 attribute to tell Bazel what target platform constraints your code has.
 
 The simplest use of this attribute restricts a target to a single platform.
@@ -168,9 +168,9 @@ $ bazel build --platforms=//:myplatform //...
 $ bazel build --platforms=//:myplatform //:all
 ```
 
-Incompatible tests in a [`test_suite`](/reference/be/general#test_suite) are
+Incompatible tests in a [`test_suite`](/versions/8.6.0/reference/be/general#test_suite) are
 similarly skipped if the `test_suite` is specified on the command line with
-[`--expand_test_suites`](/reference/command-line-reference#flag--expand_test_suites).
+[`--expand_test_suites`](/versions/8.6.0/reference/command-line-reference#flag--expand_test_suites).
 In other words, `test_suite` targets on the command line behave like `:all` and
 `...`. Using `--noexpand_test_suites` prevents expansion and causes
 `test_suite` targets with incompatible tests to also be incompatible.
@@ -193,10 +193,10 @@ Incompatible explicit targets are silently skipped if
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
-[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value)
+[`constraint_value`](/versions/8.6.0/reference/be/platforms-and-toolchains#constraint_value)
 that no platform satisfies.
 
-Use [`select()`](/reference/be/functions#select) in combination with
+Use [`select()`](/versions/8.6.0/reference/be/functions#select) in combination with
 `@platforms//:incompatible` to express more complicated restrictions. For
 example, use it to implement basic OR logic. The following marks a library
 compatible with macOS and Linux, but no other platforms.
@@ -244,9 +244,9 @@ cc_library(
 ### Detecting incompatible targets using `bazel cquery`
 
 You can use the
-[`IncompatiblePlatformProvider`](/rules/lib/providers/IncompatiblePlatformProvider)
+[`IncompatiblePlatformProvider`](/versions/8.6.0/rules/lib/providers/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/query/cquery#output-format-definition) to distinguish
+format](/versions/8.6.0/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will
