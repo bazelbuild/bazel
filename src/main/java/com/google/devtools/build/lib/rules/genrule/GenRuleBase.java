@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -186,7 +187,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         PathFragment shExecutable =
             ShToolchain.getPathForPlatform(
                 ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
@@ -194,7 +194,12 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
     }
-    ImmutableList<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(
+            command,
+            inputs,
+            constructor,
+            getOsFromConstraintsOrHost(ruleContext.getExecutionPlatform()));
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
