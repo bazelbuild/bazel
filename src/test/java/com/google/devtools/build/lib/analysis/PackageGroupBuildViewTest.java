@@ -13,12 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
-
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,11 +24,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class PackageGroupBuildViewTest extends BuildViewTestCase {
-  @Override
-  protected boolean allowExternalRepositories() {
-    return true;
-  }
-
   /** Regression test for bug #3445835. */
   @Test
   public void testPackageGroupInDeps() throws Exception {
@@ -56,48 +47,5 @@ public final class PackageGroupBuildViewTest extends BuildViewTestCase {
         "package_group(name = 'foo', packages = ['//none'])",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'bar', data = [':foo'])");
-  }
-
-  @Test
-  public void testPackageGroupWithAllPackagesInMainRepository() throws Exception {
-    scratch.file(
-        "fruits/BUILD", "package_group(", "    name = 'apple',", "    packages = ['@//...'],", ")");
-
-    PackageGroupConfiguredTarget pg =
-        (PackageGroupConfiguredTarget) getConfiguredTarget("//fruits:apple");
-    PackageSpecificationProvider provider = pg.getProvider(PackageSpecificationProvider.class);
-    assertThat(provider.targetInAllowlist(Label.parseCanonical("//any/pkg:target"))).isTrue();
-  }
-
-  @Test
-  public void testPackageGroupWithRepoMapping() throws Exception {
-    registry.addModule(createModuleKey("veggies", "1.0"), "module(name='veggies', version='1.0')");
-
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='main', version='1.0')",
-        "bazel_dep(name='veggies', version='1.0', repo_name='my_veggies')");
-
-    invalidatePackages();
-
-    scratch.file(
-        "fruits/BUILD",
-        "package_group(",
-        "    name = 'banana',",
-        "    packages = ['@my_veggies//cucumber'],",
-        ")");
-
-    PackageGroupConfiguredTarget pg =
-        (PackageGroupConfiguredTarget) getConfiguredTarget("//fruits:banana");
-    PackageSpecificationProvider provider = pg.getProvider(PackageSpecificationProvider.class);
-
-    assertThat(
-            provider.targetInAllowlist(
-                Label.parseWithRepoContext(
-                    "@my_veggies//cucumber:something",
-                    Label.RepoContext.of(
-                        pg.getLabel().getRepository(),
-                        skyframeExecutor.getMainRepoMapping(reporter)))))
-        .isTrue();
   }
 }

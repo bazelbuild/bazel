@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.util.TargetDataSubject.asse
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -96,22 +95,23 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testPackagesWithRepositoryWorks() throws Exception {
+  public void testPackagesWithRepositoryDoNotWork() throws Exception {
     scratch.file(
         "fruits/BUILD",
         """
         package_group(
             name = "banana",
-            packages = ["@@veggies//cucumber"],
+            packages = ["@veggies//:cucumber"],
         )
         """);
 
-    PackageGroup grp = getPackageGroup("fruits", "banana");
-    assertThat(grp.contains(pkgId("veggies", "cucumber"))).isTrue();
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("fruits", "banana");
+    assertContainsEvent("invalid package name '@veggies//:cucumber'");
   }
 
   @Test
-  public void testAllPackagesInMainRepositoryWorks() throws Exception {
+  public void testAllPackagesInMainRepositoryDoesNotWork() throws Exception {
     scratch.file(
         "fruits/BUILD",
         """
@@ -121,8 +121,9 @@ public class PackageGroupTest extends PackageLoadingTestCase {
         )
         """);
 
-    PackageGroup grp = getPackageGroup("fruits", "apple");
-    assertThat(grp.contains(pkgId("anything"))).isTrue();
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("fruits", "apple");
+    assertContainsEvent("invalid package name '@//...'");
   }
 
   // TODO(brandjon): It'd be nice to include a test here that you can cross repositories via
@@ -545,11 +546,7 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   /** Convenience method for obtaining a PackageSpecification. */
   private PackageSpecification pkgSpec(RepositoryName repository, String spec) throws Exception {
     return PackageSpecification.fromString(
-        RepositoryMapping.EMPTY,
-        repository,
-        spec,
-        /* allowPublicPrivate= */ true,
-        /* repoRootMeansCurrentRepo= */ true);
+        repository, spec, /*allowPublicPrivate=*/ true, /*repoRootMeansCurrentRepo=*/ true);
   }
 
   /** Convenience method for obtaining a PackageIdentifier. */

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -46,7 +45,6 @@ public class PackageGroupStaticInitializationTest extends PackageLoadingTestCase
                     Label.parseCanonicalUnchecked("//context").getRepository();
                 groupQueue.put(
                     PackageSpecification.fromString(
-                        RepositoryMapping.EMPTY,
                         defaultRepoName,
                         "//fruits/...",
                         /* allowPublicPrivate= */ true,
