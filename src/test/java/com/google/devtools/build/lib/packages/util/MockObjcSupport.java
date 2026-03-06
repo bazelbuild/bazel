@@ -127,8 +127,80 @@ public final class MockObjcSupport {
   public static void setupXcodeRules(MockToolsConfig config) throws IOException {
     config.create("build_bazel_apple_support/xcode/BUILD");
     config.create(
+        "build_bazel_apple_support/xcode/xcode_sdk_variant.bzl",
+        """
+        XcodeSdkVariantInfo = provider(
+            fields = [
+                "archs",
+                "build_version",
+                "clangrt_name",
+                "device_families",
+                "llvm_triple_environment",
+                "llvm_triple_os",
+                "llvm_triple_vendor",
+                "maximum_supported_os_version",
+                "minimum_supported_os_version",
+                "minimum_swift_concurrency_in_os_version",
+                "minimum_swift_in_os_version",
+                "platform_directory_name",
+                "platform_name",
+                "resources_platform_name",
+                "version",
+            ],
+        )
+
+        def _xcode_sdk_variant_impl(ctx):
+            def dotted_version_or_none(str):
+                if not str:
+                    return None
+                return apple_common.dotted_version(str)
+
+            return [
+                XcodeSdkVariantInfo(
+                    archs = ctx.attr.archs,
+                    build_version = ctx.attr.build_version,
+                    clangrt_name = ctx.attr.clangrt_name,
+                    device_families = ctx.attr.device_families,
+                    llvm_triple_environment = ctx.attr.llvm_triple_environment,
+                    llvm_triple_os = ctx.attr.llvm_triple_os,
+                    llvm_triple_vendor = ctx.attr.llvm_triple_vendor,
+                    maximum_supported_os_version = dotted_version_or_none(ctx.attr.maximum_supported_os_version),
+                    minimum_supported_os_version = dotted_version_or_none(ctx.attr.minimum_supported_os_version),
+                    minimum_swift_concurrency_in_os_version = dotted_version_or_none(ctx.attr.minimum_swift_concurrency_in_os_version),
+                    minimum_swift_in_os_version = dotted_version_or_none(ctx.attr.minimum_swift_in_os_version),
+                    platform_directory_name = ctx.attr.platform_directory_name,
+                    platform_name = ctx.attr.platform_name,
+                    resources_platform_name = ctx.attr.resources_platform_name,
+                    version = dotted_version_or_none(ctx.attr.version),
+                ),
+            ]
+
+        xcode_sdk_variant = rule(
+            implementation = _xcode_sdk_variant_impl,
+            attrs = {
+                "archs": attr.string_list(),
+                "build_version": attr.string(),
+                "clangrt_name": attr.string(),
+                "device_families": attr.string_dict(),
+                "llvm_triple_environment": attr.string(),
+                "llvm_triple_os": attr.string(),
+                "llvm_triple_vendor": attr.string(),
+                "maximum_supported_os_version": attr.string(),
+                "minimum_supported_os_version": attr.string(),
+                "minimum_swift_concurrency_in_os_version": attr.string(),
+                "minimum_swift_in_os_version": attr.string(),
+                "platform_directory_name": attr.string(),
+                "platform_name": attr.string(),
+                "resources_platform_name": attr.string(),
+                "version": attr.string(),
+            },
+        )
+        """);
+    config.create(
         "build_bazel_apple_support/xcode/xcode_version.bzl",
         """
+        load(":xcode_sdk_variant.bzl", "XcodeSdkVariantInfo")
+
         XcodeVersionRuleInfo = provider(fields = ["aliases", "label", "xcode_version_properties"])
 
         def _xcode_version_properties_info_init(
@@ -138,7 +210,8 @@ public final class MockObjcSupport {
                 default_macos_sdk_version = "10.11",
                 default_tvos_sdk_version = "9.0",
                 default_watchos_sdk_version = "2.0",
-                default_visionos_sdk_version = "1.0"):
+                default_visionos_sdk_version = "1.0",
+                sdk_variant_info = None):
             return {
                 "xcode_version": xcode_version,
                 "default_ios_sdk_version": default_ios_sdk_version,
@@ -146,6 +219,7 @@ public final class MockObjcSupport {
                 "default_tvos_sdk_version": default_tvos_sdk_version,
                 "default_watchos_sdk_version": default_watchos_sdk_version,
                 "default_visionos_sdk_version": default_visionos_sdk_version,
+                "sdk_variant_info": sdk_variant_info,
             }
 
         XcodeVersionPropertiesInfo, _new_xcode_version_properties_info = provider(
@@ -156,11 +230,16 @@ public final class MockObjcSupport {
                 "default_tvos_sdk_version",
                 "default_watchos_sdk_version",
                 "default_visionos_sdk_version",
+                "sdk_variant_info",
             ],
             init = _xcode_version_properties_info_init,
         )
 
         def _xcode_version_impl(ctx):
+            sdk_variant_info = None
+            if ctx.attr.sdk:
+                sdk_variant_info = ctx.attr.sdk[XcodeSdkVariantInfo]
+
             xcode_version_properties = XcodeVersionPropertiesInfo(
                 xcode_version = ctx.attr.version,
                 default_ios_sdk_version = ctx.attr.default_ios_sdk_version,
@@ -168,6 +247,7 @@ public final class MockObjcSupport {
                 default_watchos_sdk_version = ctx.attr.default_watchos_sdk_version,
                 default_tvos_sdk_version = ctx.attr.default_tvos_sdk_version,
                 default_macos_sdk_version = ctx.attr.default_macos_sdk_version,
+                sdk_variant_info = sdk_variant_info,
             )
             return [
                 xcode_version_properties,
@@ -188,6 +268,7 @@ public final class MockObjcSupport {
                 "default_watchos_sdk_version": attr.string(default = "2.0", mandatory = False),
                 "default_tvos_sdk_version": attr.string(default = "9.0",  mandatory = False),
                 "default_macos_sdk_version": attr.string(default = "10.11",  mandatory = False),
+                "sdk": attr.label(mandatory = False, providers = [[XcodeSdkVariantInfo]]),
             },
             implementation = _xcode_version_impl,
         )
