@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -37,13 +40,25 @@ import javax.annotation.Nullable;
 public class CppOptions extends FragmentOptions {
   /** Converts a comma-separated list of compilation mode settings to a properly typed List. */
   public static class FissionOptionConverter extends Converter.Contextless<List<CompilationMode>> {
+    private static final CompilationMode.Converter modeConverter = new CompilationMode.Converter();
+
+    public FissionOptionConverter() {
+      for (CompilationMode mode : CompilationMode.values()) {
+        String modeString = modeConverter.reverseForStarlark(mode);
+        // Check that 'yes' and 'no' are round-trippable.
+        checkState(
+            !modeString.equals("yes") && !modeString.equals("no"),
+            "The special values 'yes' and 'no' must not occur in the underlying %s enum",
+            CompilationMode.class);
+      }
+    }
+
     @Override
     public List<CompilationMode> convert(String input) throws OptionsParsingException {
       ImmutableSet.Builder<CompilationMode> modes = ImmutableSet.builder();
       if (input.equals("yes")) { // Special case: enable all modes.
         modes.add(CompilationMode.values());
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
-        CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
           modes.add(modeConverter.convert(mode, /* conversionContext= */ null));
         }
@@ -54,6 +69,27 @@ public class CppOptions extends FragmentOptions {
     @Override
     public String getTypeDescription() {
       return "a set of compilation modes";
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked") // option and converter must match
+      List<CompilationMode> list = (List<CompilationMode>) converted;
+      // Canonicalize an empty list of modes as --fission=no, and a full list as --fission=yes. The
+      // choice of canonicalization is arbitrary, but 'yes'/'no' are readable and very widely used
+      // in practice.
+      if (list.isEmpty()) {
+        return "no";
+      } else if (ImmutableSet.copyOf(list).size() == CompilationMode.values().length) {
+        return "yes";
+      } else {
+        return list.stream().map(CompilationMode::toString).collect(joining(","));
+      }
     }
   }
 

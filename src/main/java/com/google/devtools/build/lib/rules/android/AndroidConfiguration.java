@@ -38,7 +38,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 import java.util.Locale;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @Immutable
@@ -90,7 +89,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * different labels, they may end up being redirected to the same thing, and this is exactly what
    * happens on OSX X.
    */
-  public enum ConfigurationDistinguisher implements StarlarkValue {
+  public enum ConfigurationDistinguisher {
     MAIN(null),
     ANDROID("android");
 
@@ -156,7 +155,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Types of android manifest mergers. */
-  public enum AndroidManifestMerger implements StarlarkValue {
+  public enum AndroidManifestMerger {
     LEGACY,
     ANDROID,
     FORCE_ANDROID;
@@ -185,7 +184,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Orders for merging android manifests. */
-  public enum ManifestMergerOrder implements StarlarkValue {
+  public enum ManifestMergerOrder {
     /** Manifests are sorted alphabetically by exec path. */
     ALPHABETICAL,
     /** Manifests are sorted alphabetically by configuration-relative path. */

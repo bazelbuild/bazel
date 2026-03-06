@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeSet;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -774,7 +773,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean allowMapDirectory;
 
   /** Values for --experimental_output_paths. */
-  public enum OutputPathsMode implements StarlarkValue {
+  public enum OutputPathsMode {
     /** Use the production output path model. */
     OFF,
     /**
@@ -1027,7 +1026,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
-  public enum IncludeConfigFragmentsEnum implements StarlarkValue {
+  public enum IncludeConfigFragmentsEnum {
     /**
      * Don't offer the provider at all. This is best for most builds, which don't use this
      * information and don't need the extra memory hit over every configured target.
