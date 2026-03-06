@@ -1,5 +1,5 @@
 ---
-title: 'Using Bazel on Windows'
+title: "Using Bazel on Windows"
 ---
 
 This page covers Best Practices for using Bazel on Windows. For installation
@@ -52,8 +52,8 @@ build --enable_runfiles
 
 **Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
 
-<!-- TODO(pcloudy): https://github.com/bazelbuild/bazel/issues/6402
-                    Write a doc about runfiles library and add a link to it here -->
+{{}/* TODO(pcloudy): https://github.com/bazelbuild/bazel/issues/6402
+                    Write a doc about runfiles library and add a link to it here */}
 
 ### Running Bazel: MSYS2 shell vs. command prompt vs. PowerShell
 
@@ -64,7 +64,7 @@ As of 2020-01-15, **do not** run Bazel from `bash` -- either
 from MSYS2 shell, or Git Bash, or Cygwin, or any other Bash variant. While Bazel
 may work for most use cases, some things are broken, like
 [interrupting the build with Ctrl+C from MSYS2](https://github.com/bazelbuild/bazel/issues/10573)).
-Also, if you choose to run under MSYS2, you need to disable MSYS2's
+Also, if you choose to run under MSYS2, you need to disable MSYS2"s
 automatic path conversion, otherwise MSYS will convert command line arguments
 that _look like_ Unix paths (such as `//foo:bar`) into Windows paths. See
 [this StackOverflow answer](https://stackoverflow.com/a/49004265/7778502)
@@ -189,12 +189,16 @@ If everything is set up, you can build a C++ target now!
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
+
+```
+
 <code class="devsite-terminal"
             data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/cpp:hello-world</code>
 <code class="devsite-terminal"
             data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\cpp\hello-world.exe</code>
-</pre>
+
+```
+
 
 By default, the built binaries target x64 architecture. To specify a different
 target architecture, set the `--cpu` build option for your target architecture:
@@ -207,10 +211,13 @@ Note: `--cpu=x64_arm64_windows` to target ARM64 architecture is deprecated. Plea
 
 For example, to build targets for ARM architecture, run:
 
-<pre class="devsite-terminal devsite-click-to-copy"
-     data-terminal-prefix="C:\projects\bazel&gt; ">
+
+```
+
 bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
-</pre>
+
+```
+
 
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
@@ -295,12 +302,16 @@ On Windows, Bazel builds two output files for `java_binary` rules:
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
+
+```
+
   <code class="devsite-terminal"
         data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/java-native/src/main/java/com/example/<var>myproject</var>:hello-world</code>
   <code class="devsite-terminal"
         data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\java-native\src\main\java\com\example\<var>myproject</var>\hello-world.exe</code>
-</pre>
+
+```
+
 
 ### Build Python
 
@@ -320,14 +331,18 @@ Python with the self-extracting zip file as the argument.
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
+
+```
+
   <code class="devsite-terminal"
         data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/py_native:bin</code>
   <code class="devsite-terminal"
         data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\py_native\bin.exe</code>
   <code class="devsite-terminal"
         data-terminal-prefix="C:\projects\bazel&gt; ">python bazel-bin\examples\py_native\bin.zip</code>
-</pre>
+
+```
+
 
 If you are interested in details about how Bazel builds Python targets on
 Windows, check out this [design

@@ -1,5 +1,5 @@
 ---
-title: 'Objective-C Rules'
+title: "Objective-C Rules"
 ---
 
 
@@ -27,7 +27,7 @@ attributes supported by `objc_library`.
 | `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
 | `deps` | List of [labels](/concepts/labels); default is `[]` The list of targets that this target depend on. |
 | `hdrs` | List of [labels](/concepts/labels); default is `[]` The list of C, C++, Objective-C, and Objective-C++ header files published by this library to be included by sources in dependent rules. These headers describe the public interface for the library and will be made available for inclusion by sources in this rule or in dependent rules. Headers not meant to be included by a client of this library should be listed in the srcs attribute instead. These will be compiled separately from the source if modules are enabled. |
-| `alwayslink` | Boolean; default is `False` If 1, any bundle or binary that depends (directly or indirectly) on this library will link in all the object files for the files listed in `srcs` and `non_arc_srcs`, even if some contain no symbols referenced by the binary. This is useful if your code isn't explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. |
+| `alwayslink` | Boolean; default is `False` If 1, any bundle or binary that depends (directly or indirectly) on this library will link in all the object files for the files listed in `srcs` and `non_arc_srcs`, even if some contain no symbols referenced by the binary. This is useful if your code isn"t explicitly called by code in the binary, e.g., if your code registers to receive some callback provided by some service. |
 | `archives` | List of [labels](/concepts/labels); required The list of `.a` files provided to Objective-C targets that depend on this target. |
 | `includes` | List of strings; default is `[]` List of `#include/#import` search paths to add to this target and all depending targets. This is to support third party and open-sourced libraries that do not specify the entire workspace path in their `#import/#include` statements. The paths are interpreted relative to the package directory, and the genfiles and bin roots (e.g. `blaze-genfiles/pkg/includedir` and `blaze-out/pkg/includedir`) are included in addition to the actual client root. Unlike [COPTS](/reference/be/objective-c#objc_library.copts), these flags are added for this rule and every rule that depends on it. (Note: not the rules it depends upon!) Be very careful, since this may have far-reaching effects. When in doubt, add "-iquote" flags to [COPTS](/reference/be/objective-c#objc_library.copts) instead. |
 | `sdk_dylibs` | List of strings; default is `[]` Names of SDK .dylib libraries to link with. For instance, "libz" or "libarchive". "libc++" is included automatically if the binary has any C++ or Objective-C++ sources in its dependency tree. When linking a binary, all libraries named in that binary's transitive dependency graph are used. |

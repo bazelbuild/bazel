@@ -1,10 +1,10 @@
 ---
-title: 'Configurable Query (cquery)'
+title: "Configurable Query (cquery)"
 ---
 
 
 `cquery` is a variant of [`query`](/reference/query) that correctly handles
-[`select()`](/docs/configurable-attributes) and build options' effects on the build
+[`select()`](/docs/configurable-attributes) and build options" effects on the build
 graph.
 
 It achieves this by running over the results of Bazel's [analysis
@@ -18,22 +18,22 @@ For example:
 $ cat > tree/BUILD &lt;&lt;EOF
 sh_library(
     name = "ash",
-    deps = select({
+    deps = select({"{"}"{"}
         ":excelsior": [":manna-ash"],
         ":americana": [":white-ash"],
         "//conditions:default": [":common-ash"],
-    }),
+    {"}"{"}"}),
 )
 sh_library(name = "manna-ash")
 sh_library(name = "white-ash")
 sh_library(name = "common-ash")
 config_setting(
     name = "excelsior",
-    values = {"define": "species=excelsior"},
+    values = {define": "species=excelsior},
 )
 config_setting(
     name = "americana",
-    values = {"define": "species=americana"},
+    values = {define": "species=americana},
 )
 EOF
 ```
@@ -493,7 +493,7 @@ Extract a value from a user defined Provider.
 ```
   $ cat some_package/my_rule.bzl
 
-  MyRuleInfo = provider(fields={"color": "the name of a color"})
+  MyRuleInfo = provider(fields={color": "the name of a color{"}"{"}"})
 
   def _my_rule_impl(ctx):
       ...

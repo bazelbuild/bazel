@@ -1,5 +1,5 @@
 ---
-title: 'rule\_attributes'
+title: "rule\_attributes"
 ---
 
 Information about attributes of a rule an aspect is applied to.
@@ -47,7 +47,7 @@ struct rule_attributes.file
 A `struct` containing files defined in [label type attributes](../toplevel/attr#label) marked as [`allow_single_file`](../toplevel/attr#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](../builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
 
 ```
-list(ctx.attr.<ATTR>.files)[0]
+list(ctx.attr.`&lt;ATTR&gt;`.files)[0]
 ```
 
 In other words, use `file` to access the (singular) [default output](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
@@ -61,7 +61,7 @@ struct rule_attributes.files
 A `struct` containing files defined in [label](../toplevel/attr#label) or [label list](../toplevel/attr#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](../builtins/File)s. It is a shortcut for:
 
 ```
-[f for t in ctx.attr.<ATTR> for f in t.files]
+[f for t in ctx.attr.`&lt;ATTR&gt;` for f in t.files]
 ```
 
 In other words, use `files` to access the  [default outputs](https://bazel.build/extending/rules#requesting_output_files) of a dependency. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl).
@@ -72,7 +72,7 @@ In other words, use `files` to access the  [default outputs](https://bazel.build
 string rule_attributes.kind
 ```
 
-The kind of a rule, such as 'cc\_library'
+The kind of a rule, such as "cc\_library'
 
 ## toolchains
 

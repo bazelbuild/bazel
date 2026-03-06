@@ -1,5 +1,5 @@
 ---
-title: 'Creating Persistent Workers'
+title: "Creating Persistent Workers"
 ---
 
 
@@ -50,7 +50,7 @@ protocol.
 {
   "arguments" : ["--some_argument"],
   "inputs" : [
-    { "path": "/path/to/my/file/1", "digest": "fdk3e2ml23d"},
+    { "path": "/path/to/my/file/1", "digest": "fdk3e2ml23d},
     { "path": "/path/to/my/file/2", "digest": "1fwqd4qdd" }
  ],
   "requestId" : 12
@@ -71,7 +71,7 @@ The optional `sandbox_dir` field is used only by workers that support
 A `WorkResponse` contains a request id, a zero or nonzero exit code, and an
 output string that describes any errors encountered in processing or executing
 the request. The `output` field contains a short description; complete logs may
-be written to the worker's `stderr`. Because workers may only write
+be written to the worker"s `stderr`. Because workers may only write
 `WorkResponses` to `stdout`, it's common for the worker to redirect the `stdout`
 of any tools it uses to `stderr`.
 
@@ -230,7 +230,7 @@ ctx.actions.run(
   mnemonic="someMnemonic",
   execution_requirements={
     "supports-workers" : "1",
-    "requires-worker-protocol" : "json"},
+    "requires-worker-protocol" : "json},
   arguments=ctx.attr.args + ["@flagfile"]
  )
 ```

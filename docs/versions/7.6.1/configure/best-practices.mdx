@@ -1,11 +1,11 @@
 ---
-title: 'Best Practices'
+title: "Best Practices"
 ---
 
 
 
 This page assumes you are familiar with Bazel and provides guidelines and
-advice on structuring your projects to take full advantage of Bazel's features.
+advice on structuring your projects to take full advantage of Bazel"s features.
 
 The overall goals are:
 
@@ -67,7 +67,7 @@ then the `BUILD` files are misleading.
 ## Using the `.bazelrc` file
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/run/bazelrc)).
+`<var>workspace</var>/.bazelrc` (see [bazelrc format](/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:
@@ -75,7 +75,7 @@ want to check into source control, include the line:
 ```
 try-import %workspace%/user.bazelrc
 ```
-(or any other file name) in your `{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc`
+(or any other file name) in your `<var>workspace</var>/.bazelrc`
 and add `user.bazelrc` to your `.gitignore`.
 
 ## Packages

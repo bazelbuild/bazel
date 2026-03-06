@@ -1,5 +1,5 @@
 ---
-title: 'Debugging Remote Cache Hits for Remote Execution'
+title: "Debugging Remote Cache Hits for Remote Execution"
 ---
 
 
@@ -22,7 +22,7 @@ from a remote cache is displayed as `remote cache hit`.
 
 For example:
 
-```none {:.devsite-disable-click-to-copy}
+```none 
 INFO: 11 processes: 6 remote cache hit, 3 internal, 2 remote.
 ```
 
@@ -64,7 +64,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_compact_file=/tmp/exec1.log
+      bazel <var>--optional-flags</var> build //<var>your:target</var> --execution_log_compact_file=/tmp/exec1.log
       ```
 
    b. [Compare the execution logs](#compare-logs) between the
@@ -102,7 +102,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
     `structured_command_line` message with `command_line_label: "canonical"`.
     It will list all the options after expansion.
 
-   c. Search for `remote_accept_cached` and check whether it's set to `false`.
+   c. Search for `remote_accept_cached` and check whether it"s set to `false`.
 
    d. If `remote_accept_cached` is `false`, determine where it is being
       set to `false`: either at the command line or in a

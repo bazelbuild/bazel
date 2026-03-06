@@ -1,5 +1,5 @@
 ---
-title: 'Shell Rules'
+title: "Shell Rules"
 ---
 
 
@@ -18,7 +18,7 @@ sh_binary(name, deps, srcs, data, args, compatible_with, deprecation, distribs, 
 ```
 
 The `sh_binary` rule is used to declare executable shell scripts.
-(`sh_binary` is a misnomer: its outputs aren't necessarily binaries.) This rule ensures
+(`sh_binary` is a misnomer: its outputs aren"t necessarily binaries.) This rule ensures
 that all dependencies are built, and appear in the `runfiles` area at execution time.
 We recommend that you name your `sh_binary()` rules after the name of the script minus
 the extension (e.g. `.sh`); the rule name and the file name must be distinct.

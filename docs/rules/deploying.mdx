@@ -1,5 +1,5 @@
 ---
-title: 'Deploying Rules'
+title: "Deploying Rules"
 ---
 
 
@@ -71,11 +71,11 @@ For example, when writing new rules for the (make-believe)
 
 ### MODULE.bazel
 
-In the project's `MODULE.bazel`, you should define the name that users will use
+In the project"s `MODULE.bazel`, you should define the name that users will use
 to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
-`rules_<lang>` (such as `rules_mockascript`). Otherwise, you should name your
-repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please
+`rules_&lt;lang&gt;` (such as `rules_mockascript`). Otherwise, you should name your
+repository `&lt;org&gt;_rules_&lt;lang&gt;` (such as `build_stack_rules_proto`). Please
 start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules should follow the convention for rules in the
 [bazelbuild](https://github.com/bazelbuild) organization.
@@ -112,7 +112,7 @@ For `rules_mockascript` that means there will be a directory named
 If your rule defines
 [toolchain](/extending/toolchains) rules,
 it's possible that you'll need to define custom `constraint_setting`s and/or
-`constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
+`constraint_value`s. Put these into a `//`&lt;LANG&gt;`/constraints` package. Your
 directory structure will look like this:
 
 ```
@@ -137,8 +137,8 @@ will speak.
 ### Runfiles library
 
 If your rule provides a standard library for accessing runfiles, it should be
-in the form of a library target located at `//<LANG>/runfiles` (an abbreviation
-of `//<LANG>/runfiles:runfiles`). User targets that need to access their data
+in the form of a library target located at `//`&lt;LANG&gt;`/runfiles` (an abbreviation
+of `//`&lt;LANG&gt;`/runfiles:runfiles`). User targets that need to access their data
 dependencies will typically add this target to their `deps` attribute.
 
 ### Repository rules
@@ -158,8 +158,8 @@ analyze all `toolchain` targets that are registered. Bazel will not need to
 analyze all targets referenced by `toolchain.toolchain` attribute. If in order
 to register toolchains you need to perform complex computation in the
 repository, consider splitting the repository with `toolchain` targets from the
-repository with `<LANG>_toolchain` targets. Former will be always fetched, and
-the latter will only be fetched when user actually needs to build `<LANG>` code.
+repository with `&lt;LANG&gt;_toolchain` targets. Former will be always fetched, and
+the latter will only be fetched when user actually needs to build `&lt;LANG&gt;` code.
 
 
 #### Release snippet
@@ -168,7 +168,7 @@ In your release announcement provide a snippet that your users can copy-paste
 into their `MODULE.bazel` file. This snippet in general will look as follows:
 
 ```
-bazel_dep(name = "rules_<LANG>", version = "<VERSION>")
+bazel_dep(name = "rules_`&lt;LANG&gt;`", version = "`&lt;VERSION&gt;`")
 ```
 
 

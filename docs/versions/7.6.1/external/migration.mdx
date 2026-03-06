@@ -1,7 +1,7 @@
 keywords: bzlmod
 
 ---
-title: 'Bzlmod Migration Guide'
+title: "Bzlmod Migration Guide
 ---
 
 Due to the [shortcomings of
@@ -12,7 +12,7 @@ dependencies.
 
 ## WORKSPACE vs Bzlmod
 
-Bazel's WORKSPACE and Bzlmod offer similar features with different syntax. This
+Bazel"s WORKSPACE and Bzlmod offer similar features with different syntax. This
 section explains how to migrate from specific WORKSPACE functionalities to
 Bzlmod.
 
@@ -49,8 +49,8 @@ it applies to every command:
 
     The [`workspace`](/rules/lib/globals/workspace#workspace) function is used
     to specify a repository name for your workspace. This allows a target
-    `//foo:bar` in the workspace to be referenced as `@<workspace
-    name>//foo:bar`. If not specified, the default repository name for your
+    `//foo:bar` in the workspace to be referenced as `@`&lt;workspace
+    name&gt;`//foo:bar`. If not specified, the default repository name for your
     workspace is `__main__`.
 
     ```python
@@ -61,7 +61,7 @@ it applies to every command:
 *   **Bzlmod**
 
     It's recommended to reference targets in the same workspace with the
-    `//foo:bar` syntax without `@<repo name>`. But if you do need the old syntax
+    `//foo:bar` syntax without `@&lt;repo name&gt;`. But if you do need the old syntax
     , you can use the module name specified by the
     [`module`](/rules/lib/globals/module#module) function as the repository
     name. If the module name is different from the needed repository name, you
@@ -281,7 +281,7 @@ def data_deps(version = "1.0"):
     ## extensions.bzl in foo
     load("//:repositories.bzl", "data_deps")
 
-    data = tag_class(attrs={"version": attr.string()})
+    data = tag_class(attrs={version": attr.string(){"}"{"}"})
 
     def _data_deps_extension_impl(module_ctx):
         # Select the maximal required version in the dependency graph.
@@ -293,7 +293,7 @@ def data_deps(version = "1.0"):
 
     data_deps_extension = module_extension(
         implementation = _data_deps_extension_impl,
-        tag_classes = {"data": data},
+        tag_classes = {data": data},
     )
     ```
 
@@ -624,7 +624,7 @@ dependencies in the `resolved.bzl` file.
 You may also know `bazel query` can be used for inspecting repository rules with
 
 ```shell
-bazel query --output=build //external:<repo name>
+bazel query --output=build //external:`&lt;repo name&gt;`
 ```
 
 While it is more convenient and much faster, [bazel query can lie about
@@ -740,8 +740,8 @@ following command:
 
 ```shell
 git clone https://github.com/bazelbuild/bazel-central-registry.git
-cd <your workspace root>
-<BCR repo root>/tools/migrate_to_bzlmod.py -t <your build targets>
+cd `&lt;your workspace root&gt;`
+`&lt;BCR repo root&gt;`/tools/migrate_to_bzlmod.py -t `&lt;your build targets&gt;`
 ```
 
 Note: The migration script is not perfect and may not be up-to-date since Bzlmod
@@ -767,8 +767,8 @@ the project. Take note of a few things when creating the source archive:
     from GitHub, please create and upload a release archive in the release page.
     GitHub isn't going to guarantee the checksum of source archives generated on
     demand. In short, URLs in the form of
-    `https://github.com/<org>/<repo>/releases/download/...` is considered stable
-    while `https://github.com/<org>/<repo>/archive/...` is not. Check [GitHub
+    `https://github.com/`&lt;org&gt;`/`&lt;repo&gt;`/releases/download/...` is considered stable
+    while `https://github.com/`&lt;org&gt;`/`&lt;repo&gt;`/archive/...` is not. Check [GitHub
     Archive Checksum
     Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
     for more context.
@@ -826,7 +826,7 @@ still build without dev dependencies and overrides.
 
 [ignore_dev_dep_flag]: /reference/command-line-reference#flag--ignore_dev_dependency
 
-{# More best practices here !!! #}
+
 
 ## Community migration progress
 

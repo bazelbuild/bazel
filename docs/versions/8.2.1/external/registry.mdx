@@ -1,5 +1,5 @@
 ---
-title: 'Bazel registries'
+title: "Bazel registries"
 ---
 
 Bzlmod discovers dependencies by requesting their information from Bazel
@@ -21,7 +21,7 @@ An index registry must follow the format below:
     *   `mirrors`: specifying the list of mirrors to use for source archives.
         The mirrored URL is a concatenation of the mirror itself, and the
         source URL of the module specified by its `source.json` file sans the
-        protocol. For example, if a module's source URL is
+        protocol. For example, if a module"s source URL is
         `https://foo.com/bar/baz`, and `mirrors` contains
         `["https://mirror1.com/", "https://example.com/mirror2/"]`, then the
         URLs Bazel will try in order are `https://mirror1.com/foo.com/bar/baz`,
@@ -85,22 +85,22 @@ An index registry must follow the format below:
             *   `path`: The local path to the repo, calculated as following:
                 *   If `path` is an absolute path, it stays as it is
                 *   If `path` is a relative path and `module_base_path` is an
-                    absolute path, it resolves to `<module_base_path>/<path>`
+                    absolute path, it resolves to `&lt;module_base_path&gt;/&lt;path&gt;`
                 *   If `path` and `module_base_path` are both relative paths, it
-                    resolves to `<registry_path>/<module_base_path>/<path>`.
+                    resolves to `&lt;registry_path&gt;/`&lt;module_base_path&gt;`/&lt;path&gt;`.
                     Registry must be hosted locally and used by
-                    `--registry=file://<registry_path>`. Otherwise, Bazel will
+                    `--registry=file://&lt;registry_path&gt;`. Otherwise, Bazel will
                     throw an error
     *   `patches/`: An optional directory containing patch files, only used when
         `source.json` has "archive" type
 
 ## Bazel Central Registry
 
-The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
+The Bazel Central Registry (BCR) at `&lt;https://bcr.bazel.build/&gt;` is an index
 registry with contents backed by the GitHub repo
 [`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry).
 You can browse its contents using the web frontend at
-<https://registry.bazel.build/>.
+`&lt;https://registry.bazel.build/&gt;`.
 
 The Bazel community maintains the BCR, and contributors are welcome to submit
 pull requests. See the [BCR contribution

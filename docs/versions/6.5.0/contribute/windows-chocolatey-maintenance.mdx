@@ -1,5 +1,5 @@
 ---
-title: 'Maintaining Bazel Chocolatey package on Windows'
+title: "Maintaining Bazel Chocolatey package on Windows"
 ---
 
 
@@ -16,7 +16,7 @@ You need:
      * [@petemounce](https://github.com/petemounce) currently
      maintains this unofficial package.
 *    (to publish) to have set up that API key for the chocolatey source locally
-     via `choco apikey -k <your key here> -s https://chocolatey.org/`
+     via `choco apikey -k `&lt;your key here&gt;` -s https://chocolatey.org/`
 
 ## Build
 
@@ -28,7 +28,7 @@ pushd scripts/packages/chocolatey
 popd
 ```
 
-Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being
+Should result in `scripts/packages/chocolatey/bazel.`&lt;version&gt;`.nupkg` being
 created.
 
 The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
@@ -53,7 +53,7 @@ The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
     # should remove bazel from the system
     ```
 
-Chocolatey's moderation process automates checks here as well.
+Chocolatey"s moderation process automates checks here as well.
 
 ## Release
 
@@ -61,8 +61,8 @@ Modify `tools/parameters.json` for the new release's URI and checksum once the
 release has been published to github releases.
 
 ```powershell
-./build.ps1 -version <version> -isRelease
-./test.ps1 -version <version>
+./build.ps1 -version `&lt;version&gt;` -isRelease
+./test.ps1 -version `&lt;version&gt;`
 # if the test.ps1 passes
 choco push bazel.x.y.z.nupkg --source https://chocolatey.org/
 ```

@@ -1,5 +1,5 @@
 ---
-title: 'External dependencies overview'
+title: "External dependencies overview"
 ---
 
 Bazel supports *external dependencies*, source files (both text and binary) used
@@ -59,7 +59,7 @@ The main repository always has the empty string as the canonical name.
 ### Apparent repository name
 
 The name a repository is addressable by in the context of a certain other repo.
-This can be thought of as a repo's "nickname": The repo with the canonical name
+This can be thought of as a repo"s "nickname": The repo with the canonical name
 `michael` might have the apparent name `mike` in the context of the repo
 `alice`, but might have the apparent name `mickey` in the context of the repo
 `bob`. In this case, a target inside `michael` can be addressed by the label
@@ -116,7 +116,7 @@ You can run the following command to see the contents of the repo with the
 canonical name `canonical_name`:
 
 ```posix-terminal
-ls $(bazel info output_base)/external/{{ '<var>' }} canonical_name {{ '</var>' }}
+ls $(bazel info output_base)/external/<var> canonical_name </var>
 ```
 
 ### REPO.bazel file

@@ -1,5 +1,5 @@
 ---
-title: 'Configurable Build Attributes'
+title: "Configurable Build Attributes"
 ---
 
 
@@ -19,16 +19,16 @@ feature-configurable binary that can be customized at build time.
 cc_binary(
     name = "mybinary",
     srcs = ["main.cc"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":arm_build": [":arm_lib"],
         ":x86_debug_build": [":x86_dev_lib"],
         "//conditions:default": [":generic_lib"],
-    }),
+    {"}"{"}"}),
 )
 
 config_setting(
     name = "arm_build",
-    values = {"cpu": "arm"},
+    values = {cpu": "arm},
 )
 
 config_setting(
@@ -73,9 +73,9 @@ effectively adopts different values when different conditions hold.
 
 Matches must be unambiguous: if multiple conditions match then either
 *  They all resolve to the same value. For example, when running on linux x86, this is unambiguous
-   `{"@platforms//os:linux": "Hello", "@platforms//cpu:x86_64": "Hello"}` because both branches resolve to "hello".
-*  One's `values` is a strict superset of all others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}`
-   is an unambiguous specialization of `values = {"cpu": "x86"}`.
+   `{{}"@platforms//os:linux": "Hello", "@platforms//cpu:x86_64": "Hello}` because both branches resolve to "hello".
+*  One"s `values` is a strict superset of all others'. For example, `values = {{}"cpu": "x86", "compilation_mode": "dbg}`
+   is an unambiguous specialization of `values = {{}"cpu": "x86}`.
 
 The built-in condition [`//conditions:default`](#default-condition) automatically matches when
 nothing else does.
@@ -101,32 +101,32 @@ Given
 
 config_setting(
     name = "arm_cpu",
-    values = {"cpu": "arm"},
+    values = {cpu": "arm},
 )
 
 config_setting(
     name = "x86_cpu",
-    values = {"cpu": "x86"},
+    values = {cpu": "x86},
 )
 
 genrule(
     name = "my_genrule",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":arm_cpu": ["g_arm.src"],
         ":x86_cpu": ["g_x86.src"],
-    }),
-    tools = select({
+    {"}"{"}"}),
+    tools = select({"{"}"{"}
         ":arm_cpu": [":tool1"],
         ":x86_cpu": [":tool2"],
-    }),
+    {"}"{"}"}),
 )
 
 cc_binary(
     name = "tool1",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":arm_cpu": ["armtool.cc"],
         ":x86_cpu": ["x86tool.cc"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -178,9 +178,9 @@ is the expected value for that flag. `:meaningful_condition_name` matches if
 
 `valueN` is parsed as if it was set on the command line. This means:
 
-*  `values = { "compilation_mode": "opt" }` matches `bazel build -c opt`
-*  `values = { "force_pic": "true" }` matches `bazel build --force_pic=1`
-*  `values = { "force_pic": "0" }` matches `bazel build --noforce_pic`
+*  `values = {{} "compilation_mode": "opt" }` matches `bazel build -c opt`
+*  `values = {{} "force_pic": "true" }` matches `bazel build --force_pic=1`
+*  `values = {{} "force_pic": "0" }` matches `bazel build --noforce_pic`
 
 `config_setting` only supports flags that affect target behavior. For example,
 [`--show_progress`](/docs/user-manual#show-progress) isn't allowed because
@@ -216,9 +216,9 @@ for a working example.
 is an alternative legacy syntax for custom flags (for example
 `--define foo=bar`). This can be expressed either in the
 [values](/reference/be/general#config_setting.values) attribute
-(`values = {"define": "foo=bar"}`) or the
+(`values = {{}"define": "foo=bar}`) or the
 [define_values](/reference/be/general#config_setting.define_values) attribute
-(`define_values = {"foo": "bar"}`). `--define` is only supported for backwards
+(`define_values = {{}"foo": "bar}`). `--define` is only supported for backwards
 compatibility. Prefer Starlark build settings whenever possible.
 
 `values`, `flag_values`, and `define_values` evaluate independently. The
@@ -238,14 +238,14 @@ protect against silent failures from unexpected settings:
 
 config_setting(
     name = "x86_cpu",
-    values = {"cpu": "x86"},
+    values = {cpu": "x86},
 )
 
 cc_library(
     name = "x86_only_lib",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":x86_cpu": ["lib.cc"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -273,11 +273,11 @@ let you consolidate these into simple bundles.
 
 sh_binary(
     name = "my_rocks",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":basalt": ["pyroxene.sh"],
         ":marble": ["calcite.sh"],
         "//conditions:default": ["feldspar.sh"],
-    }),
+    {"}"{"}"}),
 )
 
 config_setting(
@@ -349,10 +349,10 @@ constraint_value(name = "igneous", constraint_setting = "type")
 constraint_value(name = "metamorphic", constraint_setting = "type")
 sh_binary(
     name = "my_rocks",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":igneous": ["igneous.sh"],
         ":metamorphic" ["metamorphic.sh"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -370,14 +370,14 @@ Platforms are still under development. See the
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"] +
-           select({
+           select({"{"}"{"}
                ":armeabi_mode": ["armeabi_src.sh"],
                ":x86_mode": ["x86_src.sh"],
-           }) +
-           select({
+           {"}"{"}"}) +
+           select({"{"}"{"}
                ":opt_mode": ["opt_extras.sh"],
                ":dbg_mode": ["dbg_extras.sh"],
-           }),
+           {"}"{"}"}),
 )
 ```
 
@@ -393,18 +393,18 @@ and your attribute takes other targets as values, use an intermediate target:
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":armeabi_mode": [":armeabi_lib"],
         ...
-    }),
+    {"}"{"}"}),
 )
 
 sh_library(
     name = "armeabi_lib",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":opt_mode": ["armeabi_with_opt.sh"],
         ...
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -419,12 +419,12 @@ Consider the following:
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":config1": [":standard_lib"],
         ":config2": [":standard_lib"],
         ":config3": [":standard_lib"],
         ":config4": [":special_lib"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -440,12 +440,12 @@ STANDARD_DEP = [":standard_lib"]
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":config1": STANDARD_DEP,
         ":config2": STANDARD_DEP,
         ":config3": STANDARD_DEP,
         ":config4": [":special_lib"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -473,7 +473,7 @@ sh_binary(
     deps = selects.with_or({
         (":config1", ":config2", ":config3"): [":standard_lib"],
         ":config4": [":special_lib"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -494,11 +494,11 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 ```python
 config_setting(
     name = "config1",
-    values = {"cpu": "arm"},
+    values = {cpu": "arm},
 )
 config_setting(
     name = "config2",
-    values = {"compilation_mode": "dbg"},
+    values = {compilation_mode": "dbg},
 )
 selects.config_setting_group(
     name = "config1_or_2",
@@ -507,10 +507,10 @@ selects.config_setting_group(
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":config1_or_2": [":standard_lib"],
         "//conditions:default": [":other_lib"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -529,11 +529,11 @@ If you need a `select` branch to match when multiple conditions match, use the
 ```python
 config_setting(
     name = "config1",
-    values = {"cpu": "arm"},
+    values = {cpu": "arm},
 )
 config_setting(
     name = "config2",
-    values = {"compilation_mode": "dbg"},
+    values = {compilation_mode": "dbg},
 )
 selects.config_setting_group(
     name = "config1_and_2",
@@ -542,10 +542,10 @@ selects.config_setting_group(
 sh_binary(
     name = "my_target",
     srcs = ["always_include.sh"],
-    deps = select({
+    deps = select({"{"}"{"}
         ":config1_and_2": [":standard_lib"],
         "//conditions:default": [":other_lib"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -597,10 +597,10 @@ attributes. For example, given:
 
 some_rule(
     name = "my_target",
-    some_attr = select({
+    some_attr = select({"{"}"{"}
         ":foo_mode": [":foo"],
         ":bar_mode": [":bar"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -615,13 +615,13 @@ rules. But *they cannot directly manipulate them*. For example, there's no way
 for a macro to convert
 
 ```python
-select({"foo": "val"}, ...)
+select({"{"}"{"}foo": "val}, ...)
 ```
 
 to
 
 ```python
-select({"foo": "val_with_suffix"}, ...)
+select({"{"}"{"}foo": "val_with_suffix}, ...)
 ```
 
 This is for two reasons.
@@ -662,20 +662,20 @@ string_flag(
 
 cc_library(
     name = "my_lib",
-    deps = select({
+    deps = select({"{"}"{"}
         ":long": [":foo_dep"],
         ":short": [":bar_dep"],
-    }),
+    {"}"{"}"}),
 )
 
 config_setting(
     name = "long",
-    flag_values = {":dog_type": "dachshund"},
+    flag_values = {:dog_type": "dachshund},
 )
 
 config_setting(
     name = "short",
-    flag_values = {":dog_type": "pug"},
+    flag_values = {:dog_type": "pug},
 )
 ```
 
@@ -724,7 +724,7 @@ def _impl(ctx):
 # Rule declaration:
 my_custom_bazel_rule = rule(
     implementation = _impl,
-    attrs = {"my_config_string": attr.string()},
+    attrs = {my_config_string": attr.string()},
 )
 
 # Macro declaration:
@@ -743,10 +743,10 @@ load("//myapp:defs.bzl", "my_custom_bazel_macro")
 
 my_custom_bazel_rule(
     name = "happy_rule",
-    my_config_string = select({
+    my_config_string = select({"{"}"{"}
         "//tools/target_cpu:x86": "first string",
         "//tools/target_cpu:ppc": "second string",
-    }),
+    {"}"{"}"}),
 )
 
 my_custom_bazel_macro(
@@ -756,10 +756,10 @@ my_custom_bazel_macro(
 
 my_custom_bazel_macro(
     name = "sad_macro",
-    my_config_string = select({
+    my_config_string = select({"{"}"{"}
         "//tools/target_cpu:x86": "first string",
         "//tools/target_cpu:ppc": "other string",
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -770,7 +770,7 @@ $ bazel build //myapp:all
 ERROR: /myworkspace/myapp/BUILD:17:1: Traceback
   (most recent call last):
 File "/myworkspace/myapp/BUILD", line 17
-my_custom_bazel_macro(name = "sad_macro", my_config_stri..."}))
+my_custom_bazel_macro(name = "sad_macro", my_config_stri...{"}"{"}"}))
 File "/myworkspace/myapp/defs.bzl", line 4, in
   my_custom_bazel_macro
 my_config_string.upper()
@@ -820,7 +820,7 @@ usually produces an error:
 ERROR: /myworkspace/myapp/BUILD:17:1: Traceback
   (most recent call last):
 File "/myworkspace/myapp/BUILD", line 17
-my_custom_bazel_macro(name = "sad_macro", my_config_stri..."}))
+my_custom_bazel_macro(name = "sad_macro", my_config_stri...{"}"{"}"}))
 File "/myworkspace/myapp/defs.bzl", line 4, in
   my_custom_bazel_macro
 my_config_string.upper()
@@ -838,10 +838,10 @@ def my_boolean_macro(boolval):
 $ cat myapp/BUILD
 load("//myapp:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
-    boolval = select({
+    boolval = select({"{"}"{"}
         "//tools/target_cpu:x86": True,
         "//tools/target_cpu:ppc": False,
-    }),
+    {"}"{"}"}),
 )
 
 $ bazel build //myapp:all --cpu=x86
@@ -875,7 +875,7 @@ def selecty_genrule(name, select_cmd):
       name = name,
       outs = [name + ".out"],
       srcs = [],
-      cmd = "echo " + select(select_cmd + {"//conditions:default": "default"})
+      cmd = "echo " + select(select_cmd + {//conditions:default": "default{"}"{"}"})
         + " > $@"
   )
 
@@ -902,7 +902,7 @@ def selecty_genrule(name, select_cmd):
     elif type(select_cmd) == "dict":
         for key in select_cmd.keys():
             select_cmd[key] += " WITH SUFFIX"
-        cmd_suffix = select(select_cmd + {"//conditions:default": "default"})
+        cmd_suffix = select(select_cmd + {//conditions:default": "default{"}"{"}"})
 
     native.genrule(
         name = name,
@@ -944,10 +944,10 @@ config_setting(
 
 alias(
     name = "ssl",
-    actual = select({
+    actual = select({"{"}"{"}
         "//:alt_ssl": "@alternative//:ssl",
         "//conditions:default": "@boringssl//:ssl",
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -963,7 +963,7 @@ use [cquery](/docs/cquery) and `bazel config` to debug:
 If `//myapp:foo` is the top-level target you're building, run:
 
 ```sh
-$ bazel cquery //myapp:foo <desired build flags>
+$ bazel cquery //myapp:foo `&lt;desired build flags&gt;`
 //myapp:foo (12e23b9a2b534a)
 ```
 
@@ -971,7 +971,7 @@ If you're building some other target `//bar` that depends on
 //myapp:foo somewhere in its subgraph, run:
 
 ```sh
-$ bazel cquery 'somepath(//bar, //myapp:foo)' <desired build flags>
+$ bazel cquery 'somepath(//bar, //myapp:foo)' `&lt;desired build flags&gt;`
 //bar:bar   (3ag3193fee94a2)
 //bar:intermediate_dep (12e23b9a2b534a)
 //myapp:foo (12e23b9a2b534a)
@@ -1025,10 +1025,10 @@ platform(
 cc_library(
     name = "lib",
     srcs = [...],
-    linkopts = select({
+    linkopts = select({"{"}"{"}
         ":x86_linux_platform": ["--enable_x86_optimizations"],
         "//conditions:default": [],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -1054,10 +1054,10 @@ config_setting(
 cc_library(
     name = "lib",
     srcs = [...],
-    linkopts = select({
+    linkopts = select({"{"}"{"}
         ":is_x86_linux": ["--enable_x86_optimizations"],
         "//conditions:default": [],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -1080,10 +1080,10 @@ config_setting(
 cc_library(
     name = "lib",
     srcs = [...],
-    linkopts = select({
+    linkopts = select({"{"}"{"}
         ":is_specific_x86_linux_platform": ["--enable_x86_optimizations"],
         "//conditions:default": [],
-    }),
+    {"}"{"}"}),
 )
 ```
 

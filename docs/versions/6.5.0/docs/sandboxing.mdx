@@ -1,5 +1,5 @@
 ---
-title: 'Sandboxing'
+title: "Sandboxing"
 ---
 
 
@@ -10,7 +10,7 @@ your sandboxing environment.
 each other or from resources in a system. For Bazel, this means restricting file
 system access.
 
-Bazel's file system sandbox runs processes in a working directory that only
+Bazel"s file system sandbox runs processes in a working directory that only
 contains known inputs, such that compilers and other tools don't see source
 files they should not access, unless they know the absolute paths to them.
 
@@ -148,7 +148,7 @@ it:
 3.  Run a Bazel build with `--experimental_use_sandboxfs`.
 
     ```posix-terminal
-    bazel build {{ '<var>' }}target{{ '</var>' }} --experimental_use_sandboxfs
+    bazel build <var>target</var> --experimental_use_sandboxfs
     ```
 
 **Troubleshooting**

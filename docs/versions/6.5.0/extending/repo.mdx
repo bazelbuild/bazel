@@ -1,5 +1,5 @@
 ---
-title: 'Repository Rules'
+title: "Repository Rules"
 ---
 
 
@@ -21,7 +21,7 @@ repository rule and store it in a global variable.
 
 A custom repository rule can be used just like a native repository rule. It
 has a mandatory `name` attribute and every target present in its build files
-can be referred as `@<name>//package:target` where `<name>` is the value of the
+can be referred as `@`&lt;name&gt;`//package:target` where `&lt;name&gt;` is the value of the
 `name` attribute.
 
 The rule is loaded when you explicitly build it, or if it is a dependency of
@@ -37,10 +37,10 @@ the attributes and their types when you define a repository rule.
 local_repository = repository_rule(
     implementation=_impl,
     local=True,
-    attrs={"path": attr.string(mandatory=True)})
+    attrs={path": attr.string(mandatory=True){"}"{"}"})
 ```
 
-To access an attribute, use `repository_ctx.attr.<attribute_name>`.
+To access an attribute, use `repository_ctx.attr.&lt;attribute_name&gt;`.
 
 All `repository_rule`s have implicitly defined attributes (just like build
 rules). The two implicit attributes are `name` (just like for build rules) and

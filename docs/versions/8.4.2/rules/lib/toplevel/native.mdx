@@ -1,5 +1,5 @@
 ---
-title: 'native'
+title: "native"
 ---
 
 A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module, e.g. `native.cc_library`. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations). Attributes will ignore `None` values, and treat them as if the attribute was unset.
@@ -26,7 +26,7 @@ The following functions are also available:
 unknown native.existing_rule(name)
 ```
 
-Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread's package, or `None` if no rule instance of that name exists.
+Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread"s package, or `None` if no rule instance of that name exists.
 
 Here, an *immutable dict-like object* means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
 

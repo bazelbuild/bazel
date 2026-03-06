@@ -1,5 +1,5 @@
 ---
-title: 'Migrating to Platforms'
+title: "Migrating to Platforms"
 ---
 
 
@@ -10,7 +10,7 @@ cross-compiled builds.
 
 This page summarizes the state of this support.
 
-Key Point: Bazel's platform and toolchain APIs are available today. Not all
+Key Point: Bazel"s platform and toolchain APIs are available today. Not all
 languages support them. Use these APIs with your project if you can. Bazel is
 migrating all major languages so eventually all builds will be platform-based.
 
@@ -243,7 +243,7 @@ sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 `--platforms` won't see these changes.
 
 When migrating your project to platforms, you must either convert changes like
-`return { "//command_line_option:cpu": "arm" }` to `return {
+`return {{} "//command_line_option:cpu": "arm" }` to `return {{}
 "//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
 mappings](#platform-mappings) to support both styles during migration.
 window.

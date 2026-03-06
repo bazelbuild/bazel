@@ -1,5 +1,5 @@
 ---
-title: 'Workspace Rules'
+title: "Workspace Rules"
 ---
 
 
@@ -92,7 +92,7 @@ cc_library(
 )
 ```
 
-Then `sign_in.cc`'s includes might look like this:
+Then `sign_in.cc`"s includes might look like this:
 
 ```
 #include "sign_in.h"
@@ -143,7 +143,7 @@ library.
 | --- | --- |
 | `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
 | `path` | String; required The path to the local repository's directory. This must be a path to the directory containing the repository's *WORKSPACE* file. The path can be either absolute or relative to the main repository's *WORKSPACE* file. |
-| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
+| `repo_mapping` | Dictionary: String -> String; default is `{` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
 
 ## new\_local\_repository
 
@@ -223,6 +223,6 @@ Then targets can depend on `@piano//:play-music` to use piano.jar.
 | `build_file` | [Name](/concepts/labels#target-names); default is `None` A file to use as a BUILD file for this directory. Either build\_file or build\_file\_content must be specified.  This attribute is a label relative to the main workspace. The file does not need to be named BUILD, but can be. (Something like BUILD.new-repo-name may work well for distinguishing it from the repository's actual BUILD files.) |
 | `build_file_content` | String; default is `""` The content for the BUILD file for this repository. Either build\_file or build\_file\_content must be specified. |
 | `path` | String; required A path on the local filesystem. This can be either absolute or relative to the main repository's WORKSPACE file. |
-| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
+| `repo_mapping` | Dictionary: String -> String; default is `{` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
 | `workspace_file` | [Name](/concepts/labels#target-names); default is `None` The file to use as the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both.  This attribute is a label relative to the main workspace. The file does not need to be named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for distinguishing it from the repository's actual WORKSPACE files.) |
 | `workspace_file_content` | String; default is `""` The content for the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both. |

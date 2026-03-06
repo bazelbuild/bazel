@@ -1,11 +1,11 @@
 ---
-title: 'Configurations'
+title: "Configurations"
 ---
 
-<devsite-mathjax config="TeX-AMS-MML_SVG"></devsite-mathjax>
+&lt;devsite-mathjax config="TeX-AMS-MML_SVG"&gt;&lt;/devsite-mathjax&gt;
 
 This page covers the benefits and basic usage of Starlark configurations,
-Bazel's API for customizing how your project builds. It includes how to define
+Bazel"s API for customizing how your project builds. It includes how to define
 build settings and provides examples.
 
 This makes it possible to:
@@ -29,7 +29,7 @@ A build setting is a single piece of
 [configuration](/extending/rules#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
 and `--copt="-DFoo"` produces a configuration that looks like
-`{cpu: ppc, copt: "-DFoo"}`. Each entry is a build setting.
+`{{}cpu: ppc, copt: "-DFoo}`. Each entry is a build setting.
 
 Traditional flags like `cpu` and `copt` are native settings —
 their keys are defined and their values are set inside native bazel java code.
@@ -93,8 +93,8 @@ temperatures = ["HOT", "LUKEWARM", "ICED"]
 def _impl(ctx):
     raw_temperature = ctx.build_setting_value
     if raw_temperature not in temperatures:
-        fail(str(ctx.label) + " build setting allowed to take values {"
-             + ", ".join(temperatures) + "} but was set to unallowed value "
+        fail(str(ctx.label) + " build setting allowed to take values {
+             + ", ".join(temperatures) + } but was set to unallowed value "
              + raw_temperature)
     return TemperatureProvider(type = raw_temperature)
 
@@ -140,7 +140,7 @@ $ bazel build //my/target --//example:roasts=blonde \
     --//example:roasts=medium,dark
 ```
 
-The above is parsed to `{"//example:roasts": ["blonde", "medium,dark"]}` and
+The above is parsed to `{{}"//example:roasts": ["blonde", "medium,dark"]}` and
 `ctx.build_setting_value` returns the list `["blonde", "medium,dark"]`.
 
 #### Instantiating build settings
@@ -429,7 +429,7 @@ and an implementation function.
 # example/transitions/transitions.bzl
 def _impl(settings, attr):
     _ignore = (settings, attr)
-    return {"//example:favorite_flavor" : "MINT"}
+    return {//example:favorite_flavor" : "MINT}
 
 hot_chocolate_transition = transition(
     implementation = _impl,
@@ -484,8 +484,8 @@ transition implementation function.
 def _impl(settings, attr):
     _ignore = (settings, attr)
     return [
-        {"//example:favorite_flavor" : "LATTE"},
-        {"//example:favorite_flavor" : "MOCHA"},
+        {//example:favorite_flavor" : "LATTE},
+        {//example:favorite_flavor" : "MOCHA},
     ]
 
 coffee_transition = transition(
@@ -502,8 +502,8 @@ read individual dependencies:
 def _impl(settings, attr):
     _ignore = (settings, attr)
     return {
-        "Apple deps": {"//command_line_option:cpu": "ppc"},
-        "Linux deps": {"//command_line_option:cpu": "x86"},
+        "Apple deps": {//command_line_option:cpu": "ppc},
+        "Linux deps": {//command_line_option:cpu": "x86},
     }
 
 multi_arch_transition = transition(
@@ -572,7 +572,7 @@ configuration options via a special prefix to the option name.
 # example/transitions/transitions.bzl
 def _impl(settings, attr):
     _ignore = (settings, attr)
-    return {"//command_line_option:cpu": "k8"}
+    return {//command_line_option:cpu": "k8}
 
 cpu_transition = transition(
     implementation = _impl,
@@ -624,7 +624,7 @@ string_flag(name = "roasts", build_setting_default = "medium")
 # example/transitions/rules.bzl
 def _transition_impl(settings, attr):
     # Using a value of just "dark" here will throw an error
-    return {"//example:roasts" : ["dark"]},
+    return {//example:roasts" : ["dark"]},
 
 coffee_transition = transition(
     implementation = _transition_impl,
@@ -635,7 +635,7 @@ coffee_transition = transition(
 
 ### No-op transitions
 
-If a transition returns `{}`, `[]`, or `None`, this is shorthand for keeping all
+If a transition returns `{`, `[]`, or `None`, this is shorthand for keeping all
 settings at their original values. This can be more convenient than explicitly
 setting each output to itself.
 
@@ -673,7 +673,7 @@ if it isn't already. The order of elements in this list is unspecified.
 ```python
 # example/transitions/rules.bzl
 def _transition_impl(settings, attr):
-    return {"//example:favorite_flavor" : "LATTE"},
+    return {//example:favorite_flavor" : "LATTE},
 
 coffee_transition = transition(
     implementation = _transition_impl,
@@ -694,7 +694,7 @@ coffee_rule = rule(
     attrs = {
         "dep": attr.label(cfg = coffee_transition)
         "other_deps": attr.label_list(cfg = coffee_transition)
-    })
+    {"}"{"}"})
 ```
 
 If the transition is `1:2+` and sets custom keys, `ctx.split_attr` can be used
@@ -705,8 +705,8 @@ to read individual deps for each key:
 def _impl(settings, attr):
     _ignore = (settings, attr)
     return {
-        "Apple deps": {"//command_line_option:cpu": "ppc"},
-        "Linux deps": {"//command_line_option:cpu": "x86"},
+        "Apple deps": {//command_line_option:cpu": "ppc},
+        "Linux deps": {//command_line_option:cpu": "x86},
     }
 
 multi_arch_transition = transition(
@@ -725,7 +725,7 @@ multi_arch_rule = rule(
     implementation = _rule_impl,
     attrs = {
         "dep": attr.label(cfg = multi_arch_transition)
-    })
+    {"}"{"}"})
 ```
 
 See [complete example](https://github.com/bazelbuild/examples/tree/main/configurations/multi_arch_binary)
@@ -765,7 +765,7 @@ Building `//pkg:app` requires \\(2n+2\\) targets:
 * `//pkg:i_0` and `//pkg:i_1` for \\(i\\) in \\([1..n]\\)
 
 Imagine you [implement](#user-defined-build-settings) a flag
-`--//foo:owner=<STRING>` and `//pkg:i_b` applies
+`--//foo:owner=&lt;STRING&gt;` and `//pkg:i_b` applies
 
     depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"
 
@@ -790,7 +790,7 @@ This produces the following [configured targets](/reference/glossary#configured-
 ```
 
 `//pkg:dep` produces \\(2^n\\) configured targets: `config.owner=`
-"\\(b_0b_1...b_n\\)" for all \\(b_i\\) in \\(\{0,1\}\\).
+"\\(b_0b_1...b_n\\)" for all \\(b_i\\) in \\(\{{}0,1\}\\).
 
 This makes the build graph exponentially larger than the target graph, with
 corresponding memory and performance consequences.

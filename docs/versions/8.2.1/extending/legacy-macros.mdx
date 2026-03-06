@@ -1,14 +1,14 @@
-{# disableFinding("native") #}
-{# disableFinding("Native") #}
-{# disableFinding(LINE_OVER_80_LINK) #}
+
+
+
 
 ---
-title: 'Legacy Macros'
+title: "Legacy Macros
 ---
 
 Legacy macros are unstructured functions called from `BUILD` files that can
 create targets. By the end of the
-[loading phase](/extending/concepts#evaluation-model), legacy macros don't exist
+[loading phase](/extending/concepts#evaluation-model), legacy macros don"t exist
 anymore, and Bazel sees only the concrete set of instantiated rules.
 
 ## Why you shouldn't use legacy macros (and should use Symbolic macros instead)
@@ -105,7 +105,7 @@ def chained_genrules(name, visibility=None):
     name = name + "-two",
     srcs = [name + ".one"],
     outs = [name + ".two"],
-    cmd = "$(location :tool-two) $< $@",
+    cmd = "$(location :tool-two) $&lt; $@",
     tools = [":tool-two"],
     visibility = visibility,
   )
@@ -115,7 +115,7 @@ The example only assigns a visibility value to the second genrule. This allows
 macro authors to hide the outputs of intermediate rules from being depended upon
 by other targets in the workspace.
 
-Note: Similar to `$@` for outputs, `$<` expands to the locations of files in the
+Note: Similar to `$@` for outputs, `$&lt;` expands to the locations of files in the
 `srcs` attribute list.
 
 ## Expanding macros
@@ -130,7 +130,7 @@ genrule(
   name = "file",
   tools = ["//:generator"],
   outs = ["//test:file.txt"],
-  cmd = "$(location //:generator) some_arg > $@",
+  cmd = "$(location //:generator) some_arg &gt; $@",
 )
 ```
 
@@ -171,7 +171,7 @@ To get the same behavior as for Starlark rules, wrap the label strings with the
 def my_cc_wrapper(name, deps = [], **kwargs):
   native.cc_library(
     name = name,
-    deps = deps + select({
+    deps = deps + select({"{"}"{"}
       # Due to the use of Label, this label is resolved within @my_ruleset,
       # regardless of its site of use.
       Label("//config:needs_foo"): [
@@ -181,7 +181,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
         Label("@dep_of_my_ruleset//tools:foo"),
       ],
       "//conditions:default": [],
-    }),
+    {"}"{"}"}),
     **kwargs,
   )
 ```

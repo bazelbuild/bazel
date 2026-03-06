@@ -1,5 +1,5 @@
 ---
-title: 'Bazel registries'
+title: "Bazel registries"
 ---
 
 Bzlmod discovers dependencies by requesting their information from Bazel
@@ -27,7 +27,7 @@ An index registry must follow the format below:
     of this module, as well as:
     *   `metadata.json`: A JSON file containing information about the module,
         with the following fields:
-        *   `homepage`: The URL of the project's homepage
+        *   `homepage`: The URL of the project"s homepage
         *   `maintainers`: A list of JSON objects, each of which corresponds to
             the information of a maintainer of the module *in the registry*.
             Note that this is not necessarily the same as the *authors* of the
@@ -47,7 +47,7 @@ An index registry must follow the format below:
             with the following fields:
             *   `url`: The URL of the source archive
             *   `integrity`: The [Subresource
-                Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
+                Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description)
                 checksum of the archive
             *   `strip_prefix`: A directory prefix to strip when extracting the
                 source archive
@@ -67,26 +67,26 @@ An index registry must follow the format below:
             *   `path`: The local path to the repo, calculated as following:
                 *   If `path` is an absolute path, it stays as it is
                 *   If `path` is a relative path and `module_base_path` is an
-                    absolute path, it resolves to `<module_base_path>/<path>`
+                    absolute path, it resolves to `&lt;module_base_path&gt;/&lt;path&gt;`
                 *   If `path` and `module_base_path` are both relative paths, it
-                    resolves to `<registry_path>/<module_base_path>/<path>`.
+                    resolves to `&lt;registry_path&gt;/`&lt;module_base_path&gt;`/&lt;path&gt;`.
                     Registry must be hosted locally and used by
-                    `--registry=file://<registry_path>`. Otherwise, Bazel will
+                    `--registry=file://&lt;registry_path&gt;`. Otherwise, Bazel will
                     throw an error
     *   `patches/`: An optional directory containing patch files, only used when
         `source.json` has "archive" type
 
 ## Bazel Central Registry
 
-The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
+The Bazel Central Registry (BCR) at `&lt;https://bcr.bazel.build/&gt;` is an index
 registry with contents backed by the GitHub repo
-[`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry){: .external}.
+[`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry).
 You can browse its contents using the web frontend at
-<https://registry.bazel.build/>.
+`&lt;https://registry.bazel.build/&gt;`.
 
 The Bazel community maintains the BCR, and contributors are welcome to submit
 pull requests. See the [BCR contribution
-guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md){: .external}.
+guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md).
 
 In addition to following the format of a normal index registry, the BCR requires
 a `presubmit.yml` file for each module version

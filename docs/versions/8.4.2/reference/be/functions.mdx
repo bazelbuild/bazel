@@ -1,5 +1,5 @@
 ---
-title: 'Functions'
+title: "Functions"
 ---
 
 
@@ -172,7 +172,7 @@ of tests.
 
 ```
 ---
-title: 'from //test_data/BUILD'
+title: "from //test_data/BUILD'
 ---
 
 exports_files(["golden.txt"])
@@ -383,19 +383,19 @@ that counts the number of lines in the file.
 
 ```
 ---
-title: 'Conveniently, the build language supports list comprehensions.'
+title: "Conveniently, the build language supports list comprehensions.
 ---
 [genrule(
     name = "count_lines_" + f[:-3],  # strip ".cc"
     srcs = [f],
     outs = ["%s-linecount.txt" % f[:-3]],
-    cmd = "wc -l $< >$@",
+    cmd = "wc -l $&lt; &gt;$@",
  ) for f in glob(["*_test.cc"])]
 ```
 
 If the BUILD file above is in package //foo and the package contains three
 matching files, a\_test.cc, b\_test.cc and c\_test.cc then running
-`bazel query '//foo:all'` will list all rules that were generated:
+`bazel query "//foo:all'` will list all rules that were generated:
 
 ```
 $ bazel query '//foo:all' | sort
@@ -427,11 +427,11 @@ Basic use is as follows:
 ```
 sh_binary(
     name = "mytarget",
-    srcs = select({
+    srcs = select({"{"}"{"}
         ":conditionA": ["mytarget_a.sh"],
         ":conditionB": ["mytarget_b.sh"],
         "//conditions:default": ["mytarget_default.sh"]
-    })
+    {"}"{"}"})
 )
 ```
 
@@ -462,8 +462,8 @@ Notes:
   is left out, some other rule must match to avoid an error.
 * `select` can be embedded *inside* a larger
   attribute assignment. So `srcs = ["common.sh"]
-  + select({ ":conditionA": ["myrule_a.sh"], ...})` and `srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
-  ["b.sh"]})` are valid expressions.
+  + select({"{"}"{"}{} ":conditionA": ["myrule_a.sh"], ...{"}"{"}"})` and `srcs = select({"{"}"{"}{} ":conditionA": ["a.sh"]{"}"{"}"}) + select({"{"}"{"}{} ":conditionB":
+  ["b.sh"]{"}"{"}"})` are valid expressions.
 * `select` works with most, but not all, attributes. Incompatible
   attributes are marked `nonconfigurable` in their documentation.
 

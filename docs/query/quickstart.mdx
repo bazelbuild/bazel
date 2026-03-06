@@ -1,5 +1,5 @@
 ---
-title: 'Query quickstart'
+title: "Query quickstart"
 ---
 
 This tutorial covers how to work with Bazel to trace dependencies in your code using a premade Bazel project.
@@ -8,7 +8,7 @@ For language and `--output` flag details, see the [Bazel query reference](/query
 
 ## Objective
 
-This guide runs you through a set of basic queries you can use to learn more about your project's file dependencies. It is intended for new Bazel developers with a basic knowledge of how Bazel and `BUILD` files work.
+This guide runs you through a set of basic queries you can use to learn more about your project"s file dependencies. It is intended for new Bazel developers with a basic knowledge of how Bazel and `BUILD` files work.
 
 ## Prerequisites
 
@@ -201,7 +201,7 @@ bazel query --noimplicit_deps 'deps(:runner)' --output graph > graph.in
 This creates a file called `graph.in`, which is a text representation of the build graph. Graphviz uses <code>[dot](https://graphviz.org/docs/layouts/dot/) </code>– a tool that processes text into a visualization —  to create a png:
 
 ```posix-terminal
-dot -Tpng < graph.in > graph.png
+dot -Tpng &lt; graph.in &gt; graph.png
 ```
 If you open up `graph.png`, you should see something like this. The graph below has been simplified to make the essential path details clearer in this guide.
 
@@ -421,7 +421,7 @@ bazel query --noimplicit_deps 'deps(:runner)' --output graph > graph2.in
 ```
 
 ```posix-terminal
-dot -Tpng < graph2.in > graph2.png
+dot -Tpng &lt; graph2.in &gt; graph2.png
 ```
 
 [![The same graph as the first one except now there is a spoke stemming from the chef target with smoothie which leads to banana and strawberry](images/query_graph2.png "Updated dependency graph")](images/query_graph2.png)
@@ -496,12 +496,7 @@ Going off Bazel queries only, try to find out who wrote the review, and what dis
 <div>
   <devsite-expandable>
   <h4 class="showalways">Answer</h4>
-  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
-  <code>bazel query --noimplicit\_deps 'deps(//src/main/java/com/example/reviews:review)'</code>
-  The result of this command reveals that Amir is the reviewer!
-  Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there.
-  The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
-  </p>
+  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using <code>bazel query --noimplicit_deps 'deps(//src/main/java/com/example/reviews:review)'</code>. The result of this command reveals that Amir is the reviewer! Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there. The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.</p>
   </devsite-expandable>
 </div>
 

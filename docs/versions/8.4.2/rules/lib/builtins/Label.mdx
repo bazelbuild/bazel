@@ -1,5 +1,5 @@
 ---
-title: 'Label'
+title: "Label"
 ---
 
 A BUILD target identifier.
@@ -33,7 +33,7 @@ For macros, a related function, `native.package_relative_label()`, converts the 
 
 | Parameter | Description |
 | --- | --- |
-| `input` | [string](../core/string); or [Label](../builtins/Label); required  The input label string or Label object. If a Label object is passed, it's returned as is. |
+| `input` | [string](../core/string); or [Label](../builtins/Label); required  The input label string or Label object. If a Label object is passed, it"s returned as is. |
 
 ## name
 
@@ -79,7 +79,7 @@ Label("@repo//foo/bar:baz").relative("//visibility:public") == Label("//visibili
 Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@other//wiz:quux")
 ```
 
-If the repository mapping passed in is `{'@other' : '@remapped'}`, then the following remapping will take place:
+If the repository mapping passed in is `{{}'@other' : '@remapped'}`, then the following remapping will take place:
 
 ```
 Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@remapped//wiz:quux")

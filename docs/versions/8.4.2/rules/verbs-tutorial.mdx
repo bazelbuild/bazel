@@ -1,5 +1,5 @@
 ---
-title: 'Using Macros to Create Custom Verbs'
+title: "Using Macros to Create Custom Verbs"
 ---
 
 
@@ -7,7 +7,7 @@ title: 'Using Macros to Create Custom Verbs'
 Day-to-day interaction with Bazel happens primarily through a few commands:
 `build`, `test`, and `run`. At times, though, these can feel limited: you may
 want to push packages to a repository, publish documentation for end-users, or
-deploy an application with Kubernetes. But Bazel doesn't have a `publish` or
+deploy an application with Kubernetes. But Bazel doesn"t have a `publish` or
 `deploy` command – where do these actions fit in?
 
 ## The bazel run command
@@ -85,7 +85,7 @@ existing rule for generating a website with Sphinx:
 ```python
 _sphinx_site = rule(
      implementation = _sphinx_impl,
-     attrs = {"srcs": attr.label_list(allow_files = [".rst"])},
+     attrs = {srcs": attr.label_list(allow_files = [".rst"])},
 )
 ```
 
@@ -122,7 +122,7 @@ def _sphinx_site_impl(name, visibility, srcs, **kwargs):
 
 sphinx_site = macro(
     implementation = _sphinx_site_impl,
-    attrs = {"srcs": attr.label_list(allow_files = [".rst"])},
+    attrs = {srcs": attr.label_list(allow_files = [".rst"])},
     # Inherit common attributes like tags and testonly
     inherit_attrs = "common",
 )

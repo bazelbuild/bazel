@@ -1,16 +1,16 @@
 ---
-title: 'string'
+title: "string"
 ---
 
 A language built-in type to support strings. Examples of string literals:
 
 ```
-a = 'abc\ndef'
+a = "abc\ndef'
 b = "ab'cd"
 c = """multiline string"""
 
 ---
-title: 'Strings support slicing (negative index starts from the end):'
+title: "Strings support slicing (negative index starts from the end):
 ---
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
@@ -133,19 +133,19 @@ Returns the first index where `sub` is found, or -1 if no such index exists, opt
 string string.format(*args, **kwargs)
 ```
 
-Perform string interpolation. Format strings contain replacement fields surrounded by curly braces `{}`. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: `{{` and `}}`A replacement field can be either a name, a number, or empty. Values are converted to strings using the [str](../globals/all#str) function.
+Perform string interpolation. Format strings contain replacement fields surrounded by curly braces `{`. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: `{{}{` and `}`A replacement field can be either a name, a number, or empty. Values are converted to strings using the [str](../globals/all#str) function.
 
 ```
 ---
-title: 'Access in order:'
+title: "Access in order:'
 ---
 "{} < {}".format(4, 5) == "4 < 5"
 ---
-title: 'Access by position:'
+title: "Access by position:
 ---
 "{1}, {0}".format(2, 1) == "1, 2"
 ---
-title: 'Access by name:'
+title: "Access by name:'
 ---
 "x{key}x".format(key = 2) == "x2x"
 ```
@@ -155,7 +155,7 @@ title: 'Access by name:'
 | Parameter | Description |
 | --- | --- |
 | `args` | default is `()`  List of arguments. |
-| `kwargs` | default is `{}`  Dictionary of arguments. |
+| `kwargs` | default is `{`  Dictionary of arguments. |
 
 ## index
 

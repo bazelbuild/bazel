@@ -1,5 +1,5 @@
 ---
-title: 'Remote Caching'
+title: "Remote Caching"
 ---
 
 
@@ -21,7 +21,7 @@ inputs and expected outputs are declared explicitly for each action.
 You can set up a server to be a remote cache for build outputs, which are these
 action outputs. These outputs consist of a list of output file names and the
 hashes of their contents. With a remote cache, you can reuse build outputs
-from another user's build rather than building each new output locally.
+from another user"s build rather than building each new output locally.
 
 To use remote caching:
 
@@ -157,8 +157,8 @@ to/from your GCS bucket.
 
 4. Connect to Cloud Storage by adding the following flags to your Bazel command:
    * Pass the following URL to Bazel by using the flag:
-       `--remote_cache=https://storage.googleapis.com{{ '<var>' }}/bucket-name{{ '</var>' }}` where `bucket-name` is the name of your storage bucket.
-   * Pass the authentication key using the flag: `--google_credentials={{ '<var>' }}/path/to/your/secret-key{{ '</var>'}}.json`, or
+       `--remote_cache=https://storage.googleapis.com<var>/bucket-name</var>` where `bucket-name` is the name of your storage bucket.
+   * Pass the authentication key using the flag: `--google_credentials=<var>/path/to/your/secret-key</var>.json`, or
      `--google_default_credentials` to use [Application Authentication](https://cloud.google.com/docs/authentication/production).
 
 5. You can configure Cloud Storage to automatically delete old files. To do so, see
@@ -234,7 +234,7 @@ only your CI system to be able to write to the remote cache.
 Use the following flag to read from and write to the remote cache:
 
 ```posix-terminal
-build --remote_cache=http://{{ '<var>' }}your.host:port{{ '</var>' }}
+build --remote_cache=http://<var>your.host:port</var>
 ```
 
 Besides `HTTP`, the following protocols are also supported: `HTTPS`, `grpc`, `grpcs`.
@@ -281,8 +281,8 @@ is similar to curl's `--unix-socket` flag. Use the following to configure unix
 domain socket:
 
 ```posix-terminal
-   build --remote_cache=http://{{ '<var>' }}your.host:port{{ '</var>' }}
-   build --remote_cache_proxy=unix:/{{ '<var>' }}path/to/socket{{ '</var>' }}
+   build --remote_cache=http://<var>your.host:port</var>
+   build --remote_cache_proxy=unix:/<var>path/to/socket</var>
 ```
 
 This feature is unsupported on Windows.
@@ -295,7 +295,7 @@ on multiple workspaces of the same project, such as multiple checkouts.
 Enable the disk cache as follows:
 
 ```posix-terminal
-build --disk_cache={{ '<var>' }}path/to/build/cache{{ '</var>' }}
+build --disk_cache=<var>path/to/build/cache</var>
 ```
 
 You can pass a user-specific path to the `--disk_cache` flag using the `~` alias

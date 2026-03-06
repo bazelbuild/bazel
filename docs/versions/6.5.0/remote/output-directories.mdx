@@ -1,5 +1,5 @@
 ---
-title: 'Output Directory Layout'
+title: "Output Directory Layout"
 ---
 
 
@@ -9,7 +9,7 @@ This page covers requirements and layout for output directories.
 
 Requirements for an output directory layout:
 
-* Doesn't collide if multiple users are building on the same box.
+* Doesn"t collide if multiple users are building on the same box.
 * Supports building in multiple workspaces at the same time.
 * Supports building for multiple target configurations in the same workspace.
 * Doesn't collide with any other tools.
@@ -63,10 +63,10 @@ The directories are laid out as follows:
 
 ```
 &lt;workspace-name&gt;/                         <== The workspace directory
-  bazel-my-project => <...my-project>     <== Symlink to execRoot
-  bazel-out => <...bin>                   <== Convenience symlink to outputPath
-  bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
-  bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
+  bazel-my-project => &lt;...my-project&gt;     <== Symlink to execRoot
+  bazel-out => &lt;...bin&gt;                   <== Convenience symlink to outputPath
+  bazel-bin => &lt;...bin&gt;                   <== Convenience symlink to most recent written bin dir $(BINDIR)
+  bazel-testlogs => &lt;...testlogs&gt;         <== Convenience symlink to the test logs directory
 
 /home/user/.cache/bazel/                  <== Root for all Bazel output on a machine: outputRoot
   _bazel_$USER/                           <== Top level directory for a given user depends on the user name:

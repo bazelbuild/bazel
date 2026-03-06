@@ -1,5 +1,5 @@
 ---
-title: 'Aspects'
+title: "Aspects"
 ---
 
 
@@ -32,7 +32,7 @@ graph_ between targets and visiting this graph to collect those actions.
 Consider the following `BUILD` file:
 
 ```python
-java_library(name = 'W', ...)
+java_library(name = "W', ...)
 java_library(name = 'Y', deps = [':W'], ...)
 java_library(name = 'Z', deps = [':W'], ...)
 java_library(name = 'Q', ...)
@@ -175,7 +175,7 @@ would apply the `print_aspect` to the target `example` and all of the
 target rules that are accessible recursively via the `deps` attribute.
 
 The `--aspects` flag takes one argument, which is a specification of the aspect
-in the format `<extension file label>%<aspect top-level name>`.
+in the format `&lt;extension file label&gt;%&lt;aspect top-level name&gt;`.
 
 ## Advanced example
 

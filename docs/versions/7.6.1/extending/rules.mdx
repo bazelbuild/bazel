@@ -1,12 +1,12 @@
 ---
-title: 'Rules'
+title: "Rules"
 ---
 
 
 
 A **rule** defines a series of [**actions**](#actions) that Bazel performs on
 inputs to produce a set of outputs, which are referenced in
-[**providers**](#providers) returned by the rule's
+[**providers**](#providers) returned by the rule"s
 [**implementation function**](#implementation_function). For example, a C++
 binary rule might:
 
@@ -525,7 +525,7 @@ ExampleInfo = provider(
     fields={
         "headers": "depset of header Files from transitive dependencies.",
         "files_to_link": "depset of Files from compilation.",
-    })
+    {"}"{"}"})
 ```
 
 Rule implementation functions can then construct and return provider instances:
@@ -889,15 +889,15 @@ current target).
 ```python
     ...
     runfiles = ctx.runfiles(
-        root_symlinks = {"some/path/here.foo": ctx.file.some_data_file2}
-        symlinks = {"some/path/here.bar": ctx.file.some_data_file3}
+        root_symlinks = {some/path/here.foo": ctx.file.some_data_file2}
+        symlinks = {some/path/here.bar": ctx.file.some_data_file3}
     )
     # Creates something like:
     # sometarget.runfiles/
     #     some/
     #         path/
     #             here.foo -> some_data_file2
-    #     <workspace_name>/
+    #     `&lt;workspace_name&gt;`/
     #         some/
     #             path/
     #                 here.bar -> some_data_file3

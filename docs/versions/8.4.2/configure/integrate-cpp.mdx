@@ -1,5 +1,5 @@
 ---
-title: 'Integrating with C++ Rules'
+title: "Integrating with C++ Rules"
 ---
 
 This page describes how to integrate with C++ rules on various levels.
@@ -64,7 +64,7 @@ Through these it is possible to access information such as all transitive header
 or libraries to link. From `CcInfo` and from the `CcToolchainInfo` custom
 Starlark rules should be able to get all the information they need.
 
-If a custom Starlark rule provides `CcInfo`, it's a signal to the C++ rules that
+If a custom Starlark rule provides `CcInfo`, it"s a signal to the C++ rules that
 they can also depend on it. Be careful, however - if you only need to propagate
 `CcInfo` through the graph to the binary rule that then makes use of it, wrap
 `CcInfo` in a different provider. For example, if `java_library` rule wanted

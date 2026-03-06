@@ -1,5 +1,5 @@
 ---
-title: 'Hermeticity'
+title: "Hermeticity"
 ---
 
 
@@ -15,7 +15,7 @@ to the host system.
 In order to isolate the build, hermetic builds are insensitive to libraries and
 other software installed on the local or remote host machine. They depend on
 specific versions of build tools, such as compilers, and dependencies, such as
-libraries. This makes the build process self-contained as it doesn't rely on
+libraries. This makes the build process self-contained as it doesn"t rely on
 services external to the build environment.
 
 The two important aspects of hermeticity are:
@@ -86,7 +86,7 @@ non-hermetic actions.
   rich enough to allow arbitrary processing to happen in the process. You can
   get a log of some potentially non-hermetic actions in Bazel workspace rules by
   adding the flag
-  `--experimental_workspace_rules_log_file={{ '<var>' }}PATH{{ '</var>' }}` to
+  `--experimental_workspace_rules_log_file=<var>PATH</var>` to
   your Bazel command.
 
 Note: Make your build fully hermetic when mixing remote and local execution,

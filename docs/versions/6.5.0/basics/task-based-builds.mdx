@@ -1,5 +1,5 @@
 ---
-title: 'Task-Based Build Systems'
+title: "Task-Based Build Systems"
 ---
 
 
@@ -21,44 +21,44 @@ Take this example from the
 [Ant manual](https://ant.apache.org/manual/using.html):
 
 ```xml
-<project name="MyProject" default="dist" basedir=".">
-   <description>
+&lt;project name="MyProject" default="dist" basedir="."&gt;
+   `&lt;description&gt;`
      simple example build file
-   </description>
-   <!-- set global properties for this build -->
-   <property name="src" location="src"/>
-   <property name="build" location="build"/>
-   <property name="dist" location="dist"/>
+   &lt;/description&gt;
+   {/* set global properties for this build */}
+   &lt;property name="src" location="src"/&gt;
+   &lt;property name="build" location="build"/&gt;
+   &lt;property name="dist" location="dist"/&gt;
 
-   <target name="init">
-     <!-- Create the time stamp -->
-     <tstamp/>
-     <!-- Create the build directory structure used by compile -->
-     <mkdir dir="${build}"/>
-   </target>
-   <target name="compile" depends="init"
-       description="compile the source">
-     <!-- Compile the Java code from ${src} into ${build} -->
-     <javac srcdir="${src}" destdir="${build}"/>
-   </target>
-   <target name="dist" depends="compile"
-       description="generate the distribution">
-     <!-- Create the distribution directory -->
-     <mkdir dir="${dist}/lib"/>
-     <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
-     <jar jarfile="${dist}/lib/MyProject-${DSTAMP}.jar" basedir="${build}"/>
-   </target>
-   <target name="clean"
-       description="clean up">
-     <!-- Delete the ${build} and ${dist} directory trees -->
-     <delete dir="${build}"/>
-     <delete dir="${dist}"/>
-   </target>
-</project>
+   &lt;target name="init"&gt;
+     {/* Create the time stamp */}
+     `&lt;tstamp/&gt;`
+     {/* Create the build directory structure used by compile */}
+     &lt;mkdir dir="${build}"/&gt;
+   &lt;/target&gt;
+   &lt;target name="compile" depends="init"
+       description="compile the source"&gt;
+     {/* Compile the Java code from ${src} into ${build} */}
+     &lt;javac srcdir="${src}" destdir="${build}"/&gt;
+   &lt;/target&gt;
+   &lt;target name="dist" depends="compile"
+       description="generate the distribution"&gt;
+     {/* Create the distribution directory */}
+     &lt;mkdir dir="${dist}/lib"/&gt;
+     {/* Put everything in ${build} into the MyProject-${DSTAMP}.jar file */}
+     &lt;jar jarfile="${dist}/lib/MyProject-${DSTAMP}.jar" basedir="${build}"/&gt;
+   &lt;/target&gt;
+   &lt;target name="clean"
+       description="clean up"&gt;
+     {/* Delete the ${build} and ${dist} directory trees */}
+     &lt;delete dir="${build}"/&gt;
+     &lt;delete dir="${dist}"/&gt;
+   &lt;/target&gt;
+&lt;/project&gt;
 ```
 
 The buildfile is written in XML and defines some simple metadata about the build
-along with a list of tasks (the `<target>` tags in the XML). (Ant uses the word
+along with a list of tasks (the `&lt;target&gt;` tags in the XML). (Ant uses the word
 _target_ to represent a _task_, and it uses the word _task_ to refer to
 _commands_.) Each task executes a list of possible commands defined by Ant,
 which here include creating and deleting directories, running `javac`, and

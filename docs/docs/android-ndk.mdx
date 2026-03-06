@@ -1,10 +1,10 @@
 ---
-title: 'Using the Android Native Development Kit with Bazel'
+title: "Using the Android Native Development Kit with Bazel"
 ---
 
 
 
-_If you're new to Bazel, please start with the [Building Android with
+_If you"re new to Bazel, please start with the [Building Android with
 Bazel](/start/android-app ) tutorial._
 
 ## Overview
@@ -93,7 +93,7 @@ To build C++ for Android, simply add `cc_library` dependencies to your
 For example, given the following `BUILD` file for an Android app:
 
 ```python
-# In <project>/app/src/main/BUILD.bazel
+# In `&lt;project&gt;`/app/src/main/BUILD.bazel
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_android//rules:rules.bzl", "android_binary", "android_library")
 
@@ -127,7 +127,7 @@ This `BUILD` file results in the following target graph:
 To build the app, simply run:
 
 ```posix-terminal
-bazel build //app/src/main:app --android_platforms=<your platform>
+bazel build //app/src/main:app --android_platforms=`&lt;your platform&gt;`
 ```
 
 Note that if you don't specify `--android_platforms`, your build will fail with
@@ -169,8 +169,8 @@ The `cc_library` target contains a single C++ source file with a JNI function
 implementation:
 
 ```c++
-#include <jni.h>
-#include <string>
+#include `&lt;jni.h&gt;`
+#include `&lt;string&gt;`
 
 extern "C"
 JNIEXPORT jstring
@@ -214,7 +214,7 @@ level `android_binary` target. In this example, it is `app`.
 To configure the target ABI, use the `--android_platforms` flag as follows:
 
 ```posix-terminal
-bazel build //:app --android_platforms={{ "<var>" }}comma-separated list of platforms{{ "</var>" }}
+bazel build //:app --android_platforms=<var>comma-separated list of platforms</var>
 ```
 
 Just like the `--platforms` flag, the values passed to `--android_platforms` are
@@ -326,7 +326,7 @@ common:android_x86 --platforms=//my/platforms:x86
 common:android_armeabi-v7a --platforms=//my/platforms:armeabi-v7a
 
 # In general
-common:android_<abi> --platforms=//my/platforms:<abi>
+common:android_`&lt;abi&gt;` --platforms=//my/platforms:`&lt;abi&gt;`
 ```
 
 Then, to build a `cc_library` for `x86` for example, run:

@@ -1,5 +1,5 @@
 ---
-title: 'Getting Started with Bazel Docker Container'
+title: "Getting Started with Bazel Docker Container"
 ---
 
 
@@ -43,7 +43,7 @@ docker run \
   build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}` build
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>` build
 flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -86,7 +86,7 @@ Do a regular build.
 ubuntu@5a99103747c6:~/abseil-cpp$ bazel build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}`
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>`
 build flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -96,7 +96,7 @@ ubuntu@5a99103747c6:~/abseil-cpp$ bazel build --config={asan | tsan | msan} -- /
 
 ## Explore the Bazel container
 
-If you haven't already, start an interactive shell inside the Bazel container.
+If you haven"t already, start an interactive shell inside the Bazel container.
 
 ```posix-terminal
 docker run -it --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest

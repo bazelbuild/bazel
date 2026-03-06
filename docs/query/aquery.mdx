@@ -1,5 +1,5 @@
 ---
-title: 'Action Graph Query (aquery)'
+title: "Action Graph Query (aquery)"
 ---
 
 
@@ -23,7 +23,7 @@ It supports the same set of functions that is also available to traditional
 An example `aquery` output (without specific details):
 
 ```
-$ bazel aquery 'deps(//some:label)'
+$ bazel aquery "deps(//some:label)'
 action 'Writing file some_file_name'
   Mnemonic: ...
   Target: ...
@@ -147,7 +147,7 @@ manifest file for the `SourceSymlinkManifest` action The file contents is
 returned in the `file_contents` field with `--output=`xxx`proto`.
 With `--output=text`, the output has
 ```
-FileWriteContents: [<base64-encoded file contents>]
+FileWriteContents: [`&lt;base64-encoded file contents&gt;`]
 ```
 line
 
@@ -286,10 +286,10 @@ An example of Aspect-on-Aspect:
 ```
   t0
   ^
-  | <- a1
+  | `&lt;- a1
   t1
   ^
-  | <- a2
+  | &lt;- a2
   t2
 ```
 

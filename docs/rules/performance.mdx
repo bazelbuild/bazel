@@ -1,5 +1,5 @@
 ---
-title: 'Optimizing Performance'
+title: "Optimizing Performance"
 ---
 
 
@@ -32,7 +32,7 @@ D ---^
 Each node publishes a single string. With depsets the data looks like this:
 
 ```
-a = depset(direct=['a'])
+a = depset(direct=["a'])
 b = depset(direct=['b'], transitive=[a])
 c = depset(direct=['c'], transitive=[b])
 d = depset(direct=['d'], transitive=[b])
@@ -80,7 +80,7 @@ cost. If at all possible, avoid any flattening of depsets except for debugging
 purposes.
 
 A common misconception is that you can freely flatten depsets if you only do it
-at top-level targets, such as an `<xx>_binary` rule, since then the cost is not
+at top-level targets, such as an `&lt;xx&gt;_binary` rule, since then the cost is not
 accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
@@ -154,15 +154,15 @@ def _impl(ctx):
   file = ctx.declare_file(...)
   files = depset(...)
 
-  # Bad, constructs a full string "--foo=<file path>" for each rule instance
+  # Bad, constructs a full string "--foo=`&lt;file path&gt;`" for each rule instance
   args.add("--foo=" + file.path)
 
   # Good, shares "--foo" among all rule instances, and defers file.path to later
-  # It will however pass ["--foo", <file path>] to the action command line,
-  # instead of ["--foo=<file_path>"]
+  # It will however pass ["--foo", `&lt;file path&gt;`] to the action command line,
+  # instead of ["--foo=`&lt;file_path&gt;`"]
   args.add("--foo", file)
 
-  # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
+  # Use format if you prefer ["--foo=`&lt;file path&gt;`"] to ["--foo", `&lt;file path&gt;`]
   args.add(file, format="--foo=%s")
 
   # Bad, makes a giant string of a whole depset
@@ -197,7 +197,7 @@ Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
 dump in the file `$(bazel info output_base)/server/jvm.out`.
 
 Since you may not be able to run `bazel info` if bazel is hung, the
-`output_base` directory is usually the parent of the `bazel-<workspace>`
+`output_base` directory is usually the parent of the `bazel-&lt;workspace&gt;`
 symlink in your workspace directory.
 
 ## Performance profiling
@@ -224,7 +224,7 @@ You must pass these two startup flags to *every* Bazel invocation:
 
   ```
   STARTUP_FLAGS=\
-  --host_jvm_args=-javaagent:<path to java-allocation-instrumenter-3.3.4.jar> \</p>
+  --host_jvm_args=-javaagent:`&lt;path to java-allocation-instrumenter-3.3.4.jar&gt;` \</p>
   --host_jvm_args=-DRULE_MEMORY_TRACKER=1
   ```
 Note: You can download the allocation instrumenter jar file from [Maven Central
@@ -290,11 +290,11 @@ Get a text dump of the hottest call sites annotated with lines:
 $ pprof -text -lines $HOME/prof.gz
 >
       flat  flat%   sum%        cum   cum%
-  146.11MB 19.64% 19.64%   146.11MB 19.64%  android_library <native>:-1
-  113.02MB 15.19% 34.83%   113.02MB 15.19%  genrule <native>:-1
-   74.11MB  9.96% 44.80%    74.11MB  9.96%  glob <native>:-1
-   55.98MB  7.53% 52.32%    55.98MB  7.53%  filegroup <native>:-1
-   53.44MB  7.18% 59.51%    53.44MB  7.18%  sh_test <native>:-1
+  146.11MB 19.64% 19.64%   146.11MB 19.64%  android_library `&lt;native&gt;`:-1
+  113.02MB 15.19% 34.83%   113.02MB 15.19%  genrule `&lt;native&gt;`:-1
+   74.11MB  9.96% 44.80%    74.11MB  9.96%  glob `&lt;native&gt;`:-1
+   55.98MB  7.53% 52.32%    55.98MB  7.53%  filegroup `&lt;native&gt;`:-1
+   53.44MB  7.18% 59.51%    53.44MB  7.18%  sh_test `&lt;native&gt;`:-1
    26.55MB  3.57% 63.07%    26.55MB  3.57%  _generate_foo_files /foo/tc/tc.bzl:491
    26.01MB  3.50% 66.57%    26.01MB  3.50%  _build_foo_impl /foo/build_test.bzl:78
    22.01MB  2.96% 69.53%    22.01MB  2.96%  _build_foo_impl /foo/build_test.bzl:73

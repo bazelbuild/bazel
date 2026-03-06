@@ -1,5 +1,5 @@
 ---
-title: 'Creating a Macro'
+title: "Creating a Macro"
 ---
 
 
@@ -36,7 +36,7 @@ define a function in a separate `.bzl` file, and call the file `miniature.bzl`:
 def miniature(name, src, size="100x100", **kwargs):
   """Create a miniature of the src image.
 
-  The generated file is prefixed with 'small_'.
+  The generated file is prefixed with "small_'.
   """
   native.genrule(
     name = name,

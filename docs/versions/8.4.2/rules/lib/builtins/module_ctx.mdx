@@ -1,5 +1,5 @@
 ---
-title: 'module\_ctx'
+title: "module\_ctx"
 ---
 
 The context of the module extension containing helper functions and information about pertinent tags across the dependency graph. You get a module\_ctx object as an argument to the `implementation` function when you create a module extension.
@@ -26,7 +26,7 @@ The context of the module extension containing helper functions and information 
 ## download
 
 ```
-unknown module_ctx.download(url, output='', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', block=True)
+unknown module_ctx.download(url, output="', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', block=True)
 ```
 
 Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/rules/lib/repo/cache#get_default_canonical_id)
@@ -42,15 +42,15 @@ Downloads a file to the output path for the provided url and returns a struct co
 | `executable` | [bool](../core/bool); default is `False`  Set the executable flag on the created file, false by default. |
 | `allow_fail` | [bool](../core/bool); default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
 | `canonical_id` | [string](../core/string); default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum (`sha256` or `integrity`). |
-| `auth` | [dict](../core/dict); default is `{}`  An optional dict specifying authentication information for some of the URLs. |
-| `headers` | [dict](../core/dict); default is `{}`  An optional dict specifying http headers for all URLs. |
+| `auth` | [dict](../core/dict); default is `{`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | [dict](../core/dict); default is `{`  An optional dict specifying http headers for all URLs. |
 | `integrity` | [string](../core/string); default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
 | `block` | [bool](../core/bool); default is `True`  If set to false, the call returns immediately and instead of the regular return value, it returns a token with one single method, wait(), which blocks until the download is finished and returns the usual return value or throws as usual. |
 
 ## download\_and\_extract
 
 ```
-struct module_ctx.download_and_extract(url, output='', sha256='', type='', strip_prefix='', allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', rename_files={})
+struct module_ctx.download_and_extract(url, output='', sha256='', type='', strip_prefix='', allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', rename_files={{"}"{"}"})
 ```
 
 Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/rules/lib/repo/cache#get_default_canonical_id)
@@ -67,10 +67,10 @@ Downloads a file to the output path for the provided url, extracts it, and retur
 | `strip_prefix` | [string](../core/string); default is `''`  A directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. For compatibility, this parameter may also be used under the deprecated name `stripPrefix`. |
 | `allow_fail` | [bool](../core/bool); default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
 | `canonical_id` | [string](../core/string); default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum" (`sha256` or `integrity`). |
-| `auth` | [dict](../core/dict); default is `{}`  An optional dict specifying authentication information for some of the URLs. |
-| `headers` | [dict](../core/dict); default is `{}`  An optional dict specifying http headers for all URLs. |
+| `auth` | [dict](../core/dict); default is `{`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | [dict](../core/dict); default is `{`  An optional dict specifying http headers for all URLs. |
 | `integrity` | [string](../core/string); default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
-| `rename_files` | [dict](../core/dict); default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+| `rename_files` | [dict](../core/dict); default is `{`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
 
 ## execute
 
@@ -86,7 +86,7 @@ Executes the command given by the list of arguments. The execution time of the c
 | --- | --- |
 | `arguments` | [sequence](../core/list); required  List of arguments, the first element should be the path to the program to execute. |
 | `timeout` | [int](../core/int); default is `600`  Maximum duration of the command in seconds (default is 600 seconds). |
-| `environment` | [dict](../core/dict); default is `{}`  Force some environment variables to be set to be passed to the process. The value can be `None` to remove the environment variable. |
+| `environment` | [dict](../core/dict); default is `{`  Force some environment variables to be set to be passed to the process. The value can be `None` to remove the environment variable. |
 | `quiet` | [bool](../core/bool); default is `True`  If stdout and stderr should be printed to the terminal. |
 | `working_directory` | [string](../core/string); default is `""`  Working directory for command execution. Can be relative to the repository root or absolute. The default is the repository root. |
 
@@ -121,7 +121,7 @@ Extract an archive to the repository directory.
 | `archive` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  path to the archive that will be unpacked, relative to the repository directory. |
 | `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  path to the directory where the archive will be unpacked, relative to the repository directory. |
 | `strip_prefix` | [string](../core/string); default is `''`  a directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. For compatibility, this parameter may also be used under the deprecated name `stripPrefix`. |
-| `rename_files` | [dict](../core/dict); default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+| `rename_files` | [dict](../core/dict); default is `{`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
 | `watch_archive` | [string](../core/string); default is `'auto'`  whether to [watch](#watch) the archive file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
 
 ## file

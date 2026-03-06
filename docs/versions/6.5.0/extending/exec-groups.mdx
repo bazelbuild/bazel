@@ -1,5 +1,5 @@
 ---
-title: 'Execution Groups'
+title: "Execution Groups"
 ---
 
 
@@ -63,7 +63,7 @@ test rules.
 ### Execution group inheritance
 
 In addition to defining its own constraints and toolchains, a new execution
-group can declare that it wants to inherit from the rule's default execution
+group can declare that it wants to inherit from the rule"s default execution
 group, by passing the `copy_from_rule = True` parameter. It is an error to set
 `copy_from_rule` to true and to also pass `exec_compatible_with` or
 `toolchains`.
@@ -163,7 +163,7 @@ my_rule(
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
+dictionary as `{{}"mem": "16g}`. As you see here, execution-group-level
 settings override target-level settings.
 
 ### Execution groups for native rules

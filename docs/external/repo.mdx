@@ -1,5 +1,5 @@
 ---
-title: 'Repository Rules'
+title: "Repository Rules"
 ---
 
 
@@ -47,7 +47,7 @@ http_archive = repository_rule(
 ```
 
 To access an attribute within the implementation function, use
-`repository_ctx.attr.<attribute_name>`:
+`repository_ctx.attr.&lt;attribute_name&gt;`:
 
 ```python
 def _impl(repository_ctx):
@@ -58,7 +58,7 @@ def _impl(repository_ctx):
 All `repository_rule`s have the implicitly defined attribute `name`. This is a
 string attribute that behaves somewhat magically: when specified as an input to
 a repo rule invocation, it takes an apparent repo name; but when read from the
-repo rule's implementation function using `repository_ctx.attr.name`, it returns
+repo rule"s implementation function using `repository_ctx.attr.name`, it returns
 the canonical repo name.
 
 ## Implementation function

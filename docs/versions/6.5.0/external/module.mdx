@@ -1,5 +1,5 @@
 ---
-title: 'Bazel modules'
+title: "Bazel modules"
 ---
 
 
@@ -10,7 +10,7 @@ analogous to familiar concepts in other dependency management systems, such as a
 Maven *artifact*, an npm *package*, a Go *module*, or a Cargo *crate*.
 
 A module must have a `MODULE.bazel` file at its repo root (next to the
-`WORKSPACE` file). This file is the module's manifest, declaring its name,
+`WORKSPACE` file). This file is the module"s manifest, declaring its name,
 version, list of direct dependencies, and other information. For a basic
 example:
 
@@ -54,7 +54,7 @@ differences include:
     details on how we denote backwards compatibility.
 
 Any valid SemVer version is a valid Bazel module version. Additionally, two
-SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
+SemVer versions `a` and `b` compare `a &lt; b` if and only if the same holds when
 they're compared as Bazel module versions.
 
 ## Version selection
@@ -175,9 +175,8 @@ Bazel supports the following non-registry overrides:
 ## Repository names and strict deps
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
-module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
-"</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
-non-registry override, replace the `{{ "<var>" }}version{{ "</var>" }}` part
+module is `&lt;var&gt;module_name</var>~<var>version</var>` (for example, `bazel_skylib~1.0.3`). For modules with a
+non-registry override, replace the `<var>version</var>` part
 with the string `override`. Note that the canonical name format is not an API
 you should depend on and is subject to change at any time.
 

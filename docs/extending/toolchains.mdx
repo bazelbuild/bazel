@@ -1,5 +1,5 @@
 ---
-title: 'Toolchains'
+title: "Toolchains"
 ---
 
 
@@ -13,7 +13,7 @@ platform constraints.
 
 ## Motivation
 
-Let's first look at the problem toolchains are designed to solve. Suppose you
+Let"s first look at the problem toolchains are designed to solve. Suppose you
 are writing rules to support the "bar" programming language. Your `bar_binary`
 rule would compile `*.bar` files using the `barc` compiler, a tool that itself
 is built as another target in your workspace. Since users who write `bar_binary`
@@ -104,10 +104,10 @@ config_setting(
 bar_binary(
     name = "myprog",
     srcs = ["mysrc.bar"],
-    compiler = select({
+    compiler = select({"{"}
         ":on_linux": "//bar_tools:barc_linux",
         ":on_windows": "//bar_tools:barc_windows",
-    }),
+    {"}"}),
 )
 ```
 
@@ -449,14 +449,14 @@ will fail to analyze.
 ```python
 bar_toolchain(
     name = "barc_omni",
-    compiler = select({
+    compiler = select({"{"}
         "@platforms//os:linux": Label(":linux_compiler"),
         "@platforms//os:windows": Label(":windows_compiler"),
         "//some/exec:platform": Label(":special_compiler"),
         },
         no_match_error = "No compiler for this execution platform",
-    }),
-    # <...>
+    {"}"}),
+    # &lt;...&gt;
 )
 ```
 
@@ -467,7 +467,7 @@ This analyzes the `select` inside the alias under the exec configuration.
 ```python
 alias(
     name = "host_specific_compiler",
-    actual = select({
+    actual = select({"{"}
         "@platforms//os:linux": Label(":linux_compiler"),
         "@platforms//os:windows": Label(":windows_compiler"),
         "//some/exec:platform": Label(":special_compiler"),
@@ -479,7 +479,7 @@ alias(
 bar_toolchain(
     name = "barc_omni",
     compiler = ":host_specific_compiler",
-    # <...>
+    # &lt;...&gt;
 )
 ```
 

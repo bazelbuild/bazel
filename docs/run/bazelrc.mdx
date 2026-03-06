@@ -1,5 +1,5 @@
 ---
-title: 'Write bazelrc configuration files'
+title: "Write bazelrc configuration files"
 ---
 
 
@@ -32,7 +32,7 @@ before the command (`build`, `test`, etc).
     Bazel binary, overriding the `BAZEL_SYSTEM_BAZELRC_PATH` value in
     [`//src/main/cpp:option_processor`](https://github.com/bazelbuild/bazel/blob/0.28.0/src/main/cpp/BUILD#L141).
     The system-specified location may contain environment variable references,
-    such as `${VAR_NAME}` on Unix or `%VAR_NAME%` on Windows.
+    such as `${}VAR_NAME}` on Unix or `%VAR_NAME%` on Windows.
 
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
@@ -92,7 +92,7 @@ relative to the workspace root, write `import %workspace%/path/to/bazelrc`.
 
 The difference between the various import statements is as follows:
 
-*   `import` - Bazel will fail if the `import`'ed file is missing (or can't be
+*   `import` - Bazel will fail if the `import`"ed file is missing (or can't be
     read)
 *   `try-import` - An attempt to import the file will be made, but unlike
     `import`, Bazel will NOT fail if the file is missing (or can't be read).
@@ -115,10 +115,10 @@ try-import-if-bazel-version >7.0.0 %workspace%/configs/post_v7.rc
 try-import-if-bazel-version >=6.0.0 %workspace%/configs/features.rc
 
 # Strictly less than: used for deprecated flags removed in newer versions
-try-import-if-bazel-version <7.0.0 %workspace%/configs/legacy.rc
+try-import-if-bazel-version &lt;7.0.0 %workspace%/configs/legacy.rc
 
 # Less than or equal to: caps configuration to a specific version
-try-import-if-bazel-version <=5.4.0 %workspace%/configs/v5_fixes.rc
+try-import-if-bazel-version &lt;=5.4.0 %workspace%/configs/v5_fixes.rc
 
 # Exact match: hotfix for a specific broken release
 try-import-if-bazel-version ==6.3.2 %workspace%/configs/hotfix_6.3.2.rc
@@ -131,13 +131,13 @@ An additional tilde operator provides ranges for patch, minor, and major version
 changes:
 
 ```none
-# Equivalent to >=1.2.3 <1.3.0
+# Equivalent to &gt;=1.2.3 `&lt;1.3.0
 try-import-if-bazel-version ~1.2.3 %workspace%/configs/1.2.3_flags.rc
 
-# Equivalent to >=1.2.0 <1.3.0 (Same as 1.2.x)
+# Equivalent to &gt;`=1.2.0 `&lt;1.3.0 (Same as 1.2.x)
 try-import-if-bazel-version ~1.2 %workspace%/configs/1.2_flags.rc
 
-# Equivalent to >=1.0.0 <2.0.0 (Same as 1.x)
+# Equivalent to &gt;`=1.0.0 &lt;2.0.0 (Same as 1.x)
 try-import-if-bazel-version ~1 %workspace%/configs/v1_flags.rc
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: 'Multiplex Workers (Experimental Feature)'
+title: "Multiplex Workers (Experimental Feature)"
 ---
 
 
@@ -29,7 +29,7 @@ back to the correct `WorkerProxy`. Just as with non-multiplexed workers, all
 communication is done over standard in/out, but the tool cannot just use
 `stderr` for user-visible output ([see below](#output)).
 
-Each worker has a key. Bazel uses the key's hash code (composed of environment
+Each worker has a key. Bazel uses the key"s hash code (composed of environment
 variables, the execution root, and the mnemonic) to determine which
 `WorkerMultiplexer` to use. `WorkerProxy`s communicate with the same
 `WorkerMultiplexer` if they have the same hash code. Therefore, assuming

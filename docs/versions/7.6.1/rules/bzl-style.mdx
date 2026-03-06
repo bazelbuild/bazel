@@ -1,5 +1,5 @@
 ---
-title: '.bzl style guide'
+title: ".bzl style guide"
 ---
 
 
@@ -36,7 +36,7 @@ update a library or do a cleanup.
 Important: Do not create a variable or macro just to avoid some amount of
 repetition in `BUILD` files. Your `BUILD` file should be easily readable both by
 developers and tools. The
-[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn't
+[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn"t
 really apply here.
 
 ## General advice
@@ -143,7 +143,7 @@ not instantiated by that macro), follow these best practices:
 *   A macro should take a `name` argument and define a target with that name.
     That target becomes that macro's *main target*.
 *   Generated targets, that is all other targets defined by a macro, should:
-    *   Have their names prefixed by `<name>` or `_<name>`. For example, using
+    *   Have their names prefixed by `&lt;name&gt;` or `_&lt;name&gt;`. For example, using
         `name = '%s_bar' % (name)`.
     *   Have restricted visibility (`//visibility:private`), and
     *   Have a `manual` tag to avoid expansion in wildcard targets (`:all`,

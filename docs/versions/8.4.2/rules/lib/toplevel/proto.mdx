@@ -1,5 +1,5 @@
 ---
-title: 'proto'
+title: "proto"
 ---
 
 A module for protocol message processing.
@@ -14,7 +14,7 @@ A module for protocol message processing.
 string proto.encode_text(x)
 ```
 
-Returns the struct argument's encoding as a text-format protocol message.
+Returns the struct argument"s encoding as a text-format protocol message.
 The data structure must be recursively composed of strings, ints, floats, or bools, or structs, sequences, and dicts of these types.
 
 A struct is converted to a message. Fields are emitted in name order.
@@ -31,99 +31,99 @@ Examples:
 ```
 proto.encode_text(struct(field=123))
 ---
-title: 'field: 123'
+title: "field: 123
 ---
 
 proto.encode_text(struct(field=True))
 ---
-title: 'field: true'
+title: "field: true'
 ---
 
 proto.encode_text(struct(field=[1, 2, 3]))
 ---
-title: 'field: 1'
+title: "field: 1
 ---
 ---
-title: 'field: 2'
+title: "field: 2'
 ---
 ---
-title: 'field: 3'
----
-
-proto.encode_text(struct(field='text', ignored_field=None))
----
-title: 'field: "text"'
+title: "field: 3
 ---
 
-proto.encode_text(struct(field=struct(inner_field='text', ignored_field=None)))
+proto.encode_text(struct(field="text', ignored_field=None))
 ---
-title: 'field {'
+title: "field: "text"
+---
+
+proto.encode_text(struct(field=struct(inner_field="text', ignored_field=None)))
+---
+title: "field {
 ---
 ---
-title: '  inner_field: "text"'
+title: "  inner_field: "text"'
 ---
 ---
-title: '}'
+title: }
 ---
 
 proto.encode_text(struct(field=[struct(inner_field=1), struct(inner_field=2)]))
 ---
-title: 'field {'
+title: "field {'
 ---
 ---
-title: '  inner_field: 1'
+title: "  inner_field: 1
 ---
 ---
-title: '}'
+title: }'
 ---
 ---
-title: 'field {'
+title: "field {
 ---
 ---
-title: '  inner_field: 2'
+title: "  inner_field: 2'
 ---
 ---
-title: '}'
----
-
-proto.encode_text(struct(field=struct(inner_field=struct(inner_inner_field='text'))))
----
-title: 'field {'
----
----
-title: '   inner_field {'
----
----
-title: '    inner_inner_field: "text"'
----
----
-title: '  }'
----
----
-title: '}'
+title: }
 ---
 
-proto.encode_text(struct(foo={4: 3, 2: 1}))
+proto.encode_text(struct(field=struct(inner_field=struct(inner_inner_field="text'))))
 ---
-title: 'foo: {'
----
----
-title: '  key: 4'
+title: "field {
 ---
 ---
-title: '  value: 3'
+title: "   inner_field {'
 ---
 ---
-title: '}'
+title: "    inner_inner_field: "text"
 ---
 ---
-title: 'foo: {'
+title: "  }'
 ---
 ---
-title: '  key: 2'
+title: }
+---
+
+proto.encode_text(struct(foo={4: 3, 2: 1{"}"{"}"}))
+---
+title: "foo: {'
 ---
 ---
-title: '  value: 1'
+title: "  key: 4
+---
+---
+title: "  value: 3'
+---
+---
+title: }
+---
+---
+title: "foo: {'
+---
+---
+title: "  key: 2
+---
+---
+title: "  value: 1'
 ---
 ---
 title: '}'

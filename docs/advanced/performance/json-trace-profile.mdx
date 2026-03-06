@@ -1,5 +1,5 @@
 ---
-title: 'JSON Trace Profile'
+title: "JSON Trace Profile"
 ---
 
 
@@ -64,7 +64,7 @@ the build’s performance. This analysis can be performed using its CLI or on
 durations of the sandbox creation step in local action execution:
 
 ```
-$ zcat $(../bazel-6.0.0rc1-linux-x86_64 info output_base)/command.profile.gz | jq '.traceEvents | .[] | select(.name == "sandbox.createFileSystem") | .dur'
+$ zcat $(../bazel-6.0.0rc1-linux-x86_64 info output_base)/command.profile.gz | jq ".traceEvents | .[] | select(.name == "sandbox.createFileSystem") | .dur'
 6378
 7247
 11850
@@ -134,16 +134,16 @@ Example:
     "output_base": "/usr/local/google/_bazel_johndoe/573d4be77eaa72b91a3dfaa497bf8cd0"
   },
   "traceEvents": [
-    {"name":"thread_name","ph":"M","pid":1,"tid":0,"args":{"name":"Critical Path"}},
+    {name":"thread_name","ph":"M","pid":1,"tid":0,"args":{name":"Critical Path}},
     ...
-    {"cat":"build phase marker","name":"Launch Blaze","ph":"X","ts":-1306000,"dur":1306000,"pid":1,"tid":21},
+    {cat":"build phase marker","name":"Launch Blaze","ph":"X","ts":-1306000,"dur":1306000,"pid":1,"tid":21},
     ...
-    {"cat":"package creation","name":"foo","ph":"X","ts":2685358,"dur":784,"pid":1,"tid":246},
+    {cat":"package creation","name":"foo","ph":"X","ts":2685358,"dur":784,"pid":1,"tid":246},
     ...
-    {"name":"thread_name","ph":"M","pid":1,"tid":11,"args":{"name":"Garbage Collector"}},
-    {"cat":"gc notification","name":"minor GC","ph":"X","ts":825986,"dur":11000,"pid":1,"tid":11},
+    {name":"thread_name","ph":"M","pid":1,"tid":11,"args":{name":"Garbage Collector}},
+    {cat":"gc notification","name":"minor GC","ph":"X","ts":825986,"dur":11000,"pid":1,"tid":11},
     ...
-    {"cat":"action processing","name":"Compiling foo/bar.c","ph":"X","ts":54413389,"dur":357594,"pid":1,"args":{"mnemonic":"CppCompile"},"tid":341},
+    {cat":"action processing","name":"Compiling foo/bar.c","ph":"X","ts":54413389,"dur":357594,"pid":1,"args":{mnemonic":"CppCompile},"tid":341},
  ]
 }
 ```

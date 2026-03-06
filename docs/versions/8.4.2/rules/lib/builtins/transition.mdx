@@ -1,9 +1,9 @@
 ---
-title: 'transition'
+title: "transition"
 ---
 
 
-Represents a configuration transition across a dependency edge. For example, if `//package:foo` depends on `//package:bar` with a configuration transition, then the configuration of these two targets will differ: `//package:bar`'s transition will be determined by that of `//package:foo`, as subject to the function defined by a transition object.
+Represents a configuration transition across a dependency edge. For example, if `//package:foo` depends on `//package:bar` with a configuration transition, then the configuration of these two targets will differ: `//package:bar`"s transition will be determined by that of `//package:foo`, as subject to the function defined by a transition object.
 
 ## Members
 
@@ -24,7 +24,7 @@ def _transition_impl(settings, attr):
     # This transition just reads the current CPU value as a demonstration.
     # A real transition could incorporate this into its followup logic.
     current_cpu = settings["//command_line_option:cpu"]
-    return {"//command_line_option:compilation_mode": "dbg"}
+    return {//command_line_option:compilation_mode": "dbg}
 
 build_in_debug_mode = transition(
     implementation = _transition_impl,

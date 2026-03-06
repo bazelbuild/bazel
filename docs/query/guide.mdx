@@ -1,10 +1,10 @@
 ---
-title: 'Query guide'
+title: "Query guide"
 ---
 
 
 
-This page covers how to get started using Bazel's query language to trace
+This page covers how to get started using Bazel"s query language to trace
 dependencies in your code.
 
 For a language details and `--output` flag details, please see the
@@ -179,7 +179,7 @@ The pattern is a regex and is applied to the full name of the rule. It's similar
 
 ```
 fullname=$(bazel query path/to/file/bar.java)
-bazel query "attr('srcs', $fullname, ${fullname//:*/}:*)"
+bazel query "attr('srcs', $fullname, ${}fullname//:*/}:*)"
 ```
 
 ### What package dependencies exist ...

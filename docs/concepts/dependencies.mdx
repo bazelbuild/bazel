@@ -1,15 +1,13 @@
 ---
-title: 'Dependencies'
+title: "Dependencies"
 ---
-
-
 
 A target `A` _depends upon_ a target `B` if `B` is needed by `A` at build or
 execution time. The _depends upon_ relation induces a
 [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
 (DAG) over targets, and it is called a _dependency graph_.
 
-A target's _direct_ dependencies are those other targets reachable by a path
+A target"s _direct_ dependencies are those other targets reachable by a path
 of length 1 in the dependency graph. A target's _transitive_ dependencies are
 those targets upon which it depends via a path of any length through the graph.
 
@@ -71,59 +69,20 @@ depends on `c`.
     <th><code><strong>b</strong>/BUILD</code></th>
   </tr>
   <tr>
-    <td>
-      <pre>rule(
-    name = "a",
-    srcs = "a.in",
-    deps = "//b:b",
-)
-      </pre>
-    </td>
-    <td>
-      <pre>
-rule(
-    name = "b",
-    srcs = "b.in",
-    deps = "//c:c",
-)
-      </pre>
-    </td>
+    <td><code>rule(     name = "a",     srcs = "a.in",     deps = "//b:b", )       </code></td>
+    <td><code> rule(     name = "b",     srcs = "b.in",     deps = "//c:c", )       </code></td>
   </tr>
   <tr class="alt">
     <td><code>a / a.in</code></td>
     <td><code>b / b.in</code></td>
   </tr>
   <tr>
-    <td><pre>
-import b;
-b.foo();
-    </pre>
-    </td>
-    <td>
-      <pre>
-import c;
-function foo() {
-  c.bar();
-}
-      </pre>
-    </td>
+    <td>``` import b; b.foo(); ```</td>
+    <td>``` import c; function foo() {}""   c.bar(); {}"" ```</td>
   </tr>
   <tr>
-    <td>
-      <figure>
-        <img src="/docs/images/a_b_c.svg"
-             alt="Declared dependency graph with arrows connecting a, b, and c">
-        <figcaption><b>Declared</b> dependency graph</figcaption>
-      </figure>
-    </td>
-    <td>
-      <figure>
-        <img src="/docs/images/a_b_c.svg"
-             alt="Actual dependency graph that matches the declared dependency
-                  graph with arrows connecting a, b, and c">
-        <figcaption><b>Actual</b> dependency graph</figcaption>
-      </figure>
-    </td>
+    <td><figure>         <img src="/docs/images/ab_c.svg"              alt="Declared dependency graph with arrows connecting a and b." />         <figcaption><b>Declared</b> dependency graph</figcaption>       </figure></td>
+    <td><figure>         <img src="/docs/images/a_b_c.svg"              alt="Actual dependency graph that matches the declared dependency                   graph with arrows connecting a, b, and c" />         <figcaption><b>Actual</b> dependency graph</figcaption>       </figure></td>
   </tr>
 </table>
 
@@ -141,33 +100,12 @@ direct _actual_ dependency on `c`, but forgets to declare it in the build file
     <th>&nbsp;</th>
   </tr>
   <tr>
-    <td>
-      <pre>
-        import b;
-        import c;
-        b.foo();
-        c.garply();
-      </pre>
-    </td>
+    <td>``` import b; import c; b.foo(); c.garply(); ```</td>
     <td>&nbsp;</td>
   </tr>
   <tr>
-    <td>
-      <figure>
-        <img src="/docs/images/a_b_c.svg"
-             alt="Declared dependency graph with arrows connecting a, b, and c">
-        <figcaption><b>Declared</b> dependency graph</figcaption>
-      </figure>
-    </td>
-    <td>
-      <figure>
-        <img src="/docs/images/a_b_c_ac.svg"
-             alt="Actual dependency graph with arrows connecting a, b, and c. An
-                  arrow now connects A to C as well. This does not match the
-                  declared dependency graph">
-        <figcaption><b>Actual</b> dependency graph</figcaption>
-      </figure>
-    </td>
+    <td><figure>         <img src="/docs/images/a_b_c.svg"              alt="Declared dependency graph with arrows connecting a, b, and c" />         <figcaption><b>Declared</b> dependency graph</figcaption>       </figure></td>
+    <td><figure>         <img src="/docs/images/a_b_c_ac.svg"              alt="Actual dependency graph with arrows connecting a, b, and c. An                   arrow now connects A to C as well. This does not match the                   declared dependency graph" />         <figcaption><b>Actual</b> dependency graph</figcaption>       </figure></td>
   </tr>
 </table>
 
@@ -188,14 +126,7 @@ fault of their own.
   </tr>
   <tr>
     <td>&nbsp;</td>
-    <td>
-      <pre>rule(
-    name = "b",
-    srcs = "b.in",
-    <strong>deps = "//d:d",</strong>
-)
-      </pre>
-    </td>
+    <td><code>rule(     name = "b",     srcs = "b.in",     <strong>deps = "//d:d",</strong> )       </code></td>
   </tr>
   <tr class="alt">
     <td>&nbsp;</td>
@@ -203,32 +134,11 @@ fault of their own.
   </tr>
   <tr>
     <td>&nbsp;</td>
-    <td>
-      <pre>
-      import d;
-      function foo() {
-        d.baz();
-      }
-      </pre>
-    </td>
+    <td>``` import d; function foo() {}""   d.baz(); {}"" ```</td>
   </tr>
   <tr>
-    <td>
-      <figure>
-        <img src="/docs/images/ab_c.svg"
-             alt="Declared dependency graph with arrows connecting a and b.
-                  b no longer connects to c, which breaks a's connection to c">
-        <figcaption><b>Declared</b> dependency graph</figcaption>
-      </figure>
-    </td>
-    <td>
-      <figure>
-        <img src="/docs/images/a_b_a_c.svg"
-             alt="Actual dependency graph that shows a connecting to b and c,
-                  but b no longer connects to c">
-        <figcaption><b>Actual</b> dependency graph</figcaption>
-      </figure>
-    </td>
+    <td><figure>         <img src="/docs/images/ab_c.svg"              alt="Declared dependency graph with arrows connecting a and b." />         <figcaption><b>Declared</b> dependency graph</figcaption>       </figure></td>
+    <td><figure>         <img src="/docs/images/a_b_a_c.svg"              alt="Actual dependency graph that shows a connecting to b and c,                   but b no longer connects to c" />         <figcaption><b>Actual</b> dependency graph</figcaption>       </figure></td>
   </tr>
 </table>
 
@@ -293,7 +203,7 @@ sh_test(
 These files are available using the relative path `path/to/data/file`. In tests,
 you can refer to these files by joining the paths of the test's source
 directory and the workspace-relative path, for example,
-`${TEST_SRCDIR}/workspace/path/to/data/file`.
+`${}TEST_SRCDIR}/workspace/path/to/data/file`.
 
 ## Using labels to reference directories
 
@@ -301,17 +211,9 @@ As you look over our `BUILD` files, you might notice that some `data` labels
 refer to directories. These labels end with `/.` or `/` like these examples,
 which you should not use:
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["//data/regression:unittest/."]</code>
-</p>
-
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/."]</code>
-</p>
-
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/"]</code>
-</p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["//data/regression:unittest/."]</code></p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/."]</code></p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/"]</code></p>
 
 This seems convenient, particularly for tests because it allows a test to
 use all the data files in the directory.
@@ -327,9 +229,7 @@ enumerate the set of files contained within them, either explicitly or using the
 [`glob()`](/reference/be/functions#glob) function. (Use `**` to force the
 `glob()` to be recursive.)
 
-<p><span class="compare-better">Recommended</span> —
-  <code>data = glob(["testdata/**"])</code>
-</p>
+<p><span class="compare-better">Recommended</span> — <code>data = glob(["testdata/{}"*"{}"*""])</code></p>
 
 Unfortunately, there are some scenarios where directory labels must be used.
 For example, if the `testdata` directory contains files whose names don't
@@ -362,14 +262,7 @@ You can then reference the label `my_data` as the data dependency in your test.
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
-           href="/concepts/build-files">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files</a>
-    </td>
-    <td><a class="button button-with-icon button-primary"
-           href="/concepts/visibility">
-        Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
-    </td>
+    <td><a class="button button-with-icon button-primary" href="/concepts/build-files"><span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files</a></td>
+    <td><a class="button button-with-icon button-primary" href="/concepts/visibility">Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a></td>
   </tr>
 </table>
-

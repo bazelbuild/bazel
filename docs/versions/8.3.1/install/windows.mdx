@@ -1,5 +1,5 @@
 ---
-title: 'Installing Bazel on Windows'
+title: "Installing Bazel on Windows"
 ---
 
 This page describes the requirements and steps to install Bazel on Windows.
@@ -31,7 +31,7 @@ To check your Windows version:
 
 Alternatively you can:
 
-*   [Download the Bazel binary (`bazel-{{ '<var>' }}version{{ '</var>' }}-windows-x86_64.exe`) from
+*   [Download the Bazel binary (`bazel-<var>version</var>-windows-x86_64.exe`) from
  GitHub](https://github.com/bazelbuild/bazel/releases).
 *   [Install Bazel from Chocolatey](#chocolately)
 *   [Install Bazel from Scoop](#scoop)
@@ -42,19 +42,19 @@ Alternatively you can:
 To make Bazel easily accessible from command prompts or PowerShell by default, you can rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
 ```posix-terminal
-set PATH=%PATH%;{{ '<var>' }}path to the Bazel binary{{ '</var>' }}
+set PATH=%PATH%;<var>path to the Bazel binary</var>
 ```
 
 You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/configure/windows#set-environment-variables).
 
 ### Done
 
-"Success: You've installed Bazel."
+"Success: You"ve installed Bazel."
 
 To check the installation is correct, try to run:
 
 ```posix-terminal
-bazel {{ '<var>' }}version{{ '</var>' }}
+bazel <var>version</var>
 ```
 
 Next, you can check out more tips and guidance here:
@@ -90,7 +90,7 @@ Depending on which languages you want to build, you will need:
 
     Optional: If you want to use Bazel from CMD or Powershell and still be able
     to use Bash tools, make sure to add
-    `{{ '<var>' }}MSYS2_INSTALL_PATH{{ '</var>' }}/usr/bin` to your
+    `<var>MSYS2_INSTALL_PATH</var>/usr/bin` to your
     `PATH` environment variable.
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)

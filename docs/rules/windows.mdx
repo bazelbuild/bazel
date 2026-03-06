@@ -1,5 +1,5 @@
 ---
-title: 'Writing Rules on Windows'
+title: "Writing Rules on Windows"
 ---
 
 This page focuses on writing Windows-compatible rules, common problems of
@@ -27,7 +27,7 @@ Problems:
 - **Path separators**: are backslash (`\`), not forward slash (`/`).
 
   Bazel stores paths Unix-style with `/` separators. Though some Windows programs support
-  Unix-style paths, others don't. Some built-in commands in cmd.exe support them, some don't.
+  Unix-style paths, others don"t. Some built-in commands in cmd.exe support them, some don't.
 
   It's best to always use `\` separators on Windows: replace `/` with `\` when you create command
   lines and environment variables for actions.
@@ -52,7 +52,7 @@ Solutions:
 
 - **Use a short output root.**
 
-  Use the `--output_user_root=<path>` flag to specify a short path for Bazel outputs. A good idea
+  Use the `--output_user_root=&lt;path&gt;` flag to specify a short path for Bazel outputs. A good idea
   is to have a drive (or virtual drive) just for Bazel outputs (such as `D:\`), and adding this line
   to your `.bazelrc` file:
 
@@ -129,7 +129,7 @@ Solutions:
       out_path = output_file.path
       if is_windows:
           out_path = out_path.replace("/", "\\")
-      return dicts.add(ctx.configuration.default_shell_env, {"MY_OUTPUT": out_path})
+      return dicts.add(ctx.configuration.default_shell_env, {MY_OUTPUT": out_path{"}"})
   ```
 
 ## Actions
@@ -250,7 +250,7 @@ Solutions:
   In Java, use `try-with-resources`. In Python, use `with open(...) as f:`. In principle, try
   closing handles as soon as possible.
 
-<!--
+{}/*
 TODO:
 - runfiles, runfiles libraries, -nolegacy_external_runfiles
 - runfiles envvars, runfiles manifest structure
@@ -265,4 +265,4 @@ TODO:
 - use ctx.resolve_tools instead of ctx.resolve_command (Bash dep)
 - how to run cmd.exe actions (maybe I should write a genrule-like rule for these)
 
--->
+*/}

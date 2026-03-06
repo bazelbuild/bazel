@@ -1,5 +1,5 @@
 ---
-title: 'Debugging Remote Cache Hits for Remote Execution'
+title: "Debugging Remote Cache Hits for Remote Execution"
 ---
 
 
@@ -21,7 +21,7 @@ from a remote cache is displayed as `remote cache hit`.
 
 For example:
 
-```none {:.devsite-disable-click-to-copy}
+```none 
 INFO: 11 processes: 6 remote cache hit, 3 internal, 2 remote.
 ```
 
@@ -63,7 +63,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_binary_file=/tmp/exec1.log
+      bazel <var>--optional-flags</var> build //<var>your:target</var> --execution_log_binary_file=/tmp/exec1.log
       ```
 
    b. [Compare the execution logs](#compare-logs-the-execution-logs) between the
@@ -80,7 +80,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    If you do not need to diff execution logs, you can use the
    human-readable `--execution_log_json_file` flag instead. It cannot be
-   used for stable diffing since it contains execution time and doesn't
+   used for stable diffing since it contains execution time and doesn"t
    guarantee ordering.
 
 5. Check that all actions in the execution log have `cacheable` set to true. If

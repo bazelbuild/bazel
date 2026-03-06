@@ -1,5 +1,5 @@
 ---
-title: 'Bazel Glossary'
+title: "Bazel Glossary"
 ---
 
 
@@ -17,7 +17,7 @@ variables, and declared input/output artifacts.
 
 An on-disk cache that stores a mapping of executed [actions](#action) to the
 outputs they created. The cache key is known as the [action key](#action-key). A
-core component for Bazel's incrementality model. The cache is stored in the
+core component for Bazel"s incrementality model. The cache is stored in the
 output base directory and thus survives Bazel server restarts.
 
 ### Action graph
@@ -171,7 +171,7 @@ build`, `bazel test`, `bazel run`, and `bazel query`.
 ### Command flags
 
 A set of flags specific to a [command](#command). Command flags are specified
-*after* the command (`bazel build <command flags>`). Flags can be applicable to
+*after* the command (`bazel build &lt;command flags&gt;`). Flags can be applicable to
 one or more commands. For example, `--configure` is a flag exclusively for the
 `bazel sync` command, but `--keep_going` is applicable to `sync`, `build`,
 `test` and more. Flags are often used for [configuration](#configuration)
@@ -213,7 +213,7 @@ The result of evaluating a [target](#target) with a
 [configuration](#configuration). The [analysis phase](#analysis-phase) produces
 this by combining the build's options with the targets that need to be built.
 For example, if `//:foo` builds for two different architectures in the same
-build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
+build, it has two configured targets: `&lt;//:foo, x86&gt;` and `&lt;//:foo, arm&gt;`.
 
 ### Correctness
 

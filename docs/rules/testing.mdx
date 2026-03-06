@@ -1,5 +1,5 @@
 ---
-title: 'Testing'
+title: "Testing"
 ---
 
 
@@ -27,7 +27,7 @@ Some caveats:
     the rules containing test assertions. This boilerplate may seem daunting at
     first. It helps to [keep in mind](/extending/concepts#evaluation-model) that macros
     are evaluated and targets generated during the loading phase, while rule
-    implementation functions don't run until later, during the analysis phase.
+    implementation functions don"t run until later, during the analysis phase.
 
 *   Analysis tests are intended to be fairly small and lightweight. Certain
     features of the analysis testing framework are restricted to verifying
@@ -54,7 +54,7 @@ See below for a minimal toy example, followed by an example that checks actions.
 MyInfo = provider(fields = {
     "val": "string value",
     "out": "output File",
-})
+{"}"})
 
 def _myrule_impl(ctx):
     """Rule that just generates a file and returns a provider."""
@@ -372,14 +372,14 @@ def _myrule_validation_test_impl(ctx):
                               is_executable = True,
                               substitutions = {
                                 "%TARGET%": target.short_path,
-                              })
+                              {"}"})
   # This is needed to make sure the output file of myrule is visible to the
   # resulting instantiated script.
   return [DefaultInfo(runfiles=ctx.runfiles(files=[target]))]
 
 myrule_validation_test = rule(
     implementation = _myrule_validation_test_impl,
-    attrs = {"target": attr.label(allow_single_file=True),
+    attrs = {target": attr.label(allow_single_file=True),
              # You need an implicit dependency in order to access the template.
              # A target could potentially override this attribute to modify
              # the test logic.

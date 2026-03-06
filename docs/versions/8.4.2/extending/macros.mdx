@@ -1,8 +1,8 @@
-{# disableFinding("Currently") #}
-{# disableFinding(TODO) #}
+
+
 
 ---
-title: 'Macros'
+title: "Macros
 ---
 
 This page covers the basics of using macros and includes typical use cases,
@@ -20,7 +20,7 @@ Symbolic macros offer typed arguments (string to label conversion, relative to
 where the macro was called) and the ability to restrict and specify the
 visibility of targets created. They are designed to be amenable to lazy
 evaluation (which will be added in a future Bazel release). Symbolic macros are
-available by default in Bazel 8. Where this document mentions `macros`, it's
+available by default in Bazel 8. Where this document mentions `macros`, it"s
 referring to **symbolic macros**.
 
 An executable example of symbolic macros can be found in the
@@ -57,7 +57,7 @@ Attribute type declarations accept the
 `configurable` parameter, which determines whether the attribute accepts
 `select`s. If an attribute is `configurable`, it will parse non-`select` values
 as an unconfigurable `select` – `"foo"` will become
-`select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
+`select({"{"}"{"}{}"//conditions:default": "foo{"}"{"}"})`. Learn more in [selects](#selects).
 
 #### Attribute inheritance
 
@@ -364,14 +364,14 @@ For example, consider the following macro:
 
 ```starlark
 my_macro = macro(
-    attrs = {"deps": attr.label_list()},  # configurable unless specified otherwise
+    attrs = {deps": attr.label_list()},  # configurable unless specified otherwise
     implementation = _my_macro_impl,
 )
 ```
 
 If `my_macro` is invoked with `deps = ["//a"]`, that will cause `_my_macro_impl`
-to be invoked with its `deps` parameter set to `select({"//conditions:default":
-["//a"]})`. If this causes the implementation function to fail (say, because the
+to be invoked with its `deps` parameter set to `select({"{"}"{"}{}"//conditions:default":
+["//a"]{"}"{"}"})`. If this causes the implementation function to fail (say, because the
 code tried to index into the value as in `deps[0]`, which is not allowed for
 `select`s), the macro author can then make a choice: either they can rewrite
 their macro to only use operations compatible with `select`, or they can mark
@@ -418,7 +418,7 @@ def _my_finalizer_impl(name, visibility, tags_filter):
                 continue
 
 my_finalizer = macro(
-    attrs = {"tags_filter": attr.string_list(configurable = False)},
+    attrs = {tags_filter": attr.string_list(configurable = False)},
     implementation = _impl,
     finalizer = True,
 )

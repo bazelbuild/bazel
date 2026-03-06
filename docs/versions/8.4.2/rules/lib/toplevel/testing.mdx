@@ -1,5 +1,5 @@
 ---
-title: 'testing'
+title: "testing"
 ---
 
 Helper methods for Starlark to access testing infrastructure.
@@ -13,7 +13,7 @@ Helper methods for Starlark to access testing infrastructure.
 ## analysis\_test
 
 ```
-None testing.analysis_test(name, implementation, attrs={}, fragments=[], toolchains=[], attr_values={})
+None testing.analysis_test(name, implementation, attrs={}, fragments=[], toolchains=[], attr_values={{"}"{"}"})
 ```
 
 Creates a new analysis test target.
@@ -24,12 +24,12 @@ The number of transitive dependencies of the test are limited. The limit is cont
 
 | Parameter | Description |
 | --- | --- |
-| `name` | [string](../core/string); required  Name of the target. It should be a Starlark identifier, matching pattern '[A-Za-z\_][A-Za-z0-9\_]\*'. |
+| `name` | [string](../core/string); required  Name of the target. It should be a Starlark identifier, matching pattern "[A-Za-z\_][A-Za-z0-9\_]\*'. |
 | `implementation` | [function](../core/function); required  The Starlark function implementing this analysis test. It must have exactly one parameter: [ctx](../builtins/ctx). The function is called during the analysis phase. It can access the attributes declared by `attrs` and populated via `attr_values`. The implementation function may not register actions. Instead, it must register a pass/fail result via providing [AnalysisTestResultInfo](../providers/AnalysisTestResultInfo). |
-| `attrs` | [dict](../core/dict); default is `{}`  Dictionary declaring the attributes. See the [rule](../globals/bzl#rule) call. Attributes are allowed to use configuration transitions defined using [analysis\_test\_transition](../globals/bzl#analysis_test_transition). |
+| `attrs` | [dict](../core/dict); default is `{`  Dictionary declaring the attributes. See the [rule](../globals/bzl#rule) call. Attributes are allowed to use configuration transitions defined using [analysis\_test\_transition](../globals/bzl#analysis_test_transition). |
 | `fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of configuration fragments that are available to the implementation of the analysis test. |
 | `toolchains` | [sequence](../core/list); default is `[]`  The set of toolchains the test requires. See the [rule](../globals/bzl#rule) call. |
-| `attr_values` | [dict](../core/dict) of [string](../core/string)s; default is `{}`  Dictionary of attribute values to pass to the implementation. |
+| `attr_values` | [dict](../core/dict) of [string](../core/string)s; default is `{`  Dictionary of attribute values to pass to the implementation. |
 
 ## ExecutionInfo
 

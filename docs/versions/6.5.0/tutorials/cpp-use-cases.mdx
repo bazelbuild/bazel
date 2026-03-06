@@ -1,5 +1,5 @@
 ---
-title: 'Common C++ Build Use Cases'
+title: "Common C++ Build Use Cases"
 ---
 
 
@@ -33,7 +33,7 @@ subdirectories).
 
 If a file includes a header, then any rule with that file as a source (that is,
 having that file in the `srcs`, `hdrs`, or `textual_hdrs` attribute) should
-depend on the included header's library rule. Conversely, only direct
+depend on the included header"s library rule. Conversely, only direct
 dependencies need to be specified as dependencies. For example, suppose
 `sandwich.h` includes `bread.h` and `bread.h` includes `flour.h`. `sandwich.h`
 doesn't include `flour.h` (who wants flour in their sandwich?), so the `BUILD`

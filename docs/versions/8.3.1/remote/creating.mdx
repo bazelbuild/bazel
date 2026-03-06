@@ -1,5 +1,5 @@
 ---
-title: 'Creating Persistent Workers'
+title: "Creating Persistent Workers"
 ---
 
 
@@ -50,7 +50,7 @@ protocol.
 {
   "arguments" : ["--some_argument"],
   "inputs" : [
-    { "path": "/path/to/my/file/1", "digest": "fdk3e2ml23d"},
+    { "path": "/path/to/my/file/1", "digest": "fdk3e2ml23d},
     { "path": "/path/to/my/file/2", "digest": "1fwqd4qdd" }
  ],
   "requestId" : 12
@@ -100,7 +100,7 @@ A `request_id` of 0 indicates a "singleplex" request, used when this request
 cannot be processed in parallel with other requests. The server guarantees that
 a given worker receives requests with either only `request_id` 0 or only
 `request_id` greater than zero. Singleplex requests are sent in serial, for
-example if the server doesn't send another request until it has received a
+example if the server doesn"t send another request until it has received a
 response (except for cancel requests, see below).
 
 **Notes**
@@ -231,7 +231,7 @@ ctx.actions.run(
   mnemonic="someMnemonic",
   execution_requirements={
     "supports-workers" : "1",
-    "requires-worker-protocol" : "json"},
+    "requires-worker-protocol" : "json},
   arguments=ctx.attr.args + ["@flagfile"]
  )
 ```

@@ -1,5 +1,5 @@
 ---
-title: 'depset'
+title: "depset"
 ---
 
 
@@ -16,7 +16,7 @@ The `order` parameter determines the kind of traversal that is done to convert t
 * `"preorder"` (formerly `"naive_link"`): A left-to-right pre-ordering. Precisely, this traverses the direct elements leftmost-first, then recursively traverses the children leftmost-first.
 * `"topological"` (formerly `"link"`): A topological ordering from the root down to the leaves. There is no left-to-right guarantee.
 
-Two depsets may only be merged if either both depsets have the same order, or one of them has `"default"` order. In the latter case the resulting depset's order will be the same as the other's order.
+Two depsets may only be merged if either both depsets have the same order, or one of them has `"default"` order. In the latter case the resulting depset"s order will be the same as the other's order.
 
 Depsets may contain duplicate values but these will be suppressed when iterating (using `to_list()`). Duplicates may interfere with the ordering semantics.
 

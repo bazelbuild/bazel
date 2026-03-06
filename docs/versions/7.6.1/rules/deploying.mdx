@@ -1,5 +1,5 @@
 ---
-title: 'Deploying Rules'
+title: "Deploying Rules"
 ---
 
 
@@ -71,11 +71,11 @@ For example, when writing new rules for the (make-believe)
 
 ### WORKSPACE
 
-In the project's `WORKSPACE`, you should define the name that users will use
+In the project"s `WORKSPACE`, you should define the name that users will use
 to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
-`rules_<lang>` (such as `rules_mockascript`). Otherwise, you should name your
-repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please
+`rules_&lt;lang&gt;` (such as `rules_mockascript`). Otherwise, you should name your
+repository `&lt;org&gt;_rules_&lt;lang&gt;` (such as `build_stack_rules_proto`). Please
 start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules should follow the convention for rules in the
 [bazelbuild](https://github.com/bazelbuild) organization.
@@ -135,7 +135,7 @@ For `rules_mockascript` that means there will be a directory named
 If your rule defines
 [toolchain](/extending/toolchains) rules,
 it's possible that you'll need to define custom `constraint_setting`s and/or
-`constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
+`constraint_value`s. Put these into a `//`&lt;LANG&gt;`/constraints` package. Your
 directory structure will look like this:
 
 ```
@@ -160,8 +160,8 @@ will speak.
 ### Runfiles library
 
 If your rule provides a standard library for accessing runfiles, it should be
-in the form of a library target located at `//<LANG>/runfiles` (an abbreviation
-of `//<LANG>/runfiles:runfiles`). User targets that need to access their data
+in the form of a library target located at `//`&lt;LANG&gt;`/runfiles` (an abbreviation
+of `//`&lt;LANG&gt;`/runfiles:runfiles`). User targets that need to access their data
 dependencies will typically add this target to their `deps` attribute.
 
 ### Repository rules
@@ -174,8 +174,8 @@ those external dependencies. Do not declare dependencies of tests there, only
 dependencies that rules require to work. Put development dependencies into the
 `WORKSPACE` file.
 
-Create a file named `<LANG>/repositories.bzl` and provide a single entry point
-macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
+Create a file named `&lt;LANG&gt;/repositories.bzl` and provide a single entry point
+macro named `rules_`&lt;LANG&gt;`_dependencies`. Our directory will look as follows:
 
 ```
 /
@@ -195,16 +195,16 @@ macro that registers these toolchains. This way users can decide to omit the
 previous macro and control dependencies manually, while still being allowed to
 register toolchains.
 
-Therefore add a `WORKSPACE` macro named `rules_<LANG>_toolchains` into
-`<LANG>/repositories.bzl` file.
+Therefore add a `WORKSPACE` macro named `rules_`&lt;LANG&gt;`_toolchains` into
+`&lt;LANG&gt;/repositories.bzl` file.
 
 Note that in order to resolve toolchains in the analysis phase Bazel needs to
 analyze all `toolchain` targets that are registered. Bazel will not need to
 analyze all targets referenced by `toolchain.toolchain` attribute. If in order
 to register toolchains you need to perform complex computation in the
 repository, consider splitting the repository with `toolchain` targets from the
-repository with `<LANG>_toolchain` targets. Former will be always fetched, and
-the latter will only be fetched when user actually needs to build `<LANG>` code.
+repository with `&lt;LANG&gt;_toolchain` targets. Former will be always fetched, and
+the latter will only be fetched when user actually needs to build `&lt;LANG&gt;` code.
 
 
 #### Release snippet
@@ -215,13 +215,13 @@ into their `WORKSPACE` file. This snippet in general will look as follows:
 ```
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
-    name = "rules_<LANG>",
-    urls = ["<url_to_the_release.zip"],
+    name = "rules_`&lt;LANG&gt;`",
+    urls = ["&lt;url_to_the_release.zip"],
     sha256 = "4242424242",
 )
-load("@rules_<LANG>//<LANG>:repositories.bzl", "rules_<LANG>_dependencies", "rules_<LANG>_toolchains")
-rules_<LANG>_dependencies()
-rules_<LANG>_toolchains()
+load("@rules_&lt;LANG&gt;//`&lt;LANG&gt;`:repositories.bzl", "rules_`&lt;LANG&gt;`_dependencies", "rules_`&lt;LANG&gt;`_toolchains")
+rules_`&lt;LANG&gt;`_dependencies()
+rules_`&lt;LANG&gt;`_toolchains()
 ```
 
 

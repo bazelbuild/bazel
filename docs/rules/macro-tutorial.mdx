@@ -1,5 +1,5 @@
 ---
-title: 'Creating a Symbolic Macro'
+title: "Creating a Symbolic Macro"
 ---
 
 
@@ -57,7 +57,7 @@ miniature = macro(
     The generated file name will be prefixed with `name + "_small_"`.
     """,
     implementation = _miniature_impl,
-    # Inherit most of genrule's attributes (such as tags and testonly)
+    # Inherit most of genrule"s attributes (such as tags and testonly)
     inherit_attrs = native.genrule,
     attrs = {
         "src": attr.label(

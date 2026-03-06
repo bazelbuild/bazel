@@ -1,5 +1,5 @@
 ---
-title: 'Migrating from Xcode to Bazel'
+title: "Migrating from Xcode to Bazel"
 ---
 
 
@@ -23,7 +23,7 @@ troubleshooting solutions to address common errors.
     new version of the Xcode project that matches the `BUILD` files using
     [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj/)
     whenever you update the `BUILD` files. Certain changes to the `BUILD` files
-    such as adding dependencies to a target don't require regenerating the
+    such as adding dependencies to a target don"t require regenerating the
     project which can speed up development. If you're not using Xcode, the
     `bazel build` and `bazel test` commands provide build and test capabilities
     with certain limitations described later in this guide.
@@ -186,7 +186,7 @@ For more information on build rules, see [Apple Rules for Bazel](https://github.
 
 At this point, it is a good idea to test the build:
 
-`bazel build //:<application_target>`
+`bazel build //:&lt;application_target&gt;`
 
 ### Step 4: (Optional) Granularize the build
 

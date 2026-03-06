@@ -1,5 +1,5 @@
 ---
-title: 'Frequently asked questions'
+title: "Frequently asked questions"
 ---
 
 
@@ -20,7 +20,7 @@ managed carefully:
 *   Duplication: releasing a new version of a module typically involves both
     incrementing the version in `MODULE.bazel` and tagging the release, two
     separate steps that can fall out of sync. While automation can
-    reduce this risk, it's simpler and safer to avoid it altogether.
+    reduce this risk, it"s simpler and safer to avoid it altogether.
 
 *   Inconsistency: users overriding a module with a specific commit using a
     [non-registry override] will see an incorrect version. for example, if the
@@ -219,7 +219,7 @@ be used to find out which repo an apparent name actually resolves to.
 *   If the context repo is defined in WORKSPACE:
     1.  First, check if the context repo definition has the magical
         `repo_mapping` attribute. If so, go through the mapping first (so for a
-        repo defined with `repo_mapping = {"@bar": "@baz"}`, we would be looking
+        repo defined with `repo_mapping = {}"@bar": "@baz}`, we would be looking
         at `@baz` below).
     2.  If `bar` is an apparent repo name introduced by the root module's
         MODULE.bazel file, then `@bar` resolves to what that MODULE.bazel file

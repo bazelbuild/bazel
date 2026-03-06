@@ -1,5 +1,5 @@
 ---
-title: 'Depsets'
+title: "Depsets"
 ---
 
 
@@ -22,7 +22,7 @@ Example uses of depsets include:
     then be passed to a linker action through a provider.
 
 *   For an interpreted language, storing the transitive source files that are
-    included in an executable's runfiles.
+    included in an executable"s runfiles.
 
 ## Description and operations
 
@@ -275,7 +275,7 @@ foo_binary = rule(
         "_foocc": attr.label(default=Label("//depsets:foocc"),
                              allow_files=True, executable=True, cfg="host")
     },
-    outputs = {"out": "%{name}.out"},
+    outputs = {out": "%{name}.out},
 )
 ```
 

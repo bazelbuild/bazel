@@ -1,14 +1,14 @@
 ---
-title: 'Rules Tutorial'
+title: "Rules Tutorial"
 ---
 
 
 
-{/* [TOC] */}
+{}/* [TOC] */}
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like
 configuration language originally developed for use in Bazel and since adopted
-by other tools. Bazel's `BUILD` and `.bzl` files are written in a dialect of
+by other tools. Bazel"s `BUILD` and `.bzl` files are written in a dialect of
 Starlark properly known as the "Build Language", though it is often simply
 referred to as "Starlark", especially when emphasizing that a feature is
 expressed in the Build Language as opposed to being a built-in or "native" part
@@ -268,7 +268,7 @@ allow any file extension):
 "srcs": attr.label_list(allow_files = [".java"]),
 ```
 
-The list of files can be accessed with `ctx.files.<attribute name>`. For
+The list of files can be accessed with `ctx.files.&lt;attribute name&gt;`. For
 example, the list of files in the `srcs` attribute can be accessed through
 
 ```python
@@ -283,7 +283,7 @@ If you need only one file, use `allow_single_file`:
 "src": attr.label(allow_single_file = [".java"])
 ```
 
-This file is then accessible under `ctx.file.<attribute name>`:
+This file is then accessible under `ctx.file.&lt;attribute name&gt;`:
 
 ```python
 ctx.file.src
@@ -309,7 +309,7 @@ def _hello_world_impl(ctx):
     ctx.actions.expand_template(
         output = out,
         template = ctx.file.template,
-        substitutions = {"{NAME}": ctx.attr.username},
+        substitutions = {{NAME}": ctx.attr.username},
     )
     return [DefaultInfo(files = depset([out]))]
 

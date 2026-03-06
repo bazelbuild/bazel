@@ -1,5 +1,5 @@
 ---
-title: 'Labels'
+title: "Labels"
 ---
 
 A **label** is an identifier for a target. A typical label in its full canonical
@@ -62,7 +62,7 @@ colon, may be omitted.  So, these two labels are equivalent:
 //my/app/lib:lib
 ```
 
-The name of a file target in a subdirectory of the package is the file's path
+The name of a file target in a subdirectory of the package is the file"s path
 relative to the package root (the directory containing the `BUILD` file). So,
 this file is in the `my/app/main/testdata` subdirectory of the repository:
 
@@ -95,11 +95,19 @@ are two ways (one wrong, one correct) to refer to this file within
 `//my/app:BUILD`:
 
 <p><span class="compare-worse">Wrong</span> — <code>testdata</code> is a different package, so you can't use a relative path</p>
-<pre class="prettyprint">testdata/testdepot.zip</pre>
+
+```
+testdata/testdepot.zip
+```
+
 
 <p><span class="compare-better">Correct</span> — refer to <code>testdata</code> with its full path</p>
 
-<pre class="prettyprint">//my/app/testdata:testdepot.zip</pre>
+
+```
+//my/app/testdata:testdepot.zip
+```
+
 
 
 Labels starting with `@@//` are references to the main
@@ -124,7 +132,7 @@ construct tools and scripts that manipulate labels, such as the
 
 The precise details of allowed target names are below.
 
-### Target names — `{{ "<var>" }}package-name{{ "</var>" }}:target-name`
+### Target names — `<var>package-name</var>:target-name`
 
 `target-name` is the name of the target within the package. The name of a rule
 is the value of the `name` attribute in the rule's declaration in a `BUILD`
@@ -132,7 +140,7 @@ file; the name of a file is its pathname relative to the directory containing
 the `BUILD` file.
 
 Target names must be composed entirely of characters drawn from the set `a`–`z`,
-`A`–`Z`, `0`–`9`, and the punctuation symbols `!%-@^_"#$&'()*-+,;<=>?[]{|}~/.`.
+`A`–`Z`, `0`–`9`, and the punctuation symbols `!%-@^_"#$&'()*-+,;<=>?[]{{}|}~/.`.
 
 Filenames must be relative pathnames in normal form, which means they must
 neither start nor end with a slash (for example, `/foo` and `foo/` are
@@ -142,8 +150,7 @@ current-directory references (`./`) are forbidden.
 
 <p><span class="compare-worse">Wrong</span> — Do not use `..` to refer to files in other packages</p>
 
-<p><span class="compare-better">Correct</span> — Use
-  `//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}`</p>
+<p><span class="compare-better">Correct</span> — Use   `//<var>package-name</var>:<var>filename</var>`</p>
 
 While it is common to use `/` in the name of a file target, avoid the use of
 `/` in the names of rules. Especially when the shorthand form of a label is
@@ -155,7 +162,7 @@ However, there are some situations where use of a slash is convenient, or
 sometimes even necessary. For example, the name of certain rules must match
 their principal source file, which may reside in a subdirectory of the package.
 
-### Package names — `//package-name:{{ "<var>" }}target-name{{ "</var>" }}`
+### Package names — `//package-name:<var>target-name</var>`
 
 The name of a package is the name of the directory containing its `BUILD` file,
 relative to the top-level directory of the containing repository.
@@ -231,13 +238,7 @@ _build dependency graph_, and is the domain over which the
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
-           href="/concepts/build-ref">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>Targets</a>
-    </td>
-    <td><a class="button button-with-icon button-primary"
-           href="/concepts/build-files">
-        BUILD files<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
-    </td>
+    <td><a class="button button-with-icon button-primary"            href="/concepts/build-ref">         <span class="material-icons" aria-hidden="true">arrow_back</span>Targets</a></td>
+    <td><a class="button button-with-icon button-primary"            href="/concepts/build-files">         BUILD files<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a></td>
   </tr>
 </table>

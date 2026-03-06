@@ -1,33 +1,7 @@
-<style>
-  .padbottom { padding-bottom: 10px; }
-  .etabox {
-    background: #EFEFEF;
-    color: #38761D;
-    font-size: 15px;
-    font-weight: bold;
-    display: inline;
-    padding: 6px;
-    margin-right: 10px;
-  }
-  .donestatus {
-    color: #00D000;
-    font-weight: bold;
-    padding-left: 10px;
-  }
-  .inprogressstatus {
-    color: #D0D000;
-    font-weight: bold;
-    padding-left: 10px;
-  }
-  .notstartedstatus {
-    color: #D00000;
-    font-weight: bold;
-    padding-left: 10px;
-  }
-</style>
+<style>{`{`}</style>
 
 ---
-title: 'Bazel Configurability 2021 Roadmap'
+title: "Bazel Configurability 2021 Roadmap
 ---
 
 *Last verified: 2021-01-25* ([update history](https://github.com/bazelbuild/bazel-website/commits/master/roadmaps/configuration.md))
@@ -46,7 +20,7 @@ title: 'Bazel Configurability 2021 Roadmap'
 
 `$ bazel build //:all` *just works*, for any project and any platforms.
 
-* Builds don't require command-line flags.
+* Builds don"t require command-line flags.
 * Each target automatically uses correct settings (such as `android_binary` uses the right NDK).
 * It's easy to build for multiple platforms.
 * Builds scale well, particularly w.r.t graph size and action caching.

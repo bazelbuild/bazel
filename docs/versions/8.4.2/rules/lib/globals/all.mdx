@@ -1,5 +1,5 @@
 ---
-title: 'All Bazel files'
+title: "All Bazel files"
 ---
 
 Methods available in all Bazel files, including .bzl files, BUILD, MODULE.bazel, VENDOR.bazel, and WORKSPACE.
@@ -193,7 +193,7 @@ Any other value causes an error. With no argument, `float()` returns 0.0.
 unknown getattr(x, name, default=unbound)
 ```
 
-Returns the struct's field of the given name if it exists. If not, it either returns `default` (if specified) or raises an error. `getattr(x, "foobar")` is equivalent to `x.foobar`.
+Returns the struct"s field of the given name if it exists. If not, it either returns `default` (if specified) or raises an error. `getattr(x, "foobar")` is equivalent to `x.foobar`.
 
 ```
 getattr(ctx.attr, "myattr")
@@ -255,7 +255,7 @@ int int(x, base=unbound)
 
 Returns x as an int value.
 
-* If `x` is already an int, `int` returns it unchanged.* If `x` is a bool, `int` returns 1 for True and 0 for False.* If `x` is a string, it must have the format `<sign><prefix><digits>`. `<sign>` is either `"+"`, `"-"`, or empty (interpreted as positive). `<digits>` are a sequence of digits from 0 up to `base` - 1, where the letters a-z (or equivalently, A-Z) are used as digits for 10-35. In the case where `base` is 2/8/16, `<prefix>` is optional and may be 0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the `base` is any other value besides these bases or the special value 0, the prefix must be empty. In the case where `base` is 0, the string is interpreted as an integer literal, in the sense that one of the bases 2/8/10/16 is chosen depending on which prefix if any is used. If `base` is 0, no prefix is used, and there is more than one digit, the leading digit cannot be 0; this is to avoid confusion between octal and decimal. The magnitude of the number represented by the string must be within the allowed range for the int type.* If `x` is a float, `int` returns the integer value of the float, rounding towards zero. It is an error if x is non-finite (NaN or infinity).
+* If `x` is already an int, `int` returns it unchanged.* If `x` is a bool, `int` returns 1 for True and 0 for False.* If `x` is a string, it must have the format `&lt;sign&gt;`&lt;prefix&gt;`&lt;digits&gt;`. `&lt;sign&gt;` is either `"+"`, `"-"`, or empty (interpreted as positive). `&lt;digits&gt;` are a sequence of digits from 0 up to `base` - 1, where the letters a-z (or equivalently, A-Z) are used as digits for 10-35. In the case where `base` is 2/8/16, `&lt;prefix&gt;` is optional and may be 0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the `base` is any other value besides these bases or the special value 0, the prefix must be empty. In the case where `base` is 0, the string is interpreted as an integer literal, in the sense that one of the bases 2/8/10/16 is chosen depending on which prefix if any is used. If `base` is 0, no prefix is used, and there is more than one digit, the leading digit cannot be 0; this is to avoid confusion between octal and decimal. The magnitude of the number represented by the string must be within the allowed range for the int type.* If `x` is a float, `int` returns the integer value of the float, rounding towards zero. It is an error if x is non-finite (NaN or infinity).
 
 This function fails if `x` is any other type, or if the value is a string not satisfying the above format. Unlike Python's `int` function, this function does not allow zero arguments, and does not allow extraneous whitespace for string arguments.
 
@@ -305,7 +305,7 @@ Returns a new list with the same elements as the given iterable value.
 ```
 list([1, 2]) == [1, 2]
 list((2, 3, 2)) == [2, 3, 2]
-list({5: "a", 2: "b", 4: "c"}) == [5, 2, 4]
+list({5: "a", 2: "b", 4: "c{"}"{"}"}) == [5, 2, 4]
 ```
 
 ### Parameters
@@ -449,7 +449,7 @@ For example,
 ```
 set()                          # an empty set
 set([3, 1, 1, 2])              # set([3, 1, 2]), a set of three elements
-set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
+set({k1": "v1", "k2": "v2{"}"{"}"})  # set(["k1", "k2"]), a set of two elements
 ```
 
 ### Parameters
@@ -511,7 +511,7 @@ Returns a tuple with the same elements as the given iterable value.
 ```
 tuple([1, 2]) == (1, 2)
 tuple((2, 3, 2)) == (2, 3, 2)
-tuple({5: "a", 2: "b", 4: "c"}) == (5, 2, 4)
+tuple({5: "a", 2: "b", 4: "c{"}"{"}"}) == (5, 2, 4)
 ```
 
 ### Parameters

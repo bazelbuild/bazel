@@ -1,5 +1,5 @@
 ---
-title: 'Execution Groups'
+title: "Execution Groups"
 ---
 
 
@@ -94,7 +94,7 @@ def _impl(ctx):
   )
 ```
 
-Note: If an action uses a toolchain from an execution group, but doesn't specify
+Note: If an action uses a toolchain from an execution group, but doesn"t specify
 that execution group in the action declaration, that may potentially cause
 issues. A mismatch like this may not immediately cause failures, but is a latent
 problem.
@@ -122,7 +122,7 @@ my_rule(
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
+dictionary as `{{}"mem": "16g}`. As you see here, execution-group-level
 settings override target-level settings.
 
 ### Execution groups for native rules

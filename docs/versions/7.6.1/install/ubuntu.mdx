@@ -1,12 +1,12 @@
 ---
-title: 'Installing Bazel on Ubuntu'
+title: "Installing Bazel on Ubuntu"
 ---
 
 
 
 This page describes the options for installing Bazel on Ubuntu.
 It also provides links to the Bazel completion scripts and the binary installer,
-if needed as a backup option (for example, if you don't have admin access).
+if needed as a backup option (for example, if you don"t have admin access).
 
 Supported Ubuntu Linux platforms:
 
@@ -121,15 +121,15 @@ sudo apt-get install default-jdk
 
 ### Step 2: Run the installer
 
-Next, download the Bazel binary installer named `bazel-{{ '<var>' }}version{{ '</var>' }}-installer-linux-x86_64.sh`
+Next, download the Bazel binary installer named `bazel-<var>version</var>-installer-linux-x86_64.sh`
 from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
 Run it as follows:
 
 ```posix-terminal
-chmod +x bazel-{{ '<var>' }}version{{ '</var>' }}-installer-linux-x86_64.sh
+chmod +x bazel-<var>version</var>-installer-linux-x86_64.sh
 
-./bazel-{{ '<var>' }}version{{ '</var>' }}-installer-linux-x86_64.sh --user
+./bazel-<var>version</var>-installer-linux-x86_64.sh --user
 ```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
@@ -155,7 +155,7 @@ We publish Docker container with Bazel installed for each Bazel version at `gcr.
 You can use the Docker container as follows:
 
 ```
-$ docker pull gcr.io/bazel-public/bazel:<bazel version>
+$ docker pull gcr.io/bazel-public/bazel:`&lt;bazel version&gt;`
 ```
 
 The Docker container is built by [these steps](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).

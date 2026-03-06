@@ -1,5 +1,5 @@
 ---
-title: 'A Guide to Skyframe `StateMachine`s'
+title: "A Guide to Skyframe `StateMachine`s"
 ---
 
 
@@ -99,7 +99,7 @@ world
 ```
 
 Note that the method reference `this::step2` is also a `StateMachine` due to
-`step2` satisfying `StateMachine`'s functional interface definition. Method
+`step2` satisfying `StateMachine`"s functional interface definition. Method
 references are the most common way to specify the next state in a
 `StateMachine`.
 
@@ -149,10 +149,10 @@ by SkyKey and to schedule concurrent subtasks.
 interface Tasks {
   void enqueue(StateMachine subtask);
 
-  void lookUp(SkyKey key, Consumer<SkyValue> sink);
+  void lookUp(SkyKey key, Consumer`&lt;SkyValue&gt;` sink);
 
-  <E extends Exception>
-  void lookUp(SkyKey key, Class<E> exceptionClass, ValueOrExceptionSink<E> sink);
+  `&lt;E extends Exception&gt;`
+  void lookUp(SkyKey key, Class`&lt;E&gt;` exceptionClass, ValueOrExceptionSink`&lt;E&gt;` sink);
 
   // lookUp overloads for 2 and 3 exception types exist, but are elided here.
 }
@@ -179,17 +179,17 @@ SkyFrame](#drivers-and-bridging)) guarantees that the value is available before
 the next state begins. An example follows.
 
 ```
-class DoesLookup implements StateMachine, Consumer<SkyValue> {
+class DoesLookup implements StateMachine, Consumer`&lt;SkyValue&gt;` {
   private Value value;
 
   @Override
   public StateMachine step(Tasks tasks) {
-    tasks.lookUp(new Key(), (Consumer<SkyValue>) this);
+    tasks.lookUp(new Key(), (Consumer`&lt;SkyValue&gt;`) this);
     return this::processValue;
   }
 
   // The `lookUp` call in `step` causes this to be called before `processValue`.
-  @Override  // Implementation of Consumer<SkyValue>.
+  @Override  // Implementation of Consumer`&lt;SkyValue&gt;`.
   public void accept(SkyValue value) {
     this.value = (Value)value;
   }
@@ -203,11 +203,11 @@ class DoesLookup implements StateMachine, Consumer<SkyValue> {
 
 In the above example, the first step does a lookup for `new Key()`, passing
 `this` as the consumer. That is possible because `DoesLookup` implements
-`Consumer<SkyValue>`.
+`Consumer&lt;SkyValue&gt;`.
 
 Tip: When passing `this` as a value sink, it's helpful to readers to upcast it
 to the receiver type to narrow down the purpose of passing `this`. The example
-passes `(Consumer<SkyValue>) this`.
+passes `(Consumer`&lt;SkyValue&gt;`) this`.
 
 By contract, before the next state `DoesLookup.processValue` begins, all the
 lookups of `DoesLookup.step` are complete. Therefore `value` is available when
@@ -359,7 +359,7 @@ class M1 implements StateMachine {
   public StateMachine step(Tasks tasks) {
     performA();
     // S starts after `step` returns and by contract must complete before `doB`
-    // begins. It is effectively sequential, inducing the sequence < A, S, B >.
+    // begins. It is effectively sequential, inducing the sequence &lt; A, S, B &gt;.
     tasks.enqueue(new S());
     return this::doB;
   }
@@ -374,7 +374,7 @@ class M2 implements StateMachine {
   @Override
   public StateMachine step(Tasks tasks) {
     performX();
-    // Similarly, this induces the sequence < X, S, Y>.
+    // Similarly, this induces the sequence &lt; X, S, Y&gt;.
     tasks.enqueue(new S());
     return this::doY;
   }
@@ -418,7 +418,7 @@ class M1 implements StateMachine {
   public StateMachine step(Tasks tasks) {
     performA();
     // Passes `this::doB` as the `runAfter` parameter of S, resulting in the
-    // sequence < A, S, B >.
+    // sequence &lt; A, S, B &gt;.
     return new S(/* runAfter= */ this::doB);
   }
 
@@ -433,7 +433,7 @@ class M2 implements StateMachine {
   public StateMachine step(Tasks tasks) {
     performX();
     // Passes `this::doY` as the `runAfter` parameter of S, resulting in the
-    // sequence < X, S, Y >.
+    // sequence &lt; X, S, Y &gt;.
     return new S(/* runAfter= */ this::doY);
   }
 
@@ -556,7 +556,7 @@ approaches for handling multiple SkyValues.
 The `Tasks.lookUp` method takes a callback, `sink`, as a parameter.
 
 ```
-  void lookUp(SkyKey key, Consumer<SkyValue> sink);
+  void lookUp(SkyKey key, Consumer`&lt;SkyValue&gt;` sink);
 ```
 
 The idiomatic approach would be to use a *Java* lambda to implement this:
@@ -567,7 +567,7 @@ The idiomatic approach would be to use a *Java* lambda to implement this:
 
 with `myValue` being a member variable of the `StateMachine` instance doing the
 lookup. However, the lambda requires an extra memory allocation compared to
-implementing the `Consumer<SkyValue>` interface in the `StateMachine`
+implementing the `Consumer&lt;SkyValue&gt;` interface in the `StateMachine`
 implementation. The lambda is still useful when there are multiple lookups that
 would be ambiguous.
 
@@ -581,10 +581,10 @@ There are also error handling overloads of `Tasks.lookUp`, that are analogous to
 `SkyFunction.Environment.getValueOrThrow`.
 
 ```
-  <E extends Exception> void lookUp(
-      SkyKey key, Class<E> exceptionClass, ValueOrExceptionSink<E> sink);
+  `&lt;E extends Exception&gt;` void lookUp(
+      SkyKey key, Class`&lt;E&gt;` exceptionClass, ValueOrExceptionSink`&lt;E&gt;` sink);
 
-  interface ValueOrExceptionSink<E extends Exception> {
+  interface ValueOrExceptionSink`&lt;E extends Exception&gt;` {
     void acceptValueOrException(@Nullable SkyValue value, @Nullable E exception);
   }
 ```
@@ -592,13 +592,13 @@ There are also error handling overloads of `Tasks.lookUp`, that are analogous to
 An example implementation is shown below.
 
 ```
-class PerformLookupWithError extends StateMachine, ValueOrExceptionSink<MyException> {
+class PerformLookupWithError extends StateMachine, ValueOrExceptionSink`&lt;MyException&gt;` {
   private MyValue value;
   private MyException error;
 
   @Override
   public StateMachine step(Tasks tasks) {
-    tasks.lookUp(new MyKey(), MyException.class, ValueOrExceptionSink<MyException>) this);
+    tasks.lookUp(new MyKey(), MyException.class, ValueOrExceptionSink`&lt;MyException&gt;`) this);
     return this::processResult;
   }
 
@@ -644,16 +644,16 @@ been simplified from prototype production code.
   private StateMachine fetchConfigurationAndPackage(Tasks tasks) {
     var configurationKey = configuredTarget.getConfigurationKey();
     if (configurationKey != null) {
-      tasks.lookUp(configurationKey, (Consumer<SkyValue>) this);
+      tasks.lookUp(configurationKey, (Consumer`&lt;SkyValue&gt;`) this);
     }
 
     var packageId = configuredTarget.getLabel().getPackageIdentifier();
-    tasks.lookUp(PackageValue.key(packageId), (Consumer<SkyValue>) this);
+    tasks.lookUp(PackageValue.key(packageId), (Consumer`&lt;SkyValue&gt;`) this);
 
     return this::constructResult;
   }
 
-  @Override  // Implementation of `Consumer<SkyValue>`.
+  @Override  // Implementation of `Consumer&lt;SkyValue&gt;`.
   public void accept(SkyValue value) {
     if (value instanceof BuildConfigurationValue) {
       this.configurationValue = (BuildConfigurationValue) value;
@@ -667,7 +667,7 @@ been simplified from prototype production code.
   }
 ```
 
-The `Consumer<SkyValue>` callback implementation can be shared unambiguously
+The `Consumer&lt;SkyValue&gt;` callback implementation can be shared unambiguously
 because the value types are different. When that’s not the case, falling back to
 lambda-based implementations or full inner-class instances that implement the
 appropriate callbacks is viable.
@@ -711,7 +711,7 @@ class BarProducer implements StateMachine {
 
 Tip: It would be tempting to use the more concise signature void `accept(Bar
 value)` rather than the stuttery `void acceptBarValue(Bar value)` above.
-However, `Consumer<SkyValue>` is a common overload of `void accept(Bar value)`,
+However, `Consumer&lt;SkyValue&gt;` is a common overload of `void accept(Bar value)`,
 so doing this often leads to violations of the [Overloads: never
 split](https://google.github.io/styleguide/javaguide.html#s3.4.2-ordering-class-contents)
 style-guide rule.
@@ -1004,7 +1004,7 @@ synchronous SkyFunction code.
 The `ValueOrExceptionProducer` abstract class includes the following methods.
 
 ```
-public abstract class ValueOrExceptionProducer<V, E extends Exception>
+public abstract class ValueOrExceptionProducer`&lt;V, E extends Exception&gt;`
     implements StateMachine {
   @Nullable
   public final V tryProduceValue(Environment env)
@@ -1126,7 +1126,7 @@ private ValueType1 value1;
 private ValueType2 value2;
 
 private StateMachine step1(...) {
-  tasks.lookUp(key1, (Consumer<SkyValue>) this);  // key1 has type KeyType1.
+  tasks.lookUp(key1, (Consumer`&lt;SkyValue&gt;`) this);  // key1 has type KeyType1.
   return this::step2;
 }
 

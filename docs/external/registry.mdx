@@ -1,5 +1,5 @@
 ---
-title: 'Bazel registries'
+title: "Bazel registries"
 ---
 
 Bazel discovers dependencies by requesting their information from Bazel
@@ -25,7 +25,7 @@ An index registry must have the following format:
     file](#metadata-json) containing metadata for this module.
 *   `/modules/$MODULE/$VERSION`: A directory containing the following files:
     *   `MODULE.bazel`: The `MODULE.bazel` file of this module version. Note
-        that this is the `MODULE.bazel` file read during Bazel's external
+        that this is the `MODULE.bazel` file read during Bazel"s external
         dependency resolution, _not_ the one from the source archive (unless
         there's a [non-registry
         override](/external/module#non-registry_overrides)). Also note that it's
@@ -39,7 +39,7 @@ An index registry must have the following format:
     *   `overlay/`: An optional directory containing overlay files, only used
         when `source.json` has "archive" type
 
-### `bazel_registry.json` {:#bazel-registry-json}
+### `bazel_registry.json` 
 
 `bazel_registry.json` is an optional file that specifies metadata applying to
 the entire registry. It can contain the following fields:
@@ -57,7 +57,7 @@ the entire registry. It can contain the following fields:
 *   `module_base_path`: a string, specifying the base path for modules with
     `local_path` type in the `source.json` file
 
-### `metadata.json` {:#metadata-json}
+### `metadata.json` 
 
 `metadata.json` is an optional JSON file containing information about the
 module, with the following fields:
@@ -73,7 +73,7 @@ module, with the following fields:
 
 Note that the BCR requires more information in the `metadata.json` file.
 
-### `source.json` {:#source-json}
+### `source.json` 
 
 `source.json` is a required JSON file containing information about how to fetch
 a specific version of a module. The schema of this file depends on its `type`
@@ -119,19 +119,19 @@ field, which defaults to `archive`.
     *   `path`: The local path to the repo, calculated as following:
         *   If `path` is an absolute path, it stays as it is
         *   If `path` is a relative path and `module_base_path` is an
-            absolute path, it resolves to `<module_base_path>/<path>`
+            absolute path, it resolves to `&lt;module_base_path&gt;/&lt;path&gt;`
         *   If `path` and `module_base_path` are both relative paths, it
-            resolves to `<registry_path>/<module_base_path>/<path>`.
+            resolves to `&lt;registry_path&gt;/`&lt;module_base_path&gt;`/&lt;path&gt;`.
             Registry must be hosted locally and used by
-            `--registry=file://<registry_path>`. Otherwise, Bazel will
+            `--registry=file://&lt;registry_path&gt;`. Otherwise, Bazel will
             throw an error
 
-## Bazel Central Registry {:#bazel-central-registry}
+## Bazel Central Registry 
 
-The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
+The Bazel Central Registry (BCR) at `&lt;https://bcr.bazel.build/&gt;` is an index
 registry with contents backed by the GitHub repo
 [`bazelbuild/bazel-central-registry`][bcr-repo]. You can browse its contents
-using the web frontend at <https://registry.bazel.build/>.
+using the web frontend at `&lt;https://registry.bazel.build/&gt;`.
 
 The Bazel community maintains the BCR, and contributors are welcome to submit
 pull requests. See the [BCR contribution

@@ -1,5 +1,5 @@
 ---
-title: 'Write bazelrc configuration files'
+title: "Write bazelrc configuration files"
 ---
 
 
@@ -32,7 +32,7 @@ before the command (`build`, `test`, etc).
     Bazel binary, overriding the `BAZEL_SYSTEM_BAZELRC_PATH` value in
     [`//src/main/cpp:option_processor`](https://github.com/bazelbuild/bazel/blob/0.28.0/src/main/cpp/BUILD#L141).
     The system-specified location may contain environment variable references,
-    such as `${VAR_NAME}` on Unix or `%VAR_NAME%` on Windows.
+    such as `${{}VAR_NAME}` on Unix or `%VAR_NAME%` on Windows.
 
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
@@ -86,7 +86,7 @@ other "rc" files. To specify a path that is relative to the workspace root,
 write `import %workspace%/path/to/bazelrc`.
 
 The difference between `import` and `try-import` is that Bazel fails if the
-`import`'ed file is missing (or can't be read), but not so for a `try-import`'ed
+`import`"ed file is missing (or can't be read), but not so for a `try-import`'ed
 file.
 
 Import precedence:

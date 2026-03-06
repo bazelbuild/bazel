@@ -1,5 +1,5 @@
 ---
-title: 'Troubleshooting Bazel Remote Execution with Docker Sandbox'
+title: "Troubleshooting Bazel Remote Execution with Docker Sandbox"
 ---
 
 
@@ -54,7 +54,7 @@ Before you begin troubleshooting, do the following if you have not already done 
 *   Install Bazel 0.14.1 or later. Earlier versions do not support the Docker
     sandbox feature.
 *   Add the [bazel-toolchains](https://releases.bazel.build/bazel-toolchains.html)
-    repo, pinned to the latest release version, to your build's `WORKSPACE` file
+    repo, pinned to the latest release version, to your build"s `WORKSPACE` file
     as described [here](https://releases.bazel.build/bazel-toolchains.html).
 *   Add flags to your `.bazelrc` file to enable the feature. Create the file in
     the root directory of your Bazel project if it does not exist. Flags below
@@ -65,10 +65,10 @@ Before you begin troubleshooting, do the following if you have not already done 
 
 ```
 # Docker Sandbox Mode
-build:docker-sandbox --host_javabase=<...>
-build:docker-sandbox --javabase=<...>
-build:docker-sandbox --crosstool_top=<...>
-build:docker-sandbox --experimental_docker_image=<...>
+build:docker-sandbox --host_javabase=&lt;...&gt;
+build:docker-sandbox --javabase=&lt;...&gt;
+build:docker-sandbox --crosstool_top=&lt;...&gt;
+build:docker-sandbox --experimental_docker_image=&lt;...&gt;
 build:docker-sandbox --spawn_strategy=docker --strategy=Javac=docker --genrule_strategy=docker
 build:docker-sandbox --experimental_docker_verbose
 build:docker-sandbox --experimental_enable_docker_sandbox
@@ -113,7 +113,7 @@ in addition to troubleshooting natively.
 
 You may encounter the following error:
 
-```none {:.devsite-disable-click-to-copy}
+```none 
 ERROR: 'docker' is an invalid value for docker spawn strategy.
 ```
 
@@ -184,7 +184,7 @@ For other bases, modify them as necessary.
 
     RUN apt-get update && apt-get install -y docker-ce
 
-    RUN wget https://releases.bazel.build/<latest Bazel version>/release/bazel-<latest Bazel version>-installer-linux-x86_64.sh -O ./bazel-installer.sh && chmod 755 ./bazel-installer.sh
+    RUN wget https://releases.bazel.build/`&lt;latest Bazel version&gt;`/release/bazel-`&lt;latest Bazel version&gt;`-installer-linux-x86_64.sh -O ./bazel-installer.sh && chmod 755 ./bazel-installer.sh
 
     RUN ./bazel-installer.sh
     ```
@@ -192,7 +192,7 @@ For other bases, modify them as necessary.
 2.  Build the container as `bazel_container`:
 
     ```posix-terminal
-    docker build -t bazel_container - < Dockerfile
+    docker build -t bazel_container - &lt; Dockerfile
     ```
 
 ### Step 2: Start the container
@@ -204,7 +204,7 @@ substitute the path to the source code on your host that you want to build.
 docker run -it \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /tmp:/tmp \
-  -v {{ '<var>' }}your source code directory{{ '</var>' }}:/src \
+  -v &lt;var&gt;your source code directory</var>:/src \
   -w /src \
   bazel_container \
   /bin/bash
@@ -239,7 +239,7 @@ sandbox feature in which Bazel's build actions are running, and from the local
 machine on which the host and action containers run.
 
 ```posix-terminal
-bazel --output_user_root=/tmp/bazel_docker_root --bazelrc=.bazelrc \ build --config=docker-sandbox {{ '<var>' }}target{{ '</var>' }}
+bazel --output_user_root=/tmp/bazel_docker_root --bazelrc=.bazelrc \ build --config=docker-sandbox <var>target</var>
 ```
 
 ### Step 5: Resolve detected issues

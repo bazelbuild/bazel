@@ -1,5 +1,5 @@
 ---
-title: 'Test encyclopedia'
+title: "Test encyclopedia"
 ---
 
 An exhaustive specification of the test execution environment.
@@ -126,7 +126,7 @@ to the following table:
 </table>
 
 Tests which do not explicitly specify a timeout have one implied based on the
-test's [`size`](/reference/be/common-definitions#test.size) as follows:
+test"s [`size`](/reference/be/common-definitions#test.size) as follows:
 
 <table>
   <tr>
@@ -326,40 +326,27 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>TEST_INFRASTRUCTURE_FAILURE_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (This file
-      should only be used to report failures originating from the testing
-      infrastructure, not as a general mechanism for reporting flaky failures
-      of tests. In this context, testing infrastructure is defined as systems
-      or libraries that are not test-specific, but can cause test failures by
-      malfunctioning. The first line is the name of the testing infrastructure
-      component that caused the failure, the second one a human-readable
-      description of the failure. Additional lines are ignored.)</td>
+    <td>absolute path to a private file in a writable directory (This file       should only be used to report failures originating from the testing       infrastructure, not as a general mechanism for reporting flaky failures       of tests. In this context, testing infrastructure is defined as systems       or libraries that are not test-specific, but can cause test failures by       malfunctioning. The first line is the name of the testing infrastructure       component that caused the failure, the second one a human-readable       description of the failure. Additional lines are ignored.)</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TEST_LOGSPLITTER_OUTPUT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used to write
-      Logsplitter protobuffer log)</td>
+    <td>absolute path to a private file in a writable directory (used to write       Logsplitter protobuffer log)</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TEST_PREMATURE_EXIT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used for
-      catching calls to <code>exit()</code>)</td>
+    <td>absolute path to a private file in a writable directory (used for       catching calls to <code>exit()</code>)</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TEST_RANDOM_SEED</code></td>
-    <td>If the <code>--runs_per_test</code> option is used,
-      <code>TEST_RANDOM_SEED</code> is set to the <var>run number</var>
-      (starting with 1) for each individual test run.</td>
+    <td>If the <code>--runs_per_test</code> option is used,       <code>TEST_RANDOM_SEED</code> is set to the <var>run number</var>       (starting with 1) for each individual test run.</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TEST_RUN_NUMBER</code></td>
-    <td>If the <code>--runs_per_test</code> option is used,
-      <code>TEST_RUN_NUMBER</code> is set to the <var>run number</var>
-      (starting with 1) for each individual test run.</td>
+    <td>If the <code>--runs_per_test</code> option is used,       <code>TEST_RUN_NUMBER</code> is set to the <var>run number</var>       (starting with 1) for each individual test run.</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -394,9 +381,7 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>TEST_TOTAL_SHARDS</code></td>
-    <td>total
-      <a href="/reference/be/common-definitions#test.shard_count"><code>shard count</code></a>,
-      if <a href="#test-sharding"><code>sharding</code></a> is used</td>
+    <td>total       <a href="/reference/be/common-definitions#test.shard_count"><code>shard count</code></a>,       if <a href="#test-sharding"><code>sharding</code></a> is used</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -411,31 +396,23 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td>
-    <td>absolute path to a private writable directory (used to write undeclared
-      test outputs). Any files written to the
-      <code>TEST_UNDECLARED_OUTPUTS_DIR</code> directory will be zipped up and
-      added to an <code>outputs.zip</code> file under
-      <code>bazel-testlogs</code>.</td>
+    <td>absolute path to a private writable directory (used to write undeclared       test outputs). Any files written to the       <code>TEST_UNDECLARED_OUTPUTS_DIR</code> directory will be zipped up and       added to an <code>outputs.zip</code> file under       <code>bazel-testlogs</code>.</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td>
-    <td>absolute path to a private writable directory (used to write undeclared
-      test output annotation <code>.part</code> and <code>.pb</code> files).</td>
+    <td>absolute path to a private writable directory (used to write undeclared       test output annotation <code>.part</code> and <code>.pb</code> files).</td>
     <td>optional</td>
   </tr>
 
   <tr>
     <td><code>TEST_WARNINGS_OUTPUT_FILE</code></td>
-    <td>absolute path to a private file in a writable directory (used to write
-      test target warnings)</td>
+    <td>absolute path to a private file in a writable directory (used to write       test target warnings)</td>
     <td>optional</td>
   </tr>
   <tr>
     <td><code>TESTBRIDGE_TEST_ONLY</code></td>
-    <td>value of
-      <a href="/docs/user-manual#flag--test_filter"><code>--test_filter</code></a>,
-      if specified</td>
+    <td>value of       <a href="/docs/user-manual#flag--test_filter"><code>--test_filter</code></a>,       if specified</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -450,12 +427,7 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>XML_OUTPUT_FILE</code></td>
-    <td>
-      Location to which test actions should write a test result XML output file.
-      Otherwise, Bazel generates a default XML output file wrapping the test log
-      as part of the test action. The XML schema is based on the
-      <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
-        class="external">JUnit test result schema</a>.</td>
+    <td>Location to which test actions should write a test result XML output file.       Otherwise, Bazel generates a default XML output file wrapping the test log       as part of the test action. The XML schema is based on the       <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"         class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -719,9 +691,8 @@ Some tags in the test rules have a special meaning. See also the
       <td><code>test_suite</code> convention; suite of large tests</td>
     </tr>
     <tr>
-      <td><code>manual *</code></td>
-      <td>don't include test target in wildcard target patterns like
-        <code>:...</code>, <code>:*</code>, or <code>:all</code></td>
+      <td><code>manual {{}"}"{{}"*}"{{}"}</code></td>
+      <td>don't include test target in wildcard target patterns like         <code>:...</code>, <code>:{{}"}"{{}"*}"{{}"}</code>, or <code>:all</code></td>
     </tr>
     <tr>
       <td><code>medium</code></td>
@@ -733,8 +704,7 @@ Some tags in the test rules have a special meaning. See also the
     </tr>
     <tr>
       <td><code>smoke</code></td>
-      <td><code>test_suite</code> convention; means it should be run before
-        committing code changes into the version control system</td>
+      <td><code>test_suite</code> convention; means it should be run before         committing code changes into the version control system</td>
     </tr>
 </table>
 

@@ -1,5 +1,5 @@
 ---
-title: 'BUILD files'
+title: "BUILD files"
 ---
 
 Methods available in BUILD files. See also the Build Encyclopedia for extra [functions](/reference/be/functions) and build rules, which can also be used in BUILD files.
@@ -52,7 +52,7 @@ The order of the created depset should be *compatible* with the order of its `tr
 unknown existing_rule(name)
 ```
 
-Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread's package, or `None` if no rule instance of that name exists.
+Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread"s package, or `None` if no rule instance of that name exists.
 
 Here, an *immutable dict-like object* means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
 

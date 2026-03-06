@@ -1,5 +1,5 @@
 ---
-title: 'Args'
+title: "Args"
 ---
 
 An object that encapsulates, in a memory-efficient way, the data needed to build part or all of a command line.
@@ -12,7 +12,7 @@ For this reason, the action-constructing functions accept `Args` objects in addi
 
 The `map_each` feature allows you to customize how items are transformed into strings. If you do not provide a `map_each` function, the standard conversion is as follows:
 
-* Values that are already strings are left as-is.* [`File`](../builtins/File) objects are turned into their `File.path` values.* [`Label`](../builtins/Label) objects are turned into a string representation that resolves back to the same object when resolved in the context of the main repository. If possible, the string representation uses the apparent name of a repository in favor of the repository's canonical name, which makes this representation suited for use in BUILD files. While the exact form of the representation is not guaranteed, typical examples are `//foo:bar`, `@repo//foo:bar` and `@@canonical_name+//foo:bar.bzl`.* All other types are turned into strings in an *unspecified* manner. For this reason, you should avoid passing values that are not of string or `File` type to `add()`, and if you pass them to `add_all()` or `add_joined()` then you should provide a `map_each` function.
+* Values that are already strings are left as-is.* [`File`](../builtins/File) objects are turned into their `File.path` values.* [`Label`](../builtins/Label) objects are turned into a string representation that resolves back to the same object when resolved in the context of the main repository. If possible, the string representation uses the apparent name of a repository in favor of the repository"s canonical name, which makes this representation suited for use in BUILD files. While the exact form of the representation is not guaranteed, typical examples are `//foo:bar`, `@repo//foo:bar` and `@@canonical_name+//foo:bar.bzl`.* All other types are turned into strings in an *unspecified* manner. For this reason, you should avoid passing values that are not of string or `File` type to `add()`, and if you pass them to `add_all()` or `add_joined()` then you should provide a `map_each` function.
 
 When using string formatting (`format`, `format_each`, and `format_joined` params of the `add*()` methods), the format template is interpreted in the same way as `%`-substitution on strings, except that the template must have exactly one substitution placeholder and it must be `%s`. Literal percents may be escaped as `%%`. Formatting is applied after the value is converted to a string as per the above.
 
@@ -30,10 +30,10 @@ We could use the following `Args` object:
 
 ```
 ---
-title: 'foo_deps and bar_deps are depsets containing'
+title: "foo_deps and bar_deps are depsets containing
 ---
 ---
-title: 'File objects for the foo and bar .txt files.'
+title: "File objects for the foo and bar .txt files.'
 ---
 args = ctx.actions.args()
 args.add_all("--foo", foo_deps)

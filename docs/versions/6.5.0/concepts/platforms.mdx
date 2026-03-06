@@ -1,5 +1,5 @@
 ---
-title: 'Building with Platforms'
+title: "Building with Platforms"
 ---
 
 
@@ -9,7 +9,7 @@ careful cooperation between code owners, rule maintainers, and core Bazel devs.
 
 This page summarizes the purpose of platforms and shows how to build with them.
 
-**tl;dr:** Bazel's platform and toolchain APIs are available but won't work
+**tl;dr:** Bazel"s platform and toolchain APIs are available but won't work
 everywhere until all language rules, `select()`s and other legacy references
 are updated. This work is ongoing. Eventually all builds will be platform-based.
 Read below to see where your builds fit.
@@ -344,7 +344,7 @@ sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 `--platforms` won't see these changes.
 
 When migrating your project to platforms, you must either convert changes like
-`return { "//command_line_option:cpu": "arm" }` to `return {
+`return {{} "//command_line_option:cpu": "arm" }` to `return {{}
 "//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
 mappings](#platform-mappings) to support both styles through the migration
 window.

@@ -1,5 +1,5 @@
 ---
-title: 'Platforms'
+title: "Platforms"
 ---
 
 
@@ -51,7 +51,7 @@ The space of possible choices for platforms is defined by using the
 `constraint_setting` creates a new dimension, while
 `constraint_value` creates a new value for a given dimension; together they
 effectively define an enum and its possible values. For example, the following
-snippet of a `BUILD` file introduces a constraint for the system's glibc version
+snippet of a `BUILD` file introduces a constraint for the system"s glibc version
 with two possible values.
 
 [constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
@@ -209,11 +209,11 @@ Note: An empty constraints list is equivalent to "compatible with everything".
 cc_library(
     name = "unixish_lib",
     srcs = ["unixish_lib.cc"],
-    target_compatible_with = select({
+    target_compatible_with = select({"{"}"{"}
         "@platforms//os:osx": [],
         "@platforms//os:linux": [],
         "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    {"}"{"}"}),
 )
 ```
 
@@ -236,10 +236,10 @@ describes a library that is compatible with everything _except_ for ARM.
 cc_library(
     name = "non_arm_lib",
     srcs = ["non_arm_lib.cc"],
-    target_compatible_with = select({
+    target_compatible_with = select({"{"}"{"}
         "@platforms//cpu:arm": ["@platforms//:incompatible"],
         "//conditions:default": [],
-    }),
+    {"}"{"}"}),
 )
 ```
 

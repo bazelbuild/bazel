@@ -1,5 +1,5 @@
 ---
-title: 'General Rules'
+title: "General Rules"
 ---
 
 
@@ -84,7 +84,7 @@ The following matches any build that sets `--compilation_mode=opt` or
 ```
   config_setting(
       name = "simple",
-      values = {"compilation_mode": "opt"}
+      values = {compilation_mode": "opt}
   )
 ```
 
@@ -128,7 +128,7 @@ constraint values beyond these two.
   )
 ```
 
-In all these cases, it's possible for the configuration to change within the build, for example if
+In all these cases, it"s possible for the configuration to change within the build, for example if
 a target needs to be built for a different platform than its dep. This means that even when a
 `config_setting` doesn't match the top-level command-line flags, it may still match
 some build targets.
@@ -141,15 +141,15 @@ some build targets.
   `-c`), `values` definitions must use the full form. These automatically
   match invocations using either form.
 * If a flag takes multiple values (like `--copt=-Da --copt=-Db` or a list-typed
-  [Starlark flag](https://bazel.build/rules/config#user-defined-build-settings)), `values = { "flag": "a" }` matches if `"a"` is
+  [Starlark flag](https://bazel.build/rules/config#user-defined-build-settings)), `values = {{} "flag": "a" }` matches if `"a"` is
   present *anywhere* in the actual list.
 
-  `values = { "myflag": "a,b" }` works the same way: this matches
+  `values = {{} "myflag": "a,b" }` works the same way: this matches
   `--myflag=a --myflag=b`, `--myflag=a --myflag=b --myflag=c`,
   `--myflag=a,b`, and `--myflag=c,b,a`. Exact semantics vary between
   flags. For example, `--copt` doesn't support multiple values *in the same
   instance*: `--copt=a,b` produces `["a,b"]` while `--copt=a
-  --copt=b` produces `["a", "b"]` (so `values = { "copt": "a,b" }`
+  --copt=b` produces `["a", "b"]` (so `values = {{} "copt": "a,b" }`
   matches the former but not the latter). But `--ios_multi_cpus` (for Apple rules)
   *does*: `-ios_multi_cpus=a,b` and `ios_multi_cpus=a --ios_multi_cpus=b` both produce `["a", "b"]`. Check flag definitions and test your
   conditions carefully to verify exact expectations.
@@ -171,9 +171,9 @@ some build targets.
 | --- | --- |
 | `name` | [Name](/concepts/labels#target-names); required  A unique name for this target. |
 | `constraint_values` | List of [labels](/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The minimum set of `constraint_values` that the target platform must specify in order to match this `config_setting`. (The execution platform is not considered here.) Any additional constraint values that the platform has are ignored. See [Configurable Build Attributes](https://bazel.build/docs/configurable-attributes#platforms) for details. If two `config_setting`s match in the same `select` and one has all the same flags and `constraint_setting`s as the other plus additional ones, the one with more settings is chosen. This is known as "specialization". For example, a `config_setting` matching `x86` and `Linux` specializes a `config_setting` matching `x86`. If two `config_setting`s match and both have `constraint_value`s not present in the other, this is an error. |
-| `define_values` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{}` The same as [`values`](/reference/be/general#config_setting.values) but specifically for the `--define` flag. `--define` is special because its syntax (`--define KEY=VAL`) means `KEY=VAL` is a *value* from a Bazel flag perspective.  That means:  ```             config_setting(                 name = "a_and_b",                 values = {                     "define": "a=1",                     "define": "b=2",                 }) ```   doesn't work because the same key (`define`) appears twice in the dictionary. This attribute solves that problem:  ```             config_setting(                 name = "a_and_b",                 define_values = {                     "a": "1",                     "b": "2",                 }) ```   correctly matches `bazel build //foo --define a=1 --define b=2`. `--define` can still appear in [`values`](/reference/be/general#config_setting.values) with normal flag syntax, and can be mixed freely with this attribute as long as dictionary keys remain distinct. |
-| `flag_values` | Dictionary: [label](/concepts/labels) -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{}` The same as [`values`](/reference/be/general#config_setting.values) but for [user-defined build flags](https://bazel.build/rules/config#user-defined-build-settings). This is a distinct attribute because user-defined flags are referenced as labels while built-in flags are referenced as arbitrary strings. |
-| `values` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{}` The set of configuration values that match this rule (expressed as build flags) This rule inherits the configuration of the configured target that references it in a `select` statement. It is considered to "match" a Bazel invocation if, for every entry in the dictionary, its configuration matches the entry's expected value. For example `values = {"compilation_mode": "opt"}` matches the invocations `bazel build --compilation_mode=opt ...` and `bazel build -c opt ...` on target-configured rules.  For convenience's sake, configuration values are specified as build flags (without the preceding `"--"`). But keep in mind that the two are not the same. This is because targets can be built in multiple configurations within the same build. For example, an exec configuration's "cpu" matches the value of `--host_cpu`, not `--cpu`. So different instances of the same `config_setting` may match the same invocation differently depending on the configuration of the rule using them.  If a flag is not explicitly set at the command line, its default value is used. If a key appears multiple times in the dictionary, only the last instance is used. If a key references a flag that can be set multiple times on the command line (e.g. `bazel build --copt=foo --copt=bar --copt=baz ...`), a match occurs if *any* of those settings match. |
+| `define_values` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{` The same as [`values`](/reference/be/general#config_setting.values) but specifically for the `--define` flag. `--define` is special because its syntax (`--define KEY=VAL`) means `KEY=VAL` is a *value* from a Bazel flag perspective.  That means:  ```             config_setting(                 name = "a_and_b",                 values = {{}                     "define": "a=1",                     "define": "b=2",                 {"}"{"}"}) ```   doesn't work because the same key (`define`) appears twice in the dictionary. This attribute solves that problem:  ```             config_setting(                 name = "a_and_b",                 define_values = {{}                     "a": "1",                     "b": "2",                 {"}"{"}"}) ```   correctly matches `bazel build //foo --define a=1 --define b=2`. `--define` can still appear in [`values`](/reference/be/general#config_setting.values) with normal flag syntax, and can be mixed freely with this attribute as long as dictionary keys remain distinct. |
+| `flag_values` | Dictionary: [label](/concepts/labels) -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{` The same as [`values`](/reference/be/general#config_setting.values) but for [user-defined build flags](https://bazel.build/rules/config#user-defined-build-settings). This is a distinct attribute because user-defined flags are referenced as labels while built-in flags are referenced as arbitrary strings. |
+| `values` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{` The set of configuration values that match this rule (expressed as build flags) This rule inherits the configuration of the configured target that references it in a `select` statement. It is considered to "match" a Bazel invocation if, for every entry in the dictionary, its configuration matches the entry's expected value. For example `values = {{}"compilation_mode": "opt}` matches the invocations `bazel build --compilation_mode=opt ...` and `bazel build -c opt ...` on target-configured rules.  For convenience's sake, configuration values are specified as build flags (without the preceding `"--"`). But keep in mind that the two are not the same. This is because targets can be built in multiple configurations within the same build. For example, an exec configuration's "cpu" matches the value of `--host_cpu`, not `--cpu`. So different instances of the same `config_setting` may match the same invocation differently depending on the configuration of the rule using them.  If a flag is not explicitly set at the command line, its default value is used. If a key appears multiple times in the dictionary, only the last instance is used. If a key references a flag that can be set multiple times on the command line (e.g. `bazel build --copt=foo --copt=bar --copt=baz ...`), a match occurs if *any* of those settings match. |
 
 ## filegroup
 

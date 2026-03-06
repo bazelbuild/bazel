@@ -1,5 +1,5 @@
 ---
-title: 'File'
+title: "File"
 ---
 
 This object is created during the analysis phase to represent a file or directory that will be read or written during the execution phase. It is not an open file handle, and cannot be used to directly read or write file contents. Rather, you use it to construct the action graph in a rule implementation function by passing it to action-creating functions. See the [Rules page](https://bazel.build/extending/rules#files) for more information.
@@ -34,7 +34,7 @@ The base name of this file. This is the name of the file inside the directory.
 string File.dirname
 ```
 
-The name of the directory containing this file. It's taken from [path](#path) and is always relative to the execution directory.
+The name of the directory containing this file. It"s taken from [path](#path) and is always relative to the execution directory.
 
 ## extension
 

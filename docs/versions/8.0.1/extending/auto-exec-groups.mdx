@@ -1,5 +1,5 @@
 ---
-title: 'Automatic Execution Groups (AEGs)'
+title: "Automatic Execution Groups (AEGs)"
 ---
 
 
@@ -17,7 +17,7 @@ example:
 ```python
 ctx.actions.run(
     ...,
-    executable = ctx.toolchain['@bazel_tools//tools/jdk:toolchain_type'].tool,
+    executable = ctx.toolchain["@bazel_tools//tools/jdk:toolchain_type'].tool,
     ...,
     toolchain = '@bazel_tools//tools/jdk:toolchain_type',
 )
