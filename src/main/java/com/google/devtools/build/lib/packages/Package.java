@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1113,6 +1114,11 @@ public class Package {
     private final boolean precomputeTransitiveLoads;
     private final boolean noImplicitFileExport;
 
+    // The following field is populated by setLoads() and should be used only for analysis_test.
+    // TODO: b/291752414 - This should be serialized but only if needed for analysis_test;
+    // serializing unconditionally would interfere with lazy symbolic macro change pruning.
+    private byte[] transitiveBzlDigest = new byte[0];
+
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     private final HashMap<RepositoryName, LinkedHashMap<String, RepositoryName>>
@@ -1465,7 +1471,17 @@ public class Package {
       } else {
         pkg.directLoads = ImmutableList.copyOf(directLoads);
       }
+      Fingerprint fp = new Fingerprint();
+      for (Module module : directLoads) {
+        fp.addBytes(BazelModuleContext.of(module).bzlTransitiveDigest());
+      }
+      this.transitiveBzlDigest = fp.digestAndReset();
       return this;
+    }
+
+    public byte[] getTransitiveBzlDigest() {
+      Preconditions.checkState(transitiveBzlDigest.length != 0);
+      return transitiveBzlDigest;
     }
 
     @CanIgnoreReturnValue
