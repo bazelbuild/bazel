@@ -1779,8 +1779,10 @@ public class RemoteExecutionService {
                 }
               });
 
-      if (outputService instanceof RemoteOutputService remoteOutputService) {
-        remoteOutputService.registerOutputUploadTask(
+      if (outputService instanceof RemoteOutputService remoteOutputService
+          && remoteOutputService.getRewoundActionSynchronizer()
+              instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
+        remoteRewoundActionSynchronizer.registerOutputUploadTask(
             action.getRemoteActionExecutionContext().getSpawnOwner(),
             () -> {
               future.cancel(true);
