@@ -1,3 +1,44 @@
+## Release 10.0.0-pre.20260223.3 (2026-03-06)
+
+```
+Baseline: 6dd6396737cf953159079cee20355ba6123c934b
+
+Cherry picks:
+
+   + fd860b00f2614ca0697fd33f8741db8f32340358:
+     Add alias map cache for command line flag aliases.
+```
+
+Incompatible changes:
+
+  - The environment variable `LC_CTYPE` now defaults to `C.UTF-8` for
+    actions that set `use_default_shell_env = True`, which results in
+    a Unicode-aware locale on essentially all non-EOL Linux
+    distributions, with MSYS2 as well as macOS 15.4 and higher. Pass
+    `--action_env==LC_CTYPE` (note the two `=`s) to explicitly unset
+    this variable, which restores the previous behavior. On older
+    versions of macOS, you can set `--action_env=LC_CTYPE=UTF-8`
+    instead.
+
+Important changes:
+
+  - The `requires-worker-protocol` execution requirement is now
+    forwarded to remote execution services as a platform property
+    (`persistentWorkerProtocol`) to support intermixing JSON and
+    Proto remote persistent worker protocols across a build.
+  - `rctx.symlink` now implicitly watches the target if it falls back
+    to a copy.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Benjamin Peterson, Fabian Meumertzheim, giria660, Joseph Gette, Stefan Penner, Taeyang Jin (Theo), Tyler Breisacher, Tyler French.
+
+## Release 8.6.0 (2026-02-26)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 10.0.0-pre.20260211.1 (2026-02-18)
 
 ```
