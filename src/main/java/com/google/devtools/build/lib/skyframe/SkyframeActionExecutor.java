@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -1915,6 +1916,7 @@ public final class SkyframeActionExecutor {
         findSpawnResultsInActionResultAndException(actionResult, exception);
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
+    ImmutableList.Builder<Digest> spawnDigests = ImmutableList.builder();
     for (SpawnResult spawnResult : spawnResults) {
       // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
       @Nullable Instant startTime = spawnResult.getStartTime();
@@ -1923,11 +1925,17 @@ public final class SkyframeActionExecutor {
         firstStartTime = min(firstStartTime, startTime);
         lastEndTime = max(lastEndTime, endTime);
       }
+      // Spawns might have a digest, in that case skip it.
+      @Nullable Digest spawnDigest = spawnResult.getDigest();
+      if (spawnDigest != null) {
+        spawnDigests.add(spawnDigest);
+      }
     }
     eventHandler.post(
         new ActionExecutedEvent(
             action.getPrimaryOutput().getExecPath(),
             action,
+            spawnDigests.build(),
             exception,
             primaryOutputPath,
             action.getPrimaryOutput(),
