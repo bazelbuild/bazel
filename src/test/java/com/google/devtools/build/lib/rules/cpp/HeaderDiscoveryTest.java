@@ -198,9 +198,9 @@ public final class HeaderDiscoveryTest {
     when(artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(any(), any()))
         .thenReturn(ImmutableList.of());
 
-    Path systemIncludeDir = fs.getPath("/usr/include");
-    // Dependency path with different casing from the system include prefix.
-    Path dep = fs.getPath("/USR/INCLUDE/stdio.h");
+    Path systemIncludeDir = fs.getPath("/C/Program Files/MSVC/include");
+    // Compiler reports the path with different casing than the toolchain lists it.
+    Path dep = fs.getPath("/c/program files/msvc/include/windows.h");
 
     // Should not throw — the absolute path should be filtered out as a system include.
     NestedSet<Artifact> result =
@@ -226,8 +226,8 @@ public final class HeaderDiscoveryTest {
     when(artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(any(), any()))
         .thenReturn(ImmutableList.of());
 
-    Path systemIncludeDir = fs.getPath("/usr/include");
-    Path dep = fs.getPath("/usr/include/stdio.h");
+    Path systemIncludeDir = fs.getPath("/C/Program Files/MSVC/include");
+    Path dep = fs.getPath("/C/Program Files/MSVC/include/windows.h");
 
     NestedSet<Artifact> result =
         HeaderDiscovery.discoverInputsFromDependencies(
