@@ -82,6 +82,9 @@ public class BazelOutputService implements OutputService {
   private final String remoteCache;
   private final String remoteInstanceName;
   private final String remoteOutputServiceOutputPathPrefix;
+  private final int maxOutboundMessageSize;
+  private final int stageArtifactsRequestArtifactWithoutPathSize;
+  private final int finalizeArtifactsRequestArtifactWithoutPathSize;
   private final boolean verboseFailures;
   private final RemoteRetrier retrier;
   private final ReferenceCountedChannel channel;
@@ -94,10 +97,11 @@ public class BazelOutputService implements OutputService {
       Path outputBase,
       Supplier<Path> execRootSupplier,
       Supplier<Path> outputPathSupplier,
-      DigestFunction.Value digestFunction,
+      DigestUtil digestUtil,
       String remoteCache,
       String remoteInstanceName,
       String remoteOutputServiceOutputPathPrefix,
+      int maxOutboundMessageSize,
       boolean verboseFailures,
       RemoteRetrier retrier,
       ReferenceCountedChannel channel,
@@ -105,10 +109,15 @@ public class BazelOutputService implements OutputService {
     this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
-    this.digestFunction = digestFunction;
+    this.digestFunction = digestUtil.getDigestFunction();
     this.remoteCache = remoteCache;
     this.remoteInstanceName = remoteInstanceName;
     this.remoteOutputServiceOutputPathPrefix = remoteOutputServiceOutputPathPrefix;
+    this.maxOutboundMessageSize = maxOutboundMessageSize;
+    this.stageArtifactsRequestArtifactWithoutPathSize =
+        computeStageArtifactsRequestArtifactWithoutPathSize(digestUtil);
+    this.finalizeArtifactsRequestArtifactWithoutPathSize =
+        computeFinalizeArtifactsRequestArtifactWithoutPathSize(digestUtil);
     this.verboseFailures = verboseFailures;
     this.retrier = retrier;
     this.channel = channel;
@@ -277,31 +286,61 @@ public class BazelOutputService implements OutputService {
     var outputPath = outputPathSupplier.get();
     var request = StageArtifactsRequest.newBuilder();
     request.setBuildId(buildId);
-    for (var file : files) {
-      request.addArtifacts(
-          StageArtifactsRequest.Artifact.newBuilder()
-              .setPath(file.path().relativeTo(outputPath).toString())
-              .setLocator(
-                  Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
-              .build());
-    }
-    var response = stageArtifacts(request.build());
-    if (response.getResponsesCount() != files.size()) {
-      throw new IOException(
-          String.format(
-              "StageArtifacts failed: expect %s responses from StageArtifactsResponse, got %s",
-              files.size(), response.getResponsesCount()));
-    }
+    final int initialRequestSize = request.build().getSerializedSize();
 
-    for (var i = 0; i < files.size(); ++i) {
-      var fileResponse = response.getResponses(i);
-      if (fileResponse.getStatus().getCode() != Status.Code.OK.value()) {
+    // Split into batches to avoid exceeding gRPC message size limit.
+    while (!files.isEmpty()) {
+      request.clearArtifacts();
+      int requestSize = initialRequestSize;
+      int endIdx;
+      for (endIdx = 0; endIdx < files.size(); ++endIdx) {
+        var file = files.get(endIdx);
+        var path = file.path().relativeTo(outputPath).toString();
+        requestSize += stageArtifactsRequestArtifactWithoutPathSize + path.length();
+        if (endIdx > 0 && requestSize > maxOutboundMessageSize) {
+          break;
+        }
+        request.addArtifacts(
+            StageArtifactsRequest.Artifact.newBuilder()
+                .setPath(path)
+                .setLocator(
+                    Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
+                .build());
+      }
+      // Send this part of the list to avoid too big gRPC messages.
+      var filesInRequest = files.subList(0, endIdx);
+      files = files.subList(endIdx, files.size());
+
+      var response = stageArtifacts(request.build());
+      if (response.getResponsesCount() != filesInRequest.size()) {
         throw new IOException(
             String.format(
-                "Failed to stage %s, code: %s",
-                files.get(i).path().relativeTo(outputPath), fileResponse.getStatus()));
+                "StageArtifacts failed: expect %s responses from StageArtifactsResponse, got %s",
+                filesInRequest.size(), response.getResponsesCount()));
+      }
+
+      for (var i = 0; i < filesInRequest.size(); ++i) {
+        var fileResponse = response.getResponses(i);
+        if (fileResponse.getStatus().getCode() != Status.Code.OK.value()) {
+          throw new IOException(
+              String.format(
+                  "Failed to stage %s, code: %s",
+                  filesInRequest.get(i).path().relativeTo(outputPath), fileResponse.getStatus()));
+        }
       }
     }
+  }
+
+  private static int computeStageArtifactsRequestArtifactWithoutPathSize(DigestUtil digestUtil) {
+    // We assume all non-empty digests have the same size. This is true for fixed-length hashes.
+    // To not underestimate, add a small overhead.
+    final int overhead = 7;
+    final int stageArtifactsRequestArtifactWithoutPathSize = StageArtifactsRequest.Artifact.newBuilder()
+        .setPath("p")
+        .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digestUtil.compute(new byte[] {1})).build()))
+        .build()
+        .getSerializedSize();
+    return overhead + stageArtifactsRequestArtifactWithoutPathSize;
   }
 
   private StageArtifactsResponse stageArtifacts(StageArtifactsRequest request)
@@ -358,32 +397,81 @@ public class BazelOutputService implements OutputService {
                 }));
   }
 
+  private static int computeFinalizeArtifactsRequestArtifactWithoutPathSize(DigestUtil digestUtil) {
+    // We assume all non-empty digests have the same size. This is true for fixed-length hashes.
+    // To not underestimate, add a small overhead.
+    final int overhead = 7;
+    final int finalizeArtifactsRequestArtifactWithoutPathSize = FinalizeArtifactsRequest.Artifact.newBuilder()
+        .setPath("p")
+        .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digestUtil.compute(new byte[] {1})).build()))
+        .build()
+        .getSerializedSize();
+    return overhead + finalizeArtifactsRequestArtifactWithoutPathSize;
+  }
+
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
     var execRoot = execRootSupplier.get();
     var outputPath = outputPathSupplier.get();
 
-    var request = FinalizeArtifactsRequest.newBuilder();
-    request.setBuildId(buildId);
+    // Send a partial lists to avoid too large messages.
+    class RequestSizeLimitingActionFinalizer {
+      FinalizeArtifactsRequest.Builder builder;
+      int requestSize;
+      final int initialRequestSize;
+
+      public RequestSizeLimitingActionFinalizer() {
+        builder = FinalizeArtifactsRequest.newBuilder();
+        builder.setBuildId(buildId);
+        initialRequestSize = builder.build().getSerializedSize();
+        requestSize = initialRequestSize;
+      }
+
+      public void addArtifact(Artifact output) throws IOException, InterruptedException {
+        checkState(!output.isTreeArtifact());
+        var metadata = outputMetadataStore.getOutputMetadata(output);
+        if (metadata.getType().isFile()) {
+          var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+          var path = execRoot.getRelative(output.getExecPath()).relativeTo(outputPath).toString();
+          final int entrySize = finalizeArtifactsRequestArtifactWithoutPathSize + path.length();
+          if (requestSize + entrySize > maxOutboundMessageSize) {
+            // Send a partial list to avoid too large messages.
+            sendPendingRequest();
+          }
+          requestSize += entrySize;
+          builder.addArtifacts(
+              FinalizeArtifactsRequest.Artifact.newBuilder()
+                  .setPath(path)
+                  .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digest).build()))
+                  .build());
+        }
+      }
+
+      public void sendPendingRequest() throws IOException, InterruptedException {
+        var unused = finalizeArtifacts(builder.build());
+        builder.clearArtifacts();
+        requestSize = initialRequestSize;
+      }
+    }
+
+    var request = new RequestSizeLimitingActionFinalizer();
     for (var output : action.getOutputs()) {
       if (outputMetadataStore.artifactOmitted(output)) {
         continue;
       }
-
       if (output.isTreeArtifact()) {
         // TODO(chiwang): Use TreeArtifactLocator
         var children =
             outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
         for (var child : children) {
-          addArtifact(outputMetadataStore, execRoot, outputPath, request, child);
+          request.addArtifact(child);
         }
       } else {
-        addArtifact(outputMetadataStore, execRoot, outputPath, request, output);
+        request.addArtifact(output);
       }
     }
-
-    var unused = finalizeArtifacts(request.build());
+    request.sendPendingRequest();
   }
 
   private FinalizeArtifactsResponse finalizeArtifacts(FinalizeArtifactsRequest request)
@@ -400,26 +488,6 @@ public class BazelOutputService implements OutputService {
                     throw new IOException(e);
                   }
                 }));
-  }
-
-  private static void addArtifact(
-      OutputMetadataStore outputMetadataStore,
-      Path execRoot,
-      Path outputPath,
-      FinalizeArtifactsRequest.Builder builder,
-      Artifact output)
-      throws IOException, InterruptedException {
-    checkState(!output.isTreeArtifact());
-    var metadata = outputMetadataStore.getOutputMetadata(output);
-    if (metadata.getType().isFile()) {
-      var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-      var path = execRoot.getRelative(output.getExecPath()).relativeTo(outputPath).toString();
-      builder.addArtifacts(
-          FinalizeArtifactsRequest.Artifact.newBuilder()
-              .setPath(path)
-              .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digest).build()))
-              .build());
-    }
   }
 
   private record BazelOutputServiceFile(Digest digest) implements FileStatusWithDigest {
