@@ -100,7 +100,7 @@ public record RepoRule(
       var attrDict = Dict.<String, Object>builder();
       for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
         // Only store explicitly-specified attributes.
-        if (!kwarg.getKey().equals("name"))
+        if (!kwarg.getKey().equals("name")
             && !Starlark.isNullOrNone(kwarg.getValue())) {
           attrDict.put(kwarg.getKey(), attrValues.get(attributeIndices.get(kwarg.getKey())));
         }
