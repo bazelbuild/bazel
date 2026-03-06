@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteOutputService.RemoteRewoundActionSynchronizer;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
