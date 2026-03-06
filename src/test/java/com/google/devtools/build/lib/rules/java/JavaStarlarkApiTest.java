@@ -361,7 +361,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(libCtSym.getExecPathString()).isEqualTo("a/lib/ct.sym");
   }
 
-  @Test
+  @Test // not to be Starlarkified: tests native functionality
   @TestParameters({
     "{module: java_config, api: use_ijars}",
     "{module: java_config, api: disallow_java_import_exports}",
@@ -400,7 +400,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "Error in " + api + ": file '//foo:custom_rule.bzl' cannot use private API");
   }
 
-  @Test
+  @Test // not to be Starlarkified: tests native functionality
   @TestParameters({
     "{api: create_header_compilation_action}",
     "{api: create_compilation_action}",
@@ -442,7 +442,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertContainsEvent("no field or method '" + api + "'");
   }
 
-  @Test
+  @Test // not to be Starlarkified: tests native functionality
   public void testProviderValidationPrintsProviderName() throws Exception {
     scratch.file(
         "foo/rule.bzl",
@@ -481,7 +481,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertContainsEvent("got element of type CcInfo, want JavaInfo");
   }
 
-  @Test
+  @Test // not to be Starlarkified: tests native functionality
   public void testNativeJavaInfoPrintableType_isJavaInfo() {
     String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING);
 
