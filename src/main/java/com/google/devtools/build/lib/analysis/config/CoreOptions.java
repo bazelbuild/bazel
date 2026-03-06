@@ -594,7 +594,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_check_testonly_for_output_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
