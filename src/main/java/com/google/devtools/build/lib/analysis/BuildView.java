@@ -281,54 +281,57 @@ public class BuildView {
               viewOptions.allowAnalysisCacheDiscards,
               additionalConfigurationChangeEvent);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
-      SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
-      if (skyfocusState.enabled()) {
-        boolean buildConfigChanged =
-            skyfocusState.buildConfiguration() != null
-                && !skyfocusState.buildConfiguration().equals(topLevelConfig);
-        if (buildConfigChanged) {
-          switch (skyfocusState.options().frontierViolationCheck) {
-            case WARN -> {
-              eventHandler.handle(
-                  Event.warn(
-                      "Skyfocus: detected changes to the build configuration, will be discarding"
-                          + " the analysis cache."));
-            }
-            case STRICT ->
-                throw new AbruptExitException(
-                    DetailedExitCode.of(
-                        FailureDetail.newBuilder()
-                            .setMessage(
-                                "Skyfocus: detected changes to the build configuration. This is not"
-                                    + " allowed in a focused build. Either clean to reset the"
-                                    + " build, or set"
-                                    + " --experimental_frontier_violation_check=warn to perform a"
-                                    + " full reanalysis instead of failing the build.")
-                            .setSkyfocus(
-                                Skyfocus.newBuilder()
-                                    .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
-                                    .build())
-                            .build()));
-            case DISABLED_FOR_TESTING ->
-                throw new IllegalStateException("disallowed; not in test.");
-          }
-        }
-
-        skyframeExecutor.setSkyfocusState(
-            skyfocusState.toBuilder()
-                .buildConfiguration(topLevelConfig)
-                .forcedRerun(buildConfigChanged)
-                .build());
-      }
-      topLevelConfigurationTrimmedOfTestOptions =
-          getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
-      eventBus.post(
-          new TopLevelConfigRequestedEvent(
-              topLevelConfig, topLevelConfigurationTrimmedOfTestOptions));
     }
+
+    SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
+    if (skyfocusState.enabled()) {
+      boolean buildConfigChanged =
+          skyfocusState.buildConfiguration() != null
+              && !skyfocusState.buildConfiguration().equals(topLevelConfig);
+      if (buildConfigChanged) {
+        switch (skyfocusState.options().frontierViolationCheck) {
+          case WARN -> {
+            eventHandler.handle(
+                Event.warn(
+                    "Skyfocus: detected changes to the build configuration, will be discarding"
+                        + " the analysis cache."));
+          }
+          case STRICT ->
+              throw new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage(
+                              "Skyfocus: detected changes to the build configuration. This is not"
+                                  + " allowed in a focused build. Either clean to reset the"
+                                  + " build, or set"
+                                  + " --experimental_frontier_violation_check=warn to perform a"
+                                  + " full reanalysis instead of failing the build.")
+                          .setSkyfocus(
+                              Skyfocus.newBuilder()
+                                  .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
+                                  .build())
+                          .build()));
+          case DISABLED_FOR_TESTING -> throw new IllegalStateException("disallowed; not in test.");
+        }
+      }
+
+      skyframeExecutor.setSkyfocusState(
+          skyfocusState.toBuilder()
+              .buildConfiguration(topLevelConfig)
+              .forcedRerun(buildConfigChanged)
+              .build());
+    }
+
+    topLevelConfigurationTrimmedOfTestOptions =
+        getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
+    eventBus.post(
+        new TopLevelConfigRequestedEvent(
+            topLevelConfig, topLevelConfigurationTrimmedOfTestOptions));
+
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
+
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
         remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
