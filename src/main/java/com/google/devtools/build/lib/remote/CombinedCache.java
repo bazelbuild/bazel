@@ -157,6 +157,15 @@ public class CombinedCache extends AbstractReferenceCounted {
       boolean inlineOutErr,
       Set<String> inlineOutputFiles)
       throws IOException, InterruptedException {
+    return getFromFuture(
+        downloadActionResultAsync(context, actionKey, inlineOutErr, inlineOutputFiles));
+  }
+
+  public ListenableFuture<CachedActionResult> downloadActionResultAsync(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     var spawnExecutionContext = context.getSpawnExecutionContext();
 
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
@@ -200,7 +209,7 @@ public class CombinedCache extends AbstractReferenceCounted {
               directExecutor());
     }
 
-    return getFromFuture(future);
+    return future;
   }
 
   private ListenableFuture<ActionResult> downloadActionResultFromRemote(
