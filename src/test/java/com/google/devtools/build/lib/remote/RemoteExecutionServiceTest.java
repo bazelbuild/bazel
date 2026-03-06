@@ -839,8 +839,37 @@ public class RemoteExecutionServiceTest {
       var footprintOut =
           Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
       Files.writeString(footprintOut, merkleTreeUniqueRetention.toFootprint());
+      // Detailed footprint:
+      //     COUNT       AVG       SUM   DESCRIPTION
+      //        18       181      3264   [B
+      //         9        32       288   b.b.r.e.v2.Digest
+      //         2       112       224   [Ljava.lang.Object;
+      //         9        16       144   c.g.p.ByteString$LiteralByteString
+      //         1        40        40   c.g.c.c.ImmutableSortedMap
+      //         2        16        32   c.g.c.c.RegularImmutableList
+      //         1        32        32   c.g.d.b.l.r.m.MerkleTree$RootOnly$BlobsUploaded
+      //         1        24        24   c.g.c.c.RegularImmutableSortedSet
+      //         1        16        16   c.g.d.b.l.r.m.MerkleTree$Uploadable
+      //        44                4064   (total)
+      //
+      // Ignoring objects with constant count, the footprint is made up of:
+      // * the two Object arrays backing the ImmutableSortedMap that tracks a map from digest-like
+      //   object to their backing blob. Assuming that most of these objects are naturally retained
+      //   elsehwere, as is the case for regular files (which are represented as their
+      //   FileArtifactValue mapping to their Artifact), this representation is already optimal at
+      //   8 bytes per blob.
+      // * the Digest objects for non-regular file blobs, in particular Directory protos. These
+      //   could be represented more efficiently by storing their raw hash bytes and the size in a
+      //   a flat byte array, but savings aren't expected to be significant.
+      // * most importantly, the serialized Directory protos, which contain inlined Digest protos
+      //   as well as filenames for all files. This is where the largest gains can be made by
+      //   introducing a custom representation that is serialized on demand when actually uploading
+      //   to the remote. Such a representation could consist of a flat Object array containing
+      //   FileArtifactValues (to replace Digest protos), Artifacts (to retrieve the
+      //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
+      //   exec paths for most directory nodes).
       // TODO: Get this number down.
-      assertThat(stableRetainedSize).isEqualTo(6112);
+      assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }
 

@@ -13,15 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.DIGEST_COMPARATOR;
+import static java.util.Comparator.comparing;
+
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.primitives.UnsignedBytes;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -77,12 +86,47 @@ public sealed interface MerkleTree {
    * A {@link MerkleTree} that retains all blobs that still need to be uploaded.
    *
    * <p>The empty blob doesn't have to be uploaded and is thus never included in the blobs map.
+   *
+   * <p>See {@link
+   * com.google.devtools.build.lib.remote.RemoteExecutionServiceTest#buildRemoteAction_goldenTest}
+   * for a test that verifies the memory footprint of this class. Since there can be thousands of
+   * inflight remote executions that may have to retain their blobs until all inputs have been
+   * uploaded, it's crucial to keep the memory footprint of this class as low as possible.
    */
   final class Uploadable implements MerkleTree {
+    private static final Comparator<FileArtifactValue> FILE_ARTIFACT_VALUE_COMPARATOR =
+        comparing(FileArtifactValue::getDigest, UnsignedBytes.lexicographicalComparator())
+            .thenComparing(FileArtifactValue::getSize);
+    static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
+        (o1, o2) ->
+            switch (o1) {
+              case Digest digest1 ->
+                  DIGEST_COMPARATOR.compare(
+                      digest1,
+                      switch (o2) {
+                        case Digest digest2 -> digest2;
+                        case FileArtifactValue metadata2 -> adaptToDigest(metadata2);
+                        default -> throw new IllegalStateException("Unexpected blob type: " + o2);
+                      });
+              case FileArtifactValue metadata1 ->
+                  switch (o2) {
+                    case FileArtifactValue metadata2 ->
+                        FILE_ARTIFACT_VALUE_COMPARATOR.compare(metadata1, metadata2);
+                    case Digest digest2 ->
+                        DIGEST_COMPARATOR.compare(adaptToDigest(metadata1), digest2);
+                    default -> throw new IllegalStateException("Unexpected blob type: " + o2);
+                  };
+              default -> throw new IllegalStateException("Unexpected blob type: " + o1);
+            };
     private final RootOnly.BlobsUploaded root;
-    private final ImmutableSortedMap<Digest, /* byte[] | ActionInput */ Object> blobs;
+    private final ImmutableSortedMap<
+            /* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+        blobs;
 
-    Uploadable(RootOnly.BlobsUploaded root, SortedMap<Digest, Object> blobs) {
+    Uploadable(
+        RootOnly.BlobsUploaded root,
+        SortedMap</* Digest | FileArtifactValue */ Object, /* byte[] | ActionInput */ Object>
+            blobs) {
       this.root = root;
       // A sorted map requires less memory than a regular hash map as it only stores two flat sorted
       // arrays. Access performance is not critical since it's only used to find missing blobs,
@@ -106,12 +150,13 @@ public sealed interface MerkleTree {
     }
 
     public Collection<Digest> allDigests() {
-      return blobs.keySet();
+      return Collections2.transform(blobs.keySet(), MerkleTree.Uploadable::adaptToDigest);
     }
 
     @VisibleForTesting
     public Map<Digest, Object> blobs() {
-      return blobs;
+      return blobs.entrySet().stream()
+          .collect(toImmutableMap(e -> adaptToDigest(e.getKey()), Map.Entry::getValue));
     }
 
     @Override
@@ -148,6 +193,15 @@ public sealed interface MerkleTree {
         }
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
+      };
+    }
+
+    private static Digest adaptToDigest(Object key) {
+      return switch (key) {
+        case Digest digest -> digest;
+        case FileArtifactValue metadata ->
+            DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+        default -> throw new IllegalStateException("Unexpected blob type: " + key);
       };
     }
   }
