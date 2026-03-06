@@ -169,7 +169,7 @@ public final class ArtifactFunction implements SkyFunction {
     // actions, execute those actions in parallel and then aggregate the action execution results.
     ActionTemplate<?> actionTemplate = artifactDependencies.maybeGetTemplateActionForTreeArtifact();
     if (actionTemplate != null) {
-      if (true) {
+      if (false) {
         mkdirForTreeArtifact(artifact, env, actionTemplate);
       }
       return createTreeArtifactValueFromActionKey(artifactDependencies, env);
