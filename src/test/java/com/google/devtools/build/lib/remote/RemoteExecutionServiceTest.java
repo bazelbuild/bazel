@@ -821,12 +821,19 @@ public class RemoteExecutionServiceTest {
       GraphLayout merkleTreeUniqueRetention;
       var previousRoots = new ArrayList<>();
       long stableRetainedSize = -1;
+      int predictedRetainedSize = -1;
       while (true) {
         var merkleTree =
             service
                 .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
                 .getMerkleTree();
         assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
+        if (predictedRetainedSize == -1) {
+          predictedRetainedSize = ((MerkleTree.Uploadable) merkleTree).uniquelyRetainedBytes();
+        } else {
+          assertThat(((MerkleTree.Uploadable) merkleTree).uniquelyRetainedBytes())
+              .isEqualTo(predictedRetainedSize);
+        }
         merkleTreeUniqueRetention =
             GraphLayout.parseInstance(merkleTree)
                 .subtract(GraphLayout.parseInstance(previousRoots));
@@ -870,6 +877,7 @@ public class RemoteExecutionServiceTest {
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
       assertThat(stableRetainedSize).isEqualTo(4064);
+      assertThat(predictedRetainedSize).isEqualTo(stableRetainedSize);
     }
   }
 
