@@ -8,7 +8,7 @@ used to define a package.
 
 By definition, every package contains a `BUILD` file, which is a short
 program. `BUILD` files are evaluated using an imperative language,
-[Starlark](https://github.com/bazelbuild/starlark/){: .external}.
+[Starlark](https://github.com/bazelbuild/starlark/).
 
 They are interpreted as a sequential list of statements.
 
@@ -44,7 +44,7 @@ team. `BUILD` file authors should comment liberally to document the role
 of each build target, whether or not it is intended for public use, and to
 document the role of the package itself.
 
-## Loading an extension {:#load}
+## Loading an extension
 
 Bazel extensions are files ending in `.bzl`. Use the `load` statement to import
 a symbol from an extension.
@@ -86,7 +86,7 @@ loaded from another file.
 You can use [load visibility](/versions/6.5.0/concepts/visibility#load-visibility) to restrict
 who may load a `.bzl` file.
 
-## Types of build rules {:#types-of-build-rules}
+## Types of build rules
 
 The majority of build rules come in families, grouped together by
 language. For example, `cc_binary`, `cc_library`
