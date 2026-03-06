@@ -231,6 +231,189 @@ public class ArtifactFactoryTest {
     assertThat(actionGraph.getGeneratingAction(a)).isSameInstanceAs(originalAction);
   }
 
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_exactMatch() {
+    artifactFactory.noteAnalysisStarting();
+    Artifact.SourceArtifact original =
+        artifactFactory.getSourceArtifact(fooRelative, clientRoot);
+
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(fooRelative, MAIN);
+
+    assertThat(result).containsExactly(original);
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_upperCaseLookupFindsLowerCaseArtifact() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment lowerPath = PathFragment.create("foo/foosource.txt");
+    Artifact.SourceArtifact original = artifactFactory.getSourceArtifact(lowerPath, clientRoot);
+
+    // The Wrapper lookup key finds the plain PathFragment stored key.
+    PathFragment upperPath = PathFragment.create("foo/FooSource.txt");
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(upperPath, MAIN);
+
+    assertThat(result).containsExactly(original);
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_lowerCaseLookupFindsUpperCaseArtifact() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment upperPath = PathFragment.create("foo/FooSource.txt");
+    Artifact.SourceArtifact original = artifactFactory.getSourceArtifact(upperPath, clientRoot);
+
+    PathFragment lowerPath = PathFragment.create("foo/foosource.txt");
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(lowerPath, MAIN);
+
+    assertThat(result).containsExactly(original);
+  }
+
+  @Test
+  public void testGetSourceArtifactDifferentCasings_returnsDifferentArtifacts() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment lower = PathFragment.create("foo/header.h");
+    PathFragment upper = PathFragment.create("foo/Header.h");
+    Artifact.SourceArtifact lowerArtifact = artifactFactory.getSourceArtifact(lower, clientRoot);
+    Artifact.SourceArtifact upperArtifact = artifactFactory.getSourceArtifact(upper, clientRoot);
+
+    assertThat(upperArtifact).isNotSameInstanceAs(lowerArtifact);
+    assertThat(lowerArtifact.getExecPath()).isEqualTo(lower);
+    assertThat(upperArtifact.getExecPath()).isEqualTo(upper);
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_multipleMatches() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment lower = PathFragment.create("foo/header.h");
+    PathFragment upper = PathFragment.create("foo/Header.h");
+    Artifact.SourceArtifact lowerArtifact = artifactFactory.getSourceArtifact(lower, clientRoot);
+    Artifact.SourceArtifact upperArtifact = artifactFactory.getSourceArtifact(upper, clientRoot);
+
+    ImmutableList<Artifact.SourceArtifact> resultFromLower =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(lower, MAIN);
+    ImmutableList<Artifact.SourceArtifact> resultFromUpper =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(upper, MAIN);
+
+    assertThat(resultFromLower).containsExactly(lowerArtifact, upperArtifact);
+    assertThat(resultFromUpper).containsExactly(lowerArtifact, upperArtifact);
+  }
+
+  @Test
+  public void testCaseInsensitiveLookupWithThreeVariants() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment path1 = PathFragment.create("foo/File.h");
+    PathFragment path2 = PathFragment.create("foo/file.h");
+    PathFragment path3 = PathFragment.create("foo/FILE.h");
+    Artifact.SourceArtifact a1 = artifactFactory.getSourceArtifact(path1, clientRoot);
+    Artifact.SourceArtifact a2 = artifactFactory.getSourceArtifact(path2, clientRoot);
+    Artifact.SourceArtifact a3 = artifactFactory.getSourceArtifact(path3, clientRoot);
+
+    assertThat(artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(path1, MAIN))
+        .containsExactly(a1, a2, a3);
+    assertThat(artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(path2, MAIN))
+        .containsExactly(a1, a2, a3);
+    assertThat(
+            artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(
+                PathFragment.create("foo/fIlE.h"), MAIN))
+        .containsExactly(a1, a2, a3);
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_derivedPathReturnsEmpty() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment derivedPath = PathFragment.create("bazel-out/x/bin/foo/header.h");
+
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(derivedPath, MAIN);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_staleArtifactNotReturnedFromCache() {
+    // First build: create an artifact.
+    artifactFactory.noteAnalysisStarting();
+    PathFragment path = PathFragment.create("foo/stale.h");
+    artifactFactory.getSourceArtifact(path, clientRoot);
+
+    // Second build: the artifact from the first build should be invalid in the cache.
+    artifactFactory.noteAnalysisStarting();
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(path, MAIN);
+
+    // The stale artifact is invalid in the cache, but the method falls back to source root
+    // resolution which re-validates the existing artifact.
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getExecPath()).isEqualTo(path);
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_uplevelReturnsEmpty() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment uplevelPath = PathFragment.create("../outside/header.h");
+
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(uplevelPath, MAIN);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  public void testResolveSourceArtifactCaseInsensitively_fallbackToSourceRootResolution() {
+    artifactFactory.noteAnalysisStarting();
+    // Path not in cache but resolvable via source roots (foo package exists).
+    PathFragment path = PathFragment.create("foo/brand_new.h");
+
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(path, MAIN);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getExecPath()).isEqualTo(path);
+  }
+
+  @Test
+  public void testExactLookupStillWorksWithCaseInsensitiveCache() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment lower = PathFragment.create("foo/header.h");
+    Artifact.SourceArtifact lowerArtifact = artifactFactory.getSourceArtifact(lower, clientRoot);
+
+    // Exact-case resolveSourceArtifact should return the correct artifact.
+    assertThat(artifactFactory.resolveSourceArtifact(lower, MAIN)).isSameInstanceAs(lowerArtifact);
+  }
+
+  @Test
+  public void testClearResetsCaseInsensitiveCache() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment path = PathFragment.create("foo/header.h");
+    Artifact.SourceArtifact oldArtifact = artifactFactory.getSourceArtifact(path, clientRoot);
+
+    artifactFactory.clear();
+    setupRoots();
+    artifactFactory.noteAnalysisStarting();
+
+    Artifact.SourceArtifact newArtifact = artifactFactory.getSourceArtifact(path, clientRoot);
+    assertThat(newArtifact).isNotSameInstanceAs(oldArtifact);
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(path, MAIN);
+    assertThat(result).containsExactly(newArtifact);
+  }
+
+  @Test
+  public void testCaseInsensitiveLookup_upperCaseLookupForLowerCaseArtifact_returnsFromCache() {
+    artifactFactory.noteAnalysisStarting();
+    PathFragment lowerPath = PathFragment.create("foo/source.h");
+    Artifact.SourceArtifact artifact = artifactFactory.getSourceArtifact(lowerPath, clientRoot);
+
+    // Looking up with different casing via a Wrapper key finds the plain PathFragment key.
+    PathFragment mixedPath = PathFragment.create("foo/Source.h");
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(mixedPath, MAIN);
+
+    assertThat(result).containsExactly(artifact);
+  }
+
   private static class MockPackageRootResolver implements PackageRootResolver {
     private final Map<PathFragment, Root> packageRoots = Maps.newHashMap();
 
