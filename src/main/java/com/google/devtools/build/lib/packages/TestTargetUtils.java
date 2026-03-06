@@ -116,6 +116,10 @@ public final class TestTargetUtils {
    * --test_tags_filters flag or on tag filters explicitly declared in the
    * suite.
    *
+   * <p>When a tag appears multiple times with different polarities (e.g., {@code tag1} and
+   * {@code -tag1}), the last occurrence takes precedence. This allows later command-line
+   * options or .bazelrc configurations to override earlier ones.
+   *
    * @param tagList A collection of text targets to separate.
    */
   public static Pair<Collection<String>, Collection<String>> sortTagsBySense(
@@ -125,12 +129,23 @@ public final class TestTargetUtils {
 
     for (String tag : tagList) {
       if (tag.startsWith("-")) {
-        excludedTags.add(tag.substring(1));
+        // Negative tag: exclude this tag
+        String tagName = tag.substring(1);
+        // Remove from required tags if it was previously included (override behavior)
+        requiredTags.remove(tagName);
+        excludedTags.add(tagName);
       } else if (tag.startsWith("+")) {
-        requiredTags.add(tag.substring(1));
+        // Positive tag: include this tag
+        String tagName = tag.substring(1);
+        // Remove from excluded tags if it was previously excluded (override behavior)
+        excludedTags.remove(tagName);
+        requiredTags.add(tagName);
       } else if (!tag.equals("manual")) {
         // Ignore manual attribute because it is an exception: it is not a filter but a property of
         // test_suite.
+        // Default positive tag: include this tag
+        // Remove from excluded tags if it was previously excluded (override behavior)
+        excludedTags.remove(tag);
         requiredTags.add(tag);
       }
     }

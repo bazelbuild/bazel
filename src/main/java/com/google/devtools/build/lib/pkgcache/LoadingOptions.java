@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.FieldOptionDefinition;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -57,7 +58,8 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "build_tag_filters",
     converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
+    defaultValue = FieldOptionDefinition.SPECIAL_NULL_DEFAULT_VALUE,
+    allowMultiple = true,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -65,21 +67,30 @@ public class LoadingOptions extends OptionsBase {
             + "preceded with '-' to specify excluded tags. Only those targets will be built that "
             + "contain at least one included tag and do not contain any excluded tags. This option "
             + "does not affect the set of tests executed with the 'test' command; those are be "
-            + "governed by the test filtering options, for example '--test_tag_filters'"
+            + "governed by the test filtering options, for example '--test_tag_filters'. "
+            + "This option can be specified multiple times; the lists will be accumulated. "
+            + "When a tag appears multiple times with different polarities (e.g., 'tag1' and "
+            + "'-tag1'), the last occurrence takes precedence, allowing later options to override "
+            + "earlier ones."
   )
   public List<String> buildTagFilterList;
 
   @Option(
     name = "test_tag_filters",
     converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
+    defaultValue = FieldOptionDefinition.SPECIAL_NULL_DEFAULT_VALUE,
+    allowMultiple = true,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of test tags. Each tag can be optionally "
             + "preceded with '-' to specify excluded tags. Only those test targets will be "
             + "found that contain at least one included tag and do not contain any excluded "
-            + "tags. This option affects --build_tests_only behavior and the test command."
+            + "tags. This option affects --build_tests_only behavior and the test command. "
+            + "This option can be specified multiple times; the lists will be accumulated. "
+            + "When a tag appears multiple times with different polarities (e.g., 'tag1' and "
+            + "'-tag1'), the last occurrence takes precedence, allowing later options to override "
+            + "earlier ones."
   )
   public List<String> testTagFilterList;
 
