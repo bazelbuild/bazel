@@ -155,6 +155,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   public void handleRewoundActionOutputs(Collection<Artifact> outputs) {
+    // SkyframeActionExecutor#prepareForRewinding does *not* call this method because the
+    // RemoteActionFileSystem corresponds to an ActionFileSystemType with inMemoryFileSystem() ==
+    // true. While it is true that resetting outputDirectoryHelper isn't necessary to undo the
+    // caching of output directory creation during action preparation, we still need to reset here
+    // since outputDirectoryHelper is also used by AbstractActionInputPrefetcher.
     outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
     for (Artifact output : outputs) {
       // Action templates have TreeFileArtifacts as outputs, which isn't supported by the trie. We

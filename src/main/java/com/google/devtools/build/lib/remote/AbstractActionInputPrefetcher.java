@@ -110,10 +110,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     private final ConcurrentHashMap<Path, DirectoryState> directoryStateMap =
         new ConcurrentHashMap<>();
 
-    public void clear() {
-      directoryStateMap.clear();
-    }
-
     /**
      * Marks a directory as temporarily writable.
      *
@@ -264,6 +260,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
 
+  /**
+   * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
+   * existence of tree artifact directories or previously downloaded files) must be discarded.
+   */
   protected abstract boolean forceRefetch(Path path);
 
   /**
