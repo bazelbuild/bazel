@@ -21,10 +21,11 @@ Use the following services to run Bazel with remote execution:
 
 *   Commercial
 
-    * [Aspect Build](https://www.aspect.build/){: .external} – Self-hosted remote cache and remote execution services.
+    * [Aspect Build](https://www.aspect.build/){: .external} – Self-hosted remote cache and remote execution services.
     * [Bitrise](https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance){: .external} - Providing the world's leading mobile-first CI/CD and remote build caching platform.
     * [BuildBuddy](https://www.buildbuddy.io){: .external} - Remote build execution,
       caching, and results UI.
     * [EngFlow Remote Execution](https://www.engflow.com){: .external} - Remote execution
       and remote caching service with Build and Test UI. Can be self-hosted or hosted.
+    * [Hermetiq](https://www.hermetiq.io){: .external} - Build analytics, managed remote cache and remote execution with cache miss debugging, RBE cost tracking, and infrastructure telemetry.
     * [NativeLink](https://github.com/TraceMachina/nativelink){: .external} - Remote build execution, caching, analytics, and simulation.
