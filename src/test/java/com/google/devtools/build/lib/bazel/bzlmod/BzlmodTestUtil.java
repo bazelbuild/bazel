@@ -175,6 +175,14 @@ public final class BzlmodTestUtil {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public InterimModuleBuilder addExportedRepo(
+        String sourceModuleRepoName, String exportedDepName, String localRepoName) {
+      this.builder.addExportedRepo(
+          new InterimModule.ExportedRepo(sourceModuleRepoName, exportedDepName, localRepoName));
+      return this;
+    }
+
     public Map.Entry<ModuleKey, InterimModule> buildEntry() {
       InterimModule module = this.build();
       return new SimpleEntry<>(this.key, module);

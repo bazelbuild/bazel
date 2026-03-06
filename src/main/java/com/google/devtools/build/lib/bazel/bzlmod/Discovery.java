@@ -113,10 +113,18 @@ final class Discovery {
     @Nullable
     Result run() throws InterruptedException, ExternalDepsException {
       SequencedMap<String, Optional<Checksum>> registryFileHashes = new LinkedHashMap<>();
-      depGraph.put(ModuleKey.ROOT, root.module().withDepsTransformed(this::applyOverrides));
+      InterimModule rootModule = root.module().withDepsTransformed(this::applyOverrides);
+      depGraph.put(ModuleKey.ROOT, rootModule);
       ImmutableSet<ModuleKey> horizon = ImmutableSet.of(ModuleKey.ROOT);
+      // Extra SkyKeys to fetch in the next iteration, added by export_repo processing.
+      Set<ModuleFileValue.Key> extraKeysToFetch = new HashSet<>();
       while (!horizon.isEmpty()) {
-        ImmutableSet<ModuleFileValue.Key> nextHorizonSkyKeys = advanceHorizon(horizon);
+        ImmutableSet<ModuleFileValue.Key> nextHorizonSkyKeys =
+            ImmutableSet.<ModuleFileValue.Key>builder()
+                .addAll(advanceHorizon(horizon))
+                .addAll(extraKeysToFetch)
+                .build();
+        extraKeysToFetch.clear();
         SkyframeLookupResult result = env.getValuesAndExceptions(nextHorizonSkyKeys);
         var nextHorizon = ImmutableSet.<ModuleKey>builder();
         for (ModuleFileValue.Key skyKey : nextHorizonSkyKeys) {
@@ -138,21 +146,32 @@ final class Discovery {
             nextHorizon.add(depKey);
           }
         }
+        // Process export_repo directives from the root module. For each discovered module that
+        // is referenced by an export_repo, look up the exported dep in that module's deps and
+        // add it as a direct dep of the root module. Any new modules that need fetching are
+        // added to extraKeysToFetch for the next iteration.
+        processExportedRepos(rootModule, extraKeysToFetch);
+
         horizon = nextHorizon.build();
+        // If we have extra keys to fetch but no regular horizon items, keep the loop going.
+        if (horizon.isEmpty() && !extraKeysToFetch.isEmpty()) {
+          horizon = ImmutableSet.of(ModuleKey.ROOT);
+        }
       }
       if (env.valuesMissing()) {
         return null;
       }
       // Remove all unfulfilled nodep edges from the dep graph. It should be just as if they never
       // existed.
-      var result = ImmutableMap.<ModuleKey, InterimModule>builderWithExpectedSize(depGraph.size());
+      var resultMap =
+          ImmutableMap.<ModuleKey, InterimModule>builderWithExpectedSize(depGraph.size());
       for (Map.Entry<ModuleKey, InterimModule> entry : depGraph.entrySet()) {
         InterimModule module = entry.getValue();
         if (module.getNodepDeps().stream()
             .allMatch(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))) {
-          result.put(entry.getKey(), module);
+          resultMap.put(entry.getKey(), module);
         } else {
-          result.put(
+          resultMap.put(
               entry.getKey(),
               module.toBuilder()
                   .setNodepDeps(
@@ -162,7 +181,68 @@ final class Discovery {
                   .build());
         }
       }
-      return new Result(result.buildOrThrow(), ImmutableMap.copyOf(registryFileHashes));
+      return new Result(resultMap.buildOrThrow(), ImmutableMap.copyOf(registryFileHashes));
+    }
+
+    /**
+     * Processes export_repo directives from the root module. For each exported repo, finds the
+     * source module in the dep graph and looks up the named dep, then adds it as a direct dep
+     * of the root module. Any new modules to be fetched are added to extraKeysToFetch.
+     */
+    private void processExportedRepos(
+        InterimModule rootModule,
+        Set<ModuleFileValue.Key> extraKeysToFetch)
+        throws ExternalDepsException {
+      for (var exportedRepo : rootModule.getExportedRepos()) {
+        // Find the source module (the one referenced by module_name in export_repo)
+        DepSpec sourceDepSpec = rootModule.getDeps().get(exportedRepo.sourceModuleRepoName());
+        if (sourceDepSpec == null) {
+          // This should have been caught during MODULE.bazel evaluation, but check again
+          continue;
+        }
+        ModuleKey sourceKey = sourceDepSpec.toModuleKey();
+        InterimModule sourceModule = depGraph.get(sourceKey);
+        if (sourceModule == null) {
+          // Source module hasn't been discovered yet; it will be processed in a future round
+          continue;
+        }
+        // Look up the exported dep name in the source module's deps
+        DepSpec exportedDepSpec = null;
+        for (DepSpec dep : sourceModule.getDeps().values()) {
+          if (dep.name().equals(exportedRepo.exportedDepName())) {
+            exportedDepSpec = dep;
+            break;
+          }
+        }
+        if (exportedDepSpec == null) {
+          throw ExternalDepsException.withMessage(
+              FailureDetails.ExternalDeps.Code.BAD_MODULE,
+              "export_repo: module '%s' does not have a dependency named '%s'",
+              sourceDepSpec.name(),
+              exportedRepo.exportedDepName());
+        }
+        // Apply overrides to the exported dep
+        DepSpec resolvedDepSpec = applyOverrides(exportedDepSpec);
+        ModuleKey exportedKey = resolvedDepSpec.toModuleKey();
+
+        // Add as a direct dep of the root module (update the depGraph entry for ROOT)
+        InterimModule currentRoot = depGraph.get(ModuleKey.ROOT);
+        if (!currentRoot.getDeps().containsKey(exportedRepo.localRepoName())) {
+          var newDeps = new LinkedHashMap<>(currentRoot.getDeps());
+          newDeps.put(exportedRepo.localRepoName(), resolvedDepSpec);
+          depGraph.put(
+              ModuleKey.ROOT,
+              currentRoot.toBuilder()
+                  .setDeps(ImmutableMap.copyOf(newDeps))
+                  .setOriginalDeps(ImmutableMap.copyOf(newDeps))
+                  .build());
+        }
+        // Ensure the exported dep is scheduled for fetching if not already discovered
+        if (!depGraph.containsKey(exportedKey)) {
+          predecessors.putIfAbsent(exportedKey, ModuleKey.ROOT);
+          extraKeysToFetch.add(ModuleFileValue.key(exportedKey));
+        }
+      }
     }
 
     /**

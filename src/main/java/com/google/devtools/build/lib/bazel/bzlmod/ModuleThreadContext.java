@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.ExportedRepo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -60,6 +61,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
+  private final List<ExportedRepo> exportedRepos = new ArrayList<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -159,6 +161,23 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     } else {
       module.addNodepDep(depSpec);
     }
+  }
+
+  public void addExportedRepo(
+      String sourceModuleRepoName,
+      String exportedDepName,
+      String localRepoName,
+      ImmutableList<StarlarkThread.CallStackEntry> stack)
+      throws EvalException {
+    // Validate the source module repo name refers to an existing bazel_dep
+    if (!deps.containsKey(sourceModuleRepoName)) {
+      throw Starlark.errorf(
+          "export_repo() refers to module_name '%s', but no bazel_dep with that repo name exists",
+          sourceModuleRepoName);
+    }
+    // Register the local repo name usage for uniqueness
+    addRepoNameUsage(localRepoName, "by an export_repo", stack);
+    exportedRepos.add(new ExportedRepo(sourceModuleRepoName, exportedDepName, localRepoName));
   }
 
   ModuleExtensionUsageBuilder getOrCreateExtensionUsageBuilder(
@@ -410,6 +429,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(extensionUsages.build())
+        .setExportedRepos(ImmutableList.copyOf(exportedRepos))
         .build();
   }
 

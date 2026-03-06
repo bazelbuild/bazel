@@ -319,6 +319,68 @@ public class ModuleFileGlobals {
   }
 
   @StarlarkMethod(
+      name = "export_repo",
+      doc =
+          """
+          Exports one or more transitive dependencies of a named module as direct dependencies of
+          the current module. This allows users to selectively expose deps from a "meta" module
+          without having to declare each one individually via <code>bazel_dep</code>.
+
+          <p>This directive only takes effect in the root module; in other words, if a module
+          is used as a dependency by others, its own export_repo directives are ignored.
+
+          <p>Example usage:
+          <pre>
+          bazel_dep(name = "ros", version = "rolling.2026-01-21")
+          export_repo(module_name = "ros", "sensor_msgs", "rclcpp")
+          </pre>
+
+          <p>After this, <code>@sensor_msgs</code> and <code>@rclcpp</code> are usable as if they
+          were declared with their own <code>bazel_dep</code> entries.\
+          """,
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc =
+                "The repo name of an existing <code>bazel_dep</code> whose transitive dependencies"
+                    + " should be exported.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this export will be ignored if the current module is not the root"
+                    + " module or <code>--ignore_dev_dependency</code> is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
+      },
+      extraPositionals =
+          @Param(
+              name = "args",
+              doc =
+                  "The names of the modules to export from the named module's dependencies."
+                      + " Each name will also be used as the local repo name."),
+      useStarlarkThread = true)
+  public void exportRepo(
+      String moduleName,
+      boolean devDependency,
+      Tuple args,
+      StarlarkThread thread)
+      throws EvalException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "export_repo()");
+    context.setNonModuleCalled();
+    if (context.shouldIgnoreDevDeps() && devDependency) {
+      return;
+    }
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
+    for (String arg : Sequence.cast(args, String.class, "args")) {
+      validateModuleName(arg);
+      context.addExportedRepo(moduleName, arg, arg, stack);
+    }
+  }
+
+  @StarlarkMethod(
       name = "register_execution_platforms",
       doc =
           "Specifies already-defined execution platforms to be registered when this module is"
