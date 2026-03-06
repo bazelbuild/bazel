@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Ascii;
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -25,14 +26,15 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
@@ -63,42 +65,23 @@ public class ArtifactFactory implements ArtifactResolver {
       }
     }
 
-    private record AsciiCaseInsensitivePathFragmentWrapper(PathFragment pathFragment) {
-      static AsciiCaseInsensitivePathFragmentWrapper wrap(PathFragment pathFragment) {
-        return new AsciiCaseInsensitivePathFragmentWrapper(pathFragment);
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        return obj instanceof AsciiCaseInsensitivePathFragmentWrapper otherWrapper
-            && Ascii.equalsIgnoreCase(
-                pathFragment.getPathString(), otherWrapper.pathFragment.getPathString());
-      }
-
-      @Override
-      public int hashCode() {
-        return Ascii.toLowerCase(pathFragment.getPathString()).hashCode();
-      }
-    }
-
-    private static final int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
-
     /**
      * The main Path to source artifact cache. There will always be exactly one canonical artifact
      * for a given source path.
      *
-     * <p>Since some use cases require case-insensitive lookups, the cache is keyed by a wrapper
-     * object that performs case-insensitive equality and hashing. As a memory optimization, paths
-     * that are entirely lowercase are stored unwrapped. The corresponding value is either a single
-     * Entry, or a list of Entry objects if there are multiple artifacts with case-insensitively
-     * equivalent paths. This structure is heavily optimized for the common case of a single
-     * artifact per case-insensitive equivalence class and may perform poorly if there are many
-     * artifacts with case-insensitively equivalent paths.
+     * <p>Since some use cases require case-insensitive lookups, the map uses a case-insensitive key
+     * lookup. A ConcurrentSkipListMap supports this without a PathFragment wrapper, which saves
+     * memory. The corresponding value is either a single Entry, or a list of Entry objects if there
+     * are multiple artifacts with case-insensitively equivalent paths. This structure is heavily
+     * optimized for the common case of a single artifact per case-insensitive equivalence class and
+     * may perform poorly if there are many artifacts with case-insensitively equivalent paths.
      */
-    private final ConcurrentMap<
-            AsciiCaseInsensitivePathFragmentWrapper,
-            Object /* Entry | CopyOnWriteArrayList<Entry> */>
-        pathToSourceArtifact = new ConcurrentHashMap<>(16, 0.75f, CONCURRENCY_LEVEL);
+    private final ConcurrentMap<PathFragment, Object /* Entry | CopyOnWriteArrayList<Entry> */>
+        pathToSourceArtifact =
+            new ConcurrentSkipListMap<>(
+                comparing(
+                    pathFragment -> StringEncoding.internalToUnicode(pathFragment.getPathString()),
+                    String.CASE_INSENSITIVE_ORDER));
 
     /** Id of current build. Has to be increased every time before analysis starts. */
     private int buildId = -1;
@@ -126,9 +109,7 @@ public class ArtifactFactory implements ArtifactResolver {
 
     @Nullable
     private Entry getEntry(PathFragment execPath) {
-      return unwrapCacheObject(
-          execPath,
-          pathToSourceArtifact.get(AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath)));
+      return unwrapCacheObject(execPath, pathToSourceArtifact.get(execPath));
     }
 
     @SuppressWarnings("unchecked")
@@ -137,7 +118,7 @@ public class ArtifactFactory implements ArtifactResolver {
       return unwrapCacheObject(
           execPath,
           pathToSourceArtifact.compute(
-              AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath),
+              execPath,
               (key, cacheObject) ->
                   switch (cacheObject) {
                     // No entry for this case-insensitive path, thus also not for this exact casing.
@@ -205,8 +186,7 @@ public class ArtifactFactory implements ArtifactResolver {
     @ThreadSafe
     ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
         PathFragment execPath) {
-      Object cacheObject =
-          pathToSourceArtifact.get(AsciiCaseInsensitivePathFragmentWrapper.wrap(execPath));
+      Object cacheObject = pathToSourceArtifact.get(execPath);
       if (cacheObject == null) {
         return ImmutableList.of();
       }
