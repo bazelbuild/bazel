@@ -34,6 +34,9 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * A representation of the inputs to a remotely executed action represented as a Merkle tree.
@@ -196,6 +199,66 @@ public sealed interface MerkleTree {
       };
     }
 
+    public int uniquelyRetainedBytes() {
+      // See RemoteExecutionServiceTest#buildRemoteAction_goldenTest for a test that verifies the
+      // real memory footprint of this class and serves as the base (and verification) for the
+      // following estimation of unique retained bytes.
+      int size =
+          40 // ImmutableSortedMap object
+              + 2 * 16 // RegularImmutableList objects
+              + 32 // MerkleTree.RootOnly.BlobsUploaded object
+              + 24 // RegularImmutableSortedSet object
+              + 16 // MerkleTree.Uploadable object
+              + 2 * objectArrayShallowSize(blobs.size()); // arrays for keys and values
+      for (Object key : blobs.keySet()) {
+        size +=
+            switch (key) {
+              case Digest digest ->
+                  32 // Digest object
+                      + 16 // ByteString$LiteralByteString wrapping the hash bytes
+                      + byteArraySize(digest.getHashBytes().size());
+              // FileArtifactValue is retained by Skyframe anyway.
+              default -> 0;
+            };
+      }
+      for (Object value : blobs.values()) {
+        size +=
+            switch (value) {
+              case byte[] data -> byteArraySize(data.length);
+              case MerkleTreeComputer.EmptyInputDirectory ignored ->
+                  // outputDir is retained as a Spawn input.
+                  16;
+              case MerkleTreeComputer.ChildActionInput childActionInput ->
+                  // parent is retained as a Spawn input.
+                  16 + stringSize(childActionInput.relativePath);
+              // Don't account for PathActionInput, which is only used in tests or remote repository
+              // execution. All other ActionInputs are retained anyway (permanently by Skyframe in
+              // the case of Artifacts or, in the case of VirtualActionInput, by the Spawn).
+              default -> 0;
+            };
+      }
+      return size;
+    }
+
+    private static int stringSize(String str) {
+      return 24 + byteArraySize(str.length());
+    }
+
+    private static int objectArrayShallowSize(int length) {
+      return arraySize(length, 4);
+    }
+
+    private static int byteArraySize(int length) {
+      return arraySize(length, 1);
+    }
+
+    private static int arraySize(int length, int sizePerElement) {
+      // 8 byte header with -XX:+UseCompactObjectHeaders + 4 byte length field
+      int unpaddedSize = 12 + length * sizePerElement;
+      // Pad to multiples of 8 bytes.
+      return (unpaddedSize + 7) & ~7;
+    }
+
     private static Digest adaptToDigest(Object key) {
       return switch (key) {
         case Digest digest -> digest;
@@ -203,6 +266,46 @@ public sealed interface MerkleTree {
             DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
         default -> throw new IllegalStateException("Unexpected blob type: " + key);
       };
+    }
+
+    static final class StatsCollector {
+      private final LongAdder count = new LongAdder();
+      private final AtomicInteger minRetainedBytes = new AtomicInteger(Integer.MAX_VALUE);
+      private final AtomicInteger maxRetainedBytes = new AtomicInteger();
+      private final LongAdder totalRetainedBytes = new LongAdder();
+      private final AtomicLong currentConcurrentRetainedBytes = new AtomicLong();
+      private final AtomicLong maxConcurrentRetainedBytes = new AtomicLong();
+
+      public void track(MerkleTree.Uploadable tree) {
+        int retainedBytes = tree.uniquelyRetainedBytes();
+        count.increment();
+        minRetainedBytes.getAndUpdate(current -> Math.min(current, retainedBytes));
+        maxRetainedBytes.getAndUpdate(current -> Math.max(current, retainedBytes));
+        totalRetainedBytes.add(retainedBytes);
+        long newConcurrent = currentConcurrentRetainedBytes.addAndGet(retainedBytes);
+        maxConcurrentRetainedBytes.getAndUpdate(current -> Math.max(current, newConcurrent));
+      }
+
+      public void untrack(MerkleTree.Uploadable tree) {
+        int retainedBytes = tree.uniquelyRetainedBytes();
+        currentConcurrentRetainedBytes.addAndGet(-retainedBytes);
+      }
+
+      public String getStats() {
+        long count = this.count.sum();
+        if (count == 0) {
+          return "No Merkle trees tracked.";
+        }
+        long totalRetainedBytes = this.totalRetainedBytes.sum();
+        return String.format(
+            "Tracked %,d Merkle trees. Retained bytes: min=%,d, max=%,d, avg=%,.2f, max concurrent=%,d, current concurrent=%,d",
+            count,
+            minRetainedBytes.get(),
+            maxRetainedBytes.get(),
+            (double) totalRetainedBytes / count,
+            maxConcurrentRetainedBytes.get(),
+            currentConcurrentRetainedBytes.get());
+      }
     }
   }
 }

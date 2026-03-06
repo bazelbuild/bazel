@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -166,6 +167,8 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -1857,8 +1860,8 @@ public class RemoteExecutionService {
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
+    MerkleTree.Uploadable merkleTree = null;
     try {
-      MerkleTree.Uploadable merkleTree;
       if (action.getMerkleTree() instanceof MerkleTree.Uploadable uploadable && !force) {
         merkleTree = uploadable;
       } else {
@@ -1890,6 +1893,9 @@ public class RemoteExecutionService {
           force,
           action.getRemotePathResolver());
     } finally {
+      if (merkleTree != null) {
+        merkleTreeComputer.untrack(merkleTree);
+      }
       maybeReleaseRemoteActionBuildingSemaphore();
     }
   }
@@ -2015,6 +2021,8 @@ public class RemoteExecutionService {
     if (remoteExecutor != null) {
       remoteExecutor.close();
     }
+
+    logger.atInfo().log("%s", merkleTreeComputer.getStats());
   }
 
   /**

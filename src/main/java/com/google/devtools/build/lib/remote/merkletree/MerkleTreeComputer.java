@@ -179,6 +179,8 @@ public final class MerkleTreeComputer {
   private final MerkleTree.Uploadable emptyTree;
   private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
       new TaskDeduplicator<>();
+  private final MerkleTree.Uploadable.StatsCollector statsCollector =
+      new MerkleTree.Uploadable.StatsCollector();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -267,6 +269,14 @@ public final class MerkleTreeComputer {
       return doBuildForSpawn(
           spawn, toolInputs, scrubber, spawnExecutionContext, remotePathResolver, blobPolicy);
     }
+  }
+
+  public void untrack(MerkleTree.Uploadable merkleTree) {
+    statsCollector.untrack(merkleTree);
+  }
+
+  public String getStats() {
+    return statsCollector.getStats();
   }
 
   private MerkleTree doBuildForSpawn(
@@ -358,9 +368,9 @@ public final class MerkleTreeComputer {
    * <p>This is used as a memory optimization as it avoids storing full absolute paths for children
    * of a source directory.
    */
-  private static class ChildActionInput extends BasicActionInput {
+  static class ChildActionInput extends BasicActionInput {
     private final ActionInput parent;
-    private final String relativePath;
+    final String relativePath;
 
     ChildActionInput(ActionInput parent, PathFragment relativePath) {
       this.parent = parent;
@@ -579,10 +589,13 @@ public final class MerkleTreeComputer {
               return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
             } else {
-              return new MerkleTree.Uploadable(
-                  new MerkleTree.RootOnly.BlobsUploaded(
-                      directoryBlobDigest, inputFiles, inputBytes),
-                  blobs);
+              var tree =
+                  new MerkleTree.Uploadable(
+                      new MerkleTree.RootOnly.BlobsUploaded(
+                          directoryBlobDigest, inputFiles, inputBytes),
+                      blobs);
+              statsCollector.track(tree);
+              return tree;
             }
           }
           topDirectory
@@ -947,6 +960,8 @@ public final class MerkleTreeComputer {
                     throw new WrappedException(e);
                   } catch (InterruptedException e) {
                     throw new WrappedException(e);
+                  } finally {
+                    statsCollector.untrack(uploadable);
                   }
                 }
                 // Move the computed root to the persistent cache so that it can be reused by later
@@ -1109,7 +1124,7 @@ public final class MerkleTreeComputer {
     };
   }
 
-  private static class EmptyInputDirectory extends BasicActionInput {
+  static class EmptyInputDirectory extends BasicActionInput {
     private final Artifact outputDir;
 
     EmptyInputDirectory(Artifact outputDir) {
