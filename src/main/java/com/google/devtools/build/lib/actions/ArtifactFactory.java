@@ -64,29 +64,15 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     private record AsciiCaseInsensitivePathFragmentWrapper(PathFragment pathFragment) {
-      @SuppressWarnings("StringEquality")
-      static Object wrap(PathFragment pathFragment) {
-        // Ascii.toLowerCase returns the same string if and only if it is already all lowercase. In
-        // that case, we can avoid the allocation and retention of a wrapper object. Most paths
-        // are lowercase, so this is a worthwhile optimization.
-        if (Ascii.toLowerCase(pathFragment.getPathString()) == pathFragment.getPathString()) {
-          // Avoid unnecessary wrapper allocation if the path is already all lowercase.
-          return pathFragment;
-        }
+      static AsciiCaseInsensitivePathFragmentWrapper wrap(PathFragment pathFragment) {
         return new AsciiCaseInsensitivePathFragmentWrapper(pathFragment);
       }
 
       @Override
       public boolean equals(Object obj) {
-        return switch (obj) {
-          case PathFragment otherPathFragment ->
-              Ascii.equalsIgnoreCase(
-                  pathFragment.getPathString(), otherPathFragment.getPathString());
-          case AsciiCaseInsensitivePathFragmentWrapper otherWrapper ->
-              Ascii.equalsIgnoreCase(
-                  pathFragment.getPathString(), otherWrapper.pathFragment.getPathString());
-          default -> false;
-        };
+        return obj instanceof AsciiCaseInsensitivePathFragmentWrapper otherWrapper
+            && Ascii.equalsIgnoreCase(
+                pathFragment.getPathString(), otherWrapper.pathFragment.getPathString());
       }
 
       @Override
@@ -110,7 +96,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * artifacts with case-insensitively equivalent paths.
      */
     private final ConcurrentMap<
-            Object /* PathFragment | AsciiCaseInsensitivePathFragmentWrapper */,
+            AsciiCaseInsensitivePathFragmentWrapper,
             Object /* Entry | CopyOnWriteArrayList<Entry> */>
         pathToSourceArtifact = new ConcurrentHashMap<>(16, 0.75f, CONCURRENCY_LEVEL);
 
@@ -121,7 +107,7 @@ public class ArtifactFactory implements ArtifactResolver {
     private Entry unwrapCacheObject(PathFragment execPath, Object cacheObject) {
       return switch (cacheObject) {
         case null -> null;
-        case Entry entry -> entry;
+        case Entry entry -> entry.artifact().getExecPath().equals(execPath) ? entry : null;
         case CopyOnWriteArrayList<?> entries -> {
           for (Object entryObject : entries) {
             var entry = (Entry) entryObject;
