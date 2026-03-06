@@ -433,6 +433,103 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(other_repo_dir, 'BUILD')))
 
+  def testAccessFromOtherRepo_repoWithSymlink(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data = "@my_repo//:link.txt")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_link",',
+            '  srcs = ["@my_repo//:link.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            '  tags = ["no-cache"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD",'
+                ' "exports_files([\'data.txt\', \'link.txt\'])")'
+            ),
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.file("unrelated.txt", "unrelated")',
+            '  rctx.symlink("data.txt", "link.txt")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  content = rctx.read(rctx.path(rctx.attr.data))',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("data.txt", content)',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    link_path = os.path.join(repo_dir, 'link.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '//:use_link', '@other//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # After expunging: my_repo is served from the RRCC.
+    self.RunBazel(['clean', '--expunge'])
+
+    # Build the genrule first: it prefetches link.txt as an action input,
+    # materializing it as a regular file on disk.
+    _, _, stderr = self.RunBazel(['build', '//:use_link'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'unrelated.txt')))
+    self.assertTrue(os.path.exists(link_path))
+    if os.name == 'nt':
+      # On Windows, symlinks are not supported in the remote repo contents cache, so link.txt is materialized as a regular file.
+      self.assertFalse(os.path.islink(link_path))
+      self.assertTrue(os.path.isfile(link_path))
+    else:
+      # On Unix, link.txt should be materialized as a symlink.
+      self.assertTrue(os.path.islink(link_path))
+    with open(link_path) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # Build other: triggers full materialization of my_repo, which has to
+    # handle the symlink that was already prefetched as a regular file.
+    # Regression test for https://github.com/bazelbuild/bazel/issues/28575.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'unrelated.txt')))
+    self.assertTrue(os.path.exists(link_path))
+    if os.name == 'nt':
+      # On Windows, symlinks are not supported in the remote repo contents cache, so link.txt is materialized as a regular file.
+      self.assertFalse(os.path.islink(link_path))
+      self.assertTrue(os.path.isfile(link_path))
+    else:
+      # On Unix, link.txt should be materialized as a symlink.
+      self.assertTrue(os.path.islink(link_path))
+    with open(link_path) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testAccessFromOtherRepo_symlink(self):
     self.ScratchFile(
         'MODULE.bazel',
