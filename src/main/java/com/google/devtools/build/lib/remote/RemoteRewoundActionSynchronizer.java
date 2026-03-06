@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.StampedLock;
 import javax.annotation.Nullable;
 
 /**
@@ -55,7 +55,8 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   // execution.
   // This ensures high throughput and low memory footprint for the common case of no rewound
   // actions. In this case, there won't be any writers and the performance characteristics of a
-  // ReentrantReadWriteLock are comparable to that of an atomic counter.
+  // ReentrantReadWriteLock are comparable to that of an atomic counter. A StampedLock would not be
+  // a good fit as its performance regresses with 127 or more concurrent readers.
   // Note that it wouldn't be correct to only start using this lock once an action is rewound,
   // because a non-rewound action consuming its non-lost outputs could have already started
   // executing.
@@ -156,8 +157,15 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
           fineLocks =
               Caffeine.newBuilder()
                   .weakValues()
-                  // TODO: Investigate whether fair locks would be beneficial.
-                  .build((ActionLookupData unused) -> new WeakSafeReentrantReadWriteLock());
+                  // ReentrantReadWriteLock would not work here as its individual read and write
+                  // locks do not strongly reference the parent lock, which would lead to locks
+                  // being cleaned up while they are still held
+                  // (https://bugs.openjdk.org/browse/JDK-8189598). This can be worked around by
+                  // using a construction similar to Guava's Striped helpers. StampedLock is both
+                  // more memory-efficient and its views do strongly reference the parent lock
+                  // (https://github.com/openjdk/jdk/blob/b349f661ea5f14b258191134714a7e712c90ef3e/src/java.base/share/classes/java/util/concurrent/locks/StampedLock.java#L1039),
+                  // TODO: Investigate the effect of fair locks on build wall time.
+                  .build((ActionLookupData unused) -> new StampedLock().asReadWriteLock());
           coarseLock = null;
         }
       } finally {
@@ -283,62 +291,5 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
 
   private static ActionLookupData outputKeyFor(Action action) {
     return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
-  }
-
-  // Classes below are based on Guava's Striped class, but optimized for memory usage by using
-  // extension rather than delegation:
-  // https://github.com/google/guava/blob/d25d62fc843ece1c3866859bc8639b815093eac8/guava/src/com/google/common/util/concurrent/Striped.java#L282-L326
-
-  /**
-   * ReadWriteLock implementation whose read and write locks retain a reference back to this lock.
-   * Otherwise, a reference to just the read lock or just the write lock would not suffice to ensure
-   * the {@code ReadWriteLock} is retained.
-   *
-   * <p>{@see https://bugs.openjdk.org/browse/JDK-8189598}
-   */
-  private static final class WeakSafeReentrantReadWriteLock extends ReentrantReadWriteLock {
-    private final WeakSafeReadLock readLock = new WeakSafeReadLock(this);
-    private final WeakSafeWriteLock writeLock = new WeakSafeWriteLock(this);
-
-    @Override
-    public WeakSafeReadLock readLock() {
-      return readLock;
-    }
-
-    @Override
-    public WeakSafeWriteLock writeLock() {
-      return writeLock;
-    }
-  }
-
-  /**
-   * A read lock that ensures a strong reference is retained to the owning {@link ReadWriteLock}.
-   */
-  private static final class WeakSafeReadLock extends ReentrantReadWriteLock.ReadLock {
-    @SuppressWarnings({"unused", "FieldCanBeLocal"})
-    private final WeakSafeReentrantReadWriteLock strongReference;
-
-    WeakSafeReadLock(WeakSafeReentrantReadWriteLock readWriteLock) {
-      super(readWriteLock);
-      this.strongReference = readWriteLock;
-    }
-  }
-
-  /**
-   * A write lock that ensures a strong reference is retained to the owning {@link ReadWriteLock}.
-   */
-  private static final class WeakSafeWriteLock extends ReentrantReadWriteLock.WriteLock {
-    @SuppressWarnings({"unused", "FieldCanBeLocal"})
-    private final WeakSafeReentrantReadWriteLock strongReference;
-
-    WeakSafeWriteLock(WeakSafeReentrantReadWriteLock readWriteLock) {
-      super(readWriteLock);
-      this.strongReference = readWriteLock;
-    }
-
-    @Override
-    public Condition newCondition() {
-      throw new UnsupportedOperationException();
-    }
   }
 }
