@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
+import com.google.devtools.build.lib.remote.options.RemoteOutErrMode;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1337,13 +1338,26 @@ public class RemoteExecutionService {
     }
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
-
-    // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
-    List<ListenableFuture<Void>> outErrDownloads =
-        combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
-    for (ListenableFuture<Void> future : outErrDownloads) {
-      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+
+    boolean downloadOutErr = false;
+    if (remoteOptions.remoteOutErrMode == RemoteOutErrMode.ALL) {
+      downloadOutErr = true;
+    } else if (!result.success()) {
+      // Failed actions always have their stdout and stderr downloaded
+      downloadOutErr = true;
+    } else if (remoteOptions.remoteOutErrMode == RemoteOutErrMode.UNCACHED) {
+      if (!result.cacheHit()) {
+        downloadOutErr = true;
+      }
+    }
+
+    if (downloadOutErr) {
+      List<ListenableFuture<Void>> outErrDownloads =
+          combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+      for (ListenableFuture<Void> future : outErrDownloads) {
+        downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+      }
     }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();

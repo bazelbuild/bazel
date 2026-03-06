@@ -496,11 +496,20 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = RemoteOutputsStrategyConverter.class,
       help =
-          "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
-              + "except the ones required by local actions. If set to 'toplevel' behaves like "
-              + "'minimal' except that it also downloads outputs of top level targets to the local "
-              + "machine. Both options can significantly reduce build times if network bandwidth "
-              + "is a bottleneck.")
+          """
+          Controls which remote build outputs are downloaded to the local machine.
+
+          - `minimal`: Don't download any remote outputs, except those required by local actions.
+          - `toplevel`: The default, like `minimal` except top level target outputs are also
+            downloaded.
+          - `all`: Download all remote outputs.
+
+          `minimal` and `toplevel` can significantly reduce build times if network bandwidth is a
+          bottleneck.
+
+          See also `--remote_download_stdouterr` which controls downloading of stdout and stderr for
+          remote actions.
+          """)
   public RemoteOutputsMode remoteOutputsMode;
 
   /** Outputs strategy flag parser */
@@ -547,6 +556,29 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "Downloads all remote outputs to the local machine. This flag is an alias for"
               + " --remote_download_outputs=all.")
   public Void remoteOutputsAll;
+
+  @Option(
+      name = "remote_download_stdouterr",
+      defaultValue = "all",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = RemoteOutErrModeConverter.class,
+      help =
+          """
+          Controls downloading of stdout and stderr for remote actions.
+
+          - `failed`: Only download if the action failed.
+          - `uncached`: Only download if the action was not cached.
+          - `all`: The default, always download.
+          """
+  )
+  public RemoteOutErrMode remoteOutErrMode;
+
+  public static class RemoteOutErrModeConverter extends EnumConverter<RemoteOutErrMode> {
+    public RemoteOutErrModeConverter() {
+      super(RemoteOutErrMode.class, "remote stdout/stderr download mode");
+    }
+  }
 
   @Option(
       name = "remote_result_cache_priority",
