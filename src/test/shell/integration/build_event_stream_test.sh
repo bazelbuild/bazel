@@ -1708,4 +1708,32 @@ function test_java_version_info_in_build_started() {
   fi
 }
 
+function test_bes_upload_failure_does_not_block_run() {
+  mkdir -p bes_run_fail
+  cat > bes_run_fail/hello.sh <<'EOF'
+#!/bin/bash
+echo "HELLO_FROM_BINARY"
+EOF
+  chmod +x bes_run_fail/hello.sh
+  cat > bes_run_fail/BUILD <<'EOF'
+genrule(
+    name = "hello",
+    srcs = ["hello.sh"],
+    outs = ["hello_bin.sh"],
+    cmd = "cp $< $@ && chmod +x $@",
+    executable = 1,
+)
+EOF
+
+  # Run with a bogus BES backend.
+  # We expect Bazel to report the error but still execute the binary.
+  bazel run //bes_run_fail:hello \
+      --bes_backend=localhost:1234 \
+      --bes_upload_mode=wait_for_upload_complete \
+      &> $TEST_log || true
+
+  expect_log "The Build Event Protocol upload failed"
+  expect_log "HELLO_FROM_BINARY"
+}
+
 run_suite "Integration tests for the build event stream"

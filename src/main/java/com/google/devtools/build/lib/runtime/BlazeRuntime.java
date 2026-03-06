@@ -811,7 +811,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     BlazeCommandResult finalCommandResult;
     if (!commandResult.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
-      finalCommandResult = BlazeCommandResult.detailedExitCode(moduleExitCode);
+      if (commandResult.getExecRequest() != null) {
+        finalCommandResult =
+            BlazeCommandResult.execute(commandResult.getExecRequest(), moduleExitCode);
+      } else {
+        finalCommandResult = BlazeCommandResult.detailedExitCode(moduleExitCode);
+      }
     } else {
       finalCommandResult = commandResult;
     }
