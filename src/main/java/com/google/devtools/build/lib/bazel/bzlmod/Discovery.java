@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -149,7 +149,7 @@ final class Discovery {
       for (Map.Entry<ModuleKey, InterimModule> entry : depGraph.entrySet()) {
         InterimModule module = entry.getValue();
         if (module.getNodepDeps().stream()
-            .allMatch(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))) {
+            .allMatch(depKey -> depGraph.containsKey(depKey))) {
           result.put(entry.getKey(), module);
         } else {
           result.put(
@@ -157,7 +157,7 @@ final class Discovery {
               module.toBuilder()
                   .setNodepDeps(
                       module.getNodepDeps().stream()
-                          .filter(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))
+                          .filter(depKey -> depGraph.containsKey(depKey))
                           .collect(toImmutableList()))
                   .build());
         }
@@ -166,18 +166,18 @@ final class Discovery {
     }
 
     /**
-     * Returns a new {@link DepSpec} that is transformed according to any existing overrides on the
+     * Returns a new {@link ModuleKey} that is transformed according to any existing overrides on the
      * dependency module.
      */
-    DepSpec applyOverrides(DepSpec depSpec) {
-      if (root.module().getName().equals(depSpec.name())) {
-        return DepSpec.ROOT_MODULE;
+    ModuleKey applyOverrides(ModuleKey depKey) {
+      if (root.module().getName().equals(depKey.name())) {
+        return ModuleKey.ROOT;
       }
-      return depSpec.withVersion(
-          switch (root.overrides().get(depSpec.name())) {
+      return new ModuleKey(depKey.name(),
+          switch (root.overrides().get(depKey.name())) {
             case NonRegistryOverride ignored -> Version.EMPTY;
             case SingleVersionOverride svo when !svo.version().isEmpty() -> svo.version();
-            case null, default -> depSpec.version();
+            case null, default -> depKey.version();
           });
     }
 
@@ -194,8 +194,7 @@ final class Discovery {
       for (ModuleKey moduleKey : horizon) {
         InterimModule module = depGraph.get(moduleKey);
         // The main group of module keys to discover are the current horizon's normal deps.
-        for (DepSpec depSpec : module.getDeps().values()) {
-          ModuleKey depKey = depSpec.toModuleKey();
+        for (ModuleKey depKey : module.getDeps().values()) {
           if (depGraph.containsKey(depKey)) {
             continue;
           }
@@ -205,13 +204,12 @@ final class Discovery {
         // Any of the current horizon's nodep deps should also be discovered ("fulfilled"), iff the
         // module they refer to already exists in the dep graph. Otherwise, record these unfulfilled
         // nodep edges, so that we can later decide whether to run another round of discovery.
-        for (DepSpec depSpec : module.getNodepDeps()) {
-          ModuleKey depKey = depSpec.toModuleKey();
+        for (ModuleKey depKey : module.getNodepDeps()) {
           if (depGraph.containsKey(depKey)) {
             continue;
           }
-          if (!prevRoundModuleNames.contains(depSpec.name())) {
-            unfulfilledNodepEdgeModuleNames.add(depSpec.name());
+          if (!prevRoundModuleNames.contains(depKey.name())) {
+            unfulfilledNodepEdgeModuleNames.add(depKey.name());
             continue;
           }
           predecessors.putIfAbsent(depKey, module.getKey());

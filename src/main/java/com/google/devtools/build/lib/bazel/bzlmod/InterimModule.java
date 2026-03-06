@@ -41,44 +41,16 @@ import net.starlark.java.eval.StarlarkList;
  * after discovery but before selection, or when there's a multiple_version_override in play).
  *
  * <p>Compared to {@link Module}, which is used after module resolution, this class holds some more
- * information that's useful only during resolution, such as the {@code max_compatibility_level} for
- * each dep, the {@code compatibility_level}, the {@code registry} the module comes from, etc.
+ * information that's useful only during resolution, such as the {@code registry} the module comes
+ * from, etc.
  */
 @AutoValue
 public abstract class InterimModule extends ModuleBase {
 
-  /**
-   * The compatibility level of the module, which essentially signifies the "major version" of the
-   * module in terms of SemVer.
-   */
-  public abstract int getCompatibilityLevel();
-
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
 
-  /** The specification of a dependency. */
-  @AutoCodec
-  public record DepSpec(String name, Version version, int maxCompatibilityLevel) {
-    public DepSpec {
-      requireNonNull(name, "name");
-      requireNonNull(version, "version");
-    }
 
-    public static final DepSpec ROOT_MODULE = fromModuleKey(ModuleKey.ROOT);
-
-    @VisibleForTesting
-    public static DepSpec fromModuleKey(ModuleKey key) {
-      return new DepSpec(key.name(), key.version(), -1);
-    }
-
-    public DepSpec withVersion(Version version) {
-      return new DepSpec(name(), version, maxCompatibilityLevel());
-    }
-
-    public ModuleKey toModuleKey() {
-      return new ModuleKey(name(), version());
-    }
-  }
 
   /**
    * The resolved direct dependencies of this module, which can be either the original ones,
@@ -86,20 +58,20 @@ public abstract class InterimModule extends ModuleBase {
    * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
    * dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getDeps();
+  public abstract ImmutableMap<String, ModuleKey> getDeps();
 
   /**
    * The original direct dependencies of this module as they are declared in their MODULE file. The
    * key type is the repo name of the dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
+  public abstract ImmutableMap<String, ModuleKey> getOriginalDeps();
 
   /**
    * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
    * module, but if specified module is somehow in the dependency graph, it'll be at least at this
    * version.
    */
-  public abstract ImmutableList<DepSpec> getNodepDeps();
+  public abstract ImmutableList<ModuleKey> getNodepDeps();
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -116,15 +88,14 @@ public abstract class InterimModule extends ModuleBase {
     return new AutoValue_InterimModule.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
-        .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0);
+        .setKey(ModuleKey.ROOT);
   }
 
   /**
    * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
    * #getNodepDeps} transformed using the given function.
    */
-  public InterimModule withDepsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<ModuleKey> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
         .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
@@ -143,8 +114,6 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
 
-    /** Optional; defaults to {@code 0}. */
-    public abstract Builder setCompatibilityLevel(int value);
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
@@ -182,19 +151,19 @@ public abstract class InterimModule extends ModuleBase {
       return this;
     }
 
-    public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
 
-    public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
-    abstract ImmutableList.Builder<DepSpec> nodepDepsBuilder();
+    abstract ImmutableList.Builder<ModuleKey> nodepDepsBuilder();
 
     @CanIgnoreReturnValue
-    public final Builder addNodepDep(DepSpec value) {
+    public final Builder addNodepDep(ModuleKey value) {
       nodepDepsBuilder().add(value);
       return this;
     }
 
-    public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
+    public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
     public abstract Builder setRegistry(Registry value);
 
@@ -242,7 +211,7 @@ public abstract class InterimModule extends ModuleBase {
         .setRepoName(interim.getRepoName())
         .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
         .setToolchainsToRegister(interim.getToolchainsToRegister())
-        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setDeps(interim.getDeps())
         .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
         .setExtensionUsages(interim.getExtensionUsages())
         .setFlagAliases(interim.getFlagAliases())

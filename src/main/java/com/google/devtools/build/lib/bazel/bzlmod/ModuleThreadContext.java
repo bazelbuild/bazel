@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -52,7 +52,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
-  private final Map<String, DepSpec> deps = new LinkedHashMap<>();
+  private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
@@ -153,11 +153,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public void addDep(Optional<String> repoName, DepSpec depSpec) {
+  public void addDep(Optional<String> repoName, ModuleKey depKey) {
     if (repoName.isPresent()) {
-      deps.put(repoName.get(), depSpec);
+      deps.put(repoName.get(), depKey);
     } else {
-      module.addNodepDep(depSpec);
+      module.addNodepDep(depKey);
     }
   }
 
@@ -365,7 +365,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, new DepSpec(builtinModule, Version.EMPTY, -1));
+      deps.put(builtinModule, new ModuleKey(builtinModule, Version.EMPTY));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {
