@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -399,7 +400,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(inputPath, metadata)) {
+      if (metadata == null) {
+        return immediateVoidFuture();
+      }
+      if (metadata.getType() == FileStateType.SYMLINK && !inputPath.startsWith(execRoot)) {
+        return toListenableFuture(
+            plantUnresolvedSymlink(
+                inputPath.forHostFileSystem(),
+                PathFragment.create(metadata.getUnresolvedSymlinkTarget())));
+      }
+      if (!canDownloadFile(inputPath, metadata)) {
         return immediateVoidFuture();
       }
 
@@ -701,6 +711,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               // whose root directory is created before the action runs.
               symlink.linkPath().delete();
               symlink.linkPath().createSymbolicLink(symlink.targetPath());
+              return Completable.complete();
+            }));
+  }
+
+  private Completable plantUnresolvedSymlink(Path linkPath, PathFragment target) {
+    return downloadCache.executeIfNot(
+        linkPath,
+        Completable.defer(
+            () -> {
+              linkPath.delete();
+              linkPath.createSymbolicLink(target);
               return Completable.complete();
             }));
   }
