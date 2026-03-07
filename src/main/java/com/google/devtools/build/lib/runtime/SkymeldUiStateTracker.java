@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.Locale;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks the state of Skymeld builds and determines what to display at each state in the UI. */
@@ -181,7 +182,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     if (labelsCount == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = labelsCount + " targets";
+      additionalMessage = String.format(Locale.ENGLISH, "%,d targets", labelsCount);
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

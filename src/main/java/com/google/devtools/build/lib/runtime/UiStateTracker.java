@@ -66,6 +66,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -439,7 +440,7 @@ class UiStateTracker {
     if (count == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = count + " targets";
+      additionalMessage = String.format(Locale.ENGLISH, "%,d targets", count);
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

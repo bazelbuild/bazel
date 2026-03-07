@@ -73,4 +73,35 @@ public class PackageProgressReceiverTest {
     assertThat(progress.progressState().getFirst()).isEqualTo(defaultState);
     assertThat(progress.progressState().getSecond()).isEqualTo(defaultActivity);
   }
+
+  @Test
+  public void testLargeNumbersFormattedWithCommas() {
+    // Verify that large package counts are formatted with comma separators for readability.
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+
+    // Load 1,234 packages
+    for (int i = 0; i < 1234; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("pkg" + i);
+      progress.startReadPackage(id);
+      progress.doneReadPackage(id);
+    }
+
+    String state = progress.progressState().getFirst();
+    assertThat(state).contains("1,234 packages loaded");
+  }
+
+  @Test
+  public void testLargePendingSetFormattedWithCommas() {
+    // Verify that large pending package counts are formatted with comma separators.
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+
+    // Start loading 1,500 packages without completing them
+    for (int i = 0; i < 1500; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("pending/pkg" + i);
+      progress.startReadPackage(id);
+    }
+
+    String activity = progress.progressState().getSecond();
+    assertThat(activity).contains("(1,500 packages)");
+  }
 }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -144,7 +145,7 @@ public class SpawnStats {
     }
 
     StringBuilder stringSummary = new StringBuilder();
-    stringSummary.append(total).append(" process");
+    stringSummary.append(String.format(Locale.ENGLISH, "%,d", total)).append(" process");
     if (total > 1) {
       stringSummary.append("es");
     }
@@ -156,7 +157,10 @@ public class SpawnStats {
       }
       stringSummary.append(separator);
       separator = ", ";
-      stringSummary.append(runnerStats.getValue()).append(' ').append(runnerStats.getKey());
+      stringSummary
+          .append(String.format(Locale.ENGLISH, "%,d", runnerStats.getValue()))
+          .append(' ')
+          .append(runnerStats.getKey());
     }
     stringSummary.append('.');
     return stringSummary.toString();
