@@ -181,7 +181,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   /** Override this method if you need to run a post condition after the action has executed */
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException {}
+      throws IOException {
+    SandboxHelpers.validateOutputs(
+        SandboxHelpers.getOutputs(originalSpawn), sandbox.getSandboxExecRoot());
+  }
 
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
     if (sandboxOptions.sandboxDebug) {
