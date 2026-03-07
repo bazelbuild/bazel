@@ -1401,4 +1401,62 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
+
+  @Test
+  public void sharedSubtreeLost_recoveredWithoutRewinding(@TestParameter boolean useDiskCache)
+      throws Exception {
+    // Arrange: Prepare workspace and populate both caches
+    if (useDiskCache) {
+      addOptions("--disk_cache=disk_cache_dir");
+    }
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "bar",
+            srcs = [
+                "dir",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( cat $(location :dir)/foo.in; cat $(location :bar.in) ) > $@",
+        )
+
+        genrule(
+            name = "baz",
+            srcs = [
+                "dir",
+                "baz.in",
+            ],
+            outs = ["baz.out"],
+            cmd = "( cat $(location :dir)/foo.in; cat $(location :baz.in) ) > $@",
+        )
+        """);
+    write("a/dir/foo.in", "file-inside");
+    write("a/bar.in", "bar");
+    write("a/baz.in", "baz");
+
+    // This uploads the shared source directory tree to the remote cache.
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/bar.out");
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    if (useDiskCache) {
+      // Verify that no inputs have been uploaded to the disk cache yet.
+      assertThat(
+              getWorkspace().getRelative("disk_cache_dir").getDirectoryEntries().stream()
+                  .map(Path::getBaseName))
+          .containsExactly("ac", "tmp");
+    }
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do a build of baz, which shares the already uploaded but then lost dir tree
+    setDownloadToplevel();
+    buildTarget("//a:baz");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/baz.out", "file-inside\nbaz\n");
+  }
 }
