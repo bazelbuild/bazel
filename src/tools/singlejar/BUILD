@@ -592,9 +592,9 @@ genrule(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
-    cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
-    toolchains = ["@rules_java//toolchains:current_java_runtime"],
-    tools = ["@rules_java//toolchains:current_java_runtime"],
+    # Match jar and jar.exe.
+    cmd = "$$(compgen -G $(JAVABASE)/bin/jar*) -0cf \"$@\" $(location :output_jar.cc)",
+    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
 )
 
 build_test(

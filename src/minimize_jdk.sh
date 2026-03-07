@@ -38,8 +38,26 @@ if [[ $(locale charmap) != "UTF-8" ]]; then
   export LC_CTYPE=en_US.UTF-8
 fi
 
-if [ "$1" == "--allmodules" ]; then
-  shift
+# Parse flags. These must come before the positional arguments.
+allmodules=false
+# The --windows-target flag is passed by the BUILD file via select() based on
+# the target platform. We cannot use uname for this since uname reflects the
+# execution platform, which would give incorrect results when cross-compiling.
+target_is_windows=false
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --allmodules)
+      allmodules=true
+      shift
+      ;;
+    --windows-target)
+      target_is_windows=true
+      shift
+      ;;
+  esac
+done
+
+if $allmodules; then
   modules="ALL-MODULE-PATH"
 else
   modules=$(cat "$3" | paste -sd "," - | tr -d '\r')
@@ -51,7 +69,6 @@ tooljdk=$1
 fulljdk=$2
 out=$4
 
-UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -60,53 +77,90 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
 
+# Detect the execution platform OS from uname. This is correct since the script
+# always runs on the execution platform. It is only used to determine how to
+# extract the tool JDK archive, not for any target-platform-specific logic.
+UNAME=$(uname -s | tr 'A-Z' 'a-z')
 if [[ "$UNAME" =~ msys_nt* ]]; then
+  exec_is_windows=true
+else
+  exec_is_windows=false
+fi
+
+# Extract the tool JDK (the exec-platform JDK used to run jlink). On Windows,
+# the archive is a zip with a single top-level directory; on Unix, it is a tar
+# that we strip the top level of. We store an absolute path since we cd later.
+if $exec_is_windows; then
   unzip -q "$tooljdk" -d "tool_jdk.$$"
-  unzip -q "$fulljdk" -d "full_jdk.$$"
-  # The archives contain a single top-level directory.
-  tool_jdk_home=$(cd tool_jdk.$$/* && pwd)
-  cd full_jdk.$$/*
-  # We have to add this module explicitly because it is windows specific, it allows
-  # the usage of the Windows truststore
-  # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
-  modules="$modules,jdk.crypto.mscapi"
-  "$tool_jdk_home/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages --no-header-files \
-    --add-options=" ${JVM_OPTIONS}"\
-    --output reduced
-  # Patch the app manifest of the java.exe launcher to force its active code
-  # page to UTF-8 on Windows 1903 and later, which is required for proper
-  # support of Unicode characters outside the system code page.
-  # The JDK currently (as of JDK 23) doesn't support this natively:
-  # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
-    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
-  # These are necessary for --host_jvm_debug to work.
-  cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
-  zip -q -X -r ../reduced.zip reduced/
-  cd ../..
-  mv "full_jdk.$$/reduced.zip" "$out"
-  rm -rf "full_jdk.$$" "tool_jdk.$$"
+  # The archive contains a single top-level directory.
+  tool_jdk_home=$(cd "tool_jdk.$$"/* && pwd)
 else
   # The --no-same-owner flag instructs tar to not try to chown extracted files
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
   mkdir tool_jdk
   tar xf "$tooljdk" --no-same-owner --strip-components=1 -C tool_jdk
+  tool_jdk_home=$(pwd)/tool_jdk
+fi
+
+# Extract the full (target-platform) JDK and cd into it.
+if $target_is_windows; then
+  unzip -q "$fulljdk" -d "full_jdk.$$"
+  # The archive contains a single top-level directory.
+  cd "full_jdk.$$"/*
+  # We have to add this module explicitly because it is windows specific, it allows
+  # the usage of the Windows truststore
+  # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
+  modules="$modules,jdk.crypto.mscapi"
+else
   mkdir target_jdk
   tar xf "$fulljdk" --no-same-owner --strip-components=1 -C target_jdk
   cd target_jdk
-  "../tool_jdk/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages --no-header-files \
-    --add-options=" ${JVM_OPTIONS}" \
-    --output reduced
+fi
+
+"$tool_jdk_home/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
+  --vm=server --strip-debug --no-man-pages --no-header-files \
+  --add-options=" ${JVM_OPTIONS}" \
+  --output reduced
+
+if $target_is_windows; then
+  # Patch the app manifest of the java.exe launcher to force its active code
+  # page to UTF-8 on Windows 1903 and later, which is required for proper
+  # support of Unicode characters outside the system code page.
+  # The JDK currently (as of JDK 23) doesn't support this natively:
+  # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+  # We binary-patch java.exe directly: the <activeCodePage> element (100 bytes,
+  # no newlines) is inserted before </asmv3:windowsSettings>, while the
+  # obsolete Vista-through-8.1 compatibility entries are replaced with the same
+  # number of spaces, so the manifest length stored in the PE resource directory
+  # remains unchanged.
+  perl -0777 -pe '
+      BEGIN { binmode STDIN, ":bytes"; binmode STDOUT, ":bytes" }
+      s|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage></asmv3:windowsSettings>|;
+      s|(        <!-- Windows Vista -->.*?<supportedOS Id="\{1f676c76-80e1-4239-95bb-83d0f6d0da78\}"/>(?:\r\n|\n))/" " x (length($1) - 100)/se;
+    ' reduced/bin/java.exe > reduced/bin/java.exe.tmp \
+    && mv reduced/bin/java.exe.tmp reduced/bin/java.exe
+  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
+  # These are necessary for --host_jvm_debug to work.
+  cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
+else
   for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp lib/libdt_socket.* lib/libjdwp.* reduced/lib
   find reduced -exec touch -ht 198001010000 {} +
-  zip -q -X -r ../reduced.zip reduced/
+fi
+
+zip -q -X -r ../reduced.zip reduced/
+
+if $target_is_windows; then
+  cd ../..
+  mv "full_jdk.$$/reduced.zip" "$out"
+  rm -rf "full_jdk.$$"
+else
   cd ..
   mv reduced.zip "$out"
+fi
+
+if $exec_is_windows; then
+  rm -rf "tool_jdk.$$"
 fi
