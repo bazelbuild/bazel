@@ -250,7 +250,6 @@ public class BuildView {
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
-    skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
 
     ImmutableMap<Label, Target> labelToTargetMap = constructLabelToTargetMap(loadingResult);
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
@@ -280,6 +279,7 @@ public class BuildView {
               viewOptions.maxConfigChangesToShow,
               viewOptions.allowAnalysisCacheDiscards,
               additionalConfigurationChangeEvent);
+      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
