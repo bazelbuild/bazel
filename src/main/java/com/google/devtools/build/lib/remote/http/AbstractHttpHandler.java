@@ -92,6 +92,12 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     request.headers().set(HttpHeaderNames.USER_AGENT, USER_AGENT_VALUE);
   }
 
+  protected void addAcceptHeaders(HttpRequest request) {
+    if (request.headers().get(HttpHeaderNames.ACCEPT) == null) {
+      request.headers().add(HttpHeaderNames.ACCEPT, "*/*");
+    }
+  }
+
   protected String constructPath(URI uri, String hash, boolean isCas) {
     StringBuilder builder = new StringBuilder();
     builder.append(uri.getPath());

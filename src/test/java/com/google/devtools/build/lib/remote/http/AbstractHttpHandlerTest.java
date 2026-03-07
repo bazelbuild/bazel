@@ -134,6 +134,30 @@ public abstract class AbstractHttpHandlerTest {
     HttpRequest request = ch.readOutbound();
     assertThat(request.headers().get("key1")).isEqualTo("value1");
     assertThat(request.headers().get("key2")).isEqualTo("value2");
+    assertThat(request.headers().get(HttpHeaderNames.ACCEPT)).isEqualTo("*/*");
+  }
+
+  @Test
+  public void extraHeadersOverridesDefaultAccept() throws Exception {
+    URI uri = new URI("http://does.not.exist:8080/foo");
+    ImmutableList<Entry<String, String>> remoteHeaders =
+            ImmutableList.of(
+                    Maps.immutableEntry("key1", "value1"),
+                    Maps.immutableEntry("key2", "value2"),
+                    Maps.immutableEntry("Accept", "application/octet-stream")
+                    );
+
+    EmbeddedChannel ch =
+            new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, remoteHeaders));
+    DownloadCommand cmd =
+            new DownloadCommand(uri, /* casDownload= */ true, DIGEST, new ByteArrayOutputStream());
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(cmd, writePromise);
+
+    HttpRequest request = ch.readOutbound();
+    assertThat(request.headers().get("key1")).isEqualTo("value1");
+    assertThat(request.headers().get("key2")).isEqualTo("value2");
+    assertThat(request.headers().get(HttpHeaderNames.ACCEPT)).isEqualTo("application/octet-stream");
   }
 
   @Test
