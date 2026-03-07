@@ -17,6 +17,7 @@ import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -136,13 +137,15 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return key.startsWith("STABLE_") || SPECIAL_STABLE_KEYS.contains(key);
     }
 
-    private static Map<String, String> parseWorkspaceStatus(String input) {
+    @VisibleForTesting
+    static Map<String, String> parseWorkspaceStatus(String input) {
       TreeMap<String, String> result = new TreeMap<>();
-      for (String line : input.trim().split("\n")) {
-        String[] splitLine = line.split(" ", 2);
-        if (splitLine.length >= 2) {
-          result.put(splitLine[0], splitLine[1].trim());
+      for (String line : input.split("\n")) {
+        if (line.isEmpty()) {
+          continue;
         }
+        String[] splitLine = line.split(" ", 2);
+        result.put(splitLine[0], splitLine.length >= 2 ? splitLine[1].trim() : "");
       }
 
       return result;
