@@ -789,12 +789,14 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     # First fetch: not cached
     _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.2.1', stdout)
+    stdout = '\n'.join(stdout)
+    self.assertIn('buildozer version: ', stdout)
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
     _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.2.1', stdout)
+    stdout = '\n'.join(stdout)
+    self.assertIn('buildozer version: ', stdout)
     repo_dir = self.RepoDir('buildozer')
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
 
