@@ -257,6 +257,7 @@ java_library(
     deps = [
         ":abstract_action_input_prefetcher",
         ":combined_cache",
+        ":concurrent_artifact_path_trie",
         ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
@@ -566,6 +567,7 @@ java_library(
         ":remote_action_file_system",
         ":remote_action_input_fetcher",
         ":remote_output_checker",
+        ":remote_rewound_action_synchronizer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -883,17 +885,37 @@ java_library(
 )
 
 java_library(
+    name = "remote_rewound_action_synchronizer",
+    srcs = ["RemoteRewoundActionSynchronizer.java"],
+    deps = [
+        ":remote_action_input_fetcher",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
+        "//third_party:caffeine",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "remote_important_output_handler",
     srcs = ["RemoteImportantOutputHandler.java"],
     deps = [
         ":remote_output_checker",
+        ":remote_rewound_action_synchronizer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
@@ -918,6 +940,8 @@ java_library(
         ":remote_action_file_system",
         ":remote_execution_cache",
         ":remote_output_checker",
+        ":remote_output_service",
+        ":remote_rewound_action_synchronizer",
         ":scrubber",
         ":upload_manifest",
         "//src/main/java/com/google/devtools/build/lib/actions",
