@@ -14,22 +14,13 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -38,7 +29,6 @@ import com.google.testing.junit.testparameterinjector.TestParameters.TestParamet
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,16 +81,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             },
             String.class));
   }
-
-  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
-    return (StructImpl) configuredTarget.get(key);
-  }
-
-
-
 
   @Test
   public void testPackSourcesWithExternalResourceArtifact() throws Exception {
@@ -161,205 +141,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .inOrder();
   }
 
-  @Test
-  public void mergeAddExports() throws Exception {
-    scratch.file(
-        "foo/custom_library.bzl",
-        """
-        load("@rules_java//java:defs.bzl", "java_common", "JavaInfo")
-        def _impl(ctx):
-            java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
-            return [java_provider]
 
-        custom_library = rule(
-            attrs = {
-                "deps": attr.label_list(),
-            },
-            implementation = _impl,
-        )
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":custom_library.bzl", "custom_library")
 
-        custom_library(
-            name = "custom",
-            deps = [":a"],
-        )
 
-        java_library(
-            name = "a",
-            srcs = ["java/A.java"],
-            add_exports = ["java.base/java.lang"],
-        )
-        """);
 
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
-    JavaModuleFlagsProvider provider =
-        JavaInfo.getProvider(JavaModuleFlagsProvider.class, myRuleTarget);
-    assertThat(provider.toFlags()).containsExactly("--add-exports=java.base/java.lang=ALL-UNNAMED");
-  }
 
-  @Test
-  public void hermeticStaticLibs() throws Exception {
-    scratch.file("a/libStatic.a");
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_cc//cc:cc_import.bzl', 'cc_import')",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "load(':rule.bzl', 'jrule')",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-        "genrule(name='gen', cmd='', outs=['foo/bar/bin/java'])",
-        "cc_import(name='libs', static_library = 'libStatic.a')",
-        "cc_library(name = 'jdk_static_libs00', data = ['libStatic.a'], linkstatic = 1)",
-        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', lib_modules='lib/modules', "
-            + "hermetic_srcs = ['lib/hermetic.properties'], hermetic_static_libs = ['libs'])",
-        "java_runtime_alias(name='alias')",
-        "jrule(name='r')",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':jvm',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:runtime_toolchain_type',",
-        ")");
-    scratch.file(
-        "a/rule.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-        load("@rules_java//java/common:java_common.bzl", "java_common")
 
-        def _impl(ctx):
-            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-            return MyInfo(
-                hermetic_static_libs = provider.hermetic_static_libs,
-            )
 
-        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
-        """);
-
-    useConfiguration("--extra_toolchains=//a:all");
-    ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    Sequence<StarlarkInfo> hermeticStaticLibs =
-        (Sequence<StarlarkInfo>) myInfo.getValue("hermetic_static_libs");
-    assertThat(hermeticStaticLibs).hasSize(1);
-    assertThat(
-            CcInfo.wrap(hermeticStaticLibs.get(0))
-                .getCcLinkingContext()
-                .getLibraries()
-                .toList()
-                .stream()
-                .map(lib -> lib.getStaticLibrary().prettyPrint()))
-        .containsExactly("a/libStatic.a");
-  }
-
-  @Test
-  public void implicitLibCtSym() throws Exception {
-    scratch.file("a/libStatic.a");
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "load(':rule.bzl', 'jrule')",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-        "java_runtime(",
-        "    name='jvm',",
-        "    srcs=[",
-        "        'foo/bar/bin/java',",
-        "        'foo/bar/lib/ct.sym',",
-        "    ],",
-        "    java='foo/bar/bin/java',",
-        ")",
-        "java_runtime_alias(name='alias')",
-        "jrule(name='r')",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':jvm',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:runtime_toolchain_type',",
-        ")");
-    scratch.file(
-        "a/rule.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-        load("@rules_java//java/common:java_common.bzl", "java_common")
-
-        def _impl(ctx):
-            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-            return MyInfo(
-                lib_ct_sym = provider.lib_ct_sym,
-            )
-
-        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
-        """);
-
-    useConfiguration("--extra_toolchains=//a:all");
-    ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    StructImpl myInfo = getMyInfoFromTarget(ct);
-    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
-    assertThat(libCtSym).isNotNull();
-    assertThat(libCtSym.getExecPathString()).isEqualTo("a/foo/bar/lib/ct.sym");
-  }
-
-  @Test
-  public void explicitLibCtSym() throws Exception {
-    scratch.file("a/libStatic.a");
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "load(':rule.bzl', 'jrule')",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-        "java_runtime(",
-        "    name='jvm',",
-        "    srcs=[",
-        "        'foo/bar/bin/java',",
-        "        'foo/bar/lib/ct.sym',",
-        "    ],",
-        "    java='foo/bar/bin/java',",
-        "    lib_ct_sym='lib/ct.sym',",
-        ")",
-        "java_runtime_alias(name='alias')",
-        "jrule(name='r')",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':jvm',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:runtime_toolchain_type',",
-        ")");
-    scratch.file(
-        "a/rule.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-        load("@rules_java//java/common:java_common.bzl", "java_common")
-
-        def _impl(ctx):
-            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-            return MyInfo(
-                lib_ct_sym = provider.lib_ct_sym,
-            )
-
-        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
-        """);
-
-    useConfiguration("--extra_toolchains=//a:all");
-    ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    StructImpl myInfo = getMyInfoFromTarget(ct);
-    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
-    assertThat(libCtSym).isNotNull();
-    assertThat(libCtSym.getExecPathString()).isEqualTo("a/lib/ct.sym");
-  }
 
   @Test // not to be Starlarkified: tests native functionality
   @TestParameters({
