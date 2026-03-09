@@ -579,7 +579,7 @@ final class StringModule implements StarlarkValue {
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
-      Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
+      Pattern.compile("(?<line>[^\\r\\n]*)(?<break>(\\r\\n|\\r|\\n)?)");
 
   @StarlarkMethod(
       name = "rfind",
