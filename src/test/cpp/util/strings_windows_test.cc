@@ -23,9 +23,9 @@
 
 namespace blaze_util {
 
-static const char kAsciiLatin[] = {'A', 'b', 'c', '\0'};
+static const unsigned char kAsciiLatin[] = {'A', 'b', 'c', '\0'};
 static const wchar_t kUtf16Latin[] = {L'A', L'b', L'c', L'\0'};
-static const char kUtf8Cyrillic[] = {
+static const unsigned char kUtf8Cyrillic[] = {
     'H',  'e',  'y', '=',  //
     0xd0, 0x9f,            // Cyrillic Capital Letter Pe
     0xd1, 0x80,            // Cyrillic Small Letter Er
