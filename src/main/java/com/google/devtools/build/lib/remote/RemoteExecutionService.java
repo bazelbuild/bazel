@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
+import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -207,6 +208,7 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+  private final MerkleTreeMemoryBudget merkleTreeMemoryBudget;
 
   private Boolean useOutputPaths;
 
@@ -258,6 +260,13 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+
+    long budgetBytes = remoteOptions.remoteMerkleTreeMemoryBudget;
+    if (budgetBytes == 0) {
+      // Auto: use 25% of the maximum heap size.
+      budgetBytes = Runtime.getRuntime().maxMemory() / 4;
+    }
+    this.merkleTreeMemoryBudget = new MerkleTreeMemoryBudget(budgetBytes);
   }
 
   private Command buildCommand(
@@ -504,87 +513,107 @@ public class RemoteExecutionService {
   public RemoteAction buildRemoteAction(
       Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.BlobPolicy blobPolicy)
       throws IOException, ExecException, InterruptedException {
-    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
+    boolean retainsMerkleTree = blobPolicy != MerkleTreeComputer.BlobPolicy.DISCARD;
+    // Acquire the memory budget before the CPU semaphore so that we don't hold a CPU slot while
+    // waiting for memory to become available.
+    MerkleTreeMemoryBudget.Handle budgetHandle =
+        retainsMerkleTree ? merkleTreeMemoryBudget.acquire() : null;
+    boolean budgetHandleConsumed = false;
     try {
-      // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
-      // the paths of the inputs and outputs as well as paths appearing in the command line for
-      // execution. This is necessary to ensure that artifacts are correctly emitted into and staged
-      // from the unmapped location locally.
-      RemotePathResolver remotePathResolver =
-          RemotePathResolver.createMapped(baseRemotePathResolver, execRoot, spawn.getPathMapper());
-      ToolSignature toolSignature = getToolSignature(spawn, context);
-      MerkleTree merkleTree;
+      maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
       try {
-        merkleTree =
-            merkleTreeComputer.buildForSpawn(
-                spawn,
-                toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
-                scrubber,
-                context,
+        // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
+        // the paths of the inputs and outputs as well as paths appearing in the command line for
+        // execution. This is necessary to ensure that artifacts are correctly emitted into and
+        // staged from the unmapped location locally.
+        RemotePathResolver remotePathResolver =
+            RemotePathResolver.createMapped(
+                baseRemotePathResolver, execRoot, spawn.getPathMapper());
+        ToolSignature toolSignature = getToolSignature(spawn, context);
+        MerkleTree merkleTree;
+        try {
+          merkleTree =
+              merkleTreeComputer.buildForSpawn(
+                  spawn,
+                  toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
+                  scrubber,
+                  context,
+                  remotePathResolver,
+                  blobPolicy);
+        } catch (CredentialHelperException e) {
+          throw createExecExceptionForCredentialHelperException(e);
+        } catch (RemoteExecutionCapabilitiesException e) {
+          throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+        }
+
+        if (budgetHandle != null && merkleTree instanceof MerkleTree.Uploadable uploadable) {
+          merkleTreeMemoryBudget.commit(budgetHandle, uploadable.uniquelyRetainedBytes());
+        }
+
+        // Get the remote platform properties.
+        Platform platform;
+        ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
+        if (toolSignature != null) {
+          additionalPropertiesBuilder.put(
+              PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
+        }
+        if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+          additionalPropertiesBuilder.put(
+              PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+              spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+        }
+        platform =
+            PlatformUtils.getPlatformProto(
+                spawn, remoteOptions, additionalPropertiesBuilder.build());
+
+        SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
+        Command command =
+            buildCommand(
+                useOutputPaths(),
+                spawn.getOutputFiles(),
+                spawn.getArguments(),
+                spawn.getEnvironment(),
+                platform,
                 remotePathResolver,
-                blobPolicy);
-      } catch (CredentialHelperException e) {
-        throw createExecExceptionForCredentialHelperException(e);
-      } catch (RemoteExecutionCapabilitiesException e) {
-        throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+                spawnScrubber,
+                spawn.getExecutionPlatform());
+        Digest commandHash = digestUtil.compute(command);
+        Action action =
+            Utils.buildAction(
+                commandHash,
+                merkleTree.digest(),
+                platform,
+                context.getTimeout(),
+                Spawns.mayBeCachedRemotely(spawn),
+                buildSalt(spawn, spawnScrubber));
+
+        ActionKey actionKey = digestUtil.computeActionKey(action);
+
+        RequestMetadata metadata =
+            TracingMetadataUtils.buildMetadata(
+                buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
+        RemoteActionExecutionContext remoteActionExecutionContext =
+            RemoteActionExecutionContext.create(
+                spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+        budgetHandleConsumed = true;
+        return new RemoteAction(
+            spawn,
+            context,
+            remoteActionExecutionContext,
+            remotePathResolver,
+            merkleTree,
+            commandHash,
+            command,
+            action,
+            actionKey,
+            budgetHandle);
+      } finally {
+        maybeReleaseRemoteActionBuildingSemaphore();
       }
-
-      // Get the remote platform properties.
-      Platform platform;
-      ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
-      if (toolSignature != null) {
-        additionalPropertiesBuilder.put(
-            PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
-      }
-      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
-        additionalPropertiesBuilder.put(
-            PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
-            spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
-      }
-      platform =
-          PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
-
-      SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
-      Command command =
-          buildCommand(
-              useOutputPaths(),
-              spawn.getOutputFiles(),
-              spawn.getArguments(),
-              spawn.getEnvironment(),
-              platform,
-              remotePathResolver,
-              spawnScrubber,
-              spawn.getExecutionPlatform());
-      Digest commandHash = digestUtil.compute(command);
-      Action action =
-          Utils.buildAction(
-              commandHash,
-              merkleTree.digest(),
-              platform,
-              context.getTimeout(),
-              Spawns.mayBeCachedRemotely(spawn),
-              buildSalt(spawn, spawnScrubber));
-
-      ActionKey actionKey = digestUtil.computeActionKey(action);
-
-      RequestMetadata metadata =
-          TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
-      RemoteActionExecutionContext remoteActionExecutionContext =
-          RemoteActionExecutionContext.create(
-              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
-      return new RemoteAction(
-          spawn,
-          context,
-          remoteActionExecutionContext,
-          remotePathResolver,
-          merkleTree,
-          commandHash,
-          command,
-          action,
-          actionKey);
     } finally {
-      maybeReleaseRemoteActionBuildingSemaphore();
+      if (!budgetHandleConsumed && budgetHandle != null) {
+        merkleTreeMemoryBudget.release(budgetHandle);
+      }
     }
   }
 
@@ -1896,7 +1925,21 @@ public class RemoteExecutionService {
       if (merkleTree != null) {
         merkleTreeComputer.untrack(merkleTree);
       }
+      releaseMemoryBudget(action);
       maybeReleaseRemoteActionBuildingSemaphore();
+    }
+  }
+
+  /**
+   * Releases the memory budget held by the given action's Merkle tree, if any.
+   *
+   * <p>Must be called when the action's Merkle tree is no longer needed and {@link
+   * #uploadInputsIfNotPresent} will not be called (e.g., on cache hit or error).
+   */
+  public void releaseMemoryBudget(RemoteAction action) {
+    var handle = action.getMemoryBudgetHandle();
+    if (handle != null) {
+      merkleTreeMemoryBudget.release(handle);
     }
   }
 
@@ -1993,6 +2036,25 @@ public class RemoteExecutionService {
   public void onLostInputs(LostInputsEvent event) {
     for (String digest : event.missingDigests()) {
       knownMissingCasDigests.add(DigestUtil.fromString(digest));
+    }
+  }
+
+  @Subscribe
+  public void onMemoryPressure(MemoryPressureEvent event) {
+    if (!merkleTreeMemoryBudget.isEnabled()) {
+      return;
+    }
+    int percentUsed = event.percentTenuredSpaceUsed();
+    long configuredMax = merkleTreeMemoryBudget.getConfiguredMaxBytes();
+    if (percentUsed >= 90) {
+      // Under severe memory pressure, reduce to 10% of configured budget.
+      merkleTreeMemoryBudget.reduceMaxBytes(configuredMax / 10);
+    } else if (percentUsed >= 85) {
+      // Under moderate memory pressure, reduce to 50% of configured budget.
+      merkleTreeMemoryBudget.reduceMaxBytes(configuredMax / 2);
+    } else {
+      // Pressure eased, restore to configured budget.
+      merkleTreeMemoryBudget.restoreMaxBytes();
     }
   }
 

@@ -191,160 +191,168 @@ public class RemoteSpawnRunner implements SpawnRunner {
             remoteOptions.remoteDiscardMerkleTrees
                 ? MerkleTreeComputer.BlobPolicy.DISCARD
                 : MerkleTreeComputer.BlobPolicy.KEEP);
-
-    context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
-
-    SpawnMetrics.Builder spawnMetrics =
-        SpawnMetrics.Builder.forRemoteExec()
-            .setInputBytes(action.getInputBytes())
-            .setInputFiles(action.getInputFiles());
-
-    remoteExecutionService.maybeWriteParamFilesLocally(spawn);
-
-    spawnMetrics.setParseTime(totalTime.elapsed());
-
-    Profiler prof = Profiler.instance();
     try {
-      context.report(SPAWN_CHECKING_CACHE_EVENT);
+      context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
-      // Try to lookup the action in the action cache.
-      RemoteActionResult cachedResult;
-      try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
-      }
+      SpawnMetrics.Builder spawnMetrics =
+          SpawnMetrics.Builder.forRemoteExec()
+              .setInputBytes(action.getInputBytes())
+              .setInputFiles(action.getInputFiles());
 
-      if (cachedResult != null) {
-        if (cachedResult.getExitCode() != 0
-            || cachedResult.maybeGetMissingMandatoryOutput(action).isPresent()) {
-          // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
-          // actions (tests).
-          // Set acceptCachedResult to false in order to force the action re-execution
-          acceptCachedResult = false;
-        } else {
-          try {
-            return downloadAndFinalizeSpawnResult(
-                action,
-                cachedResult,
-                /* cacheHit= */ true,
-                cachedResult.cacheName(),
-                spawn,
-                totalTime,
-                () -> action.getNetworkTime().getDuration(),
-                spawnMetrics);
-          } catch (BulkTransferException e) {
-            if (!e.allCausedByCacheNotFoundException()) {
-              throw e;
-            }
-            // No cache hit, so we fall through to local or remote execution.
-            // We set acceptCachedResult to false in order to force the action re-execution.
-            acceptCachedResult = false;
-          }
+      remoteExecutionService.maybeWriteParamFilesLocally(spawn);
+
+      spawnMetrics.setParseTime(totalTime.elapsed());
+
+      Profiler prof = Profiler.instance();
+      try {
+        context.report(SPAWN_CHECKING_CACHE_EVENT);
+
+        // Try to lookup the action in the action cache.
+        RemoteActionResult cachedResult;
+        try (SilentCloseable c =
+            prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+          cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
         }
-      }
-    } catch (CredentialHelperException e) {
-      throw createExecExceptionForCredentialHelperException(e);
-    } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
-    }
 
-    if (remoteOptions.remoteRequireCached) {
-      return new SpawnResult.Builder()
-          .setStatus(SpawnResult.Status.EXECUTION_DENIED)
-          .setExitCode(1)
-          .setFailureMessage(
-              "Action must be cached due to --experimental_remote_require_cached but it is not")
-          .setFailureDetail(
-              FailureDetail.newBuilder()
-                  .setSpawn(
-                      FailureDetails.Spawn.newBuilder()
-                          .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
-                  .build())
-          .setRunnerName("remote")
-          .build();
-    }
-
-    AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
-    AtomicBoolean forceUploadInput = new AtomicBoolean(false);
-    try {
-      return retrier.execute(
-          () -> {
-            // Upload the command and all the inputs into the remote cache.
-            try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
-              Duration networkTimeStart = action.getNetworkTime().getDuration();
-              Stopwatch uploadTime = Stopwatch.createStarted();
-              // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
-
-              // subtract network time consumed here to ensure wall clock during upload is not
-              // double
-              // counted, and metrics time computation does not exceed total time
-              spawnMetrics.setUploadTime(
-                  uploadTime
-                      .elapsed()
-                      .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
-            }
-
-            context.report(SPAWN_SCHEDULING_EVENT);
-
-            ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
-            long clampTimeNanos; // See comment in logProfileTask.
-            RemoteActionResult result;
-            try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              clampTimeNanos = Profiler.instance().nanoTimeMaybe();
-              result =
-                  remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
-            }
-            // In case of replies from server contains metadata, but none of them has EXECUTING
-            // status.
-            // It's already late at this stage, but we should at least report once.
-            reporter.reportExecutingIfNot();
-
-            if (result.cacheHit()
-                && (!result.success()
-                    || result.maybeGetMissingMandatoryOutput(action).isPresent())) {
-              // Instead of failing in downloadAndFinalizeSpawnResult, retry with forced execution.
-              useCachedResult.set(false);
-              var status =
-                  com.google.rpc.Status.newBuilder()
-                      .setCode(com.google.rpc.Code.NOT_FOUND_VALUE)
-                      .addDetails(Any.pack(RetryInfo.getDefaultInstance()))
-                      .build();
-              throw StatusProto.toStatusRuntimeException(status);
-            }
-
-            maybePrintExecutionMessages(context, result.getMessage(), result.success());
-
-            profileAccounting(clampTimeNanos, result.getExecutionMetadata());
-            spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
-
-            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
-              maybeDownloadServerLogs(action, result.getResponse());
-            }
-
+        if (cachedResult != null) {
+          if (cachedResult.getExitCode() != 0
+              || cachedResult.maybeGetMissingMandatoryOutput(action).isPresent()) {
+            // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
+            // actions (tests).
+            // Set acceptCachedResult to false in order to force the action re-execution
+            acceptCachedResult = false;
+          } else {
             try {
               return downloadAndFinalizeSpawnResult(
                   action,
-                  result,
-                  result.cacheHit(),
-                  getName(),
+                  cachedResult,
+                  /* cacheHit= */ true,
+                  cachedResult.cacheName(),
                   spawn,
                   totalTime,
                   () -> action.getNetworkTime().getDuration(),
                   spawnMetrics);
             } catch (BulkTransferException e) {
-              if (e.allCausedByCacheNotFoundException()) {
-                // No cache hit, so if we retry this execution, we must no longer accept
-                // cached results, it must be reexecuted
-                useCachedResult.set(false);
+              if (!e.allCausedByCacheNotFoundException()) {
+                throw e;
               }
-              throw e;
+              // No cache hit, so we fall through to local or remote execution.
+              // We set acceptCachedResult to false in order to force the action re-execution.
+              acceptCachedResult = false;
             }
-          });
-    } catch (CredentialHelperException e) {
-      throw createExecExceptionForCredentialHelperException(e);
-    } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+          }
+        }
+      } catch (CredentialHelperException e) {
+        throw createExecExceptionForCredentialHelperException(e);
+      } catch (IOException e) {
+        return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      }
+
+      if (remoteOptions.remoteRequireCached) {
+        return new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.EXECUTION_DENIED)
+            .setExitCode(1)
+            .setFailureMessage(
+                "Action must be cached due to --experimental_remote_require_cached but it is not")
+            .setFailureDetail(
+                FailureDetail.newBuilder()
+                    .setSpawn(
+                        FailureDetails.Spawn.newBuilder()
+                            .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
+                    .build())
+            .setRunnerName("remote")
+            .build();
+      }
+
+      AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
+      AtomicBoolean forceUploadInput = new AtomicBoolean(false);
+      try {
+        return retrier.execute(
+            () -> {
+              // Upload the command and all the inputs into the remote cache.
+              try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
+                Duration networkTimeStart = action.getNetworkTime().getDuration();
+                Stopwatch uploadTime = Stopwatch.createStarted();
+                // Upon retry, we force upload inputs
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+
+                // subtract network time consumed here to ensure wall clock during upload is not
+                // double
+                // counted, and metrics time computation does not exceed total time
+                spawnMetrics.setUploadTime(
+                    uploadTime
+                        .elapsed()
+                        .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
+              }
+
+              context.report(SPAWN_SCHEDULING_EVENT);
+
+              ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
+              long clampTimeNanos; // See comment in logProfileTask.
+              RemoteActionResult result;
+              try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
+                clampTimeNanos = Profiler.instance().nanoTimeMaybe();
+                result =
+                    remoteExecutionService.executeRemotely(
+                        action, useCachedResult.get(), reporter);
+              }
+              // In case of replies from server contains metadata, but none of them has EXECUTING
+              // status.
+              // It's already late at this stage, but we should at least report once.
+              reporter.reportExecutingIfNot();
+
+              if (result.cacheHit()
+                  && (!result.success()
+                      || result.maybeGetMissingMandatoryOutput(action).isPresent())) {
+                // Instead of failing in downloadAndFinalizeSpawnResult, retry with forced
+                // execution.
+                useCachedResult.set(false);
+                var status =
+                    com.google.rpc.Status.newBuilder()
+                        .setCode(com.google.rpc.Code.NOT_FOUND_VALUE)
+                        .addDetails(Any.pack(RetryInfo.getDefaultInstance()))
+                        .build();
+                throw StatusProto.toStatusRuntimeException(status);
+              }
+
+              maybePrintExecutionMessages(context, result.getMessage(), result.success());
+
+              profileAccounting(clampTimeNanos, result.getExecutionMetadata());
+              spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
+
+              try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
+                maybeDownloadServerLogs(action, result.getResponse());
+              }
+
+              try {
+                return downloadAndFinalizeSpawnResult(
+                    action,
+                    result,
+                    result.cacheHit(),
+                    getName(),
+                    spawn,
+                    totalTime,
+                    () -> action.getNetworkTime().getDuration(),
+                    spawnMetrics);
+              } catch (BulkTransferException e) {
+                if (e.allCausedByCacheNotFoundException()) {
+                  // No cache hit, so if we retry this execution, we must no longer accept
+                  // cached results, it must be reexecuted
+                  useCachedResult.set(false);
+                }
+                throw e;
+              }
+            });
+      } catch (CredentialHelperException e) {
+        throw createExecExceptionForCredentialHelperException(e);
+      } catch (IOException e) {
+        return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      }
+    } finally {
+      // Release the memory budget if it hasn't been released by uploadInputsIfNotPresent (e.g., on
+      // cache hit or error). The release is idempotent, so double-releasing is safe.
+      remoteExecutionService.releaseMemoryBudget(action);
     }
   }
 

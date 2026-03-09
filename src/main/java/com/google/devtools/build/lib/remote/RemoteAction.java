@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * A value class representing an action which can be executed remotely.
@@ -44,6 +45,7 @@ public class RemoteAction {
   private final Command command;
   private final Action action;
   private final ActionKey actionKey;
+  @Nullable private final MerkleTreeMemoryBudget.Handle memoryBudgetHandle;
 
   RemoteAction(
       Spawn spawn,
@@ -54,7 +56,8 @@ public class RemoteAction {
       Digest commandHash,
       Command command,
       Action action,
-      ActionKey actionKey) {
+      ActionKey actionKey,
+      @Nullable MerkleTreeMemoryBudget.Handle memoryBudgetHandle) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.remoteActionExecutionContext = remoteActionExecutionContext;
@@ -64,6 +67,12 @@ public class RemoteAction {
     this.command = command;
     this.action = action;
     this.actionKey = actionKey;
+    this.memoryBudgetHandle = memoryBudgetHandle;
+  }
+
+  @Nullable
+  MerkleTreeMemoryBudget.Handle getMemoryBudgetHandle() {
+    return memoryBudgetHandle;
   }
 
   public RemoteActionExecutionContext getRemoteActionExecutionContext() {

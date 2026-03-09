@@ -737,6 +737,21 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean throttleRemoteActionBuilding;
 
   @Option(
+      name = "experimental_remote_merkle_tree_memory_budget",
+      defaultValue = "0",
+      converter = ByteSizeConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Limits the total memory used by concurrently retained Merkle trees. Merkle trees must be"
+              + " kept in memory between building a remote action and uploading its inputs. With high"
+              + " --jobs values, many trees may be retained simultaneously, potentially exhausting"
+              + " the heap. This flag sets the maximum total estimated bytes. Set to 0 (the default)"
+              + " to automatically use 25%% of the maximum heap size. Supports suffixes: K, M, G,"
+              + " T. The budget is dynamically reduced under GC memory pressure.")
+  public long remoteMerkleTreeMemoryBudget;
+
+  @Option(
       name = "experimental_remote_output_service",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
