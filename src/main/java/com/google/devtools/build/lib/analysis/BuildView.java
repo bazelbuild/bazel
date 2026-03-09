@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RemoteAnalysisCachingEnabledEvent;
 import com.google.devtools.build.lib.analysis.config.TopLevelConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -283,6 +284,18 @@ public class BuildView {
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
+    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
+      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
+        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
+      }
+      if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
+        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
+      } else {
+        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
+      }
+    }
+
     SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
     if (skyfocusState.enabled()) {
       boolean buildConfigChanged =
@@ -332,15 +345,6 @@ public class BuildView {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
 
-    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
-      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
-        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
-      }
-      if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
-        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
-      }
-    }
 
     skyframeBuildView.setConfiguration(topLevelConfig, targetOptions, shouldDiscardAnalysisCache);
 

@@ -44,6 +44,7 @@ java_library(
         "BuildConfigurationValue.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
+        "RemoteAnalysisCachingEnabledEvent.java",
         "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
