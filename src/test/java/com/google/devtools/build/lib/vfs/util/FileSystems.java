@@ -39,7 +39,10 @@ public final class FileSystems {
               DigestHashFunction.class, String.class, NativePosixFilesService.class)
           .newInstance(
               digestHashFunction,
-              TestConstants.TEST_UNIX_HASH_ATTRIBUTE,
+              // Only use the hash attribute if the digest function matches.
+              digestHashFunction.getNames().contains(TestConstants.TEST_UNIX_HASH_FUNCTION_NAME)
+                  ? TestConstants.TEST_UNIX_HASH_ATTRIBUTE
+                  : "",
               new NativePosixFilesServiceImpl());
     } catch (Exception e) {
       throw new IllegalStateException(e);
