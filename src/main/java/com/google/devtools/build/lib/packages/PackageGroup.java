@@ -64,6 +64,7 @@ public class PackageGroup implements Target {
       try {
         specification =
             PackageSpecification.fromString(
+                pkg.getMetadata().repositoryMapping(),
                 label.getRepository(),
                 packageSpecification,
                 allowPublicPrivate,

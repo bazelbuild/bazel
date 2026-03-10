@@ -1005,7 +1005,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBzlVisibility_invalid_packageOutsideRepo() throws Exception {
+  public void testBzlVisibility_packageWithRepoWorks() throws Exception {
     setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
@@ -1013,9 +1013,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "a/foo.bzl", //
         "visibility([\"@repo//b\"])");
 
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent("invalid package name '@repo//b': must start with '//'");
+    checkSuccessfulLookup("//a:foo.bzl");
   }
 
   @Test
