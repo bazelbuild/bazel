@@ -146,7 +146,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       Artifact artifact,
       List<ListenableFuture<Void>> futures)
       throws IOException, InterruptedException {
-    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+    if (!RemoteOutputChecker.mayBeRemote(artifact)) {
       return;
     }
 
@@ -185,7 +185,9 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
         futures.add(
             actionInputPrefetcher.prefetchFiles(
-                getGeneratingAction(derivedArtifact),
+                artifact instanceof DerivedArtifact derivedArtifact
+                    ? getGeneratingAction(derivedArtifact)
+                    : null,
                 /* spawn= */ null,
                 () -> ImmutableList.of(artifact),
                 metadataProvider,
