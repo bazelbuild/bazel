@@ -365,6 +365,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteRetryMaxDelay;
 
+  /** Sentinel value for --disk_cache to enable the default location. */
+  public static final PathFragment DISK_CACHE_ON = PathFragment.create("on");
+
+  /** Sentinel value for --disk_cache to explicitly disable the disk cache. */
+  public static final PathFragment DISK_CACHE_OFF = PathFragment.create("off");
+
+  /** Default disk cache subdirectory under outputUserRoot/cache. */
+  public static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
+
   @Option(
       name = "disk_cache",
       defaultValue = "null",
@@ -373,7 +382,10 @@ public final class RemoteOptions extends CommonRemoteOptions {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "A path to a directory where Bazel can read and write actions and action outputs. "
-              + "If the directory does not exist, it will be created.")
+              + "If the directory does not exist, it will be created. "
+              + "If set to 'on', the disk cache is placed in a default location under the output "
+              + "user root. If set to 'off', the disk cache is disabled (equivalent to not setting "
+              + "this flag).")
   public PathFragment diskCache;
 
   @Option(
