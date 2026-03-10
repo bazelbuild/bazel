@@ -16,72 +16,20 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
-import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests Starlark API for Java rules. */
 @RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
-
-  private static final String PLATFORMS_PACKAGE_PATH = "my/java/platforms";
-
-  private final String targetPlatform;
-  private final String targetOs;
-  private final String targetCpu;
-
-  @TestParameters(valuesProvider = PlatformsParametersProvider.class)
-  public JavaStarlarkApiTest(String platform, String os, String cpu) {
-    this.targetPlatform = platform;
-    this.targetOs = os;
-    this.targetCpu = cpu;
-  }
-
-  public void setupTargetPlatform() throws Exception {
-    JavaTestUtil.setupPlatform(
-        getAnalysisMock(),
-        mockToolsConfig,
-        scratch,
-        PLATFORMS_PACKAGE_PATH,
-        targetPlatform,
-        targetOs,
-        targetCpu);
-  }
-
-  @Before
-  public void setupMyInfo() throws Exception {
-    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
-
-    scratch.file("myinfo/BUILD");
-  }
-
-  @Override
-  protected void useConfiguration(String... args) throws Exception {
-    // Must actually define the platform before using it in a flag.
-    setupTargetPlatform();
-    super.useConfiguration(
-        ObjectArrays.concat(
-            args,
-            new String[] {
-              "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform,
-              "--extra_execution_platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform
-            },
-            String.class));
-  }
-
   @Test
   public void testPackSourcesWithExternalResourceArtifact() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
@@ -140,14 +88,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             "external/other_repo+/external-file.txt:external-file.txt")
         .inOrder();
   }
-
-
-
-
-
-
-
-
 
   @Test // not to be Starlarkified: tests native functionality
   @TestParameters({
@@ -274,39 +214,5 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING);
 
     assertThat(type).isEqualTo("JavaInfo");
-  }
-
-  private static class PlatformsParametersProvider extends TestParametersValuesProvider {
-
-    @Override
-    public List<TestParametersValues> provideValues(Context context) {
-      ImmutableList.Builder<TestParametersValues> parameters = ImmutableList.builder();
-      parameters
-          .add(
-              TestParametersValues.builder()
-                  .name("linux")
-                  .addParameter("platform", "linux-x86_64")
-                  .addParameter("os", "linux")
-                  .addParameter("cpu", "x86_64")
-                  .build())
-          .add(
-              TestParametersValues.builder()
-                  .name("darwin")
-                  .addParameter("platform", "darwin-x86_64")
-                  .addParameter("os", "macos")
-                  .addParameter("cpu", "x86_64")
-                  .build());
-      // building for windows is only supported in Bazel
-      if (AnalysisMock.get().isThisBazel()) {
-        parameters.add(
-            TestParametersValues.builder()
-                .name("windows")
-                .addParameter("platform", "windows-x86_64")
-                .addParameter("os", "windows")
-                .addParameter("cpu", "x86_64")
-                .build());
-      }
-      return parameters.build();
-    }
   }
 }
