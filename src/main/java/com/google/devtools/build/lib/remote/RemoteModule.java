@@ -724,10 +724,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -762,10 +759,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
