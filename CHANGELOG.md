@@ -1,3 +1,138 @@
+## Release 9.0.1 (2026-03-10)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260223.3 (2026-03-06)
+
+```
+Baseline: 6dd6396737cf953159079cee20355ba6123c934b
+
+Cherry picks:
+
+   + fd860b00f2614ca0697fd33f8741db8f32340358:
+     Add alias map cache for command line flag aliases.
+```
+
+Incompatible changes:
+
+  - The environment variable `LC_CTYPE` now defaults to `C.UTF-8` for
+    actions that set `use_default_shell_env = True`, which results in
+    a Unicode-aware locale on essentially all non-EOL Linux
+    distributions, with MSYS2 as well as macOS 15.4 and higher. Pass
+    `--action_env==LC_CTYPE` (note the two `=`s) to explicitly unset
+    this variable, which restores the previous behavior. On older
+    versions of macOS, you can set `--action_env=LC_CTYPE=UTF-8`
+    instead.
+
+Important changes:
+
+  - The `requires-worker-protocol` execution requirement is now
+    forwarded to remote execution services as a platform property
+    (`persistentWorkerProtocol`) to support intermixing JSON and
+    Proto remote persistent worker protocols across a build.
+  - `rctx.symlink` now implicitly watches the target if it falls back
+    to a copy.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Benjamin Peterson, Fabian Meumertzheim, giria660, Joseph Gette, Stefan Penner, Taeyang Jin (Theo), Tyler Breisacher, Tyler French.
+
+## Release 8.6.0 (2026-02-26)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260211.1 (2026-02-18)
+
+```
+Baseline: 6edc9a8b61395ca54794479d2e9fee47a68dd4b6
+```
+
+Important changes:
+
+  - Labels in the main repo will now have a `repr` form that reliably
+    evaluates back to themselves (that is, `repr(Label("@@//:foo"))
+    == "Label(\"@@//:foo\")"`).
+  - The `compatibility_level` and `max_compatibility_level`
+    attributes of `module` in MODULE.bazel are now no-ops. Module
+    maintainers should stop specifying those attributes and provide
+    clear build time error messages and actionable migration paths
+    when making major breaking changes.
+
+This release contains contributions from many people at Google, as well as Damian Banki, dependabot[bot], Fabian Meumertzheim, giria660.
+
+## Release 10.0.0-pre.20260204.1 (2026-02-12)
+
+```
+Baseline: 0a2574e8a302d1edc91a83fee825961a090e1573
+```
+
+Important changes:
+
+  - Bazel now fails over immediately to mirror URLs if a TLS
+    handshake error occurs.
+
+This release contains contributions from many people at Google, as well as ashutosh0x, Fabian Meumertzheim, Keith Smiley, Tyler French, Will Stranton.
+
+## Release 10.0.0-pre.20260128.2 (2026-02-06)
+
+```
+Baseline: 3ad9562ae006151d40a0ebcc90b84889888c2111
+```
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Fabian Meumertzheim, Paul Tarjan.
+
+## Release 10.0.0-pre.20260120.1 (2026-01-29)
+
+```
+Baseline: cc1e0a6ba439764fea48e1f8035419aa44313f05
+```
+
+Incompatible changes:
+
+  - The `config_setting`s
+    `@bazel_tools//src/conditions:{host_windows,remote}` have been
+    removed. Toolchains are usually a better fit as they don't depend
+    on the configuration of the host machine running Bazel and/or
+    fixed execution modes.
+
+Important changes:
+
+  - Reporting of cached test results can now be suppressed with
+    `--test_summary=short_uncached` or
+    `--test_summary=detailed_uncached`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Jordan Mele, Kapunahele Wong, Keith Smiley, Yagiz Nizipli.
+
+## Release 10.0.0-pre.20260114.1 (2026-01-22)
+
+```
+Baseline: a4e9e9774d3266b829de7e0b7e7cd75791ca3333
+```
+
+Initial release.
+
+## Release 6.6.0 (2026-01-21)
+
+```
+Baseline:  d2daa9b6fed3f38bf8e8cce90a0d17ea945c1ab7
+
+Release Notes:
+
++ Release 6.5.0 (2024-01-23)
++ Fixes for using recent Xcodes and macOS 26 (#27463)
++ Match postsubmit jobs with presubmit (#28193)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Mike Bland.
+```
+
 ## Release 9.0.0 (2026-01-20)
 
 ```
