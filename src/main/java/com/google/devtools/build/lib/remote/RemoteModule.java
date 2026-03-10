@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteCacheAsync;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -133,6 +134,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -157,6 +159,9 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
   @Nullable private String lastBuildId;
+
+  // Survives across command invocations within the same server for async upload modes
+  @Nullable private RemoteExecutionService.PendingUploads pendingUploads = null;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -339,6 +344,35 @@ public final class RemoteModule extends BlazeModule {
     blockWaitingModule =
         Preconditions.checkNotNull(runtime.getBlazeModule(BlockWaitingModule.class));
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
+  }
+
+  private void waitForPreviousInvocation(CommandEnvironment env) {
+    if (pendingUploads == null) {
+      return;
+    }
+
+    // Only wait for uploads on commands that analyze (build, test, run, etc.)
+    if (!env.getCommand().buildPhase().analyzes()) {
+      return;
+    }
+
+    Reporter reporter = env.getReporter();
+    RemoteExecutionService.PendingUploads uploads = pendingUploads;
+    pendingUploads = null;
+
+    reporter.handle(Event.info("Waiting for remote cache uploads from previous build..."));
+
+    try {
+      uploads.awaitTermination();
+    } catch (InterruptedException e) {
+      // User pressed Ctrl+C - cancel uploads but continue with the build
+      reporter.handle(
+          Event.warn(
+              "Interrupted while waiting for remote cache uploads from previous build. "
+                  + "Some cache entries may be missing."));
+      uploads.cancel();
+      // Don't re-interrupt the thread - we want the build to proceed
+    }
   }
 
   @Override
@@ -999,9 +1033,17 @@ public final class RemoteModule extends BlazeModule {
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousMessageOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
+    RemoteCacheAsync cacheAsyncRef =
+        remoteOptions != null ? remoteOptions.remoteCacheAsync : RemoteCacheAsync.WAIT_FOR_UPLOAD_COMPLETE;
     if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
       blockWaitingModule.submit(
-          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+          () ->
+              afterCommandTask(
+                  actionContextProviderRef,
+                  tempPathGeneratorRef,
+                  rpcLogFileRef,
+                  cacheAsyncRef,
+                  uploads -> pendingUploads = uploads));
     }
 
     lastRemoteOutputChecker = remoteOutputChecker;
@@ -1027,10 +1069,56 @@ public final class RemoteModule extends BlazeModule {
   private static void afterCommandTask(
       @Nullable RemoteActionContextProvider actionContextProvider,
       @Nullable TempPathGenerator tempPathGenerator,
-      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
+      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile,
+      RemoteCacheAsync cacheAsync,
+      Consumer<RemoteExecutionService.PendingUploads> pendingUploadsSetter)
       throws AbruptExitException {
+    RemoteExecutionService.PendingUploads uploads = RemoteExecutionService.PendingUploads.EMPTY;
+
     if (actionContextProvider != null) {
-      actionContextProvider.afterCommand();
+      uploads = actionContextProvider.afterCommand(cacheAsync);
+    }
+
+    // For NOWAIT mode, store the handle for next invocation and defer cleanup
+    if (cacheAsync == RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE && uploads != RemoteExecutionService.PendingUploads.EMPTY) {
+      // Wrap the PendingUploads to clean up resources after awaiting
+      Path tempDir = tempPathGenerator != null ? tempPathGenerator.getTempDir() : null;
+      AsynchronousMessageOutputStream<LogEntry> logFile = rpcLogFile;
+      RemoteExecutionService.PendingUploads innerUploads = uploads;
+      pendingUploadsSetter.accept(new RemoteExecutionService.PendingUploads() {
+        @Override
+        public void awaitTermination() throws InterruptedException {
+          try {
+            innerUploads.awaitTermination();
+          } finally {
+            cleanup();
+          }
+        }
+
+        @Override
+        public void cancel() {
+          innerUploads.cancel();
+          cleanup();
+        }
+
+        private void cleanup() {
+          if (tempDir != null) {
+            try {
+              tempDir.deleteTree();
+            } catch (IOException ignored) {
+              // Intentionally ignored.
+            }
+          }
+          if (logFile != null) {
+            try {
+              logFile.close();
+            } catch (IOException ignored) {
+              // Intentionally ignored.
+            }
+          }
+        }
+      });
+      return;
     }
 
     if (tempPathGenerator != null) {
@@ -1051,6 +1139,24 @@ public final class RemoteModule extends BlazeModule {
             ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
             Code.RPC_LOG_FAILURE);
       }
+    }
+  }
+
+  @Override
+  public void blazeShutdown() {
+    if (pendingUploads == null) {
+      return;
+    }
+
+    // Wait for pending uploads to complete before server shutdown.
+    RemoteExecutionService.PendingUploads uploads = pendingUploads;
+    pendingUploads = null;
+
+    try {
+      uploads.awaitTermination();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      uploads.cancel();
     }
   }
 
@@ -1192,6 +1298,11 @@ public final class RemoteModule extends BlazeModule {
   @Nullable
   public OutputService getOutputService() {
     return outputService;
+  }
+
+  @Override
+  public void afterUiSetup(CommandEnvironment env) {
+    waitForPreviousInvocation(env);
   }
 
   @Override

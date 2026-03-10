@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.RemoteCacheAsync;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -151,6 +152,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -166,6 +168,35 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+
+  /**
+   * Represents pending background uploads that can be awaited or cancelled.
+   *
+   * <p>This interface provides a way to wait for or cancel background uploads that continue after
+   * an invocation completes when using {@code --remote_cache_async=nowait}.
+   */
+  public interface PendingUploads {
+    /** An empty implementation for when there are no pending uploads. */
+    PendingUploads EMPTY =
+        new PendingUploads() {
+          @Override
+          public void awaitTermination() {}
+
+          @Override
+          public void cancel() {}
+        };
+
+    /**
+     * Blocks until all pending uploads complete.
+     *
+     * @throws InterruptedException if the wait is interrupted
+     */
+    void awaitTermination() throws InterruptedException;
+
+    /** Cancels all pending uploads. Does not wait for cancellation to complete. */
+    void cancel();
+  }
+
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -1759,7 +1790,7 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync
+    if (remoteOptions.remoteCacheAsync != RemoteCacheAsync.OFF
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       backgroundTaskExecutor.execute(
           () -> {
@@ -1782,8 +1813,15 @@ public class RemoteExecutionService {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
+      // In NOWAIT mode, don't report upload progress to the UI - we don't want the UI to wait.
+      boolean reportUploadProgress =
+          remoteOptions.remoteCacheAsync != RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE;
       var unused =
-          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+          manifest.upload(
+              action.getRemoteActionExecutionContext(),
+              combinedCache,
+              reporter,
+              reportUploadProgress);
     } catch (IOException e) {
       reportUploadError(e);
     } finally {
@@ -1990,10 +2028,15 @@ public class RemoteExecutionService {
     }
   }
 
-  /** Shuts the service down. */
-  public void shutdown() {
+  /**
+   * Shuts the service down.
+   *
+   * @param cacheAsync determines whether to wait for uploads to complete
+   * @return a {@link PendingUploads} handle for waiting/cancelling background uploads
+   */
+  public PendingUploads shutdown(RemoteCacheAsync cacheAsync) {
     if (!shutdown.compareAndSet(false, true)) {
-      return;
+      return PendingUploads.EMPTY;
     }
 
     if (buildInterrupted.get()) {
@@ -2002,18 +2045,50 @@ public class RemoteExecutionService {
         combinedCache.shutdownNow();
       }
       Thread.currentThread().interrupt();
+      return PendingUploads.EMPTY;
     }
 
-    // Waits for all background tasks to finish and interrupts them if there is another interrupt.
-    backgroundTaskExecutor.close();
+    if (cacheAsync != RemoteCacheAsync.NOWAIT_FOR_UPLOAD_COMPLETE) {
+      // Existing behavior - block until done
+      backgroundTaskExecutor.close();
+      if (combinedCache != null) {
+        combinedCache.release();
+      }
+      if (remoteExecutor != null) {
+        remoteExecutor.close();
+      }
+      return PendingUploads.EMPTY;
+    } else {
+      // NOWAIT mode - return handle for caller to wait/cancel later
+      return new PendingUploads() {
+        @Override
+        public void awaitTermination() throws InterruptedException {
+          // Wait for all background tasks to complete
+          backgroundTaskExecutor.shutdown();
+          while (!backgroundTaskExecutor.awaitTermination(1, java.util.concurrent.TimeUnit.DAYS)) {
+            // Keep waiting
+          }
+          // Release resources after uploads complete
+          if (combinedCache != null) {
+            combinedCache.release();
+          }
+          if (remoteExecutor != null) {
+            remoteExecutor.close();
+          }
+        }
 
-    // Release the cache only after background tasks are done as they might be using it.
-    if (combinedCache != null) {
-      combinedCache.release();
-    }
-
-    if (remoteExecutor != null) {
-      remoteExecutor.close();
+        @Override
+        public void cancel() {
+          backgroundTaskExecutor.shutdownNow();
+          backgroundTaskExecutor.close();  // Wait for interrupted tasks to terminate
+          if (combinedCache != null) {
+            combinedCache.shutdownNow();
+          }
+          if (remoteExecutor != null) {
+            remoteExecutor.close();
+          }
+        }
+      };
     }
   }
 
