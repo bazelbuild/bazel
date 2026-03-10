@@ -14,6 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
+bazel_dep(name = "bazel_features", version = "1.42.1")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
