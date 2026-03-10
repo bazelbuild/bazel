@@ -28,7 +28,7 @@ function usage() {
 
 # Find the bazel checkout this script is from, even if it is symlinked.
 CURRENT_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
-# The bazel dir is two levels aboce this script, dev/bazel-dev.sh
+# The bazel dir is two levels above this script, dev/bazel-dev.sh
 PARENT_DIR="$(dirname "$(dirname "${CURRENT_SCRIPT}")")"
 
 # Configuration params. Export these in your bashrc to set personal defaults.
