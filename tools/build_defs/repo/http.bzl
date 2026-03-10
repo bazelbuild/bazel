@@ -224,9 +224,11 @@ def _http_archive_impl(ctx):
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
+exports_files([{path}])
+
 filegroup(
     name = "file",
-    srcs = ["{}"],
+    srcs = [{path}],
 )
 """
 
@@ -256,7 +258,7 @@ def _http_file_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
