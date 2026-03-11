@@ -14,7 +14,7 @@ tasks:
       - "--config=ci-linux"
       - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//src/test/shell/bazel:help_test"
+      - "//..."
     include_json_profile:
       - build
       - test
