@@ -331,10 +331,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='aaa')",
+        "bazel_dep(name='ddd', dev_dependency=True)",
         "single_version_override(module_name='ddd',version='18')",
+        "bazel_dep(name='eee', dev_dependency=True)",
         "local_path_override(module_name='eee',path='somewhere/else')",
+        "bazel_dep(name='fff', dev_dependency=True)",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
-        "archive_override(module_name='ggg',urls=['https://hello.com/world.zip'])");
+        "bazel_dep(name='ggg', dev_dependency=True)",
+        "archive_override(module_name='ggg',urls=['https://hello.com/world.zip'])",
+        "single_version_override(module_name='hhh',version='19')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
@@ -343,7 +348,43 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
-    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides()).isEmpty();
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    // Overrides for dev-only deps (ddd, eee, fff, ggg) should be filtered out.
+    // Override for non-dev dep (hhh) should be preserved.
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .containsKey("hhh");
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .doesNotContainKey("ddd");
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .doesNotContainKey("eee");
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .doesNotContainKey("fff");
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .doesNotContainKey("ggg");
+  }
+
+  @Test
+  public void testRootModule_localPathOverrideWithIgnoredDevDep() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='mydep', dev_dependency=True)",
+        "local_path_override(module_name='mydep', path='mydep')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    // The override for 'mydep' should be filtered since it's a dev-only dep.
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
+        .doesNotContainKey("mydep");
   }
 
   @Test
