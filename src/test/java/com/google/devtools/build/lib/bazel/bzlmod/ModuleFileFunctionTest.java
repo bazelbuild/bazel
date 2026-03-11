@@ -353,8 +353,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     }
     // Overrides for dev-only deps (ddd, eee, fff, ggg) should be filtered out.
     // Override for non-dev dep (hhh) should be preserved.
-    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
-        .containsKey("hhh");
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides()).containsKey("hhh");
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
         .doesNotContainKey("ddd");
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
