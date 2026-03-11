@@ -144,13 +144,15 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   /** Returns the {@link JavaToolchainTool} for JavaBuilder */
   public JavaToolchainTool getJavaBuilder() throws RuleErrorException {
-    return JavaToolchainTool.fromStarlark(getUnderlyingValue("_javabuilder", StructImpl.class));
+    return JavaToolchainTool.fromStarlark(
+        getUnderlyingValue("_javabuilder", StructImpl.class), this);
   }
 
   /** Returns the {@link JavaToolchainTool} for the header compiler */
   @Nullable
   public JavaToolchainTool getHeaderCompiler() throws RuleErrorException {
-    return JavaToolchainTool.fromStarlark(getUnderlyingValue("_header_compiler", StructImpl.class));
+    return JavaToolchainTool.fromStarlark(
+        getUnderlyingValue("_header_compiler", StructImpl.class), this);
   }
 
   /**
@@ -160,7 +162,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   @Nullable
   public JavaToolchainTool getHeaderCompilerDirect() throws RuleErrorException {
     return JavaToolchainTool.fromStarlark(
-        getUnderlyingValue("_header_compiler_direct", StructImpl.class));
+        getUnderlyingValue("_header_compiler_direct", StructImpl.class), this);
   }
 
   @Nullable
@@ -177,7 +179,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   @Nullable
   public JavaToolchainTool getBytecodeOptimizer() throws RuleErrorException {
     return JavaToolchainTool.fromStarlark(
-        getUnderlyingValue("_bytecode_optimizer", StructImpl.class));
+        getUnderlyingValue("_bytecode_optimizer", StructImpl.class), this);
   }
 
   public ImmutableList<Artifact> getLocalJavaOptimizationConfiguration() throws RuleErrorException {
